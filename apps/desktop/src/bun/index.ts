@@ -1,28 +1,28 @@
-import { BrowserWindow, Updater } from "electrobun/bun";
+import { BrowserWindow, Updater } from "electrobun/main";
 
-const DEV_SERVER_PORT = 3001;
-const DEV_SERVER_URL = `http://localhost:${DEV_SERVER_PORT}`;
+const DEV_SERVER_URL = "http://localhost:3001";
 
 async function getMainViewUrl(): Promise<string> {
-  const channel = await Updater.localInfo.channel();
-  if (channel === "dev") {
+  if ((await Updater.localInfo.channel()) !== "dev") {
+    return "views://mainview/index.html";
+  }
+
+  for (let i = 0; i < 120; i++) {
     try {
-      await fetch(DEV_SERVER_URL, { method: "HEAD" });
-      console.log(`HMR enabled: Using web dev server at ${DEV_SERVER_URL}`);
+      await fetch(DEV_SERVER_URL);
       return DEV_SERVER_URL;
     } catch {
-      console.log("Web dev server not running. Run dev:hmr for live reload.");
+      await new Promise((resolve) => setTimeout(resolve, 250));
     }
   }
 
   return "views://mainview/index.html";
 }
 
-const url = await getMainViewUrl();
-
 new BrowserWindow({
   title: "OpenAde",
-  url,
+  url: await getMainViewUrl(),
+  renderer: "cef",
   frame: {
     width: 1280,
     height: 820,
@@ -30,5 +30,3 @@ new BrowserWindow({
     y: 120,
   },
 });
-
-console.log("Electrobun desktop shell started.");

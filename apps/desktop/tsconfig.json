@@ -2,12 +2,14 @@
   "extends": "../../packages/config/tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ESNext", "DOM"],
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
     "noEmit": true,
+    "types": ["bun"],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "electrobun": ["./.hutch/devkit/api/sdks/main/index.ts"],
+      "electrobun/main": ["./.hutch/devkit/api/sdks/main/index.ts"],
+      "electrobun/main/*": ["./.hutch/devkit/api/sdks/main/entries/*"],
+      "electrobun/view": ["./.hutch/devkit/api/browser/index.ts"]
     }
   },
   "include": ["src/**/*.ts", "electrobun.config.ts"]

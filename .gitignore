@@ -6,7 +6,12 @@ node_modules
 # Build outputs
 dist
 build
+artifacts
 *.tsbuildinfo
+
+# Electrobun 2.x generated SDK projection
+.hutch/
+.cottontail-tmp/
 
 # Generated files
 apps/web/src/routeTree.gen.ts
