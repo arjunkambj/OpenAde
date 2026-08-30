@@ -11,17 +11,14 @@
     "check-types": "vite build && tsc --noEmit"
   },
   "dependencies": {
-    "@OpenAde/env": "workspace:*",
     "@OpenAde/ui": "workspace:*",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-router": "^1.170.18",
-    "dotenv": "catalog:",
     "lucide-react": "catalog:",
     "next-themes": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "sonner": "catalog:",
-    "zod": "catalog:"
+    "sonner": "catalog:"
   },
   "devDependencies": {
     "@OpenAde/config": "workspace:*",
