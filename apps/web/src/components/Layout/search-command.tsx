@@ -45,10 +45,10 @@ const searchItems = [
     shortcut: "newChat",
   },
   {
-    to: "/skill",
-    icon: "solar:magic-stick-3-linear",
-    label: "Skill",
-    shortcut: "skill",
+    to: "/skills",
+    icon: "solar:layers-minimalistic-linear",
+    label: "Skills",
+    shortcut: "skills",
   },
   { to: "/settings/uses", icon: "solar:chart-linear", label: "Uses" },
   {
@@ -79,10 +79,10 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      if (matchShortcut("skill", event)) {
+      if (matchShortcut("skills", event)) {
         event.preventDefault();
         setOpen(false);
-        void navigate({ to: "/skill" });
+        void navigate({ to: "/skills" });
         return;
       }
 

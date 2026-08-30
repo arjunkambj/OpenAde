@@ -1,4 +1,4 @@
-import { Link, useMatchRoute, useNavigate } from "@tanstack/react-router";
+import { Link, useMatchRoute } from "@tanstack/react-router";
 
 import { Icon } from "@/lib/icon";
 
@@ -20,11 +20,11 @@ import {
 import { SidebarWindowChrome } from "@/components/Layout/window-chrome";
 
 export function AppSidebar() {
-  const navigate = useNavigate();
   const matchRoute = useMatchRoute();
   const { setOpenMobile } = useSidebar();
 
-  const isSkill = Boolean(matchRoute({ to: "/skill", fuzzy: false }));
+  const isNewChat = Boolean(matchRoute({ to: "/", fuzzy: false }));
+  const isSkills = Boolean(matchRoute({ to: "/skills", fuzzy: false }));
 
   function closeMobile() {
     setOpenMobile(false);
@@ -37,10 +37,9 @@ export function AppSidebar() {
         <SidebarMenu className="px-2 pt-1 pb-2">
           <SidebarMenuItem>
             <SidebarMenuButton
-              onClick={() => {
-                closeMobile();
-                void navigate({ to: "/" });
-              }}
+              render={<Link to="/" />}
+              isActive={isNewChat}
+              onClick={closeMobile}
             >
               <Icon icon="solar:add-linear" />
               New chat
@@ -48,12 +47,12 @@ export function AppSidebar() {
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
-              render={<Link to="/skill" />}
-              isActive={isSkill}
+              render={<Link to="/skills" />}
+              isActive={isSkills}
               onClick={closeMobile}
             >
-              <Icon icon="solar:magic-stick-3-linear" />
-              Skill
+              <Icon icon="solar:layers-minimalistic-linear" />
+              Skills
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

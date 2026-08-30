@@ -6,7 +6,7 @@ const isMac =
 const mod = isMac ? "⌘" : "Ctrl";
 const shift = isMac ? "⇧" : "Shift";
 
-export const shortcutIds = ["search", "toggle", "newChat", "skill", "settings"] as const;
+export const shortcutIds = ["search", "toggle", "newChat", "skills", "settings"] as const;
 
 export type ShortcutId = (typeof shortcutIds)[number];
 
@@ -14,7 +14,7 @@ const shortcutKeycaps: Record<ShortcutId, readonly string[]> = {
   search: [mod, "K"],
   toggle: [mod, "B"],
   newChat: [mod, "N"],
-  skill: [mod, shift, "S"],
+  skills: [mod, shift, "S"],
   settings: [mod, ","],
 };
 
@@ -38,7 +38,7 @@ export function matchShortcut(id: ShortcutId, event: KeyboardEvent) {
       return event.code === "KeyB" && !event.shiftKey;
     case "newChat":
       return event.code === "KeyN" && !event.shiftKey;
-    case "skill":
+    case "skills":
       return event.code === "KeyS" && event.shiftKey;
     case "settings":
       return event.code === "Comma" && !event.shiftKey;

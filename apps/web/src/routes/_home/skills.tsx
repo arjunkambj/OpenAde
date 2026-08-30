@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/_home/skill")({
-  component: SkillPage,
+export const Route = createFileRoute("/_home/skills")({
+  component: SkillsPage,
 });
 
-function SkillPage() {
+function SkillsPage() {
   return <div className="flex flex-1" />;
 }

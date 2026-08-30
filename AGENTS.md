@@ -39,7 +39,7 @@ packages/config   @OpenAde/config — shared tsconfig only
 
 File routes under `apps/web/src/routes/`. Layouts are pathless or nested route files that render `Outlet`.
 
-- `/_home` → `HomeLayout` (app sidebar). Pages: `/` (`_home/index`), `/skill`
+- `/_home` → `HomeLayout` (app sidebar). Pages: `/` (`_home/index`), `/skills`
 - `/settings` → `SettingsLayout`. Pages: `/settings` (general/theme), `/settings/uses`
 
 Screens and chrome belong in `apps/web/src/components/` (`Layout/`, `Settings/`, `Chat/`). Keep `packages/ui` to reusable primitives.
