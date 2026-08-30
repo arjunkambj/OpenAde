@@ -78,7 +78,7 @@ export function AppSidebar() {
               render={<Link to="/settings/uses" />}
               onClick={closeMobile}
             >
-              <Icon icon="solar:chart-linear" />
+              <Icon icon="solar:bolt-linear" />
               Uses
             </SidebarMenuButton>
           </SidebarMenuItem>

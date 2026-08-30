@@ -50,7 +50,7 @@ const searchItems = [
     label: "Skills",
     shortcut: "skills",
   },
-  { to: "/settings/uses", icon: "solar:chart-linear", label: "Uses" },
+  { to: "/settings/uses", icon: "solar:bolt-linear", label: "Uses" },
   {
     to: "/settings",
     icon: "solar:settings-linear",

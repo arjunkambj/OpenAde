@@ -53,7 +53,7 @@ export function SettingsSidebar() {
                   render={<Link to="/settings/uses" />}
                   isActive={isUses}
                 >
-                  <Icon icon="solar:chart-linear" />
+                  <Icon icon="solar:bolt-linear" />
                   Uses
                 </SidebarMenuButton>
               </SidebarMenuItem>
