@@ -22,14 +22,17 @@ export default {
     mac: {
       bundleCEF: true,
       defaultRenderer: "cef",
+      icons: "icon.iconset",
     },
     linux: {
       bundleCEF: true,
       defaultRenderer: "cef",
+      icon: "assets/icon-1024.png",
     },
     win: {
       bundleCEF: true,
       defaultRenderer: "cef",
+      icon: "assets/icon-1024.png",
     },
   },
 } satisfies ElectrobunConfig;
