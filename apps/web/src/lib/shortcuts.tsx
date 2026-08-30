@@ -1,7 +1,6 @@
 import { Kbd, KbdGroup } from "@OpenAde/ui/components/kbd";
 
-const isMac =
-  typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent);
+const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent);
 
 const mod = isMac ? "⌘" : "Ctrl";
 const shift = isMac ? "⇧" : "Shift";

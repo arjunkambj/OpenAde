@@ -8,15 +8,15 @@ This is not Next.js. There is no App Router, no RSC, and no `"use client"`.
 
 Package manager is Bun (`packageManager` in the root `package.json`). Use the workspace catalog for shared versions.
 
-| Task | Command |
-|---|---|
-| Install | `bun install` |
-| Desktop + web (default) | `bun run dev` |
-| Web only | `bun run dev:web` (Vite, port **3001**, `strictPort`) |
-| Lint + format | `bun run check` (`oxlint` then `oxfmt --write`) |
-| Types | `bun run check-types` |
-| Production web | `bun run build` (skips desktop, then builds it) |
-| Desktop package | `bun run build:desktop` / `bun run build:desktop:canary` |
+| Task                    | Command                                                  |
+| ----------------------- | -------------------------------------------------------- |
+| Install                 | `bun install`                                            |
+| Desktop + web (default) | `bun run dev`                                            |
+| Web only                | `bun run dev:web` (Vite, port **3001**, `strictPort`)    |
+| Lint + format           | `bun run check` (`oxlint` then `oxfmt --write`)          |
+| Types                   | `bun run check-types`                                    |
+| Production web          | `bun run build` (skips desktop, then builds it)          |
+| Desktop package         | `bun run build:desktop` / `bun run build:desktop:canary` |
 
 Assume the dev server is already running (web on `http://localhost:3001`, and desktop if that is what you are verifying). Do not start `bun run dev` or `bun run dev:web`. Do not wait for it, restart it, or treat a missing process as something you need to launch.
 

@@ -59,4 +59,3 @@ win.on("resize", (event: unknown) => {
 
   win.setSize(nextWidth, nextHeight);
 });
-

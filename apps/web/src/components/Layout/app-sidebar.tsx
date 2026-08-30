@@ -36,11 +36,7 @@ export function AppSidebar() {
         <SidebarWindowChrome />
         <SidebarMenu className="px-2 pt-1 pb-2">
           <SidebarMenuItem>
-            <SidebarMenuButton
-              render={<Link to="/" />}
-              isActive={isNewChat}
-              onClick={closeMobile}
-            >
+            <SidebarMenuButton render={<Link to="/" />} isActive={isNewChat} onClick={closeMobile}>
               <Icon icon="solar:add-linear" />
               New chat
             </SidebarMenuButton>
@@ -64,29 +60,17 @@ export function AppSidebar() {
             <SidebarMenu />
           </SidebarGroupContent>
         </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel>Chat</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu />
-          </SidebarGroupContent>
-        </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              render={<Link to="/settings/uses" />}
-              onClick={closeMobile}
-            >
+            <SidebarMenuButton render={<Link to="/settings/uses" />} onClick={closeMobile}>
               <Icon icon="solar:bolt-linear" />
               Uses
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              render={<Link to="/settings" />}
-              onClick={closeMobile}
-            >
+            <SidebarMenuButton render={<Link to="/settings" />} onClick={closeMobile}>
               <Icon icon="solar:settings-linear" />
               Settings
             </SidebarMenuButton>

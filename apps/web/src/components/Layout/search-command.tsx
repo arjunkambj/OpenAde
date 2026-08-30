@@ -14,11 +14,7 @@ import {
   CommandShortcut,
 } from "@OpenAde/ui/components/command";
 import { useSidebar } from "@OpenAde/ui/components/sidebar";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@OpenAde/ui/components/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 
 import { Icon } from "@/lib/icon";
 import { matchShortcut, ShortcutKbd, type ShortcutId } from "@/lib/shortcuts";
@@ -171,9 +167,7 @@ function SearchDialog({
               >
                 <Icon icon={item.icon} />
                 {item.label}
-                <ItemShortcut
-                  id={"shortcut" in item ? item.shortcut : undefined}
-                />
+                <ItemShortcut id={"shortcut" in item ? item.shortcut : undefined} />
               </CommandItem>
             ))}
           </CommandGroup>

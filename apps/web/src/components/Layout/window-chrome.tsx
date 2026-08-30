@@ -1,10 +1,6 @@
 import { Button } from "@OpenAde/ui/components/button";
 import { useSidebar } from "@OpenAde/ui/components/sidebar";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@OpenAde/ui/components/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 
 import { SearchTrigger } from "@/components/Layout/search-command";
 import { Icon } from "@/lib/icon";

@@ -49,10 +49,7 @@ export function SettingsSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton
-                  render={<Link to="/settings/uses" />}
-                  isActive={isUses}
-                >
+                <SidebarMenuButton render={<Link to="/settings/uses" />} isActive={isUses}>
                   <Icon icon="solar:bolt-linear" />
                   Uses
                 </SidebarMenuButton>
