@@ -1,6 +1,15 @@
 import { BrowserWindow, Updater } from "electrobun/main";
 
 const DEV_SERVER_URL = "http://localhost:3001";
+const MIN_WINDOW_WIDTH = 256;
+const MIN_WINDOW_HEIGHT = 248;
+
+type WindowResizeEvent = {
+  data?: {
+    width?: number;
+    height?: number;
+  };
+};
 
 async function getMainViewUrl(): Promise<string> {
   if ((await Updater.localInfo.channel()) !== "dev") {
@@ -19,7 +28,7 @@ async function getMainViewUrl(): Promise<string> {
   return "views://mainview/index.html";
 }
 
-new BrowserWindow({
+const win = new BrowserWindow({
   title: "OpenAde",
   url: await getMainViewUrl(),
   renderer: "cef",
@@ -35,3 +44,19 @@ if (navigator.userAgent.includes("Mac")) {
     y: 120,
   },
 });
+
+win.on("resize", (event: unknown) => {
+  if (win.isMaximized() || win.isFullScreen()) {
+    return;
+  }
+
+  const { width = 0, height = 0 } = (event as WindowResizeEvent).data ?? {};
+  const nextWidth = Math.max(width, MIN_WINDOW_WIDTH);
+  const nextHeight = Math.max(height, MIN_WINDOW_HEIGHT);
+  if (nextWidth === width && nextHeight === height) {
+    return;
+  }
+
+  win.setSize(nextWidth, nextHeight);
+});
+
