@@ -12,9 +12,10 @@
   },
   "dependencies": {
     "@OpenAde/ui": "workspace:*",
+    "@iconify-json/solar": "^1.2.10",
+    "@iconify/react": "^6.0.2",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-router": "^1.170.18",
-    "lucide-react": "catalog:",
     "next-themes": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",

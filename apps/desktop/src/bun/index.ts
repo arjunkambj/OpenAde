@@ -23,6 +23,11 @@ new BrowserWindow({
   title: "OpenAde",
   url: await getMainViewUrl(),
   renderer: "cef",
+  titleBarStyle: "hiddenInset",
+  preload: `document.documentElement.setAttribute("data-desktop","");
+if (navigator.userAgent.includes("Mac")) {
+  document.documentElement.setAttribute("data-desktop-mac","");
+}`,
   frame: {
     width: 1280,
     height: 820,

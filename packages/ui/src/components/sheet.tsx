@@ -3,7 +3,7 @@ import { Dialog as SheetPrimitive } from "@base-ui/react/dialog";
 
 import { cn } from "@OpenAde/ui/lib/utils";
 import { Button } from "@OpenAde/ui/components/button";
-import { XIcon } from "@phosphor-icons/react";
+import { Icon } from "@OpenAde/ui/lib/icon";
 
 function Sheet({ ...props }: SheetPrimitive.Root.Props) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />;
@@ -68,7 +68,7 @@ function SheetContent({
               />
             }
           >
-            <XIcon />
+            <Icon icon="solar:close-linear" />
             <span className="sr-only">Close</span>
           </SheetPrimitive.Close>
         )}

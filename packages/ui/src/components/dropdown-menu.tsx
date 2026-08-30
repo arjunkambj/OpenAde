@@ -2,7 +2,7 @@ import * as React from "react";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 
 import { cn } from "@OpenAde/ui/lib/utils";
-import { CaretRightIcon, CheckIcon } from "@phosphor-icons/react";
+import { Icon } from "@OpenAde/ui/lib/icon";
 
 function DropdownMenu({ ...props }: MenuPrimitive.Root.Props) {
   return <MenuPrimitive.Root data-slot="dropdown-menu" {...props} />;
@@ -114,7 +114,7 @@ function DropdownMenuSubTrigger({
       {...props}
     >
       {children}
-      <CaretRightIcon className="ml-auto" />
+      <Icon icon="solar:alt-arrow-right-linear" className="ml-auto" />
     </MenuPrimitive.SubmenuTrigger>
   );
 }
@@ -168,7 +168,7 @@ function DropdownMenuCheckboxItem({
         data-slot="dropdown-menu-checkbox-item-indicator"
       >
         <MenuPrimitive.CheckboxItemIndicator>
-          <CheckIcon />
+          <Icon icon="solar:unread-linear" />
         </MenuPrimitive.CheckboxItemIndicator>
       </span>
       {children}
@@ -203,7 +203,7 @@ function DropdownMenuRadioItem({
         data-slot="dropdown-menu-radio-item-indicator"
       >
         <MenuPrimitive.RadioItemIndicator>
-          <CheckIcon />
+          <Icon icon="solar:unread-linear" />
         </MenuPrimitive.RadioItemIndicator>
       </span>
       {children}

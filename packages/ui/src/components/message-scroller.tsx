@@ -10,7 +10,7 @@ import {
 
 import { cn } from "@OpenAde/ui/lib/utils";
 import { Button } from "@OpenAde/ui/components/button";
-import { ArrowDownIcon } from "@phosphor-icons/react";
+import { Icon } from "@OpenAde/ui/lib/icon";
 
 function MessageScrollerProvider(
   props: React.ComponentProps<typeof MessageScrollerPrimitive.Provider>,
@@ -107,7 +107,7 @@ function MessageScrollerButton({
     >
       {children ?? (
         <>
-          <ArrowDownIcon />
+          <Icon icon="solar:alt-arrow-down-linear" />
           <span className="sr-only">
             {direction === "end" ? "Scroll to end" : "Scroll to start"}
           </span>
