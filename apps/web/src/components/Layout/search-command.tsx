@@ -37,13 +37,18 @@ const searchItems = [
   {
     to: "/",
     icon: "hugeicons:add-01",
-    label: "New chat",
+    label: "New task",
     shortcut: "newChat",
   },
   {
+    to: "/review",
+    icon: "hugeicons:git-compare",
+    label: "Review work",
+  },
+  {
     to: "/skills",
-    icon: "hugeicons:layers-01",
-    label: "Skills",
+    icon: "hugeicons:dashboard-circle-add",
+    label: "Skill & Plugins",
     shortcut: "skills",
   },
   { to: "/settings/uses", icon: "hugeicons:flash", label: "Uses" },
