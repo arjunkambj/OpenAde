@@ -21,7 +21,7 @@ import { Icon } from "@OpenAde/ui/lib/icon";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
-const SIDEBAR_WIDTH = "16rem";
+const SIDEBAR_WIDTH = "16.25rem";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_KEYBOARD_SHORTCUT = "b";
 
@@ -194,12 +194,12 @@ function Sidebar({
     >
       <div
         data-slot="sidebar-gap"
-        className="relative w-(--sidebar-width) bg-transparent transition-[width] duration-200 ease-linear group-data-[collapsible=offcanvas]:w-0"
+        className="relative w-(--sidebar-width) bg-transparent transition-[width] duration-200 ease-out group-data-[collapsible=offcanvas]:w-0"
       />
       <div
         data-slot="sidebar-container"
         className={cn(
-          "fixed inset-y-0 left-0 z-10 hidden h-svh w-(--sidebar-width) border-r transition-[left,width] duration-200 ease-linear md:flex group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]",
+          "fixed inset-y-0 left-0 z-10 hidden h-svh w-(--sidebar-width) border-r transition-[left,width] duration-200 ease-out md:flex group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]",
           className,
         )}
         {...props}
@@ -344,7 +344,7 @@ function SidebarGroupLabel({
     props: mergeProps<"div">(
       {
         className: cn(
-          "flex h-8 shrink-0 items-center rounded-xl px-3 text-xs font-medium text-sidebar-foreground/70 ring-sidebar-ring outline-hidden focus-visible:ring-3 [&>svg]:size-4 [&>svg]:shrink-0",
+          "flex h-7 shrink-0 items-center rounded-lg px-2 text-xs font-medium text-muted-foreground ring-sidebar-ring outline-hidden focus-visible:ring-3 [&>svg]:size-4 [&>svg]:shrink-0",
           className,
         ),
       },
@@ -429,7 +429,7 @@ function SidebarMenuButton({
     props: mergeProps<"button">(
       {
         className: cn(
-          "peer/menu-button group/menu-button flex h-8 w-full items-center gap-2 overflow-hidden rounded-xl px-3 py-2 text-left text-sm whitespace-nowrap ring-sidebar-ring outline-hidden transition-[width,height,padding] duration-200 group-has-data-[sidebar=menu-action]/menu-item:pr-8 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-3 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 has-[>svg:first-child]:pl-2.5 has-[>svg:last-child]:pr-2.5 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate",
+          "peer/menu-button group/menu-button flex h-8 w-full items-center gap-2.5 overflow-hidden rounded-lg px-2 py-1.5 text-left text-sm font-normal whitespace-nowrap ring-sidebar-ring outline-hidden transition-[width,height,padding,background-color,color] duration-150 ease-out group-has-data-[sidebar=menu-action]/menu-item:pr-8 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-3 active:bg-sidebar-border active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-sidebar-accent data-open:hover:text-sidebar-accent-foreground data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&>span:last-child]:truncate",
           className,
         ),
       },

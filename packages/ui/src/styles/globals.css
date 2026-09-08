@@ -8,76 +8,109 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.141 0.005 285.823);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285.823);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.21 0.006 285.885);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.006 285.885);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.705 0.015 286.067);
-  --chart-1: oklch(0.871 0.006 286.286);
-  --chart-2: oklch(0.552 0.016 285.938);
-  --chart-3: oklch(0.442 0.017 285.786);
-  --chart-4: oklch(0.37 0.013 285.805);
-  --chart-5: oklch(0.274 0.006 286.033);
-  --radius: 0.45rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-primary: oklch(0.21 0.006 285.885);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.705 0.015 286.067);
+  color-scheme: light;
+  --background: #fdfdfd;
+  --foreground: #27272a;
+  --card: #ffffff;
+  --card-foreground: #27272a;
+  --popover: #ffffff;
+  --popover-foreground: #18181b;
+  --primary: #27272a;
+  --primary-foreground: #ffffff;
+  --secondary: #ececee;
+  --secondary-foreground: #18181b;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --accent: #ececee;
+  --accent-foreground: #18181b;
+  --destructive: #e11d48;
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #a1a1aa;
+  --chart-1: #d4d4d8;
+  --chart-2: #71717a;
+  --chart-3: #52525b;
+  --chart-4: #3f3f46;
+  --chart-5: #27272a;
+  --radius: 0.5rem;
+  --sidebar: #fafafa;
+  --sidebar-foreground: #52525b;
+  --sidebar-primary: #18181b;
+  --sidebar-primary-foreground: #fafafa;
+  --sidebar-accent: #ececee;
+  --sidebar-accent-foreground: #18181b;
+  --sidebar-border: #e4e4e7;
+  --sidebar-ring: #a1a1aa;
+  --hover: #ececee;
+  --strong: #18181b;
+  --header: #f7f7f8;
+  --added: #166534;
+  --added-bg: #f0fdf4;
+  --removed: #9f1239;
+  --removed-bg: #fff1f2;
+  --file: #7c3aed;
+  --file-bg: rgb(124 58 237 / 7%);
+  --permission: #c2410c;
 }
 
 .dark {
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.92 0.004 286.32);
-  --primary-foreground: oklch(0.21 0.006 285.885);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.552 0.016 285.938);
-  --chart-1: oklch(0.871 0.006 286.286);
-  --chart-2: oklch(0.552 0.016 285.938);
-  --chart-3: oklch(0.442 0.017 285.786);
-  --chart-4: oklch(0.37 0.013 285.805);
-  --chart-5: oklch(0.274 0.006 286.033);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.552 0.016 285.938);
+  color-scheme: dark;
+  --background: #18181b;
+  --foreground: #e4e4e7;
+  --card: #1a1a1d;
+  --card-foreground: #e4e4e7;
+  --popover: #1a1a1d;
+  --popover-foreground: #fafafa;
+  --primary: #fafafa;
+  --primary-foreground: #18181b;
+  --secondary: #27272a;
+  --secondary-foreground: #fafafa;
+  --muted: #232326;
+  --muted-foreground: #a1a1aa;
+  --accent: #27272a;
+  --accent-foreground: #fafafa;
+  --destructive: #fb7185;
+  --border: #303034;
+  --input: #303034;
+  --ring: #71717a;
+  --chart-1: #d4d4d8;
+  --chart-2: #a1a1aa;
+  --chart-3: #71717a;
+  --chart-4: #52525b;
+  --chart-5: #3f3f46;
+  --sidebar: #161619;
+  --sidebar-foreground: #d4d4d8;
+  --sidebar-primary: #fafafa;
+  --sidebar-primary-foreground: #18181b;
+  --sidebar-accent: #27272a;
+  --sidebar-accent-foreground: #fafafa;
+  --sidebar-border: #303034;
+  --sidebar-ring: #71717a;
+  --hover: #27272a;
+  --strong: #fafafa;
+  --header: #1f1f22;
+  --added: #86efac;
+  --added-bg: #192c22;
+  --removed: #fda4af;
+  --removed-bg: #321b23;
+  --file: #c4b5fd;
+  --file-bg: rgb(167 139 250 / 10%);
+  --permission: #fb923c;
 }
 
 @theme inline {
-  --font-sans: "Inter Variable", sans-serif;
+  --font-sans: "Inter Variable", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --color-hover: var(--hover);
+  --color-strong: var(--strong);
+  --color-header: var(--header);
+  --color-added: var(--added);
+  --color-added-bg: var(--added-bg);
+  --color-removed: var(--removed);
+  --color-removed-bg: var(--removed-bg);
+  --color-file: var(--file);
+  --color-file-bg: var(--file-bg);
+  --color-permission: var(--permission);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -124,18 +157,24 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply font-sans bg-background text-foreground;
+    @apply bg-background font-sans text-sm font-normal text-foreground antialiased;
   }
   html {
     @apply font-sans;
     --traffic-lights-width: 0px;
+    --chrome-height: 2.75rem;
   }
   html[data-desktop] {
     min-width: 16rem;
     min-height: 15.5rem;
+    background: var(--sidebar);
+  }
+  html[data-desktop] body {
+    background: var(--sidebar);
   }
   html[data-desktop-mac] {
-    --traffic-lights-width: 4.5rem;
+    --traffic-lights-width: 5rem;
+    --chrome-height: 3.25rem;
   }
 }
 
