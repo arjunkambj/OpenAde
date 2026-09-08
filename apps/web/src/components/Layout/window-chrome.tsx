@@ -38,7 +38,7 @@ function ChromeSidebarTrigger({ className }: { className?: string }) {
           />
         }
       >
-        <Icon icon="solar:sidebar-minimalistic-linear" className="rotate-180" />
+        <Icon icon="hugeicons:layout-left" />
         <span className="sr-only">Toggle sidebar</span>
       </TooltipTrigger>
       <TooltipContent>

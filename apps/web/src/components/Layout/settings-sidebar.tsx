@@ -32,7 +32,7 @@ export function SettingsSidebar() {
                 void navigate({ to: "/" });
               }}
             >
-              <Icon icon="solar:alt-arrow-left-linear" />
+              <Icon icon="hugeicons:arrow-left-01" />
               Back to chat
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -44,13 +44,13 @@ export function SettingsSidebar() {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton render={<Link to="/settings" />} isActive={isGeneral}>
-                  <Icon icon="solar:tuning-2-linear" />
+                  <Icon icon="hugeicons:sliders-horizontal" />
                   General
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton render={<Link to="/settings/uses" />} isActive={isUses}>
-                  <Icon icon="solar:bolt-linear" />
+                  <Icon icon="hugeicons:flash" />
                   Uses
                 </SidebarMenuButton>
               </SidebarMenuItem>

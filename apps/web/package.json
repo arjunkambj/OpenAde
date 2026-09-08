@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@OpenAde/ui": "workspace:*",
+    "@iconify-json/hugeicons": "^1.2.33",
     "@iconify-json/solar": "^1.2.10",
     "@iconify/react": "^6.0.2",
     "@tailwindcss/vite": "^4.3.3",

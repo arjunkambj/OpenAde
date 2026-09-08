@@ -37,7 +37,7 @@ export function AppSidebar() {
         <SidebarMenu className="px-2 pt-1 pb-2">
           <SidebarMenuItem>
             <SidebarMenuButton render={<Link to="/" />} isActive={isNewChat} onClick={closeMobile}>
-              <Icon icon="solar:add-linear" />
+              <Icon icon="hugeicons:add-01" />
               New chat
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -47,7 +47,7 @@ export function AppSidebar() {
               isActive={isSkills}
               onClick={closeMobile}
             >
-              <Icon icon="solar:layers-minimalistic-linear" />
+              <Icon icon="hugeicons:layers-01" />
               Skills
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -65,13 +65,13 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton render={<Link to="/settings/uses" />} onClick={closeMobile}>
-              <Icon icon="solar:bolt-linear" />
+              <Icon icon="hugeicons:flash" />
               Uses
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton render={<Link to="/settings" />} onClick={closeMobile}>
-              <Icon icon="solar:settings-linear" />
+              <Icon icon="hugeicons:settings-01" />
               Settings
             </SidebarMenuButton>
           </SidebarMenuItem>

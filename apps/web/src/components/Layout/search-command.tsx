@@ -36,20 +36,20 @@ function useSearch() {
 const searchItems = [
   {
     to: "/",
-    icon: "solar:add-linear",
+    icon: "hugeicons:add-01",
     label: "New chat",
     shortcut: "newChat",
   },
   {
     to: "/skills",
-    icon: "solar:layers-minimalistic-linear",
+    icon: "hugeicons:layers-01",
     label: "Skills",
     shortcut: "skills",
   },
-  { to: "/settings/uses", icon: "solar:bolt-linear", label: "Uses" },
+  { to: "/settings/uses", icon: "hugeicons:flash", label: "Uses" },
   {
     to: "/settings",
-    icon: "solar:settings-linear",
+    icon: "hugeicons:settings-01",
     label: "Settings",
     shortcut: "settings",
   },
@@ -116,7 +116,7 @@ export function SearchTrigger({ className }: { className?: string }) {
           />
         }
       >
-        <Icon icon="solar:magnifer-linear" />
+        <Icon icon="hugeicons:search-01" />
         <span className="sr-only">Search</span>
       </TooltipTrigger>
       <TooltipContent>
@@ -180,7 +180,7 @@ function SearchDialog({
                 toggleSidebar();
               }}
             >
-              <Icon icon="solar:sidebar-minimalistic-linear" className="rotate-180" />
+              <Icon icon="hugeicons:layout-left" />
               Toggle sidebar
               <ItemShortcut id="toggle" />
             </CommandItem>
