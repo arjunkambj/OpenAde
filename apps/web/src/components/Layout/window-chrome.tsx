@@ -8,7 +8,7 @@ import { ShortcutKbd } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 
 const chromeRowClass =
-  "app-region-drag electrobun-webkit-app-region-drag flex h-11 shrink-0 items-center";
+  "app-region-drag electrobun-webkit-app-region-drag flex h-[var(--chrome-height)] shrink-0 items-center";
 
 const noDragClass = "app-region-no-drag electrobun-webkit-app-region-no-drag";
 
@@ -49,20 +49,43 @@ function ChromeSidebarTrigger({ className }: { className?: string }) {
   );
 }
 
+function ChromeHistoryButton({
+  label,
+  icon,
+}: {
+  label: string;
+  icon: "hugeicons:arrow-left-01" | "hugeicons:arrow-right-01";
+}) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      className={cn(noDragClass, "text-sidebar-foreground")}
+      aria-label={label}
+      disabled
+    >
+      <Icon icon={icon} className="scale-90" />
+    </Button>
+  );
+}
+
 function ChromeActions({ className }: { className?: string }) {
   return (
-    <div className={cn("flex items-center gap-0.5", className)}>
-      <SearchTrigger className={noDragClass} />
+    <div className={cn("flex min-w-0 flex-1 items-center gap-0.5", className)}>
       <ChromeSidebarTrigger className={noDragClass} />
+      <SearchTrigger className={cn(noDragClass, "ml-auto")} />
+      <ChromeHistoryButton label="Go back" icon="hugeicons:arrow-left-01" />
+      <ChromeHistoryButton label="Go forward" icon="hugeicons:arrow-right-01" />
     </div>
   );
 }
 
 export function SidebarWindowChrome() {
   return (
-    <div className={cn(chromeRowClass, "hidden pr-2 md:flex")}>
+    <div className={cn(chromeRowClass, "hidden gap-1 pr-2 md:flex")}>
       <TrafficLightsGap />
-      <ChromeActions className="ml-auto" />
+      <ChromeActions />
     </div>
   );
 }
@@ -75,7 +98,7 @@ export function InsetWindowChrome() {
   }
 
   return (
-    <header className={cn(chromeRowClass, "gap-1.5 pr-2", isMobile && "px-2")}>
+    <header className={cn(chromeRowClass, "gap-1 pr-2", isMobile && "px-2")}>
       <TrafficLightsGap />
       <ChromeActions />
     </header>
