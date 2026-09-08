@@ -13,7 +13,7 @@ export function HomeLayout() {
       <TooltipProvider delay={300}>
         <SearchProvider>
           <AppSidebar />
-          <SidebarInset>
+          <SidebarInset className="min-h-0 overflow-hidden">
             <InsetWindowChrome />
             <Outlet />
           </SidebarInset>
