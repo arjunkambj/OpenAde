@@ -19,38 +19,41 @@ function ThemeWindow({ scheme }: { scheme: "light" | "dark" }) {
     <div
       className={cn(
         "relative h-full overflow-hidden rounded-lg",
-        isDark ? "bg-neutral-700" : "bg-neutral-300",
+        isDark ? "bg-preview-chrome-dark" : "bg-preview-chrome-light",
       )}
     >
       <div className="flex flex-col gap-1.5 px-5 pt-4">
         <div
-          className={cn("h-1.5 w-16 rounded-full", isDark ? "bg-neutral-500" : "bg-neutral-400")}
+          className={cn(
+            "h-1.5 w-16 rounded-full",
+            isDark ? "bg-preview-bar-dark" : "bg-preview-bar-light",
+          )}
         />
         <div
           className={cn(
             "h-1 w-28 rounded-full",
-            isDark ? "bg-neutral-500/70" : "bg-neutral-400/70",
+            isDark ? "bg-preview-bar-dark/70" : "bg-preview-bar-light/70",
           )}
         />
       </div>
       <div
         className={cn(
           "absolute inset-x-4 top-12 bottom-0 rounded-t-lg",
-          isDark ? "bg-neutral-100" : "bg-white",
+          isDark ? "bg-preview-surface" : "bg-white",
         )}
       >
         <div className="flex flex-col gap-2.5 px-4 py-3">
           <div className="flex items-center gap-2">
-            <div className="h-1.5 w-10 rounded-full bg-neutral-300" />
-            <div className="h-1 flex-1 rounded-full bg-neutral-200" />
+            <div className="h-1.5 w-10 rounded-full bg-preview-line-strong" />
+            <div className="h-1 flex-1 rounded-full bg-preview-line" />
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-1.5 w-10 rounded-full bg-neutral-300" />
-            <div className="h-1 flex-1 rounded-full bg-neutral-200" />
+            <div className="h-1.5 w-10 rounded-full bg-preview-line-strong" />
+            <div className="h-1 flex-1 rounded-full bg-preview-line" />
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-1.5 w-10 rounded-full bg-neutral-300" />
-            <div className="h-1 w-1/2 rounded-full bg-neutral-200" />
+            <div className="h-1.5 w-10 rounded-full bg-preview-line-strong" />
+            <div className="h-1 w-1/2 rounded-full bg-preview-line" />
           </div>
         </div>
       </div>
@@ -105,7 +108,7 @@ export function ThemeCards() {
                     isSelected ? "ring-2 ring-foreground" : "ring-1 ring-border",
                   )}
                 >
-                  <div className="h-full overflow-hidden rounded-[10px]">
+                  <div className="h-full overflow-hidden rounded-nested">
                     <ThemePreview value={item.value} />
                   </div>
                 </div>
