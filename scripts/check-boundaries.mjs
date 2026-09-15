@@ -44,7 +44,7 @@ const ROOT = NodePath.resolve(NodeURL.fileURLToPath(new URL("..", import.meta.ur
 const IMPORT_ALLOWLIST = new Map([
   ["apps/web", ["ui", "contracts", "client-runtime", "shared"]],
   ["apps/desktop", ["contracts", "shared"]],
-  ["apps/server", ["contracts", "connector-sdk", "connector-cmd", "shared", "testkit"]],
+  ["apps/server", ["contracts", "connector-sdk", "connector-cmd", "shared"]],
   ["packages/connector-sdk", ["contracts", "shared"]],
   ["packages/connector-*", ["connector-sdk", "contracts", "shared"]],
   ["packages/contracts", ["shared"]],
@@ -54,6 +54,18 @@ const IMPORT_ALLOWLIST = new Map([
   ["packages/ui", []],
   ["packages/config", []],
 ]);
+
+/**
+ * What a workspace's *test* files may import on top of its own allowlist.
+ *
+ * `@OpenAde/testkit` is the fakes and the receipt helpers; the server drives
+ * them from its tests and must never ship them, because apps/server is bundled
+ * to `out/main.cjs` for packaging (D1). Keeping it out of the production list
+ * is what makes an accidental import in `src/main.ts` fail the gate.
+ */
+const TEST_ONLY_ALLOWLIST = new Map([["apps/server", ["testkit"]]]);
+
+const isTestFile = (file) => /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(file);
 
 /** Decision D4: the exact patterns, and the one directory they do not apply to. */
 const RENDERER_FORBIDDEN = [
@@ -247,7 +259,11 @@ for (const workspaceDirectory of WORKSPACE_DIRECTORIES) {
   const ownName = shortNameOf(workspaceDirectory);
   const allowed = allowlistFor(workspaceDirectory);
 
+  const testExtras = TEST_ONLY_ALLOWLIST.get(workspaceDirectory) ?? [];
+
   for (const file of walkSourceFiles(workspaceDirectory)) {
+    const allowedHere =
+      allowed !== undefined && isTestFile(file) ? [...allowed, ...testExtras] : allowed;
     const source = NodeFS.readFileSync(NodePath.join(ROOT, file), "utf8");
     IMPORT_PATTERN.lastIndex = 0;
     let match = IMPORT_PATTERN.exec(source);
@@ -267,18 +283,18 @@ for (const workspaceDirectory of WORKSPACE_DIRECTORIES) {
                 )} by its package name so the boundary rule applies`,
           );
         } else if (resolution.target !== ownName) {
-          if (allowed === undefined) {
+          if (allowedHere === undefined) {
             report(
               file,
               line,
               `${workspaceDirectory} has no boundary rule; add one to scripts/check-boundaries.mjs before importing ${specifier}`,
             );
-          } else if (!allowed.includes(resolution.target)) {
+          } else if (!allowedHere.includes(resolution.target)) {
             report(
               file,
               line,
               `${workspaceDirectory} may not import ${resolution.packageName} (allowed: ${
-                allowed.length === 0 ? "none" : allowed.join(", ")
+                allowedHere.length === 0 ? "none" : allowedHere.join(", ")
               })`,
             );
           }

@@ -2,8 +2,8 @@
 
 Spec section 6 says "Field names are final unless a decision doc says otherwise",
 and `01-plan-review.md` left sections 6, 7 and 16 standing as written. W0's code
-departs from the spec sketch in four places. Each is deliberate; this file is the
-"unless". Later workstreams follow the packages, not the sketch, for these four
+departs from the spec sketch in five places. Each is deliberate; this file is the
+"unless". Later workstreams follow the packages, not the sketch, for these five
 points and follow the spec everywhere else.
 
 Two earlier departures were mistakes rather than decisions and are now gone:
@@ -60,3 +60,20 @@ through it (`00-plan-adaptation.md`, "Root and layout").
 The enforced list is `["ui", "contracts", "client-runtime", "shared"]`. Nothing
 else widens: `apps/web` still may not reach a connector package, the server or
 testkit, and nothing in `apps/web` restyles `packages/ui` (D10).
+
+## N5 `apps/server` may import `@OpenAde/testkit`, but only from its tests
+
+Spec section 4 constrains only `web` and `connector-*`, so nothing there says
+where the fakes may go. `scripts/check-boundaries.mjs` decides it: the server's
+production list is `["contracts", "connector-sdk", "connector-cmd", "shared"]`,
+and `TEST_ONLY_ALLOWLIST` adds `testkit` for files named `*.test.*` / `*.spec.*`.
+
+The split matters because `apps/server` is bundled by esbuild to
+`out/main.cjs` for packaging (D1). `FakeConnector` and `FakeCmdProcess` are what
+W1 and W3 drive their tests with, so the server's tests need them; an import
+from `src/main.ts` would put a test framework in the shipped bundle, and now
+fails the gate instead.
+
+A workstream that needs the same split elsewhere adds its workspace to
+`TEST_ONLY_ALLOWLIST` and says so in its commit. `apps/web` is deliberately not
+in it: the renderer does not reach testkit, in tests or out of them.
