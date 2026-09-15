@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Select as SelectPrimitive } from "@base-ui/react/select";
+import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@OpenAde/ui/lib/utils";
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react";
 
@@ -25,22 +26,44 @@ function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
   );
 }
 
+const selectTriggerVariants = cva(
+  "flex items-center justify-between gap-1.5 rounded-2xl text-sm whitespace-nowrap outline-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-placeholder:text-muted-foreground *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  {
+    variants: {
+      variant: {
+        default:
+          "w-fit border border-transparent bg-input/50 px-3 py-2 transition-[color,box-shadow] duration-200 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 data-[size=default]:h-8 data-[size=sm]:h-7",
+        ghost:
+          "h-auto max-w-full min-w-0 truncate border-0 bg-transparent px-0 py-1 text-sidebar-foreground shadow-none ring-0 transition-colors duration-150 ease-out focus-visible:border-transparent focus-visible:ring-2 [&_svg]:hidden",
+      },
+      tone: {
+        default: "",
+        permission: "text-permission",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      tone: "default",
+    },
+  },
+);
+
 function SelectTrigger({
   className,
   size = "default",
+  variant = "default",
+  tone = "default",
   children,
   ...props
-}: SelectPrimitive.Trigger.Props & {
-  size?: "sm" | "default";
-}) {
+}: SelectPrimitive.Trigger.Props &
+  VariantProps<typeof selectTriggerVariants> & {
+    size?: "sm" | "default";
+  }) {
   return (
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       data-size={size}
-      className={cn(
-        "flex w-fit items-center justify-between gap-1.5 rounded-2xl border border-transparent bg-input/50 px-3 py-2 text-sm whitespace-nowrap transition-[color,box-shadow] duration-200 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-placeholder:text-muted-foreground data-[size=default]:h-8 data-[size=sm]:h-7 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className,
-      )}
+      className={cn(selectTriggerVariants({ variant, tone, className }))}
       {...props}
     >
       {children}

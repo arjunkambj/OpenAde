@@ -135,13 +135,20 @@ function SidebarProvider({
   );
 }
 
+const sidebarVariants = {
+  default: "",
+  bordered: "border-r border-sidebar-border",
+} as const;
+
 function Sidebar({
   collapsible = "offcanvas",
+  variant = "default",
   className,
   children,
   ...props
 }: React.ComponentProps<"div"> & {
   collapsible?: "offcanvas" | "none";
+  variant?: keyof typeof sidebarVariants;
 }) {
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
 
@@ -151,6 +158,7 @@ function Sidebar({
         data-slot="sidebar"
         className={cn(
           "flex h-full w-(--sidebar-width) flex-col bg-sidebar text-sidebar-foreground",
+          sidebarVariants[variant],
           className,
         )}
         {...props}
@@ -279,12 +287,21 @@ function SidebarInput({ className, ...props }: React.ComponentProps<typeof Input
   );
 }
 
-function SidebarHeader({ className, ...props }: React.ComponentProps<"div">) {
+const sidebarHeaderPadding = {
+  default: "gap-2 p-2",
+  none: "gap-0 p-0",
+} as const;
+
+function SidebarHeader({
+  className,
+  padding = "default",
+  ...props
+}: React.ComponentProps<"div"> & { padding?: keyof typeof sidebarHeaderPadding }) {
   return (
     <div
       data-slot="sidebar-header"
       data-sidebar="header"
-      className={cn("flex flex-col gap-2 p-2", className)}
+      className={cn("flex flex-col", sidebarHeaderPadding[padding], className)}
       {...props}
     />
   );
@@ -312,23 +329,49 @@ function SidebarSeparator({ className, ...props }: React.ComponentProps<typeof S
   );
 }
 
-function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
+const sidebarContentGap = {
+  default: "gap-2",
+  none: "gap-0",
+} as const;
+
+function SidebarContent({
+  className,
+  gap = "default",
+  ...props
+}: React.ComponentProps<"div"> & { gap?: keyof typeof sidebarContentGap }) {
   return (
     <div
       data-slot="sidebar-content"
       data-sidebar="content"
-      className={cn("no-scrollbar flex min-h-0 flex-1 flex-col gap-2 overflow-auto", className)}
+      className={cn(
+        "no-scrollbar flex min-h-0 flex-1 flex-col overflow-auto",
+        sidebarContentGap[gap],
+        className,
+      )}
       {...props}
     />
   );
 }
 
-function SidebarGroup({ className, ...props }: React.ComponentProps<"div">) {
+const sidebarGroupPadding = {
+  default: "p-2",
+  section: "px-2 pt-6 pb-2",
+} as const;
+
+function SidebarGroup({
+  className,
+  padding = "default",
+  ...props
+}: React.ComponentProps<"div"> & { padding?: keyof typeof sidebarGroupPadding }) {
   return (
     <div
       data-slot="sidebar-group"
       data-sidebar="group"
-      className={cn("relative flex w-full min-w-0 flex-col p-2", className)}
+      className={cn(
+        "relative flex w-full min-w-0 flex-col",
+        sidebarGroupPadding[padding],
+        className,
+      )}
       {...props}
     />
   );
