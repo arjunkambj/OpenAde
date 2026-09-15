@@ -1,24 +1,6 @@
 {
   "name": "OpenAde",
   "private": true,
-  "workspaces": {
-    "packages": [
-      "apps/*",
-      "packages/*"
-    ],
-    "catalog": {
-      "typescript": "^6.0.3",
-      "@types/node": "^26.2.0",
-      "lucide-react": "^1.27.0",
-      "next-themes": "^0.4.6",
-      "react": "^19.2.8",
-      "react-dom": "^19.2.8",
-      "sonner": "^2.0.7",
-      "@types/react": "^19.2.17",
-      "@types/react-dom": "^19.2.3",
-      "tailwindcss": "^4.3.3"
-    }
-  },
   "type": "module",
   "scripts": {
     "dev": "turbo run dev:hmr -F desktop --",
@@ -38,5 +20,5 @@
     "turbo": "^2.10.7",
     "typescript": "catalog:"
   },
-  "packageManager": "bun@1.4.0"
+  "packageManager": "pnpm@11.21.0"
 }

@@ -5,7 +5,7 @@
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": ["dist/**", "artifacts/**"]
+      "outputs": ["dist/**", "out/**", "artifacts/**"]
     },
     "lint": {
       "dependsOn": ["^lint"]
@@ -24,12 +24,12 @@
     "build:stable": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": ["artifacts/**", "build/**"]
+      "outputs": ["out/**", "artifacts/**"]
     },
     "build:canary": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": ["artifacts/**", "build/**"]
+      "outputs": ["out/**", "artifacts/**"]
     }
   }
 }

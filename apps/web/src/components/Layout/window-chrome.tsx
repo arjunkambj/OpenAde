@@ -7,10 +7,9 @@ import { Icon } from "@/lib/icon";
 import { ShortcutKbd } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 
-const chromeRowClass =
-  "app-region-drag electrobun-webkit-app-region-drag flex h-[var(--chrome-height)] shrink-0 items-center";
+const chromeRowClass = "app-region-drag flex h-[var(--chrome-height)] shrink-0 items-center";
 
-const noDragClass = "app-region-no-drag electrobun-webkit-app-region-no-drag";
+const noDragClass = "app-region-no-drag";
 
 function TrafficLightsGap({ className }: { className?: string }) {
   return (

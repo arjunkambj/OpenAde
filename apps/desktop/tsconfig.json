@@ -3,14 +3,10 @@
   "compilerOptions": {
     "lib": ["ESNext", "DOM"],
     "noEmit": true,
-    "types": ["bun"],
+    "types": ["node"],
     "paths": {
-      "@/*": ["./src/*"],
-      "electrobun": ["./.hutch/devkit/api/sdks/main/index.ts"],
-      "electrobun/main": ["./.hutch/devkit/api/sdks/main/index.ts"],
-      "electrobun/main/*": ["./.hutch/devkit/api/sdks/main/entries/*"],
-      "electrobun/view": ["./.hutch/devkit/api/browser/index.ts"]
+      "@/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*.ts", "electrobun.config.ts"]
+  "include": ["src/**/*.ts"]
 }

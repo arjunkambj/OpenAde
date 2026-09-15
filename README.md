@@ -10,20 +10,20 @@ This project was created with [Better-T-Stack](https://github.com/AmanVarshney01
 - **Shared UI package** - shadcn/ui primitives live in `packages/ui`
 - **Turborepo** - Optimized monorepo build system
 - **Oxlint** - Oxlint + Oxfmt (linting & formatting)
-- **Electrobun** - Lightweight desktop shell for web frontends
+- **Electron** - Cross-platform desktop shell for the web frontend
 
 ## Getting Started
 
 First, install the dependencies:
 
 ```bash
-bun install
+pnpm install
 ```
 
 Then, run the development server:
 
 ```bash
-bun run dev
+pnpm dev
 ```
 
 Open [http://localhost:3001](http://localhost:3001) in your browser to see the web application.
@@ -56,7 +56,7 @@ If you want to add app-specific blocks instead of shared primitives, run the sha
 
 ## Git Hooks and Formatting
 
-- Run checks: `bun run check`
+- Run checks: `pnpm check`
 
 ## Project Structure
 
@@ -64,17 +64,33 @@ If you want to add app-specific blocks instead of shared primitives, run the sha
 OpenAde/
 ├── apps/
 │   ├── web/         # Frontend application (React + TanStack Router)
+│   ├── desktop/     # Electron shell (main + preload, packages the web build)
 ├── packages/
 │   ├── ui/          # Shared shadcn/ui components and styles
 ```
 
 ## Available Scripts
 
-- `bun run dev`: Start all applications in development mode
-- `bun run build`: Build all applications
-- `bun run dev:web`: Start only the web application
-- `bun run check-types`: Check TypeScript types across all apps
-- `bun run check`: Run Oxlint and Oxfmt
-- `bun run dev:desktop`: Start the Electrobun desktop app with HMR
-- `bun run build:desktop`: Build the stable Electrobun desktop app
-- `bun run build:desktop:canary`: Build the canary Electrobun desktop app
+- `pnpm dev`: Start the desktop app with the web dev server (HMR)
+- `pnpm build`: Build all applications
+- `pnpm dev:web`: Start only the web application
+- `pnpm check-types`: Check TypeScript types across all apps
+- `pnpm check`: Run Oxlint and Oxfmt
+- `pnpm dev:desktop`: Start the Electron desktop app with HMR
+- `pnpm build:desktop`: Package the stable Electron desktop app
+- `pnpm build:desktop:canary`: Package the canary Electron desktop app
+
+## Desktop App
+
+`apps/desktop` is an Electron shell around the `apps/web` build.
+
+- `src/main/index.ts`: main process — window, custom `app://` scheme that serves the
+  built web app (with SPA fallback so the router keeps working)
+- `src/preload/index.ts`: sandboxed preload that flags the renderer with
+  `data-desktop` / `data-desktop-mac`
+- `scripts/build.mjs`: bundles main + preload with esbuild and copies `apps/web/dist`
+  into `out/renderer`
+- `scripts/dev.mjs`: esbuild watch that restarts Electron and points it at the Vite dev
+  server via `ELECTRON_RENDERER_URL`
+- `electron-builder.config.cjs`: packaging config; `BUILD_CHANNEL=canary` switches the
+  app id, product name, and output directory
