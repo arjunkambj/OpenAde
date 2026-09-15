@@ -1,0 +1,13 @@
+import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+
+import { PACKAGE_NAME } from "./meta";
+
+describe("@OpenAde/contracts", () => {
+  it.effect("is wired into the workspace", () =>
+    Effect.gen(function* () {
+      const name = yield* Effect.succeed(PACKAGE_NAME);
+      expect(name).toBe("@OpenAde/contracts");
+    }),
+  );
+});

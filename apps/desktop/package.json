@@ -16,6 +16,8 @@
     "check-types": "tsc --noEmit"
   },
   "devDependencies": {
+    "@OpenAde/contracts": "workspace:*",
+    "@OpenAde/shared": "workspace:*",
     "@types/node": "catalog:",
     "concurrently": "^10.0.4",
     "electron": "^44.3.0",
