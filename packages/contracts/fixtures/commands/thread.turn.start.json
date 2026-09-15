@@ -7,7 +7,7 @@
   "attachments": [
     {
       "path": "attachments/design.png",
-      "mediaType": "image/png"
+      "mime": "image/png"
     }
   ],
   "mentions": ["apps/server/src/http/router.ts"],

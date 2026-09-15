@@ -40,10 +40,14 @@ import {
 
 // ── Shared value objects ───────────────────────────────────────
 
-/** A file the user attached to a turn, already written to the attachments dir. */
+/**
+ * A file the user attached to a turn, already written to the attachments dir.
+ * `mime` is the spec's field name (section 7) and is optional because a plain
+ * path drop carries no declared type.
+ */
 export const Attachment = Schema.Struct({
   path: NonEmptyString,
-  mediaType: Schema.optional(NonEmptyString),
+  mime: Schema.optional(NonEmptyString),
 });
 export type Attachment = typeof Attachment.Type;
 
