@@ -4,17 +4,17 @@ OpenADE MVP Build Spec
 
 -
 
-  OpenADEMVP build specv0.2 · 2026-09-15Electron · Command Code first
+OpenADEMVP build specv0.2 · 2026-09-15Electron · Command Code first
 
 # OpenADE MVP Build Spec
 
-  A spec that independent agents can pick up and build in parallel. It fixes the stack, the repo layout, the contracts every workstream shares, the facts we verified about the Command Code harness, and one workstream per agent with owned directories, reference files on this machine, and a definition of done.
+A spec that independent agents can pick up and build in parallel. It fixes the stack, the repo layout, the contracts every workstream shares, the facts we verified about the Command Code harness, and one workstream per agent with owned directories, reference files on this machine, and a definition of done.
 
-  Fixed decisions. Electron desktop app. Command Code (npm command-code, binary cmd, by the Langbase team) is the only connector, behind an extensible connector SDK so Claude Code, Codex and others can follow. Transport is Effect RPC over WebSocket. Renderer state is Effect Atom only, no Zustand. Browser automation is Vercel agent-browser. Everything else was chosen as the best option from Log 01. Reference repos live beside this spec at /Volumes/main/Code/ade/{t3code,zuse,synara,opencodex} and are read-only.
+Fixed decisions. Electron desktop app. Command Code (npm command-code, binary cmd, by the Langbase team) is the only connector, behind an extensible connector SDK so Claude Code, Codex and others can follow. Transport is Effect RPC over WebSocket. Renderer state is Effect Atom only, no Zustand. Browser automation is Vercel agent-browser. Everything else was chosen as the best option from Log 01. Reference repos live beside this spec at /Volumes/main/Code/ade/{t3code,zuse,synara,opencodex} and are read-only.
 
-  Verification gap. The Command Code account on this machine had no credits on 2026-09-15 (exit code 10). The headless event frames below were captured up to the model call; text-delta granularity, image attachments in print mode and the behavior of ask_user_question in headless runs are unverified and are W2's first task once credits exist. Two probe sessions were created under ~/.commandcode/projects/private-tmp-claude-501-...-cmd-probe/; delete that directory when convenient.
+Verification gap. The Command Code account on this machine had no credits on 2026-09-15 (exit code 10). The headless event frames below were captured up to the model call; text-delta granularity, image attachments in print mode and the behavior of ask_user_question in headless runs are unverified and are W2's first task once credits exist. Two probe sessions were created under ~/.commandcode/projects/private-tmp-claude-501-...-cmd-probe/; delete that directory when convenient.
 
-  Contents
+Contents
 
 - 0. How agents use this spec
 
@@ -117,34 +117,40 @@ OpenADE MVP Build Spec
 ## 02Architecture
 
       Electron main
+
 Window, preload, custom scheme, server child supervisor, remote-debugging port for agent-browser, updater stub.
 apps/desktop
 
       Server (child process)
+
 Effect runtime. SQLite event log + projections, orchestration engine, connector registry, permission service, hook bridge, MCP HTTP server, browser service, git service.
 apps/server · owns all state
 
       Renderer
+
 React 19, TanStack Router, Effect Atom only. RpcClient over WebSocket. Timeline, composer, panes, settings.
 apps/web · stateless, replayable
 
     renderer ⇄ server: Effect RPC over one WebSocket (JSON) · main ⇄ server: stdio JSON handshake only · main ⇄ renderer: minimal preload bridge
 
       connector-cmd
+
 Spawns cmd -p --output-format json per turn, tails the session JSONL, bridges PreToolUse hooks to approvals, emits canonical runtime events.
 packages/connector-cmd
 
       agent-browser
+
 Rust CLI + daemon attached over CDP to the in-app preview webview. Wrapped by BrowserService, exposed as MCP tools.
 external binary
 
       Command Code CLI
+
 User's own cmd install and login. Gets our MCP server via its native mcp.json and our hook via project settings. Never sees control-plane env.
 external binary · UNLICENSED
 
-  InvariantThe server is the only writer of durable state. The renderer is a projection of the event log and can be closed, crashed and reopened at any time without losing a turn. The desktop main process owns no product state.
+InvariantThe server is the only writer of durable state. The renderer is a projection of the event log and can be closed, crashed and reopened at any time without losing a turn. The desktop main process owns no product state.
 
-  InvariantConnector identity never reaches the renderer as a literal. The renderer renders from capability flags and the canonical event union. Adding a connector touches zero files under apps/web.
+InvariantConnector identity never reaches the renderer as a literal. The renderer renders from capability flags and the canonical event union. Adding a connector touches zero files under apps/web.
 
 ## 03Stack and versions
 
@@ -217,11 +223,11 @@ external binary · UNLICENSED
   docs/decisions/
 ```
 
-  RuleNo file over 800 lines outside tests. No barrel files. Boundaries enforced in CI: web imports only contracts, client-runtime, shared; connector-* imports only connector-sdk, contracts, shared.
+RuleNo file over 800 lines outside tests. No barrel files. Boundaries enforced in CI: web imports only contracts, client-runtime, shared; connector-* imports only connector-sdk, contracts, shared.
 
 ## 05Command Code harness facts
 
-  Everything in this section was verified on this machine on 2026-09-15 against command-code@1.54.0, the public docs at commandcode.ai/docs, the user's existing transcripts under ~/.commandcode, and the bundled VS Code extension. Items marked verify could not be confirmed without account credits.
+Everything in this section was verified on this machine on 2026-09-15 against command-code@1.54.0, the public docs at commandcode.ai/docs, the user's existing transcripts under ~/.commandcode, and the bundled VS Code extension. Items marked verify could not be confirmed without account credits.
 
 ### 5.1 CLI and headless mode
 
@@ -256,7 +262,7 @@ cmd -p "<prompt>" --output-format json --verbose \
 
 ### 5.2 NDJSON frames (captured) verified
 
-  One JSON object per line on stdout. Every frame is {"type":"event","event":{...}} except the last, which is {"type":"result",...}. Captured on a run that failed at the model call:
+One JSON object per line on stdout. Every frame is {"type":"event","event":{...}} except the last, which is {"type":"result",...}. Captured on a run that failed at the model call:
 
 ```
 {"type":"event","event":{"type":"run_start","sessionId":"5bc08bab-..."}}
@@ -300,7 +306,7 @@ cmd -p "<prompt>" --output-format json --verbose \
 # tool results arrive as a "user" role line with meta.source:"tool"; parentId forms a tree (forks, /rewind)
 ```
 
-  The transcript is Claude-Code-shaped: a message tree with content blocks. The connector tails it with an inotify/fs.watch reader keyed by byte offset, parses complete lines only, and emits item.* events per block. The NDJSON stream and the transcript overlap; the translator dedupes on tool_use.id and messageId.
+The transcript is Claude-Code-shaped: a message tree with content blocks. The connector tails it with an inotify/fs.watch reader keyed by byte offset, parses complete lines only, and emits item.* events per block. The NDJSON stream and the transcript overlap; the translator dedupes on tool_use.id and messageId.
 
 ### 5.4 Tool vocabulary verified from transcripts
 
@@ -328,7 +334,7 @@ cmd -p "<prompt>" --output-format json --verbose \
 
        | mcp__<server>__<tool> | server-defined | mcp_tool_call | mcp_tool
 
-  DecisionCommand Code's tool names and input keys are the canonical vocabulary of our ItemSnapshot. A future Claude Code connector translates Bash → shell_command, Edit → edit_file, and so on. The renderer never sees any other names.
+DecisionCommand Code's tool names and input keys are the canonical vocabulary of our ItemSnapshot. A future Claude Code connector translates Bash → shell_command, Edit → edit_file, and so on. The renderer never sees any other names.
 
 ### 5.5 Permissions and hooks documented
 
@@ -391,7 +397,7 @@ IDE:    ~/.commandcode/ide/<ideName>-<8hex>.json { socketPath, workspaceFolders[
 
 ## 06Contracts
 
-  All wire types are Effect Schema in packages/contracts. W0 turns this into code with encode/decode round-trip tests. Field names are final unless a decision doc says otherwise.
+All wire types are Effect Schema in packages/contracts. W0 turns this into code with encode/decode round-trip tests. Field names are final unless a decision doc says otherwise.
 
 ```
 // ids.ts
@@ -464,7 +470,7 @@ PermissionRule = { scope: "global" | "project" | "session", projectId?, threadId
 CmdConnectorConfig = { binaryPath?: string, extraEnv?: Record<string,string>, defaultModel?: string }   // settingsForm annotations on each field
 ```
 
-  BudgetEvery stream RPC has a server-side budget: 1,000 items or 8MB per subscription, 50ms coalescing. Exceeding it fails the stream with resnapshot-required. A CI test asserts bytes-on-the-wire for a 200-item thread.
+BudgetEvery stream RPC has a server-side budget: 1,000 items or 8MB per subscription, 50ms coalescing. Exceeding it fails the stream with resnapshot-required. A CI test asserts bytes-on-the-wire for a 200-item thread.
 
 ## 07Connector SDK
 
@@ -552,7 +558,7 @@ close()      → same teardown; remove our hook block only if we wrote it this s
 
 - HookBridge: loopback HTTP on the server, per-session bearer, POST /pretooluse as in section 8, 590s ceiling, request bodies capped at 1MB, every decision journaled as an orchestration event.
 
-- MCP server: Streamable HTTP on loopback, per-session bearer via ${OPENADE_MCP_TOKEN} in the native mcp.json; tools browser_*. Results capped at 64KB; each call emits item.* so it shows in the timeline.
+- MCP server: Streamable HTTP on loopback, per-session bearer via ${OPENADE_MCP_TOKEN} in the native mcp.json; tools browser__. Results capped at 64KB; each call emits item._ so it shows in the timeline.
 
 ## 10Transport and client runtime
 
@@ -586,7 +592,7 @@ close()      → same teardown; remove our hook block only if we wrote it this s
 
 ## 12Browser: agent-browser integration
 
-  agent-browser is a Rust CLI plus daemon driving Chromium over CDP: ref-based snapshots (snapshot -i → @e1), --cdp <port> to attach to any Electron app launched with --remote-debugging-port, --session, --pin-tab, --json, agent-browser mcp, and stream enable for a JPEG viewport stream with input forwarding.
+agent-browser is a Rust CLI plus daemon driving Chromium over CDP: ref-based snapshots (snapshot -i → @e1), --cdp <port> to attach to any Electron app launched with --remote-debugging-port, --session, --pin-tab, --json, agent-browser mcp, and stream enable for a JPEG viewport stream with input forwarding.
 
      |  |  | Mode A: CDP attach to in-app webview preferred | Mode B: own Chromium + stream
 
@@ -620,11 +626,12 @@ browser_screenshot {full?} → image block · browser_eval {js} (ApprovalKind "w
 
 ## 14Workstreams
 
-  Ten workstreams, one agent each. Dependencies flow only through W0's contracts and fakes. "Owns" is exclusive. Paths are on this machine.
+Ten workstreams, one agent each. Dependencies flow only through W0's contracts and fakes. "Owns" is exclusive. Paths are on this machine.
 
     W0Foundation, contracts, testkitlands first · blocks all
 
       Deliverables
+
 - pnpm workspace with catalog, tsconfig, vitest, oxlint, oxfmt, knip, boundary check, CI green on an empty app
 
 - Every schema in section 6 with round-trip tests and fixtures in contracts/fixtures/
@@ -654,15 +661,17 @@ browser_screenshot {full?} → image block · browser_eval {js} (ApprovalKind "w
 - /Volumes/main/Code/ade/t3code/pnpm-workspace.yaml
 
         Done when
+
 - pnpm check passes; CI green
 
 - Fixture round-trips for every schema
 
 - Conformance test passes against FakeConnector
 
-    W1Persistence and orchestration engineapps/server/src/{persistence,orchestration,permissions}
+  W1Persistence and orchestration engineapps/server/src/{persistence,orchestration,permissions}
 
       Deliverables
+
 - Sqlite Layer over node:sqlite, migrations, event store with optimistic concurrency
 
 - Pure decider.ts for every command with a table test each; projector.ts; Engine.ts with transactional append and the live budget
@@ -696,6 +705,7 @@ browser_screenshot {full?} → image block · browser_eval {js} (ApprovalKind "w
 - https://commandcode.ai/docs/permissions pattern language and ladder
 
         Done when
+
 - A scripted conversation (turn, tool, approval, plan, interrupt, crash-resume) yields byte-identical projections across runs
 
 - Kill mid-turn → resume from the persisted sessionRef
@@ -704,9 +714,10 @@ browser_screenshot {full?} → image block · browser_eval {js} (ApprovalKind "w
 
 - 100-row permission table test passes
 
-    W2Command Code connectorpackages/connector-cmd · apps/server/src/hooks · testkit/fixtures/cmd
+  W2Command Code connectorpackages/connector-cmd · apps/server/src/hooks · testkit/fixtures/cmd
 
       Deliverables
+
 - Day one: with a funded account, record real turns (text only, tool use, plan mode, ask_user_question, interrupt) to testkit/fixtures/cmd/*.ndjson plus the matching transcript files; write docs/decisions/w2-cmd-frames.md answering every item in 5.7
 
 - cmdConnector definition: probe, argv builder, env allowlist, spawn, NDJSON parser, transcript tailer, translator, session ref, process-tree teardown
@@ -740,6 +751,7 @@ browser_screenshot {full?} → image block · browser_eval {js} (ApprovalKind "w
 - /Volumes/main/Code/ade/opencodex/src/adapters/command-code.ts only for the /alpha/generate wire, if ever needed
 
         Done when
+
 - Conformance test passes with FakeCmdProcess
 
 - Live smoke (opt-in): a turn that runs a shell command, edits a file, asks a question and proposes a plan, all visible as events with approvals answered from a test client
@@ -748,9 +760,10 @@ browser_screenshot {full?} → image block · browser_eval {js} (ApprovalKind "w
 
 - Removing the thread leaves no hook block, no orphan process, no bearer on disk
 
-    W3Transport and client runtimeapps/server/src/rpc · packages/client-runtime
+  W3Transport and client runtimeapps/server/src/rpc · packages/client-runtime
 
       Deliverables
+
 - WebSocket RPC server Layer with token auth, JSON serialization, every RPC wired to W1 services behind interfaces (fakes until W1 lands)
 
 - server.hello with protocol version negotiation
@@ -774,15 +787,17 @@ browser_screenshot {full?} → image block · browser_eval {js} (ApprovalKind "w
 - /Volumes/main/Code/ade/synara/.docs/transport.md
 
         Done when
+
 - Headless client drops the socket, reconnects, receives exactly the missed events
 
 - Atoms re-render only on their own thread's events
 
 - Wrong token → 401
 
-    W4Renderer shell and timelineapps/web (routes, sidebar, timeline, panes shell, theme)
+  W4Renderer shell and timelineapps/web (routes, sidebar, timeline, panes shell, theme)
 
       Deliverables
+
 - App shell, routes, sidebar, command palette
 
 - Timeline with every row kind in section 11, virtualized, worker-pool diffs, markdown, turn folding, subagent nesting
@@ -808,15 +823,17 @@ browser_screenshot {full?} → image block · browser_eval {js} (ApprovalKind "w
 - /Volumes/main/Code/ade/zuse/DESIGN.md
 
         Done when
+
 - Fixture page renders every row kind in both themes with no console errors
 
 - 1,000-item fixture scrolls at 60fps
 
 - No component file over 400 lines
 
-    W5Composer and interaction cardsapps/web/src/components/{composer,approvals} · header controls · keybindings
+  W5Composer and interaction cardsapps/web/src/components/{composer,approvals} · header controls · keybindings
 
       Deliverables
+
 - Composer per section 11 including the queue strip and "applies next turn" hints
 
 - Approval, AskUserQuestion and plan cards; pattern editor with live match preview using the same matcher as the server (shared package)
@@ -836,15 +853,17 @@ browser_screenshot {full?} → image block · browser_eval {js} (ApprovalKind "w
 - /Volumes/main/Code/ade/t3code/apps/web/src/components/ChatComposer.tsx lines 2290 to 2318 only
 
         Done when
+
 - Fixture page /dev/composer exercises every card and trigger
 
 - Approval round-trips through dispatch; the card closes on the resolved event, not optimistically
 
 - Keyboard-only walkthrough of send, queue, approve, revise plan, interrupt
 
-    W6Browser: agent-browser, MCP server, preview paneapps/server/src/{browser,mcp} · apps/web/src/components/panes/browser · desktop preview bridge
+  W6Browser: agent-browser, MCP server, preview paneapps/server/src/{browser,mcp} · apps/web/src/components/panes/browser · desktop preview bridge
 
       Deliverables
+
 - Day-one spike of modes A and B, decision doc
 
 - BrowserService: per-thread session, serialized queue, JSON parsing, human epoch, teardown
@@ -872,15 +891,17 @@ browser_screenshot {full?} → image block · browser_eval {js} (ApprovalKind "w
 - /Volumes/main/Code/ade/zuse/packages/agents/src/mcp-gateway/index.ts
 
         Done when
+
 - Command Code, via our MCP server, opens a URL, snapshots, clicks a ref, and the pane shows it
 
 - A human click during a tool call returns interrupted_by_human
 
 - Closing the thread tears down the daemon session
 
-    W7Desktop shell and packagingapps/desktop · root dev scripts · .claude/launch.json
+  W7Desktop shell and packagingapps/desktop · root dev scripts · .claude/launch.json
 
       Deliverables
+
 - Main, preload, custom scheme, window state, server supervisor with fd-3 handshake and backoff, remote-debugging switch, dev loop, electron-builder config, updater stub
 
 - Platform folder with the only OS-specific code
@@ -896,15 +917,17 @@ browser_screenshot {full?} → image block · browser_eval {js} (ApprovalKind "w
 - /Volumes/main/Code/ade/zuse/apps/desktop/src/updater.ts
 
         Done when
+
 - pnpm dev opens the app connected to a live server
 
 - Kill the server → reconnect within 3s with a banner
 
 - pnpm build:desktop produces a dmg + zip that launches
 
-    W8Git, checkpoints, filesapps/server/src/git · files RPCs · changes pane
+  W8Git, checkpoints, filesapps/server/src/git · files RPCs · changes pane
 
       Deliverables
+
 - GitService via argv-form execFile: status, diff (worktree, HEAD, checkpoint to checkpoint)
 
 - CheckpointStore: hidden refs per turn, list, restore with confirmation, prune on thread delete (independent of Command Code's own file-history)
@@ -922,13 +945,15 @@ browser_screenshot {full?} → image block · browser_eval {js} (ApprovalKind "w
 - /Volumes/main/Code/ade/t3code/apps/server/src/vcs/GitVcsDriverCore.ts diff and status parsing only
 
         Done when
+
 - Two turns → two checkpoints → correct diff between them; restore reverts the worktree
 
 - Search over a 50k-file repo under 200ms warm
 
-    W9Settings, connector instances, MCP and skills editorapps/server/src/settings · apps/web/src/routes/settings · components/settings
+  W9Settings, connector instances, MCP and skills editorapps/server/src/settings · apps/web/src/routes/settings · components/settings
 
       Deliverables
+
 - SettingsStore with settings.subscribe
 
 - Generic connector settings form from configSchema annotations; probe button showing binary, version, auth state, account, model count
@@ -952,6 +977,7 @@ browser_screenshot {full?} → image block · browser_eval {js} (ApprovalKind "w
 - https://commandcode.ai/docs/mcp and /docs/settings
 
         Done when
+
 - Adding an MCP server in the UI appears in the next Command Code session's mcp.status.updated
 
 - A hand edit outside our marker survives a round-trip

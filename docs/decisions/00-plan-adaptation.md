@@ -18,15 +18,15 @@ Applies to `docs/specs/mvp-build-spec.md` (v0.2, 2026-09-15). Every workstream r
 
 ## Versions
 
-| Layer | Spec | This repo |
-| --- | --- | --- |
-| pnpm | 10 | 11.21 (catalog + `allowBuilds` already in use) |
-| Node | 22.16+ | 25.9 on this machine; `engines` says `>=22.16`; Electron 44 bundles Node 24.20 with `node:sqlite` (verified) |
-| Vite | 7 | 8 |
-| TypeScript | – | 6 via catalog |
-| Electron | 44 | 44.3 |
-| Effect | 4.0.0-rc.112 | 4.0.0-rc.112, pinned together with `@effect/atom-react`, `@effect/platform-node`, `@effect/vitest` |
-| Tests | vitest + @effect/vitest | vitest 4.1.11 + `@effect/vitest` rc.112 (peer range `>=4.1 <5`; t3code's vite-plus patch is not used) |
+| Layer      | Spec                    | This repo                                                                                                    |
+| ---------- | ----------------------- | ------------------------------------------------------------------------------------------------------------ |
+| pnpm       | 10                      | 11.21 (catalog + `allowBuilds` already in use)                                                               |
+| Node       | 22.16+                  | 25.9 on this machine; `engines` says `>=22.16`; Electron 44 bundles Node 24.20 with `node:sqlite` (verified) |
+| Vite       | 7                       | 8                                                                                                            |
+| TypeScript | –                       | 6 via catalog                                                                                                |
+| Electron   | 44                      | 44.3                                                                                                         |
+| Effect     | 4.0.0-rc.112            | 4.0.0-rc.112, pinned together with `@effect/atom-react`, `@effect/platform-node`, `@effect/vitest`           |
+| Tests      | vitest + @effect/vitest | vitest 4.1.11 + `@effect/vitest` rc.112 (peer range `>=4.1 <5`; t3code's vite-plus patch is not used)        |
 
 ## External binaries on this machine (2026-09-15)
 
