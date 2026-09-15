@@ -4,9 +4,13 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./meta": {
-      "types": "./src/meta.ts",
-      "import": "./src/meta.ts"
+    "./ids": {
+      "types": "./src/ids.ts",
+      "import": "./src/ids.ts"
+    },
+    "./enums": {
+      "types": "./src/enums.ts",
+      "import": "./src/enums.ts"
     }
   },
   "scripts": {
