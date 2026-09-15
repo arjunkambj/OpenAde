@@ -126,7 +126,7 @@ owned as follows, so they do not fall between workstreams:
   and `STREAM_COALESCE_MS` in `packages/contracts/src/rpc.ts`, and `rpc.test.ts`
   asserts only their values. Section 6 wants more: "a CI test asserts
   bytes-on-the-wire for a 200-item thread". That needs the transport, so W3
-  writes it. W1's "done when" covers the budget *behaviour* — a subscription that
+  writes it. W1's "done when" covers the budget _behaviour_ — a subscription that
   blows it sends `resnapshot-required` — but not the byte count.
 - **Migration lineage → W1.** There is no migrations directory anywhere on this
   branch. W1 owns the event store and its schema, so the lineage test lands with
