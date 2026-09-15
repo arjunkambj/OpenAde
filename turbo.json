@@ -14,7 +14,7 @@
       "dependsOn": ["^check-types"]
     },
     "test": {
-      "dependsOn": [],
+      "dependsOn": ["^test"],
       "inputs": ["$TURBO_DEFAULT$", "!README.md"],
       "outputs": []
     },
