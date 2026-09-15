@@ -7,6 +7,14 @@
     "./fakeConnector": {
       "types": "./src/fakeConnector.ts",
       "import": "./src/fakeConnector.ts"
+    },
+    "./receipts": {
+      "types": "./src/receipts.ts",
+      "import": "./src/receipts.ts"
+    },
+    "./sqlite": {
+      "types": "./src/sqlite.ts",
+      "import": "./src/sqlite.ts"
     }
   },
   "scripts": {
