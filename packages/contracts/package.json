@@ -23,6 +23,10 @@
     "./orchestration": {
       "types": "./src/orchestration.ts",
       "import": "./src/orchestration.ts"
+    },
+    "./settings": {
+      "types": "./src/settings.ts",
+      "import": "./src/settings.ts"
     }
   },
   "scripts": {
