@@ -16,6 +16,13 @@
  *  2. The renderer connector-neutrality grep. Connector identity never reaches
  *     `apps/web`: the strings `commandcode`, the quoted literal `"cmd"` and
  *     `claude` must not appear under `apps/web/src`, outside the icon set.
+ *     Every file counts, not only the source ones — a connector name reads the
+ *     same in a CSS class, an SVG title, a JSON label or a file name.
+ *  3. No barrel files. A package exports one entry per module through its
+ *     `exports` map (spec section 4, D1), so an `index.ts` anywhere under a
+ *     `packages/` workspace is refused. Apps are not covered: the router's
+ *     `routes/settings/index.tsx` is a route, not a barrel, and the Electron
+ *     entry points are named by electron-builder.
  *
  * Every violation is printed as `file:line` and the process exits 1.
  */
@@ -58,6 +65,30 @@ const RENDERER_ROOT = "apps/web/src";
 const RENDERER_EXCLUDED = ["apps/web/src/components/ui/icons"];
 
 const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"]);
+
+/** Files the neutrality grep reads by name only; their bytes are not text. */
+const OPAQUE_EXTENSIONS = new Set([
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".webp",
+  ".avif",
+  ".ico",
+  ".icns",
+  ".woff",
+  ".woff2",
+  ".ttf",
+  ".otf",
+  ".mp3",
+  ".mp4",
+  ".webm",
+  ".pdf",
+  ".zip",
+]);
+
+/** Barrels are refused here; apps keep their route and entry-point index files. */
+const BARREL_NAMES = new Set(["index.ts", "index.tsx", "index.js", "index.jsx", "index.mjs"]);
 const SKIPPED_DIRECTORIES = new Set([
   "node_modules",
   "dist",
@@ -105,6 +136,29 @@ const walkSourceFiles = (relativeDirectory) => {
           visit(child);
         }
       } else if (entry.isFile() && SOURCE_EXTENSIONS.has(NodePath.extname(entry.name))) {
+        files.push(child);
+      }
+    }
+  };
+  visit(relativeDirectory);
+  return files.sort();
+};
+
+/** Every file under a directory, whatever its extension. */
+const walkAllFiles = (relativeDirectory) => {
+  const files = [];
+  const visit = (relative) => {
+    const full = NodePath.join(ROOT, relative);
+    if (!NodeFS.existsSync(full)) {
+      return;
+    }
+    for (const entry of NodeFS.readdirSync(full, { withFileTypes: true })) {
+      const child = `${relative}/${entry.name}`;
+      if (entry.isDirectory()) {
+        if (!SKIPPED_DIRECTORIES.has(entry.name)) {
+          visit(child);
+        }
+      } else if (entry.isFile()) {
         files.push(child);
       }
     }
@@ -237,8 +291,16 @@ for (const workspaceDirectory of WORKSPACE_DIRECTORIES) {
 
 // ------------------------------------------------- renderer neutrality (D4)
 
-for (const file of walkSourceFiles(RENDERER_ROOT)) {
+for (const file of walkAllFiles(RENDERER_ROOT)) {
   if (RENDERER_EXCLUDED.some((excluded) => file.startsWith(excluded))) {
+    continue;
+  }
+  for (const { name, pattern } of RENDERER_FORBIDDEN) {
+    if (pattern.test(NodePath.basename(file))) {
+      report(file, 1, `connector identity leaked into a renderer file name: ${name}`);
+    }
+  }
+  if (OPAQUE_EXTENSIONS.has(NodePath.extname(file))) {
     continue;
   }
   const lines = NodeFS.readFileSync(NodePath.join(ROOT, file), "utf8").split("\n");
@@ -249,6 +311,23 @@ for (const file of walkSourceFiles(RENDERER_ROOT)) {
       }
     }
   });
+}
+
+// --------------------------------------------------------------- no barrels
+
+for (const workspaceDirectory of WORKSPACE_DIRECTORIES) {
+  if (!workspaceDirectory.startsWith("packages/")) {
+    continue;
+  }
+  for (const file of walkSourceFiles(workspaceDirectory)) {
+    if (BARREL_NAMES.has(NodePath.basename(file))) {
+      report(
+        file,
+        1,
+        `barrel file: ${workspaceDirectory} exports one entry per module through package.json "exports" (spec section 4)`,
+      );
+    }
+  }
 }
 
 // ------------------------------------------------------------------ verdict
