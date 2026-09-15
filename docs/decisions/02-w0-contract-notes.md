@@ -50,6 +50,24 @@ check, knip. `knip.json` is a shared root file under W0's ownership (D8); a
 workstream adding a stub whose exports are not used yet adds its own
 `ignoreDependencies` or `ignore` entry there and says so in its commit.
 
+Packages consumed as TypeScript source (D1) need one more thing before knip can
+see anything: every `exports` entry is an entry point, so by default every
+symbol a package exports counts as used. Each `packages/*` workspace therefore
+sets `includeEntryExports` — knip looks inside the entry files — together with
+`ignoreExportsUsedInFile`, so a schema that is exported and also composed
+further down its own module is not reported.
+
+Two escape hatches, both narrow:
+
+- An export that is deliberate API with no consumer on this branch is tagged
+  `@public` in its own JSDoc, with a line saying which workstream will call it.
+  `tags: ["-@public"]` makes knip skip it. `toWireProbe` in the connector SDK is
+  the only one today.
+- `packages/contracts/src/ids.ts` ignores `exports` wholesale. The file is
+  nothing but `defineId` triples — `[Schema, makeX, decodeX]` — and the triple is
+  uniform on purpose: the decoders exist for the transport boundary W3 builds.
+  Tagging nine declarations one by one would say less than this sentence does.
+
 ## N4 `apps/web` may import `@OpenAde/ui`
 
 Spec section 4 writes the renderer rule as "web imports only contracts,

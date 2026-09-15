@@ -4,6 +4,7 @@
     "types": "off",
     "nsTypes": "off"
   },
+  "tags": ["-@public"],
   "workspaces": {
     ".": {
       "entry": ["scripts/*.mjs"],
@@ -56,10 +57,33 @@
       ]
     },
     "packages/client-runtime": {
+      "includeEntryExports": true,
+      "ignoreExportsUsedInFile": true,
       "ignoreDependencies": ["@OpenAde/contracts", "@OpenAde/shared", "@effect/atom-react"]
     },
     "packages/connector-cmd": {
+      "includeEntryExports": true,
+      "ignoreExportsUsedInFile": true,
       "ignoreDependencies": ["@OpenAde/connector-sdk", "@OpenAde/contracts", "@OpenAde/shared"]
+    },
+    "packages/connector-sdk": {
+      "includeEntryExports": true,
+      "ignoreExportsUsedInFile": true
+    },
+    "packages/contracts": {
+      "includeEntryExports": true,
+      "ignoreExportsUsedInFile": true,
+      "ignoreIssues": {
+        "src/ids.ts": ["exports"]
+      }
+    },
+    "packages/shared": {
+      "includeEntryExports": true,
+      "ignoreExportsUsedInFile": true
+    },
+    "packages/testkit": {
+      "includeEntryExports": true,
+      "ignoreExportsUsedInFile": true
     }
   }
 }

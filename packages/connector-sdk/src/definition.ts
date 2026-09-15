@@ -100,7 +100,12 @@ export interface ConnectorProbe extends WireConnectorProbe {
   readonly warnings: ReadonlyArray<string>;
 }
 
-/** Drops the server-only fields, leaving the shape `ConnectorSummary.probe` carries. */
+/**
+ * Drops the server-only fields, leaving the shape `ConnectorSummary.probe` carries.
+ *
+ * @public Called by W1's connector registry when it answers `connectors.list`;
+ * nothing on this branch has a consumer yet.
+ */
 export const toWireProbe = (probe: ConnectorProbe): WireConnectorProbe => ({
   status: probe.status,
   probedAt: probe.probedAt,
