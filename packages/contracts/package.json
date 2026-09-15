@@ -19,6 +19,10 @@
     "./runtime": {
       "types": "./src/runtime.ts",
       "import": "./src/runtime.ts"
+    },
+    "./orchestration": {
+      "types": "./src/orchestration.ts",
+      "import": "./src/orchestration.ts"
     }
   },
   "scripts": {
