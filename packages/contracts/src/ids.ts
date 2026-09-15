@@ -68,7 +68,3 @@ export type CheckpointId = typeof CheckpointId.Type;
  */
 export const ConnectorKind = Schema.String;
 export type ConnectorKind = typeof ConnectorKind.Type;
-
-/** ISO-8601 instant, the single timestamp encoding used across the wire. */
-export const IsoDateTime = Schema.String;
-export type IsoDateTime = typeof IsoDateTime.Type;

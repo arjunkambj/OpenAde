@@ -1,0 +1,402 @@
+/**
+ * The connector → server protocol.
+ *
+ * A connector never talks about its own CLI. It translates whatever its harness
+ * emits — NDJSON frames, a transcript file, a permission hook — into the events
+ * below, and everything downstream (the ingestion reactor, the projections, the
+ * renderer) is written against these names only. That is what lets a second
+ * connector be added without touching the server or the UI.
+ *
+ * Every variant carries the same envelope (`RuntimeEventEnvelope`) so that an
+ * event can always be attributed to a connector instance, a thread and, where
+ * it applies, a turn, an item or a pending request. `raw` is the escape hatch:
+ * the untranslated frame, kept for debugging and mandatory on `event.unmapped`,
+ * the variant a connector emits when it sees something it does not understand
+ * yet. Dropping such frames silently would make harness changes invisible.
+ */
+
+import * as Schema from "effect/Schema";
+
+import { IsoDateTime, NonEmptyString, NonNegativeInt } from "./base";
+import { ApprovalDecision, ApprovalKind, Effort, ItemKind } from "./enums";
+import { ConnectorInstanceId, EventId, ItemId, RequestId, ThreadId, TurnId } from "./ids";
+
+// ── Shared value objects ───────────────────────────────────────
+
+/** Lifecycle of one timeline item, and of one subagent task. */
+export const ItemStatus = Schema.Literals(["in_progress", "completed", "failed"]);
+export type ItemStatus = typeof ItemStatus.Type;
+
+/** What a file change did to the path. */
+export const FileChangeKind = Schema.Literals(["create", "edit", "delete"]);
+export type FileChangeKind = typeof FileChangeKind.Type;
+
+/** One entry of the model's own checklist, as `todo_write` writes it. */
+export const Todo = Schema.Struct({
+  todoId: NonEmptyString,
+  text: NonEmptyString,
+  status: Schema.Literals(["pending", "in_progress", "completed"]),
+});
+export type Todo = typeof Todo.Type;
+
+/** One answerable choice on an `ask_user_question` card. */
+export const UserQuestionOption = Schema.Struct({
+  optionId: NonEmptyString,
+  label: NonEmptyString,
+  description: Schema.optional(Schema.String),
+});
+export type UserQuestionOption = typeof UserQuestionOption.Type;
+
+/**
+ * One question the model is blocked on. `multiSelect` decides whether the card
+ * renders radio buttons or checkboxes; `freeform` allows an answer that is not
+ * one of the offered options.
+ */
+export const UserQuestion = Schema.Struct({
+  questionId: NonEmptyString,
+  question: NonEmptyString,
+  header: Schema.optional(Schema.String),
+  options: Schema.Array(UserQuestionOption),
+  multiSelect: Schema.optional(Schema.Boolean),
+  freeform: Schema.optional(Schema.Boolean),
+});
+export type UserQuestion = typeof UserQuestion.Type;
+
+/** The user's reply to one `UserQuestion`. */
+export const UserQuestionAnswer = Schema.Struct({
+  questionId: NonEmptyString,
+  optionIds: Schema.Array(NonEmptyString),
+  text: Schema.optional(Schema.String),
+});
+export type UserQuestionAnswer = typeof UserQuestionAnswer.Type;
+
+/**
+ * A pending permission decision. `input` is the harness's own tool input,
+ * unmodelled on purpose: the approval card shows a rendering of it, and the
+ * permission engine matches patterns against `toolName` plus the fields it
+ * knows. `patternSuggestion` is what "allow always" would persist, in Command
+ * Code's pattern syntax, and is editable in the card before it is accepted.
+ */
+export const ApprovalRequest = Schema.Struct({
+  requestId: RequestId,
+  kind: ApprovalKind,
+  toolName: NonEmptyString,
+  input: Schema.Unknown,
+  patternSuggestion: Schema.optional(Schema.String),
+  description: Schema.String,
+});
+export type ApprovalRequest = typeof ApprovalRequest.Type;
+
+/** Whether a capability can change mid-turn, mid-session, or only on restart. */
+export const CapabilitySwitch = Schema.Literals(["per-turn", "in-session", "restart"]);
+export type CapabilitySwitch = typeof CapabilitySwitch.Type;
+
+/**
+ * What this connector's harness can actually do. The header controls read it to
+ * decide whether the model picker applies now or next turn, and whether it is
+ * disabled with a tooltip. Command Code reports per-turn model and effort, no
+ * steering, plan mode, subagents, resume and fork.
+ */
+export const ConnectorCapabilities = Schema.Struct({
+  modelSwitch: CapabilitySwitch,
+  effortSwitch: CapabilitySwitch,
+  steering: Schema.Boolean,
+  planMode: Schema.Boolean,
+  subagents: Schema.Boolean,
+  images: Schema.Boolean,
+  resume: Schema.Boolean,
+  fork: Schema.Boolean,
+});
+export type ConnectorCapabilities = typeof ConnectorCapabilities.Type;
+
+/**
+ * One timeline row, complete as of this event. Items are sent whole rather than
+ * as patches so that a late subscriber, a resnapshot and a replay all converge
+ * on the same row. The optional sub-objects are keyed by `kind`: a
+ * `command_execution` fills `command`, a `file_change` fills `fileChange`, and
+ * so on.
+ */
+export const ItemSnapshot = Schema.Struct({
+  itemId: ItemId,
+  kind: ItemKind,
+  status: ItemStatus,
+  parentItemId: Schema.optional(ItemId),
+  text: Schema.optional(Schema.String),
+  command: Schema.optional(
+    Schema.Struct({
+      cmd: NonEmptyString,
+      cwd: Schema.optional(Schema.String),
+      exitCode: Schema.optional(Schema.Int),
+      output: Schema.optional(Schema.String),
+    }),
+  ),
+  fileChange: Schema.optional(
+    Schema.Struct({
+      path: NonEmptyString,
+      kind: FileChangeKind,
+      diff: Schema.optional(Schema.String),
+    }),
+  ),
+  tool: Schema.optional(
+    Schema.Struct({
+      name: NonEmptyString,
+      server: Schema.optional(Schema.String),
+      input: Schema.Unknown,
+      output: Schema.optional(Schema.Unknown),
+    }),
+  ),
+  plan: Schema.optional(Schema.Struct({ markdown: Schema.String })),
+  todos: Schema.optional(Schema.Array(Todo)),
+  error: Schema.optional(Schema.Struct({ message: Schema.String })),
+});
+export type ItemSnapshot = typeof ItemSnapshot.Type;
+
+// ── Envelope ───────────────────────────────────────────────────
+
+/**
+ * The untranslated frame this event came from. `source` names the stream, e.g.
+ * `"cmd.ndjson"`, `"cmd.transcript"` or `"cmd.hook"`, so that a mismatch
+ * between two overlapping sources can be traced after the fact.
+ */
+export const RuntimeEventRaw = Schema.Struct({
+  source: NonEmptyString,
+  method: Schema.optional(NonEmptyString),
+  payload: Schema.Unknown,
+});
+export type RuntimeEventRaw = typeof RuntimeEventRaw.Type;
+
+/** The fields every runtime event carries, whatever its type. */
+export const RuntimeEventEnvelope = Schema.Struct({
+  eventId: EventId,
+  connectorInstanceId: ConnectorInstanceId,
+  threadId: ThreadId,
+  createdAt: IsoDateTime,
+  turnId: Schema.optional(TurnId),
+  itemId: Schema.optional(ItemId),
+  requestId: Schema.optional(RequestId),
+  raw: Schema.optional(RuntimeEventRaw),
+});
+export type RuntimeEventEnvelope = typeof RuntimeEventEnvelope.Type;
+
+const envelope = RuntimeEventEnvelope.fields;
+
+/** Builds one event variant: the envelope, a literal `type`, and its payload. */
+const event = <const Type extends string, Payload extends Schema.Struct<Schema.Struct.Fields>>(
+  type: Type,
+  payload: Payload,
+) => Schema.Struct({ ...envelope, type: Schema.Literal(type), payload });
+
+// ── Payloads ───────────────────────────────────────────────────
+
+/** Why a connector session is over. `crashed` is the one the supervisor retries. */
+export const SessionEndReason = Schema.Literals(["stopped", "crashed", "interrupted"]);
+export type SessionEndReason = typeof SessionEndReason.Type;
+
+/** How a turn finished. Mapped from the harness's own stop reason and exit code. */
+export const TurnStopReason = Schema.Literals(["end_turn", "interrupted", "error", "max_turns"]);
+export type TurnStopReason = typeof TurnStopReason.Type;
+
+/** Which stream a `content.delta` belongs to. */
+export const ContentDeltaKind = Schema.Literals(["text", "reasoning", "tool_input"]);
+export type ContentDeltaKind = typeof ContentDeltaKind.Type;
+
+/** Connection state of one MCP server configured for the session. */
+export const McpServerStatus = Schema.Literals(["connecting", "connected", "failed", "disabled"]);
+export type McpServerStatus = typeof McpServerStatus.Type;
+
+const SessionStartedEvent = event(
+  "session.started",
+  Schema.Struct({
+    /**
+     * Whatever the connector needs to resume this session later — for Command
+     * Code `{ sessionId, transcriptPath, cwd, lastMessageId }`. Opaque here so
+     * that the server can persist it without knowing any harness's shape.
+     */
+    sessionRef: Schema.Unknown,
+    model: NonEmptyString,
+    capabilities: ConnectorCapabilities,
+  }),
+);
+
+const SessionEndedEvent = event(
+  "session.ended",
+  Schema.Struct({
+    reason: SessionEndReason,
+    exitCode: Schema.optional(Schema.Int),
+  }),
+);
+
+const SessionWarningEvent = event("session.warning", Schema.Struct({ message: NonEmptyString }));
+
+const TurnStartedEvent = event("turn.started", Schema.Struct({ turnId: TurnId }));
+
+const TurnCompletedEvent = event(
+  "turn.completed",
+  Schema.Struct({ turnId: TurnId, stopReason: TurnStopReason }),
+);
+
+const TurnPlanProposedEvent = event(
+  "turn.plan.proposed",
+  Schema.Struct({
+    turnId: TurnId,
+    planMarkdown: Schema.String,
+    planPath: Schema.optional(Schema.String),
+  }),
+);
+
+const ItemPayload = Schema.Struct({ item: ItemSnapshot });
+
+const ItemStartedEvent = event("item.started", ItemPayload);
+const ItemUpdatedEvent = event("item.updated", ItemPayload);
+const ItemCompletedEvent = event("item.completed", ItemPayload);
+
+const ContentDeltaEvent = event(
+  "content.delta",
+  Schema.Struct({ itemId: ItemId, kind: ContentDeltaKind, delta: Schema.String }),
+);
+
+const RequestOpenedEvent = event("request.opened", Schema.Struct({ request: ApprovalRequest }));
+
+const RequestResolvedEvent = event(
+  "request.resolved",
+  Schema.Struct({ requestId: RequestId, decision: ApprovalDecision }),
+);
+
+const UserInputRequestedEvent = event(
+  "user-input.requested",
+  Schema.Struct({ requestId: RequestId, questions: Schema.Array(UserQuestion) }),
+);
+
+const UserInputResolvedEvent = event(
+  "user-input.resolved",
+  Schema.Struct({ requestId: RequestId }),
+);
+
+/**
+ * Subagent lifecycle. `taskId` is an `ItemId` because a task is also a timeline
+ * row: the nested rows it owns point back at it through `parentItemId`.
+ */
+const TaskPayload = Schema.Struct({
+  taskId: ItemId,
+  parentItemId: Schema.optional(ItemId),
+  title: NonEmptyString,
+  model: Schema.optional(NonEmptyString),
+  status: ItemStatus,
+});
+
+const TaskStartedEvent = event("task.started", TaskPayload);
+const TaskUpdatedEvent = event("task.updated", TaskPayload);
+const TaskCompletedEvent = event("task.completed", TaskPayload);
+
+const UsageUpdatedEvent = event(
+  "usage.updated",
+  Schema.Struct({
+    turnId: TurnId,
+    input: NonNegativeInt,
+    output: NonNegativeInt,
+    cacheRead: NonNegativeInt,
+    cacheWrite: NonNegativeInt,
+    costUsd: Schema.optional(Schema.Number),
+  }),
+);
+
+const ContextUpdatedEvent = event(
+  "context.updated",
+  Schema.Struct({ used: NonNegativeInt, limit: NonNegativeInt }),
+);
+
+const ModelChangedEvent = event(
+  "model.changed",
+  Schema.Struct({ model: NonEmptyString, effort: Schema.optional(Effort) }),
+);
+
+const McpStatusUpdatedEvent = event(
+  "mcp.status.updated",
+  Schema.Struct({
+    servers: Schema.Array(Schema.Struct({ name: NonEmptyString, status: McpServerStatus })),
+  }),
+);
+
+const RuntimeErrorEvent = event(
+  "runtime.error",
+  Schema.Struct({ message: NonEmptyString, fatal: Schema.Boolean }),
+);
+
+/**
+ * A frame the connector recognised as belonging to the session but could not
+ * translate. It has no payload of its own and `raw` is mandatory: the whole
+ * point is to keep the unknown frame so that a harness change shows up in the
+ * event log instead of vanishing.
+ */
+const EventUnmappedEvent = Schema.Struct({
+  ...envelope,
+  raw: RuntimeEventRaw,
+  type: Schema.Literal("event.unmapped"),
+  payload: Schema.Struct({}),
+});
+
+// ── The union ──────────────────────────────────────────────────
+
+export const RuntimeEvent = Schema.Union([
+  SessionStartedEvent,
+  SessionEndedEvent,
+  SessionWarningEvent,
+  TurnStartedEvent,
+  TurnCompletedEvent,
+  TurnPlanProposedEvent,
+  ItemStartedEvent,
+  ItemUpdatedEvent,
+  ItemCompletedEvent,
+  ContentDeltaEvent,
+  RequestOpenedEvent,
+  RequestResolvedEvent,
+  UserInputRequestedEvent,
+  UserInputResolvedEvent,
+  TaskStartedEvent,
+  TaskUpdatedEvent,
+  TaskCompletedEvent,
+  UsageUpdatedEvent,
+  ContextUpdatedEvent,
+  ModelChangedEvent,
+  McpStatusUpdatedEvent,
+  RuntimeErrorEvent,
+  EventUnmappedEvent,
+]);
+export type RuntimeEvent = typeof RuntimeEvent.Type;
+
+/**
+ * The type tags of `RuntimeEvent`, as data. A test keeps this list and the
+ * union's members in lockstep, so a variant can never be added to one without
+ * the other.
+ */
+export const RuntimeEventType = Schema.Literals([
+  "session.started",
+  "session.ended",
+  "session.warning",
+  "turn.started",
+  "turn.completed",
+  "turn.plan.proposed",
+  "item.started",
+  "item.updated",
+  "item.completed",
+  "content.delta",
+  "request.opened",
+  "request.resolved",
+  "user-input.requested",
+  "user-input.resolved",
+  "task.started",
+  "task.updated",
+  "task.completed",
+  "usage.updated",
+  "context.updated",
+  "model.changed",
+  "mcp.status.updated",
+  "runtime.error",
+  "event.unmapped",
+]);
+export type RuntimeEventType = typeof RuntimeEventType.Type;
+
+/** The `type` tag of each union member, in declaration order. */
+export const runtimeEventTypes: ReadonlyArray<RuntimeEventType> = RuntimeEvent.members.map(
+  (member) => member.fields.type.literal,
+);

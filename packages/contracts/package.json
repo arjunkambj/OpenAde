@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./base": {
+      "types": "./src/base.ts",
+      "import": "./src/base.ts"
+    },
     "./ids": {
       "types": "./src/ids.ts",
       "import": "./src/ids.ts"
@@ -11,6 +15,10 @@
     "./enums": {
       "types": "./src/enums.ts",
       "import": "./src/enums.ts"
+    },
+    "./runtime": {
+      "types": "./src/runtime.ts",
+      "import": "./src/runtime.ts"
     }
   },
   "scripts": {
