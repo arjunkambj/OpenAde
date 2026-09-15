@@ -11,7 +11,17 @@
     "shadcn/no-arbitrary-values": ["error", { "allow": ["layout"] }],
     "shadcn/no-inline-styles": "error",
     "shadcn/no-unknown-classes": "error",
-    "shadcn/require-static-classes": "error"
+    "shadcn/require-static-classes": "error",
+    "typescript/ban-ts-comment": [
+      "error",
+      {
+        "ts-ignore": true,
+        "ts-nocheck": true,
+        "ts-check": false,
+        "ts-expect-error": "allow-with-description",
+        "minimumDescriptionLength": 10
+      }
+    ]
   },
   "env": {
     "builtin": true
@@ -23,6 +33,50 @@
         "shadcn/no-restyle": "off",
         "shadcn/no-arbitrary-values": "off",
         "shadcn/require-static-classes": "off"
+      }
+    },
+    {
+      "files": ["**/*.gen.ts", "**/*.gen.tsx"],
+      "rules": {
+        "typescript/ban-ts-comment": "off"
+      }
+    },
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"],
+      "rules": {
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "setTimeout",
+            "message": "tests wait on a Deferred, a Queue or a receipt, never on a timer"
+          },
+          {
+            "name": "setInterval",
+            "message": "tests wait on a Deferred, a Queue or a receipt, never on a timer"
+          },
+          {
+            "name": "setImmediate",
+            "message": "tests wait on a Deferred, a Queue or a receipt, never on a timer"
+          }
+        ],
+        "no-restricted-properties": [
+          "error",
+          {
+            "object": "Effect",
+            "property": "sleep",
+            "message": "tests wait on a Deferred, a Queue or a receipt, never on a sleep"
+          },
+          {
+            "object": "Clock",
+            "property": "sleep",
+            "message": "tests wait on a Deferred, a Queue or a receipt, never on a sleep"
+          },
+          {
+            "object": "TestClock",
+            "property": "sleep",
+            "message": "tests wait on a Deferred, a Queue or a receipt, never on a sleep"
+          }
+        ]
       }
     }
   ]
