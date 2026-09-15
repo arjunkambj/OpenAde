@@ -30,7 +30,7 @@ export const configPath = (segments: ReadonlyArray<string>, env: Env = defaultEn
   NodePath.join(configDir(env), ...segments);
 
 /** The SQLite database the server owns. */
-export const databasePath = (env: Env = defaultEnv()): string => configPath(["openade.db"], env);
+export const databasePath = (env: Env = defaultEnv()): string => configPath(["state.sqlite"], env);
 
 /** Directory for generated executables, such as the Command Code hook script. */
 export const binDir = (env: Env = defaultEnv()): string => configPath(["bin"], env);

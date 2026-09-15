@@ -25,7 +25,7 @@ describe("well-known paths", () => {
 
   it("hang off the configuration directory", () => {
     expect(configPath(["a", "b"], env)).toBe(NodePath.join(configDir(env), "a", "b"));
-    expect(databasePath(env)).toBe(NodePath.join(configDir(env), "openade.db"));
+    expect(databasePath(env)).toBe(NodePath.join(configDir(env), "state.sqlite"));
     expect(binDir(env)).toBe(NodePath.join(configDir(env), "bin"));
     expect(devConnectionPath(env)).toBe(NodePath.join(configDir(env), "dev", "connection.json"));
   });
