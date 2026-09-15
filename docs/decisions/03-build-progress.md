@@ -5,20 +5,20 @@ This file is the hand-off between build sessions. Update the status table and th
 
 ## Status
 
-| Workstream | Branch | Status | Landed on main |
-| --- | --- | --- | --- |
-| Plan review | `feat/w0-foundation` | done | 2026-09-15 |
-| W0 Foundation, contracts, connector SDK, testkit | `feat/w0-foundation` | **done, merged** | 2026-09-15 |
-| W1 Persistence and orchestration engine | `feat/w1-orchestration` | not started | – |
-| W2 Command Code connector | `feat/w2-connector-cmd` | not started | – |
-| W3 Transport and client runtime | `feat/w3-transport` | not started | – |
-| W7 Desktop shell and packaging | `feat/w7-desktop` | not started | – |
-| W8 Git, checkpoints, files | `feat/w8-git` | not started | – |
-| W4 Renderer shell and timeline | `feat/w4-renderer` | not started (wave 2) | – |
-| W5 Composer and interaction cards | `feat/w5-composer` | not started (wave 2) | – |
-| W6 Browser, MCP server, preview pane | `feat/w6-browser` | not started (wave 2) | – |
-| W9 Settings, connectors, MCP and skills editor | `feat/w9-settings` | not started (wave 2) | – |
-| W10 Integration | `feat/w10-integration` | not started (wave 3) | – |
+| Workstream                                       | Branch                  | Status               | Landed on main |
+| ------------------------------------------------ | ----------------------- | -------------------- | -------------- |
+| Plan review                                      | `feat/w0-foundation`    | done                 | 2026-09-15     |
+| W0 Foundation, contracts, connector SDK, testkit | `feat/w0-foundation`    | **done, merged**     | 2026-09-15     |
+| W1 Persistence and orchestration engine          | `feat/w1-orchestration` | not started          | –              |
+| W2 Command Code connector                        | `feat/w2-connector-cmd` | not started          | –              |
+| W3 Transport and client runtime                  | `feat/w3-transport`     | not started          | –              |
+| W7 Desktop shell and packaging                   | `feat/w7-desktop`       | not started          | –              |
+| W8 Git, checkpoints, files                       | `feat/w8-git`           | not started          | –              |
+| W4 Renderer shell and timeline                   | `feat/w4-renderer`      | not started (wave 2) | –              |
+| W5 Composer and interaction cards                | `feat/w5-composer`      | not started (wave 2) | –              |
+| W6 Browser, MCP server, preview pane             | `feat/w6-browser`       | not started (wave 2) | –              |
+| W9 Settings, connectors, MCP and skills editor   | `feat/w9-settings`      | not started (wave 2) | –              |
+| W10 Integration                                  | `feat/w10-integration`  | not started (wave 3) | –              |
 
 Milestone M0 (workspace builds, gate green, contracts and fakes published) is reached.
 
@@ -52,7 +52,7 @@ the same gate on Linux and macOS (`.github/workflows/ci.yml`).
   `streamCollector`.
 - `packages/testkit`: `fakeConnector` (passes the conformance suite), `receipts`,
   `sqlite` (node:sqlite in-memory helper), `fakeCmdProcess` (NDJSON + transcript
-  + hook replay; fixture `fixtures/cmd/run-error.ndjson`).
+  - hook replay; fixture `fixtures/cmd/run-error.ndjson`).
 - Stubs with declared dependencies and a placeholder `meta` module:
   `packages/client-runtime`, `packages/connector-cmd`, `apps/server` (`tsx watch`
   dev script, esbuild bundle to `out/main.cjs`).
