@@ -60,9 +60,6 @@
     },
     "packages/connector-cmd": {
       "ignoreDependencies": ["@OpenAde/connector-sdk", "@OpenAde/contracts", "@OpenAde/shared"]
-    },
-    "packages/testkit": {
-      "ignoreDependencies": ["@OpenAde/connector-sdk", "@OpenAde/contracts", "@OpenAde/shared"]
     }
   }
 }
