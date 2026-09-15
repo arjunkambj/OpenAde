@@ -7,13 +7,20 @@
  * follows from three rules the orchestration engine depends on:
  *
  *  1. While a turn is active, every event belongs to it. Envelopes are stamped
- *     with our `turnId`, so a projection never has to guess.
- *  2. A turn always ends. If the harness's event stream ends — the process died,
- *     the pipe closed — while a turn is unsettled, a `turn.completed` with
- *     `stopReason: "error"` is synthesized, because a thread stuck in `running`
- *     with no process behind it is unrecoverable from the UI.
+ *     with our `turnId`, and so is the `turnId` inside the payload of the four
+ *     variants that carry one, so a projection never has to guess and never
+ *     sees the two disagree.
+ *  2. A turn always ends. If the harness's event stream ends or fails — the
+ *     process died, the pipe closed, the parser threw — while a turn is
+ *     unsettled, a `turn.completed` with `stopReason: "error"` is synthesized,
+ *     because a thread stuck in `running` with no process behind it is
+ *     unrecoverable from the UI.
  *  3. Turns do not overlap. A second `send` for a different turn is refused with
  *     `TurnInProgress` rather than silently superseding the first.
+ *
+ * `interrupt` and `awaitTurn` are turn-scoped for the same reason: they return
+ * only once the turn has actually settled, so the caller that interrupted a
+ * turn can act on a thread that is genuinely idle.
  *
  * Semantics follow zuse's `kernel/turn-protocol.ts`, adapted to our flat
  * `RuntimeEvent` union: it uses a scope/envelope split, we tag the envelope.
@@ -22,6 +29,7 @@
 import { makeEventId } from "@OpenAde/contracts/ids";
 import type { ConnectorInstanceId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
 import type { RuntimeEvent, TurnStopReason } from "@OpenAde/contracts/runtime";
+import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -36,7 +44,10 @@ import type { SessionHandle } from "./sessionHandle";
  * A handle whose `send` carries the turn it starts. Everything else is the
  * underlying handle's, unchanged.
  */
-export interface TurnScopedSessionHandle extends Omit<SessionHandle, "events" | "send"> {
+export interface TurnScopedSessionHandle extends Omit<
+  SessionHandle,
+  "events" | "send" | "interrupt"
+> {
   readonly events: Stream.Stream<RuntimeEvent>;
   /**
    * Starts `turnId`. Calling it again for the same turn is a no-op, so a retry
@@ -44,6 +55,18 @@ export interface TurnScopedSessionHandle extends Omit<SessionHandle, "events" | 
    * different turn while one is active fails with `TurnInProgress`.
    */
   readonly send: (turnId: TurnId, turn: TurnInput) => Effect.Effect<void, ConnectorError>;
+  /**
+   * Interrupts `turnId` and returns once it has settled — the harness's own
+   * `turn.completed`, or the one this wrapper synthesizes. Interrupting a turn
+   * that is not the active one is a no-op, so a late interrupt after the turn
+   * finished on its own does not disturb the next one.
+   *
+   * Settling is observed on `events`, so a caller that interrupts must have
+   * that stream running.
+   */
+  readonly interrupt: (turnId: TurnId) => Effect.Effect<void, ConnectorError>;
+  /** Returns once `turnId` has settled, without interrupting it. */
+  readonly awaitTurn: (turnId: TurnId) => Effect.Effect<void>;
   /** The turn currently unsettled, if any. */
   readonly activeTurnId: Effect.Effect<TurnId | null>;
 }
@@ -73,6 +96,35 @@ const EMPTY_BATCH: Batch = { emissions: [], released: null };
 /** A session that ends mid-turn ends the turn the same way it ended the session. */
 const stopReasonForSessionEnd = (reason: string): TurnStopReason =>
   reason === "interrupted" ? "interrupted" : "error";
+
+/**
+ * Puts our `turnId` on an event that belongs to the active turn.
+ *
+ * The envelope always gets it. The four variants that also name a turn inside
+ * their payload get it there too: the harness minted whatever id it liked, and
+ * a reactor reading `payload.turnId` — the natural field for `thread.plan.
+ * respond { turnId }` or `thread.usage.updated { turnId }` — would otherwise
+ * address a turn the server never created.
+ */
+const adopt = (event: RuntimeEvent, turnId: TurnId): RuntimeEvent => {
+  switch (event.type) {
+    case "turn.started": {
+      return { ...event, turnId, payload: { ...event.payload, turnId } };
+    }
+    case "turn.completed": {
+      return { ...event, turnId, payload: { ...event.payload, turnId } };
+    }
+    case "turn.plan.proposed": {
+      return { ...event, turnId, payload: { ...event.payload, turnId } };
+    }
+    case "usage.updated": {
+      return { ...event, turnId, payload: { ...event.payload, turnId } };
+    }
+    default: {
+      return { ...event, turnId };
+    }
+  }
+};
 
 export interface TurnScopedHandleOptions {
   readonly connectorInstanceId: ConnectorInstanceId;
@@ -106,7 +158,7 @@ export const makeTurnScopedHandle = (
           if (emission.kind === "completion") {
             events.push(yield* synthesize(emission.turnId, emission.stopReason));
           } else if (emission.kind === "tagged") {
-            events.push({ ...emission.event, turnId: emission.turnId });
+            events.push(adopt(emission.event, emission.turnId));
           } else {
             events.push(emission.event);
           }
@@ -167,7 +219,26 @@ export const makeTurnScopedHandle = (
             ],
     ).pipe(Effect.flatMap(materialize));
 
+    /**
+     * A source that fails or dies is turned into one last `runtime.error` and
+     * then ends normally. `Stream.concat` only runs `finalize` when the stream
+     * before it *completes*, so without this a defect in the harness's parser
+     * would skip the synthesized completion and strand the turn in `running`.
+     */
+    const failure = (cause: Cause.Cause<never>): Effect.Effect<RuntimeEvent> =>
+      Clock.currentTimeMillis.pipe(
+        Effect.map((millis) => ({
+          eventId: makeEventId(),
+          connectorInstanceId: options.connectorInstanceId,
+          threadId: options.threadId,
+          createdAt: new Date(millis).toISOString(),
+          type: "runtime.error" as const,
+          payload: { message: `the event stream failed: ${Cause.pretty(cause)}`, fatal: true },
+        })),
+      );
+
     const events = handle.events.pipe(
+      Stream.catchCause((cause) => Stream.fromEffect(failure(cause))),
       Stream.mapEffect(normalize),
       Stream.flatMap(Stream.fromIterable),
       Stream.concat(Stream.fromEffect(finalize).pipe(Stream.flatMap(Stream.fromIterable))),
@@ -221,10 +292,35 @@ export const makeTurnScopedHandle = (
         yield* handle.send(turn).pipe(Effect.tapError(() => abandon(turnId)));
       });
 
+    /** The release latch of `turnId`, if that turn is the active one. */
+    const latchFor = (turnId: TurnId): Effect.Effect<Deferred.Deferred<void> | null> =>
+      Ref.get(activeRef).pipe(
+        Effect.map((active) =>
+          active !== null && active.turnId === turnId ? active.released : null,
+        ),
+      );
+
+    const awaitTurn = (turnId: TurnId): Effect.Effect<void> =>
+      latchFor(turnId).pipe(
+        Effect.flatMap((released) => (released === null ? Effect.void : Deferred.await(released))),
+      );
+
+    const interrupt = (turnId: TurnId): Effect.Effect<void, ConnectorError> =>
+      Effect.gen(function* () {
+        const released = yield* latchFor(turnId);
+        if (released === null) {
+          return;
+        }
+        yield* handle.interrupt();
+        yield* Deferred.await(released);
+      });
+
     return {
       ...handle,
       events,
       send,
+      interrupt,
+      awaitTurn,
       activeTurnId: Ref.get(activeRef).pipe(Effect.map((active) => active?.turnId ?? null)),
     };
   });

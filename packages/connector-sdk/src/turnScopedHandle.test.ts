@@ -5,9 +5,12 @@ import {
   makeThreadId,
   makeTurnId,
 } from "@OpenAde/contracts/ids";
+import type { TurnId } from "@OpenAde/contracts/ids";
 import type { RuntimeEvent } from "@OpenAde/contracts/runtime";
 import { describe, expect, it } from "@effect/vitest";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
 import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 
@@ -41,14 +44,27 @@ const sessionEnded = (reason: "stopped" | "crashed" | "interrupted"): RuntimeEve
   payload: { reason },
 });
 
-const turnCompleted = (): RuntimeEvent => {
-  const scriptedTurnId = makeTurnId();
+/**
+ * A completion as a harness would emit it: numbered with the harness's own turn
+ * id, which is never one the server minted.
+ */
+const turnCompleted = (): { readonly event: RuntimeEvent; readonly harnessTurnId: TurnId } => {
+  const harnessTurnId = makeTurnId();
   return {
-    ...envelope(),
-    type: "turn.completed",
-    payload: { turnId: scriptedTurnId, stopReason: "end_turn" },
+    event: {
+      ...envelope(),
+      type: "turn.completed",
+      payload: { turnId: harnessTurnId, stopReason: "end_turn" },
+    },
+    harnessTurnId,
   };
 };
+
+const usageUpdated = (): RuntimeEvent => ({
+  ...envelope(),
+  type: "usage.updated",
+  payload: { turnId: makeTurnId(), input: 12, output: 3, cacheRead: 0, cacheWrite: 0 },
+});
 
 /**
  * A handle whose harness is the test itself: events go in through `emit`, the
@@ -59,6 +75,7 @@ const makeScriptedHandle = () =>
     const queue = yield* makeBoundedEventQueue({ capacity: 64, reserve: 8 });
     const sentRef = yield* Ref.make<ReadonlyArray<TurnInput>>([]);
     const failSendRef = yield* Ref.make(false);
+    const onInterruptRef = yield* Ref.make<Effect.Effect<void>>(Effect.void);
 
     const handle: SessionHandle = {
       events: queue.events,
@@ -69,7 +86,7 @@ const makeScriptedHandle = () =>
           }
           yield* Ref.update(sentRef, (all) => [...all, input]);
         }),
-      interrupt: () => Effect.void,
+      interrupt: () => Ref.get(onInterruptRef).pipe(Effect.flatMap((run) => run)),
       respondToRequest: () => Effect.void,
       respondToUserInput: () => Effect.void,
       respondToPlan: () => Effect.void,
@@ -84,6 +101,8 @@ const makeScriptedHandle = () =>
       end: queue.end,
       sent: Ref.get(sentRef),
       refuseSends: Ref.set(failSendRef, true),
+      /** What the harness does when the wrapper asks it to stop. */
+      onInterrupt: (run: Effect.Effect<void>) => Ref.set(onInterruptRef, run),
     };
   });
 
@@ -210,7 +229,7 @@ describe("makeTurnScopedHandle", () => {
       const turnId = makeTurnId();
 
       yield* scoped.send(turnId, turn("first"));
-      yield* scripted.emit(turnCompleted());
+      yield* scripted.emit(turnCompleted().event);
       yield* scripted.end;
 
       const events = yield* Stream.runCollect(scoped.events);
@@ -221,6 +240,120 @@ describe("makeTurnScopedHandle", () => {
       // The stream is finished, but the handle is free again.
       yield* scoped.send(makeTurnId(), turn("second"));
       expect((yield* scripted.sent).length).toBe(2);
+    }),
+  );
+
+  it.effect("replaces the harness's turn id inside the payload, not just the envelope", () =>
+    Effect.gen(function* () {
+      const scripted = yield* makeScriptedHandle();
+      const scoped = yield* makeTurnScopedHandle(scripted.handle, {
+        connectorInstanceId,
+        threadId,
+      });
+      const turnId = makeTurnId();
+      const completion = turnCompleted();
+
+      yield* scoped.send(turnId, turn("work"));
+      yield* scripted.emit(usageUpdated());
+      yield* scripted.emit(completion.event);
+      yield* scripted.end;
+
+      const events = yield* Stream.runCollect(scoped.events);
+      const payloadTurnIds = events.map((event) =>
+        event.type === "usage.updated" || event.type === "turn.completed"
+          ? event.payload.turnId
+          : null,
+      );
+      expect(payloadTurnIds).toEqual([turnId, turnId]);
+      expect(events.map((event) => event.turnId)).toEqual([turnId, turnId]);
+      expect(payloadTurnIds).not.toContain(completion.harnessTurnId);
+    }),
+  );
+
+  it.effect("interrupt returns only once the turn has settled", () =>
+    Effect.gen(function* () {
+      const scripted = yield* makeScriptedHandle();
+      const scoped = yield* makeTurnScopedHandle(scripted.handle, {
+        connectorInstanceId,
+        threadId,
+      });
+      const turnId = makeTurnId();
+      const orderRef = yield* Ref.make<ReadonlyArray<string>>([]);
+      const note = (what: string) => Ref.update(orderRef, (all) => [...all, what]);
+
+      // The harness acknowledges the interrupt at once and settles later.
+      const settle = yield* Deferred.make<void>();
+      yield* scripted.onInterrupt(
+        Deferred.await(settle).pipe(
+          Effect.andThen(note("harness settled")),
+          Effect.andThen(scripted.emit(turnCompleted().event)),
+          Effect.forkChild,
+          Effect.asVoid,
+        ),
+      );
+
+      const drain = yield* Effect.forkChild(Stream.runCollect(scoped.events));
+      yield* scoped.send(turnId, turn("work"));
+
+      const interrupting = yield* scoped
+        .interrupt(turnId)
+        .pipe(Effect.andThen(note("interrupt returned")), Effect.forkChild);
+      yield* Deferred.succeed(settle, undefined);
+      yield* Fiber.join(interrupting);
+
+      expect(yield* Ref.get(orderRef)).toEqual(["harness settled", "interrupt returned"]);
+      expect(yield* scoped.activeTurnId).toBeNull();
+
+      yield* scripted.end;
+      yield* Fiber.join(drain);
+    }),
+  );
+
+  it.effect("interrupting a turn that already ended is a no-op", () =>
+    Effect.gen(function* () {
+      const scripted = yield* makeScriptedHandle();
+      const scoped = yield* makeTurnScopedHandle(scripted.handle, {
+        connectorInstanceId,
+        threadId,
+      });
+      const turnId = makeTurnId();
+      const asked = yield* Ref.make(false);
+      yield* scripted.onInterrupt(Ref.set(asked, true));
+
+      yield* scoped.interrupt(turnId);
+
+      expect(yield* Ref.get(asked)).toBe(false);
+    }),
+  );
+
+  it.effect("ends the turn even when the event stream dies mid-turn", () =>
+    Effect.gen(function* () {
+      const dying: SessionHandle = {
+        ...(yield* makeScriptedHandle()).handle,
+        events: Stream.make(delta()).pipe(Stream.concat(Stream.die(new Error("parser exploded")))),
+      };
+      const scoped = yield* makeTurnScopedHandle(dying, { connectorInstanceId, threadId });
+      const turnId = makeTurnId();
+
+      yield* scoped.send(turnId, turn("work"));
+      const events = yield* Stream.runCollect(scoped.events);
+
+      expect(events.map((event) => event.type)).toEqual([
+        "content.delta",
+        "runtime.error",
+        "turn.completed",
+      ]);
+      const failure = events[1];
+      expect(failure?.type === "runtime.error" ? failure.payload.fatal : null).toBe(true);
+      expect(failure?.type === "runtime.error" ? failure.payload.message : "").toContain(
+        "parser exploded",
+      );
+      const completion = events.at(-1);
+      expect(completion?.type === "turn.completed" ? completion.payload : null).toEqual({
+        turnId,
+        stopReason: "error",
+      });
+      expect(yield* scoped.activeTurnId).toBeNull();
     }),
   );
 
