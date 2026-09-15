@@ -60,6 +60,12 @@ const turnCompleted = (): { readonly event: RuntimeEvent; readonly harnessTurnId
   };
 };
 
+const runtimeError = (fatal: boolean): RuntimeEvent => ({
+  ...envelope(),
+  type: "runtime.error",
+  payload: { message: "the harness gave up", fatal },
+});
+
 const usageUpdated = (): RuntimeEvent => ({
   ...envelope(),
   type: "usage.updated",
@@ -354,6 +360,54 @@ describe("makeTurnScopedHandle", () => {
         stopReason: "error",
       });
       expect(yield* scoped.activeTurnId).toBeNull();
+    }),
+  );
+
+  it.effect("settles the turn on a fatal error, without waiting for the stream to end", () =>
+    Effect.gen(function* () {
+      const scripted = yield* makeScriptedHandle();
+      const scoped = yield* makeTurnScopedHandle(scripted.handle, {
+        connectorInstanceId,
+        threadId,
+      });
+      const turnId = makeTurnId();
+
+      const drain = yield* Effect.forkChild(Stream.runCollect(scoped.events));
+      yield* scoped.send(turnId, turn("work"));
+      // The harness says the work is over and keeps its pipe open.
+      yield* scripted.emit(runtimeError(true));
+      yield* scoped.awaitTurn(turnId);
+
+      expect(yield* scoped.activeTurnId).toBeNull();
+
+      yield* scripted.end;
+      const events = yield* Fiber.join(drain);
+      expect(events.map((event) => event.type)).toEqual(["runtime.error", "turn.completed"]);
+      const completion = events.at(-1);
+      expect(completion?.type === "turn.completed" ? completion.payload : null).toEqual({
+        turnId,
+        stopReason: "error",
+      });
+    }),
+  );
+
+  it.effect("leaves the turn running on a non-fatal error", () =>
+    Effect.gen(function* () {
+      const scripted = yield* makeScriptedHandle();
+      const scoped = yield* makeTurnScopedHandle(scripted.handle, {
+        connectorInstanceId,
+        threadId,
+      });
+      const turnId = makeTurnId();
+
+      yield* scoped.send(turnId, turn("work"));
+      yield* scripted.emit(runtimeError(false));
+      yield* scripted.emit(turnCompleted().event);
+      yield* scripted.end;
+
+      const events = yield* Stream.runCollect(scoped.events);
+      expect(events.map((event) => event.type)).toEqual(["runtime.error", "turn.completed"]);
+      expect(events.map((event) => event.turnId)).toEqual([turnId, turnId]);
     }),
   );
 

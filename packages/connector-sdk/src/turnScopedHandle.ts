@@ -14,7 +14,10 @@
  *     process died, the pipe closed, the parser threw — while a turn is
  *     unsettled, a `turn.completed` with `stopReason: "error"` is synthesized,
  *     because a thread stuck in `running` with no process behind it is
- *     unrecoverable from the UI.
+ *     unrecoverable from the UI. A `runtime.error` with `fatal: true` settles
+ *     the turn the same way without waiting for the stream to end: the harness
+ *     has said the work is over, and it may well keep its pipe open afterwards.
+ *     A non-fatal `runtime.error` is just news and leaves the turn running.
  *  3. Turns do not overlap. A second `send` for a different turn is refused with
  *     `TurnInProgress` rather than silently superseding the first.
  *
@@ -183,6 +186,18 @@ export const makeTurnScopedHandle = (
             null,
           ];
         }
+        if (event.type === "runtime.error" && event.payload.fatal) {
+          return [
+            {
+              emissions: [
+                { kind: "tagged", event, turnId: active.turnId },
+                { kind: "completion", turnId: active.turnId, stopReason: "error" },
+              ],
+              released: active.released,
+            },
+            null,
+          ];
+        }
         if (event.type === "session.ended") {
           return [
             {
@@ -220,10 +235,12 @@ export const makeTurnScopedHandle = (
     ).pipe(Effect.flatMap(materialize));
 
     /**
-     * A source that fails or dies is turned into one last `runtime.error` and
-     * then ends normally. `Stream.concat` only runs `finalize` when the stream
-     * before it *completes*, so without this a defect in the harness's parser
-     * would skip the synthesized completion and strand the turn in `running`.
+     * A source that fails or dies is turned into one last fatal `runtime.error`
+     * and then ends normally. `Stream.concat` only runs `finalize` when the
+     * stream before it *completes*, so without this a defect in the harness's
+     * parser would skip the synthesized completion and strand the turn in
+     * `running`. The error itself settles the turn on its way through
+     * `normalize`; `finalize` is the backstop for a stream that just stops.
      */
     const failure = (cause: Cause.Cause<never>): Effect.Effect<RuntimeEvent> =>
       Clock.currentTimeMillis.pipe(
