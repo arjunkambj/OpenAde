@@ -6,6 +6,9 @@ allowBuilds:
   electron: true
   esbuild: true
   electron-winstaller: false
+  # Native msgpack accelerator pulled in by Effect's RPC stack. Left unbuilt so
+  # a checkout never needs a C++ toolchain; msgpackr falls back to JavaScript.
+  msgpackr-extract: false
 
 catalog:
   typescript: ^6.0.3
@@ -18,3 +21,18 @@ catalog:
   "@types/react": ^19.2.17
   "@types/react-dom": ^19.2.3
   tailwindcss: ^4.3.3
+  # Effect 4 release candidate. All four move together; never bump one alone.
+  effect: 4.0.0-rc.112
+  "@effect/atom-react": 4.0.0-rc.112
+  "@effect/platform-node": 4.0.0-rc.112
+  "@effect/vitest": 4.0.0-rc.112
+  vitest: 4.1.11
+  tsx: ^4.23.13
+  esbuild: ^0.28.2
+  # Renderer timeline and diff rendering (W4, W5, W8).
+  "@legendapp/list": ^3.3.11
+  "@pierre/diffs": ^1.4.2
+  react-markdown: ^10.1.0
+  remark-gfm: ^4.0.1
+  # Dead-export audit.
+  knip: ^6.35.1

@@ -13,6 +13,11 @@
     "check-types": {
       "dependsOn": ["^check-types"]
     },
+    "test": {
+      "dependsOn": [],
+      "inputs": ["$TURBO_DEFAULT$", "!README.md"],
+      "outputs": []
+    },
     "dev": {
       "cache": false,
       "persistent": true

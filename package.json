@@ -6,21 +6,33 @@
     "dev": "turbo run dev:hmr -F desktop --",
     "build": "turbo run build --filter='!desktop' && turbo run build -F desktop",
     "check-types": "turbo run check-types",
+    "typecheck": "turbo run check-types",
+    "test": "turbo run test",
     "dev:web": "turbo run dev -F web --",
     "dev:desktop": "turbo run dev:hmr -F desktop --",
     "build:desktop": "turbo run build:stable -F desktop --",
     "build:desktop:canary": "turbo run build:canary -F desktop --",
     "lint": "oxlint",
-    "check": "oxlint && oxfmt --write"
+    "fmt": "oxfmt --write",
+    "fmt:check": "oxfmt --check",
+    "check:boundaries": "node scripts/check-boundaries.mjs",
+    "check:file-sizes": "node scripts/check-file-sizes.mjs",
+    "knip": "knip",
+    "check": "pnpm lint && pnpm fmt:check && pnpm typecheck && pnpm test && pnpm check:boundaries && pnpm check:file-sizes && pnpm knip"
   },
   "devDependencies": {
     "@OpenAde/config": "workspace:*",
     "@shadcn/lint": "^0.1.0",
     "@types/node": "catalog:",
+    "knip": "catalog:",
     "oxfmt": "^0.63.0",
     "oxlint": "^1.78.0",
     "turbo": "^2.10.7",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "engines": {
+    "node": ">=22.16"
   },
   "packageManager": "pnpm@11.21.0"
 }
