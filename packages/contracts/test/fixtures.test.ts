@@ -2,14 +2,15 @@
  * Every wire schema, exercised against checked-in JSON.
  *
  * The fixtures are the contract made concrete: one file per RuntimeEvent
- * variant, per ItemKind, per Command and per OrchestrationEventType, plus a
- * full thread snapshot and a settings document. Each one is decoded and then
- * encoded again, and the result has to equal the bytes on disk — a schema
- * change that silently drops or renames a field fails here rather than in the
- * renderer.
+ * variant, per ItemKind, per Command and per OrchestrationEventType, one per
+ * stream frame the renderer can receive, and one per read model and RPC result
+ * the client decodes. Each one is decoded and then encoded again, and the
+ * result has to equal the bytes on disk — a schema change that silently drops
+ * or renames a field fails here rather than in the renderer.
  *
  * The coverage tests derive their lists from the schemas themselves, so adding
- * a variant without adding its fixture is a failing test, not a TODO.
+ * a variant without adding its fixture is a failing test, not a TODO, and no
+ * fixture file may sit in the tree without a case that reads it.
  */
 
 import * as NodeFS from "node:fs";
@@ -23,11 +24,30 @@ import * as Schema from "effect/Schema";
 import { ItemKind } from "../src/enums";
 import {
   Command,
+  CommandReceipt,
   CommandType,
   OrchestrationEvent,
   OrchestrationEventType,
+  ProjectSummary,
   ThreadDetailSnapshot,
+  ThreadListStreamItem,
+  ThreadStreamItem,
+  ThreadSummary,
 } from "../src/orchestration";
+import {
+  BrowserHumanInput,
+  BrowserState,
+  ConnectorProbe,
+  ConnectorSummary,
+  FileContent,
+  FileSearchResult,
+  GitDiff,
+  GitStatus,
+  McpServerConfig,
+  ModelOption,
+  ServerHello,
+  SkillSummary,
+} from "../src/rpc";
 import { ItemSnapshot, RuntimeEvent, RuntimeEventType } from "../src/runtime";
 import { Settings } from "../src/settings";
 
@@ -40,29 +60,121 @@ const namesIn = (directory: string): ReadonlyArray<string> =>
     .map((name) => name.slice(0, -".json".length))
     .sort();
 
+/** Every fixture in the tree, as a path relative to `fixtures/`. */
+const everyFixture = (): ReadonlyArray<string> => {
+  const found: Array<string> = [];
+  const visit = (relative: string): void => {
+    for (const entry of NodeFS.readdirSync(NodePath.join(FIXTURES, relative), {
+      withFileTypes: true,
+    })) {
+      const child = relative === "" ? entry.name : `${relative}/${entry.name}`;
+      if (entry.isDirectory()) {
+        visit(child);
+      } else if (entry.name.endsWith(".json")) {
+        found.push(child);
+      }
+    }
+  };
+  visit("");
+  return found.sort();
+};
+
 const read = (relativePath: string): unknown =>
   JSON.parse(NodeFS.readFileSync(NodePath.join(FIXTURES, relativePath), "utf8")) as unknown;
+
+type FixtureSchema = Schema.ConstraintDecoder<unknown> & Schema.ConstraintEncoder<unknown>;
 
 /**
  * Decodes a fixture and encodes it back. Anything the schema does not carry
  * shows up as a difference against the file on disk.
  */
-const roundTrip = <S extends Schema.ConstraintDecoder<unknown> & Schema.ConstraintEncoder<unknown>>(
-  schema: S,
-  relativePath: string,
-): void => {
+const roundTrip = (schema: FixtureSchema, relativePath: string): void => {
   const raw = read(relativePath);
   const decoded = Schema.decodeUnknownSync(schema)(raw);
   const encoded = Schema.encodeUnknownSync(schema)(decoded);
   expect(encoded, `${relativePath} does not survive decode → encode`).toStrictEqual(raw);
 };
 
-const families = [
-  { directory: "runtime-events", schema: RuntimeEvent },
-  { directory: "items", schema: ItemSnapshot },
-  { directory: "commands", schema: Command },
-  { directory: "orchestration-events", schema: OrchestrationEvent },
-] as const;
+/** The literal each member of a tagged union carries in `field`. */
+const tagsOf = (
+  members: ReadonlyArray<{ readonly fields: { readonly [key: string]: unknown } }>,
+  field: string,
+): ReadonlyArray<string> =>
+  members.map((member) => {
+    const literal = (member.fields[field] as { readonly literal?: unknown } | undefined)?.literal;
+    if (typeof literal !== "string") {
+      throw new Error(`a union member has no literal \`${field}\` to name its fixture for`);
+    }
+    return literal;
+  });
+
+/**
+ * A union with one fixture per variant. `tag` is the field whose literal the
+ * file is named for, so `snapshot.json` and `{ "kind": "snapshot" }` can never
+ * drift apart.
+ */
+interface Family {
+  readonly directory: string;
+  readonly schema: FixtureSchema;
+  readonly tag: string;
+  readonly variants: ReadonlyArray<string>;
+}
+
+const families: ReadonlyArray<Family> = [
+  {
+    directory: "runtime-events",
+    schema: RuntimeEvent,
+    tag: "type",
+    variants: RuntimeEventType.literals,
+  },
+  { directory: "items", schema: ItemSnapshot, tag: "kind", variants: ItemKind.literals },
+  { directory: "commands", schema: Command, tag: "type", variants: CommandType.literals },
+  {
+    directory: "orchestration-events",
+    schema: OrchestrationEvent,
+    tag: "type",
+    variants: OrchestrationEventType.literals,
+  },
+  {
+    directory: "read-models/thread-stream-item",
+    schema: ThreadStreamItem,
+    tag: "kind",
+    variants: tagsOf(ThreadStreamItem.members, "kind"),
+  },
+  {
+    directory: "read-models/thread-list-stream-item",
+    schema: ThreadListStreamItem,
+    tag: "kind",
+    variants: tagsOf(ThreadListStreamItem.members, "kind"),
+  },
+  {
+    directory: "rpc/browser-human-input",
+    schema: BrowserHumanInput,
+    tag: "kind",
+    variants: tagsOf(BrowserHumanInput.members, "kind"),
+  },
+];
+
+/** A schema with a single fixture: a read model, an RPC result, a document. */
+const singles: ReadonlyArray<{ readonly path: string; readonly schema: FixtureSchema }> = [
+  { path: "thread-detail-snapshot.json", schema: ThreadDetailSnapshot },
+  { path: "settings.json", schema: Settings },
+  { path: "read-models/project-summary.json", schema: ProjectSummary },
+  { path: "read-models/thread-summary.json", schema: ThreadSummary },
+  { path: "read-models/command-receipt.accepted.json", schema: CommandReceipt },
+  { path: "read-models/command-receipt.rejected.json", schema: CommandReceipt },
+  { path: "rpc/server-hello.json", schema: ServerHello },
+  { path: "rpc/model-option.json", schema: ModelOption },
+  { path: "rpc/connector-probe.json", schema: ConnectorProbe },
+  { path: "rpc/connector-summary.json", schema: ConnectorSummary },
+  { path: "rpc/file-search-result.json", schema: FileSearchResult },
+  { path: "rpc/file-content.json", schema: FileContent },
+  { path: "rpc/git-status.json", schema: GitStatus },
+  { path: "rpc/git-diff.json", schema: GitDiff },
+  { path: "rpc/browser-state.json", schema: BrowserState },
+  { path: "rpc/mcp-server-config.json", schema: McpServerConfig },
+  { path: "rpc/skill-summary.json", schema: SkillSummary },
+];
 
 describe("fixture round-trips", () => {
   for (const family of families) {
@@ -71,73 +183,59 @@ describe("fixture round-trips", () => {
         const names = yield* Effect.sync(() => namesIn(family.directory));
         expect(names.length).toBeGreaterThan(0);
         for (const name of names) {
-          yield* Effect.sync(() =>
-            roundTrip(family.schema, NodePath.join(family.directory, `${name}.json`)),
-          );
+          yield* Effect.sync(() => roundTrip(family.schema, `${family.directory}/${name}.json`));
         }
       }),
     );
   }
 
-  it.effect("the thread snapshot decodes and encodes back to the same JSON", () =>
-    Effect.gen(function* () {
-      yield* Effect.sync(() => roundTrip(ThreadDetailSnapshot, "thread-detail-snapshot.json"));
-    }),
-  );
-
-  it.effect("the settings document decodes and encodes back to the same JSON", () =>
-    Effect.gen(function* () {
-      yield* Effect.sync(() => roundTrip(Settings, "settings.json"));
-    }),
-  );
+  for (const single of singles) {
+    it.effect(`${single.path} decodes and encodes back to the same JSON`, () =>
+      Effect.gen(function* () {
+        yield* Effect.sync(() => roundTrip(single.schema, single.path));
+      }),
+    );
+  }
 });
 
 describe("fixture coverage", () => {
-  it.effect("every RuntimeEvent variant has a fixture, and every fixture a variant", () =>
+  for (const family of families) {
+    it.effect(`every ${family.directory} variant has a fixture, and every fixture a variant`, () =>
+      Effect.gen(function* () {
+        const names = yield* Effect.sync(() => namesIn(family.directory));
+        expect(names).toEqual([...family.variants].sort());
+      }),
+    );
+  }
+
+  it.effect("every fixture in the tree is read by a case", () =>
     Effect.gen(function* () {
-      const names = yield* Effect.sync(() => namesIn("runtime-events"));
-      expect(names).toEqual([...RuntimeEventType.literals].sort());
+      const covered = yield* Effect.sync(
+        () =>
+          new Set([
+            ...singles.map((single) => single.path),
+            ...families.flatMap((family) =>
+              namesIn(family.directory).map((name) => `${family.directory}/${name}.json`),
+            ),
+          ]),
+      );
+      const orphans = everyFixture().filter((path) => !covered.has(path));
+      expect(orphans, "fixtures nothing round-trips").toEqual([]);
     }),
   );
 
-  it.effect("every ItemKind has a fixture, and every fixture an ItemKind", () =>
+  it.effect("each fixture's file name matches the tag inside it", () =>
     Effect.gen(function* () {
-      const names = yield* Effect.sync(() => namesIn("items"));
-      expect(names).toEqual([...ItemKind.literals].sort());
-    }),
-  );
-
-  it.effect("every Command has a fixture, and every fixture a Command", () =>
-    Effect.gen(function* () {
-      const names = yield* Effect.sync(() => namesIn("commands"));
-      expect(names).toEqual([...CommandType.literals].sort());
-    }),
-  );
-
-  it.effect("every OrchestrationEventType has a fixture, and every fixture a type", () =>
-    Effect.gen(function* () {
-      const names = yield* Effect.sync(() => namesIn("orchestration-events"));
-      expect(names).toEqual([...OrchestrationEventType.literals].sort());
-    }),
-  );
-
-  it.effect("each fixture's file name matches the type inside it", () =>
-    Effect.gen(function* () {
-      const tagged = yield* Effect.sync(() => [
-        ...namesIn("runtime-events").map((name) => [`runtime-events/${name}.json`, name] as const),
-        ...namesIn("commands").map((name) => [`commands/${name}.json`, name] as const),
-        ...namesIn("orchestration-events").map(
-          (name) => [`orchestration-events/${name}.json`, name] as const,
+      const mismatches = yield* Effect.sync(() =>
+        families.flatMap((family) =>
+          namesIn(family.directory).flatMap((name) => {
+            const path = `${family.directory}/${name}.json`;
+            const value = read(path) as Record<string, unknown>;
+            return value[family.tag] === name ? [] : [path];
+          }),
         ),
-      ]);
-      for (const [path, name] of tagged) {
-        const value = read(path) as { readonly type: string };
-        expect(value.type, `${path} is named for a different type`).toBe(name);
-      }
-      for (const name of namesIn("items")) {
-        const value = read(`items/${name}.json`) as { readonly kind: string };
-        expect(value.kind, `items/${name}.json is named for a different kind`).toBe(name);
-      }
+      );
+      expect(mismatches, "fixtures named for a different variant").toEqual([]);
     }),
   );
 });

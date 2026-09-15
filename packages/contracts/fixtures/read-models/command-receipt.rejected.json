@@ -1,0 +1,6 @@
+{
+  "commandId": "0199c0de-0008-7000-8000-000000000002",
+  "status": "rejected",
+  "reason": "a turn is already running on this thread",
+  "lastSequence": 24
+}

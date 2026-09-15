@@ -1,0 +1,24 @@
+{
+  "branch": "feat/w0-foundation",
+  "upstream": "origin/feat/w0-foundation",
+  "ahead": 2,
+  "behind": 0,
+  "files": [
+    {
+      "path": "apps/server/src/http/health.ts",
+      "status": "added",
+      "staged": true
+    },
+    {
+      "path": "apps/server/src/http/router.ts",
+      "status": "modified",
+      "staged": false
+    },
+    {
+      "path": "apps/server/src/http/ping.ts",
+      "oldPath": "apps/server/src/http/pong.ts",
+      "status": "renamed",
+      "staged": true
+    }
+  ]
+}

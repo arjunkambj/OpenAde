@@ -1,0 +1,9 @@
+{
+  "id": "stealth/ox-alpha",
+  "label": "Ox Alpha",
+  "family": "stealth",
+  "efforts": ["low", "medium", "high", "xhigh", "max"],
+  "contextWindow": 200000,
+  "vision": false,
+  "free": true
+}

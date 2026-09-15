@@ -1,0 +1,4 @@
+{
+  "kind": "resnapshot-required",
+  "reason": "the requested afterSequence has aged out of the log"
+}

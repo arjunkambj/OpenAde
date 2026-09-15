@@ -1,0 +1,23 @@
+{
+  "connectorInstanceId": "0199c0de-0003-7000-8000-000000000001",
+  "kind": "cmd",
+  "displayName": "Command Code",
+  "enabled": true,
+  "capabilities": {
+    "modelSwitch": "per-turn",
+    "effortSwitch": "per-turn",
+    "steering": false,
+    "planMode": true,
+    "subagents": true,
+    "images": false,
+    "resume": true,
+    "fork": true
+  },
+  "probe": {
+    "status": "not-authenticated",
+    "binaryPath": "/Users/dev/.local/share/pnpm/cmd",
+    "version": "1.54.0",
+    "message": "run `cmd login` to authenticate",
+    "probedAt": "2026-09-15T12:00:00.000Z"
+  }
+}

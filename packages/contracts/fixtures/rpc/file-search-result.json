@@ -1,0 +1,5 @@
+{
+  "path": "apps/server/src/http/health.ts",
+  "name": "health.ts",
+  "isDirectory": false
+}

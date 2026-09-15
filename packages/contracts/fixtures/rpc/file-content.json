@@ -1,0 +1,6 @@
+{
+  "path": "apps/server/src/http/health.ts",
+  "text": "export const health = () => ({ ok: true });\n",
+  "totalLines": 1,
+  "truncated": false
+}

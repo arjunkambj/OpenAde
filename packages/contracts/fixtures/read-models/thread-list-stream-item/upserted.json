@@ -1,0 +1,17 @@
+{
+  "kind": "upserted",
+  "thread": {
+    "threadId": "0199c0de-0002-7000-8000-000000000002",
+    "projectId": "0199c0de-0001-7000-8000-000000000001",
+    "title": "Readiness probe",
+    "status": "waiting",
+    "settings": {
+      "model": "stealth/ox-alpha",
+      "runtimeMode": "approval-required",
+      "interactionMode": "plan"
+    },
+    "awaitingInput": true,
+    "createdAt": "2026-09-15T12:05:00.000Z",
+    "updatedAt": "2026-09-15T12:05:30.000Z"
+  }
+}

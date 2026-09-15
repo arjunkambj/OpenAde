@@ -1,0 +1,10 @@
+{
+  "name": "openade",
+  "scope": "project",
+  "enabled": true,
+  "transport": "http",
+  "url": "http://127.0.0.1:41297/mcp/0199c0de-0002-7000-8000-000000000001",
+  "headers": {
+    "Authorization": "Bearer ${OPENADE_MCP_TOKEN}"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "code-review",
+  "path": "/Users/dev/.commandcode/skills/code-review/SKILL.md",
+  "description": "Review the current diff for correctness bugs.",
+  "enabled": true
+}
