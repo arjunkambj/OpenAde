@@ -1,0 +1,74 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "rules": {
+    "types": "off",
+    "nsTypes": "off"
+  },
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/*.mjs"],
+      "project": ["scripts/*.mjs"]
+    },
+    "apps/desktop": {
+      "entry": [
+        "src/main/index.ts!",
+        "src/preload/index.ts!",
+        "electron-builder.config.cjs",
+        "scripts/*.mjs"
+      ],
+      "ignoreDependencies": ["@OpenAde/contracts", "@OpenAde/shared"]
+    },
+    "apps/server": {
+      "ignoreDependencies": [
+        "@OpenAde/connector-cmd",
+        "@OpenAde/connector-sdk",
+        "@OpenAde/contracts",
+        "@OpenAde/testkit",
+        "@effect/platform-node"
+      ]
+    },
+    "apps/web": {
+      "entry": ["src/routes/**/*.tsx"],
+      "ignoreIssues": {
+        "src/components/header.tsx": ["files"],
+        "src/components/mode-toggle.tsx": ["files"],
+        "src/hooks/use-mobile.ts": ["files"],
+        "src/lib/icon.tsx": ["exports"],
+        "src/lib/shortcuts.tsx": ["exports"]
+      },
+      "ignoreDependencies": [
+        "@OpenAde/client-runtime",
+        "@OpenAde/config",
+        "@OpenAde/contracts",
+        "@OpenAde/shared",
+        "@effect/atom-react",
+        "@iconify-json/solar",
+        "@legendapp/list",
+        "@pierre/diffs",
+        "clsx",
+        "effect",
+        "postcss",
+        "react-markdown",
+        "remark-gfm",
+        "sonner",
+        "tailwind-merge",
+        "tailwindcss"
+      ]
+    },
+    "packages/client-runtime": {
+      "ignoreDependencies": ["@OpenAde/contracts", "@OpenAde/shared", "@effect/atom-react"]
+    },
+    "packages/connector-cmd": {
+      "ignoreDependencies": ["@OpenAde/connector-sdk", "@OpenAde/contracts", "@OpenAde/shared"]
+    },
+    "packages/connector-sdk": {
+      "ignoreDependencies": ["@OpenAde/contracts", "@OpenAde/shared"]
+    },
+    "packages/contracts": {
+      "ignoreDependencies": ["@OpenAde/shared"]
+    },
+    "packages/testkit": {
+      "ignoreDependencies": ["@OpenAde/connector-sdk", "@OpenAde/contracts", "@OpenAde/shared"]
+    }
+  }
+}
