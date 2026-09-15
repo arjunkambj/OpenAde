@@ -242,10 +242,27 @@ describe("makeTurnScopedHandle", () => {
       expect(events.map((event) => event.type)).toEqual(["turn.completed"]);
       expect(events[0]?.turnId).toBe(turnId);
       expect(yield* scoped.activeTurnId).toBeNull();
+    }),
+  );
 
-      // The stream is finished, but the handle is free again.
-      yield* scoped.send(makeTurnId(), turn("second"));
-      expect((yield* scripted.sent).length).toBe(2);
+  it.effect("refuses a turn once the event stream is over", () =>
+    Effect.gen(function* () {
+      const scripted = yield* makeScriptedHandle();
+      const scoped = yield* makeTurnScopedHandle(scripted.handle, {
+        connectorInstanceId,
+        threadId,
+      });
+
+      yield* scoped.send(makeTurnId(), turn("first"));
+      yield* scripted.emit(turnCompleted().event);
+      yield* scripted.end;
+      yield* Stream.runCollect(scoped.events);
+
+      // Nothing is left to settle a turn, so starting one would strand it.
+      const error = yield* scoped.send(makeTurnId(), turn("second")).pipe(Effect.flip);
+      expect(error._tag).toBe("SessionClosed");
+      expect((yield* scripted.sent).map((input) => input.text)).toEqual(["first"]);
+      expect(yield* scoped.activeTurnId).toBeNull();
     }),
   );
 

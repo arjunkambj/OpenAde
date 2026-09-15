@@ -19,7 +19,10 @@
  *     has said the work is over, and it may well keep its pipe open afterwards.
  *     A non-fatal `runtime.error` is just news and leaves the turn running.
  *  3. Turns do not overlap. A second `send` for a different turn is refused with
- *     `TurnInProgress` rather than silently superseding the first.
+ *     `TurnInProgress` rather than silently superseding the first. Once the
+ *     event stream is over there is nothing left to settle a turn, so `send`
+ *     refuses with `SessionClosed` from then on rather than accepting a turn it
+ *     could never end.
  *
  * `interrupt` and `awaitTurn` are turn-scoped for the same reason: they return
  * only once the turn has actually settled, so the caller that interrupted a
@@ -40,7 +43,7 @@ import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 
 import type { ConnectorError, TurnInput } from "./definition";
-import { TurnInProgress } from "./definition";
+import { SessionClosed, TurnInProgress } from "./definition";
 import type { SessionHandle } from "./sessionHandle";
 
 /**
@@ -77,6 +80,17 @@ export interface TurnScopedSessionHandle extends Omit<
 interface ActiveTurn {
   readonly turnId: TurnId;
   readonly released: Deferred.Deferred<void>;
+}
+
+/**
+ * The wrapper's whole state, in one `Ref` so that "is a turn active" and "is the
+ * stream over" are read and written together. Two refs would let a `send` slip
+ * between the last event and `finalize` and install a turn nothing can settle.
+ */
+interface TurnState {
+  readonly active: ActiveTurn | null;
+  /** Set by `finalize`: the source stream has ended and will emit nothing more. */
+  readonly finished: boolean;
 }
 
 /**
@@ -139,7 +153,7 @@ export const makeTurnScopedHandle = (
   options: TurnScopedHandleOptions,
 ): Effect.Effect<TurnScopedSessionHandle> =>
   Effect.gen(function* () {
-    const activeRef = yield* Ref.make<ActiveTurn | null>(null);
+    const stateRef = yield* Ref.make<TurnState>({ active: null, finished: false });
 
     const synthesize = (turnId: TurnId, stopReason: TurnStopReason): Effect.Effect<RuntimeEvent> =>
       Clock.currentTimeMillis.pipe(
@@ -173,9 +187,11 @@ export const makeTurnScopedHandle = (
       });
 
     const normalize = (event: RuntimeEvent): Effect.Effect<ReadonlyArray<RuntimeEvent>> =>
-      Ref.modify(activeRef, (active): readonly [Batch, ActiveTurn | null] => {
+      Ref.modify(stateRef, (state): readonly [Batch, TurnState] => {
+        const active = state.active;
+        const settled = { ...state, active: null };
         if (active === null) {
-          return [{ emissions: [{ kind: "passthrough", event }], released: null }, null];
+          return [{ emissions: [{ kind: "passthrough", event }], released: null }, settled];
         }
         if (event.type === "turn.completed") {
           return [
@@ -183,7 +199,7 @@ export const makeTurnScopedHandle = (
               emissions: [{ kind: "tagged", event, turnId: active.turnId }],
               released: active.released,
             },
-            null,
+            settled,
           ];
         }
         if (event.type === "runtime.error" && event.payload.fatal) {
@@ -195,7 +211,7 @@ export const makeTurnScopedHandle = (
               ],
               released: active.released,
             },
-            null,
+            settled,
           ];
         }
         if (event.type === "session.ended") {
@@ -211,27 +227,35 @@ export const makeTurnScopedHandle = (
               ],
               released: active.released,
             },
-            null,
+            settled,
           ];
         }
         return [
           { emissions: [{ kind: "tagged", event, turnId: active.turnId }], released: null },
-          active,
+          state,
         ];
       }).pipe(Effect.flatMap(materialize));
 
+    /**
+     * The source stream is over. Any turn still unsettled is completed with an
+     * error, and the wrapper latches `finished` so no later `send` can install a
+     * turn that nothing would ever end.
+     */
     const finalize: Effect.Effect<ReadonlyArray<RuntimeEvent>> = Ref.modify(
-      activeRef,
-      (active): readonly [Batch, ActiveTurn | null] =>
-        active === null
-          ? [EMPTY_BATCH, null]
+      stateRef,
+      (state): readonly [Batch, TurnState] => {
+        const active = state.active;
+        const closed = { active: null, finished: true };
+        return active === null
+          ? [EMPTY_BATCH, closed]
           : [
               {
                 emissions: [{ kind: "completion", turnId: active.turnId, stopReason: "error" }],
                 released: active.released,
               },
-              null,
-            ],
+              closed,
+            ];
+      },
     ).pipe(Effect.flatMap(materialize));
 
     /**
@@ -263,8 +287,10 @@ export const makeTurnScopedHandle = (
 
     /** Drops `turnId` if it is still the active one, releasing anyone waiting on it. */
     const abandon = (turnId: TurnId): Effect.Effect<void> =>
-      Ref.modify(activeRef, (active): readonly [ActiveTurn | null, ActiveTurn | null] =>
-        active !== null && active.turnId === turnId ? [active, null] : [null, active],
+      Ref.modify(stateRef, (state): readonly [ActiveTurn | null, TurnState] =>
+        state.active !== null && state.active.turnId === turnId
+          ? [state.active, { ...state, active: null }]
+          : [null, state],
       ).pipe(
         Effect.flatMap((dropped) =>
           dropped === null ? Effect.void : Deferred.succeed(dropped.released, undefined),
@@ -276,25 +302,35 @@ export const makeTurnScopedHandle = (
       Effect.gen(function* () {
         const released = yield* Deferred.make<void>();
         const decision = yield* Ref.modify(
-          activeRef,
+          stateRef,
           (
-            active,
+            state,
           ): readonly [
-            { readonly kind: "send" | "duplicate" | "busy"; readonly activeTurnId: TurnId | null },
-            ActiveTurn | null,
+            {
+              readonly kind: "send" | "duplicate" | "busy" | "closed";
+              readonly activeTurnId: TurnId | null;
+            },
+            TurnState,
           ] => {
+            const active = state.active;
+            if (state.finished) {
+              return [{ kind: "closed", activeTurnId: active?.turnId ?? null }, state];
+            }
             if (active === null) {
               return [
                 { kind: "send", activeTurnId: turnId },
-                { turnId, released },
+                { ...state, active: { turnId, released } },
               ];
             }
             return active.turnId === turnId
-              ? [{ kind: "duplicate", activeTurnId: turnId }, active]
-              : [{ kind: "busy", activeTurnId: active.turnId }, active];
+              ? [{ kind: "duplicate", activeTurnId: turnId }, state]
+              : [{ kind: "busy", activeTurnId: active.turnId }, state];
           },
         );
 
+        if (decision.kind === "closed") {
+          return yield* Effect.fail(new SessionClosed({ threadId: options.threadId }));
+        }
         if (decision.kind === "busy") {
           return yield* Effect.fail(
             new TurnInProgress({
@@ -311,8 +347,8 @@ export const makeTurnScopedHandle = (
 
     /** The release latch of `turnId`, if that turn is the active one. */
     const latchFor = (turnId: TurnId): Effect.Effect<Deferred.Deferred<void> | null> =>
-      Ref.get(activeRef).pipe(
-        Effect.map((active) =>
+      Ref.get(stateRef).pipe(
+        Effect.map(({ active }) =>
           active !== null && active.turnId === turnId ? active.released : null,
         ),
       );
@@ -338,6 +374,6 @@ export const makeTurnScopedHandle = (
       send,
       interrupt,
       awaitTurn,
-      activeTurnId: Ref.get(activeRef).pipe(Effect.map((active) => active?.turnId ?? null)),
+      activeTurnId: Ref.get(stateRef).pipe(Effect.map(({ active }) => active?.turnId ?? null)),
     };
   });
