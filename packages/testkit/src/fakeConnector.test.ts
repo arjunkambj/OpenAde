@@ -181,6 +181,40 @@ describe("FakeConnector", () => {
     }),
   );
 
+  it.effect("ends the turn as interrupted when the turn is interrupted", () =>
+    Effect.gen(function* () {
+      const { handle, collector, session } = yield* openFakeSession();
+
+      yield* session.pause;
+      yield* handle.send(turn("something long"));
+      yield* collector.awaitItem((event) => event.type === "turn.started");
+      yield* handle.interrupt();
+
+      const completed = yield* collector.awaitItem((event) => event.type === "turn.completed");
+      expect(completed.type === "turn.completed" ? completed.payload.stopReason : null).toBe(
+        "interrupted",
+      );
+      expect((yield* collector.collected).some((event) => event.type === "item.started")).toBe(
+        false,
+      );
+    }),
+  );
+
+  it.effect("interrupting a turn that is waiting on an approval still ends it", () =>
+    Effect.gen(function* () {
+      const { handle, collector } = yield* openFakeSession({ script: approvalTurnScript });
+
+      yield* handle.send(turn("rm -rf /"));
+      yield* collector.awaitItem((event) => event.type === "request.opened");
+      yield* handle.interrupt();
+
+      const completed = yield* collector.awaitItem((event) => event.type === "turn.completed");
+      expect(completed.type === "turn.completed" ? completed.payload.stopReason : null).toBe(
+        "interrupted",
+      );
+    }),
+  );
+
   it.effect("holds the turn open until an approval request is answered", () =>
     Effect.gen(function* () {
       const { handle, collector } = yield* openFakeSession({ script: approvalTurnScript });

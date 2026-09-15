@@ -239,8 +239,10 @@ const makeFakeSession = (input: FakeSessionInput): Effect.Effect<FakeSession, ne
         return;
       }
       yield* Ref.set(settled, deferred);
+      // Re-check after registering: an answer, or an interrupt, may have landed
+      // in between, and this is the only wait that could otherwise never end.
       const stillPending = yield* Ref.get(openRequests);
-      if (stillPending.size === 0) {
+      if (stillPending.size === 0 || (yield* Ref.get(interrupted))) {
         yield* releaseSettled;
         return;
       }
