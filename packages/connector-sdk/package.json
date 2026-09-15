@@ -11,6 +11,10 @@
     "./sessionHandle": {
       "types": "./src/sessionHandle.ts",
       "import": "./src/sessionHandle.ts"
+    },
+    "./turnScopedHandle": {
+      "types": "./src/turnScopedHandle.ts",
+      "import": "./src/turnScopedHandle.ts"
     }
   },
   "scripts": {
