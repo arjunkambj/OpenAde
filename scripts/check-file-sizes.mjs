@@ -5,9 +5,12 @@
  *  - No non-test source file over 800 lines anywhere in the workspace.
  *  - No renderer component under `apps/web/src/components` over 400 lines.
  *
- * Tests, fixtures and generated files are exempt: they grow for reasons that
- * splitting does not help. Every offender is printed as `file:line` (the line
- * that broke the budget) and the process exits 1.
+ * Tests, the two fixture roots and generated files are exempt: they grow for
+ * reasons that splitting does not help. The exemptions are deliberately narrow
+ * — a file is a test only when `.test.` or `.spec.` is the last thing before
+ * its extension, and fixtures are skipped by path, not by directory name — so
+ * that ordinary source cannot hide behind a name. Every offender is printed as
+ * `file:line` (the line that broke the budget) and the process exits 1.
  */
 
 import * as NodeFS from "node:fs";
@@ -30,18 +33,19 @@ const SKIPPED_DIRECTORIES = new Set([
   "build",
   "out",
   "artifacts",
-  "fixtures",
-  "__fixtures__",
   ".turbo",
   ".git",
   ".vite",
   "coverage",
 ]);
 
+/** The checked-in fixture trees, by path. A directory merely named `fixtures` is measured. */
+const SKIPPED_PATHS = ["packages/contracts/fixtures", "packages/testkit/fixtures"];
+
 const SKIPPED_FILES = new Set(["routeTree.gen.ts"]);
 
-/** `*.test.*` and `*.spec.*` in any of the source extensions. */
-const isTestFile = (name) => /\.(test|spec)\./.test(name);
+/** A test file: `.test.` or `.spec.` immediately before the extension. */
+const isTestFile = (name) => /\.(test|spec)\.[cm]?[jt]sx?$/.test(name);
 
 const isGenerated = (name) => SKIPPED_FILES.has(name) || name.endsWith(".gen.ts");
 
@@ -53,7 +57,7 @@ const walk = (relative, files) => {
   for (const entry of NodeFS.readdirSync(full, { withFileTypes: true })) {
     const child = `${relative}/${entry.name}`;
     if (entry.isDirectory()) {
-      if (!SKIPPED_DIRECTORIES.has(entry.name)) {
+      if (!SKIPPED_DIRECTORIES.has(entry.name) && !SKIPPED_PATHS.includes(child)) {
         walk(child, files);
       }
     } else if (
