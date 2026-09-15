@@ -150,6 +150,16 @@
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
   --font-heading: var(--font-sans);
+  --leading-compact: 1.55;
+  --leading-prose: 1.65;
+  --radius-nested: calc(var(--radius) + 2px);
+  --color-preview-chrome-dark: #404040;
+  --color-preview-chrome-light: #d4d4d4;
+  --color-preview-bar-dark: #737373;
+  --color-preview-bar-light: #a3a3a3;
+  --color-preview-surface: #f5f5f5;
+  --color-preview-line-strong: #d4d4d4;
+  --color-preview-line: #e5e5e5;
 }
 
 @layer base {
@@ -195,4 +205,18 @@ html[data-desktop] [data-slot="sidebar-container"] {
 @utility app-region-no-drag {
   -webkit-app-region: no-drag;
   app-region: no-drag;
+}
+
+@utility transition-reveal {
+  transition-property: opacity, translate, scale, rotate;
+  transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+  transition-duration: var(--tw-duration, var(--default-transition-duration));
+}
+
+@utility type-body {
+  font-size: 0.8125rem;
+}
+
+@utility type-micro {
+  font-size: 0.6875rem;
 }

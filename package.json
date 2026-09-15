@@ -10,10 +10,12 @@
     "dev:desktop": "turbo run dev:hmr -F desktop --",
     "build:desktop": "turbo run build:stable -F desktop --",
     "build:desktop:canary": "turbo run build:canary -F desktop --",
+    "lint": "oxlint",
     "check": "oxlint && oxfmt --write"
   },
   "devDependencies": {
     "@OpenAde/config": "workspace:*",
+    "@shadcn/lint": "^0.1.0",
     "@types/node": "catalog:",
     "oxfmt": "^0.63.0",
     "oxlint": "^1.78.0",
