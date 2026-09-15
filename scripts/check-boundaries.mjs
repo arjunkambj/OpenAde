@@ -4,9 +4,15 @@
  *
  * Two guardrails in one pass over the workspace sources:
  *
- *  1. Import boundaries. Every `@OpenAde/*` import is checked against the
- *     allowlist below. A package may always import itself; anything else has to
- *     be listed. A package with no rule may not import any workspace package.
+ *  1. Import boundaries. Every import that names another workspace package is
+ *     checked against the allowlist below — the scoped `@OpenAde/*` packages
+ *     and the three unscoped apps (`web`, `desktop`, `server`) alike. A package
+ *     may always import itself; anything else has to be listed. A package with
+ *     no rule may not import any workspace package. A relative specifier that
+ *     climbs out of its own workspace directory is a violation whatever it
+ *     lands on: packages are consumed through their `exports` map (D1), so
+ *     `../../../packages/testkit/src/receipts` is a boundary crossing wearing a
+ *     path.
  *  2. The renderer connector-neutrality grep. Connector identity never reaches
  *     `apps/web`: the strings `commandcode`, the quoted literal `"cmd"` and
  *     `claude` must not appear under `apps/web/src`, outside the icon set.
@@ -123,6 +129,56 @@ const allowlistFor = (workspaceDirectory) => {
   return undefined;
 };
 
+const WORKSPACE_DIRECTORIES = [...listDirectories("apps"), ...listDirectories("packages")].filter(
+  (directory) => NodeFS.existsSync(NodePath.join(ROOT, directory, "package.json")),
+);
+
+/**
+ * Published package name -> workspace directory, for every workspace.
+ *
+ * Apps are unscoped (D1), so `web`, `desktop` and `server` are import targets
+ * that no `@OpenAde/` prefix would ever reveal.
+ */
+const WORKSPACE_BY_PACKAGE_NAME = new Map(
+  WORKSPACE_DIRECTORIES.map((directory) => [
+    JSON.parse(NodeFS.readFileSync(NodePath.join(ROOT, directory, "package.json"), "utf8")).name,
+    directory,
+  ]),
+);
+
+/** The short name a boundary rule uses for a workspace: the directory's basename. */
+const shortNameOf = (workspaceDirectory) => NodePath.basename(workspaceDirectory);
+
+/**
+ * What a specifier resolves to, seen from `file` inside `workspaceDirectory`.
+ *
+ * `{ kind: "workspace" }` names another workspace package, however it was
+ * spelled. `{ kind: "escape" }` is a relative path that leaves the workspace
+ * directory. Anything else — a node_modules package, a path inside the same
+ * workspace — is not a boundary question and comes back `null`.
+ */
+const classifySpecifier = (specifier, file, workspaceDirectory) => {
+  if (specifier.startsWith(".")) {
+    const resolved = NodePath.posix.normalize(
+      NodePath.posix.join(NodePath.posix.dirname(file), specifier),
+    );
+    if (resolved === workspaceDirectory || resolved.startsWith(`${workspaceDirectory}/`)) {
+      return null;
+    }
+    const landing = WORKSPACE_DIRECTORIES.find(
+      (directory) => resolved === directory || resolved.startsWith(`${directory}/`),
+    );
+    return { kind: "escape", resolved, landing: landing ?? null };
+  }
+  const packageName = specifier.startsWith("@")
+    ? specifier.split("/").slice(0, 2).join("/")
+    : specifier.split("/")[0];
+  const directory = WORKSPACE_BY_PACKAGE_NAME.get(packageName);
+  return directory === undefined
+    ? null
+    : { kind: "workspace", packageName, target: shortNameOf(directory) };
+};
+
 const lineOf = (source, index) => source.slice(0, index).split("\n").length;
 
 const violations = [];
@@ -133,8 +189,8 @@ const report = (file, line, message) => {
 
 // ---------------------------------------------------------------- boundaries
 
-for (const workspaceDirectory of [...listDirectories("apps"), ...listDirectories("packages")]) {
-  const ownName = NodePath.basename(workspaceDirectory);
+for (const workspaceDirectory of WORKSPACE_DIRECTORIES) {
+  const ownName = shortNameOf(workspaceDirectory);
   const allowed = allowlistFor(workspaceDirectory);
 
   for (const file of walkSourceFiles(workspaceDirectory)) {
@@ -143,22 +199,31 @@ for (const workspaceDirectory of [...listDirectories("apps"), ...listDirectories
     let match = IMPORT_PATTERN.exec(source);
     while (match !== null) {
       const specifier = match[1] ?? match[2];
-      const scoped = /^@OpenAde\/([^/]+)/.exec(specifier);
-      if (scoped !== null) {
-        const target = scoped[1];
+      const resolution = classifySpecifier(specifier, file, workspaceDirectory);
+      if (resolution !== null) {
         const line = lineOf(source, match.index);
-        if (target !== ownName) {
+        if (resolution.kind === "escape") {
+          report(
+            file,
+            line,
+            resolution.landing === null
+              ? `${specifier} climbs out of ${workspaceDirectory}; a package only imports its own files by path`
+              : `${specifier} reaches into ${resolution.landing} by path; import ${shortNameOf(
+                  resolution.landing,
+                )} by its package name so the boundary rule applies`,
+          );
+        } else if (resolution.target !== ownName) {
           if (allowed === undefined) {
             report(
               file,
               line,
               `${workspaceDirectory} has no boundary rule; add one to scripts/check-boundaries.mjs before importing ${specifier}`,
             );
-          } else if (!allowed.includes(target)) {
+          } else if (!allowed.includes(resolution.target)) {
             report(
               file,
               line,
-              `${workspaceDirectory} may not import @OpenAde/${target} (allowed: ${
+              `${workspaceDirectory} may not import ${resolution.packageName} (allowed: ${
                 allowed.length === 0 ? "none" : allowed.join(", ")
               })`,
             );
