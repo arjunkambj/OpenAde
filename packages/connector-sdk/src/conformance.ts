@@ -13,6 +13,12 @@
  *  4. Nothing about the work is emitted after `close`.
  *  5. `close` proves the process tree is gone.
  *
+ * A sixth case rides along: every event the connector did emit is encoded back
+ * through the `RuntimeEvent` schema, so a payload that only looks right fails
+ * here rather than at the transport. It proves nothing about coverage of the
+ * vocabulary — a connector that emits three event types passes it — and its
+ * name says so.
+ *
  * The suite drives the real definition — `createInstance`, `startSession`,
  * `send`, `close` — and never inspects anything a connector did not put on the
  * event stream. `isProcessGone` is the one hook it needs from outside, because
@@ -108,7 +114,7 @@ export const runConnectorConformance = <Config>(
       }),
     );
 
-    it.effect("emits every event in the runtime vocabulary", () =>
+    it.effect("encodes every event it emits back onto the wire", () =>
       Effect.gen(function* () {
         const { handle, collector } = yield* open;
 
@@ -116,7 +122,7 @@ export const runConnectorConformance = <Config>(
         yield* collector.awaitItem(isCompletion);
         const events = yield* collector.collected;
 
-        expect(events.length).toBeGreaterThan(0);
+        // `awaitItem` above already guarantees at least the completion.
         yield* Effect.forEach(events, (event) => validateEvent(event));
 
         yield* handle.close();
