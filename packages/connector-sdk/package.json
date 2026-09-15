@@ -4,9 +4,13 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./meta": {
-      "types": "./src/meta.ts",
-      "import": "./src/meta.ts"
+    "./definition": {
+      "types": "./src/definition.ts",
+      "import": "./src/definition.ts"
+    },
+    "./sessionHandle": {
+      "types": "./src/sessionHandle.ts",
+      "import": "./src/sessionHandle.ts"
     }
   },
   "scripts": {

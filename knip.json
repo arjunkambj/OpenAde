@@ -62,7 +62,7 @@
       "ignoreDependencies": ["@OpenAde/connector-sdk", "@OpenAde/contracts", "@OpenAde/shared"]
     },
     "packages/connector-sdk": {
-      "ignoreDependencies": ["@OpenAde/contracts", "@OpenAde/shared"]
+      "ignoreDependencies": ["@OpenAde/shared"]
     },
     "packages/testkit": {
       "ignoreDependencies": ["@OpenAde/connector-sdk", "@OpenAde/contracts", "@OpenAde/shared"]
