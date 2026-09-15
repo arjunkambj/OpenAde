@@ -2,7 +2,14 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as RpcSchema from "effect/unstable/rpc/RpcSchema";
 
-import { OpenAdeRpcGroup, PROTOCOL_VERSION, RPC_METHODS } from "./rpc";
+import {
+  OpenAdeRpcGroup,
+  PROTOCOL_VERSION,
+  RPC_METHODS,
+  STREAM_BUDGET_BYTES,
+  STREAM_BUDGET_ITEMS,
+  STREAM_COALESCE_MS,
+} from "./rpc";
 
 const STREAMING_METHODS = [
   RPC_METHODS.threadsSubscribe,
@@ -49,6 +56,19 @@ describe("PROTOCOL_VERSION", () => {
       const version = yield* Effect.succeed(PROTOCOL_VERSION);
       expect(Number.isInteger(version)).toBe(true);
       expect(version).toBeGreaterThan(0);
+    }),
+  );
+});
+
+describe("the stream budget", () => {
+  it.effect("is the one the spec names, so server and client cannot drift", () =>
+    Effect.gen(function* () {
+      const budget = yield* Effect.succeed({
+        items: STREAM_BUDGET_ITEMS,
+        bytes: STREAM_BUDGET_BYTES,
+        coalesceMs: STREAM_COALESCE_MS,
+      });
+      expect(budget).toEqual({ items: 1000, bytes: 8_388_608, coalesceMs: 50 });
     }),
   );
 });

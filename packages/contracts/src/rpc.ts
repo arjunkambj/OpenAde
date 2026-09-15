@@ -61,6 +61,25 @@ export type ServerHello = typeof ServerHello.Type;
 export const PROTOCOL_VERSION = 1;
 
 /**
+ * The server-side budget on every stream RPC (spec section 6).
+ *
+ * A subscription that exceeds either limit fails with `resnapshot-required`
+ * rather than growing a backlog the client will never catch up with. The
+ * numbers live here because both ends have to agree on them: the server
+ * enforces them, the client's resubscribe logic expects them, and the
+ * transfer-budget test asserts against them.
+ */
+export const STREAM_BUDGET_ITEMS = 1000;
+export const STREAM_BUDGET_BYTES = 8 * 1024 * 1024;
+
+/**
+ * How long the server holds events back before flushing them as one frame.
+ * Coalescing is what keeps a fast connector from turning every token into a
+ * WebSocket message.
+ */
+export const STREAM_COALESCE_MS = 50;
+
+/**
  * One entry in the model picker. `efforts` is the ladder this specific model
  * accepts, which is why `Effort` is a superset rather than a promise, and
  * `family` is the group header the connector's model list came under.
