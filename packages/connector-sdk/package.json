@@ -4,13 +4,25 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./conformance": {
+      "types": "./src/conformance.ts",
+      "import": "./src/conformance.ts"
+    },
     "./definition": {
       "types": "./src/definition.ts",
       "import": "./src/definition.ts"
     },
+    "./registry": {
+      "types": "./src/registry.ts",
+      "import": "./src/registry.ts"
+    },
     "./sessionHandle": {
       "types": "./src/sessionHandle.ts",
       "import": "./src/sessionHandle.ts"
+    },
+    "./streamCollector": {
+      "types": "./src/streamCollector.ts",
+      "import": "./src/streamCollector.ts"
     },
     "./turnScopedHandle": {
       "types": "./src/turnScopedHandle.ts",
@@ -23,7 +35,6 @@
   },
   "dependencies": {
     "@OpenAde/contracts": "workspace:*",
-    "@OpenAde/shared": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {
