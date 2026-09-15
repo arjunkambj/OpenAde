@@ -347,9 +347,6 @@ importers:
       '@OpenAde/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@effect/vitest':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.11(@types/node@26.5.1)(vite@8.3.0(@types/node@26.5.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.1)))
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.112
@@ -357,6 +354,9 @@ importers:
       '@OpenAde/config':
         specifier: workspace:*
         version: link:../config
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.11(@types/node@26.5.1)(vite@8.3.0(@types/node@26.5.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.1)))
       '@types/node':
         specifier: 'catalog:'
         version: 26.5.1

@@ -35,11 +35,19 @@
   },
   "dependencies": {
     "@OpenAde/contracts": "workspace:*",
-    "@effect/vitest": "catalog:",
     "effect": "catalog:"
+  },
+  "peerDependencies": {
+    "@effect/vitest": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "@effect/vitest": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@OpenAde/config": "workspace:*",
+    "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
