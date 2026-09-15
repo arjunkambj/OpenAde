@@ -3,6 +3,10 @@ node_modules
 .pnp
 .pnp.js
 plans
+docs/*
+!docs/decisions/
+!docs/specs/
+.claude/worktrees/
 
 # Build outputs
 dist

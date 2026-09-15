@@ -1,14 +1,14 @@
 # 00 · Plan adaptation for this repository
 
-Applies to `docs/specs/mvp-build-spec.md` (v0.2, 2026-09-15). Every workstream reads this before the spec.
+Applies to `docs/specs/mvp-build-spec.md` (v0.2, 2026-09-15). Every workstream reads this, then `01-plan-review.md`, before the spec.
 
 ## Root and layout
 
 - The spec names `/Volumes/main/Code/ade/openade/` as the root. That path does not exist. The root is **this repository** (`OpenAde`).
 - Existing packages stay and are extended, never rebuilt: `apps/web` (React 19, TanStack Router, Tailwind 4), `apps/desktop` (Electron 44, esbuild scripts), `packages/ui` (shadcn/base-ui design system), `packages/config` (tsconfig base).
 - New packages follow the spec's section 4 exactly: `apps/server`, `packages/{contracts,connector-sdk,connector-cmd,client-runtime,shared,testkit}`.
-- Package scope is `@OpenAde/*` (matches `packages/ui`). Config dir is `~/.openade`. The renderer scheme stays `app://openade/` as already implemented in `apps/desktop`.
-- The spec's `docs/decisions/` lives at `docs/decisions/` in this repo.
+- Apps are unscoped (`web`, `desktop`, `server`). Packages are `@OpenAde/*` (matches `packages/ui`) and export TypeScript source, no build step (01 · D1). Config dir is `~/.openade`. The renderer scheme stays `app://openade/` as already implemented in `apps/desktop`.
+- The spec's `docs/decisions/` lives at `docs/decisions/` in this repo and is tracked; the rest of `docs/` is private and ignored.
 
 ## Renderer
 
@@ -21,20 +21,21 @@ Applies to `docs/specs/mvp-build-spec.md` (v0.2, 2026-09-15). Every workstream r
 | Layer | Spec | This repo |
 | --- | --- | --- |
 | pnpm | 10 | 11.21 (catalog + `allowBuilds` already in use) |
-| Node | 22.16+ | 25.9 on this machine; `engines` says `>=22.16` |
+| Node | 22.16+ | 25.9 on this machine; `engines` says `>=22.16`; Electron 44 bundles Node 24.20 with `node:sqlite` (verified) |
 | Vite | 7 | 8 |
 | TypeScript | – | 6 via catalog |
-| Electron | 44 | 44 |
+| Electron | 44 | 44.3 |
 | Effect | 4.0.0-rc.112 | 4.0.0-rc.112, pinned together with `@effect/atom-react`, `@effect/platform-node`, `@effect/vitest` |
-| Tests | vitest + @effect/vitest | vitest 4 + `@effect/vitest` rc.112 (t3code's `vite-plus` patch is not used) |
+| Tests | vitest + @effect/vitest | vitest 4.1.11 + `@effect/vitest` rc.112 (peer range `>=4.1 <5`; t3code's vite-plus patch is not used) |
 
 ## External binaries on this machine (2026-09-15)
 
-- `cmd` (command-code 1.54.0) is **not on PATH**. The connector probe searches config path, PATH, npm/pnpm/bun global bins and falls back to `npx -y command-code@1.54.0`. Account credits are unknown; W2 builds on `FakeCmdProcess` and the frames captured in spec section 5. Live smoke is opt-in via `OPENADE_LIVE_CMD=1`.
+- `cmd` (command-code 1.54.0) is **not on PATH** but runs through `npx -y command-code@1.54.0`, and `cmd status --json` reports authenticated. The connector probe searches config path, PATH, npm/pnpm/bun global bins and falls back to `npx -y command-code@1.54.0`. Credits are unknown: W2's first task is one minimal live turn; exit code 10 means fixtures come from the frames in spec section 5 and `FakeCmdProcess`. Live smoke is opt-in via `OPENADE_LIVE_CMD=1`.
 - `agent-browser` is **not installed**. W6 uses `npx -y agent-browser@0.37.1` for the spike and adds an install prompt.
 - Reference repos exist read-only at `/Volumes/main/Code/ade/{t3code,zuse,synara,opencodex}`; every file the spec cites was verified present. t3code and synara are MIT, zuse is AGPL (read only), Command Code is UNLICENSED (spawn only).
 
 ## Process
 
-- One git branch per workstream: `feat/w0-foundation`, `feat/w1-orchestration`, … Each workstream commits feature by feature with plain messages. No AI attribution trailers of any kind.
-- Merge order: W0 first; then W1, W2, W3, W7, W8 in parallel; then W4, W5, W6, W9; then integration.
+- One git branch per workstream: `feat/w0-foundation`, `feat/w1-orchestration`, … in a worktree under `.claude/worktrees/<name>`. Each workstream commits feature by feature with plain messages. No AI attribution trailers of any kind.
+- Waves and merge order are in `01-plan-review.md` D8: W0; then W1, W2, W3, W7, W8; then W4, W5, W6, W9; then W10 integration.
+- `pnpm check` passing in the workstream's own worktree is the precondition for review; review precedes merge.
