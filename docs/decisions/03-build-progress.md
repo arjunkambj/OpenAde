@@ -124,9 +124,8 @@ review, rebase it onto `main` and fast-forward merge; run `pnpm install
 --frozen-lockfile && pnpm check` on `main` afterwards. Delete the worktree and
 update the table above.
 
-The `.claude/worktrees/w0` worktree (branch `feat/w0-foundation`, fully merged)
-can be removed with `git worktree remove .claude/worktrees/w0` and
-`git branch -d feat/w0-foundation`.
+The W0 worktree and the `feat/w0-foundation` branch were removed after the merge;
+main carries every W0 commit. Nothing has been pushed to `origin` yet.
 
 ### Wave 1 briefs
 
