@@ -20,7 +20,14 @@ import * as NodeURL from "node:url";
 
 const ROOT = NodePath.resolve(NodeURL.fileURLToPath(new URL("..", import.meta.url)));
 
-/** Workspace package short names each workspace directory may import. */
+/**
+ * Workspace package short names each workspace directory may import.
+ *
+ * Spec section 4 writes the renderer rule as "web imports only contracts,
+ * client-runtime, shared". `ui` is added because the pre-existing design system
+ * stays and apps/web renders through it (00-plan-adaptation, "Root and layout";
+ * 02-w0-contract-notes, N4). This list is the enforced rule.
+ */
 const IMPORT_ALLOWLIST = new Map([
   ["apps/web", ["ui", "contracts", "client-runtime", "shared"]],
   ["apps/desktop", ["contracts", "shared"]],
@@ -57,9 +64,15 @@ const SKIPPED_DIRECTORIES = new Set([
   "coverage",
 ]);
 
-/** Matches `from "x"`, bare `import "x"`, `import("x")` and `require("x")`. */
+/**
+ * Matches `from "x"`, bare `import "x"`, `import("x")` and `require("x")`.
+ *
+ * Backticks count: `import(\`@OpenAde/${name}/ids\`)` is still a boundary
+ * crossing, and a template literal whose package segment is static is exactly
+ * how one would be written to slip past a quote-only pattern.
+ */
 const IMPORT_PATTERN =
-  /(?:\bfrom\s*|\bimport\s*|\brequire\s*\(\s*|\bimport\s*\(\s*)["']([^"']+)["']/g;
+  /(?:\bfrom\s*|\bimport\s*|\brequire\s*\(\s*|\bimport\s*\(\s*)(?:["']([^"']+)["']|`([^`]+)`)/g;
 
 const listDirectories = (parent) => {
   const full = NodePath.join(ROOT, parent);
@@ -129,7 +142,7 @@ for (const workspaceDirectory of [...listDirectories("apps"), ...listDirectories
     IMPORT_PATTERN.lastIndex = 0;
     let match = IMPORT_PATTERN.exec(source);
     while (match !== null) {
-      const specifier = match[1];
+      const specifier = match[1] ?? match[2];
       const scoped = /^@OpenAde\/([^/]+)/.exec(specifier);
       if (scoped !== null) {
         const target = scoped[1];

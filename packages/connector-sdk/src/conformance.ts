@@ -54,10 +54,19 @@ export interface ConnectorConformanceOptions<Config> {
 
 const isCompletion = (event: RuntimeEvent): boolean => event.type === "turn.completed";
 
+/**
+ * Anything that is the session already working. Opening an approval or starting
+ * a turn counts: a connector that asks for permission, or announces a turn,
+ * before it has said which session it is has already broken the promise, and a
+ * check that looked only at items and deltas let both through.
+ */
 const isWorkEvent = (event: RuntimeEvent): boolean =>
   event.type.startsWith("item.") ||
   event.type.startsWith("task.") ||
-  event.type === "content.delta";
+  event.type === "content.delta" ||
+  event.type === "request.opened" ||
+  event.type === "user-input.requested" ||
+  event.type === "turn.started";
 
 const completionTurnId = (event: RuntimeEvent): string | null =>
   event.type === "turn.completed" ? event.payload.turnId : null;
