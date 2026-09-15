@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 
 export function SidebarUser({ onNavigate }: { onNavigate?: () => void }) {
   return (
-    <SidebarFooter className="p-2">
+    <SidebarFooter>
       <div className="flex h-9 items-center gap-1.5">
         <span className="ml-0.5 grid size-[26px] shrink-0 place-items-center rounded-full bg-hover text-muted-foreground">
           <Icon icon="hugeicons:user-circle" className="size-5" />

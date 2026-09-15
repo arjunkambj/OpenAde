@@ -43,9 +43,9 @@ export function SidebarProjects() {
   const [selectedTask, setSelectedTask] = React.useState("auth");
 
   return (
-    <SidebarGroup className="min-h-0 flex-1 px-2 pt-6">
+    <SidebarGroup padding="section" className="min-h-0 flex-1">
       <div className="flex h-8 items-center gap-1">
-        <SidebarGroupLabel className="h-auto flex-1 px-2">Projects</SidebarGroupLabel>
+        <SidebarGroupLabel className="h-auto flex-1">Projects</SidebarGroupLabel>
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
@@ -72,7 +72,7 @@ export function SidebarProjects() {
         <div className="grid min-w-0 gap-0.5">
           {projects.map((project) => (
             <React.Fragment key={project.id}>
-              <div className="flex h-8 items-center gap-2.5 rounded-lg px-2 text-sm text-sidebar-foreground transition-[background-color,color] duration-150 ease-out">
+              <div className="flex h-8 items-center gap-2.5 rounded-lg px-2 text-sm text-sidebar-foreground transition-colors duration-150 ease-out">
                 <Icon
                   icon="hugeicons:folder-01"
                   className="size-4 shrink-0 text-muted-foreground"
@@ -86,7 +86,7 @@ export function SidebarProjects() {
                       type="button"
                       aria-current={selectedTask === task.id ? "page" : undefined}
                       className={cn(
-                        "flex h-8 min-w-0 items-center gap-2 rounded-lg py-1.5 pr-2 pl-[34px] text-left text-[13px] text-sidebar-foreground outline-none transition-[background-color,color] duration-150 ease-out hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                        "flex h-8 min-w-0 items-center gap-2 rounded-lg py-1.5 pr-2 pl-8.5 text-left type-body text-sidebar-foreground outline-none transition-colors duration-150 ease-out hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
                         selectedTask === task.id &&
                           "bg-sidebar-accent text-sidebar-accent-foreground",
                       )}

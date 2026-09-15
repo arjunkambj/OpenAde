@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { Button } from "@OpenAde/ui/components/button";
 import { useSidebar } from "@OpenAde/ui/components/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
@@ -9,7 +11,9 @@ import { cn } from "@/lib/utils";
 
 const chromeRowClass = "app-region-drag flex h-[var(--chrome-height)] shrink-0 items-center";
 
-const noDragClass = "app-region-no-drag";
+function NoDrag({ children, className }: { children: ReactNode; className?: string }) {
+  return <span className={cn("app-region-no-drag inline-flex", className)}>{children}</span>;
+}
 
 function TrafficLightsGap({ className }: { className?: string }) {
   return (
@@ -20,7 +24,7 @@ function TrafficLightsGap({ className }: { className?: string }) {
   );
 }
 
-function ChromeSidebarTrigger({ className }: { className?: string }) {
+function ChromeSidebarTrigger() {
   const { toggleSidebar } = useSidebar();
 
   return (
@@ -32,7 +36,6 @@ function ChromeSidebarTrigger({ className }: { className?: string }) {
             data-slot="sidebar-trigger"
             variant="ghost"
             size="icon-sm"
-            className={className}
             onClick={() => toggleSidebar()}
           />
         }
@@ -56,14 +59,7 @@ function ChromeHistoryButton({
   icon: "hugeicons:arrow-left-01" | "hugeicons:arrow-right-01";
 }) {
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon-sm"
-      className={cn(noDragClass, "text-sidebar-foreground")}
-      aria-label={label}
-      disabled
-    >
+    <Button type="button" variant="ghost" tone="subtle" size="icon-sm" aria-label={label} disabled>
       <Icon icon={icon} className="scale-90" />
     </Button>
   );
@@ -72,10 +68,18 @@ function ChromeHistoryButton({
 function ChromeActions({ className }: { className?: string }) {
   return (
     <div className={cn("flex min-w-0 flex-1 items-center gap-0.5", className)}>
-      <ChromeSidebarTrigger className={noDragClass} />
-      <SearchTrigger className={cn(noDragClass, "ml-auto")} />
-      <ChromeHistoryButton label="Go back" icon="hugeicons:arrow-left-01" />
-      <ChromeHistoryButton label="Go forward" icon="hugeicons:arrow-right-01" />
+      <NoDrag>
+        <ChromeSidebarTrigger />
+      </NoDrag>
+      <NoDrag className="ml-auto">
+        <SearchTrigger />
+      </NoDrag>
+      <NoDrag>
+        <ChromeHistoryButton label="Go back" icon="hugeicons:arrow-left-01" />
+      </NoDrag>
+      <NoDrag>
+        <ChromeHistoryButton label="Go forward" icon="hugeicons:arrow-right-01" />
+      </NoDrag>
     </div>
   );
 }

@@ -32,24 +32,26 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="gap-0 p-0">
+      <SidebarHeader padding="none">
         <SidebarWindowChrome />
-        <SidebarMenu className="px-2 pt-2.5">
-          {navItems.map((item) => (
-            <SidebarMenuItem key={item.to}>
-              <SidebarMenuButton
-                render={<Link to={item.to} />}
-                isActive={Boolean(matchRoute({ to: item.to, fuzzy: false }))}
-                onClick={closeMobile}
-              >
-                <Icon icon={item.icon} />
-                {item.label}
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
+        <div className="px-2 pt-2.5">
+          <SidebarMenu>
+            {navItems.map((item) => (
+              <SidebarMenuItem key={item.to}>
+                <SidebarMenuButton
+                  render={<Link to={item.to} />}
+                  isActive={Boolean(matchRoute({ to: item.to, fuzzy: false }))}
+                  onClick={closeMobile}
+                >
+                  <Icon icon={item.icon} />
+                  {item.label}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </div>
       </SidebarHeader>
-      <SidebarContent className="gap-0 overflow-hidden">
+      <SidebarContent gap="none" className="overflow-hidden">
         <SidebarProjects />
       </SidebarContent>
       <SidebarUser onNavigate={closeMobile} />

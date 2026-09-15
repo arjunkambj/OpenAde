@@ -22,21 +22,23 @@ export function SettingsSidebar() {
   const isUses = Boolean(matchRoute({ to: "/settings/uses", fuzzy: false }));
 
   return (
-    <Sidebar collapsible="none" className="h-svh border-r">
-      <SidebarHeader className="gap-0 p-0">
+    <Sidebar collapsible="none" variant="bordered" className="h-svh">
+      <SidebarHeader padding="none">
         <SettingsWindowChrome />
-        <SidebarMenu className="px-2 pt-1 pb-2">
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={() => {
-                void navigate({ to: "/" });
-              }}
-            >
-              <Icon icon="hugeicons:arrow-left-01" />
-              Back to chat
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <div className="px-2 pt-1 pb-2">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={() => {
+                  void navigate({ to: "/" });
+                }}
+              >
+                <Icon icon="hugeicons:arrow-left-01" />
+                Back to chat
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
