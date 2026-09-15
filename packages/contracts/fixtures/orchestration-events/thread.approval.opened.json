@@ -1,0 +1,24 @@
+{
+  "sequence": 16,
+  "eventId": "0199c0de-0006-7000-8000-000000000116",
+  "streamKind": "thread",
+  "streamId": "0199c0de-0002-7000-8000-000000000001",
+  "streamVersion": 14,
+  "occurredAt": "2026-09-15T12:00:16.000Z",
+  "commandId": "0199c0de-0008-7000-8000-000000000001",
+  "actor": "system",
+  "type": "thread.approval.opened",
+  "payload": {
+    "request": {
+      "requestId": "0199c0de-0007-7000-8000-000000000001",
+      "kind": "command",
+      "toolName": "shell_command",
+      "input": {
+        "command": "pnpm build",
+        "description": "Build the workspace"
+      },
+      "patternSuggestion": "Shell(pnpm build)",
+      "description": "Run `pnpm build` in /Users/dev/projects/openade"
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "sequence": 23,
+  "eventId": "0199c0de-0006-7000-8000-000000000123",
+  "streamKind": "thread",
+  "streamId": "0199c0de-0002-7000-8000-000000000001",
+  "streamVersion": 21,
+  "occurredAt": "2026-09-15T12:00:23.000Z",
+  "commandId": "0199c0de-0008-7000-8000-000000000001",
+  "actor": "system",
+  "type": "thread.usage.updated",
+  "payload": {
+    "turnId": "0199c0de-0004-7000-8000-000000000001",
+    "usage": {
+      "input": 18240,
+      "output": 1320,
+      "cacheRead": 16000,
+      "cacheWrite": 2240,
+      "costUsd": 0.042
+    }
+  }
+}

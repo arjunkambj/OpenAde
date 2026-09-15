@@ -1,0 +1,14 @@
+{
+  "commandId": "0199c0de-0008-7000-8000-000000000011",
+  "createdAt": "2026-09-15T12:00:00.000Z",
+  "type": "thread.userInput.respond",
+  "threadId": "0199c0de-0002-7000-8000-000000000001",
+  "requestId": "0199c0de-0007-7000-8000-000000000001",
+  "answers": [
+    {
+      "questionId": "q1",
+      "optionIds": ["server"],
+      "text": "Beside the router."
+    }
+  ]
+}

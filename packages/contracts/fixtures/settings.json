@@ -1,0 +1,58 @@
+{
+  "connectors": [
+    {
+      "connectorInstanceId": "0199c0de-0003-7000-8000-000000000001",
+      "kind": "cmd",
+      "displayName": "Command Code",
+      "enabled": true,
+      "config": {
+        "binaryPath": "/Users/dev/.local/bin/cmd",
+        "defaultModel": "stealth/ox-alpha"
+      }
+    }
+  ],
+  "defaults": {
+    "model": "stealth/ox-alpha",
+    "effort": "medium",
+    "runtimeMode": "approval-required"
+  },
+  "theme": "system",
+  "keybindings": [
+    {
+      "command": "thread.new",
+      "shortcut": "Cmd+N"
+    },
+    {
+      "command": "commandPalette.toggle",
+      "shortcut": "Cmd+K"
+    },
+    {
+      "command": "composer.queue",
+      "shortcut": "Cmd+Enter"
+    },
+    {
+      "command": "thread.interrupt",
+      "shortcut": "Escape"
+    },
+    {
+      "command": "browserPane.toggle",
+      "shortcut": "Cmd+Shift+B",
+      "when": "browserPaneAvailable"
+    }
+  ],
+  "permissions": [
+    {
+      "scope": "global",
+      "pattern": "Shell(pnpm build)",
+      "decision": "allow",
+      "createdAt": "2026-09-15T12:00:00.000Z"
+    },
+    {
+      "scope": "project",
+      "projectId": "0199c0de-0001-7000-8000-000000000001",
+      "pattern": "Edit(.env*)",
+      "decision": "deny",
+      "createdAt": "2026-09-15T12:00:00.000Z"
+    }
+  ]
+}

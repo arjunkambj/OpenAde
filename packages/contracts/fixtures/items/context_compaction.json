@@ -1,0 +1,6 @@
+{
+  "itemId": "0199c0de-0005-7000-8000-000000000013",
+  "kind": "context_compaction",
+  "status": "completed",
+  "text": "Compacted 120k tokens of history into a summary."
+}

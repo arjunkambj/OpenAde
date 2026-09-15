@@ -1,0 +1,33 @@
+{
+  "sequence": 18,
+  "eventId": "0199c0de-0006-7000-8000-000000000118",
+  "streamKind": "thread",
+  "streamId": "0199c0de-0002-7000-8000-000000000001",
+  "streamVersion": 16,
+  "occurredAt": "2026-09-15T12:00:18.000Z",
+  "commandId": "0199c0de-0008-7000-8000-000000000001",
+  "actor": "system",
+  "type": "thread.userInput.requested",
+  "payload": {
+    "requestId": "0199c0de-0007-7000-8000-000000000001",
+    "questions": [
+      {
+        "questionId": "q1",
+        "question": "Which package should the health check live in?",
+        "header": "Placement",
+        "options": [
+          {
+            "optionId": "server",
+            "label": "apps/server",
+            "description": "Beside the existing router"
+          },
+          {
+            "optionId": "shared",
+            "label": "packages/shared"
+          }
+        ],
+        "multiSelect": false
+      }
+    ]
+  }
+}

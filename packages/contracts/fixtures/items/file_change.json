@@ -1,0 +1,10 @@
+{
+  "itemId": "0199c0de-0005-7000-8000-000000000006",
+  "kind": "file_change",
+  "status": "completed",
+  "fileChange": {
+    "path": "apps/server/src/http/health.ts",
+    "kind": "create",
+    "diff": "--- /dev/null\n+++ b/apps/server/src/http/health.ts\n@@\n+export const health = () => ({ ok: true });\n"
+  }
+}

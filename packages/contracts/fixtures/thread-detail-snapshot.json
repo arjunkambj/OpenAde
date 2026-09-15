@@ -1,0 +1,259 @@
+{
+  "threadId": "0199c0de-0002-7000-8000-000000000001",
+  "projectId": "0199c0de-0001-7000-8000-000000000001",
+  "title": "Health check endpoint",
+  "status": "idle",
+  "settings": {
+    "model": "stealth/ox-alpha",
+    "effort": "medium",
+    "runtimeMode": "approval-required",
+    "interactionMode": "default"
+  },
+  "snapshotSequence": 24,
+  "items": [
+    {
+      "itemId": "0199c0de-0005-7000-8000-000000000001",
+      "kind": "user_message",
+      "status": "completed",
+      "text": "Add a health check endpoint and wire it into the smoke test."
+    },
+    {
+      "itemId": "0199c0de-0005-7000-8000-000000000002",
+      "kind": "assistant_message",
+      "status": "completed",
+      "text": "I added `GET /healthz` and pointed the smoke test at it."
+    },
+    {
+      "itemId": "0199c0de-0005-7000-8000-000000000003",
+      "kind": "reasoning",
+      "status": "completed",
+      "text": "The router already mounts /api, so the check belongs beside it."
+    },
+    {
+      "itemId": "0199c0de-0005-7000-8000-000000000004",
+      "kind": "plan",
+      "status": "completed",
+      "plan": {
+        "markdown": "## Plan\n\n1. Add the route\n2. Return the build sha\n3. Cover it in the smoke test\n"
+      }
+    },
+    {
+      "itemId": "0199c0de-0005-7000-8000-000000000005",
+      "kind": "command_execution",
+      "status": "completed",
+      "command": {
+        "cmd": "pnpm vitest run apps/server",
+        "cwd": "/Users/dev/projects/openade",
+        "exitCode": 0,
+        "output": "Test Files  4 passed (4)\n      Tests  18 passed (18)\n"
+      }
+    },
+    {
+      "itemId": "0199c0de-0005-7000-8000-000000000006",
+      "kind": "file_change",
+      "status": "completed",
+      "fileChange": {
+        "path": "apps/server/src/http/health.ts",
+        "kind": "create",
+        "diff": "--- /dev/null\n+++ b/apps/server/src/http/health.ts\n@@\n+export const health = () => ({ ok: true });\n"
+      }
+    },
+    {
+      "itemId": "0199c0de-0005-7000-8000-000000000007",
+      "kind": "tool_call",
+      "status": "completed",
+      "tool": {
+        "name": "read_file",
+        "input": {
+          "file_path": "apps/server/src/http/router.ts"
+        },
+        "output": {
+          "lines": 42
+        }
+      }
+    },
+    {
+      "itemId": "0199c0de-0005-7000-8000-000000000008",
+      "kind": "mcp_tool_call",
+      "status": "completed",
+      "tool": {
+        "name": "browser__snapshot",
+        "server": "openade",
+        "input": {
+          "threadId": "0199c0de-0002-7000-8000-000000000001"
+        },
+        "output": {
+          "refs": ["@e1", "@e2"]
+        }
+      }
+    },
+    {
+      "itemId": "0199c0de-0005-7000-8000-000000000009",
+      "kind": "web_search",
+      "status": "completed",
+      "tool": {
+        "name": "web_search",
+        "input": {
+          "query": "http health check conventions"
+        },
+        "output": {
+          "results": 3
+        }
+      },
+      "text": "Looked up conventions for health endpoints."
+    },
+    {
+      "itemId": "0199c0de-0005-7000-8000-000000000010",
+      "kind": "task",
+      "status": "in_progress",
+      "text": "Audit the router for unmounted handlers",
+      "tool": {
+        "name": "agent",
+        "input": {
+          "subagent_type": "explore",
+          "prompt": "List every handler the router does not mount."
+        }
+      }
+    },
+    {
+      "itemId": "0199c0de-0005-7000-8000-000000000011",
+      "kind": "todo",
+      "status": "in_progress",
+      "todos": [
+        {
+          "todoId": "1",
+          "text": "Add the route",
+          "status": "completed"
+        },
+        {
+          "todoId": "2",
+          "text": "Return the build sha",
+          "status": "in_progress"
+        },
+        {
+          "todoId": "3",
+          "text": "Cover it in the smoke test",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "itemId": "0199c0de-0005-7000-8000-000000000012",
+      "kind": "skill",
+      "status": "completed",
+      "text": "release-checklist",
+      "tool": {
+        "name": "activate_skill",
+        "input": {
+          "name": "release-checklist"
+        }
+      }
+    },
+    {
+      "itemId": "0199c0de-0005-7000-8000-000000000013",
+      "kind": "context_compaction",
+      "status": "completed",
+      "text": "Compacted 120k tokens of history into a summary."
+    },
+    {
+      "itemId": "0199c0de-0005-7000-8000-000000000014",
+      "kind": "error",
+      "status": "failed",
+      "error": {
+        "message": "shell_command exited with 127: pnpm: command not found"
+      }
+    },
+    {
+      "itemId": "0199c0de-0005-7000-8000-000000000015",
+      "kind": "unknown",
+      "status": "completed",
+      "text": "A frame this build does not model yet."
+    },
+    {
+      "itemId": "0199c0de-0005-7000-8000-000000000016",
+      "kind": "user_message",
+      "status": "completed",
+      "text": "Also add a /readyz that waits for the database."
+    },
+    {
+      "itemId": "0199c0de-0005-7000-8000-000000000017",
+      "kind": "reasoning",
+      "status": "completed",
+      "text": "Readiness needs the pool, liveness does not."
+    },
+    {
+      "itemId": "0199c0de-0005-7000-8000-000000000018",
+      "kind": "tool_call",
+      "status": "completed",
+      "parentItemId": "0199c0de-0005-7000-8000-000000000010",
+      "tool": {
+        "name": "grep",
+        "input": {
+          "pattern": "router.mount",
+          "output_mode": "content"
+        },
+        "output": {
+          "matches": 2
+        }
+      }
+    },
+    {
+      "itemId": "0199c0de-0005-7000-8000-000000000019",
+      "kind": "file_change",
+      "status": "completed",
+      "fileChange": {
+        "path": "apps/server/src/http/router.ts",
+        "kind": "edit",
+        "diff": "--- a/apps/server/src/http/router.ts\n+++ b/apps/server/src/http/router.ts\n@@\n+  .get(\"/healthz\", health)\n"
+      }
+    },
+    {
+      "itemId": "0199c0de-0005-7000-8000-000000000020",
+      "kind": "assistant_message",
+      "status": "completed",
+      "text": "Both endpoints are live and the smoke test covers them."
+    }
+  ],
+  "queue": [
+    {
+      "queuedMessageId": "0199c0de-0010-7000-8000-000000000001",
+      "text": "Also add a /readyz that waits for the database.",
+      "attachments": [],
+      "mentions": [],
+      "queuedAt": "2026-09-15T12:00:00.000Z"
+    }
+  ],
+  "checkpoints": [
+    {
+      "checkpointId": "0199c0de-0009-7000-8000-000000000001",
+      "turnId": "0199c0de-0004-7000-8000-000000000001",
+      "ref": "refs/openade/checkpoints/0199c0de-0002-7000-8000-000000000001/0199c0de-0004-7000-8000-000000000001",
+      "createdAt": "2026-09-15T12:00:00.000Z"
+    }
+  ],
+  "session": {
+    "connectorInstanceId": "0199c0de-0003-7000-8000-000000000001",
+    "connectorKind": "cmd",
+    "sessionRef": {
+      "sessionId": "5bc08bab-1c4e-4c2f-9f2a-7a6f0b9c1d22",
+      "cwd": "/Users/dev/projects/openade"
+    }
+  },
+  "currentTurnId": null,
+  "pendingApproval": null,
+  "pendingUserInput": null,
+  "pendingPlan": null,
+  "usage": {
+    "input": 18240,
+    "output": 1320,
+    "cacheRead": 16000,
+    "cacheWrite": 2240,
+    "costUsd": 0.042
+  },
+  "context": {
+    "used": 19560,
+    "limit": 200000
+  },
+  "createdAt": "2026-09-15T12:00:00.000Z",
+  "updatedAt": "2026-09-15T12:04:00.000Z"
+}

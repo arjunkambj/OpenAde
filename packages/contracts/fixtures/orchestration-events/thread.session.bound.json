@@ -1,0 +1,19 @@
+{
+  "sequence": 7,
+  "eventId": "0199c0de-0006-7000-8000-000000000107",
+  "streamKind": "thread",
+  "streamId": "0199c0de-0002-7000-8000-000000000001",
+  "streamVersion": 5,
+  "occurredAt": "2026-09-15T12:00:07.000Z",
+  "commandId": "0199c0de-0008-7000-8000-000000000001",
+  "actor": "system",
+  "type": "thread.session.bound",
+  "payload": {
+    "connectorInstanceId": "0199c0de-0003-7000-8000-000000000001",
+    "connectorKind": "cmd",
+    "sessionRef": {
+      "sessionId": "5bc08bab-1c4e-4c2f-9f2a-7a6f0b9c1d22",
+      "cwd": "/Users/dev/projects/openade"
+    }
+  }
+}

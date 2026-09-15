@@ -1,0 +1,16 @@
+{
+  "sequence": 17,
+  "eventId": "0199c0de-0006-7000-8000-000000000117",
+  "streamKind": "thread",
+  "streamId": "0199c0de-0002-7000-8000-000000000001",
+  "streamVersion": 15,
+  "occurredAt": "2026-09-15T12:00:17.000Z",
+  "commandId": "0199c0de-0008-7000-8000-000000000001",
+  "actor": "system",
+  "type": "thread.approval.resolved",
+  "payload": {
+    "requestId": "0199c0de-0007-7000-8000-000000000001",
+    "decision": "allow-always",
+    "pattern": "Shell(pnpm build)"
+  }
+}

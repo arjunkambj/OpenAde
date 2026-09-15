@@ -1,0 +1,15 @@
+{
+  "sequence": 22,
+  "eventId": "0199c0de-0006-7000-8000-000000000122",
+  "streamKind": "thread",
+  "streamId": "0199c0de-0002-7000-8000-000000000001",
+  "streamVersion": 20,
+  "occurredAt": "2026-09-15T12:00:22.000Z",
+  "commandId": "0199c0de-0008-7000-8000-000000000001",
+  "actor": "system",
+  "type": "thread.settings.updated",
+  "payload": {
+    "model": "moonshotai/kimi-k3",
+    "effort": "high"
+  }
+}

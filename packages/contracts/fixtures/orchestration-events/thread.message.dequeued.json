@@ -1,0 +1,15 @@
+{
+  "sequence": 14,
+  "eventId": "0199c0de-0006-7000-8000-000000000114",
+  "streamKind": "thread",
+  "streamId": "0199c0de-0002-7000-8000-000000000001",
+  "streamVersion": 12,
+  "occurredAt": "2026-09-15T12:00:14.000Z",
+  "commandId": "0199c0de-0008-7000-8000-000000000001",
+  "actor": "system",
+  "type": "thread.message.dequeued",
+  "payload": {
+    "queuedMessageId": "0199c0de-0010-7000-8000-000000000001",
+    "turnId": "0199c0de-0004-7000-8000-000000000001"
+  }
+}

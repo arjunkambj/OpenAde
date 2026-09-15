@@ -1,0 +1,17 @@
+{
+  "sequence": 9,
+  "eventId": "0199c0de-0006-7000-8000-000000000109",
+  "streamKind": "thread",
+  "streamId": "0199c0de-0002-7000-8000-000000000001",
+  "streamVersion": 7,
+  "occurredAt": "2026-09-15T12:00:09.000Z",
+  "commandId": "0199c0de-0008-7000-8000-000000000001",
+  "actor": "system",
+  "type": "thread.turn.requested",
+  "payload": {
+    "turnId": "0199c0de-0004-7000-8000-000000000001",
+    "text": "Add a health check endpoint and wire it into the smoke test.",
+    "attachments": [],
+    "mentions": ["apps/server/src/http/router.ts"]
+  }
+}

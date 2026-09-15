@@ -1,0 +1,14 @@
+{
+  "sequence": 4,
+  "eventId": "0199c0de-0006-7000-8000-000000000104",
+  "streamKind": "thread",
+  "streamId": "0199c0de-0002-7000-8000-000000000001",
+  "streamVersion": 2,
+  "occurredAt": "2026-09-15T12:00:04.000Z",
+  "commandId": "0199c0de-0008-7000-8000-000000000001",
+  "actor": "system",
+  "type": "thread.renamed",
+  "payload": {
+    "title": "Health check endpoint and smoke test"
+  }
+}

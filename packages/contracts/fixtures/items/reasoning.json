@@ -1,0 +1,6 @@
+{
+  "itemId": "0199c0de-0005-7000-8000-000000000003",
+  "kind": "reasoning",
+  "status": "completed",
+  "text": "The router already mounts /api, so the check belongs beside it."
+}

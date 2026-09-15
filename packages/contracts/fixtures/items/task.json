@@ -1,0 +1,13 @@
+{
+  "itemId": "0199c0de-0005-7000-8000-000000000010",
+  "kind": "task",
+  "status": "in_progress",
+  "text": "Audit the router for unmounted handlers",
+  "tool": {
+    "name": "agent",
+    "input": {
+      "subagent_type": "explore",
+      "prompt": "List every handler the router does not mount."
+    }
+  }
+}

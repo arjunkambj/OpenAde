@@ -1,0 +1,13 @@
+{
+  "eventId": "0199c0de-0006-7000-8000-000000000006",
+  "connectorInstanceId": "0199c0de-0003-7000-8000-000000000001",
+  "threadId": "0199c0de-0002-7000-8000-000000000001",
+  "createdAt": "2026-09-15T12:00:06.000Z",
+  "turnId": "0199c0de-0004-7000-8000-000000000001",
+  "type": "turn.plan.proposed",
+  "payload": {
+    "turnId": "0199c0de-0004-7000-8000-000000000001",
+    "planMarkdown": "## Plan\n\n1. Add the route\n2. Cover it in the smoke test\n",
+    "planPath": "/Users/dev/.commandcode/plans/health-check.md"
+  }
+}

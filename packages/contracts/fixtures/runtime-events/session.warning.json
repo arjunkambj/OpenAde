@@ -1,0 +1,10 @@
+{
+  "eventId": "0199c0de-0006-7000-8000-000000000003",
+  "connectorInstanceId": "0199c0de-0003-7000-8000-000000000001",
+  "threadId": "0199c0de-0002-7000-8000-000000000001",
+  "createdAt": "2026-09-15T12:00:03.000Z",
+  "type": "session.warning",
+  "payload": {
+    "message": "cmd 1.53.0 is older than the supported 1.54.0"
+  }
+}

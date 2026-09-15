@@ -1,0 +1,15 @@
+{
+  "commandId": "0199c0de-0008-7000-8000-000000000007",
+  "createdAt": "2026-09-15T12:00:00.000Z",
+  "type": "thread.turn.start",
+  "threadId": "0199c0de-0002-7000-8000-000000000001",
+  "text": "Add a health check endpoint and wire it into the smoke test.",
+  "attachments": [
+    {
+      "path": "attachments/design.png",
+      "mediaType": "image/png"
+    }
+  ],
+  "mentions": ["apps/server/src/http/router.ts"],
+  "queued": false
+}

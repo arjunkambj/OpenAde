@@ -1,0 +1,20 @@
+{
+  "sequence": 19,
+  "eventId": "0199c0de-0006-7000-8000-000000000119",
+  "streamKind": "thread",
+  "streamId": "0199c0de-0002-7000-8000-000000000001",
+  "streamVersion": 17,
+  "occurredAt": "2026-09-15T12:00:19.000Z",
+  "commandId": "0199c0de-0008-7000-8000-000000000001",
+  "actor": "system",
+  "type": "thread.userInput.resolved",
+  "payload": {
+    "requestId": "0199c0de-0007-7000-8000-000000000001",
+    "answers": [
+      {
+        "questionId": "q1",
+        "optionIds": ["server"]
+      }
+    ]
+  }
+}

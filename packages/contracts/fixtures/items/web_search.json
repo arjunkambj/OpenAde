@@ -1,0 +1,15 @@
+{
+  "itemId": "0199c0de-0005-7000-8000-000000000009",
+  "kind": "web_search",
+  "status": "completed",
+  "tool": {
+    "name": "web_search",
+    "input": {
+      "query": "http health check conventions"
+    },
+    "output": {
+      "results": 3
+    }
+  },
+  "text": "Looked up conventions for health endpoints."
+}

@@ -1,0 +1,15 @@
+{
+  "itemId": "0199c0de-0005-7000-8000-000000000008",
+  "kind": "mcp_tool_call",
+  "status": "completed",
+  "tool": {
+    "name": "browser__snapshot",
+    "server": "openade",
+    "input": {
+      "threadId": "0199c0de-0002-7000-8000-000000000001"
+    },
+    "output": {
+      "refs": ["@e1", "@e2"]
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "commandId": "0199c0de-0008-7000-8000-000000000003",
+  "createdAt": "2026-09-15T12:00:00.000Z",
+  "type": "thread.create",
+  "threadId": "0199c0de-0002-7000-8000-000000000001",
+  "projectId": "0199c0de-0001-7000-8000-000000000001",
+  "title": "Health check endpoint",
+  "settings": {
+    "model": "stealth/ox-alpha",
+    "effort": "medium",
+    "runtimeMode": "approval-required"
+  }
+}

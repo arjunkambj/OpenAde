@@ -1,0 +1,22 @@
+{
+  "itemId": "0199c0de-0005-7000-8000-000000000011",
+  "kind": "todo",
+  "status": "in_progress",
+  "todos": [
+    {
+      "todoId": "1",
+      "text": "Add the route",
+      "status": "completed"
+    },
+    {
+      "todoId": "2",
+      "text": "Return the build sha",
+      "status": "in_progress"
+    },
+    {
+      "todoId": "3",
+      "text": "Cover it in the smoke test",
+      "status": "pending"
+    }
+  ]
+}

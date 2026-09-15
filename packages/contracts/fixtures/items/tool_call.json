@@ -1,0 +1,14 @@
+{
+  "itemId": "0199c0de-0005-7000-8000-000000000007",
+  "kind": "tool_call",
+  "status": "completed",
+  "tool": {
+    "name": "read_file",
+    "input": {
+      "file_path": "apps/server/src/http/router.ts"
+    },
+    "output": {
+      "lines": 42
+    }
+  }
+}

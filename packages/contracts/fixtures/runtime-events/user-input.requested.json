@@ -1,0 +1,31 @@
+{
+  "eventId": "0199c0de-0006-7000-8000-000000000013",
+  "connectorInstanceId": "0199c0de-0003-7000-8000-000000000001",
+  "threadId": "0199c0de-0002-7000-8000-000000000001",
+  "createdAt": "2026-09-15T12:00:13.000Z",
+  "turnId": "0199c0de-0004-7000-8000-000000000001",
+  "requestId": "0199c0de-0007-7000-8000-000000000001",
+  "type": "user-input.requested",
+  "payload": {
+    "requestId": "0199c0de-0007-7000-8000-000000000001",
+    "questions": [
+      {
+        "questionId": "q1",
+        "question": "Which package should the health check live in?",
+        "header": "Placement",
+        "options": [
+          {
+            "optionId": "server",
+            "label": "apps/server",
+            "description": "Beside the existing router"
+          },
+          {
+            "optionId": "shared",
+            "label": "packages/shared"
+          }
+        ],
+        "multiSelect": false
+      }
+    ]
+  }
+}

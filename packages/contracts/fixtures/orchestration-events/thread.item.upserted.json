@@ -1,0 +1,20 @@
+{
+  "sequence": 15,
+  "eventId": "0199c0de-0006-7000-8000-000000000115",
+  "streamKind": "thread",
+  "streamId": "0199c0de-0002-7000-8000-000000000001",
+  "streamVersion": 13,
+  "occurredAt": "2026-09-15T12:00:15.000Z",
+  "commandId": "0199c0de-0008-7000-8000-000000000001",
+  "actor": "system",
+  "type": "thread.item.upserted",
+  "payload": {
+    "item": {
+      "itemId": "0199c0de-0005-7000-8000-000000000002",
+      "kind": "assistant_message",
+      "status": "completed",
+      "text": "I added `GET /healthz` and pointed the smoke test at it."
+    },
+    "turnId": "0199c0de-0004-7000-8000-000000000001"
+  }
+}

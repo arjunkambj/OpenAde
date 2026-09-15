@@ -1,0 +1,20 @@
+{
+  "sequence": 13,
+  "eventId": "0199c0de-0006-7000-8000-000000000113",
+  "streamKind": "thread",
+  "streamId": "0199c0de-0002-7000-8000-000000000001",
+  "streamVersion": 11,
+  "occurredAt": "2026-09-15T12:00:13.000Z",
+  "commandId": "0199c0de-0008-7000-8000-000000000001",
+  "actor": "system",
+  "type": "thread.message.queued",
+  "payload": {
+    "message": {
+      "queuedMessageId": "0199c0de-0010-7000-8000-000000000001",
+      "text": "Also add a /readyz that waits for the database.",
+      "attachments": [],
+      "mentions": [],
+      "queuedAt": "2026-09-15T12:00:00.000Z"
+    }
+  }
+}

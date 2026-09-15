@@ -1,0 +1,22 @@
+{
+  "eventId": "0199c0de-0006-7000-8000-000000000009",
+  "connectorInstanceId": "0199c0de-0003-7000-8000-000000000001",
+  "threadId": "0199c0de-0002-7000-8000-000000000001",
+  "createdAt": "2026-09-15T12:00:09.000Z",
+  "turnId": "0199c0de-0004-7000-8000-000000000001",
+  "itemId": "0199c0de-0005-7000-8000-000000000005",
+  "type": "item.completed",
+  "payload": {
+    "item": {
+      "itemId": "0199c0de-0005-7000-8000-000000000005",
+      "kind": "command_execution",
+      "status": "completed",
+      "command": {
+        "cmd": "pnpm vitest run apps/server",
+        "cwd": "/Users/dev/projects/openade",
+        "exitCode": 0,
+        "output": "Test Files  4 passed (4)\n      Tests  18 passed (18)\n"
+      }
+    }
+  }
+}

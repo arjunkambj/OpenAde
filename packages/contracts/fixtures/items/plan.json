@@ -1,0 +1,8 @@
+{
+  "itemId": "0199c0de-0005-7000-8000-000000000004",
+  "kind": "plan",
+  "status": "completed",
+  "plan": {
+    "markdown": "## Plan\n\n1. Add the route\n2. Return the build sha\n3. Cover it in the smoke test\n"
+  }
+}

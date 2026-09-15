@@ -1,0 +1,18 @@
+{
+  "eventId": "0199c0de-0006-7000-8000-000000000023",
+  "connectorInstanceId": "0199c0de-0003-7000-8000-000000000001",
+  "threadId": "0199c0de-0002-7000-8000-000000000001",
+  "createdAt": "2026-09-15T12:00:23.000Z",
+  "type": "event.unmapped",
+  "payload": {},
+  "raw": {
+    "source": "cmd.ndjson",
+    "payload": {
+      "type": "event",
+      "event": {
+        "type": "model_trace",
+        "traceId": "4ecfff3e"
+      }
+    }
+  }
+}

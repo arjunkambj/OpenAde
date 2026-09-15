@@ -1,0 +1,16 @@
+{
+  "sequence": 1,
+  "eventId": "0199c0de-0006-7000-8000-000000000101",
+  "streamKind": "project",
+  "streamId": "0199c0de-0001-7000-8000-000000000001",
+  "streamVersion": 1,
+  "occurredAt": "2026-09-15T12:00:01.000Z",
+  "commandId": "0199c0de-0008-7000-8000-000000000001",
+  "actor": "user",
+  "type": "project.created",
+  "payload": {
+    "projectId": "0199c0de-0001-7000-8000-000000000001",
+    "name": "openade",
+    "workspaceRoot": "/Users/dev/projects/openade"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "itemId": "0199c0de-0005-7000-8000-000000000014",
+  "kind": "error",
+  "status": "failed",
+  "error": {
+    "message": "shell_command exited with 127: pnpm: command not found"
+  }
+}

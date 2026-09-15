@@ -1,0 +1,6 @@
+{
+  "itemId": "0199c0de-0005-7000-8000-000000000001",
+  "kind": "user_message",
+  "status": "completed",
+  "text": "Add a health check endpoint and wire it into the smoke test."
+}

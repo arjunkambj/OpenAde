@@ -1,0 +1,25 @@
+{
+  "eventId": "0199c0de-0006-7000-8000-000000000001",
+  "connectorInstanceId": "0199c0de-0003-7000-8000-000000000001",
+  "threadId": "0199c0de-0002-7000-8000-000000000001",
+  "createdAt": "2026-09-15T12:00:01.000Z",
+  "type": "session.started",
+  "payload": {
+    "sessionRef": {
+      "sessionId": "5bc08bab-1c4e-4c2f-9f2a-7a6f0b9c1d22",
+      "transcriptPath": "/Users/dev/.commandcode/projects/users-dev-projects-openade/5bc08bab.jsonl",
+      "cwd": "/Users/dev/projects/openade"
+    },
+    "model": "stealth/ox-alpha",
+    "capabilities": {
+      "modelSwitch": "per-turn",
+      "effortSwitch": "per-turn",
+      "steering": false,
+      "planMode": true,
+      "subagents": true,
+      "images": false,
+      "resume": true,
+      "fork": true
+    }
+  }
+}
