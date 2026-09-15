@@ -33,7 +33,7 @@ export function ChangedFiles({
     <section
       aria-label="Changed files"
       className={cn(
-        "overflow-hidden rounded-xl rounded-b-2xl border-2 border-hover bg-sidebar px-4 pb-1.5 text-[13px]",
+        "overflow-hidden rounded-xl rounded-b-2xl border-2 border-hover bg-sidebar px-4 pb-1.5 type-body",
         className,
       )}
     >
@@ -42,9 +42,10 @@ export function ChangedFiles({
         <ChangeCount added={added} removed={removed} />
         <Button
           type="button"
-          variant="ghost"
-          size="sm"
-          className="ml-auto h-auto gap-1.5 px-0 text-[13px] font-normal text-sidebar-foreground hover:bg-transparent"
+          variant="bare"
+          size="inline"
+          tone="subtle"
+          className="ml-auto"
           onClick={onOpenDiff}
         >
           <Icon icon="hugeicons:file-01" className="size-3.5" />
@@ -58,7 +59,7 @@ export function ChangedFiles({
           <ChangeCount added={added} removed={removed} />
         </span>
       </div>
-      <div className="flex min-h-[30px] items-center gap-2 pl-[22px] font-mono text-sidebar-foreground">
+      <div className="flex min-h-[30px] items-center gap-2 pl-5.5 font-mono text-sidebar-foreground">
         <Icon icon="hugeicons:file-01" className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="min-w-0 truncate">{file}</span>
         <span className="ml-auto">

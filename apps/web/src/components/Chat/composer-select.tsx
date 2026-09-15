@@ -6,28 +6,23 @@ import {
   SelectValue,
 } from "@OpenAde/ui/components/select";
 
-import { cn } from "@/lib/utils";
-
 export type SelectOption = {
   value: string;
   label: string;
 };
-
-const ghostTriggerClassName =
-  "h-auto min-w-0 max-w-full truncate border-0 bg-transparent px-0 py-1 text-sidebar-foreground shadow-none ring-0 transition-colors duration-150 ease-out focus-visible:border-transparent focus-visible:ring-2 data-[size=sm]:h-auto [&_svg]:hidden";
 
 export function ComposerSelect({
   label,
   value,
   onValueChange,
   items,
-  className,
+  tone = "default",
 }: {
   label: string;
   value: string;
   onValueChange: (value: string) => void;
   items: readonly SelectOption[];
-  className?: string;
+  tone?: "default" | "permission";
 }) {
   return (
     <Select
@@ -39,7 +34,7 @@ export function ComposerSelect({
       }}
       items={[...items]}
     >
-      <SelectTrigger aria-label={label} size="sm" className={cn(ghostTriggerClassName, className)}>
+      <SelectTrigger aria-label={label} size="sm" variant="ghost" tone={tone}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent align="start" alignItemWithTrigger={false} className="min-w-40">

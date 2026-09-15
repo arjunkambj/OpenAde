@@ -96,8 +96,8 @@ export function Composer({
             <Button
               type="button"
               variant="ghost"
+              tone="muted"
               size="icon-sm"
-              className="text-muted-foreground"
               aria-label="Attach files"
               title="Attach files"
               onClick={() => fileInputRef.current?.click()}
@@ -109,7 +109,7 @@ export function Composer({
               value={permission}
               onValueChange={setPermission}
               items={permissionItems}
-              className="text-permission"
+              tone="permission"
             />
             {files.length > 0 ? (
               <span className="max-w-12 truncate text-xs text-muted-foreground @min-[480px]:max-w-[120px]">
@@ -134,7 +134,8 @@ export function Composer({
           <Button
             type="submit"
             size="icon-sm"
-            className="shrink-0 rounded-full"
+            shape="pill"
+            className="shrink-0"
             aria-label="Send message"
             title="Send message"
             disabled={!canSend}
@@ -144,7 +145,7 @@ export function Composer({
         </div>
       </form>
       <div
-        className="flex min-h-9 flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 text-[13px] text-sidebar-foreground"
+        className="flex min-h-9 flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 type-body text-sidebar-foreground"
         aria-label="Project context"
       >
         <span className="inline-flex min-w-0 items-center gap-1.5">

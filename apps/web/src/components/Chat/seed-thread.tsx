@@ -21,7 +21,7 @@ export function SeedThread() {
           pressed rules.
         </ActivityItem>
         <ActivityItem icon="hugeicons:file-01" label="Read 2 files" defaultOpen>
-          <pre className="font-mono text-xs leading-[1.65] whitespace-pre-wrap">
+          <pre className="font-mono text-xs leading-prose whitespace-pre-wrap">
             {`src/components/Sidebar.tsx
 src/styles/sidebar.css
 Read 2 files · Found hover, active, and focus-visible styles`}

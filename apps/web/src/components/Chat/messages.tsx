@@ -7,7 +7,7 @@ export function UserMessage({ children, className }: { children: ReactNode; clas
     <div
       aria-label="User message"
       className={cn(
-        "max-w-[min(400px,75%)] self-end rounded-[12px_12px_6px_12px] bg-hover px-4 py-2 leading-normal text-foreground",
+        "max-w-[min(400px,75%)] self-end rounded-xl rounded-br-md bg-hover px-4 py-2 leading-normal text-foreground",
         className,
       )}
     >
@@ -27,7 +27,7 @@ export function AssistantMessage({
     <div
       aria-label="Assistant response"
       className={cn(
-        "text-sm leading-[1.65] text-foreground [&_p]:mb-3 [&_p:last-child]:mb-0",
+        "text-sm leading-prose text-foreground [&_p]:mb-3 [&_p:last-child]:mb-0",
         className,
       )}
     >
