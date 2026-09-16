@@ -1,4 +1,4 @@
-# 03 · Build progress and how to resume (updated 2026-09-15)
+# 03 · Build progress and how to resume (updated 2026-09-17)
 
 This file is the hand-off between build sessions. Update the status table and the
 "next session starts here" section every time a workstream lands on `main`.
@@ -14,6 +14,7 @@ This file is the hand-off between build sessions. Update the status table and th
 | W3 Transport and client runtime                  | `feat/w3-transport`     | not started          | –              |
 | W7 Desktop shell and packaging                   | `feat/w7-desktop`       | not started          | –              |
 | W8 Git, checkpoints, files                       | `feat/w8-git`           | not started          | –              |
+| W11 Launch track: site, hosting, feedback        | `feat/w11-launch`       | ready for review     | –              |
 | W4 Renderer shell and timeline                   | `feat/w4-renderer`      | not started (wave 2) | –              |
 | W5 Composer and interaction cards                | `feat/w5-composer`      | not started (wave 2) | –              |
 | W6 Browser, MCP server, preview pane             | `feat/w6-browser`       | not started (wave 2) | –              |
