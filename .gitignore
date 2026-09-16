@@ -6,6 +6,7 @@ plans
 docs/*
 !docs/decisions/
 !docs/specs/
+!docs/launch/
 .claude/worktrees/
 
 # Build outputs
