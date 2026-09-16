@@ -11,6 +11,7 @@
     "dev:web": "turbo run dev -F web --",
     "dev:site": "turbo run dev -F site --",
     "preview:site": "pnpm -F site build && pnpm -F site preview",
+    "deploy:site": "pnpm -F site deploy",
     "dev:desktop": "turbo run dev:hmr -F desktop --",
     "build:desktop": "turbo run build:stable -F desktop --",
     "build:desktop:canary": "turbo run build:canary -F desktop --",

@@ -1,0 +1,7 @@
+{
+  // Cloudflare Pages project. `wrangler pages deploy` reads the project name
+  // and output directory from here; auth comes from CLOUDFLARE_API_TOKEN and
+  // CLOUDFLARE_ACCOUNT_ID in the environment (see docs/launch/hosting.md).
+  "name": "openade",
+  "pages_build_output_dir": "dist",
+}
