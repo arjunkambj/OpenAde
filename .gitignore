@@ -10,6 +10,7 @@ docs/*
 
 # Build outputs
 dist
+dist-ssr
 build
 out
 artifacts

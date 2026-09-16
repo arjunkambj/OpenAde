@@ -28,6 +28,10 @@
         "@effect/platform-node"
       ]
     },
+    "apps/site": {
+      "entry": ["src/entry-server.tsx!", "scripts/*.mjs"],
+      "ignoreDependencies": ["tailwindcss"]
+    },
     "apps/web": {
       "entry": ["src/routes/**/*.tsx"],
       "ignoreIssues": {
