@@ -85,4 +85,12 @@ describe("built site", () => {
       expect(html, `#${anchor} should have a target`).toContain(`id="${anchor}"`);
     }
   });
+
+  it("serves robots.txt, sitemap.xml and 404.html", async () => {
+    for (const path of ["/robots.txt", "/sitemap.xml", "/404.html"]) {
+      const response = await get(path);
+      expect(response.status, `${path} should serve`).toBe(200);
+    }
+    expect(await (await get("/sitemap.xml")).text()).toContain("getopenade.com");
+  });
 });
