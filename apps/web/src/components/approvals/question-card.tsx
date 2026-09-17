@@ -2,7 +2,9 @@
  * The `ask_user_question` card: one `UserQuestion` per block — options as a
  * single- or multi-select, plus a freeform field when the question allows it.
  * Submit dispatches `thread.userInput.respond`; the card closes only when the
- * `thread.userInput.resolved` event clears `doc.pendingUserInput`.
+ * `thread.userInput.resolved` event clears `doc.pendingUserInput`. It stays
+ * disabled until every question has an answer — an empty
+ * `UserQuestionAnswer` is something the connector has to guess at.
  */
 
 import { useAtomSet } from "@effect/atom-react";
@@ -12,21 +14,20 @@ import { Input } from "@OpenAde/ui/components/input";
 import { cn } from "@OpenAde/ui/lib/utils";
 import type { RequestId, ThreadId } from "@OpenAde/contracts/ids";
 import { makeCommandId } from "@OpenAde/contracts/ids";
-import type { UserQuestion, UserQuestionAnswer } from "@OpenAde/contracts/runtime";
+import type { UserQuestion } from "@OpenAde/contracts/runtime";
 import * as React from "react";
 
+import {
+  allAnswered,
+  emptyDrafts,
+  toAnswers,
+  EMPTY_DRAFT,
+  type Draft,
+} from "@/components/approvals/answers";
 import { CardShell } from "@/components/approvals/card-shell";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
 import { Icon } from "@/lib/icon";
-
-interface Draft {
-  readonly optionIds: ReadonlyArray<string>;
-  readonly text: string;
-}
-
-const emptyDrafts = (questions: ReadonlyArray<UserQuestion>): Record<string, Draft> =>
-  Object.fromEntries(questions.map((q) => [q.questionId, { optionIds: [], text: "" }]));
 
 function QuestionBlock({
   question,
@@ -121,18 +122,13 @@ export function QuestionCard({
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState(false);
 
+  const answered = allAnswered(questions, drafts);
+
   const submit = () => {
-    const answers: Array<UserQuestionAnswer> = questions.map((question) => {
-      const draft = drafts[question.questionId] ?? { optionIds: [], text: "" };
-      // Drafts can outlive the option list if the request was replaced —
-      // intersect so only live optionIds go on the wire.
-      const valid = new Set(question.options.map((option) => option.optionId));
-      return {
-        questionId: question.questionId,
-        optionIds: draft.optionIds.filter((id) => valid.has(id)),
-        ...(draft.text.trim().length > 0 ? { text: draft.text.trim() } : {}),
-      };
-    });
+    if (!answered) {
+      return;
+    }
+    const answers = toAnswers(questions, drafts);
     setPending(true);
     setError(null);
     void dispatch({
@@ -160,7 +156,7 @@ export function QuestionCard({
       title={questions.length === 1 ? "Question" : `${questions.length} questions`}
       hint={<Icon icon="hugeicons:hourglass" className="size-3.5" />}
       actions={
-        <Button size="sm" disabled={pending} onClick={submit}>
+        <Button size="sm" disabled={pending || !answered} onClick={submit}>
           Submit answers
         </Button>
       }
@@ -169,7 +165,7 @@ export function QuestionCard({
         <QuestionBlock
           key={question.questionId}
           question={question}
-          draft={drafts[question.questionId] ?? { optionIds: [], text: "" }}
+          draft={drafts[question.questionId] ?? EMPTY_DRAFT}
           onChange={(next) => setDrafts((current) => ({ ...current, [question.questionId]: next }))}
         />
       ))}
