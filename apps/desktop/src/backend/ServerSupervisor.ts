@@ -28,6 +28,7 @@ const INITIAL_BACKOFF_MS = 500;
 const MAX_BACKOFF_MS = 10_000;
 const MAX_CONSECUTIVE_FAILURES = 5;
 const HANDSHAKE_TIMEOUT_MS = 15_000;
+const KILL_GRACE_MS = 5_000;
 
 // Bundled to cjs — `__dirname` is real at runtime.
 declare const __dirname: string;
@@ -103,8 +104,19 @@ export class ServerSupervisor extends EventEmitter {
       clearTimeout(this.handshakeTimer);
       this.handshakeTimer = null;
     }
-    this.child?.kill("SIGINT");
+    const child = this.child;
     this.child = null;
+    if (child !== null) this.killChild(child);
+  }
+
+  /** SIGINT first, then SIGKILL once the grace period elapses without an exit. */
+  private killChild(child: ChildProcess, signal: NodeJS.Signals = "SIGINT") {
+    const forceKill = setTimeout(() => {
+      child.kill("SIGKILL");
+    }, KILL_GRACE_MS);
+    forceKill.unref();
+    child.once("exit", () => clearTimeout(forceKill));
+    child.kill(signal);
   }
 
   private spawnOnce() {
