@@ -15,7 +15,7 @@ import * as Fiber from "effect/Fiber";
 import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 
-import { buildArgs, envAllowlist, spawnProcess, SpawnError } from "./spawn";
+import { buildArgs, envAllowlist, spawnProcess, SpawnError, TOOLS_ENABLED } from "./spawn";
 import {
   findTranscriptPath,
   tailTranscript,
@@ -89,6 +89,23 @@ describe("buildArgs", () => {
     const plan = buildArgs({ prompt: "x", permissionMode: "plan" });
     expect(plan).toContain("--permission-mode");
     expect(plan[plan.indexOf("--permission-mode") + 1]).toBe("plan");
+  });
+
+  /**
+   * `fixtures/cmd/question/` is this argv without the flag: the model is told
+   * to use `ask_user_question`, the tool is withheld, and it asks in prose that
+   * no card can render. `fixtures/cmd/question-tools/` is the same prompt with
+   * it, and the hook receives the real questions.
+   */
+  it("asks for the withheld tools the user-input card depends on", () => {
+    const args = buildArgs({ prompt: "x", toolsEnable: TOOLS_ENABLED });
+    expect(TOOLS_ENABLED).toEqual(["ask_user_question"]);
+    expect(args[args.indexOf("--tools-enable") + 1]).toBe("ask_user_question");
+    // One flag per tool, and none at all when none is asked for.
+    expect(buildArgs({ prompt: "x", toolsEnable: ["a", "b"] }).join(" ")).toContain(
+      "--tools-enable a --tools-enable b",
+    );
+    expect(buildArgs({ prompt: "x" })).not.toContain("--tools-enable");
   });
 });
 

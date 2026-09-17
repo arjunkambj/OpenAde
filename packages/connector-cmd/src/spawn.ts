@@ -31,9 +31,30 @@ export interface BuildArgsInput {
   readonly permissionMode?: "standard" | "plan" | "auto-accept";
   readonly maxTurns?: number;
   readonly addDir?: ReadonlyArray<string>;
+  /**
+   * Tools a headless run withholds unless asked for by name (`--tools-enable`).
+   * `ask_user_question` is the one we need: see `TOOLS_ENABLED`.
+   */
+  readonly toolsEnable?: ReadonlyArray<string>;
   /** Omit the session record entirely (`--no-session`, probe turns). */
   readonly noSession?: boolean;
 }
+
+/**
+ * The withheld tools every turn asks for.
+ *
+ * `cmd --help`: "--tools-enable <names>  -p: enable specific withheld tools by
+ * name". `ask_user_question` is withheld, and the recordings show exactly what
+ * that costs: in `fixtures/cmd/question/` — the connector's own argv — the model
+ * is told to use the tool, cannot, and asks its question as prose that no card
+ * ever renders. With the flag (`fixtures/cmd/question-tools/`) the tool fires,
+ * PreToolUse receives the real `questions[]` payload, and the deny-with-answers
+ * bridge of spec section 8 works as designed.
+ *
+ * Only this one is listed. `--tools-all` would also un-withhold whatever else a
+ * headless run hides, sight unseen.
+ */
+export const TOOLS_ENABLED: ReadonlyArray<string> = ["ask_user_question"];
 
 /** The headless argv of spec 5.1, in a stable order tests can assert. */
 export const buildArgs = (input: BuildArgsInput): Array<string> => {
@@ -69,6 +90,9 @@ export const buildArgs = (input: BuildArgsInput): Array<string> => {
   }
   for (const dir of input.addDir ?? []) {
     args.push("--add-dir", dir);
+  }
+  for (const tool of input.toolsEnable ?? []) {
+    args.push("--tools-enable", tool);
   }
   return args;
 };

@@ -54,7 +54,7 @@ import { ensureHookScript } from "./hookScript";
 import { makeLineSplitter, parseFrame } from "./ndjson";
 import { readPlanProposal } from "./plans";
 import { describeAnswers, normalizeQuestions } from "./questions";
-import { buildArgs, envAllowlist, spawnProcess, type CmdProcess } from "./spawn";
+import { buildArgs, envAllowlist, spawnProcess, TOOLS_ENABLED, type CmdProcess } from "./spawn";
 import { findTranscriptPath, tailTranscript, transcriptPathFor } from "./transcript";
 import { makeTranslator, type PendingRuntimeEvent } from "./translate";
 
@@ -680,6 +680,7 @@ export const makeCmdSession = (
               yolo: !plan, // plan mode replaces --yolo (spec section 8)
               ...(plan ? { permissionMode: "plan" as const } : {}),
               ...(attached.addDirs.length === 0 ? {} : { addDir: attached.addDirs }),
+              toolsEnable: TOOLS_ENABLED,
             });
             const proc = yield* spawnProcess({
               binaryPath: options.binaryPath ?? "cmd",
