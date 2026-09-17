@@ -314,7 +314,7 @@ export function Composer({
   return (
     <div className={cn("flex w-full min-w-0 max-w-[760px] shrink-0 flex-col gap-2", className)}>
       <PendingCard threadId={threadId} doc={doc} />
-      {doc === null ? null : <QueueStrip queue={doc.queue} />}
+      {doc === null ? null : <QueueStrip threadId={threadId} queue={doc.queue} />}
       <form
         className={cn(
           "relative flex min-w-0 flex-col gap-2 rounded-2xl border border-border bg-card px-4 py-3",

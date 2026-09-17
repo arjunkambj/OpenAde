@@ -340,6 +340,20 @@ export const decide = (
       ]);
     }
 
+    case "thread.queue.remove": {
+      if (thread === null || thread.deleted) {
+        return rejected(`thread ${command.threadId} does not exist`);
+      }
+      // A queued message the next turn already consumed is gone, not an
+      // error the user can act on — but saying so beats a silent no-op.
+      if (!thread.queue.some((message) => message.queuedMessageId === command.queuedMessageId)) {
+        return rejected(`no queued message ${command.queuedMessageId}`);
+      }
+      return accepted([
+        emit("thread.message.dequeued", { queuedMessageId: command.queuedMessageId }),
+      ]);
+    }
+
     case "thread.checkpoint.restore": {
       if (thread === null || thread.deleted) {
         return rejected(`thread ${command.threadId} does not exist`);

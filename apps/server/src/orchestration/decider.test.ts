@@ -32,6 +32,8 @@ const ctx = (overrides: Partial<DeciderContext> = {}): DeciderContext => ({
 
 const baseCommand = { commandId: makeCommandId(), createdAt: NOW };
 
+const QUEUED_ID = makeItemId();
+
 const threadDoc = (overrides: Partial<ThreadDoc> = {}): ThreadDoc => ({
   threadId: makeThreadId(),
   projectId: makeProjectId(),
@@ -624,6 +626,38 @@ const rows: ReadonlyArray<Row> = [
     }),
     context: ctx({ restoreInFlight: () => true }),
     rejects: "another thread in project",
+  },
+  {
+    name: "thread.queue.remove emits thread.message.dequeued",
+    command: {
+      ...baseCommand,
+      type: "thread.queue.remove",
+      threadId: makeThreadId(),
+      queuedMessageId: QUEUED_ID,
+    } as unknown as Command,
+    thread: threadDoc({
+      queue: [
+        {
+          queuedMessageId: QUEUED_ID,
+          text: "take this back",
+          attachments: [],
+          mentions: [],
+          queuedAt: NOW,
+        },
+      ],
+    }),
+    events: ["thread.message.dequeued"],
+  },
+  {
+    name: "thread.queue.remove rejects a message the queue no longer holds",
+    command: {
+      ...baseCommand,
+      type: "thread.queue.remove",
+      threadId: makeThreadId(),
+      queuedMessageId: QUEUED_ID,
+    } as unknown as Command,
+    thread: threadDoc(),
+    rejects: "no queued message",
   },
   {
     name: "thread.checkpoint.restore rejects an unknown checkpoint",
