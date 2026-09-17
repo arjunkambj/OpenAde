@@ -28,6 +28,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
+import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
@@ -232,35 +233,44 @@ export class SettingsStore extends Context.Service<
       const ref = yield* SubscriptionRef.make<Settings>(loaded.settings);
       /** The undecodable row, until the first write has archived it. */
       const unreadable = yield* Ref.make<string | null>(loaded.unreadable);
+      /**
+       * The document is written whole, so a read-modify-write that yields in
+       * the middle loses the other writer's fields entirely — two windows
+       * saving different pages at the same moment was enough. Serialised the
+       * way CmdConfig serialises its own writes.
+       */
+      const writeMutex = yield* Semaphore.make(1);
       return SettingsStore.of({
         get: SubscriptionRef.get(ref),
         freshInstall: loaded.freshInstall,
         update: (patch) =>
-          Effect.gen(function* () {
-            const archive = yield* Ref.getAndSet(unreadable, null);
-            if (archive !== null) {
-              yield* sql`
+          writeMutex.withPermits(1)(
+            Effect.gen(function* () {
+              const archive = yield* Ref.getAndSet(unreadable, null);
+              if (archive !== null) {
+                yield* sql`
                 INSERT INTO settings (key, value_json, updated_at)
                 VALUES (${SETTINGS_UNREADABLE_ROW_KEY}, ${archive}, ${new Date().toISOString()})
                 ON CONFLICT (key) DO NOTHING
               `;
-            }
-            const current = yield* SubscriptionRef.get(ref);
-            const next: Settings = {
-              ...current,
-              ...Object.fromEntries(
-                Object.entries(patch).filter(([, value]) => value !== undefined),
-              ),
-            };
-            yield* sql`
+              }
+              const current = yield* SubscriptionRef.get(ref);
+              const next: Settings = {
+                ...current,
+                ...Object.fromEntries(
+                  Object.entries(patch).filter(([, value]) => value !== undefined),
+                ),
+              };
+              yield* sql`
               INSERT INTO settings (key, value_json, updated_at)
               VALUES (${SETTINGS_ROW_KEY}, ${JSON.stringify(next)}, ${new Date().toISOString()})
               ON CONFLICT (key) DO UPDATE
                 SET value_json = excluded.value_json, updated_at = excluded.updated_at
             `;
-            yield* SubscriptionRef.set(ref, next);
-            return next;
-          }),
+              yield* SubscriptionRef.set(ref, next);
+              return next;
+            }),
+          ),
         changes: SubscriptionRef.changes(ref),
       });
     }),
