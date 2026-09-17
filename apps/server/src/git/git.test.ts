@@ -153,6 +153,39 @@ describe("w8 git", () => {
     ),
   );
 
+  it.live("restore leaves staged work outside the workspace root alone", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        // A project whose root is a subdirectory of the repository: the
+        // restore is scoped to that subdirectory, so everything the user has
+        // staged elsewhere in the repository must survive it.
+        const repo = makeRepo();
+        const workspaceRoot = nodePath.join(repo, "project");
+        mkdirSync(workspaceRoot);
+        writeFileSync(nodePath.join(workspaceRoot, "inside.txt"), "v1\n");
+        git(repo, "add", "-A");
+        git(repo, "commit", "-qm", "add the project subdirectory");
+
+        const cp = yield* checkpointStore.capture({
+          threadId: makeThreadId(),
+          turnId: makeTurnId(),
+          workspaceRoot,
+        });
+        writeFileSync(nodePath.join(workspaceRoot, "inside.txt"), "v2\n");
+        // Staged, outside the restored subdirectory.
+        writeFileSync(nodePath.join(repo, "a.txt"), "staged elsewhere\n");
+        git(repo, "add", "a.txt");
+
+        yield* checkpointStore.restore({ workspaceRoot, checkpoint: cp });
+
+        expect(readFileSync(nodePath.join(workspaceRoot, "inside.txt"), "utf8")).toBe("v1\n");
+        // `M ` — still staged. A whole-index reset would have made it ` M`.
+        const rows = git(repo, "status", "--porcelain").trim().split("\n");
+        expect(rows).toContain("M  a.txt");
+      }),
+    ),
+  );
+
   it.live("restore fails when git clean cannot remove a path", () =>
     Effect.scoped(
       Effect.gen(function* () {

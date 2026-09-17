@@ -220,9 +220,13 @@ export const make: CheckpointStoreShape = {
         // must fail the restore — succeeding here would leave files the
         // checkpoint never tracked behind and still report success.
         yield* run(workspaceRoot, ["clean", "-fd", "--", "."]);
-        // Keep the real index pointing at HEAD rather than the checkpoint.
+        // Leave the real index pointing at HEAD rather than at the checkpoint
+        // — but only for the paths this restore touched. `read-tree HEAD`
+        // rewrites the whole index, so when the workspace root is a
+        // subdirectory of the repository it threw away hunks the user had
+        // staged elsewhere, outside anything the restore was asked about.
         if (yield* hasHead(workspaceRoot)) {
-          yield* run(workspaceRoot, ["read-tree", "HEAD"]);
+          yield* run(workspaceRoot, ["reset", "--quiet", "HEAD", "--", "."]);
         }
       }),
     ),
