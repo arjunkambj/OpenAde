@@ -39,6 +39,7 @@ import {
   type SlashMenuItem,
 } from "@/components/composer/slash-menu";
 import { TriggerMenu, type TriggerMenuItem } from "@/components/composer/trigger-menu";
+import { useAttachments } from "@/components/composer/use-attachments";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
 
@@ -80,12 +81,12 @@ export function Composer({
   const skills = AsyncResult.isSuccess(skillsResult) ? skillsResult.value : [];
 
   const [text, setText] = React.useState("");
-  const [files, setFiles] = React.useState<ReadonlyArray<File>>([]);
   const [mentions, setMentions] = React.useState<ReadonlyArray<string>>([]);
   const [trigger, setTrigger] = React.useState<ComposerTrigger | null>(null);
   const [activeIndex, setActiveIndex] = React.useState(0);
   const [slashLevel, setSlashLevel] = React.useState<SlashLevel>("root");
   const [error, setError] = React.useState<string | null>(null);
+  const attachments = useAttachments();
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
   const running = doc !== null && doc.currentTurnId !== null;
@@ -201,10 +202,10 @@ export function Composer({
 
   const send = (queue: boolean) => {
     const trimmed = text.trim();
-    if (trimmed.length === 0 && files.length === 0) {
+    if (trimmed.length === 0 && attachments.files.length === 0) {
       return;
     }
-    const attachments: ReadonlyArray<Attachment> = files.map((file) => ({
+    const payload: ReadonlyArray<Attachment> = attachments.files.map((file) => ({
       path: file.name,
       mime: file.type === "" ? undefined : file.type,
     }));
@@ -214,7 +215,7 @@ export function Composer({
       type: "thread.turn.start",
       threadId,
       text: trimmed,
-      attachments,
+      attachments: payload,
       mentions: [...mentions],
       queued: queue || running,
     }).then(
@@ -223,7 +224,7 @@ export function Composer({
         if (rejected === null) {
           setText("");
           setMentions([]);
-          setFiles([]);
+          attachments.clear();
         }
         setError(rejected);
       },
@@ -295,31 +296,19 @@ export function Composer({
     }
   };
 
-  const onPaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const pasted = [...event.clipboardData.files];
-    if (pasted.length > 0) {
-      event.preventDefault();
-      setFiles((current) => [...current, ...pasted]);
-    }
-  };
-
-  const onDrop = (event: React.DragEvent) => {
-    if (event.dataTransfer.files.length > 0) {
-      event.preventDefault();
-      setFiles((current) => [...current, ...event.dataTransfer.files]);
-    }
-  };
-
-  const canSend = text.trim().length > 0 || files.length > 0;
+  const canSend = text.trim().length > 0 || attachments.files.length > 0;
 
   return (
     <div className={cn("flex w-full min-w-0 max-w-[760px] shrink-0 flex-col gap-2", className)}>
       <PendingCard threadId={threadId} doc={doc} />
       {doc === null ? null : <QueueStrip queue={doc.queue} />}
       <form
-        className="relative flex min-w-0 flex-col gap-2 rounded-2xl border border-border bg-card px-4 py-3"
+        className={cn(
+          "relative flex min-w-0 flex-col gap-2 rounded-2xl border border-border bg-card px-4 py-3",
+          attachments.dragging && "border-primary ring-1 ring-primary",
+        )}
         onSubmit={(event) => event.preventDefault()}
-        onDrop={onDrop}
+        {...attachments.dropHandlers}
         aria-label="Message composer"
       >
         {trigger !== null ? (
@@ -345,9 +334,9 @@ export function Composer({
         ) : null}
         <ComposerChips
           mentions={mentions}
-          files={files}
+          files={attachments.files}
           onRemoveMention={removeMention}
-          onRemoveFile={(index) => setFiles((current) => current.filter((_, i) => i !== index))}
+          onRemoveFile={attachments.removeAt}
         />
         <textarea
           ref={textareaRef}
@@ -358,7 +347,7 @@ export function Composer({
           value={text}
           onChange={onChangeText}
           onKeyDown={onKeyDown}
-          onPaste={onPaste}
+          onPaste={attachments.onPaste}
           onSelect={refreshTrigger}
           onClick={refreshTrigger}
           className="field-sizing-content block max-h-48 min-h-10 w-full resize-none bg-transparent text-sm leading-normal text-foreground outline-none placeholder:text-muted-foreground"
@@ -368,8 +357,8 @@ export function Composer({
           canSend={canSend}
           contextUsed={doc?.context?.used}
           contextLimit={doc?.context?.limit}
-          filesKey={files.length}
-          onFilesPicked={(picked) => setFiles((current) => [...current, ...picked])}
+          filesKey={attachments.files.length}
+          onFilesPicked={attachments.add}
           onSend={() => send(running)}
         />
         {error === null ? null : (
