@@ -224,9 +224,14 @@ describe("McpGateway", () => {
 
         // A website reaching loopback is refused before the token matters.
         const crossOrigin = yield* Effect.promise(() =>
-          post(url, bearer, { jsonrpc: "2.0", id: 6, method: "ping" }, {
-            origin: "https://evil.example",
-          }),
+          post(
+            url,
+            bearer,
+            { jsonrpc: "2.0", id: 6, method: "ping" },
+            {
+              origin: "https://evil.example",
+            },
+          ),
         );
         expect(crossOrigin.status).toBe(403);
 

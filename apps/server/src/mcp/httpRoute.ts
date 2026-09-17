@@ -113,8 +113,7 @@ const mcpGetRoute = Effect.succeed(
   HttpServerResponse.jsonUnsafe(
     {
       error: "method not allowed",
-      detail:
-        "the openade MCP endpoint speaks JSON-RPC over POST; it has no GET event stream",
+      detail: "the openade MCP endpoint speaks JSON-RPC over POST; it has no GET event stream",
     },
     { status: 405, headers: { allow: "POST" } },
   ),

@@ -59,8 +59,8 @@ export function InstallPrompt({ onRetry }: { readonly onRetry: () => void }) {
           <h2 className="type-body font-medium">The browser tool is not installed</h2>
         </div>
         <p className="type-body text-muted-foreground">
-          Threads drive a real browser through <code className="font-mono">agent-browser</code>.
-          Run these two commands, then try again.
+          Threads drive a real browser through <code className="font-mono">agent-browser</code>. Run
+          these two commands, then try again.
         </p>
         <div className="flex flex-col gap-1.5">
           {INSTALL_COMMANDS.map((entry) => (

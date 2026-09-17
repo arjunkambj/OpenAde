@@ -286,10 +286,9 @@ export class McpGateway extends Context.Service<
         ),
         Stream.map((event) => event.streamId as ThreadId),
       );
-      const reactor = Stream.runForEach(
-        Stream.merge(endedSessions, closedThreads),
-        revoke,
-      ).pipe(Effect.catch((error) => Effect.logWarning("mcp gateway revoke reactor ended", error)));
+      const reactor = Stream.runForEach(Stream.merge(endedSessions, closedThreads), revoke).pipe(
+        Effect.catch((error) => Effect.logWarning("mcp gateway revoke reactor ended", error)),
+      );
       yield* Effect.forkIn(reactor, scope);
 
       return McpGateway.of({
