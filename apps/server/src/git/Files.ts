@@ -3,6 +3,10 @@
  * untracked-but-not-ignored paths via `git ls-files`, so .gitignore is honored
  * for free; a per-root cache keyed off `.git/index` mtime keeps repeat queries
  * warm (the composer hits this on every `@` keystroke).
+ *
+ * Nothing in the spec requires a project to be a git repository, so a
+ * workspace that is not one (or a machine with no usable `git`) falls back to
+ * the ignore-aware filesystem walk in `walk.ts` rather than failing the RPC.
  */
 import { statSync } from "node:fs";
 import { open, realpath } from "node:fs/promises";
@@ -17,7 +21,8 @@ import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
 
 import { ReadModelStore } from "../persistence/ReadModels";
 import { FileService } from "../rpc/services";
-import { run } from "./process";
+import { isRepository, run } from "./process";
+import { walkWorkspace } from "./walk";
 
 export class FileServiceError extends Data.TaggedError("FileServiceError")<{
   readonly message: string;
@@ -57,6 +62,34 @@ const matches = (entry: ListingEntry, query: string): number | null => {
   return pathHit >= 0 ? 1000 + pathHit : null;
 };
 
+const entryFor = (path: string, isDirectory: boolean): ListingEntry => ({
+  path,
+  name: nodePath.basename(path),
+  isDirectory,
+});
+
+/** The fast path: everything git tracks or would track under `root`. */
+const trackedEntries = (root: string) =>
+  run(root, ["ls-files", "--cached", "--others", "--exclude-standard", "-z"]).pipe(
+    Effect.map((result) =>
+      result.stdout
+        .split("\0")
+        .filter(Boolean)
+        .map((path) => entryFor(path, false)),
+    ),
+    Effect.mapError(
+      (error) => new FileServiceError({ message: `git ls-files failed: ${error.message}` }),
+    ),
+  );
+
+/** The fallback for a workspace git does not know about. */
+const walkedEntries = (root: string) =>
+  Effect.tryPromise({
+    try: async () => (await walkWorkspace(root)).map((e) => entryFor(e.path, e.isDirectory)),
+    catch: (error) =>
+      new FileServiceError({ message: `cannot list the project: ${String(error)}` }),
+  });
+
 const indexMtime = (root: string): number => {
   try {
     return statSync(nodePath.join(root, ".git", "index")).mtimeMs;
@@ -90,23 +123,11 @@ export const layer = Layer.effect(
         ) {
           return cached.entries;
         }
-        const tracked = yield* run(root, [
-          "ls-files",
-          "--cached",
-          "--others",
-          "--exclude-standard",
-          "-z",
-        ]).pipe(
-          Effect.mapError(
-            (error) => new FileServiceError({ message: `git ls-files failed: ${error.message}` }),
-          ),
-        );
-        const paths = tracked.stdout.split("\0").filter(Boolean);
-        const entries = paths.map((path): ListingEntry => ({
-          path,
-          name: nodePath.basename(path),
-          isDirectory: false,
-        }));
+        // A plain folder — or a machine whose `git` cannot be spawned — is a
+        // perfectly valid project, so the probe decides which listing runs
+        // rather than letting `ls-files` exit 128 into an RPC error.
+        const repo = yield* isRepository(root).pipe(Effect.catch(() => Effect.succeed(false)));
+        const entries = repo ? yield* trackedEntries(root) : yield* walkedEntries(root);
         cache.set(root, { stamp: Date.now(), indexMtimeMs: stamp, entries });
         return entries;
       });

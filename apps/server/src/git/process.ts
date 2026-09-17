@@ -84,3 +84,13 @@ export const run = (
     }
     return Effect.sync(() => child.kill("SIGKILL"));
   });
+
+/**
+ * Whether `cwd` sits inside a git work tree. The one probe every caller in
+ * this directory shares, so "not a git repository" is decided by git's exit
+ * status rather than by matching the wording of its error message.
+ */
+export const isRepository = (cwd: string): Effect.Effect<boolean, GitError> =>
+  run(cwd, ["rev-parse", "--is-inside-work-tree"], { allowNonZeroExit: true }).pipe(
+    Effect.map((result) => result.exitCode === 0 && result.stdout.trim() === "true"),
+  );

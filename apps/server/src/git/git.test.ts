@@ -312,6 +312,32 @@ describe("w8 git", () => {
     ),
   );
 
+  it.live("files.search and files.read work in a workspace that is not a repository", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        // A plain folder, never `git init`ed — opening one as a project must
+        // not turn every `@` keystroke in the composer into an RPC error.
+        const root = mkdtempSync(nodePath.join(tmpdir(), "openade-plain-"));
+        mkdirSync(nodePath.join(root, "src"));
+        mkdirSync(nodePath.join(root, "node_modules"));
+        mkdirSync(nodePath.join(root, "build"));
+        writeFileSync(nodePath.join(root, ".gitignore"), "node_modules/\n/build\n*.log\n");
+        writeFileSync(nodePath.join(root, "src", "keep-me.ts"), "export const a = 1\n");
+        writeFileSync(nodePath.join(root, "node_modules", "keep-me.ts"), "vendored\n");
+        writeFileSync(nodePath.join(root, "build", "keep-me.ts"), "built\n");
+        writeFileSync(nodePath.join(root, "keep-me.log"), "logged\n");
+
+        const { projectId, files } = yield* stack(root);
+        const hits = yield* files.search(projectId, "keep-me");
+        // The walk is ignore-aware: only the one real source file survives.
+        expect(hits.map((h) => h.path)).toEqual(["src/keep-me.ts"]);
+
+        const content = yield* files.read(projectId, "src/keep-me.ts");
+        expect(content.text).toContain("export const a = 1");
+      }),
+    ),
+  );
+
   it.live("files.read refuses a symlink that escapes the workspace", () =>
     Effect.scoped(
       Effect.gen(function* () {
