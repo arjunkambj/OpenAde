@@ -54,7 +54,11 @@ export interface StackOptions {
 export const stackLayer = (
   options: StackOptions,
 ): Layer.Layer<OrchestrationEngine | SessionManager, SqlError | MigrationError> => {
-  const engine = engineLayer();
+  // One persistence layer shared by the engine and the reactors — the
+  // CheckpointReactor reads the event log directly, so a second in-memory
+  // database would leave it blind.
+  const persistence = persistenceLayer();
+  const engine = OrchestrationEngine.layer.pipe(Layer.provide(persistence));
   const selection = ConnectorSelection.fromInstance(options.instance);
   const manager = SessionManager.layer.pipe(Layer.provide(Layer.mergeAll(engine, selection)));
   const reactors = Layer.mergeAll(
@@ -63,6 +67,6 @@ export const stackLayer = (
     options.supervisor === false
       ? Layer.empty
       : makeSessionSupervisor(options.supervisor ?? { baseDelayMillis: 0 }),
-  ).pipe(Layer.provide(Layer.mergeAll(engine, manager, CheckpointHook.noop)));
+  ).pipe(Layer.provide(Layer.mergeAll(engine, manager, CheckpointHook.noop, persistence)));
   return Layer.mergeAll(engine, manager, reactors);
 };

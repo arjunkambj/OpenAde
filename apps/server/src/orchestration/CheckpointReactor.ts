@@ -8,7 +8,10 @@
  *
  * `CheckpointReactor` wires it to the log: `turn.completed` → capture →
  * `thread.checkpoint.created`; a `thread.checkpoint.restored` event →
- * restore, with failures recorded as `thread.error`.
+ * restore, with failures recorded as `thread.error`. Thread deletion and
+ * project removal each prune the hidden refs under the thread's prefix —
+ * the project case enumerates the thread streams, because the removal's
+ * transaction has already deleted the read-model rows.
  */
 
 import { makeEventId } from "@OpenAde/contracts/ids";
@@ -21,8 +24,9 @@ import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";
 
 import type { PlannedEvent } from "../persistence/EventStore";
+import { EventStore } from "../persistence/EventStore";
 import { OrchestrationEngine } from "./Engine";
-import type { ThreadDoc } from "./state";
+import { foldProject, type ThreadDoc } from "./state";
 
 export class CheckpointHookError extends Data.TaggedError("CheckpointHookError")<{
   readonly message: string;
@@ -71,86 +75,93 @@ export class CheckpointHook extends Context.Service<
   );
 }
 
-export const CheckpointReactor: Layer.Layer<never, never, OrchestrationEngine | CheckpointHook> =
-  Layer.effectDiscard(
-    Effect.gen(function* () {
-      const engine = yield* OrchestrationEngine;
-      const hook = yield* CheckpointHook;
+export const CheckpointReactor: Layer.Layer<
+  never,
+  never,
+  OrchestrationEngine | CheckpointHook | EventStore
+> = Layer.effectDiscard(
+  Effect.gen(function* () {
+    const engine = yield* OrchestrationEngine;
+    const hook = yield* CheckpointHook;
+    const store = yield* EventStore;
 
-      const recordError = (threadId: ThreadId, message: string, causedBy: string) =>
-        engine.appendThreadEvents(threadId, [
-          {
-            eventId: makeEventId(),
-            streamKind: "thread",
-            streamId: threadId,
-            occurredAt: new Date().toISOString(),
-            causationEventId: causedBy as never,
-            correlationId: causedBy,
-            actor: "system",
-            type: "thread.error",
-            payload: { message, fatal: false },
-          } satisfies PlannedEvent,
-        ]);
+    const recordError = (threadId: ThreadId, message: string, causedBy: string) =>
+      engine.appendThreadEvents(threadId, [
+        {
+          eventId: makeEventId(),
+          streamKind: "thread",
+          streamId: threadId,
+          occurredAt: new Date().toISOString(),
+          causationEventId: causedBy as never,
+          correlationId: causedBy,
+          actor: "system",
+          type: "thread.error",
+          payload: { message, fatal: false },
+        } satisfies PlannedEvent,
+      ]);
 
-      const workspaceRootFor = (doc: ThreadDoc) =>
-        engine
-          .projectDoc(doc.projectId)
-          .pipe(Effect.map((project) => project?.workspaceRoot ?? null));
+    const workspaceRootFor = (doc: ThreadDoc) =>
+      engine
+        .projectDoc(doc.projectId)
+        .pipe(Effect.map((project) => project?.workspaceRoot ?? null));
 
-      // A finished turn is a checkpoint point.
-      const eventMailbox = yield* engine.subscribeEvents;
-      yield* Stream.runForEach(Stream.fromSubscription(eventMailbox), (event) =>
-        Effect.gen(function* () {
-          if (event.streamKind !== "thread") {
+    // A finished turn is a checkpoint point.
+    const eventMailbox = yield* engine.subscribeEvents;
+    yield* Stream.runForEach(Stream.fromSubscription(eventMailbox), (event) =>
+      Effect.gen(function* () {
+        // Project removed → every thread's checkpoint prefix goes. The
+        // removal's transaction already deleted the thread rows, so the
+        // enumeration reads the event log, not the read model.
+        if (event.streamKind === "project" && event.type === "project.removed") {
+          const projectId = event.payload.projectId;
+          const projectDoc = foldProject(yield* store.loadStream("project", projectId));
+          if (projectDoc === null) {
             return;
           }
-          // Thread deleted → drop every hidden checkpoint ref under its prefix.
-          if (event.type === "thread.deleted") {
-            const threadId = event.streamId as ThreadId;
-            const doc = yield* engine.threadDoc(threadId);
-            if (doc === null) {
-              return;
+          const threadEvents = yield* store.threadEventsAfter(0);
+          const threadIds = new Set<ThreadId>();
+          for (const entry of threadEvents) {
+            if (entry.type === "thread.created" && entry.payload.projectId === projectId) {
+              threadIds.add(entry.streamId as ThreadId);
             }
-            const workspaceRoot = yield* workspaceRootFor(doc);
-            if (workspaceRoot === null) {
-              return;
-            }
-            return yield* hook
-              .prune({ threadId, workspaceRoot })
+          }
+          for (const threadId of threadIds) {
+            yield* hook
+              .prune({ threadId, workspaceRoot: projectDoc.workspaceRoot })
               .pipe(
                 Effect.catch((error) =>
                   Effect.logWarning(`checkpoint prune failed: ${error.message}`),
                 ),
               );
           }
-          // The accepted restore command records this event; the git work
-          // order is durable, so the reactor runs off the log, not the
-          // transient command publication.
-          if (event.type === "thread.checkpoint.restored") {
-            const threadId = event.streamId as ThreadId;
-            const doc = yield* engine.threadDoc(threadId);
-            if (doc === null || doc.deleted) {
-              return;
-            }
-            const workspaceRoot = yield* workspaceRootFor(doc);
-            if (workspaceRoot === null) {
-              return;
-            }
-            return yield* hook
-              .restore({ thread: doc, checkpoint: event.payload.checkpoint, workspaceRoot })
-              .pipe(
-                Effect.catch((error) =>
-                  recordError(
-                    threadId,
-                    `checkpoint restore failed: ${error.message}`,
-                    event.eventId,
-                  ),
-                ),
-              );
-          }
-          if (event.type !== "thread.turn.completed") {
+          return;
+        }
+        if (event.streamKind !== "thread") {
+          return;
+        }
+        // Thread deleted → drop every hidden checkpoint ref under its prefix.
+        if (event.type === "thread.deleted") {
+          const threadId = event.streamId as ThreadId;
+          const doc = yield* engine.threadDoc(threadId);
+          if (doc === null) {
             return;
           }
+          const workspaceRoot = yield* workspaceRootFor(doc);
+          if (workspaceRoot === null) {
+            return;
+          }
+          return yield* hook
+            .prune({ threadId, workspaceRoot })
+            .pipe(
+              Effect.catch((error) =>
+                Effect.logWarning(`checkpoint prune failed: ${error.message}`),
+              ),
+            );
+        }
+        // The accepted restore command records this event; the git work
+        // order is durable, so the reactor runs off the log, not the
+        // transient command publication.
+        if (event.type === "thread.checkpoint.restored") {
           const threadId = event.streamId as ThreadId;
           const doc = yield* engine.threadDoc(threadId);
           if (doc === null || doc.deleted) {
@@ -160,40 +171,60 @@ export const CheckpointReactor: Layer.Layer<never, never, OrchestrationEngine | 
           if (workspaceRoot === null) {
             return;
           }
-          const summary = yield* hook
-            .capture({
-              thread: doc,
-              turnId: event.payload.turnId,
-              workspaceRoot,
-            })
+          return yield* hook
+            .restore({ thread: doc, checkpoint: event.payload.checkpoint, workspaceRoot })
             .pipe(
               Effect.catch((error) =>
-                recordError(
-                  threadId,
-                  `checkpoint capture failed: ${error.message}`,
-                  event.eventId,
-                ).pipe(Effect.as(null)),
+                recordError(threadId, `checkpoint restore failed: ${error.message}`, event.eventId),
               ),
             );
-          if (summary === null) {
-            return;
-          }
-          yield* engine.appendThreadEvents(threadId, [
-            {
-              eventId: makeEventId(),
-              streamKind: "thread",
-              streamId: threadId,
-              occurredAt: new Date().toISOString(),
-              causationEventId: event.eventId,
-              correlationId: event.eventId,
-              actor: "system",
-              type: "thread.checkpoint.created",
-              payload: { checkpoint: summary },
-            } satisfies PlannedEvent,
-          ]);
-        }).pipe(
-          Effect.catch((error) => Effect.logWarning("checkpoint capture reactor failed", error)),
-        ),
-      ).pipe(Effect.forkScoped);
-    }),
-  );
+        }
+        if (event.type !== "thread.turn.completed") {
+          return;
+        }
+        const threadId = event.streamId as ThreadId;
+        const doc = yield* engine.threadDoc(threadId);
+        if (doc === null || doc.deleted) {
+          return;
+        }
+        const workspaceRoot = yield* workspaceRootFor(doc);
+        if (workspaceRoot === null) {
+          return;
+        }
+        const summary = yield* hook
+          .capture({
+            thread: doc,
+            turnId: event.payload.turnId,
+            workspaceRoot,
+          })
+          .pipe(
+            Effect.catch((error) =>
+              recordError(
+                threadId,
+                `checkpoint capture failed: ${error.message}`,
+                event.eventId,
+              ).pipe(Effect.as(null)),
+            ),
+          );
+        if (summary === null) {
+          return;
+        }
+        yield* engine.appendThreadEvents(threadId, [
+          {
+            eventId: makeEventId(),
+            streamKind: "thread",
+            streamId: threadId,
+            occurredAt: new Date().toISOString(),
+            causationEventId: event.eventId,
+            correlationId: event.eventId,
+            actor: "system",
+            type: "thread.checkpoint.created",
+            payload: { checkpoint: summary },
+          } satisfies PlannedEvent,
+        ]);
+      }).pipe(
+        Effect.catch((error) => Effect.logWarning("checkpoint capture reactor failed", error)),
+      ),
+    ).pipe(Effect.forkScoped);
+  }),
+);

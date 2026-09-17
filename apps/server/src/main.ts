@@ -59,7 +59,7 @@ const main = Effect.gen(function* () {
     ProviderCommandReactor,
     CheckpointReactor,
     makeSessionSupervisor({}),
-  ).pipe(Layer.provide(Layer.mergeAll(engine, manager, gitCheckpointHookLayer)));
+  ).pipe(Layer.provide(Layer.mergeAll(engine, manager, gitCheckpointHookLayer, persistence)));
 
   const services = Layer.mergeAll(
     Layer.succeed(ServerIdentity, { serverInstanceId }),

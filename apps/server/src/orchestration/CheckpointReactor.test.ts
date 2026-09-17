@@ -17,6 +17,7 @@ import type { Command, CheckpointSummary } from "@OpenAde/contracts/orchestratio
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Queue from "effect/Queue";
 
 import type { PlannedEvent } from "../persistence/EventStore";
 import { persistenceLayer } from "../../test/layers";
@@ -24,6 +25,7 @@ import {
   CheckpointHook,
   CheckpointHookError,
   CheckpointReactor,
+  type CheckpointPruneInput,
   type CheckpointRestoreInput,
 } from "./CheckpointReactor";
 import { OrchestrationEngine } from "./Engine";
@@ -90,7 +92,8 @@ const planned = (type: string, payload: Record<string, unknown>): PlannedEvent =
 
 /** Engine + reactor over in-memory persistence, with a recording hook. */
 const stack = (hook: {
-  readonly restore: (input: CheckpointRestoreInput) => Effect.Effect<void, CheckpointHookError>;
+  readonly restore?: (input: CheckpointRestoreInput) => Effect.Effect<void, CheckpointHookError>;
+  readonly prune?: (input: CheckpointPruneInput) => Effect.Effect<void, CheckpointHookError>;
 }) => {
   const persistence = persistenceLayer();
   const engine = OrchestrationEngine.layer.pipe(Layer.provide(persistence));
@@ -102,10 +105,11 @@ const stack = (hook: {
           CheckpointHook,
           CheckpointHook.of({
             capture: () => Effect.succeed(null),
-            restore: hook.restore,
-            prune: () => Effect.void,
+            restore: hook.restore ?? (() => Effect.void),
+            prune: hook.prune ?? (() => Effect.void),
           }),
         ),
+        persistence,
       ),
     ),
   );
@@ -171,6 +175,48 @@ describe("CheckpointReactor", () => {
         ]);
         const accepted = yield* engine.dispatch(restoreCommand(checkpoint.checkpointId));
         expect(accepted.status).toBe("accepted");
+      }).pipe(Effect.provide(layer));
+    }),
+  );
+
+  it.effect("project.removed prunes every thread's checkpoint prefix", () =>
+    Effect.gen(function* () {
+      const secondThread = makeThreadId();
+      const pruned = yield* Queue.unbounded<CheckpointPruneInput>();
+      const layer = stack({
+        prune: (input) => Queue.offer(pruned, input).pipe(Effect.asVoid),
+      });
+      yield* Effect.gen(function* () {
+        const engine = yield* OrchestrationEngine;
+        yield* engine.dispatch(createProject);
+        yield* engine.dispatch(createThread);
+        yield* engine.dispatch({
+          commandId: makeCommandId(),
+          createdAt: NOW,
+          type: "thread.create",
+          threadId: secondThread,
+          projectId,
+          settings: { model: "fake/model" },
+        });
+
+        const receipt = yield* engine.dispatch({
+          commandId: makeCommandId(),
+          createdAt: NOW,
+          type: "project.remove",
+          projectId,
+        });
+        expect(receipt.status).toBe("accepted");
+
+        // Both threads' prefixes are pruned against the project's root even
+        // though the removal deleted their read-model rows first.
+        const seen = [
+          yield* Queue.take(pruned).pipe(Effect.timeout("5 seconds")),
+          yield* Queue.take(pruned).pipe(Effect.timeout("5 seconds")),
+        ];
+        expect(new Set(seen.map((input) => input.threadId))).toEqual(
+          new Set([threadId, secondThread]),
+        );
+        expect(seen.every((input) => input.workspaceRoot === "/repo")).toBe(true);
       }).pipe(Effect.provide(layer));
     }),
   );

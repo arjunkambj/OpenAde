@@ -87,7 +87,7 @@ const testStack = (browserLayer: Layer.Layer<BrowserService> = BrowserService.em
       Layer.provide(Layer.mergeAll(engineLayer, selection)),
     );
     const reactors = Layer.mergeAll(ProviderCommandReactor, CheckpointReactor).pipe(
-      Layer.provide(Layer.mergeAll(engineLayer, managerLayer, CheckpointHook.noop)),
+      Layer.provide(Layer.mergeAll(engineLayer, managerLayer, CheckpointHook.noop, persistence)),
     );
     const stack = Layer.mergeAll(engineLayer, managerLayer, reactors);
     const serviceLayer = Layer.mergeAll(
