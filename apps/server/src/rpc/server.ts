@@ -14,6 +14,7 @@ import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import * as RpcSerialization from "effect/unstable/rpc/RpcSerialization";
 import * as RpcServer from "effect/unstable/rpc/RpcServer";
 
+import { HookBridge } from "../hooks/HookBridge";
 import { handlersLayer } from "./handlers";
 
 /** The token every /ws upgrade must present, generated at boot. */
@@ -47,12 +48,19 @@ const wsRoute = Effect.gen(function* () {
   );
 });
 
-/** All routes, built over the empty router. */
+/**
+ * All routes, built over the empty router. The hook bridge rides along: its
+ * service lands in the merged output so `POST /hooks/pretooluse` handlers can
+ * look it up per request, and its `HttpServer` requirement is the same one
+ * `serve` already needs.
+ */
 export const routesLayer = Layer.unwrap(
   Effect.gen(function* () {
     const ws = yield* wsRoute;
     return ws.pipe(
       Layer.provideMerge(HttpRouter.add("GET", "/healthz", HttpServerResponse.text("ok"))),
+      Layer.provideMerge(HookBridge.route),
+      Layer.provideMerge(HookBridge.layer),
       Layer.provide(HttpRouter.layer),
     );
   }),
