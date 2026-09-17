@@ -38,6 +38,7 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { InlineDiff } from "@/components/timeline/diff-pool";
 import { DisclosureRow } from "@/components/timeline/row-shell";
 import { Icon } from "@/lib/icon";
+import { turnInFlight } from "@/lib/turn";
 import { useConnectionState } from "@/state/hooks";
 import { useRowDisclosure } from "@/state/ui";
 
@@ -248,7 +249,12 @@ export function ChangesPane({ snapshot }: { snapshot: ThreadDetailView }) {
           ? "This thread has no checkpoints yet."
           : baseCheckpoint === null
             ? "Pick a turn under From to restore it."
-            : currentTurnId !== null
+            : // `turnInFlight`, not `currentTurnId`: the server rejects on its
+              // own `currentTurn`, which it sets on `thread.turn.requested`,
+              // while the client only fills the id on `thread.turn.started`.
+              // Between the two the button would be live and the dispatch
+              // would come back rejected.
+              turnInFlight(snapshot)
               ? "A turn is running — stop it before restoring."
               : null;
 
