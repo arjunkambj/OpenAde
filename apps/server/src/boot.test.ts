@@ -171,6 +171,29 @@ describe("boot", () => {
     ),
   );
 
+  it.live("never re-seeds a home whose connectors the user removed", () =>
+    Effect.gen(function* () {
+      // Seeding is for a first run only, and "first run" is "no settings row",
+      // not "no connectors": a user who deletes every connector has a row by
+      // then. Guarding on the empty list instead put a `cmd` entry back on the
+      // next start, which is what one owner of the connector lifecycle fixes.
+      const home = makeHome();
+      yield* seedSettings(home, []);
+
+      const connectorsAfterBoot = Effect.scoped(
+        Effect.gen(function* () {
+          const server = yield* booted(home);
+          return yield* (yield* client(server))["connectors.list"]({});
+        }),
+      );
+
+      expect(yield* connectorsAfterBoot).toEqual([]);
+      // The second boot is the one that used to resurrect it, over the very
+      // same database the first one left behind.
+      expect(yield* connectorsAfterBoot).toEqual([]);
+    }),
+  );
+
   it.live("opens a connector added after boot against the running app", () =>
     Effect.scoped(
       Effect.gen(function* () {

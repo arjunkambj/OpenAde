@@ -10,9 +10,13 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
-import { makeConnectorInstanceId, type ConnectorInstanceId } from "@OpenAde/contracts/ids";
+import {
+  makeConnectorInstanceId,
+  makeThreadId,
+  type ConnectorInstanceId,
+} from "@OpenAde/contracts/ids";
 import type { ConnectorSummary } from "@OpenAde/contracts/rpc";
-import type { AnyConnectorDefinition } from "@OpenAde/connector-sdk/definition";
+import type { AnyConnectorDefinition, ConnectorServices } from "@OpenAde/connector-sdk/definition";
 import { eraseConnectorDefinition, ProbeFailed } from "@OpenAde/connector-sdk/definition";
 import { makeRegistry, type ConnectorRegistry } from "@OpenAde/connector-sdk/registry";
 import { makeFakeConnector } from "@OpenAde/testkit/fakeConnector";
@@ -40,6 +44,8 @@ interface Fixture {
   readonly registry: ConnectorRegistry;
   /** How many times the wrapped definition's probe ran. */
   readonly probes: Ref.Ref<number>;
+  /** The façade every instance is opened against; the entrypoint fills it in. */
+  readonly host: ConnectorHost["Service"];
 }
 
 /**
@@ -86,6 +92,7 @@ const fixture = (
       store: Context.get(ctx, SettingsStore),
       registry,
       probes,
+      host: Context.get(ctx, ConnectorHost),
     } satisfies Fixture;
   });
 
@@ -100,6 +107,8 @@ const awaitSummaries = (
   manager: ConnectorManager["Service"],
   pred: (summaries: ReadonlyArray<ConnectorSummary>) => boolean,
 ) => manager.changes.pipe(Stream.filter(pred), Stream.runHead, Effect.map(Option.getOrThrow));
+
+const threadId = makeThreadId();
 
 describe("ConnectorManager", () => {
   it.effect("a fresh install seeds one enabled, probed, open instance per definition", () =>
@@ -172,6 +181,53 @@ describe("ConnectorManager", () => {
         expect(yield* registry.instances).toHaveLength(1);
       }),
     ),
+  );
+
+  it.effect("an instance re-enabled after boot is lent the running app's endpoints", () =>
+    Effect.gen(function* () {
+      /** What `registry.open` handed the connector, per open. */
+      const lent: Array<ConnectorServices> = [];
+      const record = (definition: AnyConnectorDefinition): AnyConnectorDefinition => ({
+        ...definition,
+        createInstance: (input) => {
+          lent.push(input.services);
+          return definition.createInstance(input);
+        },
+      });
+
+      yield* withFixture(
+        ({ manager, store, registry, host }) =>
+          Effect.gen(function* () {
+            yield* awaitSummaries(manager, (all) => all.length === 1);
+            const conn = (yield* store.get).connectors[0]!;
+
+            // The order production runs in: the manager opens instances while
+            // the graph is built, and only the booted app can say where its
+            // gateway and hook bridge listen.
+            yield* host.install({
+              mcpEndpoint: (id) => Effect.succeed({ url: `http://mcp/${id}`, bearer: "mcp" }),
+              hookEndpoint: (id) => Effect.succeed({ url: `http://hooks/${id}`, bearer: "hook" }),
+              permissions: { decide: () => Effect.succeed("allow" as const) },
+            });
+
+            yield* store.update({ connectors: [{ ...conn, enabled: false }] });
+            yield* awaitSummaries(manager, (all) => all[0]!.enabled === false);
+            yield* store.update({ connectors: [{ ...conn, enabled: true }] });
+            yield* awaitSummaries(manager, (all) => all[0]!.capabilities !== null);
+
+            // One live instance, and the object it was opened against answers
+            // with the installed endpoints rather than dying on first use —
+            // which is what a second, placeholder-backed open used to leave
+            // behind for whichever copy routing happened to pick.
+            expect(yield* registry.instances).toHaveLength(1);
+            const services = lent.at(-1)!;
+            expect((yield* services.hookEndpoint(threadId)).url).toBe(`http://hooks/${threadId}`);
+            expect((yield* services.mcpEndpoint(threadId)).url).toBe(`http://mcp/${threadId}`);
+          }),
+        undefined,
+        record,
+      );
+    }),
   );
 
   it.effect("removing the entry deregisters the instance", () =>
