@@ -38,7 +38,11 @@ describe("installProjectHooks", () => {
   it.effect("writes the PreToolUse block into a fresh settings.local.json", () =>
     Effect.gen(function* () {
       const root = yield* tempDir();
-      const path = yield* installProjectHooks(root, "/home/u/.openade/bin/cmd-hook.mjs");
+      const { path, created } = yield* installProjectHooks(
+        root,
+        "/home/u/.openade/bin/cmd-hook.mjs",
+      );
+      expect(created).toBe(true);
 
       const settings = readJson(path);
       const hooks = settings.hooks as Record<string, unknown>;
@@ -79,7 +83,8 @@ describe("installProjectHooks", () => {
         }),
       );
 
-      const path = yield* installProjectHooks(root, "/h/cmd-hook.mjs");
+      const { path, created } = yield* installProjectHooks(root, "/h/cmd-hook.mjs");
+      expect(created).toBe(false);
       let settings = readJson(path);
       let preToolUse = (settings.hooks as Record<string, unknown>).PreToolUse as Array<unknown>;
       expect(preToolUse).toHaveLength(2); // theirs, then ours
@@ -126,20 +131,94 @@ describe("installProjectHooks", () => {
       yield* uninstallProjectHooks(root, "/h/cmd-hook.mjs");
     }),
   );
+
+  it.effect("a user hook sharing our entry survives install and uninstall", () =>
+    Effect.gen(function* () {
+      const root = yield* tempDir();
+      NodeFS.mkdirSync(NodePath.join(root, ".commandcode"), { recursive: true });
+      NodeFS.writeFileSync(
+        settingsLocal(root),
+        JSON.stringify({
+          hooks: {
+            PreToolUse: [
+              {
+                matcher: ".*",
+                hooks: [
+                  { type: "command", command: "/usr/bin/theirs" },
+                  { type: "command", command: "/h/cmd-hook.mjs" },
+                ],
+              },
+            ],
+          },
+        }),
+      );
+
+      const installed = yield* installProjectHooks(root, "/h/cmd-hook.mjs");
+      const entries = (readJson(installed.path).hooks as Record<string, unknown>)
+        .PreToolUse as Array<{ hooks: Array<{ command: string }> }>;
+      // Their command is kept where it was; ours moved into its own entry.
+      expect(entries[0]?.hooks.map((hook) => hook.command)).toEqual(["/usr/bin/theirs"]);
+      expect(entries[1]?.hooks.map((hook) => hook.command)).toEqual(["/h/cmd-hook.mjs"]);
+
+      yield* uninstallProjectHooks(root, "/h/cmd-hook.mjs", installed);
+      const after = (readJson(installed.path).hooks as Record<string, unknown>)
+        .PreToolUse as Array<{ hooks: Array<{ command: string }> }>;
+      expect(after).toHaveLength(1);
+      expect(after[0]?.hooks.map((hook) => hook.command)).toEqual(["/usr/bin/theirs"]);
+    }),
+  );
+
+  it.effect("a hash-guarded uninstall deletes the file it created, or stands down", () =>
+    Effect.gen(function* () {
+      const root = yield* tempDir();
+      const installed = yield* installProjectHooks(root, "/h/cmd-hook.mjs");
+      expect(NodeFS.existsSync(installed.path)).toBe(true);
+      yield* uninstallProjectHooks(root, "/h/cmd-hook.mjs", installed);
+      // Nothing of ours was left to keep, and the file was ours to begin with.
+      expect(NodeFS.existsSync(installed.path)).toBe(false);
+
+      // Edited since we wrote it → the newer content stays untouched.
+      const second = yield* installProjectHooks(root, "/h/cmd-hook.mjs");
+      NodeFS.writeFileSync(second.path, JSON.stringify({ permissions: { deny: ["Shell(*)"] } }));
+      yield* uninstallProjectHooks(root, "/h/cmd-hook.mjs", second);
+      expect(readJson(second.path).permissions).toEqual({ deny: ["Shell(*)"] });
+    }),
+  );
+
+  it.effect("a second session's hold keeps the block in place until it closes too", () =>
+    Effect.gen(function* () {
+      const root = yield* tempDir();
+      const first = yield* installProjectHooks(root, "/h/cmd-hook.mjs");
+      const second = yield* installProjectHooks(root, "/h/cmd-hook.mjs");
+
+      yield* uninstallProjectHooks(root, "/h/cmd-hook.mjs", first);
+      expect(readJson(first.path).hooks).toBeDefined();
+
+      yield* uninstallProjectHooks(root, "/h/cmd-hook.mjs", second);
+      expect(NodeFS.existsSync(second.path)).toBe(false);
+    }),
+  );
 });
 
 describe("mcp entry", () => {
-  it.effect("upserts the openade server with the env-resolved bearer", () =>
+  it.effect("upserts the openade server into the project-local mcp.json", () =>
     Effect.gen(function* () {
+      const home = yield* tempDir();
       const root = yield* tempDir();
+      // Spec 5.3 / section 8: the local scope is ~/.commandcode/projects/<slug>,
+      // not a .mcp.json inside the user's repo.
+      const slug = root.toLowerCase().replaceAll("/", "-").replace(/^-/, "");
+      const expected = NodePath.join(home, ".commandcode", "projects", slug, "mcp.json");
+      NodeFS.mkdirSync(NodePath.dirname(expected), { recursive: true });
       NodeFS.writeFileSync(
-        NodePath.join(root, ".mcp.json"),
+        expected,
         JSON.stringify({ mcpServers: { other: { transport: "stdio", command: "x" } } }),
       );
 
-      const path = yield* upsertMcpEntry(root, { url: "http://127.0.0.1:4321/mcp" });
-      const config = readJson(path);
-      const servers = config.mcpServers as Record<string, unknown>;
+      const { path } = yield* upsertMcpEntry(root, { url: "http://127.0.0.1:4321/mcp" }, home);
+      expect(path).toBe(expected);
+      expect(NodeFS.existsSync(NodePath.join(root, ".mcp.json"))).toBe(false);
+      const servers = readJson(path).mcpServers as Record<string, unknown>;
       expect(servers.other).toEqual({ transport: "stdio", command: "x" });
       expect(servers[OPENADE_MCP_NAME]).toEqual({
         transport: "http",
@@ -149,18 +228,30 @@ describe("mcp entry", () => {
       });
 
       // A second upsert moves the url without duplicating the server.
-      yield* upsertMcpEntry(root, { url: "http://127.0.0.1:9999/mcp" });
+      yield* upsertMcpEntry(root, { url: "http://127.0.0.1:9999/mcp" }, home);
       const again = readJson(path).mcpServers as Record<string, { url: string }>;
       expect(Object.keys(again)).toHaveLength(2);
       expect(again[OPENADE_MCP_NAME]?.url).toBe("http://127.0.0.1:9999/mcp");
 
-      yield* removeMcpEntry(root);
+      yield* removeMcpEntry(root, home);
       const after = readJson(path).mcpServers as Record<string, unknown>;
       expect(after[OPENADE_MCP_NAME]).toBeUndefined();
       expect(after.other).toBeDefined();
 
       // Removing when never installed is a no-op.
-      yield* removeMcpEntry(root);
+      yield* removeMcpEntry(root, home);
+    }),
+  );
+
+  it.effect("a guarded remove deletes the mcp.json it created", () =>
+    Effect.gen(function* () {
+      const home = yield* tempDir();
+      const root = yield* tempDir();
+      const installed = yield* upsertMcpEntry(root, { url: "http://127.0.0.1:1/mcp" }, home);
+      expect(NodeFS.existsSync(installed.path)).toBe(true);
+
+      yield* removeMcpEntry(root, home, installed);
+      expect(NodeFS.existsSync(installed.path)).toBe(false);
     }),
   );
 });

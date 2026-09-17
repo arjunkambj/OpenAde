@@ -41,7 +41,13 @@ import { SessionClosed, SpawnFailed, TurnInProgress } from "@OpenAde/connector-s
 import { makeBoundedEventQueue, type SessionHandle } from "@OpenAde/connector-sdk/sessionHandle";
 import { makeEventId, makeRequestId, makeTurnId } from "@OpenAde/contracts/ids";
 
-import { installProjectHooks, upsertMcpEntry } from "./config";
+import {
+  installProjectHooks,
+  removeMcpEntry,
+  uninstallProjectHooks,
+  upsertMcpEntry,
+  type InstalledFile,
+} from "./config";
 import { ensureHookScript } from "./hookScript";
 import { makeLineSplitter, parseFrame } from "./ndjson";
 import { readPlanProposal } from "./plans";
@@ -433,20 +439,29 @@ export const makeCmdSession = (
         warn(`could not write the hook script: ${String(error)}`).pipe(Effect.as(null)),
       ),
     );
+    // What the two installs below wrote, so close() can put both files back.
+    const installedHooks = yield* Ref.make<InstalledFile | null>(null);
+    const installedMcp = yield* Ref.make<InstalledFile | null>(null);
     if (hookPath !== null) {
-      yield* installProjectHooks(options.workspaceRoot, hookPath).pipe(
-        Effect.catch((error) => warn(`could not install project hooks: ${String(error)}`)),
+      const written = yield* installProjectHooks(options.workspaceRoot, hookPath).pipe(
+        Effect.catch((error) =>
+          warn(`could not install project hooks: ${String(error)}`).pipe(Effect.as(null)),
+        ),
       );
+      yield* Ref.set(installedHooks, written);
     }
     const mcp = yield* options.services
       .mcpEndpoint(options.threadId)
       .pipe(Effect.catch(() => Effect.succeed(null)));
-    // An empty url is how a server without an MCP endpoint (none yet — W6)
-    // says "nothing to configure": skip writing .mcp.json entirely.
+    // An empty url is how a server without an MCP endpoint says "nothing to
+    // configure": skip writing mcp.json entirely.
     if (mcp !== null && mcp.url !== "") {
-      yield* upsertMcpEntry(options.workspaceRoot, { url: mcp.url }).pipe(
-        Effect.catch((error) => warn(`could not write .mcp.json: ${String(error)}`)),
+      const written = yield* upsertMcpEntry(transcriptRoot, { url: mcp.url }, options.home).pipe(
+        Effect.catch((error) =>
+          warn(`could not write mcp.json: ${String(error)}`).pipe(Effect.as(null)),
+        ),
       );
+      yield* Ref.set(installedMcp, written);
     }
     if (options.services.registerHookHandler !== undefined) {
       yield* options.services.registerHookHandler(options.threadId, onHookPost);
@@ -697,6 +712,21 @@ export const makeCmdSession = (
         yield* active.proc.kill;
       }
       yield* releasePending;
+      // The project is the user's, not ours: the hook block and the MCP entry
+      // go out with the session that put them there. Both reverts no-op when
+      // the file has changed since or another session still holds it.
+      const hooks = yield* Ref.get(installedHooks);
+      if (hooks !== null && hookPath !== null) {
+        yield* uninstallProjectHooks(options.workspaceRoot, hookPath, hooks).pipe(
+          Effect.catch(() => Effect.void),
+        );
+      }
+      const mcpFile = yield* Ref.get(installedMcp);
+      if (mcpFile !== null) {
+        yield* removeMcpEntry(transcriptRoot, options.home, mcpFile).pipe(
+          Effect.catch(() => Effect.void),
+        );
+      }
       yield* emit({ type: "session.ended", payload: { reason: "stopped" } });
       yield* queue.end;
     });

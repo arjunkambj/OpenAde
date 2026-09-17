@@ -635,6 +635,57 @@ describe("makeCmdSession against a real spawned process", () => {
     }),
   );
 
+  it.effect("close puts the project's settings.local.json and mcp.json back", () =>
+    Effect.gen(function* () {
+      const f = yield* fixture();
+      withOpenadeHome(f);
+      const workspace = NodePath.join(f.root, "workspace");
+      const settingsPath = NodePath.join(workspace, ".commandcode", "settings.local.json");
+      const before = `${JSON.stringify({ permissions: { allow: ["Shell(git status:*)"] } }, null, 2)}\n`;
+      NodeFS.mkdirSync(NodePath.dirname(settingsPath), { recursive: true });
+      NodeFS.writeFileSync(settingsPath, before, "utf8");
+
+      const base = yield* services("allow");
+      const handle = yield* makeCmdSession({
+        instanceId: makeConnectorInstanceId(),
+        threadId: makeThreadId(),
+        workspaceRoot: workspace,
+        binaryPath: f.binary,
+        extraEnv: { HOME: f.home, OPENADE_FAKE_SESSION_ID: SESSION_ID },
+        home: f.home,
+        services: {
+          ...base,
+          mcpEndpoint: () => Effect.succeed({ url: "http://127.0.0.1:4321/mcp", bearer: "b" }),
+        },
+        settings: {
+          model: "fake/model",
+          runtimeMode: "approval-required",
+          interactionMode: "default",
+        },
+      });
+
+      // While the session runs, both files carry our entries.
+      const installed = JSON.parse(NodeFS.readFileSync(settingsPath, "utf8")) as {
+        hooks: { PreToolUse: ReadonlyArray<unknown> };
+      };
+      expect(installed.hooks.PreToolUse).toHaveLength(1);
+      const slug = NodeFS.realpathSync(workspace)
+        .toLowerCase()
+        .replaceAll("/", "-")
+        .replace(/^-/, "");
+      const mcpFile = NodePath.join(f.home, ".commandcode", "projects", slug, "mcp.json");
+      expect(NodeFS.existsSync(mcpFile)).toBe(true);
+      // Never inside the user's repo (spec section 8 names the local scope).
+      expect(NodeFS.existsSync(NodePath.join(workspace, ".mcp.json"))).toBe(false);
+
+      yield* handle.close();
+
+      // Byte-for-byte what the user had, and the file we created is gone.
+      expect(NodeFS.readFileSync(settingsPath, "utf8")).toBe(before);
+      expect(NodeFS.existsSync(mcpFile)).toBe(false);
+    }),
+  );
+
   it.effect("an allow decision answers the hook without opening a request", () =>
     Effect.gen(function* () {
       const f = yield* fixture();
