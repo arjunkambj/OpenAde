@@ -4,6 +4,22 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./connection": {
+      "types": "./src/connection.ts",
+      "import": "./src/connection.ts"
+    },
+    "./resolver": {
+      "types": "./src/resolver.ts",
+      "import": "./src/resolver.ts"
+    },
+    "./atoms": {
+      "types": "./src/atoms.ts",
+      "import": "./src/atoms.ts"
+    },
+    "./clientState": {
+      "types": "./src/clientState.ts",
+      "import": "./src/clientState.ts"
+    },
     "./meta": {
       "types": "./src/meta.ts",
       "import": "./src/meta.ts"
