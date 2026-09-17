@@ -129,6 +129,22 @@ the same gate on Linux and macOS (`.github/workflows/ci.yml`).
     document's own JSON copy is always stored empty so the two can never
     disagree. A settings editor edits the array as usual; nothing else needs to
     know where the rows are.
+18. `CmdConnectorConfig.defaultModel` (contracts · settings.ts) is inert: nothing
+    reads it. A thread's starting model comes from the global
+    `settings.defaults.model`, resolved in `Engine.buildContext` on
+    `thread.create`; honouring a per-instance default means resolving it there
+    against the thread's connector instance, which is engine work, not connector
+    work. Until that lands, the settings page renders an input that does
+    nothing — wire it or drop the field and its `settingsForm` annotation
+    (`settings.test.ts` requires every field of that struct to carry one).
+19. `packages/connector-cmd/src/{session,translate}.ts` sit just under the 800-line
+    budget. The next change to either one splits a piece out rather than trims
+    comments; `approvals.ts` and `exitCodes.ts` are the pattern.
+20. The connector owns two of the user's files (`.commandcode/settings.local.json`,
+    `~/.commandcode/projects/<slug>/mcp.json`) and merges into them. Both installs
+    return `null` — write nothing — when the file exists but is not strict JSON,
+    because merging onto a failed parse silently replaces what the user had. Any
+    new file OpenAde writes into a user's project inherits that rule.
 
 ## Next session starts here
 
