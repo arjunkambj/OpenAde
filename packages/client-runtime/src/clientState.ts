@@ -51,11 +51,13 @@ export const applyThreadEvent = (
       };
     case "thread.turn.completed":
     case "thread.turn.interrupted":
+      // `pendingPlan` survives the turn's end: the server proposes plans late
+      // in the turn and the user answers after it finishes — the plan card
+      // must stay up until `thread.plan.responded` clears it.
       return {
         ...doc,
         status: doc.queue.length > 0 ? "running" : "idle",
         currentTurnId: null,
-        pendingPlan: null,
         updatedAt: event.occurredAt,
       };
     case "thread.message.queued":
