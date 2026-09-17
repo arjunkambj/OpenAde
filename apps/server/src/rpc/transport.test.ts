@@ -36,6 +36,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
@@ -62,6 +63,10 @@ import {
 } from "./services";
 
 const TOKEN = "test-token";
+
+/** A real 1x1 PNG: small enough to inline, real enough to pass the sniff. */
+const PNG_BASE64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 /** Items the transfer-budget thread carries. */
 const ITEMS = 200;
 /**
@@ -216,6 +221,52 @@ describe("transport", () => {
         const hello = yield* client["server.hello"]({});
         expect(hello.protocolVersion).toBe(1);
         expect(hello.serverInstanceId).toBe(INSTANCE_ID);
+      }),
+    ),
+  );
+
+  it.live("an image goes up, comes back, and never rides the command", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const { url } = yield* testStack();
+        const connection = yield* connect(url, TOKEN);
+        const client = yield* connection.client;
+        yield* client["orchestration.dispatch"]({ command: createProject });
+        yield* client["orchestration.dispatch"]({ command: createThread });
+
+        const staged = yield* client["attachments.stage"]({
+          threadId,
+          name: "shot.png",
+          base64: PNG_BASE64,
+        });
+        expect(staged.mime).toBe("image/png");
+        expect(staged.size).toBe(70);
+
+        const back = yield* client["attachments.read"]({ threadId, path: staged.path });
+        expect(back.base64).toBe(PNG_BASE64);
+
+        // The turn carries the reference the staging answered with, and the
+        // event the decider wrote carries exactly that — no bytes.
+        yield* client["orchestration.dispatch"]({
+          command: {
+            commandId: makeCommandId(),
+            createdAt: "2026-01-01T00:00:02.000Z",
+            type: "thread.turn.start",
+            threadId,
+            text: "what is this?",
+            attachments: [staged],
+            mentions: [],
+            queued: false,
+          },
+        });
+        const snapshot = yield* Stream.runHead(client["threads.subscribe"]({ threadId }));
+        const frame = Option.isSome(snapshot) ? snapshot.value : null;
+        const row =
+          frame?.kind === "snapshot"
+            ? frame.snapshot.items.find((item) => item.kind === "user_message")
+            : undefined;
+        expect(row?.attachments).toEqual([staged]);
+        expect(JSON.stringify(row)).not.toContain(PNG_BASE64);
       }),
     ),
   );
