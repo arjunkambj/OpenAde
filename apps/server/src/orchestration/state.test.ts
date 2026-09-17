@@ -156,4 +156,26 @@ describe("the thread fold", () => {
     ]);
     expect(failed?.restoring).toBe(false);
   });
+
+  it("stamps each stored item with the turn that produced it", () => {
+    const turnId = makeTurnId();
+    const itemId = makeItemId();
+    const doc = foldThread([
+      created(),
+      turnRequested(turnId),
+      event("thread.item.upserted", {
+        item: { itemId, kind: "assistant_message", status: "in_progress" },
+        turnId,
+      }),
+      event("thread.item.upserted", {
+        item: { itemId, kind: "assistant_message", status: "completed", text: "hi" },
+        turnId,
+      }),
+    ]);
+
+    // One row, still carrying its turn — a snapshot with no turn boundaries
+    // cannot be grouped into settled turns by a client that joins late.
+    expect(doc?.items).toHaveLength(1);
+    expect(doc?.items[0]?.turnId).toBe(turnId);
+  });
 });

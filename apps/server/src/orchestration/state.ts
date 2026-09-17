@@ -227,7 +227,12 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
         ),
       };
     case "thread.item.upserted": {
-      const item = payload.item as ItemSnapshot;
+      // The turn id lives on the event; keeping it on the stored row is what
+      // lets a client that only ever sees the snapshot group the timeline by
+      // turn. A row the connector already stamped wins over the envelope.
+      const upserted = payload.item as ItemSnapshot;
+      const turnId = upserted.turnId ?? (payload.turnId as TurnId | undefined);
+      const item: ItemSnapshot = turnId === undefined ? upserted : { ...upserted, turnId };
       const index = doc.items.findIndex((existing) => existing.itemId === item.itemId);
       const items =
         index === -1
