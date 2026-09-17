@@ -34,6 +34,7 @@ import * as SubscriptionRef from "effect/SubscriptionRef";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
 import { readRules, writeRules } from "../permissions/PermissionService";
+import { layer as migrationsLayer } from "../persistence/Migrations";
 import type { BrowserCallOutcome } from "../browser/tools";
 
 // ── Server identity ────────────────────────────────────────────
@@ -232,6 +233,10 @@ export class SettingsStore extends Context.Service<
    * projects that table on read and writes it back on update, so a rule the
    * user adds here is enforced and a rule the approval flow wrote shows up
    * here. The JSON copy is always stored empty so it can never disagree.
+   *
+   * The migrations are a layer input rather than something the entrypoint runs
+   * first: this one reads its table while the graph is still being built, so
+   * "the schema exists" has to be an edge in the graph or it is a race.
    */
   static readonly layer = Layer.effect(
     SettingsStore,
@@ -307,7 +312,7 @@ export class SettingsStore extends Context.Service<
         changes: SubscriptionRef.changes(ref).pipe(Stream.mapEffect(withRules)),
       });
     }),
-  );
+  ).pipe(Layer.provide(migrationsLayer));
 }
 
 const SETTINGS_ROW_KEY = "settings";
