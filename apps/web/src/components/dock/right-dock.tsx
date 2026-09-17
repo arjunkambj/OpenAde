@@ -7,6 +7,13 @@
  * param so a thread reload lands on the same tab ("pane state in atoms and
  * search params"). Width persists through `dockWidthAtom` (localStorage) —
  * that is presentation, not durable state.
+ *
+ * Under 768px the dock is an overlay over the thread column rather than a
+ * second one: two columns in that width leave neither readable, and simply
+ * hiding the dock (what this used to do) made the changes, browser and files
+ * tabs unreachable on a narrow window with no hint that they existed. The
+ * resize edge is the one part that stays behind — there is nothing to resize
+ * when the panel is already full width.
  */
 
 import * as React from "react";
@@ -103,7 +110,11 @@ export function RightDock({
   return (
     <aside
       aria-label="Thread dock"
-      className="relative hidden min-h-0 w-(--dock-width) shrink-0 border-l border-border bg-sidebar md:flex"
+      className={cn(
+        // Overlay below md, a sibling column at md and up.
+        "absolute inset-0 z-20 flex min-h-0 w-full border-l border-border bg-sidebar",
+        "md:relative md:inset-auto md:z-auto md:w-(--dock-width) md:shrink-0",
+      )}
       style={{ "--dock-width": `${width}px` } as React.CSSProperties}
     >
       <div
@@ -111,7 +122,7 @@ export function RightDock({
         aria-orientation="vertical"
         aria-label="Resize dock"
         onPointerDown={onPointerDown}
-        className="absolute inset-y-0 -left-1 z-10 w-2 cursor-col-resize"
+        className="absolute inset-y-0 -left-1 z-10 hidden w-2 cursor-col-resize md:block"
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div className="flex h-11 shrink-0 items-center gap-0.5 border-b border-border px-2">

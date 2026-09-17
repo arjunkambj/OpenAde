@@ -87,10 +87,7 @@ function ThreadHeader({
         className="min-w-0 flex-1 flex-nowrap overflow-x-auto [scrollbar-width:none] [&>*]:shrink-0"
       />
       <StatusPill status={snapshot.status} />
-      {/* The dock itself is `md:flex`, so below that breakpoint there is
-          nothing for this control to open — and a pressed toggle next to no
-          dock is the header lying about the layout. */}
-      <span className="hidden shrink-0 md:inline-flex">
+      <span className="inline-flex shrink-0">
         <Tooltip>
           <TooltipTrigger
             render={
@@ -256,7 +253,9 @@ export function ThreadView({
   );
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1">
+    // `relative` is the dock's containing block: below 768px it overlays this
+    // row instead of becoming a second, unreadably narrow column.
+    <div className="relative flex min-h-0 min-w-0 flex-1">
       <section className="flex min-h-0 min-w-0 flex-1 flex-col">
         {snapshot !== null ? (
           <ThreadHeader
