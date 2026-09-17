@@ -11,6 +11,7 @@
   "payload": {
     "turnId": "0199c0de-0004-7000-8000-000000000001",
     "action": "accept",
-    "feedback": "Go ahead."
+    "feedback": "Go ahead.",
+    "planPath": "/Users/dev/.commandcode/plans/health-check.md"
   }
 }

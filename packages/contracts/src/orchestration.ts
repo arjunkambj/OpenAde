@@ -442,12 +442,20 @@ const ThreadPlanProposedEvent = orchestrationEvent(
   }),
 );
 
+/**
+ * `planPath` is the plan file the answer is about, copied from the pending
+ * plan as it is answered. The accept turn names the file ("Implement the
+ * approved plan at <path>"), and by the time a reactor sees this event the
+ * fold has already cleared `pendingPlan` — carrying it on the event is what
+ * lets that turn survive a restart between proposing a plan and accepting it.
+ */
 const ThreadPlanRespondedEvent = orchestrationEvent(
   "thread.plan.responded",
   Schema.Struct({
     turnId: TurnId,
     action: PlanResponseAction,
     feedback: Schema.optional(Schema.String),
+    planPath: Schema.optional(NonEmptyString),
   }),
 );
 
