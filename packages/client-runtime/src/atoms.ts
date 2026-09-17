@@ -12,7 +12,7 @@
  * - `dispatchAtom` — sends a `Command` and resolves with its receipt.
  */
 
-import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
+import type { ConnectorInstanceId, ProjectId, ThreadId } from "@OpenAde/contracts/ids";
 import type {
   ThreadDetailSnapshot,
   ThreadSummary,
@@ -21,8 +21,8 @@ import type {
   ThreadListStreamItem,
   ThreadStreamItem,
 } from "@OpenAde/contracts/orchestration";
-import type { ConnectorSummary } from "@OpenAde/contracts/rpc";
-import type { Settings } from "@OpenAde/contracts/settings";
+import type { ConnectorSummary, FileSearchResult, ModelOption, SkillSummary } from "@OpenAde/contracts/rpc";
+import type { Keybinding, Settings } from "@OpenAde/contracts/settings";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Duration from "effect/Duration";
@@ -181,6 +181,67 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
     }),
   );
 
+  /**
+   * The composer's `@` search, keyed per project per query. Each key is its
+   * own atom, so typing re-runs the RPC only when the query text changes; the
+   * component supplies a deferred query value for keystroke coalescing.
+   */
+  const fileSearchAtom = Atom.family((projectId: ProjectId) =>
+    Atom.family((query: string) =>
+      runtime.atom(
+        Effect.gen(function* () {
+          const client = yield* (yield* Connection).client;
+          return yield* client["files.search"]({ projectId, query, limit: 20 });
+        }),
+        { initialValue: [] as ReadonlyArray<FileSearchResult> },
+      ),
+    ),
+  );
+
+  /** The model list a connector instance reported, for the header picker. */
+  const connectorModelsAtom = Atom.family((instanceId: ConnectorInstanceId) =>
+    runtime.atom(
+      Effect.gen(function* () {
+        const client = yield* (yield* Connection).client;
+        return yield* client["connectors.models"]({ instanceId });
+      }),
+      { initialValue: [] as ReadonlyArray<ModelOption> },
+    ),
+  );
+
+  /** Skills the bound connector advertises, for the `/` popover. */
+  const skillsAtom = Atom.family((projectId: ProjectId | null) =>
+    runtime.atom(
+      Effect.gen(function* () {
+        const client = yield* (yield* Connection).client;
+        return yield* client["cmdConfig.skills.list"](
+          projectId === null ? {} : { projectId },
+        );
+      }),
+      { initialValue: [] as ReadonlyArray<SkillSummary> },
+    ),
+  );
+
+  /** The server-owned keybinding table the editor and the matcher share. */
+  const keybindingsAtom = runtime.atom(
+    Effect.gen(function* () {
+      const client = yield* (yield* Connection).client;
+      return yield* client["keybindings.get"]({});
+    }),
+    { initialValue: [] as ReadonlyArray<Keybinding> },
+  );
+
+  /** Replaces the whole table; refreshes `keybindingsAtom` on success. */
+  const keybindingsUpdateAtom = runtime.fn(
+    (keybindings: ReadonlyArray<Keybinding>, get) =>
+      Effect.gen(function* () {
+        const client = yield* (yield* Connection).client;
+        const next = yield* client["keybindings.update"]({ keybindings });
+        get.registry.refresh(keybindingsAtom);
+        return next;
+      }),
+  );
+
   return {
     runtime,
     connectionStateAtom,
@@ -190,5 +251,10 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
     threadDetailAtom,
     threadListAtom,
     dispatchAtom,
+    fileSearchAtom,
+    connectorModelsAtom,
+    skillsAtom,
+    keybindingsAtom,
+    keybindingsUpdateAtom,
   };
 };

@@ -20,6 +20,14 @@
       "types": "./src/clientState.ts",
       "import": "./src/clientState.ts"
     },
+    "./composerTrigger": {
+      "types": "./src/composerTrigger.ts",
+      "import": "./src/composerTrigger.ts"
+    },
+    "./keybindings": {
+      "types": "./src/keybindings.ts",
+      "import": "./src/keybindings.ts"
+    },
     "./meta": {
       "types": "./src/meta.ts",
       "import": "./src/meta.ts"
