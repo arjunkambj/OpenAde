@@ -120,6 +120,13 @@ export const ItemSnapshot = Schema.Struct({
   itemId: ItemId,
   kind: ItemKind,
   status: ItemStatus,
+  /**
+   * The turn that produced the row. A resumed timeline is grouped by it —
+   * without it a client that opens a thread and receives the snapshot has no
+   * way to fold settled turns into their "worked for Ns" rows. Absent on rows
+   * a connector emitted outside any turn.
+   */
+  turnId: Schema.optional(TurnId),
   parentItemId: Schema.optional(ItemId),
   text: Schema.optional(Schema.String),
   command: Schema.optional(
