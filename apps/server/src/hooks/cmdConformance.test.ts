@@ -1,30 +1,36 @@
 /**
  * `runConnectorConformance` against the real `cmdConnectorDefinition`.
  *
- * Command Code itself is unusable here — the account has no credits
- * (docs/decisions/w2-cmd-frames.md) — so the binary is testkit's standalone
- * `fake-cmd.mjs`, the same executable a human can point a connector instance at
- * to run the desktop app without an account. It speaks the harness's NDJSON
- * protocol for real: frames on stdout, a transcript appended under a temp
- * `HOME`, a pid file so the suite's `isProcessGone` check inspects real
- * children, and — for the approval turn — the installed `cmd-hook.mjs`, run
+ * The binary is testkit's replayer, so every frame, transcript line and hook
+ * payload in this file came off the real `cmd` 1.55.1
+ * (`packages/testkit/fixtures/cmd/`). Everything between the recording and the
+ * assertions is production code: the real argv, a transcript appearing on disk
+ * in the directory the harness really uses, the installed `cmd-hook.mjs` run
  * through the system shell, POSTing to a real `HookBridge` on a real bound
- * port. That is the whole production round trip, minus the model.
+ * port, a pid file so `isProcessGone` inspects real children. The whole round
+ * trip, minus the model — and the model's half is the recording.
+ *
+ * The suite runs on `text/`, a turn with no tool calls, because its plain tests
+ * send turns nobody answers approvals for. The approval half is the test below
+ * it, which drives `shell-yolo/` — a real `shell_command` gated by a real hook —
+ * and asserts the same invariant `approvalTurn` does: every request opened is
+ * resolved, and the turn finishes.
  *
  * Nothing touches the real `~/.commandcode` or `~/.openade`: `OPENADE_HOME` is
- * redirected for the duration of this file.
+ * redirected for the duration of this file, and `HOME` per session.
  */
 
 import { createServer } from "node:http";
-import * as NodeURL from "node:url";
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { NodeHttpServer } from "@effect/platform-node";
-import { afterAll } from "vitest";
+import { afterAll, describe, expect, it } from "@effect/vitest";
 import { runConnectorConformance } from "@OpenAde/connector-sdk/conformance";
 import type { ConnectorServices } from "@OpenAde/connector-sdk/definition";
 import { cmdConnectorDefinition } from "@OpenAde/connector-cmd/definition";
+import { makeStreamCollector } from "@OpenAde/connector-sdk/streamCollector";
+import { loadRecording, replayConfig } from "@OpenAde/testkit/replayCmdProcess";
 import { makeConnectorInstanceId, makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
 import type { ThreadId } from "@OpenAde/contracts/ids";
 import * as Context from "effect/Context";
@@ -40,19 +46,12 @@ const TMP = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "cmd-conformance-"
 const HOME_DIR = NodePath.join(TMP, "home");
 const WORKSPACE = NodePath.join(TMP, "workspace");
 const PID_DIR = NodePath.join(TMP, "pids");
-const SESSION_ID = "00000000-0000-7000-8000-0c0nf0rm0001";
 NodeFS.mkdirSync(HOME_DIR, { recursive: true });
 NodeFS.mkdirSync(WORKSPACE, { recursive: true });
 NodeFS.mkdirSync(PID_DIR, { recursive: true });
 
 const previousOpenadeHome = process.env.OPENADE_HOME;
 process.env.OPENADE_HOME = NodePath.join(TMP, "openade");
-
-// testkit's standalone fake, resolved from the workspace rather than copied.
-const fakeBinary = NodePath.resolve(
-  NodeURL.fileURLToPath(import.meta.url),
-  "../../../../../packages/testkit/bin/fake-cmd.mjs",
-);
 
 // ── The real hook bridge, built once for the file ─────────────
 
@@ -137,34 +136,112 @@ const services: ConnectorServices = {
   clock: Effect.runSync(Effect.clockWith((clock) => Effect.succeed(clock))),
 };
 
+/** The recorded model, so the settings name what actually answered. */
+const MODEL = loadRecording("text").model;
+
 runConnectorConformance(cmdConnectorDefinition, {
   instanceId: makeConnectorInstanceId(),
   services,
-  config: {
-    binaryPath: fakeBinary,
-    extraEnv: {
-      HOME: HOME_DIR,
-      OPENADE_FAKE_SESSION_ID: SESSION_ID,
-      OPENADE_FAKE_PID_DIR: PID_DIR,
-    },
-  },
+  // A recorded turn with no tool calls: the suite's plain tests send turns and
+  // wait for them, and nobody is there to answer an approval.
+  config: replayConfig("text", { home: HOME_DIR, pidDir: PID_DIR, turn: 0 }),
   session: {
     threadId: makeThreadId(),
     projectId: makeProjectId(),
     workspaceRoot: WORKSPACE,
     settings: {
-      model: "fake/model",
+      model: MODEL,
       runtimeMode: "approval-required",
       interactionMode: "default",
     },
   },
-  // The fake picks its scenario from the prompt: plain text for the ordinary
-  // turn, a hook-gated shell_command for the approval one.
-  turn: { text: "say done", attachments: [], mentions: [] },
-  approvalTurn: { text: "please run a shell command", attachments: [], mentions: [] },
+  // The replay ignores the prompt — the recording decides what the turn does.
+  turn: { text: "Reply with exactly: ok", attachments: [], mentions: [] },
   isProcessGone: (threadId) =>
     Effect.sync(() => {
       if (openThreads.has(threadId)) return false;
       return NodeFS.readdirSync(PID_DIR).every((name) => !pidAlive(Number(name)));
     }),
+});
+
+// ── the approval round trip, end to end ───────────────────────
+
+/**
+ * What `approvalTurn` checks, on a recording that really needs an approval:
+ * `shell-yolo/` is a `shell_command` the real CLI gated through a real
+ * PreToolUse hook. Here that hook is the connector's own `cmd-hook.mjs`, run
+ * through the system shell by the replayer, POSTing to a real `HookBridge`,
+ * answered by a real permission decision the test makes — and only then does
+ * the recorded call run.
+ */
+describe("an approval through the whole bridge", () => {
+  it.live("opens a request, waits for the answer, and finishes the turn", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const home = NodePath.join(TMP, "approval-home");
+        const workspace = NodePath.join(TMP, "approval-workspace");
+        yield* Effect.sync(() => {
+          NodeFS.mkdirSync(home, { recursive: true });
+          NodeFS.mkdirSync(workspace, { recursive: true });
+        });
+        const threadId = makeThreadId();
+        const replay = replayConfig("shell-yolo", { home, turn: 0 });
+        const instance = yield* cmdConnectorDefinition.createInstance({
+          instanceId: makeConnectorInstanceId(),
+          config: replay,
+          services,
+        });
+        const handle = yield* instance.startSession({
+          threadId,
+          projectId: makeProjectId(),
+          workspaceRoot: workspace,
+          settings: { model: MODEL, runtimeMode: "approval-required", interactionMode: "default" },
+        });
+        const collector = yield* makeStreamCollector(handle.events);
+
+        yield* handle.send({
+          text: "Run the shell command `cat note.txt`.",
+          attachments: [],
+          mentions: [],
+        });
+
+        const opened = yield* collector.awaitItem((event) => event.type === "request.opened");
+        if (opened.type !== "request.opened") {
+          throw new Error("collector returned the wrong event");
+        }
+        const request = opened.payload.request;
+        // The hook payload the real CLI sent, carried all the way through.
+        expect(request.toolName).toBe("shell_command");
+        expect((request.input as { command?: string }).command).toBe("cat note.txt");
+
+        yield* handle.respondToRequest(request.requestId, "allow-once");
+        yield* collector.awaitItem(
+          (event) =>
+            event.type === "request.resolved" && event.payload.requestId === request.requestId,
+        );
+        yield* collector.awaitItem((event) => event.type === "turn.completed");
+
+        const events = yield* collector.collected;
+        const openedIds = events.flatMap((event) =>
+          event.type === "request.opened" ? [event.payload.request.requestId] : [],
+        );
+        const resolvedIds = new Set(
+          events.flatMap((event) =>
+            event.type === "request.resolved" ? [event.payload.requestId] : [],
+          ),
+        );
+        expect(openedIds.filter((id) => !resolvedIds.has(id))).toEqual([]);
+
+        // And the call the approval unblocked really ran.
+        const shell = events.flatMap((event) =>
+          event.type === "item.completed" && event.payload.item.kind === "command_execution"
+            ? [event.payload.item]
+            : [],
+        );
+        expect(shell.at(-1)?.command?.output).toBe("hello\n");
+
+        yield* handle.close();
+      }),
+    ),
+  );
 });

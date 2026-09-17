@@ -4,13 +4,13 @@
 Nothing in it is hand-written, reconstructed or synthesized. If the CLI changes,
 these are re-recorded — they are never edited by hand to make a test pass.
 
-|              |                                                              |
-| ------------ | ------------------------------------------------------------ |
-| CLI          | `/opt/homebrew/bin/cmd` (the operator's global install)       |
-| Version      | **1.55.1**                                                    |
-| Recorded on  | **2026-09-18**                                                |
-| Model        | `meta/muse-spark-1.3-contributor` (the account default)       |
-| Recorded by  | `packages/testkit/scripts/record-cmd.mjs`                     |
+|             |                                                         |
+| ----------- | ------------------------------------------------------- |
+| CLI         | `/opt/homebrew/bin/cmd` (the operator's global install) |
+| Version     | **1.55.1**                                              |
+| Recorded on | **2026-09-18**                                          |
+| Model       | `meta/muse-spark-1.3-contributor` (the account default) |
+| Recorded by | `packages/testkit/scripts/record-cmd.mjs`               |
 
 Each `manifest.json` carries the model its own frames name, so a recording made
 on a different model says so rather than inheriting this table.
@@ -40,36 +40,59 @@ authorised may be used: `meta/muse-spark-1.3-contributor` (the default),
 and signal, the session id, stdout chunk arrival order, transcript growth
 samples, hook count, plan files and touched files. Beside it:
 
-| file                  | what it is                                              |
-| --------------------- | ------------------------------------------------------- |
-| `stdout.ndjson`       | every NDJSON frame, in arrival order                    |
-| `stderr.txt`          | `--verbose` stderr, including `session: <uuid>`         |
-| `transcript.jsonl`    | the on-disk session transcript as it ended up           |
-| `checkpoints.jsonl`   | the `<id>.checkpoints.jsonl` the CLI wrote              |
-| `hooks.json`          | every PreToolUse invocation: the CLI's stdin, our answer |
+| file                | what it is                                               |
+| ------------------- | -------------------------------------------------------- |
+| `stdout.ndjson`     | every NDJSON frame, in arrival order                     |
+| `stderr.txt`        | `--verbose` stderr, including `session: <uuid>`          |
+| `transcript.jsonl`  | the on-disk session transcript as it ended up            |
+| `checkpoints.jsonl` | the `<id>.checkpoints.jsonl` the CLI wrote               |
+| `hooks.json`        | every PreToolUse invocation: the CLI's stdin, our answer |
 
 Multi-turn scenarios prefix each file with `turn1.` / `turn2.`.
 
 ## The scenarios
 
-| directory         | what it proves                                                       |
-| ----------------- | -------------------------------------------------------------------- |
-| `probe/`          | `status --json`, `--list-models`, `--version`, `--help`, bad model   |
-| `text/`           | a text-only answer; `text_delta` streaming                           |
-| `shell-allow/`    | `shell_command` allowed through the hook — and still refused without `--yolo` |
-| `shell-deny/`     | the same call denied by the hook — `tool_hook_blocked`               |
-| `shell-yolo/`     | the same call with `--yolo`; the hook still fires and the call runs  |
-| `file-edit/`      | `edit_file` against a real file                                      |
-| `plan/`           | `--permission-mode plan --yolo` writing a plan, then the accept follow-up |
-| `plan-no-yolo/`   | plan mode without `--yolo`: the plan file itself is refused          |
-| `plan-guard/`     | plan mode with `--yolo`, told to edit: the workspace stays untouched |
-| `question/`       | `ask_user_question` with the connector's argv — the tool is withheld |
+| directory         | what it proves                                                                               |
+| ----------------- | -------------------------------------------------------------------------------------------- |
+| `probe/`          | `status --json`, `--list-models`, `--version`, `--help`, bad model                           |
+| `text/`           | a text-only answer; `text_delta` streaming                                                   |
+| `shell-allow/`    | `shell_command` allowed through the hook — and still refused without `--yolo`                |
+| `shell-deny/`     | the same call denied by the hook — `tool_hook_blocked`                                       |
+| `shell-yolo/`     | the same call with `--yolo`; the hook still fires and the call runs                          |
+| `file-edit/`      | `edit_file` against a real file                                                              |
+| `plan/`           | `--permission-mode plan --yolo` writing a plan, then the accept follow-up                    |
+| `plan-no-yolo/`   | plan mode without `--yolo`: the plan file itself is refused                                  |
+| `plan-guard/`     | plan mode with `--yolo`, told to edit: the workspace stays untouched                         |
+| `question/`       | `ask_user_question` with the connector's argv — the tool is withheld                         |
 | `question-tools/` | the same with `--tools-enable ask_user_question` — it fires, and the hook sees the questions |
-| `image/`          | an image attachment staged the way the connector stages one         |
-| `mcp/`            | an `mcp__<server>__<tool>` call — PreToolUse fires for it           |
-| `interrupt/`      | SIGINT mid-turn — exit 130, no `run_end`, no `result`               |
-| `resume/`         | a second turn resuming the first session id                         |
-| `max-turns/`      | `--max-turns` exhausted — exit 8, `subtype: "max_turns"`            |
+| `image/`          | an image attachment staged the way the connector stages one                                  |
+| `mcp/`            | an `mcp__<server>__<tool>` call — PreToolUse fires for it                                    |
+| `interrupt/`      | SIGINT mid-turn — exit 130, no `run_end`, no `result`                                        |
+| `resume/`         | a second turn resuming the first session id                                                  |
+| `max-turns/`      | `--max-turns` exhausted — exit 8, `subtype: "max_turns"`                                     |
+
+## Putting them back on the wire
+
+`packages/testkit/bin/replay-cmd.mjs` replays a recording as if it were `cmd`.
+It has no behaviour of its own — it chooses nothing and synthesises nothing —
+and it is what every test that used to drive an invented stand-in now spawns:
+
+```ts
+import { replayConfig } from "@OpenAde/testkit/replayCmdProcess";
+const config = replayConfig("shell-yolo", { home: tempHome });
+// → { binaryPath, extraEnv }: point a connector instance at it
+```
+
+It puts stdout back in the recorded chunk boundaries, appends the transcript
+progressively into the project directory the harness really used, invokes the
+project's installed PreToolUse hook at the recorded points with the recorded
+payload and blocks on the answer, and exits with the recorded code. A test that
+wants a different outcome names a different recording.
+
+`probe-insufficient-credits.ndjson` is the one loose file: a real capture from
+2026-09-15, when the account had no credits, and the only recording of
+`run_error` and the exit-10 path. It cannot be made again now the plan is paid
+for, so it is kept in the raw shape the first probe wrote it in.
 
 ## Scrubbing
 

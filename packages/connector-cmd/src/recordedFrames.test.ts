@@ -245,6 +245,35 @@ describe("how runs end", () => {
     );
   });
 
+  /**
+   * The one recording that cannot be made again: the account had no credits on
+   * 2026-09-15 and the run died at the model call. It is the only real capture
+   * of `run_error` and of the exit-10 path, so it is kept in the raw shape the
+   * first probe wrote it in — stderr and stdout in one file.
+   */
+  it("turns a run_error into a fatal runtime error", () => {
+    const raw = NodeFS.readFileSync(
+      NodePath.join(RECORDINGS, "probe-insufficient-credits.ndjson"),
+      "utf8",
+    );
+    const translate = translator();
+    const events: Array<PendingRuntimeEvent> = [];
+    for (const line of raw.split("\n")) {
+      const frame = parseFrame(line);
+      if (!("line" in frame)) {
+        events.push(...translate.onFrame(frame));
+      }
+    }
+    events.push(...translate.onExit(10));
+
+    const errors = events.filter((event) => event.type === "runtime.error");
+    expect(errors.map((event) => event.payload.fatal)).toEqual([true, true, true]);
+    expect(errors[0]?.payload.message).toContain("insufficient credits");
+    // Exit 10 is named, so the user is told to top up rather than shown a code.
+    expect(errors.at(-1)?.payload.message.toLowerCase()).toContain("credits");
+    expect(events.filter((event) => event.type === "turn.completed")).toHaveLength(1);
+  });
+
   it("carries a question's answer-shaped tool call as an ordinary row", () => {
     // `--tools-enable ask_user_question` un-withholds the tool; the card itself
     // comes from the hook, but the timeline still shows the call.

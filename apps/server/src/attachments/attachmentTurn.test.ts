@@ -1,11 +1,16 @@
 /**
  * The whole attachment path, against a real spawned process.
  *
- * `attachments.stage` writes a real PNG, the turn carries the reference, the
- * session copies nothing (the file is already under `attachmentsDir`), passes
- * the directory as `--add-dir` and names the absolute path in the prompt — and
- * testkit's standalone `fake-cmd.mjs` really opens the file and reports its
- * media type and byte count back. Everything but the model.
+ * `attachments.stage` writes a real PNG, the turn carries the reference, and
+ * the session copies nothing (the file is already under `attachmentsDir`),
+ * passes the directory as `--add-dir` and names the absolute path in the
+ * prompt. The binary is testkit's replayer, so what comes back is
+ * `fixtures/cmd/image/` — a real Command Code turn staged exactly this way, in
+ * which the model read the PNG and answered with the colour of its pixels.
+ *
+ * The assertions are therefore on the two halves that are ours: the argv and
+ * prompt the connector hands the CLI, which the replay records, and the answer
+ * the real CLI gave when it was handed the same thing.
  *
  * Nothing touches the real `~/.commandcode` or `~/.openade`: both are
  * redirected into a temp directory for the file.
@@ -14,12 +19,16 @@
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
-import * as NodeURL from "node:url";
 import { makeCmdSession } from "@OpenAde/connector-cmd/session";
 import type { ConnectorServices } from "@OpenAde/connector-sdk/definition";
 import { makeStreamCollector } from "@OpenAde/connector-sdk/streamCollector";
 import { makeConnectorInstanceId, makeThreadId } from "@OpenAde/contracts/ids";
 import type { ThreadId } from "@OpenAde/contracts/ids";
+import {
+  loadRecording,
+  replayConfig,
+  replayedInvocations,
+} from "@OpenAde/testkit/replayCmdProcess";
 import { describe, expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -31,16 +40,11 @@ import { AttachmentStore } from "./AttachmentStore";
 const PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
-/** testkit's standalone fake, resolved from the workspace rather than copied. */
-const fakeBinary = NodePath.resolve(
-  NodeURL.fileURLToPath(import.meta.url),
-  "../../../../../packages/testkit/bin/fake-cmd.mjs",
-);
-
 interface Fixture {
   readonly home: string;
   readonly workspace: string;
   readonly attachmentsDir: string;
+  readonly argvLog: string;
   readonly store: AttachmentStore["Service"];
 }
 
@@ -57,8 +61,15 @@ const fixture = (): Effect.Effect<Fixture, never, Scope.Scope> =>
       NodeFS.mkdirSync(workspace, { recursive: true });
     });
     const attachmentsDir = NodePath.join(root, "attachments");
+    const argvLog = NodePath.join(root, "argv.jsonl");
     const context = yield* Layer.build(AttachmentStore.layerAt(attachmentsDir));
-    return { home, workspace, attachmentsDir, store: Context.get(context, AttachmentStore) };
+    return {
+      home,
+      workspace,
+      attachmentsDir,
+      argvLog,
+      store: Context.get(context, AttachmentStore),
+    };
   });
 
 const servicesFor = (attachmentsDir: string): Effect.Effect<ConnectorServices> =>
@@ -93,16 +104,17 @@ const openadeHomeAt = (path: string) =>
 
 const runTurn = (threadId: ThreadId, attachmentPath: string, f: Fixture) =>
   Effect.gen(function* () {
+    const replay = replayConfig("image", { home: f.home, argvLog: f.argvLog, turn: 0 });
     const handle = yield* makeCmdSession({
       instanceId: makeConnectorInstanceId(),
       threadId,
       workspaceRoot: f.workspace,
-      binaryPath: fakeBinary,
-      extraEnv: { HOME: f.home },
+      binaryPath: replay.binaryPath,
+      extraEnv: replay.extraEnv,
       home: f.home,
       services: yield* servicesFor(f.attachmentsDir),
       settings: {
-        model: "fake/model",
+        model: "meta/muse-spark-1.3-contributor",
         runtimeMode: "approval-required",
         interactionMode: "default",
       },
@@ -118,7 +130,7 @@ const runTurn = (threadId: ThreadId, attachmentPath: string, f: Fixture) =>
   });
 
 describe("an attachment reaching the harness", () => {
-  it.live("is really opened by the binary, with its type and size reported back", () =>
+  it.live("is handed over the way the recorded image turn was handed over", () =>
     Effect.scoped(
       Effect.gen(function* () {
         const f = yield* fixture();
@@ -132,24 +144,40 @@ describe("an attachment reaching the harness", () => {
 
         const events = yield* runTurn(threadId, staged.path, f);
 
-        const said = events
-          .flatMap((event) =>
-            event.type === "item.started" ||
-            event.type === "item.updated" ||
-            event.type === "item.completed"
-              ? [event.payload.item.text ?? ""]
-              : [],
-          )
-          .join("\n");
-        // The fake only knows what it managed to read off disk, and it names
-        // the staged file — which is the one the prompt pointed at.
-        expect(said).toContain(`I opened ${NodePath.basename(staged.path)}`);
-        expect(said).toContain("image/png, 70 bytes");
-        // It saw the file through --add-dir, not by luck.
-        expect(said).not.toContain("outside every --add-dir");
+        // ── what we handed the CLI ──────────────────────────────
+        const invocation = replayedInvocations(f.argvLog).at(-1);
+        const argv = invocation?.argv ?? [];
+        const prompt = argv[argv.indexOf("-p") + 1] ?? "";
+        // The absolute path, labelled with its media type, so the model knows
+        // it is an image worth reading (decision w10-attachments).
+        expect(prompt).toContain(`Attachment (image/png): ${staged.path}`);
+        // And the directory it lives in, or the read tool would refuse: it is
+        // outside the workspace root the session was started in.
+        const addDirs = argv.flatMap((arg, index) =>
+          arg === "--add-dir" ? [argv[index + 1]] : [],
+        );
+        expect(addDirs).toEqual([f.store.directoryFor(threadId)]);
+        expect(NodePath.isAbsolute(staged.path)).toBe(true);
         // Nothing was copied: the server already staged it where it belongs.
-        const entries = NodeFS.readdirSync(f.store.directoryFor(threadId));
-        expect(entries).toEqual([NodePath.basename(staged.path)]);
+        expect(NodeFS.readdirSync(f.store.directoryFor(threadId))).toEqual([
+          NodePath.basename(staged.path),
+        ]);
+
+        // ── what the real CLI did with it ───────────────────────
+        const recording = loadRecording("image");
+        const items = events.flatMap((event) =>
+          event.type === "item.started" ||
+          event.type === "item.updated" ||
+          event.type === "item.completed"
+            ? [event.payload.item]
+            : [],
+        );
+        // It read the staged file, and answered with the colour of the pixels.
+        const read = items.filter((item) => item.tool?.name === "read_file");
+        expect(String(read.at(-1)?.tool?.output ?? "")).toContain("Read image");
+        const said = items.filter((item) => item.kind === "assistant_message");
+        expect(said.at(-1)?.text?.toLowerCase()).toContain("red");
+        expect(recording.turns[0]!.prompt).toContain("Attachment (image/png):");
       }),
     ),
   );

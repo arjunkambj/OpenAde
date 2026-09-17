@@ -1,8 +1,0 @@
-{"type":"event","event":{"type":"run_start","sessionId":"00000000-0000-7000-8000-000000000001"}}
-{"type":"event","event":{"type":"turn_start","turnNumber":1}}
-{"type":"event","event":{"type":"message_start"}}
-{"type":"event","event":{"type":"model_request_start","model":"placeholder/model"}}
-{"type":"event","event":{"type":"model_trace","traceId":"00000000000000000000000000000002"}}
-{"type":"event","event":{"type":"run_error","error":{"name":"TransportError","message":"POST /alpha/generate -> 400 error: placeholder"}}}
-{"type":"event","event":{"type":"run_end","result":{"finalText":"","stopReason":"run_error","turnCount":1,"usage":{"inputTokens":0,"outputTokens":0,"cacheReadTokens":0,"cacheWriteTokens":0},"systemPromptTokens":null,"nextState":{"sessionId":"00000000-0000-7000-8000-000000000001","messages":[{"role":"user","content":[{"type":"text","text":"placeholder prompt"}],"meta":{"source":"user","createdAt":0,"messageId":"00000000-0000-7000-8000-000000000003"}}],"interrupted":false,"modState":{}}}}}
-{"type":"result","subtype":"error","sessionId":"00000000-0000-7000-8000-000000000001","usage":{"inputTokens":0,"outputTokens":0,"cacheReadTokens":0,"cacheWriteTokens":0},"durationMs":0,"finalText":"","error":"Error: placeholder"}

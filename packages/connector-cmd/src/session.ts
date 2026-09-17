@@ -242,6 +242,47 @@ export const makeCmdSession = (
       Effect.forEach(pendings, (pending) => emit(enrich(pending)), { discard: true });
 
     /**
+     * Reads the transcript to the end and folds whatever the tailer has not
+     * reached yet, before the turn is allowed to settle.
+     *
+     * The harness's last transcript flush lands *with* `run_end`, not before
+     * it, and the tailer is a poller — so the assistant line that carries
+     * `usage.costUsd` reliably arrived after `turn.completed`, which is after
+     * the engine has stopped tagging events with that turn. The turn's price
+     * was therefore never reported.
+     *
+     * Re-reading what the tailer already delivered costs nothing: messages
+     * dedupe on `meta.messageId` and priced lines on the same id, so a line
+     * seen twice emits nothing and charges nothing.
+     */
+    const drainTranscript: Effect.Effect<void> = Effect.gen(function* () {
+      const sessionId = translator.sessionId;
+      if (sessionId === null) {
+        return;
+      }
+      const lines = yield* Effect.sync(() => {
+        const path = findTranscriptPath(transcriptRoot, sessionId, options.home);
+        if (path === null) {
+          return [] as ReadonlyArray<string>;
+        }
+        try {
+          return NodeFS.readFileSync(path, "utf8")
+            .split("\n")
+            .filter((line) => line.trim().length > 0);
+        } catch {
+          return [] as ReadonlyArray<string>;
+        }
+      });
+      for (const line of lines) {
+        const pendings = yield* Effect.try({
+          try: () => translator.onTranscriptLine(JSON.parse(line)),
+          catch: (): ReadonlyArray<PendingRuntimeEvent> => [],
+        }).pipe(Effect.catch(() => Effect.succeed([] as ReadonlyArray<PendingRuntimeEvent>)));
+        yield* emitAll(pendings);
+      }
+    });
+
+    /**
      * A plan-mode turn that just ended may have left a plan file behind:
      * `plans-index.json` matches it to this session by `sessionId`, and the
      * newest matching entry is read and proposed. Emitted while the turn is
@@ -535,6 +576,7 @@ export const makeCmdSession = (
         Effect.gen(function* () {
           const prepared = enrich(pending);
           if (prepared.type === "turn.completed") {
+            yield* drainTranscript;
             yield* emitPlanProposal(active);
             yield* Deferred.succeed(active.turnDone, undefined);
           }

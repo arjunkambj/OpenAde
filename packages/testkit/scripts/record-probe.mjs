@@ -91,7 +91,9 @@ const capture = (binary, args, cwd) =>
       stderr += chunk;
     });
     child.once("exit", (code, signal) => resolve({ stdout, stderr, code, signal }));
-    child.once("error", (error) => resolve({ stdout, stderr: String(error), code: -1, signal: null }));
+    child.once("error", (error) =>
+      resolve({ stdout, stderr: String(error), code: -1, signal: null }),
+    );
   });
 
 const scrub = (text, home, account) => {

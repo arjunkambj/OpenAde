@@ -1,8 +1,17 @@
 /**
- * The session end to end: `makeCmdSession` against a real spawned process — a
- * generated `cmd` stand-in (a node script) that emits NDJSON frames, writes its
- * transcript where the harness would, and answers to signals the way the real
- * CLI does (SIGINT → exit 130).
+ * The session's *process mechanics*, against a real spawned child.
+ *
+ * What the harness says on the wire is not this file's subject —
+ * `recordedSession.test.ts` and `recordedFrames.test.ts` cover that, and every
+ * frame in them came off the real CLI. This one drives a deliberately minimal
+ * node stub, because what it checks cannot be replayed from a fixed recording:
+ * a child that ignores SIGINT and has to be escalated to SIGKILL, a final frame
+ * that arrives without its newline, a process that never exits, two sends
+ * racing for one slot, a transcript that is already there when a resumed
+ * session starts.
+ *
+ * The stub emits the shape of a turn — it is scaffolding for those cases, not a
+ * description of Command Code. Where the two disagree, the recordings are right.
  *
  * The child gets a redirected `HOME` (through the allowlist, the way extraEnv
  * flows) so its transcript lands in a temp `~/.commandcode`, and the session is
@@ -27,18 +36,18 @@ import { patternSuggestionFor } from "./approvals";
 import { makeCmdSession, type CmdSessionRef } from "./session";
 import { transcriptPathFor } from "./transcript";
 
-const SESSION_ID = "00000000-0000-7000-8000-fakec0de0001";
+const SESSION_ID = "00000000-0000-7000-8000-57ub0cmd0001";
 
 /**
- * The fake `cmd`: emits the frame sequence of a successful turn and appends the
- * assistant message to the transcript mid-run — the overlap the translator
- * dedupes. `FAKE_CMD_SLEEP` makes it block instead of exiting, for the
- * interrupt test.
+ * The stub `cmd`: emits the frame sequence of a turn and appends the assistant
+ * message to the transcript mid-run — the overlap the translator dedupes. The
+ * `OPENADE_STUB_*` knobs are what let one script stand in for the several
+ * process behaviours this file has to provoke.
  */
-const FAKE_CMD = `#!/usr/bin/env node
+const STUB_CMD = `#!/usr/bin/env node
 import * as fs from "node:fs";
 import * as path from "node:path";
-const sessionId = process.env.OPENADE_FAKE_SESSION_ID;
+const sessionId = process.env.OPENADE_STUB_SESSION_ID;
 const home = process.env.HOME;
 const cwd = process.cwd();
 const slug = cwd.toLowerCase().replaceAll("/", "-").replace(/^-/, "");
@@ -47,10 +56,10 @@ fs.mkdirSync(dir, { recursive: true });
 const transcript = path.join(dir, sessionId + ".jsonl");
 const emit = (event) =>
   process.stdout.write(JSON.stringify({ type: "event", event }) + "\\n");
-if (process.env.OPENADE_FAKE_PID_FILE) {
-  fs.writeFileSync(process.env.OPENADE_FAKE_PID_FILE, String(process.pid));
+if (process.env.OPENADE_STUB_PID_FILE) {
+  fs.writeFileSync(process.env.OPENADE_STUB_PID_FILE, String(process.pid));
 }
-if (process.env.OPENADE_FAKE_APPEND === "1") {
+if (process.env.OPENADE_STUB_APPEND === "1") {
   // A resumed session's transcript already exists — only this run appends.
 } else {
   fs.writeFileSync(
@@ -58,7 +67,7 @@ if (process.env.OPENADE_FAKE_APPEND === "1") {
     JSON.stringify({ type: "session", version: 3, id: sessionId, timestamp: "2026-01-01T00:00:00.000Z", cwd }) + "\\n",
   );
 }
-if (process.env.OPENADE_FAKE_IGNORE_SIGINT === "1") {
+if (process.env.OPENADE_STUB_IGNORE_SIGINT === "1") {
   // A child that ignores SIGINT — the case a bare signal wedges forever.
   process.on("SIGINT", () => {});
 } else {
@@ -67,7 +76,7 @@ if (process.env.OPENADE_FAKE_IGNORE_SIGINT === "1") {
 emit({ type: "run_start", sessionId });
 emit({ type: "turn_start", turnNumber: 1 });
 emit({ type: "message_start" });
-emit({ type: "model_request_start", model: "fake/model" });
+emit({ type: "model_request_start", model: "stub/model" });
 const userMessage = {
   role: "user",
   content: [{ type: "text", text: "hi" }],
@@ -75,14 +84,14 @@ const userMessage = {
 };
 const assistantMessage = {
   role: "assistant",
-  content: [{ type: "text", text: process.env.OPENADE_FAKE_TEXT ?? "hello from fake cmd" }],
-  meta: { source: "model", createdAt: 2, messageId: process.env.OPENADE_FAKE_MSG_ID ?? "a-1" },
+  content: [{ type: "text", text: process.env.OPENADE_STUB_TEXT ?? "hello from the stub" }],
+  meta: { source: "model", createdAt: 2, messageId: process.env.OPENADE_STUB_MSG_ID ?? "a-1" },
 };
 fs.appendFileSync(
   transcript,
-  JSON.stringify({ type: "message", id: process.env.OPENADE_FAKE_LINE_ID ?? "l1", parentId: null, timestamp: "t", message: assistantMessage, model: "fake/model" }) + "\\n",
+  JSON.stringify({ type: "message", id: process.env.OPENADE_STUB_LINE_ID ?? "l1", parentId: null, timestamp: "t", message: assistantMessage, model: "stub/model" }) + "\\n",
 );
-if (process.env.OPENADE_FAKE_PLAN === "1") {
+if (process.env.OPENADE_STUB_PLAN === "1") {
   // What --permission-mode plan leaves behind (spec 5.6): a markdown file
   // plus a plans-index.json entry keyed by file name and matched by sessionId.
   const plansDir = path.join(home, ".commandcode", "plans");
@@ -100,9 +109,9 @@ if (process.env.OPENADE_FAKE_PLAN === "1") {
     }) + "\\n",
   );
 }
-if (process.env.OPENADE_FAKE_SLEEP === "1") {
+if (process.env.OPENADE_STUB_SLEEP === "1") {
   setInterval(() => {}, 1000);
-} else if (process.env.OPENADE_FAKE_UNTERMINATED === "1") {
+} else if (process.env.OPENADE_STUB_UNTERMINATED === "1") {
   // The run_end frame with no trailing newline: it can only arrive through
   // the splitter's EOF flush.
   process.stdout.write(
@@ -112,7 +121,7 @@ if (process.env.OPENADE_FAKE_SLEEP === "1") {
       sessionId,
       usage: { inputTokens: 4, outputTokens: 2, cacheReadTokens: 0, cacheWriteTokens: 0 },
       durationMs: 1,
-      finalText: "hello from fake cmd",
+      finalText: "hello from the stub",
     }) + "\\n",
   );
   process.stdout.write(
@@ -121,7 +130,7 @@ if (process.env.OPENADE_FAKE_SLEEP === "1") {
       event: {
         type: "run_end",
         result: {
-          finalText: "hello from fake cmd",
+          finalText: "hello from the stub",
           stopReason: "end_turn",
           turnCount: 1,
           usage: { inputTokens: 4, outputTokens: 2, cacheReadTokens: 0, cacheWriteTokens: 0 },
@@ -135,7 +144,7 @@ if (process.env.OPENADE_FAKE_SLEEP === "1") {
   emit({
     type: "run_end",
     result: {
-      finalText: "hello from fake cmd",
+      finalText: "hello from the stub",
       stopReason: "end_turn",
       turnCount: 1,
       usage: { inputTokens: 4, outputTokens: 2, cacheReadTokens: 0, cacheWriteTokens: 0 },
@@ -149,7 +158,7 @@ if (process.env.OPENADE_FAKE_SLEEP === "1") {
       sessionId,
       usage: { inputTokens: 4, outputTokens: 2, cacheReadTokens: 0, cacheWriteTokens: 0 },
       durationMs: 1,
-      finalText: "hello from fake cmd",
+      finalText: "hello from the stub",
     }) + "\\n",
   );
   process.exit(0);
@@ -171,8 +180,8 @@ const fixture = (): Effect.Effect<Fixture, never, Scope.Scope> =>
       const openadeHome = NodePath.join(root, "openade");
       NodeFS.mkdirSync(NodePath.join(root, "workspace"), { recursive: true });
       NodeFS.mkdirSync(home, { recursive: true });
-      const binary = NodePath.join(root, "fake-cmd.mjs");
-      NodeFS.writeFileSync(binary, FAKE_CMD, { mode: 0o755 });
+      const binary = NodePath.join(root, "stub-cmd.mjs");
+      NodeFS.writeFileSync(binary, STUB_CMD, { mode: 0o755 });
       return { root, home, openadeHome, binary };
     }),
     (f) =>
@@ -232,13 +241,13 @@ const startSession = (
       binaryPath: f.binary,
       extraEnv: {
         HOME: f.home,
-        OPENADE_FAKE_SESSION_ID: SESSION_ID,
+        OPENADE_STUB_SESSION_ID: SESSION_ID,
         ...extraEnv,
       },
       home: f.home,
       services: yield* services(decide, registered),
       settings: {
-        model: "fake/model",
+        model: "stub/model",
         runtimeMode: "approval-required",
         interactionMode: "default",
       },
@@ -278,7 +287,7 @@ describe("makeCmdSession against a real spawned process", () => {
       );
       expect(assistant).toHaveLength(1);
       expect(assistant[0]?.type === "item.completed" && assistant[0].payload.item.text).toBe(
-        "hello from fake cmd",
+        "hello from the stub",
       );
 
       // The sessionRef the engine persists points at the redirected transcript.
@@ -318,7 +327,7 @@ describe("makeCmdSession against a real spawned process", () => {
     Effect.gen(function* () {
       const f = yield* fixture();
       withOpenadeHome(f);
-      // The sleeping variant of the fake never finishes on its own.
+      // The sleeping variant of the stub never finishes on its own.
       const { handle, collector } = yield* Effect.gen(function* () {
         const handle = yield* makeCmdSession({
           instanceId: makeConnectorInstanceId(),
@@ -327,13 +336,13 @@ describe("makeCmdSession against a real spawned process", () => {
           binaryPath: f.binary,
           extraEnv: {
             HOME: f.home,
-            OPENADE_FAKE_SESSION_ID: SESSION_ID,
-            OPENADE_FAKE_SLEEP: "1",
+            OPENADE_STUB_SESSION_ID: SESSION_ID,
+            OPENADE_STUB_SLEEP: "1",
           },
           home: f.home,
           services: yield* services("allow"),
           settings: {
-            model: "fake/model",
+            model: "stub/model",
             runtimeMode: "approval-required",
             interactionMode: "default",
           },
@@ -362,8 +371,8 @@ describe("makeCmdSession against a real spawned process", () => {
         // A bare SIGINT leaves this one running: without the kill ladder the
         // turn never settles and the thread can never send again.
         const { handle, collector } = yield* startSession(f, "allow", undefined, {
-          OPENADE_FAKE_SLEEP: "1",
-          OPENADE_FAKE_IGNORE_SIGINT: "1",
+          OPENADE_STUB_SLEEP: "1",
+          OPENADE_STUB_IGNORE_SIGINT: "1",
         });
         yield* handle.send({ text: "block", attachments: [], mentions: [] });
         yield* collector.awaitItem(isType("turn.started"));
@@ -388,8 +397,8 @@ describe("makeCmdSession against a real spawned process", () => {
       const f = yield* fixture();
       withOpenadeHome(f);
       const { handle, collector } = yield* startSession(f, "allow", undefined, {
-        OPENADE_FAKE_SLEEP: "1",
-        OPENADE_FAKE_PID_FILE: NodePath.join(f.root, "child.pid"),
+        OPENADE_STUB_SLEEP: "1",
+        OPENADE_STUB_PID_FILE: NodePath.join(f.root, "child.pid"),
       });
       yield* handle.send({ text: "hi", attachments: [], mentions: [] });
       yield* collector.awaitItem(isType("turn.started"));
@@ -421,11 +430,11 @@ describe("makeCmdSession against a real spawned process", () => {
       const f = yield* fixture();
       withOpenadeHome(f);
       const registered = yield* Ref.make<((body: unknown) => Effect.Effect<unknown>) | null>(null);
-      // The sleeping fake keeps the process alive while hook posts are in
+      // The sleeping stub keeps the process alive while hook posts are in
       // flight — otherwise a finished child releases the parked request with
       // an empty answer before respondToUserInput can land.
       const { handle, collector } = yield* startSession(f, "prompt", registered, {
-        OPENADE_FAKE_SLEEP: "1",
+        OPENADE_STUB_SLEEP: "1",
       });
 
       // Registration happens at session start, before any turn.
@@ -541,7 +550,7 @@ describe("makeCmdSession against a real spawned process", () => {
             content: [{ type: "text", text }],
             meta: { source: "model", createdAt: 1, messageId },
           },
-          model: "fake/model",
+          model: "stub/model",
         });
       NodeFS.writeFileSync(
         transcriptPath,
@@ -565,19 +574,19 @@ describe("makeCmdSession against a real spawned process", () => {
         binaryPath: f.binary,
         extraEnv: {
           HOME: f.home,
-          OPENADE_FAKE_SESSION_ID: SESSION_ID,
-          OPENADE_FAKE_APPEND: "1",
-          // The sleeping fake keeps the process (and its tailer) alive long
+          OPENADE_STUB_SESSION_ID: SESSION_ID,
+          OPENADE_STUB_APPEND: "1",
+          // The sleeping stub keeps the process (and its tailer) alive long
           // enough for the catch-up lines to land.
-          OPENADE_FAKE_SLEEP: "1",
-          OPENADE_FAKE_MSG_ID: "a-3",
-          OPENADE_FAKE_LINE_ID: "l3",
-          OPENADE_FAKE_TEXT: "fresh reply",
+          OPENADE_STUB_SLEEP: "1",
+          OPENADE_STUB_MSG_ID: "a-3",
+          OPENADE_STUB_LINE_ID: "l3",
+          OPENADE_STUB_TEXT: "fresh reply",
         },
         home: f.home,
         services: yield* services("allow"),
         settings: {
-          model: "fake/model",
+          model: "stub/model",
           runtimeMode: "approval-required",
           interactionMode: "default",
         },
@@ -630,13 +639,13 @@ describe("makeCmdSession against a real spawned process", () => {
         binaryPath: f.binary,
         extraEnv: {
           HOME: f.home,
-          OPENADE_FAKE_SESSION_ID: SESSION_ID,
-          OPENADE_FAKE_UNTERMINATED: "1",
+          OPENADE_STUB_SESSION_ID: SESSION_ID,
+          OPENADE_STUB_UNTERMINATED: "1",
         },
         home: f.home,
         services: yield* services("allow"),
         settings: {
-          model: "fake/model",
+          model: "stub/model",
           runtimeMode: "approval-required",
           interactionMode: "default",
         },
@@ -669,13 +678,13 @@ describe("makeCmdSession against a real spawned process", () => {
         binaryPath: f.binary,
         extraEnv: {
           HOME: f.home,
-          OPENADE_FAKE_SESSION_ID: SESSION_ID,
-          OPENADE_FAKE_PLAN: "1",
+          OPENADE_STUB_SESSION_ID: SESSION_ID,
+          OPENADE_STUB_PLAN: "1",
         },
         home: f.home,
         services: yield* services("allow"),
         settings: {
-          model: "fake/model",
+          model: "stub/model",
           runtimeMode: "approval-required",
           interactionMode: "plan",
         },
@@ -688,7 +697,7 @@ describe("makeCmdSession against a real spawned process", () => {
         "# The plan",
       );
       // Matched by sessionId: the other session's index entry is ignored, and
-      // the path lands under the fake's own ~/.commandcode/plans.
+      // the path lands under the stub's own ~/.commandcode/plans.
       expect(proposed.type === "turn.plan.proposed" && proposed.payload.planPath).toBe(
         NodePath.join(f.home, ".commandcode", "plans", "openade-plan.md"),
       );
@@ -714,10 +723,10 @@ describe("makeCmdSession against a real spawned process", () => {
     Effect.gen(function* () {
       const f = yield* fixture();
       withOpenadeHome(f);
-      // The sleeping fake keeps turn 1 open, so the loser must fail — the
+      // The sleeping stub keeps turn 1 open, so the loser must fail — the
       // pre-mutex race spawned a second process instead.
       const { handle } = yield* startSession(f, "allow", undefined, {
-        OPENADE_FAKE_SLEEP: "1",
+        OPENADE_STUB_SLEEP: "1",
       });
       const first = yield* Effect.forkChild(
         handle.send({ text: "one", attachments: [], mentions: [] }),
@@ -756,14 +765,14 @@ describe("makeCmdSession against a real spawned process", () => {
         threadId: makeThreadId(),
         workspaceRoot: workspace,
         binaryPath: f.binary,
-        extraEnv: { HOME: f.home, OPENADE_FAKE_SESSION_ID: SESSION_ID },
+        extraEnv: { HOME: f.home, OPENADE_STUB_SESSION_ID: SESSION_ID },
         home: f.home,
         services: {
           ...base,
           mcpEndpoint: () => Effect.succeed({ url: "http://127.0.0.1:4321/mcp", bearer: "b" }),
         },
         settings: {
-          model: "fake/model",
+          model: "stub/model",
           runtimeMode: "approval-required",
           interactionMode: "default",
         },

@@ -6,10 +6,7 @@
   "probes": [
     {
       "name": "status",
-      "args": [
-        "status",
-        "--json"
-      ],
+      "args": ["status", "--json"],
       "exitCode": 0,
       "signal": null,
       "stdoutBytes": 155,
@@ -17,9 +14,7 @@
     },
     {
       "name": "list-models",
-      "args": [
-        "--list-models"
-      ],
+      "args": ["--list-models"],
       "exitCode": 0,
       "signal": null,
       "stdoutBytes": 6135,
@@ -27,9 +22,7 @@
     },
     {
       "name": "version",
-      "args": [
-        "--version"
-      ],
+      "args": ["--version"],
       "exitCode": 0,
       "signal": null,
       "stdoutBytes": 7,
@@ -37,9 +30,7 @@
     },
     {
       "name": "help",
-      "args": [
-        "--help"
-      ],
+      "args": ["--help"],
       "exitCode": 0,
       "signal": null,
       "stdoutBytes": 10820,
