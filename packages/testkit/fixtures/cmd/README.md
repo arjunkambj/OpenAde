@@ -9,8 +9,11 @@ these are re-recorded — they are never edited by hand to make a test pass.
 | CLI          | `/opt/homebrew/bin/cmd` (the operator's global install)       |
 | Version      | **1.55.1**                                                    |
 | Recorded on  | **2026-09-18**                                                |
-| Model        | the CLI's configured default, `meta/muse-spark-1.3-contributor` |
+| Model        | `meta/muse-spark-1.3-contributor` (the account default)       |
 | Recorded by  | `packages/testkit/scripts/record-cmd.mjs`                     |
+
+Each `manifest.json` carries the model its own frames name, so a recording made
+on a different model says so rather than inheriting this table.
 
 Each run was spawned with exactly the argv and environment
 `packages/connector-cmd/src/spawn.ts` builds, in a throwaway git repo, with the
@@ -26,6 +29,10 @@ node packages/testkit/scripts/record-cmd.mjs --list
 node packages/testkit/scripts/record-cmd.mjs shell-allow
 node packages/testkit/scripts/record-probe.mjs      # no model turns
 ```
+
+`--model <id>` overrides the account default. Only models the operator has
+authorised may be used: `meta/muse-spark-1.3-contributor` (the default),
+`poolside/laguna-s-2.1-free` and `inclusionai/ling-3.0-flash-sante:free`.
 
 ## What each directory holds
 
@@ -45,19 +52,24 @@ Multi-turn scenarios prefix each file with `turn1.` / `turn2.`.
 
 ## The scenarios
 
-| directory       | what it proves                                                     |
-| --------------- | ------------------------------------------------------------------ |
-| `probe/`        | `status --json`, `--list-models`, `--version`, `--help`, bad model |
-| `text/`         | a text-only answer; `text_delta` streaming                         |
-| `shell-allow/`  | `shell_command` allowed through the hook (no `--yolo`)             |
-| `shell-deny/`   | the same call denied — `tool_hooks` + `tool_hook_blocked`          |
-| `shell-yolo/`   | the same call with `--yolo`; the hook still fires                  |
-| `file-edit/`    | `edit_file` against a real file                                    |
-| `plan/`         | `--permission-mode plan` writing a plan, then the accept follow-up |
-| `question/`     | what `ask_user_question` does in print mode                        |
-| `interrupt/`    | SIGINT mid-turn — exit 130, no `run_end`, no `result`              |
-| `resume/`       | a second turn resuming the first session id                        |
-| `max-turns/`    | `--max-turns` exhausted — exit 8, `subtype: "max_turns"`           |
+| directory         | what it proves                                                       |
+| ----------------- | -------------------------------------------------------------------- |
+| `probe/`          | `status --json`, `--list-models`, `--version`, `--help`, bad model   |
+| `text/`           | a text-only answer; `text_delta` streaming                           |
+| `shell-allow/`    | `shell_command` allowed through the hook — and still refused without `--yolo` |
+| `shell-deny/`     | the same call denied by the hook — `tool_hook_blocked`               |
+| `shell-yolo/`     | the same call with `--yolo`; the hook still fires and the call runs  |
+| `file-edit/`      | `edit_file` against a real file                                      |
+| `plan/`           | `--permission-mode plan --yolo` writing a plan, then the accept follow-up |
+| `plan-no-yolo/`   | plan mode without `--yolo`: the plan file itself is refused          |
+| `plan-guard/`     | plan mode with `--yolo`, told to edit: the workspace stays untouched |
+| `question/`       | `ask_user_question` with the connector's argv — the tool is withheld |
+| `question-tools/` | the same with `--tools-enable ask_user_question` — it fires, and the hook sees the questions |
+| `image/`          | an image attachment staged the way the connector stages one         |
+| `mcp/`            | an `mcp__<server>__<tool>` call — PreToolUse fires for it           |
+| `interrupt/`      | SIGINT mid-turn — exit 130, no `run_end`, no `result`               |
+| `resume/`         | a second turn resuming the first session id                         |
+| `max-turns/`      | `--max-turns` exhausted — exit 8, `subtype: "max_turns"`            |
 
 ## Scrubbing
 

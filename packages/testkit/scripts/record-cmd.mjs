@@ -27,17 +27,18 @@ import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import * as NodeURL from "node:url";
+import * as NodeZlib from "node:zlib";
 
 import { SCENARIOS, scenarioNames } from "./record-scenarios.mjs";
 
-const CLI_PACKAGE = "command-code@1.54.0";
+const CLI_PACKAGE = "command-code@latest";
 const TRANSCRIPT_POLL_MS = 25;
 
 /**
  * The binary the connector would pick (probe.ts `resolveBinary`): `cmd` on
- * PATH or in a global bin dir, else the pinned npx fallback. Recording through
- * the same resolution is what makes the fixtures describe the operator's real
- * install rather than a package npx happened to download.
+ * PATH or in a global bin dir, else the `@latest` npx fallback. Recording
+ * through the same resolution is what makes the fixtures describe the
+ * operator's real install rather than a package npx happened to download.
  */
 const resolveBinary = () => {
   const dirs = [
@@ -62,10 +63,10 @@ const resolveBinary = () => {
   return { command: "npx", prefixArgs: ["-y", CLI_PACKAGE], display: `npx ${CLI_PACKAGE}` };
 };
 
-/** `cmd --version`, asked with --no-auto-update so asking cannot upgrade it. */
-const binaryVersion = (binary) =>
+/** Runs the binary for its stdout. Used for the two free, non-model surfaces. */
+const askBinary = (binary, args) =>
   new Promise((resolve) => {
-    const child = spawn(binary.command, [...binary.prefixArgs, "--version", "--no-auto-update"], {
+    const child = spawn(binary.command, [...binary.prefixArgs, ...args], {
       stdio: ["ignore", "pipe", "ignore"],
     });
     let out = "";
@@ -74,7 +75,21 @@ const binaryVersion = (binary) =>
       out += chunk;
     });
     child.once("exit", () => resolve(out.trim()));
-    child.once("error", () => resolve("unknown"));
+    child.once("error", () => resolve(""));
+  });
+
+/** `cmd --version`, asked with --no-auto-update so asking cannot upgrade it. */
+const binaryVersion = (binary) =>
+  askBinary(binary, ["--version", "--no-auto-update"]).then((out) => out || "unknown");
+
+/** The account name the recordings must not carry, asked of the CLI itself. */
+const binaryAccount = (binary) =>
+  askBinary(binary, ["status", "--json"]).then((out) => {
+    try {
+      return JSON.parse(out).user;
+    } catch {
+      return undefined;
+    }
   });
 
 const ROOT = NodePath.resolve(NodeURL.fileURLToPath(new URL("../../..", import.meta.url)));
@@ -105,6 +120,9 @@ const buildArgs = (input) => {
   if (input.yolo === true) args.push("--yolo");
   if (input.maxTurns !== undefined) args.push("--max-turns", String(input.maxTurns));
   for (const dir of input.addDir ?? []) args.push("--add-dir", dir);
+  // Not part of `buildArgs`: a scenario that is probing a flag the connector
+  // does not send yet appends it here, so the mirror above stays an exact copy.
+  for (const extra of input.extraArgs ?? []) args.push(extra);
   return args;
 };
 
@@ -152,6 +170,91 @@ const slugFor = (cwd) => {
 
 // ── scratch workspace ──────────────────────────────────────────
 
+/**
+ * A solid-colour PNG, built here rather than checked in: the image scenario
+ * needs real pixels the model can look at, and a dependency-free encoder is
+ * shorter than a base64 blob nobody can read.
+ */
+const solidPng = (red, green, blue, size = 2) => {
+  const crc = (buffer) => {
+    let value = 0xffffffff;
+    for (const byte of buffer) {
+      value ^= byte;
+      for (let bit = 0; bit < 8; bit += 1) {
+        value = value & 1 ? (value >>> 1) ^ 0xedb88320 : value >>> 1;
+      }
+    }
+    return (value ^ 0xffffffff) >>> 0;
+  };
+  const chunk = (type, data) => {
+    const head = Buffer.alloc(4);
+    head.writeUInt32BE(data.length, 0);
+    const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
+    const tail = Buffer.alloc(4);
+    tail.writeUInt32BE(crc(body), 0);
+    return Buffer.concat([head, body, tail]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(size, 0);
+  header.writeUInt32BE(size, 4);
+  header[8] = 8; // bit depth
+  header[9] = 2; // truecolour
+  const raw = Buffer.concat(
+    Array.from({ length: size }, () =>
+      Buffer.concat([
+        Buffer.from([0]), // filter: none
+        ...Array.from({ length: size }, () => Buffer.from([red, green, blue])),
+      ]),
+    ),
+  );
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk("IHDR", header),
+    chunk("IDAT", NodeZlib.deflateSync(raw)),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
+};
+
+const COLOURS = { red: [220, 30, 30] };
+
+/** A trivial stdio MCP server, so the MCP scenario needs nothing installed. */
+const MCP_SERVER_SOURCE = `#!/usr/bin/env node
+// A minimal stdio MCP server: initialize, tools/list, tools/call(echo).
+let buffer = "";
+const send = (message) => process.stdout.write(JSON.stringify(message) + "\\n");
+process.stdin.setEncoding("utf8");
+process.stdin.on("data", (chunk) => {
+  buffer += chunk;
+  let index = buffer.indexOf("\\n");
+  while (index !== -1) {
+    const line = buffer.slice(0, index).trim();
+    buffer = buffer.slice(index + 1);
+    index = buffer.indexOf("\\n");
+    if (line === "") continue;
+    let request;
+    try { request = JSON.parse(line); } catch { continue; }
+    if (request.method === "initialize") {
+      send({ jsonrpc: "2.0", id: request.id, result: {
+        protocolVersion: "2025-06-18",
+        capabilities: { tools: {} },
+        serverInfo: { name: "rec", version: "0.0.0" },
+      } });
+    } else if (request.method === "tools/list") {
+      send({ jsonrpc: "2.0", id: request.id, result: { tools: [{
+        name: "echo",
+        description: "Echo the text back",
+        inputSchema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] },
+      }] } });
+    } else if (request.method === "tools/call") {
+      const text = (request.params && request.params.arguments && request.params.arguments.text) ?? "";
+      send({ jsonrpc: "2.0", id: request.id, result: { content: [{ type: "text", text: "echo: " + text }] } });
+    } else if (request.id !== undefined) {
+      send({ jsonrpc: "2.0", id: request.id, result: {} });
+    }
+  }
+});
+`;
+
 /** A throwaway git repo the CLI can safely edit, with the scenario's seed files. */
 const makeWorkspace = async (scratch, seed) => {
   const repo = NodePath.join(scratch, "repo");
@@ -183,6 +286,52 @@ const once = (child) =>
     child.once("exit", (code) => resolve(code ?? -1));
     child.once("error", () => resolve(-1));
   });
+
+/**
+ * Files the scenario wants beside the repo rather than in it — the image
+ * attachment lives where the server stages one, outside the workspace root,
+ * which is the whole reason `--add-dir` is part of the design.
+ */
+const writeScratchSeed = (scratch, seed) => {
+  for (const [relative, content] of Object.entries(seed ?? {})) {
+    const target = NodePath.join(scratch, relative);
+    NodeFS.mkdirSync(NodePath.dirname(target), { recursive: true });
+    if (typeof content === "string") {
+      NodeFS.writeFileSync(target, content, "utf8");
+      continue;
+    }
+    const colour = COLOURS[content.png];
+    if (colour === undefined) {
+      throw new Error(`unknown seed colour ${content.png}`);
+    }
+    NodeFS.writeFileSync(target, solidPng(...colour));
+  }
+};
+
+/**
+ * Registers the recording MCP server in the throwaway repo's own `.mcp.json`,
+ * through the CLI's own command rather than by guessing the file format.
+ */
+const installMcpServer = async (binary, repo, scratch) => {
+  const serverPath = NodePath.join(scratch, "mcp-server.mjs");
+  NodeFS.writeFileSync(serverPath, MCP_SERVER_SOURCE, { encoding: "utf8", mode: 0o700 });
+  const config = JSON.stringify({
+    transport: "stdio",
+    command: process.execPath,
+    args: [serverPath],
+  });
+  const code = await once(
+    spawn(
+      binary.command,
+      [...binary.prefixArgs, "mcp", "add-json", "rec", config, "--scope", "project"],
+      { cwd: repo, stdio: "ignore" },
+    ),
+  );
+  if (code !== 0) {
+    throw new Error(`cmd mcp add-json exited ${code}`);
+  }
+  return serverPath;
+};
 
 // ── the recording PreToolUse hook ──────────────────────────────
 
@@ -332,6 +481,7 @@ const recordTurn = async (context, turn, index) => {
     ...(turn.yolo === false ? {} : { yolo: true }),
     ...(turn.maxTurns === undefined ? {} : { maxTurns: turn.maxTurns }),
     ...(turn.addDir === undefined ? {} : { addDir: turn.addDir }),
+    ...(turn.extraArgs === undefined ? {} : { extraArgs: turn.extraArgs }),
   });
   const argv = [...context.binary.prefixArgs, ...connectorArgs];
   const env = envAllowlist(process.env, {
@@ -521,7 +671,11 @@ const recordTurn = async (context, turn, index) => {
  */
 const makeScrubber = (context) => {
   const home = context.home;
-  const user = NodePath.basename(home);
+  // Both names that identify the operator: the home directory's own basename
+  // and the Command Code account `status --json` reports.
+  const names = [NodePath.basename(home), context.account].filter(
+    (name) => typeof name === "string" && name.length > 2,
+  );
   const replacements = [
     [context.scratch, "<SCRATCH>"],
     [home, "<HOME>"],
@@ -533,8 +687,8 @@ const makeScrubber = (context) => {
         out = out.split(from).join(to);
         out = out.split(JSON.stringify(from).slice(1, -1)).join(to);
       }
-      if (user.length > 2) {
-        out = out.replaceAll(new RegExp(`\\b${user}\\b`, "g"), "user");
+      for (const name of names) {
+        out = out.replaceAll(new RegExp(`\\b${name}\\b`, "g"), "user");
       }
       out = out.replaceAll(/\b(sk|pk|ghp|gho|Bearer)[-_ ][A-Za-z0-9._-]{12,}/g, "<REDACTED>");
       return out;
@@ -557,13 +711,27 @@ const writeRecording = (name, scenario, turns, context) => {
   NodeFS.mkdirSync(dir, { recursive: true });
   const scrub = makeScrubber(context);
 
+  // The model the frames say actually answered — not the flag we passed, which
+  // is absent when the run used the account default.
+  const observedModel = turns
+    .flatMap((turn) => turn.stdout.split("\n"))
+    .flatMap((line) => {
+      try {
+        const frame = JSON.parse(line);
+        return frame?.event?.type === "model_request_start" ? [frame.event.model] : [];
+      } catch {
+        return [];
+      }
+    })[0];
+
   const manifest = {
     scenario: name,
     description: scenario.description,
     cli: context.binary.display,
     cliVersion: context.cliVersion,
     recordedOn: "2026-09-18",
-    model: context.model ?? "the CLI's configured default",
+    model: observedModel ?? context.model ?? "the CLI's configured default",
+    modelRequested: context.model ?? null,
     real: true,
     turns: [],
   };
@@ -663,6 +831,7 @@ const main = async () => {
   );
 
   const repo = await makeWorkspace(scratch, scenario.seed);
+  writeScratchSeed(scratch, scenario.scratchSeed);
   const hookPath = NodePath.join(scratch, "record-hook.mjs");
   NodeFS.writeFileSync(hookPath, HOOK_SOURCE, { encoding: "utf8", mode: 0o700 });
   const hookLog = NodePath.join(scratch, "hooks.ndjson");
@@ -672,7 +841,11 @@ const main = async () => {
   const binary = resolveBinary();
   const cliVersion = await binaryVersion(binary);
   process.stderr.write(`binary: ${binary.display} (${cliVersion})\n`);
-  const context = { repo, home, hookLog, policyPath, scratch, model, binary, cliVersion };
+  if (scenario.mcpServer === true) {
+    await installMcpServer(binary, repo, scratch);
+  }
+  const account = await binaryAccount(binary);
+  const context = { repo, home, hookLog, policyPath, scratch, model, binary, cliVersion, account };
   const recorded = [];
   let previousSessionId;
   for (const [index, turn] of scenario.turns.entries()) {

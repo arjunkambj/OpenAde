@@ -1,5 +1,6 @@
 {
-  "cli": "command-code@1.54.0",
+  "cli": "/opt/homebrew/bin/cmd",
+  "cliVersion": "1.55.1",
   "recordedOn": "2026-09-18",
   "real": true,
   "probes": [

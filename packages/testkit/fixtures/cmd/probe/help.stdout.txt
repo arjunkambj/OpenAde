@@ -1,5 +1,5 @@
 
-Command Code v1.54.0
+Command Code v1.55.1
 Coding agent that continuously learns your taste of writing code.
 
 Usage

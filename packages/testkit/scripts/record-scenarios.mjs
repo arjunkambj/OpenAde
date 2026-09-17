@@ -91,13 +91,59 @@ export const SCENARIOS = {
   },
 
   question: {
-    description: "ask_user_question in print mode: fail, auto-answer, or block? (5.7 q3)",
+    description:
+      "ask_user_question with the connector's own argv: print mode withholds the tool (5.7 q3)",
     turns: [
       {
         prompt:
           "Use the ask_user_question tool to ask me whether I prefer tabs or spaces. Ask before doing anything else.",
         maxTurns: 2,
         hookPolicy: { default: "deny" },
+      },
+    ],
+  },
+
+  "question-tools": {
+    description:
+      "the same ask_user_question prompt with --tools-enable ask_user_question — the flag `--help` says un-withholds a headless tool (5.7 q3)",
+    turns: [
+      {
+        prompt:
+          "Use the ask_user_question tool to ask me whether I prefer tabs or spaces. Ask before doing anything else.",
+        maxTurns: 2,
+        // Not part of the connector's argv yet — that is what this recording
+        // decides — so it rides the escape hatch rather than the mirror.
+        extraArgs: ["--tools-enable", "ask_user_question"],
+        hookPolicy: { default: "deny" },
+      },
+    ],
+  },
+
+  "plan-guard": {
+    description:
+      "plan mode WITH --yolo, asked to edit the workspace: does the plan ladder still deny mutations once --yolo has lifted the print-mode gate? (decides the connector's plan argv)",
+    seed: { "app.js": "export const add = (a, b) => a + b;\n" },
+    turns: [
+      {
+        prompt: "Edit app.js right now to add a subtract function. Do it immediately.",
+        maxTurns: 3,
+        permissionMode: "plan",
+        yolo: true,
+        hookPolicy: { default: "allow" },
+      },
+    ],
+  },
+
+  "plan-no-yolo": {
+    description:
+      "plan mode exactly as the connector spawns it — `--permission-mode plan` and no --yolo (spec section 8)",
+    seed: { "app.js": "export const add = (a, b) => a + b;\n" },
+    turns: [
+      {
+        prompt: "Plan how to add a subtract function to app.js. Write the plan file.",
+        maxTurns: 4,
+        permissionMode: "plan",
+        yolo: false,
       },
     ],
   },
@@ -141,12 +187,19 @@ export const SCENARIOS = {
 
   image: {
     description:
-      "image attachment by absolute path in the prompt (decision w10-attachments) (5.7 q4)",
+      "image attachment the way the connector stages one: the file under an attachments dir, that dir in --add-dir, the absolute path named in the prompt (decision w10-attachments, 5.7 q4)",
+    // A 2×2 red PNG, written into the scratch root the same way the server
+    // writes a staged upload into `<attachmentsDir>/<threadId>/`.
+    scratchSeed: { "attachments/red.png": { png: "red" } },
     turns: [
       ({ scratch }) => ({
-        prompt: `Look at the image at ${scratch}/red.png and tell me in one word what colour it is.`,
+        prompt: [
+          "What colour is the image? Answer with one word.",
+          "",
+          `Attachment (image/png): ${scratch}/attachments/red.png`,
+        ].join("\n"),
         maxTurns: 3,
-        addDir: [scratch],
+        addDir: [`${scratch}/attachments`],
         hookPolicy: { default: "allow" },
       }),
     ],
@@ -154,9 +207,12 @@ export const SCENARIOS = {
 
   mcp: {
     description: "an mcp__<server>__<tool> call — does PreToolUse fire for it? (5.7 q7)",
+    // A dependency-free stdio MCP server, registered into the throwaway repo's
+    // own `.mcp.json` through `cmd mcp add-json --scope project`.
+    mcpServer: true,
     turns: [
       {
-        prompt: "Use the openade_echo tool from the `rec` MCP server with text `hi`.",
+        prompt: "Call the `echo` tool on the `rec` MCP server with text `hi`, then stop.",
         maxTurns: 3,
         hookPolicy: { default: "allow" },
       },

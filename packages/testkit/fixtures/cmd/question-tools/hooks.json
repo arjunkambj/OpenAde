@@ -1,0 +1,45 @@
+[
+  {
+    "at": 1789687739628,
+    "stdin": {
+      "session_id": "a3858b44-ee4e-4306-b737-1cc94f32f7eb",
+      "transcript_path": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg-czzrjh0000gn-t-openade-rec-question-tools-9bf49514-repo/a3858b44-ee4e-4306-b737-1cc94f32f7eb.jsonl",
+      "cwd": "<SCRATCH>/repo",
+      "hook_event_name": "PreToolUse",
+      "permission_mode": "bypass",
+      "tool_use_id": "call_01a0b1b3b08e728c86577fa411757fe0",
+      "tool_name": "ask_user_question",
+      "tool_display_name": "QUESTION",
+      "tool_input": {
+        "questions": [
+          {
+            "header": "Indent style",
+            "question": "Do you prefer tabs or spaces?",
+            "options": [
+              {
+                "label": "Tabs",
+                "description": "Use tab characters for indentation."
+              },
+              {
+                "label": "Spaces",
+                "description": "Use space characters for indentation."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "answer": {
+      "hookSpecificOutput": {
+        "permissionDecision": "deny",
+        "permissionDecisionReason": "recorded deny from the recording hook"
+      }
+    },
+    "env": {
+      "COMMANDCODE_PROJECT_DIR": "<SCRATCH>/repo",
+      "COMMANDCODE_SESSION_ID": "a3858b44-ee4e-4306-b737-1cc94f32f7eb",
+      "COMMANDCODE_HOOK_EVENT": "PreToolUse",
+      "COMMANDCODE_CWD": "<SCRATCH>/repo"
+    }
+  }
+]

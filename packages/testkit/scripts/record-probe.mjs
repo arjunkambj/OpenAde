@@ -16,9 +16,38 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import * as NodeURL from "node:url";
 
-const CLI_PACKAGE = "command-code@1.54.0";
+const CLI_PACKAGE = "command-code@latest";
 const ROOT = NodePath.resolve(NodeURL.fileURLToPath(new URL("../../..", import.meta.url)));
 const OUT = NodePath.join(ROOT, "packages", "testkit", "fixtures", "cmd", "probe");
+
+/**
+ * The binary `probe.ts` would resolve — the operator's global install first,
+ * the `@latest` npx fallback only when there is none. Recording through npx
+ * when a global `cmd` exists is how the first pass ended up with a 1.54.0
+ * model table beside 1.55.1 turn frames.
+ */
+const resolveBinary = () => {
+  const dirs = [
+    ...(process.env.PATH ?? "").split(":").filter(Boolean),
+    "/usr/local/bin",
+    "/opt/homebrew/bin",
+    NodePath.join(NodeOS.homedir(), ".bun", "bin"),
+    NodePath.join(NodeOS.homedir(), ".local", "share", "pnpm"),
+    NodePath.join(NodeOS.homedir(), ".npm-global", "bin"),
+  ];
+  for (const dir of dirs) {
+    const candidate = NodePath.join(dir, "cmd");
+    try {
+      NodeFS.accessSync(candidate, NodeFS.constants.X_OK);
+      if (NodeFS.statSync(candidate).isFile()) {
+        return { command: candidate, prefixArgs: [], display: candidate };
+      }
+    } catch {
+      /* not here */
+    }
+  }
+  return { command: "npx", prefixArgs: ["-y", CLI_PACKAGE], display: `npx ${CLI_PACKAGE}` };
+};
 
 const PROBES = [
   { name: "status", args: ["status", "--json"] },
@@ -45,9 +74,9 @@ const PROBES = [
   },
 ];
 
-const capture = (args, cwd) =>
+const capture = (binary, args, cwd) =>
   new Promise((resolve) => {
-    const child = spawn("npx", ["-y", CLI_PACKAGE, ...args], {
+    const child = spawn(binary.command, [...binary.prefixArgs, ...args], {
       cwd,
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -65,36 +94,52 @@ const capture = (args, cwd) =>
     child.once("error", (error) => resolve({ stdout, stderr: String(error), code: -1, signal: null }));
   });
 
-const scrub = (text, home) => {
-  const user = NodePath.basename(home);
+const scrub = (text, home, account) => {
+  const names = [NodePath.basename(home), account].filter(
+    (name) => typeof name === "string" && name.length > 2,
+  );
   let out = text.split(home).join("<HOME>");
-  if (user.length > 2) out = out.replaceAll(new RegExp(`\\b${user}\\b`, "g"), "user");
+  for (const name of names) {
+    out = out.replaceAll(new RegExp(`\\b${name}\\b`, "g"), "user");
+  }
   return out.replaceAll(/\b(sk|pk|ghp|gho|Bearer)[-_ ][A-Za-z0-9._-]{12,}/g, "<REDACTED>");
 };
 
 const main = async () => {
   const home = NodeOS.homedir();
   const cwd = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "openade-probe-"));
+  const binary = resolveBinary();
   NodeFS.rmSync(OUT, { recursive: true, force: true });
   NodeFS.mkdirSync(OUT, { recursive: true });
+  const version = await capture(binary, ["--version", "--no-auto-update"], cwd);
   const manifest = {
-    cli: CLI_PACKAGE,
+    cli: binary.display,
+    cliVersion: version.stdout.trim(),
     recordedOn: "2026-09-18",
     real: true,
     probes: [],
   };
+  process.stderr.write(`binary: ${binary.display} (${manifest.cliVersion})\n`);
+  // The account name the recordings must not carry, asked of the CLI itself.
+  const account = await capture(binary, ["status", "--json"], cwd).then((result) => {
+    try {
+      return JSON.parse(result.stdout).user;
+    } catch {
+      return undefined;
+    }
+  });
   for (const probe of PROBES) {
     process.stderr.write(`▸ ${probe.name}\n`);
-    const result = await capture(probe.args, cwd);
+    const result = await capture(binary, probe.args, cwd);
     NodeFS.writeFileSync(
       NodePath.join(OUT, `${probe.name}.stdout.txt`),
-      scrub(result.stdout, home),
+      scrub(result.stdout, home, account),
       "utf8",
     );
     if (result.stderr.length > 0) {
       NodeFS.writeFileSync(
         NodePath.join(OUT, `${probe.name}.stderr.txt`),
-        scrub(result.stderr, home),
+        scrub(result.stderr, home, account),
         "utf8",
       );
     }
