@@ -5,7 +5,7 @@
  * plugin's answer to `GET /__openade/connection`.
  */
 
-import { mkdirSync, writeFileSync, writeSync } from "node:fs";
+import { chmodSync, mkdirSync, writeFileSync, writeSync } from "node:fs";
 import { dirname } from "node:path";
 import { devConnectionPath } from "@OpenAde/shared/paths";
 import * as Effect from "effect/Effect";
@@ -18,6 +18,21 @@ export interface ServerHandshake {
 
 /** `<config dir>/dev/connection.json`, so `OPENADE_HOME` moves it with the rest. */
 export const DEV_CONNECTION_PATH = devConnectionPath();
+
+/**
+ * Writes the dev handshake file. It holds the bearer token for a socket that
+ * accepts `orchestration.dispatch`, so any local account that can read it can
+ * drive the agent: the directory and the file are owner-only. `writeFileSync`
+ * does not lower an existing file's mode, hence the explicit `chmod` — a file
+ * an earlier build left world-readable is tightened on the next boot.
+ *
+ * `path` is a parameter so a test can point it somewhere disposable.
+ */
+export const writeDevConnectionFile = (line: string, path = DEV_CONNECTION_PATH): void => {
+  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+  writeFileSync(path, `${line}\n`, { mode: 0o600 });
+  chmodSync(path, 0o600);
+};
 
 /**
  * Emits the handshake. fd 3 exists only when the desktop spawned us with an
@@ -38,8 +53,7 @@ export const writeHandshake = (
       process.stdout.write(`${line}\n`);
     }
     if (options.dev) {
-      mkdirSync(dirname(DEV_CONNECTION_PATH), { recursive: true });
-      writeFileSync(DEV_CONNECTION_PATH, `${line}\n`);
+      writeDevConnectionFile(line);
     }
     return channel;
   });
