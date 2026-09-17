@@ -46,6 +46,9 @@ fs.mkdirSync(dir, { recursive: true });
 const transcript = path.join(dir, sessionId + ".jsonl");
 const emit = (event) =>
   process.stdout.write(JSON.stringify({ type: "event", event }) + "\\n");
+if (process.env.OPENADE_FAKE_PID_FILE) {
+  fs.writeFileSync(process.env.OPENADE_FAKE_PID_FILE, String(process.pid));
+}
 if (process.env.OPENADE_FAKE_APPEND === "1") {
   // A resumed session's transcript already exists — only this run appends.
 } else {
@@ -54,7 +57,12 @@ if (process.env.OPENADE_FAKE_APPEND === "1") {
     JSON.stringify({ type: "session", version: 3, id: sessionId, timestamp: "2026-01-01T00:00:00.000Z", cwd }) + "\\n",
   );
 }
-process.on("SIGINT", () => process.exit(130));
+if (process.env.OPENADE_FAKE_IGNORE_SIGINT === "1") {
+  // A child that ignores SIGINT — the case a bare signal wedges forever.
+  process.on("SIGINT", () => {});
+} else {
+  process.on("SIGINT", () => process.exit(130));
+}
 emit({ type: "run_start", sessionId });
 emit({ type: "turn_start", turnNumber: 1 });
 emit({ type: "message_start" });
@@ -340,6 +348,70 @@ describe("makeCmdSession against a real spawned process", () => {
         "interrupted",
       );
       yield* handle.close();
+    }),
+  );
+
+  // Live clock: the escalation waits out a real 5-second grace period.
+  it.live(
+    "interrupt escalates to SIGKILL when the child ignores SIGINT",
+    () =>
+      Effect.gen(function* () {
+        const f = yield* fixture();
+        withOpenadeHome(f);
+        // A bare SIGINT leaves this one running: without the kill ladder the
+        // turn never settles and the thread can never send again.
+        const { handle, collector } = yield* startSession(f, "allow", undefined, {
+          OPENADE_FAKE_SLEEP: "1",
+          OPENADE_FAKE_IGNORE_SIGINT: "1",
+        });
+        yield* handle.send({ text: "block", attachments: [], mentions: [] });
+        yield* collector.awaitItem(isType("turn.started"));
+        yield* handle.interrupt();
+
+        // SIGKILL leaves no exit code at all, and that must still read as the
+        // interrupt the user asked for rather than an error or a crash.
+        const completed = yield* collector.awaitItem(isType("turn.completed"));
+        expect(completed.type === "turn.completed" && completed.payload.stopReason).toBe(
+          "interrupted",
+        );
+        const events = yield* collector.collected;
+        expect(events.filter(isType("session.ended"))).toHaveLength(0);
+
+        yield* handle.close();
+      }),
+    30_000,
+  );
+
+  it.effect("a child killed mid-turn ends the session crashed", () =>
+    Effect.gen(function* () {
+      const f = yield* fixture();
+      withOpenadeHome(f);
+      const { handle, collector } = yield* startSession(f, "allow", undefined, {
+        OPENADE_FAKE_SLEEP: "1",
+        OPENADE_FAKE_PID_FILE: NodePath.join(f.root, "child.pid"),
+      });
+      yield* handle.send({ text: "hi", attachments: [], mentions: [] });
+      yield* collector.awaitItem(isType("turn.started"));
+
+      // Somebody else's `kill -9`: the supervisor only gets to resume when
+      // the connector says the session ended and why.
+      yield* Effect.sync(() => {
+        const pid = Number(NodeFS.readFileSync(NodePath.join(f.root, "child.pid"), "utf8"));
+        process.kill(pid, "SIGKILL");
+      });
+
+      const ended = yield* collector.awaitItem(isType("session.ended"));
+      expect(ended.type === "session.ended" && ended.payload.reason).toBe("crashed");
+      yield* collector.awaitDone;
+
+      // And the project config was still put back on the way out.
+      const settingsPath = NodePath.join(
+        f.root,
+        "workspace",
+        ".commandcode",
+        "settings.local.json",
+      );
+      expect(NodeFS.existsSync(settingsPath)).toBe(false);
     }),
   );
 

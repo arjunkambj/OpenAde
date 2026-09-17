@@ -101,7 +101,20 @@ interface ActiveProcess {
   readonly settled: Deferred.Deferred<void>;
   /** Spawned with `--permission-mode plan` — its run may leave a plan file behind. */
   readonly plan: boolean;
+  /**
+   * The user asked for this one to stop. It decides how the exit reads: a
+   * child we killed ourselves settles the turn `interrupted`, the same signal
+   * death unasked-for is a crash the supervisor resumes from.
+   */
+  readonly interrupted: Ref.Ref<boolean>;
 }
+
+/**
+ * Exit codes that mean "the process died on a signal": `spawnProcess` reports
+ * `-1` when node hands it a null code, and 128+n is what a shell would have
+ * reported for SIGKILL and SIGTERM.
+ */
+const SIGNAL_DEATHS = new Set([-1, 137, 143]);
 
 export interface CmdSessionOptions {
   readonly instanceId: ConnectorInstanceId;
@@ -609,16 +622,29 @@ export const makeCmdSession = (
         });
       }
       yield* releasePending;
+      // A child we killed ourselves reads as an interrupt whatever signal
+      // finished it off: the escalation ladder ends in SIGKILL, which node
+      // reports as a null code (-1), and that must not settle the turn
+      // "error" or look like a crash to the supervisor.
+      const interrupted = yield* Ref.get(active.interrupted);
+      const code = interrupted && exitCode !== 130 ? 130 : exitCode;
       // Whatever onExit emits, no turn can still be in progress under a dead
       // process — flip before the emits so a consumer that sees the
       // completion and immediately sends cannot slip between them.
       yield* Deferred.succeed(active.turnDone, undefined);
-      yield* Effect.forEach(translator.onExit(exitCode), emitPrepared, { discard: true });
+      yield* Effect.forEach(translator.onExit(code), emitPrepared, { discard: true });
       yield* Ref.set(processRef, null);
       yield* Fiber.interrupt(stdoutFiber);
       yield* Fiber.interrupt(stderrFiber);
       const tailer = yield* Ref.get(transcriptFiber);
       if (tailer !== null) yield* Fiber.interrupt(tailer);
+      // A signal death nobody asked for is a crash: without a `session.ended`
+      // the stream stays open, the supervisor never hears about it and the
+      // thread is stuck on a turn that will never finish. Ending it here is
+      // what lets the supervisor resume from the persisted sessionRef.
+      if (!interrupted && SIGNAL_DEATHS.has(exitCode)) {
+        yield* endSession("crashed", exitCode);
+      }
       // The slot is free only now: bookkeeping — onExit events, the sessionRef
       // persist — is what a follow-up send must wait out, not just the exit.
       yield* Deferred.succeed(active.settled, undefined);
@@ -678,6 +704,7 @@ export const makeCmdSession = (
               turnDone: yield* Deferred.make<void>(),
               settled: yield* Deferred.make<void>(),
               plan,
+              interrupted: yield* Ref.make(false),
             };
             yield* Ref.set(processRef, active);
             yield* pump(active).pipe(Effect.forkIn(scope));
@@ -695,41 +722,53 @@ export const makeCmdSession = (
           ),
         );
 
-    const close: Effect.Effect<void> = Effect.gen(function* () {
-      if (yield* Ref.get(closedRef)) {
-        return;
-      }
-      yield* Ref.set(closedRef, true);
-      // The session's processes are gone once close returns — revoke the hook
-      // bearer with them rather than leave it valid until the scope ends.
-      if (options.services.unregisterHookHandler !== undefined) {
-        yield* options.services
-          .unregisterHookHandler(options.threadId)
-          .pipe(Effect.catch(() => Effect.void));
-      }
-      const active = yield* Ref.get(processRef);
-      if (active !== null) {
-        yield* active.proc.kill;
-      }
-      yield* releasePending;
-      // The project is the user's, not ours: the hook block and the MCP entry
-      // go out with the session that put them there. Both reverts no-op when
-      // the file has changed since or another session still holds it.
-      const hooks = yield* Ref.get(installedHooks);
-      if (hooks !== null && hookPath !== null) {
-        yield* uninstallProjectHooks(options.workspaceRoot, hookPath, hooks).pipe(
-          Effect.catch(() => Effect.void),
-        );
-      }
-      const mcpFile = yield* Ref.get(installedMcp);
-      if (mcpFile !== null) {
-        yield* removeMcpEntry(transcriptRoot, options.home, mcpFile).pipe(
-          Effect.catch(() => Effect.void),
-        );
-      }
-      yield* emit({ type: "session.ended", payload: { reason: "stopped" } });
-      yield* queue.end;
-    });
+    /**
+     * The one way a session ends: `stopped` when the caller closed it,
+     * `crashed` when the child died on a signal nobody asked for. Both revoke
+     * the bearer, put the project config back and end the stream — the
+     * supervisor only gets to resume when the stream carries `crashed`.
+     */
+    const endSession = (reason: "stopped" | "crashed", exitCode?: number): Effect.Effect<void> =>
+      Effect.gen(function* () {
+        if (yield* Ref.get(closedRef)) {
+          return;
+        }
+        yield* Ref.set(closedRef, true);
+        // The session's processes are gone once this returns — revoke the hook
+        // bearer with them rather than leave it valid until the scope ends.
+        if (options.services.unregisterHookHandler !== undefined) {
+          yield* options.services
+            .unregisterHookHandler(options.threadId)
+            .pipe(Effect.catch(() => Effect.void));
+        }
+        const active = yield* Ref.get(processRef);
+        if (active !== null) {
+          yield* active.proc.kill;
+        }
+        yield* releasePending;
+        // The project is the user's, not ours: the hook block and the MCP entry
+        // go out with the session that put them there. Both reverts no-op when
+        // the file has changed since or another session still holds it.
+        const hooks = yield* Ref.get(installedHooks);
+        if (hooks !== null && hookPath !== null) {
+          yield* uninstallProjectHooks(options.workspaceRoot, hookPath, hooks).pipe(
+            Effect.catch(() => Effect.void),
+          );
+        }
+        const mcpFile = yield* Ref.get(installedMcp);
+        if (mcpFile !== null) {
+          yield* removeMcpEntry(transcriptRoot, options.home, mcpFile).pipe(
+            Effect.catch(() => Effect.void),
+          );
+        }
+        yield* emit({
+          type: "session.ended",
+          payload: { reason, ...(exitCode === undefined ? {} : { exitCode }) },
+        });
+        yield* queue.end;
+      });
+
+    const close: Effect.Effect<void> = endSession("stopped");
 
     yield* Effect.addFinalizer(() =>
       Effect.gen(function* () {
@@ -745,10 +784,16 @@ export const makeCmdSession = (
     return {
       events: queue.events,
       send,
+      // Spec section 8: SIGINT to the process group, SIGKILL after 5s, then a
+      // descendant sweep. A bare SIGINT leaves a child that ignores it — or a
+      // shell_command grandchild holding the pipe — running forever, and with
+      // it a turn that never settles and a thread that can never send again.
       interrupt: () =>
         Ref.get(processRef).pipe(
           Effect.flatMap((active) =>
-            active === null ? Effect.void : active.proc.signal("SIGINT"),
+            active === null
+              ? Effect.void
+              : Ref.set(active.interrupted, true).pipe(Effect.andThen(active.proc.kill)),
           ),
         ),
       respondToRequest: (requestId, decision) =>
