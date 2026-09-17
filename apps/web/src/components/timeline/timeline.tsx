@@ -40,7 +40,12 @@ export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
       maintainScrollAtEnd
       extraData={projection.childrenByParent}
       className="min-h-0 flex-1 [scrollbar-width:thin]"
-      contentContainerClassName="mx-auto flex w-full max-w-[760px] flex-col gap-2 px-4 py-6"
+      // The row gap has to be a value, not a class: the virtualizer measures
+      // rows itself and a Tailwind `gap-*` it cannot read throws off
+      // `estimatedItemSize`, the draw distance and the scroll anchoring — which
+      // is what left blank stretches mid-scroll. LegendList warns about it too.
+      contentContainerClassName="mx-auto flex w-full max-w-[760px] flex-col px-4 py-6"
+      contentContainerStyle={{ gap: 8 }}
     />
   );
 }
