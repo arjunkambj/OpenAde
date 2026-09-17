@@ -1,0 +1,174 @@
+/**
+ * `files.search` and `files.read` behind the W3 Tag. Search walks tracked plus
+ * untracked-but-not-ignored paths via `git ls-files`, so .gitignore is honored
+ * for free; a per-root cache keyed off `.git/index` mtime keeps repeat queries
+ * warm (the composer hits this on every `@` keystroke).
+ */
+import { statSync } from "node:fs";
+import { readFile, stat } from "node:fs/promises";
+import * as nodePath from "node:path";
+import type { ProjectId } from "@OpenAde/contracts/ids";
+import type { FileSearchResult } from "@OpenAde/contracts/rpc";
+import * as Data from "effect/Data";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+
+import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
+
+import { ReadModelStore } from "../persistence/ReadModels";
+import { FileService } from "../rpc/services";
+import { run } from "./process";
+
+export class FileServiceError extends Data.TaggedError("FileServiceError")<{
+  readonly message: string;
+}> {}
+
+const toRpcError = (error: FileServiceError) =>
+  new OpenAdeRpcError({ code: "internal", message: error.message });
+
+/** Read at most this many bytes; larger files answer `truncated: true`. */
+const READ_CAP_BYTES = 512 * 1024;
+const DEFAULT_SEARCH_LIMIT = 50;
+const MAX_SEARCH_LIMIT = 200;
+/** A cached file list stays warm for this long — typing bursts hit it. */
+const CACHE_TTL_MS = 1500;
+
+interface ListingEntry {
+  readonly path: string;
+  readonly name: string;
+  readonly isDirectory: boolean;
+}
+
+interface ListingCacheEntry {
+  readonly stamp: number;
+  readonly indexMtimeMs: number;
+  readonly entries: ReadonlyArray<ListingEntry>;
+}
+
+const matches = (entry: ListingEntry, query: string): number | null => {
+  // Substring match on the path, weighted toward basename hits so the most
+  // useful rows sort first — good enough for an @-composer.
+  const path = entry.path.toLowerCase();
+  const name = entry.name.toLowerCase();
+  const q = query.toLowerCase();
+  const nameHit = name.indexOf(q);
+  if (nameHit >= 0) return nameHit;
+  const pathHit = path.indexOf(q);
+  return pathHit >= 0 ? 1000 + pathHit : null;
+};
+
+const indexMtime = (root: string): number => {
+  try {
+    return statSync(nodePath.join(root, ".git", "index")).mtimeMs;
+  } catch {
+    return 0;
+  }
+};
+
+export const layer = Layer.effect(
+  FileService,
+  Effect.gen(function* () {
+    const readModels = yield* ReadModelStore;
+    const cache = new Map<string, ListingCacheEntry>();
+
+    const workspaceRoot = (projectId: ProjectId) =>
+      readModels.getProjectDoc(projectId).pipe(
+        Effect.map((doc) => doc?.workspaceRoot ?? null),
+        Effect.mapError(
+          (error) => new FileServiceError({ message: `project lookup failed: ${error.message}` }),
+        ),
+      );
+
+    const listFiles = (root: string) =>
+      Effect.gen(function* () {
+        const cached = cache.get(root);
+        const stamp = indexMtime(root);
+        if (
+          cached !== undefined &&
+          cached.indexMtimeMs === stamp &&
+          Date.now() - cached.stamp < CACHE_TTL_MS
+        ) {
+          return cached.entries;
+        }
+        const tracked = yield* run(root, [
+          "ls-files",
+          "--cached",
+          "--others",
+          "--exclude-standard",
+          "-z",
+        ]).pipe(
+          Effect.mapError(
+            (error) => new FileServiceError({ message: `git ls-files failed: ${error.message}` }),
+          ),
+        );
+        const paths = tracked.stdout.split("\0").filter(Boolean);
+        const entries = paths.map((path): ListingEntry => ({
+          path,
+          name: nodePath.basename(path),
+          isDirectory: false,
+        }));
+        cache.set(root, { stamp: Date.now(), indexMtimeMs: stamp, entries });
+        return entries;
+      });
+
+    const service = FileService.of({
+      search: (projectId, query, limit = DEFAULT_SEARCH_LIMIT) =>
+        Effect.gen(function* () {
+          const root = yield* workspaceRoot(projectId);
+          if (root === null || query.length === 0) return [];
+          const entries = yield* listFiles(root);
+          const scored: Array<{ entry: ListingEntry; score: number }> = [];
+          for (const entry of entries) {
+            const score = matches(entry, query);
+            if (score !== null) scored.push({ entry, score });
+          }
+          scored.sort((a, b) => a.score - b.score || a.entry.path.localeCompare(b.entry.path));
+          const cap = Math.min(Math.max(limit, 1), MAX_SEARCH_LIMIT);
+          return scored.slice(0, cap).map(({ entry }): FileSearchResult => ({
+            path: entry.path,
+            name: entry.name,
+            isDirectory: entry.isDirectory,
+          }));
+        }).pipe(Effect.mapError(toRpcError)),
+
+      read: (projectId, path, offset = 0, limit) =>
+        Effect.gen(function* () {
+          const root = yield* workspaceRoot(projectId);
+          if (root === null) {
+            return { path, text: "", totalLines: 0, truncated: false };
+          }
+          const absolute = nodePath.resolve(root, path);
+          if (!absolute.startsWith(nodePath.resolve(root) + nodePath.sep)) {
+            return yield* new FileServiceError({
+              message: `path escapes the project root: ${path}`,
+            });
+          }
+          const info = yield* Effect.tryPromise({
+            try: () => stat(absolute),
+            catch: () => new FileServiceError({ message: `cannot stat ${path}` }),
+          });
+          if (info.isDirectory()) {
+            return { path, text: "", totalLines: 0, truncated: false };
+          }
+          const truncated = info.size > READ_CAP_BYTES;
+          const handle = yield* Effect.tryPromise({
+            try: () => readFile(absolute),
+            catch: () => new FileServiceError({ message: `cannot read ${path}` }),
+          });
+          const text = handle.subarray(0, READ_CAP_BYTES).toString("utf8");
+          const lines = text.split("\n");
+          const totalLines = lines.length;
+          const slice =
+            limit === undefined ? lines.slice(offset) : lines.slice(offset, offset + limit);
+          return {
+            path,
+            text: slice.join("\n"),
+            totalLines,
+            truncated: truncated || offset + slice.length < totalLines,
+          };
+        }).pipe(Effect.mapError(toRpcError)),
+    });
+
+    return service;
+  }),
+);
