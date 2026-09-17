@@ -9,6 +9,11 @@
  * servers, unrelated top-level keys, formatting outside `mcpServers` — is
  * preserved verbatim on rewrite, so a hand edit outside our marker survives a
  * round-trip through the UI.
+ *
+ * A file that exists but cannot be parsed is never rewritten: listing reports
+ * no servers for it, and upsert/remove fail with a `conflict` naming the file,
+ * because a rewrite would be built from an empty base and would delete every
+ * server the user hand-authored.
  */
 
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
@@ -48,18 +53,48 @@ const stringRecord = (value: unknown): Record<string, string> => {
 const stringArray = (value: unknown): Array<string> =>
   Array.isArray(value) ? value.filter((item): item is string => isString(item)) : [];
 
-/** A missing or malformed file contributes no servers rather than failing. */
-const readJsonFile = (path: string): Effect.Effect<Json> =>
-  Effect.tryPromise(() => readFile(path, "utf8")).pipe(
-    Effect.map((text) => {
+/**
+ * A file we are about to read-modify-write is one of three things, and the
+ * difference decides whether writing it is safe. `missing` may be created;
+ * `parsed` may be rewritten; `unreadable` — a trailing comma, a comment, a
+ * permission error, a non-object top level — must never be rewritten, because
+ * the rewrite would be built from an empty base and would drop every server
+ * the user hand-authored.
+ */
+type JsonFile =
+  | { readonly _tag: "missing" }
+  | { readonly _tag: "parsed"; readonly doc: Json }
+  | { readonly _tag: "unreadable"; readonly reason: string };
+
+const describeCause = (cause: unknown): string =>
+  cause instanceof Error ? cause.message : String(cause);
+
+const isNotFound = (cause: unknown): boolean =>
+  isObject(cause) && "code" in cause && cause.code === "ENOENT";
+
+const readJsonFile = (path: string): Effect.Effect<JsonFile> =>
+  Effect.tryPromise({ try: () => readFile(path, "utf8"), catch: (cause) => cause }).pipe(
+    Effect.map((text): JsonFile => {
+      // An empty file is what `touch` leaves behind; treat it as creatable.
+      if (text.trim() === "") {
+        return { _tag: "parsed", doc: {} };
+      }
       try {
         const parsed = JSON.parse(text) as unknown;
-        return isJson(parsed) ? parsed : {};
-      } catch {
-        return {};
+        return isJson(parsed)
+          ? { _tag: "parsed", doc: parsed }
+          : { _tag: "unreadable", reason: "its top level is not a JSON object" };
+      } catch (cause) {
+        return { _tag: "unreadable", reason: describeCause(cause) };
       }
     }),
-    Effect.orElseSucceed((): Json => ({})),
+    Effect.catch((cause) =>
+      Effect.succeed<JsonFile>(
+        isNotFound(cause)
+          ? { _tag: "missing" }
+          : { _tag: "unreadable", reason: describeCause(cause) },
+      ),
+    ),
   );
 
 const writeJsonFile = (path: string, doc: Json): Effect.Effect<void, OpenAdeRpcError> =>
@@ -80,19 +115,25 @@ const writeJsonFile = (path: string, doc: Json): Effect.Effect<void, OpenAdeRpcE
 interface McpFile {
   readonly doc: Json;
   readonly servers: Record<string, Json>;
+  /** Set when the file exists but could not be understood; writes must refuse. */
+  readonly unreadable: string | null;
 }
 
+const jsonMap = (value: unknown): Record<string, Json> =>
+  isJson(value)
+    ? Object.fromEntries(
+        Object.entries(value).filter(([, entry]) => isJson(entry)) as Array<[string, Json]>,
+      )
+    : {};
+
 const readMcpFile = (path: string): Effect.Effect<McpFile> =>
-  Effect.map(readJsonFile(path), (doc) => ({
-    doc,
-    servers: isJson(doc.mcpServers)
-      ? Object.fromEntries(
-          Object.entries(doc.mcpServers).filter(([, entry]) => isJson(entry)) as Array<
-            [string, Json]
-          >,
-        )
-      : {},
-  }));
+  Effect.map(readJsonFile(path), (file): McpFile => {
+    if (file._tag === "unreadable") {
+      return { doc: {}, servers: {}, unreadable: file.reason };
+    }
+    const doc = file._tag === "missing" ? {} : file.doc;
+    return { doc, servers: jsonMap(doc.mcpServers), unreadable: null };
+  });
 
 const isManaged = (entry: Json): boolean => isJson(entry[MARKER]);
 
@@ -276,6 +317,13 @@ export interface CmdConfigOptions {
 const conflict = (message: string) => new OpenAdeRpcError({ code: "conflict", message });
 const notFound = (message: string) => new OpenAdeRpcError({ code: "not-found", message });
 
+/**
+ * The refusal that keeps a file we cannot parse intact. Rewriting it would
+ * rebuild it from an empty base and silently delete every server in it.
+ */
+const unreadableConflict = (path: string, reason: string) =>
+  conflict(`cannot read ${path} (${reason}); fix it by hand first — refusing to rewrite it`);
+
 /** @public Wired in `main.ts`; replaces `CmdConfig.empty`. */
 export const layer = (options: CmdConfigOptions = {}) =>
   Layer.effect(
@@ -342,6 +390,9 @@ export const layer = (options: CmdConfigOptions = {}) =>
               );
             }
             const file = yield* readMcpFile(path);
+            if (file.unreadable !== null) {
+              return yield* unreadableConflict(path, file.unreadable);
+            }
             const existing = file.servers[server.name];
             if (existing !== undefined && !isManaged(existing)) {
               return yield* conflict(
@@ -368,6 +419,9 @@ export const layer = (options: CmdConfigOptions = {}) =>
               );
             }
             const file = yield* readMcpFile(path);
+            if (file.unreadable !== null) {
+              return yield* unreadableConflict(path, file.unreadable);
+            }
             const existing = file.servers[name];
             if (existing === undefined) {
               return yield* notFound(`no server "${name}" in ${path}`);

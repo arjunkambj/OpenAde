@@ -182,6 +182,39 @@ describe("CmdConfig", () => {
     ),
   );
 
+  it.effect("an unparseable mcp.json is listed as empty and never rewritten", () =>
+    withFixture((f) =>
+      Effect.gen(function* () {
+        // A trailing comma: valid JSON5-ish hand editing, invalid JSON.
+        const original = `{\n  "mcpServers": {\n    "handwritten": { "type": "stdio", "command": "hand" },\n  }\n}\n`;
+        mkdirSync(f.home, { recursive: true });
+        writeFileSync(userMcpPath(f.home), original);
+
+        // Listing degrades to "no servers" rather than failing the whole page.
+        expect(yield* f.service.mcpList()).toEqual([]);
+
+        const upsert = yield* Effect.exit(f.service.mcpUpsert(undefined, httpServer()));
+        expect(upsert._tag).toBe("Failure");
+        expect(readFileSync(userMcpPath(f.home), "utf8")).toBe(original);
+
+        const remove = yield* Effect.exit(f.service.mcpRemove(undefined, "user", "handwritten"));
+        expect(remove._tag).toBe("Failure");
+        expect(readFileSync(userMcpPath(f.home), "utf8")).toBe(original);
+      }),
+    ),
+  );
+
+  it.effect("an empty mcp.json is treated as creatable, not as unreadable", () =>
+    withFixture((f) =>
+      Effect.gen(function* () {
+        mkdirSync(f.home, { recursive: true });
+        writeFileSync(userMcpPath(f.home), "");
+        const list = yield* f.service.mcpUpsert(undefined, httpServer());
+        expect(list.map((server) => server.name)).toEqual(["docs"]);
+      }),
+    ),
+  );
+
   it.effect("disabled servers round-trip through the marker", () =>
     withFixture((f) =>
       Effect.gen(function* () {
