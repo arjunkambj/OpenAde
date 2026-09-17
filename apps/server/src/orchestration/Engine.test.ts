@@ -147,6 +147,32 @@ describe("OrchestrationEngine", () => {
     }).pipe(Effect.provide(engineLayer())),
   );
 
+  it.effect("projects a queue reorder into the thread document", () =>
+    Effect.gen(function* () {
+      const engine = yield* OrchestrationEngine;
+      yield* engine.dispatch(createProject);
+      yield* engine.dispatch(createThread);
+      yield* engine.dispatch(turnStart("first"));
+      yield* engine.dispatch(turnStart("queued one", true));
+      yield* engine.dispatch(turnStart("queued two", true));
+
+      const before = (yield* engine.threadDoc(threadId))?.queue ?? [];
+      expect(before.map((message) => message.text)).toEqual(["queued one", "queued two"]);
+
+      const receipt = yield* engine.dispatch({
+        commandId: makeCommandId(),
+        createdAt: NOW,
+        type: "thread.queue.reorder",
+        threadId,
+        queuedMessageId: before[1]!.queuedMessageId,
+        toIndex: 0,
+      });
+      expect(receipt.status).toBe("accepted");
+      const after = (yield* engine.threadDoc(threadId))?.queue ?? [];
+      expect(after.map((message) => message.text)).toEqual(["queued two", "queued one"]);
+    }).pipe(Effect.provide(engineLayer())),
+  );
+
   it.effect("streams snapshot → synchronized → live events to subscribers", () =>
     Effect.gen(function* () {
       const engine = yield* OrchestrationEngine;

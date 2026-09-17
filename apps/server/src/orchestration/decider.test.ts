@@ -33,6 +33,15 @@ const ctx = (overrides: Partial<DeciderContext> = {}): DeciderContext => ({
 const baseCommand = { commandId: makeCommandId(), createdAt: NOW };
 
 const QUEUED_ID = makeItemId();
+const SECOND_QUEUED_ID = makeItemId();
+
+const queuedMessage = (queuedMessageId: string, text: string) => ({
+  queuedMessageId: queuedMessageId as ReturnType<typeof makeItemId>,
+  text,
+  attachments: [],
+  mentions: [],
+  queuedAt: NOW,
+});
 
 const threadDoc = (overrides: Partial<ThreadDoc> = {}): ThreadDoc => ({
   threadId: makeThreadId(),
@@ -660,6 +669,30 @@ const rows: ReadonlyArray<Row> = [
     rejects: "no queued message",
   },
   {
+    name: "thread.queue.reorder rejects a position the queue does not have",
+    command: {
+      ...baseCommand,
+      type: "thread.queue.reorder",
+      threadId: makeThreadId(),
+      queuedMessageId: QUEUED_ID,
+      toIndex: 3,
+    } as unknown as Command,
+    thread: threadDoc({ queue: [queuedMessage(QUEUED_ID, "only one")] }),
+    rejects: "no position 3",
+  },
+  {
+    name: "thread.queue.reorder accepts a move to where the message already is",
+    command: {
+      ...baseCommand,
+      type: "thread.queue.reorder",
+      threadId: makeThreadId(),
+      queuedMessageId: QUEUED_ID,
+      toIndex: 0,
+    } as unknown as Command,
+    thread: threadDoc({ queue: [queuedMessage(QUEUED_ID, "already first")] }),
+    events: [],
+  },
+  {
     name: "thread.checkpoint.restore rejects an unknown checkpoint",
     command: {
       ...baseCommand,
@@ -723,6 +756,26 @@ describe("decide", () => {
       // other source for the file the implement turn names.
       const payload = result.events[0]!.payload as { planPath?: string };
       expect(payload.planPath).toBe("/home/u/.commandcode/plans/the-plan.md");
+    }
+  });
+
+  it("emits the whole queue order when a message moves", () => {
+    const command = {
+      ...baseCommand,
+      type: "thread.queue.reorder",
+      threadId: makeThreadId(),
+      queuedMessageId: SECOND_QUEUED_ID,
+      toIndex: 0,
+    } as unknown as Command;
+    const thread = threadDoc({
+      queue: [queuedMessage(QUEUED_ID, "first"), queuedMessage(SECOND_QUEUED_ID, "second")],
+    });
+    const result = decide(command, { project: null, thread }, ctx(), env);
+    expect(result.accepted).toBe(true);
+    if (result.accepted) {
+      expect(result.events.map((event) => event.type)).toEqual(["thread.queue.reordered"]);
+      const payload = result.events[0]!.payload as { order: ReadonlyArray<string> };
+      expect(payload.order).toEqual([SECOND_QUEUED_ID, QUEUED_ID]);
     }
   });
 

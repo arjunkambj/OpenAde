@@ -80,6 +80,21 @@ export const applyThreadEvent = (
         queue: doc.queue.filter((message) => message.queuedMessageId !== payload.queuedMessageId),
         updatedAt: event.occurredAt,
       };
+    case "thread.queue.reordered": {
+      // The same fold the server projection does: the event carries the whole
+      // order, so an id the queue no longer holds simply does not place one.
+      const order = payload.order as ReadonlyArray<string>;
+      const rank = new Map(order.map((id, index) => [id, index]));
+      return {
+        ...doc,
+        queue: [...doc.queue].sort(
+          (a, b) =>
+            (rank.get(a.queuedMessageId) ?? order.length) -
+            (rank.get(b.queuedMessageId) ?? order.length),
+        ),
+        updatedAt: event.occurredAt,
+      };
+    }
     case "thread.item.upserted": {
       const item = payload.item as ThreadDetailSnapshot["items"][number];
       const index = doc.items.findIndex((existing) => existing.itemId === item.itemId);

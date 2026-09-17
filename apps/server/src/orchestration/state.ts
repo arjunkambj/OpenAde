@@ -234,6 +234,21 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
           (message) => message.queuedMessageId !== (payload.queuedMessageId as string),
         ),
       };
+    case "thread.queue.reordered": {
+      // The event carries the order, not the move: ids the queue no longer
+      // holds are skipped, and a message the order does not mention keeps its
+      // place behind the ones it does.
+      const order = payload.order as ReadonlyArray<string>;
+      const rank = new Map(order.map((id, index) => [id, index]));
+      return {
+        ...next,
+        queue: [...doc.queue].sort(
+          (a, b) =>
+            (rank.get(a.queuedMessageId) ?? order.length) -
+            (rank.get(b.queuedMessageId) ?? order.length),
+        ),
+      };
+    }
     case "thread.item.upserted": {
       // The turn id lives on the event; keeping it on the stored row is what
       // lets a client that only ever sees the snapshot group the timeline by

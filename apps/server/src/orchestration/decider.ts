@@ -354,6 +354,30 @@ export const decide = (
       ]);
     }
 
+    case "thread.queue.reorder": {
+      if (thread === null || thread.deleted) {
+        return rejected(`thread ${command.threadId} does not exist`);
+      }
+      const from = thread.queue.findIndex(
+        (message) => message.queuedMessageId === command.queuedMessageId,
+      );
+      if (from === -1) {
+        return rejected(`no queued message ${command.queuedMessageId}`);
+      }
+      if (command.toIndex >= thread.queue.length) {
+        return rejected(`the queue has no position ${command.toIndex}`);
+      }
+      // A move to where the message already is changes nothing. Accepting it
+      // without an event keeps the log free of no-op reorders.
+      if (from === command.toIndex) {
+        return accepted([]);
+      }
+      const order = thread.queue.map((message) => message.queuedMessageId);
+      order.splice(from, 1);
+      order.splice(command.toIndex, 0, command.queuedMessageId);
+      return accepted([emit("thread.queue.reordered", { order })]);
+    }
+
     case "thread.checkpoint.restore": {
       if (thread === null || thread.deleted) {
         return rejected(`thread ${command.threadId} does not exist`);
