@@ -180,9 +180,10 @@ export function Composer({
           setTextAndCaret(next.text, next.cursor);
         }
         return;
-      case "clear":
+      case "clear-draft":
         setText("");
         setMentions([]);
+        attachments.clear();
         closeMenu();
         return;
       case "settings":

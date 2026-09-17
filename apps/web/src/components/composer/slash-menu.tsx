@@ -3,6 +3,11 @@
  * skills; `model`, `effort` and `mode` open a second level whose pick becomes
  * a `thread.settings.update` patch. Everything the menu can do is expressed as
  * a `SlashAction` so the composer keeps one `onSelect` path.
+ *
+ * There is deliberately no `/clear`: in Command Code that clears the session
+ * context, and no command in the union does that yet. Offering it as a name
+ * for "empty the textarea" would silently drop the draft while keeping the
+ * context the user meant to drop — see docs/decisions/w5-composer-notes.md.
  */
 
 import type { Effort, InteractionMode, RuntimeMode } from "@OpenAde/contracts/enums";
@@ -16,7 +21,7 @@ export type SlashLevel = "root" | "model" | "effort" | "mode";
 export type SlashAction =
   | { readonly type: "settings"; readonly patch: SlashPatch }
   | { readonly type: "insert"; readonly text: string }
-  | { readonly type: "clear" }
+  | { readonly type: "clear-draft" }
   | { readonly type: "level"; readonly level: SlashLevel };
 
 export interface SlashPatch {
@@ -136,11 +141,11 @@ export const slashMenuItems = (input: {
       action: { type: "settings", patch: { interactionMode: "default" } },
     },
     {
-      id: "builtin:clear",
-      label: "/clear",
-      description: "Clear the draft",
+      id: "builtin:clear-draft",
+      label: "/clear-draft",
+      description: "Empty the message you are writing",
       icon: "hugeicons:cancel-01",
-      action: { type: "clear" },
+      action: { type: "clear-draft" },
     },
   ];
 
