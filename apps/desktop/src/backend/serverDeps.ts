@@ -8,6 +8,7 @@ import { dirname, join } from "node:path";
 
 import { app, dialog } from "electron";
 
+import { cdpPort } from "../main/platform";
 import type { SpawnSpec } from "./ServerSupervisor";
 
 // Bundled to cjs — `__dirname` is real at runtime.
@@ -20,6 +21,9 @@ export const serverSpawnSpec = (): SpawnSpec => {
     ...process.env,
     ELECTRON_RUN_AS_NODE: "1",
     OPENADE_DEV: app.isPackaged ? "" : "1",
+    // The loopback CDP endpoint the browser pane's webview is reachable on
+    // (W6 mode A). Empty when remote debugging is disabled.
+    OPENADE_CDP_PORT: cdpPort === null ? "" : String(cdpPort),
   };
   if (app.isPackaged) {
     // The bundle is asar-unpacked so the child can spawn it directly.

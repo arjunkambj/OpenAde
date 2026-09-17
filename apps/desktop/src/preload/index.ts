@@ -25,10 +25,26 @@ const openade = {
   },
   openExternal: (url: string): Promise<void> => ipcRenderer.invoke("openade:open-external", url),
   pickDirectory: (): Promise<string | null> => ipcRenderer.invoke("openade:pick-directory"),
-  /** Browser-pane bridge — W6 replaces the stubs with real webview control. */
+  /**
+   * Browser-pane bridge (W6 mode A): `attach` registers this window as the
+   * host of the thread's `persist:thread-*` webview guest; `onInput` then
+   * delivers every real pointer/keyboard/wheel gesture the guest sees —
+   * already shaped like `BrowserHumanInput` — which the pane forwards as a
+   * `browser.humanInput` call so the server can mark human control.
+   */
   browserPane: {
-    attach: (_threadId: string): Promise<void> => Promise.resolve(),
-    detach: (_threadId: string): Promise<void> => Promise.resolve(),
+    attach: (threadId: string): Promise<void> =>
+      ipcRenderer.invoke("openade:browser-attach", threadId),
+    detach: (threadId: string): Promise<void> =>
+      ipcRenderer.invoke("openade:browser-detach", threadId),
+    onInput: (callback: (payload: { threadId: string; input: unknown }) => void): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        payload: { threadId: string; input: unknown },
+      ) => callback(payload);
+      ipcRenderer.on("openade:browser-input", listener);
+      return () => ipcRenderer.removeListener("openade:browser-input", listener);
+    },
   },
 };
 
