@@ -230,6 +230,19 @@ export class OrchestrationEngine extends Context.Service<
         nextItemId: env.nextItemId,
       }));
 
+      /**
+       * The model a `thread.create` without one starts on.
+       *
+       * The app-wide default first, and then the connector's own: a new thread
+       * runs on the first enabled instance — the order `ConnectorSelection`
+       * registers and picks from — so that instance's `defaultModel` is what
+       * "new threads on this instance" means. It was inert before, an input on
+       * the connectors page that changed nothing.
+       *
+       * Read straight from the stored row rather than through `SettingsStore`:
+       * this runs inside the dispatch transaction, and the store is not in the
+       * engine's layer graph.
+       */
       const defaultModel = Effect.gen(function* () {
         const rows = yield* sql<{ readonly value_json: string }>`
           SELECT value_json FROM settings WHERE key = ${SETTINGS_KEY}
@@ -240,8 +253,17 @@ export class OrchestrationEngine extends Context.Service<
         try {
           const doc = JSON.parse(rows[0]!.value_json) as {
             defaults?: { model?: string | null };
+            connectors?: ReadonlyArray<{
+              enabled?: boolean;
+              config?: { defaultModel?: string | null };
+            }>;
           };
-          return doc.defaults?.model ?? null;
+          const shared = doc.defaults?.model ?? null;
+          if (shared !== null) {
+            return shared;
+          }
+          const instance = doc.connectors?.find((connector) => connector.enabled === true);
+          return instance?.config?.defaultModel ?? null;
         } catch {
           return null;
         }

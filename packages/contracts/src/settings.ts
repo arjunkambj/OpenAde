@@ -37,7 +37,8 @@ const settingsForm =
 /**
  * Command Code's own knobs. `binaryPath` is empty until the user overrides the
  * probe, `extraEnv` is merged into the allowlisted spawn environment, and
- * `defaultModel` seeds new threads on this instance.
+ * `defaultModel` is what a new thread on this instance starts with when the
+ * app-wide default is unset — which it is until a probe has reported models.
  */
 export const CmdConnectorConfig = Schema.Struct({
   binaryPath: Schema.optional(NonEmptyString).pipe(

@@ -301,6 +301,47 @@ describe("OrchestrationEngine", () => {
       expect(items[2]?.kind).toBe("upserted");
     }).pipe(Effect.provide(engineLayer())),
   );
+
+  it.effect("starts a thread on the connector instance's own default model", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const persistence = Layer.succeedContext(yield* Layer.build(persistenceLayer()));
+
+        yield* Effect.gen(function* () {
+          const sql = yield* SqlClient.SqlClient;
+          // The app-wide default is null until a probe has reported models,
+          // which is exactly when the connector's own setting has to carry it.
+          yield* sql`
+            INSERT INTO settings (key, value_json, updated_at)
+            VALUES (
+              'settings',
+              ${JSON.stringify({
+                defaults: { model: null },
+                connectors: [
+                  { enabled: false, config: { defaultModel: "acme/disabled" } },
+                  { enabled: true, config: { defaultModel: "acme/preferred" } },
+                ],
+              })},
+              ${NOW}
+            )
+          `;
+          const engine = yield* OrchestrationEngine;
+          yield* engine.dispatch(createProject);
+          yield* engine.dispatch({
+            commandId: makeCommandId(),
+            createdAt: NOW,
+            type: "thread.create",
+            threadId,
+            projectId,
+            settings: {},
+          });
+          // The first *enabled* instance, which is the one the thread will run
+          // on — a disabled connector's model must not win.
+          expect((yield* engine.threadDoc(threadId))?.settings.model).toBe("acme/preferred");
+        }).pipe(Effect.provide(OrchestrationEngine.layer.pipe(Layer.provideMerge(persistence))));
+      }),
+    ),
+  );
 });
 
 describe("projection rebuild", () => {
