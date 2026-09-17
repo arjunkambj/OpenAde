@@ -16,6 +16,10 @@
       "types": "./src/atoms.ts",
       "import": "./src/atoms.ts"
     },
+    "./gitAtoms": {
+      "types": "./src/gitAtoms.ts",
+      "import": "./src/gitAtoms.ts"
+    },
     "./clientState": {
       "types": "./src/clientState.ts",
       "import": "./src/clientState.ts"
