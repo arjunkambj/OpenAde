@@ -17,6 +17,8 @@ import type { ConnectionLayer } from "@OpenAde/client-runtime/atoms";
 import { makeRuntime } from "@OpenAde/client-runtime/atoms";
 import * as React from "react";
 
+import { getAppAtoms } from "@/state/app-runtime";
+
 export type ClientRuntime = ReturnType<typeof makeRuntime>;
 
 const ClientRuntimeContext = React.createContext<ClientRuntime | null>(null);
@@ -55,10 +57,12 @@ export function ClientRuntimeBridge({
   return <ClientRuntimeContext.Provider value={runtime}>{children}</ClientRuntimeContext.Provider>;
 }
 
+/**
+ * The atom bag to read. Without a provider this is the app's own runtime, the
+ * one `main.tsx` installs — so the composer, the interaction cards and the
+ * header controls mount in the real app exactly as they do on the fixture
+ * page. A provider above them substitutes a scripted client instead.
+ */
 export function useClientRuntime(): ClientRuntime {
-  const runtime = React.useContext(ClientRuntimeContext);
-  if (runtime === null) {
-    throw new Error("useClientRuntime must be used under <ClientRuntimeProvider>");
-  }
-  return runtime;
+  return React.useContext(ClientRuntimeContext) ?? getAppAtoms();
 }
