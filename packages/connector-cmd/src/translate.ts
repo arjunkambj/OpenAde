@@ -233,6 +233,17 @@ export const makeTranslator = (options: {
   let turnCostUsd = 0;
   const costedLines = new Set<string>();
 
+  /**
+   * Turn-scoped bookkeeping, dropped at every turn boundary: a streamed row is
+   * only completed inside the turn that streamed it, and a turn's dollars are
+   * its own — a turn ending without `run_end` never reaches `usageUpdated`.
+   */
+  const forgetTurn = (): void => {
+    streamedText.clear();
+    streamedItemForText.clear();
+    turnCostUsd = 0;
+  };
+
   const unmapped = (source: string, payload: unknown): PendingRuntimeEvent => ({
     type: "event.unmapped",
     payload: {},
@@ -503,20 +514,9 @@ export const makeTranslator = (options: {
     }
   };
 
-  /**
-   * The streaming bookkeeping is turn-scoped: a row streamed this turn is only
-   * ever completed by this turn's transcript block or `nextState` replay, both
-   * of which land before the turn does. Carrying it further is what lets a
-   * later turn with the same text complete onto the earlier row.
-   */
-  const forgetStreamed = (): void => {
-    streamedText.clear();
-    streamedItemForText.clear();
-  };
-
   const completeTurn = (stopReason: TurnStopReason): PendingRuntimeEvent => {
     turnOpen = false;
-    forgetStreamed();
+    forgetTurn();
     return { type: "turn.completed", payload: { turnId: makeTurnId(), stopReason } };
   };
 
@@ -651,7 +651,7 @@ export const makeTranslator = (options: {
       case "turn_start": {
         turnOpen = true;
         deltaRun += 1;
-        forgetStreamed();
+        forgetTurn();
         return [{ type: "turn.started", payload: { turnId: makeTurnId() } }];
       }
       case "message_start":
@@ -758,7 +758,7 @@ export const makeTranslator = (options: {
 
   const onExit = (code: number): ReadonlyArray<PendingRuntimeEvent> => {
     const out: Array<PendingRuntimeEvent> = [];
-    forgetStreamed(); // nothing can complete a dead process's rows any more
+    forgetTurn(); // a dead process's rows and dollars end with it
 
     const named = EXIT_MESSAGES[code];
     if (named !== undefined) {

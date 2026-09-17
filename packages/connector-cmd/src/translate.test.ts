@@ -828,4 +828,23 @@ describe("cost", () => {
     const secondUsage = second.find((event) => event.type === "usage.updated");
     expect(secondUsage?.type === "usage.updated" && secondUsage.payload.costUsd).toBeUndefined();
   });
+
+  it("does not carry an interrupted turn's cost into the next turn", () => {
+    const translate = translator();
+    translate.onFrame(runStart());
+    translate.onFrame(turnStart());
+    translate.onTranscriptLine({
+      ...transcriptMessage("assistant", [{ type: "text", text: "one" }], "m-1"),
+      usage: { costUsd: 0.4 },
+    });
+    // Interrupted: the turn never reaches run_end, so its cost is never
+    // reported — and must not be billed to whatever runs next.
+    expect(types(translate.onExit(130))).toEqual(["turn.completed"]);
+
+    translate.onFrame(runStart());
+    translate.onFrame(turnStart());
+    const next = translate.onFrame(runEnd());
+    const usage = next.find((event) => event.type === "usage.updated");
+    expect(usage?.type === "usage.updated" && usage.payload.costUsd).toBeUndefined();
+  });
 });
