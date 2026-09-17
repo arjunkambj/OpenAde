@@ -816,7 +816,8 @@ describe("projection determinism", () => {
       const second = yield* deterministicRun();
       expect(JSON.stringify(second)).toBe(JSON.stringify(first));
       expect(first?.status).toBe("idle");
-      expect(first?.items).toHaveLength(1);
+      // The user's row from thread.turn.start, then the connector's answer.
+      expect(first?.items.map((item) => item.kind)).toEqual(["user_message", "assistant_message"]);
     }),
   );
 });

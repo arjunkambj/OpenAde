@@ -226,12 +226,27 @@ export const decide = (
           }),
         ]);
       }
+      // The user's own row. Nothing else mints it: connectors deliberately
+      // emit nothing for a user text message (their translators say so), so
+      // without this the timeline showed the answers and never the questions.
+      const turnId = env.nextTurnId();
       return accepted([
         emit("thread.turn.requested", {
-          turnId: env.nextTurnId(),
+          turnId,
           text: command.text,
           attachments: command.attachments,
           mentions: command.mentions,
+        }),
+        emit("thread.item.upserted", {
+          turnId,
+          item: {
+            itemId: env.nextItemId(),
+            kind: "user_message",
+            status: "completed",
+            turnId,
+            text: command.text,
+            ...(command.attachments.length === 0 ? {} : { attachments: command.attachments }),
+          },
         }),
       ]);
     }

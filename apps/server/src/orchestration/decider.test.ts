@@ -251,7 +251,8 @@ const rows: ReadonlyArray<Row> = [
       queued: false,
     } as Command,
     thread: threadDoc(),
-    events: ["thread.turn.requested"],
+    // The user's own timeline row is minted with the turn: nothing else does.
+    events: ["thread.turn.requested", "thread.item.upserted"],
   },
   {
     name: "thread.turn.start rejects during a turn when not queued",
@@ -805,5 +806,48 @@ describe("decide", () => {
         effort: "high",
       });
     }
+  });
+});
+
+describe("the user's own timeline row", () => {
+  const start = (attachments: ReadonlyArray<{ path: string; mime?: string }>) =>
+    decide(
+      {
+        ...baseCommand,
+        type: "thread.turn.start",
+        threadId: makeThreadId(),
+        text: "what is in this picture?",
+        attachments,
+        mentions: [],
+        queued: false,
+      } as Command,
+      { project: null, thread: threadDoc() },
+      ctx(),
+      env,
+    );
+
+  it("carries the text and the turn it belongs to", () => {
+    const result = start([]);
+    expect(result.accepted).toBe(true);
+    if (!result.accepted) return;
+    const requested = result.events[0]!.payload as { turnId: string };
+    const upserted = result.events[1]!.payload as {
+      turnId: string;
+      item: { kind: string; text: string; attachments?: unknown };
+    };
+    expect(upserted.item.kind).toBe("user_message");
+    expect(upserted.item.text).toBe("what is in this picture?");
+    expect(upserted.turnId).toBe(requested.turnId);
+    // No attachments, no field — the row stays as small as the message.
+    expect(upserted.item.attachments).toBeUndefined();
+  });
+
+  it("carries the attachment references so the row can draw a thumbnail", () => {
+    const attachments = [{ path: "/home/.openade/attachments/t/abc-shot.png", mime: "image/png" }];
+    const result = start(attachments);
+    expect(result.accepted).toBe(true);
+    if (!result.accepted) return;
+    const upserted = result.events[1]!.payload as { item: { attachments?: unknown } };
+    expect(upserted.item.attachments).toEqual(attachments);
   });
 });
