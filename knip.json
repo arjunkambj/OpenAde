@@ -17,7 +17,8 @@
         "electron-builder.config.cjs",
         "scripts/*.mjs"
       ],
-      "ignoreDependencies": ["@OpenAde/contracts", "@OpenAde/shared"]
+      // tsx is resolved through the server package (it is a server devDep).
+      "ignoreDependencies": ["@OpenAde/contracts", "@OpenAde/shared", "tsx"]
     },
     "apps/server": {
       "ignoreExportsUsedInFile": true,
