@@ -1,0 +1,213 @@
+/**
+ * The keybindings editor: a VS Code-style table over the server-owned
+ * `Keybinding` list — rebind by capturing a chord, narrow with a `when`
+ * clause, remove, or reset to the shipped default. Conflicts (two bindings on
+ * the same chord in the same scope — the first always wins) are flagged
+ * inline. Edits are a local draft until Save posts the whole table through
+ * `keybindings.update`; the row count and commands come from the server.
+ */
+
+import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import { Button } from "@OpenAde/ui/components/button";
+import { Input } from "@OpenAde/ui/components/input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@OpenAde/ui/components/tooltip";
+import { cn } from "@OpenAde/ui/lib/utils";
+import type { Keybinding } from "@OpenAde/contracts/settings";
+import { DEFAULT_KEYBINDINGS } from "@OpenAde/contracts/settings";
+import { findKeybindingConflicts, parseShortcut } from "@OpenAde/client-runtime/keybindings";
+import * as React from "react";
+import { AsyncResult } from "effect/unstable/reactivity";
+
+import { ShortcutRecorder } from "@/components/keybindings/shortcut-recorder";
+import { useClientRuntime } from "@/lib/client-runtime";
+import { Icon } from "@/lib/icon";
+
+/** Rows whose (shortcut, when) pair collides with an earlier row. */
+const conflictCommands = (keybindings: ReadonlyArray<Keybinding>): ReadonlySet<string> =>
+  new Set(
+    findKeybindingConflicts(keybindings)
+      .flat()
+      .map((binding) => binding.command),
+  );
+
+const sameTable = (a: ReadonlyArray<Keybinding>, b: ReadonlyArray<Keybinding>): boolean =>
+  a.length === b.length &&
+  a.every(
+    (row, i) =>
+      row.command === b[i]?.command && row.shortcut === b[i]?.shortcut && row.when === b[i]?.when,
+  );
+
+export function KeybindingsEditor({ className }: { readonly className?: string }) {
+  const { keybindingsAtom, keybindingsUpdateAtom } = useClientRuntime();
+  const result = useAtomValue(keybindingsAtom);
+  const serverTable = AsyncResult.isSuccess(result) ? result.value : [];
+  const update = useAtomSet(keybindingsUpdateAtom, { mode: "promise" });
+
+  const [draft, setDraft] = React.useState<ReadonlyArray<Keybinding>>(serverTable);
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  // Follow the server table while there is no pending edit.
+  React.useEffect(() => {
+    setDraft((current) => (sameTable(current, serverTable) ? current : serverTable));
+  }, [serverTable]);
+
+  const dirty = !sameTable(draft, serverTable);
+  const conflicts = React.useMemo(() => conflictCommands(draft), [draft]);
+
+  const patchRow = (index: number, patch: Partial<Keybinding>) =>
+    setDraft((current) => current.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+
+  const resetRow = (index: number) =>
+    setDraft((current) => {
+      const row = current[index];
+      const fallback = DEFAULT_KEYBINDINGS.find((entry) => entry.command === row?.command);
+      return row === undefined || fallback === undefined
+        ? current
+        : current.map((r, i) => (i === index ? { ...r, shortcut: fallback.shortcut } : r));
+    });
+
+  const save = () => {
+    setSaving(true);
+    setError(null);
+    void update(draft).then(
+      () => setSaving(false),
+      () => {
+        setSaving(false);
+        setError("the server rejected the keybinding table");
+      },
+    );
+  };
+
+  return (
+    <TooltipProvider>
+      <section className={cn("flex min-w-0 flex-col gap-2", className)} aria-label="Keybindings">
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-medium">Keybindings</h2>
+          <span className="ml-auto flex items-center gap-2">
+            {dirty ? <span className="text-xs text-muted-foreground">unsaved</span> : null}
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={!dirty || saving}
+              onClick={() => setDraft(serverTable)}
+            >
+              Revert
+            </Button>
+            <Button size="sm" disabled={!dirty || saving} onClick={save}>
+              {saving ? "Saving…" : "Save"}
+            </Button>
+          </span>
+        </div>
+        <div className="min-w-0 overflow-x-auto rounded-xl border border-border">
+          <table className="w-full min-w-[480px] border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                <th className="px-3 py-2 font-medium">Command</th>
+                <th className="px-3 py-2 font-medium">Shortcut</th>
+                <th className="px-3 py-2 font-medium">When</th>
+                <th className="px-3 py-2 font-medium" aria-label="Row actions" />
+              </tr>
+            </thead>
+            <tbody>
+              {draft.map((row, index) => {
+                const conflicted = conflicts.has(row.command);
+                const shortcutValid = parseShortcut(row.shortcut) !== null;
+                return (
+                  <tr
+                    key={`${row.command}-${index}`}
+                    className="border-b border-border/60 last:border-0"
+                  >
+                    <td className="px-3 py-1.5">
+                      <span className="flex items-center gap-1.5 font-mono text-xs">
+                        {row.command}
+                        {conflicted ? (
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={<span className="inline-flex text-permission" />}
+                            >
+                              <Icon icon="hugeicons:alert-02" className="size-3.5" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              Another binding on this chord wins — only the first match fires.
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : null}
+                      </span>
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <ShortcutRecorder
+                        value={row.shortcut}
+                        onRecord={(shortcut) => patchRow(index, { shortcut })}
+                      />
+                      {shortcutValid ? null : (
+                        <span className="ml-1.5 text-xs text-destructive">invalid chord</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <Input
+                        value={row.when ?? ""}
+                        placeholder="always"
+                        aria-label={`When clause for ${row.command}`}
+                        onChange={(event) =>
+                          patchRow(index, {
+                            when: event.target.value === "" ? undefined : event.target.value,
+                          })
+                        }
+                      />
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <span className="flex items-center justify-end gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          tone="muted"
+                          size="icon-sm"
+                          aria-label={`Reset ${row.command} to the default shortcut`}
+                          title="Reset to default"
+                          onClick={() => resetRow(index)}
+                        >
+                          <Icon icon="hugeicons:rotate-left-01" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          tone="muted"
+                          size="icon-sm"
+                          aria-label={`Remove binding for ${row.command}`}
+                          title="Remove binding"
+                          onClick={() =>
+                            setDraft((current) => current.filter((_, i) => i !== index))
+                          }
+                        >
+                          <Icon icon="hugeicons:cancel-01" />
+                        </Button>
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+              {draft.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-3 py-6 text-center text-xs text-muted-foreground">
+                    No bindings — the server table is empty.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+        {error === null ? null : (
+          <p className="text-xs text-destructive" role="alert">
+            {error}
+          </p>
+        )}
+      </section>
+    </TooltipProvider>
+  );
+}
