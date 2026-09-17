@@ -187,6 +187,39 @@ describe("BrowserService", () => {
     ),
   );
 
+  it.live("a second gesture of the expected class is the human, not the echo", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const started = yield* Deferred.make<void>();
+        const release = yield* Deferred.make<void>();
+        const { browser } = yield* buildStack(() =>
+          Effect.succeed(
+            makeFakeDriver(fakePage(), {
+              onExec: (argv) =>
+                argv[0] === "click"
+                  ? Effect.andThen(Deferred.succeed(started, undefined), Deferred.await(release))
+                  : Effect.void,
+            }),
+          ),
+        );
+
+        const call = yield* browser
+          .callTool(threadId, "browser_click", { selector: "@e1" })
+          .pipe(Effect.forkChild);
+        yield* Deferred.await(started);
+
+        // The first click is the call's own echo; the expectation is spent.
+        yield* browser.humanInput(threadId, { kind: "click", x: 3, y: 4 });
+        // The second is somebody clicking the page while the agent works.
+        yield* browser.humanInput(threadId, { kind: "click", x: 5, y: 6 });
+        yield* Deferred.succeed(release, undefined);
+
+        const outcome = yield* Fiber.join(call);
+        expect(outcome.kind).toBe("interrupted");
+      }),
+    ),
+  );
+
   it.live("the toolbar drives the attached webview in cdp-attach mode", () =>
     Effect.scoped(
       Effect.gen(function* () {

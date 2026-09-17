@@ -424,11 +424,19 @@ export const makeService = (injected: {
         }
 
         // Human control: bump the epoch unless an in-flight call expected to
-        // synthesize exactly this class of input itself.
-        const inFlight = yield* Ref.get(session.inFlight);
+        // synthesize exactly this class of input itself. The expectation is a
+        // lease, spent the first time it matches — a `browser_click` echoes
+        // one pointer event, so the *second* click during that call is the
+        // human taking over and does interrupt.
         const inputClass = inputClassOf(input);
-        const expected =
-          inFlight !== null && inputClass !== null && inFlight.expects.has(inputClass);
+        const expected = yield* Ref.modify(session.inFlight, (current) => {
+          if (current === null || inputClass === null || !current.expects.has(inputClass)) {
+            return [false, current] as const;
+          }
+          const remaining = new Set(current.expects);
+          remaining.delete(inputClass);
+          return [true, { ...current, expects: remaining }] as const;
+        });
         if (!expected) {
           yield* Ref.update(session.epoch, (epoch) => epoch + 1);
         }

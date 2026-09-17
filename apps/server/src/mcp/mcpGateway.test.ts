@@ -34,7 +34,7 @@ import { testLayer as sqliteTestLayer } from "../persistence/Sqlite";
 import { PermissionService } from "../permissions/PermissionService";
 import { BrowserService } from "../rpc/services";
 import { mcpRoutesLayer } from "./httpRoute";
-import { McpGateway } from "./McpGateway";
+import { capText, McpGateway } from "./McpGateway";
 
 const threadId = makeThreadId();
 
@@ -244,4 +244,21 @@ describe("McpGateway", () => {
       }),
     ),
   );
+});
+
+describe("capText", () => {
+  it("caps on bytes, not UTF-16 units", () => {
+    // 40k three-byte characters: 40k UTF-16 units, 120KB on the wire. The
+    // old length check let this past a 64KB cap.
+    const wide = "の".repeat(40_000);
+    const capped = capText(wide);
+    expect(capped).not.toBe(wide);
+    expect(Buffer.byteLength(capped.split("\n")[0] ?? "", "utf8")).toBeLessThanOrEqual(64 * 1024);
+    // The cut lands on a character boundary — no replacement characters.
+    expect(capped).not.toContain("�");
+  });
+
+  it("leaves anything inside the cap alone", () => {
+    expect(capText("hello")).toBe("hello");
+  });
 });

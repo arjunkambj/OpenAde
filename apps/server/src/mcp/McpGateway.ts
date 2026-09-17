@@ -80,10 +80,19 @@ const jsonRpcError = (id: unknown, code: number, message: string) => ({
   error: { code, message },
 });
 
-const capText = (text: string): string =>
-  text.length > RESULT_CAP_BYTES
-    ? `${text.slice(0, RESULT_CAP_BYTES)}\n… truncated at ${RESULT_CAP_BYTES} bytes`
-    : text;
+/**
+ * The spec's 64KB result cap, counted in bytes. `text.length` counts UTF-16
+ * units, so a snapshot of mostly non-ASCII text used to pass a cap it was
+ * two or three times over. The cut lands on a byte boundary, so a partial
+ * code point at the end is dropped rather than decoded as a replacement
+ * character.
+ */
+export const capText = (text: string): string => {
+  if (Buffer.byteLength(text, "utf8") <= RESULT_CAP_BYTES) return text;
+  const head = Buffer.from(text, "utf8").subarray(0, RESULT_CAP_BYTES);
+  const decoded = new TextDecoder("utf-8").decode(head).replace(/\uFFFD+$/, "");
+  return `${decoded}\n… truncated at ${RESULT_CAP_BYTES} bytes`;
+};
 
 /** The text the agent reads back from a browser_* call. */
 const outcomeText = (outcome: BrowserCallOutcome): string => {
