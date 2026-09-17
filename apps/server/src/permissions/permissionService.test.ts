@@ -14,6 +14,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
 import { persistenceLayer } from "../../test/layers";
+import { SettingsStore } from "../rpc/services";
 import { PermissionService } from "./PermissionService";
 
 /** The service over a fresh in-memory database, migrations and all. */
@@ -109,5 +110,78 @@ describe("PermissionService over permission_rules", () => {
       ]);
       expect((yield* permissions.rules("session")).map((rule) => rule.threadId)).toEqual([threadB]);
     }).pipe(Effect.provide(serviceLayer())),
+  );
+});
+
+describe("the settings document and the rules table", () => {
+  /** Both services over one database — the shape production composes. */
+  const bothLayer = () => {
+    const persistence = persistenceLayer();
+    return Layer.mergeAll(
+      PermissionService.layer.pipe(Layer.provide(persistence)),
+      SettingsStore.layer.pipe(Layer.provide(persistence)),
+    );
+  };
+
+  it.effect("shows an allow-always rule the approval flow wrote", () =>
+    Effect.gen(function* () {
+      const permissions = yield* PermissionService;
+      const settings = yield* SettingsStore;
+
+      expect((yield* settings.get).permissions).toEqual([]);
+      yield* permissions.addRule({
+        scope: "project",
+        projectId: projectA,
+        pattern: "Shell(npm run *)",
+        decision: "allow",
+      });
+
+      // Without the projection the rule would be enforced but invisible: the
+      // user could never see it, let alone take it back.
+      const shown = (yield* settings.get).permissions;
+      expect(shown).toHaveLength(1);
+      expect(shown[0]?.pattern).toBe("Shell(npm run *)");
+      expect(shown[0]?.projectId).toBe(projectA);
+    }).pipe(Effect.provide(bothLayer())),
+  );
+
+  it.effect("enforces a rule written through the settings document", () =>
+    Effect.gen(function* () {
+      const permissions = yield* PermissionService;
+      const settings = yield* SettingsStore;
+
+      yield* settings.update({
+        permissions: [
+          {
+            scope: "global",
+            pattern: "Shell(rm -rf *)",
+            decision: "deny",
+            createdAt: "2026-01-02T03:04:05.000Z",
+          },
+        ],
+      });
+
+      // The ladder reads the table, so a rule edited here has to land there.
+      expect(
+        yield* permissions.decide({
+          request: shell("rm -rf /"),
+          runtimeMode: "full-access",
+          interactionMode: "default",
+          threadId: threadA,
+        }),
+      ).toBe("deny");
+
+      // And removing it from the document removes it from the table.
+      yield* settings.update({ permissions: [] });
+      expect(yield* permissions.rules()).toEqual([]);
+      expect(
+        yield* permissions.decide({
+          request: shell("rm -rf /"),
+          runtimeMode: "full-access",
+          interactionMode: "default",
+          threadId: threadA,
+        }),
+      ).toBe("allow");
+    }).pipe(Effect.provide(bothLayer())),
   );
 });

@@ -120,6 +120,15 @@ the same gate on Linux and macOS (`.github/workflows/ci.yml`).
     override it, `OPENADE_REMOTE_DEBUG=0` vetoes it. With no port the server's
     `OPENADE_CDP_PORT` is empty, `cdpAvailable` is false and every thread runs
     mode B (owned Chromium), so anything exercising mode A must turn it on.
+17. Permission rules live in the `permission_rules` table, and only there. The
+    ladder filters them by scope on every tool call and "allow always" appends a
+    row from the approval flow, so a JSON blob would be the wrong shape and a
+    second store. The wire `Settings.permissions` array is a projection:
+    `SettingsStore.get` reads the table through `readRules`, `settings.update`
+    with a `permissions` array replaces it through `writeRules`, and the
+    document's own JSON copy is always stored empty so the two can never
+    disagree. A settings editor edits the array as usual; nothing else needs to
+    know where the rows are.
 
 ## Next session starts here
 

@@ -33,6 +33,7 @@ import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
+import { readRules, writeRules } from "../permissions/PermissionService";
 import type { BrowserCallOutcome } from "../browser/tools";
 
 // ── Server identity ────────────────────────────────────────────
@@ -224,6 +225,13 @@ export class SettingsStore extends Context.Service<
   /**
    * Persists the whole settings document as one JSON row — the same table the
    * engine uses, so the app never has two sources of truth for preferences.
+   *
+   * `permissions` is the exception, and for the same reason: the rules live in
+   * `permission_rules`, because the ladder filters them by scope on every tool
+   * call and "allow always" appends a row from the approval flow. The document
+   * projects that table on read and writes it back on update, so a rule the
+   * user adds here is enforced and a rule the approval flow wrote shows up
+   * here. The JSON copy is always stored empty so it can never disagree.
    */
   static readonly layer = Layer.effect(
     SettingsStore,
@@ -240,8 +248,18 @@ export class SettingsStore extends Context.Service<
        * way CmdConfig serialises its own writes.
        */
       const writeMutex = yield* Semaphore.make(1);
+
+      /** The stored document with the live rules folded in. */
+      const withRules = (settings: Settings) =>
+        readRules(sql).pipe(
+          Effect.map((permissions): Settings => ({ ...settings, permissions })),
+          // `get` has no error channel, and a settings read must not fail over
+          // the rules table — the last known list is better than nothing.
+          Effect.catch(() => Effect.succeed(settings)),
+        );
+
       return SettingsStore.of({
-        get: SubscriptionRef.get(ref),
+        get: SubscriptionRef.get(ref).pipe(Effect.flatMap(withRules)),
         freshInstall: loaded.freshInstall,
         update: (patch) =>
           writeMutex.withPermits(1)(
@@ -261,17 +279,21 @@ export class SettingsStore extends Context.Service<
                   Object.entries(patch).filter(([, value]) => value !== undefined),
                 ),
               };
+              if (patch.permissions !== undefined) {
+                yield* writeRules(sql, patch.permissions);
+              }
+              const stored: Settings = { ...next, permissions: [] };
               yield* sql`
               INSERT INTO settings (key, value_json, updated_at)
-              VALUES (${SETTINGS_ROW_KEY}, ${JSON.stringify(next)}, ${new Date().toISOString()})
+              VALUES (${SETTINGS_ROW_KEY}, ${JSON.stringify(stored)}, ${new Date().toISOString()})
               ON CONFLICT (key) DO UPDATE
                 SET value_json = excluded.value_json, updated_at = excluded.updated_at
             `;
-              yield* SubscriptionRef.set(ref, next);
-              return next;
+              yield* SubscriptionRef.set(ref, stored);
+              return yield* withRules(stored);
             }),
           ),
-        changes: SubscriptionRef.changes(ref),
+        changes: SubscriptionRef.changes(ref).pipe(Stream.mapEffect(withRules)),
       });
     }),
   );

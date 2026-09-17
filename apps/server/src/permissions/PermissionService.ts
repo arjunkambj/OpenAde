@@ -16,7 +16,9 @@
  *    network, `full-access` allows everything that got this far.
  *
  * `PermissionService` is the same ladder over the `permission_rules` table,
- * filtered to the rules whose scope covers the asking thread.
+ * filtered to the rules whose scope covers the asking thread. That table is
+ * the single source of truth: the wire `Settings.permissions` array is a
+ * projection of it, not a second place rules can live.
  */
 
 import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
@@ -104,6 +106,70 @@ export const decidePermission = (input: DecideInput): PermissionDecision => {
   }
 };
 
+// ── The rules table ───────────────────────────────────────────
+//
+// `permission_rules` is the single source of truth for permissions: the
+// approval flow appends to it ("allow always"), the ladder reads it on every
+// tool call, and the wire `Settings.permissions` array is a projection of it
+// rather than a second store. The functions below are the table's whole API,
+// taken as plain SqlClient effects so the settings document can project them
+// without pulling the service into its layer graph.
+
+const toRule = (row: RuleRow): PermissionRule => ({
+  scope: row.scope as PermissionScope,
+  ...(row.project_id === "" ? {} : { projectId: row.project_id as ProjectId }),
+  ...(row.thread_id === "" ? {} : { threadId: row.thread_id as ThreadId }),
+  pattern: row.pattern,
+  decision: row.decision as "allow" | "deny",
+  createdAt: row.created_at,
+});
+
+/** Every stored rule, in insertion order. The listing `Settings` projects. */
+export const readRules = (
+  sql: SqlClient.SqlClient,
+): Effect.Effect<ReadonlyArray<PermissionRule>, SqlError> =>
+  sql<RuleRow>`
+    SELECT scope, project_id, thread_id, pattern, decision, created_at
+    FROM permission_rules
+    ORDER BY rule_id
+  `.pipe(Effect.map((rows) => rows.map(toRule)));
+
+/**
+ * Replaces the whole table with `rules` — what a settings update that carries
+ * a `permissions` array means. Editing the list in the UI is a whole-document
+ * operation, so anything the user removed has to disappear here too.
+ */
+export const writeRules = (
+  sql: SqlClient.SqlClient,
+  rules: ReadonlyArray<PermissionRule>,
+): Effect.Effect<void, SqlError> =>
+  Effect.gen(function* () {
+    yield* sql`DELETE FROM permission_rules`;
+    for (const rule of rules) {
+      yield* insertRule(sql, rule);
+    }
+  });
+
+const insertRule = (
+  sql: SqlClient.SqlClient,
+  rule: Pick<PermissionRule, "scope" | "pattern" | "decision"> & {
+    readonly projectId?: ProjectId;
+    readonly threadId?: ThreadId;
+    readonly createdAt?: string;
+  },
+): Effect.Effect<void, SqlError> =>
+  sql`
+    INSERT INTO permission_rules
+      (scope, project_id, thread_id, pattern, decision, created_at)
+    VALUES (
+      ${rule.scope}, ${rule.projectId ?? ""}, ${rule.threadId ?? ""},
+      ${rule.pattern}, ${rule.decision}, ${rule.createdAt ?? new Date().toISOString()}
+    )
+    ON CONFLICT (scope, project_id, thread_id, pattern) DO UPDATE SET
+      decision = excluded.decision,
+      created_at = excluded.created_at
+  `.pipe(Effect.asVoid);
+
 /** @public Consumed by the RPC layer once wired. */
 export class PermissionService extends Context.Service<
   PermissionService,
@@ -136,15 +202,6 @@ export class PermissionService extends Context.Service<
     PermissionService,
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient;
-
-      const toRule = (row: RuleRow): PermissionRule => ({
-        scope: row.scope as PermissionScope,
-        ...(row.project_id === "" ? {} : { projectId: row.project_id as ProjectId }),
-        ...(row.thread_id === "" ? {} : { threadId: row.thread_id as ThreadId }),
-        pattern: row.pattern,
-        decision: row.decision as "allow" | "deny",
-        createdAt: row.created_at,
-      });
 
       /** The listing API: an argument given is an exact filter. */
       const rules = (scope?: PermissionScope, projectId?: ProjectId, threadId?: ThreadId) =>
@@ -184,18 +241,7 @@ export class PermissionService extends Context.Service<
             }),
           ),
         rules,
-        addRule: (rule) =>
-          sql`
-            INSERT INTO permission_rules
-              (scope, project_id, thread_id, pattern, decision, created_at)
-            VALUES (
-              ${rule.scope}, ${rule.projectId ?? ""}, ${rule.threadId ?? ""},
-              ${rule.pattern}, ${rule.decision}, ${new Date().toISOString()}
-            )
-            ON CONFLICT (scope, project_id, thread_id, pattern) DO UPDATE SET
-              decision = excluded.decision,
-              created_at = excluded.created_at
-          `.pipe(Effect.asVoid),
+        addRule: (rule) => insertRule(sql, rule),
       });
     }),
   ).pipe(Layer.provide(migrationsLayer));
