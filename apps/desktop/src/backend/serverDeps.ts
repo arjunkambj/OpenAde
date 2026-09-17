@@ -1,21 +1,18 @@
 /**
  * Electron-side dependencies for `ServerSupervisor`: how to spawn the server
- * (the bundled `main.cjs` under `ELECTRON_RUN_AS_NODE`, or `tsx watch` in dev)
- * and how to surface a repeated-crash failure.
+ * (the bundled `main.cjs` under `ELECTRON_RUN_AS_NODE`, or the TypeScript entry
+ * through the tsx loader in dev) and how to surface a repeated-crash failure.
  */
-import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
-
 import { app, dialog } from "electron";
 
 import { cdpPort } from "../main/platform";
+import { devServerEntry, packagedServerEntry } from "./serverArgs";
 import type { SpawnSpec } from "./ServerSupervisor";
 
 // Bundled to cjs — `__dirname` is real at runtime.
 declare const __dirname: string;
-const here = dirname(__dirname);
 
-/** The bundled server entry, or the tsx entry in dev. */
+/** The bundled server entry, or the TypeScript entry in dev. */
 export const serverSpawnSpec = (): SpawnSpec => {
   const env: NodeJS.ProcessEnv = {
     ...process.env,
@@ -25,25 +22,10 @@ export const serverSpawnSpec = (): SpawnSpec => {
     // (W6 mode A). Empty when remote debugging is disabled.
     OPENADE_CDP_PORT: cdpPort === null ? "" : String(cdpPort),
   };
-  if (app.isPackaged) {
-    // The bundle is asar-unpacked so the child can spawn it directly.
-    const entry = join(__dirname, "..", "server", "main.cjs").replace(
-      "app.asar",
-      "app.asar.unpacked",
-    );
-    return {
-      command: process.execPath,
-      args: [entry],
-      env,
-    };
-  }
-  const require = createRequire(join(here, "../../server/package.json"));
-  const tsx = require.resolve("tsx/cli");
-  return {
-    command: process.execPath,
-    args: [tsx, "watch", join(here, "../../server/src/main.ts")],
-    env,
-  };
+  const entry = app.isPackaged
+    ? packagedServerEntry(process.execPath, __dirname)
+    : devServerEntry(process.execPath, __dirname);
+  return { ...entry, env };
 };
 
 /** Surfaced after five consecutive failed attempts instead of spinning. */
