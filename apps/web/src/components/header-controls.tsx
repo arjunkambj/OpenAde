@@ -1,7 +1,9 @@
 /**
  * The thread header controls: model, effort, runtime mode and interaction
  * mode pickers. Every pick is a `thread.settings.update` dispatch — the doc
- * updates when `thread.settings.updated` lands.
+ * updates when `thread.settings.updated` lands, and a rejected or unreachable
+ * dispatch says so beside the pickers instead of letting the value snap back
+ * with no explanation.
  *
  * Capability wiring (spec section 11): a `restart` switch disables the picker
  * with a tooltip; `per-turn` adds an "applies next turn" hint; plan mode
@@ -34,6 +36,7 @@ import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 
 import { useClientRuntime } from "@/lib/client-runtime";
+import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
 import { Icon } from "@/lib/icon";
 
 interface HeaderOption {
@@ -157,15 +160,21 @@ export function HeaderControls({
   const modelsResult = useAtomValue(connectorModelsAtom(instanceId));
   const models = AsyncResult.isSuccess(modelsResult) ? modelsResult.value : [];
 
+  const [error, setError] = React.useState<string | null>(null);
+
   const update = React.useCallback(
     (patch: ThreadSettingsPatch) => {
+      setError(null);
       void dispatch({
         commandId: makeCommandId(),
         createdAt: new Date().toISOString(),
         type: "thread.settings.update",
         threadId,
         ...patch,
-      });
+      }).then(
+        (receipt) => setError(receiptError(receipt, "the server rejected the change")),
+        () => setError(DISPATCH_UNREACHABLE),
+      );
     },
     [dispatch, threadId],
   );
@@ -226,6 +235,11 @@ export function HeaderControls({
           capability="next-turn"
           onPick={(mode) => update({ interactionMode: mode as InteractionMode })}
         />
+        {error === null ? null : (
+          <span className="text-xs text-destructive" role="alert">
+            {error}
+          </span>
+        )}
       </div>
     </TooltipProvider>
   );
