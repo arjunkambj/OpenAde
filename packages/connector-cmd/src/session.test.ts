@@ -88,6 +88,35 @@ if (process.env.OPENADE_FAKE_PLAN === "1") {
 }
 if (process.env.OPENADE_FAKE_SLEEP === "1") {
   setInterval(() => {}, 1000);
+} else if (process.env.OPENADE_FAKE_UNTERMINATED === "1") {
+  // The run_end frame with no trailing newline: it can only arrive through
+  // the splitter's EOF flush.
+  process.stdout.write(
+    JSON.stringify({
+      type: "result",
+      subtype: "success",
+      sessionId,
+      usage: { inputTokens: 4, outputTokens: 2, cacheReadTokens: 0, cacheWriteTokens: 0 },
+      durationMs: 1,
+      finalText: "hello from fake cmd",
+    }) + "\\n",
+  );
+  process.stdout.write(
+    JSON.stringify({
+      type: "event",
+      event: {
+        type: "run_end",
+        result: {
+          finalText: "hello from fake cmd",
+          stopReason: "end_turn",
+          turnCount: 1,
+          usage: { inputTokens: 4, outputTokens: 2, cacheReadTokens: 0, cacheWriteTokens: 0 },
+          nextState: { sessionId, messages: [userMessage, assistantMessage], interrupted: false },
+        },
+      },
+    }),
+  );
+  process.exit(0);
 } else {
   emit({
     type: "run_end",
@@ -179,6 +208,7 @@ const startSession = (
   f: Fixture,
   decide: PermissionDecision,
   registered?: Ref.Ref<((body: unknown) => Effect.Effect<unknown>) | null>,
+  extraEnv: Record<string, string> = {},
 ) =>
   Effect.gen(function* () {
     const handle = yield* makeCmdSession({
@@ -189,6 +219,7 @@ const startSession = (
       extraEnv: {
         HOME: f.home,
         OPENADE_FAKE_SESSION_ID: SESSION_ID,
+        ...extraEnv,
       },
       home: f.home,
       services: yield* services(decide, registered),
@@ -312,7 +343,12 @@ describe("makeCmdSession against a real spawned process", () => {
       const f = yield* fixture();
       withOpenadeHome(f);
       const registered = yield* Ref.make<((body: unknown) => Effect.Effect<unknown>) | null>(null);
-      const { handle, collector } = yield* startSession(f, "prompt", registered);
+      // The sleeping fake keeps the process alive while hook posts are in
+      // flight — otherwise a finished child releases the parked request with
+      // an empty answer before respondToUserInput can land.
+      const { handle, collector } = yield* startSession(f, "prompt", registered, {
+        OPENADE_FAKE_SLEEP: "1",
+      });
 
       // Registration happens at session start, before any turn.
       const handler = yield* Ref.get(registered);
@@ -364,6 +400,45 @@ describe("makeCmdSession against a real spawned process", () => {
       };
       expect(questionResponse.hookSpecificOutput.permissionDecision).toBe("deny");
       expect(questionResponse.hookSpecificOutput.permissionDecisionReason).toContain('"q1"');
+
+      yield* handle.close();
+    }),
+  );
+
+  it.effect("the unterminated final frame still lands via the splitter's EOF flush", () =>
+    Effect.gen(function* () {
+      const f = yield* fixture();
+      withOpenadeHome(f);
+      const handle = yield* makeCmdSession({
+        instanceId: makeConnectorInstanceId(),
+        threadId: makeThreadId(),
+        workspaceRoot: NodePath.join(f.root, "workspace"),
+        binaryPath: f.binary,
+        extraEnv: {
+          HOME: f.home,
+          OPENADE_FAKE_SESSION_ID: SESSION_ID,
+          OPENADE_FAKE_UNTERMINATED: "1",
+        },
+        home: f.home,
+        services: yield* services("allow"),
+        settings: {
+          model: "fake/model",
+          runtimeMode: "approval-required",
+          interactionMode: "default",
+        },
+      });
+      const collector = yield* makeStreamCollector(handle.events);
+
+      yield* handle.send({ text: "hi", attachments: [], mentions: [] });
+      // usage.updated and the assistant item only exist if the unterminated
+      // run_end tail was parsed — the terminated frames ended at `result`,
+      // which is where turn.completed comes from here.
+      yield* collector.awaitItem(isType("turn.completed"));
+      yield* collector.awaitItem(isType("usage.updated"));
+      yield* collector.awaitItem(
+        (event) =>
+          event.type === "item.completed" && event.payload.item.kind === "assistant_message",
+      );
 
       yield* handle.close();
     }),

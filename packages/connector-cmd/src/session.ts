@@ -457,36 +457,66 @@ export const makeCmdSession = (
           if (prepared.type === "session.started") {
             const ref = prepared.payload.sessionRef as { sessionId?: string };
             if (typeof ref.sessionId === "string") {
+              // Persist the ref the moment the harness names the session —
+              // not just at process exit — so a `sessionRef()` read during or
+              // right after the turn already resolves.
+              yield* Ref.set(sessionRef, {
+                sessionId: ref.sessionId,
+                transcriptPath: transcriptPathFor(transcriptRoot, ref.sessionId, options.home),
+                cwd: options.workspaceRoot,
+              });
               yield* startTailer(ref.sessionId);
             }
           }
         });
 
+      /** One complete stdout line → its events. */
+      const handleLine = (line: string): Effect.Effect<void> => {
+        const frame = parseFrame(line);
+        const pendings: ReadonlyArray<PendingRuntimeEvent> =
+          "line" in frame
+            ? [
+                {
+                  type: "event.unmapped" as const,
+                  payload: {},
+                  raw: { source: "cmd.ndjson", payload: frame },
+                },
+              ]
+            : translator.onFrame(frame);
+        return Effect.forEach(pendings, emitPrepared, { discard: true });
+      };
+
       const stdoutFiber = yield* Stream.runForEach(proc.stdout, (chunk) =>
-        Effect.forEach(
-          splitter
-            .push(chunk)
-            .map(parseFrame)
-            .flatMap((frame): ReadonlyArray<PendingRuntimeEvent> =>
-              "line" in frame
-                ? [
-                    {
-                      type: "event.unmapped" as const,
-                      payload: {},
-                      raw: { source: "cmd.ndjson", payload: frame },
-                    },
-                  ]
-                : translator.onFrame(frame),
-            ),
-          emitPrepared,
-          { discard: true },
-        ),
+        Effect.gen(function* () {
+          const pushed = splitter.push(chunk);
+          yield* Effect.forEach(pushed.lines, handleLine, { discard: true });
+          if (pushed.overflow !== null) {
+            // The tail exceeded the line cap and was dropped — say so rather
+            // than lose the bytes silently.
+            yield* emitPrepared({
+              type: "event.unmapped",
+              payload: {},
+              raw: { source: "cmd.ndjson", payload: pushed.overflow },
+            });
+          }
+        }),
       ).pipe(
+        // EOF: the final frame may be missing its trailing newline — flush
+        // the split tail rather than drop the run's last word.
+        Effect.andThen(() => {
+          const tail = splitter.flush();
+          return tail === null ? Effect.void : handleLine(tail);
+        }),
         Effect.catch(() => Effect.void),
         Effect.forkIn(scope),
       );
 
       const exitCode = yield* proc.exitCode;
+      // Exit resolves before the pipes finish draining — let the stdout
+      // reader run out the buffered chunks and the unterminated tail (EOF
+      // flush) before teardown. A grandchild that inherited the pipe holds it
+      // open forever; the timeout keeps that from wedging the pump.
+      yield* Effect.raceFirst(Fiber.await(stdoutFiber), Effect.sleep("2 seconds"));
       if (translator.sessionId !== null) {
         yield* Ref.set(sessionRef, {
           sessionId: translator.sessionId,

@@ -74,16 +74,40 @@ export const parseFrame = (line: string): CmdFrame | CmdFrameParseError => {
   return { line, message: `unknown frame type ${String(type)}` };
 };
 
-/** Splits a chunk stream into complete lines, holding a partial tail. */
+/**
+ * The largest unterminated line the splitter will hold. NDJSON frames are
+ * small; a peer that never sends a newline must not grow the buffer forever —
+ * past this the partial line is dropped and reported as `overflow`.
+ */
+export const MAX_LINE_CHARS = 1024 * 1024;
+
+export interface SplitPush {
+  /** Complete `\n`-terminated lines in this chunk, in order. */
+  readonly lines: ReadonlyArray<string>;
+  /** Set when the unterminated tail exceeded the cap and was dropped. */
+  readonly overflow: { readonly droppedChars: number } | null;
+}
+
+/** Splits a chunk stream into complete lines, holding a bounded partial tail. */
 export const makeLineSplitter = () => {
   let pending = "";
   return {
-    push: (chunk: string): Array<string> => {
+    push: (chunk: string): SplitPush => {
       pending += chunk;
-      const lines = pending.split("\n");
-      pending = lines.pop() ?? "";
-      return lines.filter((line) => line.length > 0);
+      const parts = pending.split("\n");
+      pending = parts.pop() ?? "";
+      let overflow: SplitPush["overflow"] = null;
+      if (pending.length > MAX_LINE_CHARS) {
+        overflow = { droppedChars: pending.length };
+        pending = "";
+      }
+      return { lines: parts.filter((line) => line.length > 0), overflow };
     },
-    flush: (): string | null => (pending.length > 0 ? pending : null),
+    /** The unterminated tail, if any — the last frame may lack its newline. */
+    flush: (): string | null => {
+      const tail = pending;
+      pending = "";
+      return tail.length > 0 ? tail : null;
+    },
   };
 };

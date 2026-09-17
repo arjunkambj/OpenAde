@@ -281,6 +281,25 @@ describe("tailTranscript", () => {
     }),
   );
 
+  it.effect("stop flushes the unterminated tail instead of dropping it", () =>
+    Effect.gen(function* () {
+      const dir = yield* tempDir();
+      const path = NodePath.join(dir, "session.jsonl");
+      // No trailing newline: "partial-tail" only reaches a consumer through
+      // the stop-time flush.
+      NodeFS.writeFileSync(path, "a\npartial-tail");
+
+      const tailer = yield* tailTranscript(path, { pollMs: 5, fromStart: true });
+      // Receiving "a" proves the reader polled once and holds the tail.
+      const first = yield* Stream.runCollect(Stream.take(tailer.lines, 1)).pipe(Effect.forkChild);
+      expect([...(yield* Fiber.join(first))]).toEqual(["a"]);
+
+      const rest = yield* Stream.runCollect(tailer.lines).pipe(Effect.forkChild);
+      yield* tailer.stop;
+      expect([...(yield* Fiber.join(rest))]).toEqual(["partial-tail"]);
+    }),
+  );
+
   it.effect("stop ends the stream and closing the scope stops the reader", () =>
     Effect.gen(function* () {
       const dir = yield* tempDir();

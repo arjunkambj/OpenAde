@@ -22,6 +22,7 @@ import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Queue from "effect/Queue";
+import * as Ref from "effect/Ref";
 import type * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 
@@ -104,6 +105,14 @@ export const tailTranscript = (
   Effect.gen(function* () {
     const queue = yield* Queue.make<string, Cause.Done>({ capacity: 8192 });
     const stopped = yield* Deferred.make<void>();
+    // The unterminated tail lives in a Ref so `stop` can flush what the loop
+    // still holds — a final entry that never got its newline must not be
+    // silently dropped.
+    const pending = yield* Ref.make("");
+    const flushTail = Ref.getAndSet(pending, "").pipe(
+      Effect.flatMap((tail) => (tail.length > 0 ? Queue.offer(queue, tail) : Effect.void)),
+      Effect.asVoid,
+    );
 
     const pollMs = options.pollMs ?? TAIL_POLL_MS;
 
@@ -119,19 +128,18 @@ export const tailTranscript = (
           });
 
     const loop = Effect.gen(function* () {
-      let pending = "";
       while (true) {
         const result = yield* Effect.sync(() => readFrom(path, offset));
         if (result !== null) {
           if (result.size < offset) {
             // Truncated or replaced — a fresh session file under the same name.
             offset = 0;
-            pending = "";
+            yield* Ref.set(pending, "");
           } else {
             offset = result.size;
-            pending += result.data;
-            const lines = pending.split("\n");
-            pending = lines.pop() ?? "";
+            const merged = (yield* Ref.get(pending)) + result.data;
+            const lines = merged.split("\n");
+            yield* Ref.set(pending, lines.pop() ?? "");
             for (const line of lines) {
               if (line.length > 0) {
                 yield* Queue.offer(queue, line);
@@ -141,14 +149,20 @@ export const tailTranscript = (
         }
         yield* Effect.sleep(pollMs);
       }
-    });
+    }).pipe(
+      // Interrupted or stopped, the loop flushes whatever tail it held.
+      Effect.ensuring(flushTail),
+    );
 
     const fiber = yield* Effect.forkScoped(Effect.raceFirst(loop, Deferred.await(stopped)));
 
-    const stop = Deferred.succeed(stopped, undefined).pipe(
-      Effect.andThen(Queue.end(queue)),
-      Effect.asVoid,
-    );
+    const stop = Effect.gen(function* () {
+      yield* Deferred.succeed(stopped, undefined);
+      // Await the reader before ending the queue so its tail flush lands first.
+      yield* Fiber.await(fiber);
+      yield* flushTail; // no-op once the loop's ensuring already flushed
+      yield* Queue.end(queue);
+    });
 
     yield* Effect.addFinalizer(() =>
       Effect.gen(function* () {
