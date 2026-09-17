@@ -47,13 +47,33 @@ const saveWindowState = (win: BrowserWindow) => {
   }
 };
 
-/** Only `persist:thread-*` partitions may attach — the browser pane's channel. */
+/**
+ * Webview attributes that grant capabilities the browser pane never opts
+ * into: `preload` runs a script with Node access, and `webpreferences`,
+ * `nodeintegration` and `allowpopups` are escalation paths.
+ */
+const FORBIDDEN_WEBVIEW_PARAMS = [
+  "webpreferences",
+  "preload",
+  "nodeintegration",
+  "allowpopups",
+] as const;
+
+/**
+ * Only `persist:thread-*` partitions may attach — the browser pane's channel —
+ * and then only an http(s) `src` with none of the forbidden attributes.
+ */
 const guardWebviewAttach = (contents: Electron.WebContents) => {
   contents.on("will-attach-webview", (event, _preferences, params) => {
     const partition = params["partition"];
-    if (typeof partition !== "string" || !partition.startsWith("persist:thread-")) {
-      event.preventDefault();
-    }
+    const src = params["src"];
+    const allowed =
+      typeof partition === "string" &&
+      partition.startsWith("persist:thread-") &&
+      typeof src === "string" &&
+      (src.startsWith("https://") || src.startsWith("http://")) &&
+      FORBIDDEN_WEBVIEW_PARAMS.every((key) => !(key in params));
+    if (!allowed) event.preventDefault();
   });
 };
 
