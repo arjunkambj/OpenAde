@@ -7,7 +7,7 @@ that are not obvious from the code.
 
 Spec section 11 lists `/clear` next to `/model`, `/effort`, `/mode` and
 `/plan`. Those four are thread-level actions; `/clear` in Command Code means
-*clear the session context*. The first implementation bound `/clear` to
+_clear the session context_. The first implementation bound `/clear` to
 emptying the textarea, which is the worst of both readings: a user typing
 `/clear` to reset a long context loses only the sentence they were writing and
 keeps every token they meant to drop, with no way to tell the difference.
