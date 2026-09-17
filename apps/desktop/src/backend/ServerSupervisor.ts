@@ -27,6 +27,7 @@ export type ServerState =
 const INITIAL_BACKOFF_MS = 500;
 const MAX_BACKOFF_MS = 10_000;
 const MAX_CONSECUTIVE_FAILURES = 5;
+const HANDSHAKE_TIMEOUT_MS = 15_000;
 
 // Bundled to cjs — `__dirname` is real at runtime.
 declare const __dirname: string;
@@ -38,6 +39,7 @@ export class ServerSupervisor extends EventEmitter {
   private failures = 0;
   private backoff = INITIAL_BACKOFF_MS;
   private restartTimer: NodeJS.Timeout | null = null;
+  private handshakeTimer: NodeJS.Timeout | null = null;
   private stopped = false;
 
   /** The bundled server entry, or the tsx entry in dev. */
@@ -92,6 +94,10 @@ export class ServerSupervisor extends EventEmitter {
       clearTimeout(this.restartTimer);
       this.restartTimer = null;
     }
+    if (this.handshakeTimer !== null) {
+      clearTimeout(this.handshakeTimer);
+      this.handshakeTimer = null;
+    }
     this.child?.kill("SIGINT");
     this.child = null;
   }
@@ -104,6 +110,30 @@ export class ServerSupervisor extends EventEmitter {
       stdio: ["ignore", "inherit", "inherit", "pipe"],
     });
     this.child = child;
+
+    // The handshake timeout, the spawn error and the exit event can all
+    // report the same death — only the first one counts.
+    let counted = false;
+    const countExit = (reason: string) => {
+      if (counted) return;
+      counted = true;
+      if (this.handshakeTimer !== null) {
+        clearTimeout(this.handshakeTimer);
+        this.handshakeTimer = null;
+      }
+      if (this.child === child) this.child = null;
+      this.onExit(reason);
+    };
+
+    // A child that spawns but never writes fd 3 (migration stall, locked
+    // sqlite) must not sit in "starting" forever — kill it and take the
+    // normal failure/backoff path.
+    this.handshakeTimer = setTimeout(() => {
+      this.handshakeTimer = null;
+      child.kill("SIGKILL");
+      countExit("handshake timeout");
+    }, HANDSHAKE_TIMEOUT_MS);
+    this.handshakeTimer.unref();
 
     let handshake = "";
     const onHandshake = (chunk: Buffer) => {
@@ -119,15 +149,16 @@ export class ServerSupervisor extends EventEmitter {
       } catch {
         this.setState({ status: "failed", reason: `bad handshake: ${line.slice(0, 120)}` });
       }
+      if (this.handshakeTimer !== null) {
+        clearTimeout(this.handshakeTimer);
+        this.handshakeTimer = null;
+      }
       child.stdio[3]?.removeListener("data", onHandshake);
     };
     child.stdio[3]?.on("data", onHandshake);
 
-    child.once("error", (error) => this.onExit(error.message));
-    child.once("exit", (code, signal) => {
-      if (this.child === child) this.child = null;
-      this.onExit(`exit ${code ?? signal ?? "?"}`);
-    });
+    child.once("error", (error) => countExit(error.message));
+    child.once("exit", (code, signal) => countExit(`exit ${code ?? signal ?? "?"}`));
   }
 
   private onExit(reason: string) {
