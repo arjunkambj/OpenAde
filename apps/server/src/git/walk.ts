@@ -127,10 +127,12 @@ export const walkWorkspace = async (root: string): Promise<ReadonlyArray<WalkEnt
     for (const child of listing) {
       if (entries.length >= MAX_ENTRIES) return;
       if (child.name === ".git") continue;
-      // A symlink is never followed: the walk must not escape the workspace,
-      // and a cycle would never terminate.
+      // A symlink is listed as a file — `git ls-files` lists one too — but is
+      // never descended into: the walk must not escape the workspace, and a
+      // cycle would never terminate. `files.read` is where a link pointing
+      // outside the root is refused, by canonical containment.
       const isDirectory = child.isDirectory();
-      if (!isDirectory && !child.isFile()) continue;
+      if (!isDirectory && !child.isFile() && !child.isSymbolicLink()) continue;
       const childPath = relative === "" ? child.name : `${relative}/${child.name}`;
       if (isIgnored(rules, childPath, isDirectory)) continue;
       entries.push({ path: childPath, isDirectory });

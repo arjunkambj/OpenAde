@@ -535,6 +535,34 @@ describe("w8 git", () => {
     ),
   );
 
+  it.live("the fallback walk lists symlinks without following them", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        // `git ls-files` lists a symlink (mode 120000), so the fallback must
+        // not silently drop one — linked config files and pnpm-style layouts
+        // would go missing from the `@` menu.
+        const root = mkdtempSync(nodePath.join(tmpdir(), "openade-plain-"));
+        mkdirSync(nodePath.join(root, "src"));
+        writeFileSync(nodePath.join(root, "src", "keep-me-real.ts"), "export const a = 1\n");
+        symlinkSync("keep-me-real.ts", nodePath.join(root, "src", "keep-me-link.ts"));
+        // A link to a directory is listed, but never descended into.
+        const outside = mkdtempSync(nodePath.join(tmpdir(), "openade-outside-"));
+        writeFileSync(nodePath.join(outside, "keep-me-hidden.ts"), "unreachable\n");
+        symlinkSync(outside, nodePath.join(root, "keep-me-elsewhere"));
+
+        const { projectId, files } = yield* stack(root);
+        const hits = yield* files.search(projectId, "keep-me");
+        expect(hits.map((h) => h.path).sort()).toEqual([
+          "keep-me-elsewhere",
+          "src/keep-me-link.ts",
+          "src/keep-me-real.ts",
+        ]);
+        // The walk stopped at the link: nothing behind it was enumerated.
+        expect(hits.some((h) => h.path.includes("keep-me-hidden"))).toBe(false);
+      }),
+    ),
+  );
+
   it.live("files.read refuses a symlink that escapes the workspace", () =>
     Effect.scoped(
       Effect.gen(function* () {
