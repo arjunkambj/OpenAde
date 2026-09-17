@@ -40,6 +40,14 @@
       "types": "./src/config.ts",
       "import": "./src/config.ts"
     },
+    "./approvals": {
+      "types": "./src/approvals.ts",
+      "import": "./src/approvals.ts"
+    },
+    "./exitCodes": {
+      "types": "./src/exitCodes.ts",
+      "import": "./src/exitCodes.ts"
+    },
     "./questions": {
       "types": "./src/questions.ts",
       "import": "./src/questions.ts"

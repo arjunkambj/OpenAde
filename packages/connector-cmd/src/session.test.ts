@@ -23,7 +23,8 @@ import * as Fiber from "effect/Fiber";
 import * as Ref from "effect/Ref";
 import type * as Scope from "effect/Scope";
 
-import { makeCmdSession, patternSuggestionFor, type CmdSessionRef } from "./session";
+import { patternSuggestionFor } from "./approvals";
+import { makeCmdSession, type CmdSessionRef } from "./session";
 import { transcriptPathFor } from "./transcript";
 
 const SESSION_ID = "00000000-0000-7000-8000-fakec0de0001";
