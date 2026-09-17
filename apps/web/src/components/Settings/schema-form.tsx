@@ -32,7 +32,7 @@ export interface SelectOption {
 }
 
 /** The `settingsForm` key annotation on a struct field, when it has one. */
-export const formFieldOf = (
+const formFieldOf = (
   field: Parameters<typeof Schema.resolveAnnotationsKey>[0],
 ): SettingsFormField | undefined =>
   Schema.resolveAnnotationsKey(field)?.["settingsForm"] as SettingsFormField | undefined;

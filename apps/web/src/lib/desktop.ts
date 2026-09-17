@@ -17,5 +17,3 @@ export const openExternal = (url: string): void => {
   }
   void bridge(url);
 };
-
-export const isDesktop = (): boolean => window.openade !== undefined;
