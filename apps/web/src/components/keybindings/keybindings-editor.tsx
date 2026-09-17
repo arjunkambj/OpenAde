@@ -1,10 +1,14 @@
 /**
  * The keybindings editor: a VS Code-style table over the server-owned
  * `Keybinding` list — rebind by capturing a chord, narrow with a `when`
- * clause, remove, or reset to the shipped default. Conflicts (two bindings on
- * the same chord in the same scope — the first always wins) are flagged
- * inline. Edits are a local draft until Save posts the whole table through
- * `keybindings.update`; the row count and commands come from the server.
+ * clause, add a row, remove one, reset one to the shipped default, or restore
+ * the whole table. Conflicts (two bindings on the same chord in the same scope
+ * — the first always wins) are flagged inline. Edits are a local draft until
+ * Save posts the whole table through `keybindings.update`.
+ *
+ * Add and Restore matter on a fresh install: without them a server table that
+ * came up empty had no way back, because reset-to-default only rewrites the
+ * shortcut of a row that already exists.
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
@@ -51,6 +55,7 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
   const [draft, setDraft] = React.useState<ReadonlyArray<Keybinding>>(serverTable);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [added, setAdded] = React.useState({ command: "", shortcut: "" });
 
   // Follow the server table while there is no pending edit.
   React.useEffect(() => {
@@ -72,6 +77,15 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
         : current.map((r, i) => (i === index ? { ...r, shortcut: fallback.shortcut } : r));
     });
 
+  const addRow = () => {
+    const command = added.command.trim();
+    if (command === "" || added.shortcut === "") {
+      return;
+    }
+    setDraft((current) => [...current, { command, shortcut: added.shortcut }]);
+    setAdded({ command: "", shortcut: "" });
+  };
+
   const save = () => {
     setSaving(true);
     setError(null);
@@ -91,6 +105,15 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
           <h2 className="text-sm font-medium">Keybindings</h2>
           <span className="ml-auto flex items-center gap-2">
             {dirty ? <span className="text-xs text-muted-foreground">unsaved</span> : null}
+            <Button
+              size="sm"
+              variant="ghost"
+              tone="muted"
+              disabled={saving || sameTable(draft, DEFAULT_KEYBINDINGS)}
+              onClick={() => setDraft(DEFAULT_KEYBINDINGS)}
+            >
+              Restore defaults
+            </Button>
             <Button
               size="sm"
               variant="secondary"
@@ -195,10 +218,43 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
               {draft.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-3 py-6 text-center text-xs text-muted-foreground">
-                    No bindings — the server table is empty.
+                    No bindings yet — add one below, or restore the defaults.
                   </td>
                 </tr>
               ) : null}
+              <tr className="border-t border-border">
+                <td className="px-3 py-1.5">
+                  <Input
+                    value={added.command}
+                    placeholder="command.id"
+                    aria-label="New binding command"
+                    onChange={(event) =>
+                      setAdded((current) => ({ ...current, command: event.target.value }))
+                    }
+                  />
+                </td>
+                <td className="px-3 py-1.5">
+                  <ShortcutRecorder
+                    value={added.shortcut === "" ? "press keys" : added.shortcut}
+                    onRecord={(shortcut) => setAdded((current) => ({ ...current, shortcut }))}
+                  />
+                </td>
+                <td className="px-3 py-1.5" />
+                <td className="px-3 py-1.5">
+                  <span className="flex items-center justify-end">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      disabled={added.command.trim() === "" || added.shortcut === ""}
+                      onClick={addRow}
+                    >
+                      <Icon icon="hugeicons:add-01" />
+                      Add binding
+                    </Button>
+                  </span>
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
