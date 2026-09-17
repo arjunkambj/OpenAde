@@ -7,6 +7,7 @@
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
+import * as NodeURL from "node:url";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -15,7 +16,12 @@ import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 
 import { buildArgs, envAllowlist, spawnProcess, SpawnError } from "./spawn";
-import { tailTranscript, transcriptDirFor, transcriptPathFor } from "./transcript";
+import {
+  findTranscriptPath,
+  tailTranscript,
+  transcriptDirFor,
+  transcriptPathFor,
+} from "./transcript";
 
 const NODE = process.execPath;
 
@@ -285,6 +291,57 @@ describe("transcript paths", () => {
       "/home/test/.commandcode/projects/repo/abc-123.jsonl",
     );
   });
+
+  /**
+   * The slug is a guess at a private naming scheme, and every real recording
+   * disproves it: `manifest.transcriptDirMatchesConnectorSlug` is false in all
+   * of them. Those manifests carry both paths, so the test is the recorded
+   * difference rather than a second guess at the rule.
+   */
+  it("finds the session by id when the slug guess is wrong, as it always is", () => {
+    const manifest = JSON.parse(
+      NodeFS.readFileSync(
+        NodePath.resolve(
+          NodeURL.fileURLToPath(import.meta.url),
+          "../../../testkit/fixtures/cmd/text/manifest.json",
+        ),
+        "utf8",
+      ),
+    ) as {
+      readonly turns: ReadonlyArray<{
+        readonly sessionId: string;
+        readonly transcriptPath: string;
+        readonly guessedTranscriptPath: string;
+        readonly transcriptDirMatchesConnectorSlug: boolean;
+      }>;
+    };
+    const recorded = manifest.turns[0]!;
+    expect(recorded.transcriptDirMatchesConnectorSlug).toBe(false);
+
+    const home = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "cmd-slug-test-"));
+    try {
+      // The real directory name, rebuilt under a temp home: the harness
+      // kebab-cases the camel hump (`OpenAde` → `open-ade`) and collapses the
+      // repeated dash, so `slugFor` is one directory short of the truth.
+      const realDir = NodePath.join(
+        home,
+        ".commandcode",
+        "projects",
+        NodePath.basename(NodePath.dirname(recorded.transcriptPath)),
+      );
+      NodeFS.mkdirSync(realDir, { recursive: true });
+      const real = NodePath.join(realDir, `${recorded.sessionId}.jsonl`);
+      NodeFS.writeFileSync(real, "{}\n");
+
+      expect(
+        NodePath.basename(NodePath.dirname(recorded.guessedTranscriptPath)),
+      ).not.toBe(NodePath.basename(realDir));
+      expect(findTranscriptPath("/whatever/the/cwd/was", recorded.sessionId, home)).toBe(real);
+      expect(findTranscriptPath("/whatever/the/cwd/was", "no-such-session", home)).toBeNull();
+    } finally {
+      NodeFS.rmSync(home, { recursive: true, force: true });
+    }
+  });
 });
 
 // ── the byte-offset tailer ─────────────────────────────────────
@@ -412,6 +469,33 @@ describe("tailTranscript", () => {
       const drained = yield* Stream.runCollect(inner.lines).pipe(Effect.forkChild);
       yield* Scope.close(scope, Exit.succeed(undefined));
       expect([...(yield* Fiber.join(drained))]).toEqual([]);
+    }),
+  );
+
+  /**
+   * Every recording shows the transcript appearing seconds into the run, in a
+   * directory the slug does not name (`text/` first samples it 3.8s in, at the
+   * moment the run ends). A tailer handed a fixed path therefore watches a file
+   * that never exists — so it takes a locator and keeps asking.
+   */
+  it.effect("takes a locator and binds the file the first time it resolves", () =>
+    Effect.gen(function* () {
+      const dir = yield* tempDir();
+      const late = NodePath.join(dir, "appears-later.jsonl");
+      let visible = false;
+
+      const tailer = yield* tailTranscript(() => (visible ? late : null), { pollMs: 5 });
+      const collected = yield* Stream.runCollect(Stream.take(tailer.lines, 2)).pipe(
+        Effect.forkChild,
+      );
+
+      // Written before the locator admits to it: a file that only appears after
+      // the tailer started is read from byte zero, so nothing is skipped.
+      NodeFS.writeFileSync(late, "one\ntwo\n");
+      visible = true;
+
+      expect([...(yield* Fiber.join(collected))]).toEqual(["one", "two"]);
+      yield* tailer.stop;
     }),
   );
 });

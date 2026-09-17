@@ -55,7 +55,7 @@ import { makeLineSplitter, parseFrame } from "./ndjson";
 import { readPlanProposal } from "./plans";
 import { describeAnswers, normalizeQuestions } from "./questions";
 import { buildArgs, envAllowlist, spawnProcess, type CmdProcess } from "./spawn";
-import { tailTranscript, transcriptPathFor } from "./transcript";
+import { findTranscriptPath, tailTranscript, transcriptPathFor } from "./transcript";
 import { makeTranslator, type PendingRuntimeEvent } from "./translate";
 
 export const CMD_CAPABILITIES: ConnectorCapabilities = {
@@ -172,6 +172,16 @@ export const makeCmdSession = (
       }
     });
 
+    /**
+     * The transcript path the sessionRef carries. `findTranscriptPath` answers
+     * with the directory the harness really used; before the file exists there
+     * is nothing to find, so the slug guess stands in until it does — the ref
+     * is rewritten on every event that touches it, and the last write wins.
+     */
+    const transcriptPathOf = (sessionId: string): string =>
+      findTranscriptPath(transcriptRoot, sessionId, options.home) ??
+      transcriptPathFor(transcriptRoot, sessionId, options.home);
+
     // One translator for the session's whole life: dedupe keys (tool_use.id,
     // messageId) must survive across the one-process-per-turn boundary or the
     // run_end reconcile would re-emit history on every turn.
@@ -213,7 +223,7 @@ export const makeCmdSession = (
           ...pending.payload,
           sessionRef: {
             sessionId,
-            transcriptPath: transcriptPathFor(transcriptRoot, sessionId, options.home),
+            transcriptPath: transcriptPathOf(sessionId),
             cwd: options.workspaceRoot,
             lastMessageId: translator.lastMessageId,
           } satisfies CmdSessionRef,
@@ -458,8 +468,12 @@ export const makeCmdSession = (
       const startTailer = (sessionId: string): Effect.Effect<void> =>
         Effect.gen(function* () {
           if ((yield* Ref.get(transcriptFiber)) !== null) return;
-          const path = transcriptPathFor(transcriptRoot, sessionId, options.home);
-          const fiber = yield* tailTranscript(path, {
+          // Located by session id on every poll rather than by the slug: the
+          // harness's project-directory naming is not the one `slugFor`
+          // guesses, and the file only appears seconds into the turn.
+          const locate = (): string | null =>
+            findTranscriptPath(transcriptRoot, sessionId, options.home);
+          const fiber = yield* tailTranscript(locate, {
             // A resumed session's marker: start right after the last message
             // a previous runtime emitted — lines written while the server was
             // down still arrive, earlier ones don't repeat.
@@ -524,7 +538,7 @@ export const makeCmdSession = (
               // right after the turn already resolves.
               yield* Ref.set(sessionRef, {
                 sessionId: ref.sessionId,
-                transcriptPath: transcriptPathFor(transcriptRoot, ref.sessionId, options.home),
+                transcriptPath: transcriptPathOf(ref.sessionId),
                 cwd: options.workspaceRoot,
                 lastMessageId: translator.lastMessageId,
               });
@@ -583,7 +597,7 @@ export const makeCmdSession = (
       if (translator.sessionId !== null) {
         yield* Ref.set(sessionRef, {
           sessionId: translator.sessionId,
-          transcriptPath: transcriptPathFor(transcriptRoot, translator.sessionId, options.home),
+          transcriptPath: transcriptPathOf(translator.sessionId),
           cwd: options.workspaceRoot,
           lastMessageId: translator.lastMessageId,
         });

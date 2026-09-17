@@ -1,17 +1,23 @@
 /**
  * The on-disk session transcript (spec 5.3).
  *
- * Command Code writes `~/.commandcode/projects/<slug>/<sessionId>.jsonl`,
- * where `slug` is the session's cwd lowercased with `/` → `-` and the leading
- * dash stripped (`/Volumes/x` → `volumes-x`). The connector tails that file by
- * byte offset and parses complete `\n`-terminated lines only — a partial write
- * is held until its newline lands.
+ * Command Code writes `~/.commandcode/projects/<slug>/<sessionId>.jsonl`. The
+ * connector tails that file by byte offset and parses complete `\n`-terminated
+ * lines only — a partial write is held until its newline lands.
  *
- * The file may not exist when the tailer starts (the harness creates it at
- * `run_start`, and a resumed session's file may be gone entirely), so the
- * reader polls rather than watches: fs.watch on a not-yet-existing path is
- * exactly the case the platforms disagree on. Fifty milliseconds of polling is
- * cheap next to a turn and keeps the fake-process tests fast.
+ * Two things the real 1.55.1 install taught us, both recorded in
+ * `packages/testkit/fixtures/cmd/`:
+ *
+ * - `slugFor` is a guess and it is wrong. Every recording's manifest has
+ *   `transcriptDirMatchesConnectorSlug: false`. The session is therefore found
+ *   by the one identifier the harness hands us — its id — with the slug kept
+ *   only as the first guess. See `findTranscriptPath`.
+ * - The file does not exist at `run_start`. It appears seconds into the turn,
+ *   already holding the run's first lines, and thereafter grows once per
+ *   completed message rather than per token. So the tailer polls (fs.watch on a
+ *   not-yet-existing path is exactly the case the platforms disagree on), takes
+ *   a locator rather than a path, and reads a file born under its watch from
+ *   byte zero.
  */
 
 import * as NodeFS from "node:fs";
@@ -45,6 +51,53 @@ export const transcriptDirFor = (cwd: string, home?: string): string =>
 
 export const transcriptPathFor = (cwd: string, sessionId: string, home?: string): string =>
   NodePath.join(transcriptDirFor(cwd, home), `${sessionId}.jsonl`);
+
+/** `~/.commandcode/projects`. */
+export const projectsRootFor = (home?: string): string =>
+  NodePath.join(home ?? NodeOS.homedir(), ".commandcode", "projects");
+
+/**
+ * Where the harness really put this session's transcript.
+ *
+ * `slugFor` is a guess at a private naming scheme, and a real 1.55.1 install
+ * disproves it: `/Volumes/main/Code/OpenAde` becomes `volumes-main-code-open-ade`
+ * — the camel hump is split — while `/Users/honey/Code/SettlerSaga` becomes
+ * `users-honey-code-settlersaga`, which is not. Rather than reimplement a rule
+ * we cannot see, we look the session up by the one identifier the harness
+ * already handed us: `run_start.sessionId` is unique, so the file is the
+ * `<sessionId>.jsonl` under whichever project directory holds it. The slug
+ * stays as the first guess because it is right often enough to skip the scan.
+ *
+ * Returns null while the harness has not created the file yet — it appears
+ * seconds into the turn, not at `run_start`.
+ */
+export const findTranscriptPath = (
+  cwd: string,
+  sessionId: string,
+  home?: string,
+): string | null => {
+  const guess = transcriptPathFor(cwd, sessionId, home);
+  if (NodeFS.existsSync(guess)) {
+    return guess;
+  }
+  const root = projectsRootFor(home);
+  let entries: ReadonlyArray<NodeFS.Dirent>;
+  try {
+    entries = NodeFS.readdirSync(root, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+    const candidate = NodePath.join(root, entry.name, `${sessionId}.jsonl`);
+    if (NodeFS.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+};
 
 export interface TranscriptTail {
   /** Complete `\n`-terminated lines, in file order, from the start offset on. */
@@ -139,7 +192,12 @@ const offsetAfterMarker = (path: string, marker: string): number | null => {
  * scope, or calling `stop`, ends the reader and the stream together.
  */
 export const tailTranscript = (
-  path: string,
+  /**
+   * The file, or a locator called on every poll until it finds one — the
+   * harness creates the transcript seconds into the turn, so a session tails a
+   * path that does not exist yet.
+   */
+  path: string | (() => string | null),
   options: TailOptions = {},
 ): Effect.Effect<TranscriptTail, never, Scope.Scope> =>
   Effect.gen(function* () {
@@ -156,28 +214,68 @@ export const tailTranscript = (
 
     const pollMs = options.pollMs ?? TAIL_POLL_MS;
 
-    // "Current byte offset" is decided once, at start: an existing file is
-    // skipped to end (unless `fromStart`), or to just after the resume marker
-    // when one is given and found — the lines between it and EOF are what a
-    // dead server never saw. A not-yet-created file starts at byte zero when
-    // it appears — nothing was written before we began.
-    let offset =
-      options.fromStart === true
-        ? 0
-        : yield* Effect.sync(() => {
-            if (options.afterMessageId !== undefined) {
-              const marked = offsetAfterMarker(path, options.afterMessageId);
-              if (marked !== null) {
-                return marked;
-              }
-            }
-            const initial = readFrom(path, 0);
-            return initial === null ? 0 : initial.size;
-          });
+    const locate = typeof path === "string" ? () => path : path;
+    // The file is bound the first time the locator finds it; until then there
+    // is nothing to read and nothing to position.
+    let resolved: string | null = null;
+    let offset = 0;
+
+    /**
+     * "Current byte offset" is decided once, when the file first resolves.
+     *
+     * A file that was *already there* when the tailer started holds a previous
+     * run's history: it is skipped to end, or to just after the resume marker
+     * when one is given and found — the lines between marker and EOF are what a
+     * dead server never saw.
+     *
+     * A file that appeared *while we were watching* is this run's own, and
+     * every byte in it is ours even though it was born with content: the
+     * harness creates the transcript seconds into the turn and writes the user
+     * message into it immediately, so skipping to end here would silently drop
+     * the opening lines of every session. It starts at byte zero — except on a
+     * resume, where the marker still wins if the file carries it.
+     */
+    const positionIn = (file: string, bornWhileWatching: boolean): number => {
+      if (options.fromStart === true) {
+        return 0;
+      }
+      if (options.afterMessageId !== undefined) {
+        const marked = offsetAfterMarker(file, options.afterMessageId);
+        if (marked !== null) {
+          return marked;
+        }
+      }
+      if (bornWhileWatching) {
+        return 0;
+      }
+      const initial = readFrom(file, 0);
+      return initial === null ? 0 : initial.size;
+    };
+
+    // Position eagerly when the file is already there, before anything is
+    // forked: a caller that appends right after `tailTranscript` returns must
+    // see those lines as appends, not have them swallowed by a later skip.
+    yield* Effect.sync(() => {
+      const found = locate();
+      if (found !== null) {
+        resolved = found;
+        offset = positionIn(found, false);
+      }
+    });
 
     const loop = Effect.gen(function* () {
       while (true) {
-        const result = yield* Effect.sync(() => readFrom(path, offset));
+        if (resolved === null) {
+          const found = yield* Effect.sync(locate);
+          if (found === null) {
+            yield* Effect.sleep(pollMs);
+            continue;
+          }
+          resolved = found;
+          offset = yield* Effect.sync(() => positionIn(found, true));
+        }
+        const file = resolved;
+        const result = yield* Effect.sync(() => readFrom(file, offset));
         if (result !== null) {
           if (result.size < offset) {
             // Truncated or replaced — a fresh session file under the same name.
