@@ -20,6 +20,10 @@
       "types": "./src/gitAtoms.ts",
       "import": "./src/gitAtoms.ts"
     },
+    "./desktop": {
+      "types": "./src/desktop.ts",
+      "import": "./src/desktop.ts"
+    },
     "./clientState": {
       "types": "./src/clientState.ts",
       "import": "./src/clientState.ts"

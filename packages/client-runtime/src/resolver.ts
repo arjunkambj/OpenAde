@@ -26,6 +26,17 @@ export interface BrowserPaneGuestInput {
   readonly input: unknown;
 }
 
+/**
+ * What the desktop supervisor is doing with the server process. `connection`
+ * is null until the server is up and whenever it is being replaced, and it
+ * carries the new port, token and boot id once a restart lands — which is how
+ * the renderer reconnects without reloading the window.
+ */
+export interface DesktopServerState {
+  readonly status: "starting" | "ready" | "restarting" | "failed";
+  readonly connection: ResolvedConnection | null;
+}
+
 declare global {
   interface Window {
     /**
@@ -35,6 +46,14 @@ declare global {
      */
     readonly openade?: {
       readonly getConnection?: () => Promise<ResolvedConnection | null> | ResolvedConnection | null;
+      /**
+       * The supervisor's current view, including the live connection. Newer
+       * than `getConnection` and the first thing a reconnect asks, so a
+       * restarted server's new port and token are picked up.
+       */
+      readonly getServerState?: () => Promise<DesktopServerState> | DesktopServerState;
+      /** Pushes every supervisor transition; returns its own unsubscribe. */
+      readonly onServerState?: (callback: (state: DesktopServerState) => void) => () => void;
       /** Native directory picker; resolves `null` when the user cancels. */
       readonly pickDirectory?: () => Promise<string | null>;
       /** Opens `url` in the system browser — the only sanctioned way out. */
@@ -52,11 +71,27 @@ declare global {
   }
 }
 
+/**
+ * The supervisor's state first, then its plain connection getter: on a
+ * reconnect after a restart the state is the one that already knows the new
+ * port and token, and an older preload that only has `getConnection` still
+ * answers.
+ */
 const fromPreload = async (): Promise<ResolvedConnection | null> => {
-  if (typeof window === "undefined" || window.openade?.getConnection === undefined) {
+  if (typeof window === "undefined") {
     return null;
   }
-  return (await window.openade.getConnection()) ?? null;
+  const bridge = window.openade;
+  if (bridge?.getServerState !== undefined) {
+    const state = await bridge.getServerState();
+    if (state.connection !== null) {
+      return state.connection;
+    }
+  }
+  if (bridge?.getConnection === undefined) {
+    return null;
+  }
+  return (await bridge.getConnection()) ?? null;
 };
 
 const fromDevEndpoint = async (): Promise<ResolvedConnection | null> => {
