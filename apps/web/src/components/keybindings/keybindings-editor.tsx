@@ -6,9 +6,11 @@
  * — the first always wins) are flagged inline. Edits are a local draft until
  * Save posts the whole table through `keybindings.update`.
  *
- * Add and Restore matter on a fresh install: without them a server table that
- * came up empty had no way back, because reset-to-default only rewrites the
- * shortcut of a row that already exists.
+ * The table shown is the one the dispatcher actually resolves against —
+ * `effectiveKeybindings`, so a server table that came up empty shows the
+ * shipped defaults rather than nothing. Showing the raw empty list would be a
+ * trap: adding a single row to it and saving makes the server table
+ * authoritative, and every other shortcut would vanish with no way to see why.
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
@@ -30,6 +32,7 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { ShortcutRecorder } from "@/components/keybindings/shortcut-recorder";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { Icon } from "@/lib/icon";
+import { effectiveKeybindings } from "@/lib/keybindings";
 
 /** Rows whose (shortcut, when) pair collides with an earlier row. */
 const conflictCommands = (keybindings: ReadonlyArray<Keybinding>): ReadonlySet<string> =>
@@ -49,7 +52,12 @@ const sameTable = (a: ReadonlyArray<Keybinding>, b: ReadonlyArray<Keybinding>): 
 export function KeybindingsEditor({ className }: { readonly className?: string }) {
   const { keybindingsAtom, keybindingsUpdateAtom } = useClientRuntime();
   const result = useAtomValue(keybindingsAtom);
-  const serverTable = AsyncResult.isSuccess(result) ? result.value : [];
+  // The same table `@/lib/shortcuts` dispatches against, so what the page
+  // shows is what the keys do.
+  const serverTable = React.useMemo(
+    () => effectiveKeybindings(AsyncResult.isSuccess(result) ? result.value : []),
+    [result],
+  );
   const update = useAtomSet(keybindingsUpdateAtom, { mode: "promise" });
 
   const [draft, setDraft] = React.useState<ReadonlyArray<Keybinding>>(serverTable);
@@ -218,7 +226,8 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
               {draft.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-3 py-6 text-center text-xs text-muted-foreground">
-                    No bindings yet — add one below, or restore the defaults.
+                    Every binding removed — nothing is bound. Add one below, or restore the
+                    defaults.
                   </td>
                 </tr>
               ) : null}
