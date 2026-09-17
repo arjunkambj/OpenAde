@@ -22,6 +22,8 @@ import {
   SelectValue,
 } from "@OpenAde/ui/components/select";
 import type { SettingsFormField } from "@OpenAde/contracts/settings";
+
+import { selectedOptionLabel } from "./select-label";
 import { isObject, isString } from "effect/Predicate";
 import * as Schema from "effect/Schema";
 import * as React from "react";
@@ -281,7 +283,12 @@ export function SchemaForm({ schema, value, onFieldChange, optionsFor, skip }: S
                 onValueChange={(next) => change(next ?? undefined)}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Choose…" />
+                  {/* base-ui renders the raw value unless it is handed a
+                      formatter — the items are portalled away while the popup
+                      is closed, so there is no label registry to consult. */}
+                  <SelectValue placeholder="Choose…">
+                    {(value) => selectedOptionLabel(options, value) ?? "Choose…"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {options.map((option) => (

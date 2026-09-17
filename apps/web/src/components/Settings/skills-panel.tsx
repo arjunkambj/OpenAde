@@ -21,8 +21,9 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { useAppAtoms } from "@/lib/app-runtime";
 import { Icon } from "@/lib/icon";
 
+import { scopeLabel, USER_SCOPE } from "./select-label";
+
 /** Same sentinel the MCP page uses — `null` means "user scope only". */
-const USER_SCOPE = "__user__";
 
 export function SkillsPanel() {
   const atoms = useAppAtoms();
@@ -47,7 +48,7 @@ export function SkillsPanel() {
           onValueChange={(next) => setProjectId(next === USER_SCOPE ? null : (next as ProjectId))}
         >
           <SelectTrigger className="w-56">
-            <SelectValue placeholder="User scope" />
+            <SelectValue>{(value) => scopeLabel(value, projects)}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={USER_SCOPE}>User scope</SelectItem>

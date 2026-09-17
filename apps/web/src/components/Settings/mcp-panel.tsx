@@ -28,8 +28,9 @@ import { Icon } from "@/lib/icon";
 
 import { McpServerDialog } from "./mcp-server-dialog";
 
+import { scopeLabel, USER_SCOPE } from "./select-label";
+
 /** The select's value for "no project" — `null` is base-ui's empty state. */
-const USER_SCOPE = "__user__";
 
 const describeServer = (server: McpServerConfig): string =>
   server.transport === "stdio"
@@ -73,7 +74,7 @@ export function McpPanel() {
             onValueChange={(next) => setProjectId(next === USER_SCOPE ? null : (next as ProjectId))}
           >
             <SelectTrigger className="w-56">
-              <SelectValue placeholder="User scope" />
+              <SelectValue>{(value) => scopeLabel(value, projects)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={USER_SCOPE}>User scope</SelectItem>
