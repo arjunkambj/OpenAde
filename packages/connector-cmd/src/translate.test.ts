@@ -190,7 +190,7 @@ describe("turn lifecycle", () => {
     expect(translate.sessionId).toBe("sess-2");
   });
 
-  it("emits model.changed only when the frame carries a model", () => {
+  it("emits model.changed only when the value actually changes", () => {
     const translate = translator();
     expect(types(translate.onFrame(frame({ type: "model_request_start" })))).toEqual([]);
     const changed = translate.onFrame(
@@ -199,6 +199,16 @@ describe("turn lifecycle", () => {
     expect(
       changed[0]?.type === "model.changed" && changed[0].payload.model === "stealth/ox-alpha",
     ).toBe(true);
+    // A second model_request_start for the same model is not a change —
+    // model.changed spam would loop thread.settings.updated into the reactor.
+    expect(
+      types(translate.onFrame(frame({ type: "model_request_start", model: "stealth/ox-alpha" }))),
+    ).toEqual([]);
+    // A real change still emits.
+    const again = translate.onFrame(
+      frame({ type: "model_request_start", model: "stealth/ox-beta" }),
+    );
+    expect(again[0]?.type === "model.changed" && again[0].payload.model).toBe("stealth/ox-beta");
   });
 
   it("run_error is a fatal runtime.error", () => {

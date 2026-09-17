@@ -516,12 +516,14 @@ export const makeTranslator = (options: {
         return [];
       }
       case "model_request_start": {
-        if (event.model !== undefined) {
-          model = event.model;
+        // One model_request_start fires per request, not per change — emit
+        // only when the value actually moved or thread.settings.updated
+        // spam feeds back into the reactor.
+        if (event.model === undefined || event.model === model) {
+          return [];
         }
-        return event.model === undefined
-          ? []
-          : [{ type: "model.changed", payload: { model: event.model } }];
+        model = event.model;
+        return [{ type: "model.changed", payload: { model: event.model } }];
       }
       case "tool_running": {
         return [
