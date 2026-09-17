@@ -8,7 +8,8 @@ import * as React from "react";
 import { ThemeProvider, useTheme } from "@/components/theme-provider";
 import { DiffWorkerPoolProvider } from "@/components/timeline/diff-pool";
 import { useAppAtoms } from "@/lib/app-runtime";
-import { AppAtomRegistryProvider } from "@/state/app-runtime";
+import { ClientRuntimeBridge } from "@/lib/client-runtime";
+import { AppAtomRegistryProvider, getAppAtoms } from "@/state/app-runtime";
 
 import "../index.css";
 
@@ -59,11 +60,13 @@ function RootComponent() {
         storageKey="vite-ui-theme"
       >
         <AppAtomRegistryProvider>
-          <SettingsThemeSync />
-          <DiffWorkerPoolProvider>
-            <Outlet />
-            <Toaster richColors />
-          </DiffWorkerPoolProvider>
+          <ClientRuntimeBridge runtime={getAppAtoms()}>
+            <SettingsThemeSync />
+            <DiffWorkerPoolProvider>
+              <Outlet />
+              <Toaster richColors />
+            </DiffWorkerPoolProvider>
+          </ClientRuntimeBridge>
         </AppAtomRegistryProvider>
       </ThemeProvider>
       <TanStackRouterDevtools position="bottom-right" />

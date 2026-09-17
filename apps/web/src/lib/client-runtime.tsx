@@ -7,6 +7,9 @@
  *
  * The provider takes the layer rather than resolving a connection itself so
  * the dev fixture page can substitute a scripted client without a server.
+ * The real app already built its runtime in `main.tsx` (one connection for the
+ * process, one shared registry), so it publishes that instance through
+ * `ClientRuntimeBridge` instead of building a second one.
  */
 
 import { RegistryProvider } from "@effect/atom-react";
@@ -33,6 +36,23 @@ export function ClientRuntimeProvider({
       </ClientRuntimeContext.Provider>
     </RegistryProvider>
   );
+}
+
+/**
+ * Publishes an already-built runtime — the app's own atoms — under the same
+ * context the fixture page fills, so the composer, the header controls and the
+ * keybinding hook are identical code in the real app and in `/dev/composer`.
+ * It deliberately mounts no `RegistryProvider`: the app's registry is provided
+ * once, above the router.
+ */
+export function ClientRuntimeBridge({
+  runtime,
+  children,
+}: {
+  readonly runtime: ClientRuntime;
+  readonly children: React.ReactNode;
+}) {
+  return <ClientRuntimeContext.Provider value={runtime}>{children}</ClientRuntimeContext.Provider>;
 }
 
 export function useClientRuntime(): ClientRuntime {

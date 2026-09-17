@@ -1,28 +1,39 @@
 /**
- * The center column of `/t/$threadId`: a slim header (title, status, dock
- * toggle) over the virtualized `Timeline`, with the right dock alongside.
- * Data comes from `useThreadDetail` — an `AsyncResult` that carries its own
- * loading/failure states, so the view never has to know whether the socket is
- * mid-resnapshot.
+ * The center column of `/t/$threadId`: a slim header (title, status, the model
+ * / effort / mode controls, dock toggle) over the virtualized `Timeline`, with
+ * the composer — and the interaction cards it carries — pinned underneath and
+ * the right dock alongside. Data comes from `useThreadDetail` — an
+ * `AsyncResult` that carries its own loading/failure states, so the view never
+ * has to know whether the socket is mid-resnapshot.
+ *
+ * The thread-scoped keybindings live here rather than in the home layout
+ * because they need the thread: `thread.interrupt` dispatches against it,
+ * `browserPane.toggle` flips this thread's dock. The layout keeps the bindings
+ * that work with no thread open.
  */
 
 import { useNavigate } from "@tanstack/react-router";
 import { AsyncResult } from "effect/unstable/reactivity";
 import * as Cause from "effect/Cause";
+import * as React from "react";
 
 import { Button } from "@OpenAde/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+import { makeCommandId } from "@OpenAde/contracts/ids";
 import type { ThreadId } from "@OpenAde/contracts/ids";
 import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
 import type { ThreadStatus } from "@OpenAde/contracts/orchestration";
 import type * as OpenAdeRpcError from "@OpenAde/contracts/rpc";
 import type * as RpcClientError from "effect/unstable/rpc/RpcClientError";
 
+import { Composer } from "@/components/composer/composer";
 import { RightDock, type DockTab } from "@/components/dock/right-dock";
+import { HeaderControls } from "@/components/header-controls";
 import { Timeline } from "@/components/timeline/timeline";
 import { Icon } from "@/lib/icon";
+import { useGlobalKeybindings } from "@/lib/use-keybindings";
 import { cn } from "@/lib/utils";
-import { useConnectionState, useThreadDetail } from "@/state/hooks";
+import { useConnectionState, useDispatchCommand, useThreadDetail } from "@/state/hooks";
 
 const STATUS_LABEL: Record<ThreadStatus, string> = {
   idle: "Idle",
@@ -62,9 +73,10 @@ function ThreadHeader({
 }) {
   return (
     <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-4">
-      <h1 className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+      <h1 className="min-w-0 max-w-64 flex-1 truncate text-sm font-medium text-foreground">
         {snapshot.title}
       </h1>
+      <HeaderControls threadId={snapshot.threadId} className="min-w-0 flex-1 justify-end" />
       <StatusPill status={snapshot.status} />
       <Tooltip>
         <TooltipTrigger
@@ -170,17 +182,42 @@ export function ThreadView({
   const result = useThreadDetail(threadId);
   const connection = useConnectionState();
   const navigate = useNavigate();
+  const dispatch = useDispatchCommand();
 
-  const setDockTab = (tab: DockTab | null) => {
-    void navigate({
-      to: "/t/$threadId",
-      params: { threadId },
-      search: { pane: tab ?? undefined },
-      replace: true,
-    });
-  };
+  const setDockTab = React.useCallback(
+    (tab: DockTab | null) => {
+      void navigate({
+        to: "/t/$threadId",
+        params: { threadId },
+        search: { pane: tab ?? undefined },
+        replace: true,
+      });
+    },
+    [navigate, threadId],
+  );
 
   const snapshot = snapshotOf(result);
+  const running = snapshot !== null && snapshot.currentTurnId !== null;
+
+  useGlobalKeybindings(
+    {
+      "thread.interrupt": () => {
+        void dispatch({
+          commandId: makeCommandId(),
+          createdAt: new Date().toISOString(),
+          type: "thread.turn.interrupt",
+          threadId,
+        });
+      },
+      // The composer owns Cmd+Enter while focused; from anywhere else the
+      // binding means "take me to the input I am about to queue into".
+      "composer.queue": () => {
+        document.querySelector<HTMLElement>('[data-context="composer"]')?.focus();
+      },
+      "browserPane.toggle": () => setDockTab(dockTab === "browser" ? null : "browser"),
+    },
+    { threadRunning: running },
+  );
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1">
@@ -193,6 +230,11 @@ export function ThreadView({
           />
         ) : null}
         <ThreadBody result={result} connected={connection.status !== "disconnected"} />
+        {snapshot !== null ? (
+          <div className="flex w-full shrink-0 justify-center px-4 pb-4">
+            <Composer threadId={threadId} projectId={snapshot.projectId} />
+          </div>
+        ) : null}
       </section>
       {dockTab !== undefined && snapshot !== null ? (
         <RightDock tab={dockTab} onTabChange={setDockTab} snapshot={snapshot} />

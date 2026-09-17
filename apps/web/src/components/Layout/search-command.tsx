@@ -21,11 +21,17 @@ import { matchShortcut, ShortcutKbd, type ShortcutId } from "@/lib/shortcuts";
 
 type SearchContextValue = {
   setOpen: (open: boolean) => void;
+  toggle: () => void;
 };
 
 const SearchContext = React.createContext<SearchContextValue | null>(null);
 
-function useSearch() {
+/**
+ * The palette handle. The home layout uses it to bind the server-owned
+ * `commandPalette.toggle` keybinding — the palette itself listens for no
+ * shortcut it shares with that table, so the key is handled exactly once.
+ */
+export function useSearch() {
   const context = React.useContext(SearchContext);
   if (!context) {
     throw new Error("useSearch must be used within a SearchProvider.");
@@ -63,30 +69,16 @@ const searchItems = [
 export function SearchProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = React.useState(false);
   const navigate = useNavigate();
-  const value = React.useMemo(() => ({ setOpen }), []);
+  const value = React.useMemo(
+    () => ({ setOpen, toggle: () => setOpen((current) => !current) }),
+    [],
+  );
 
+  // Only the shortcuts the server-owned keybinding table does not carry live
+  // here; `commandPalette.toggle` and `thread.new` are bound in the layout
+  // through `useGlobalKeybindings`, so nothing handles them twice.
   React.useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (matchShortcut("search", event)) {
-        event.preventDefault();
-        setOpen((current) => !current);
-        return;
-      }
-
-      if (matchShortcut("newChat", event)) {
-        event.preventDefault();
-        setOpen(false);
-        void navigate({ to: "/" });
-        return;
-      }
-
-      if (matchShortcut("skills", event)) {
-        event.preventDefault();
-        setOpen(false);
-        void navigate({ to: "/skills" });
-        return;
-      }
-
       if (matchShortcut("settings", event)) {
         event.preventDefault();
         setOpen(false);
