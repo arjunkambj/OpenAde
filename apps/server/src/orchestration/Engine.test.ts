@@ -12,8 +12,11 @@ import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Stream from "effect/Stream";
 
+import * as Layer from "effect/Layer";
+import * as SqlClient from "effect/unstable/sql/SqlClient";
+
 import { OrchestrationEngine } from "./Engine";
-import { engineLayer } from "../../test/layers";
+import { engineLayer, persistenceLayer } from "../../test/layers";
 
 const NOW = "2026-01-02T03:04:05.000Z";
 
@@ -237,5 +240,65 @@ describe("OrchestrationEngine", () => {
       expect(items[1]?.kind).toBe("synchronized");
       expect(items[2]?.kind).toBe("upserted");
     }).pipe(Effect.provide(engineLayer())),
+  );
+});
+
+describe("projection rebuild", () => {
+  it.effect("re-folds every stream when the stored rows are from an older projector", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const persistence = Layer.succeedContext(yield* Layer.build(persistenceLayer()));
+
+        yield* Effect.gen(function* () {
+          const engine = yield* OrchestrationEngine;
+          const sql = yield* SqlClient.SqlClient;
+          yield* engine.dispatch(createProject);
+          yield* engine.dispatch(createThread);
+          yield* engine.dispatch(turnStart("hello"));
+
+          // A row a previous release wrote: the projector version predates
+          // this build, and the document itself is missing fields.
+          yield* sql`UPDATE projection_state SET projector_version = 0`;
+          yield* sql`UPDATE threads SET doc_json = ${JSON.stringify({ stale: true })}`;
+          yield* sql`DELETE FROM projects`;
+        }).pipe(Effect.provide(OrchestrationEngine.layer.pipe(Layer.provideMerge(persistence))));
+
+        // Building a second engine over the same database rebuilds from the log.
+        yield* Effect.gen(function* () {
+          const engine = yield* OrchestrationEngine;
+          const doc = yield* engine.threadDoc(threadId);
+          expect(doc?.threadId).toBe(threadId);
+          expect(doc?.currentTurn).not.toBeNull();
+          expect(doc?.restoring).toBe(false);
+          expect((yield* engine.listProjects()).map((project) => project.projectId)).toEqual([
+            projectId,
+          ]);
+        }).pipe(Effect.provide(OrchestrationEngine.layer.pipe(Layer.provideMerge(persistence))));
+      }),
+    ),
+  );
+
+  it.effect("leaves current rows alone", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const persistence = Layer.succeedContext(yield* Layer.build(persistenceLayer()));
+
+        yield* Effect.gen(function* () {
+          const engine = yield* OrchestrationEngine;
+          yield* engine.dispatch(createProject);
+          yield* engine.dispatch(createThread);
+        }).pipe(Effect.provide(OrchestrationEngine.layer.pipe(Layer.provideMerge(persistence))));
+
+        yield* Effect.gen(function* () {
+          const sql = yield* SqlClient.SqlClient;
+          // Stamp a row the rebuild would drop; a matching version must keep it.
+          yield* sql`UPDATE threads SET title = ${"kept"}`;
+          const engine = yield* OrchestrationEngine;
+          expect((yield* engine.threadDoc(threadId))?.threadId).toBe(threadId);
+          const rows = yield* sql<{ readonly title: string }>`SELECT title FROM threads`;
+          expect(rows[0]?.title).toBe("kept");
+        }).pipe(Effect.provide(OrchestrationEngine.layer.pipe(Layer.provideMerge(persistence))));
+      }),
+    ),
   );
 });

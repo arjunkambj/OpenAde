@@ -99,6 +99,8 @@ export class EventStore extends Context.Service<
     readonly threadEventsAfter: (
       after: number,
     ) => Effect.Effect<ReadonlyArray<OrchestrationEvent>, SqlError>;
+    /** The whole log in append order — what a projection rebuild folds. */
+    readonly allEvents: Effect.Effect<ReadonlyArray<OrchestrationEvent>, SqlError>;
     /** Appends planned events; returns them with `sequence` and `streamVersion` assigned. */
     readonly append: (
       streamKind: StreamKind,
@@ -141,6 +143,10 @@ export class EventStore extends Context.Service<
           SELECT ${sql.literal(EVENT_COLUMNS)} FROM events
           WHERE stream_kind = 'thread' AND sequence > ${after}
           ORDER BY sequence
+        `.pipe(Effect.map((rows) => rows.map(rowToEvent)));
+
+      const allEvents = sql<EventRow>`
+          SELECT ${sql.literal(EVENT_COLUMNS)} FROM events ORDER BY sequence
         `.pipe(Effect.map((rows) => rows.map(rowToEvent)));
 
       const append = (
@@ -233,6 +239,7 @@ export class EventStore extends Context.Service<
         loadStream,
         streamAfter,
         threadEventsAfter,
+        allEvents,
         append,
         lastSequence,
         receipt,

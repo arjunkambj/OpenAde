@@ -97,6 +97,15 @@ export interface SubscribeOptions {
 }
 
 const SETTINGS_KEY = "settings";
+const PROJECTOR = "orchestration";
+
+/**
+ * Bump whenever the shape of a stored `ThreadDoc`/`ProjectDoc` changes. The
+ * engine compares it against what wrote the rows and, on a mismatch, throws
+ * the projections away and re-folds every stream from the event log — the log
+ * is the source of truth, so a stale document is never served.
+ */
+const PROJECTOR_VERSION = 1;
 
 export class OrchestrationEngine extends Context.Service<
   OrchestrationEngine,
@@ -154,6 +163,49 @@ export class OrchestrationEngine extends Context.Service<
       const sql = yield* SqlClient.SqlClient;
       const store = yield* EventStore;
       const readModels = yield* ReadModelStore;
+
+      // Rows written by an older projector cannot be trusted: a field added
+      // to `ThreadDoc` since would read back as `undefined`. Rebuilding is a
+      // pure re-fold of the log, so it is always safe to do at boot.
+      const storedVersion = yield* readModels.projectorVersion(PROJECTOR);
+      if (storedVersion !== PROJECTOR_VERSION) {
+        yield* sql.withTransaction(
+          Effect.gen(function* () {
+            yield* readModels.clearProjections;
+            const events = yield* store.allEvents;
+            const streams = new Map<string, Array<OrchestrationEvent>>();
+            for (const entry of events) {
+              const key = `${entry.streamKind}:${entry.streamId}`;
+              const bucket = streams.get(key);
+              if (bucket === undefined) {
+                streams.set(key, [entry]);
+              } else {
+                bucket.push(entry);
+              }
+            }
+            for (const [key, stream] of streams) {
+              if (key.startsWith("project:")) {
+                const doc = foldProject(stream);
+                if (doc !== null && !doc.removed) {
+                  yield* readModels.putProject(doc);
+                }
+                continue;
+              }
+              const doc = foldThread(stream);
+              if (doc !== null && !doc.deleted) {
+                yield* readModels.putThread(doc);
+              }
+            }
+            const last = events.length === 0 ? 0 : events[events.length - 1]!.sequence;
+            yield* readModels.setWatermark(
+              PROJECTOR,
+              last,
+              new Date().toISOString(),
+              PROJECTOR_VERSION,
+            );
+          }),
+        );
+      }
 
       // One writer: every mutation — command or reactor write — serialises here,
       // and the transaction below makes the mutation itself atomic.
@@ -252,7 +304,12 @@ export class OrchestrationEngine extends Context.Service<
         yield* applyProjection(streamKind, state, appended);
         const last =
           appended.length > 0 ? appended[appended.length - 1]!.sequence : yield* store.lastSequence;
-        yield* readModels.setWatermark("orchestration", last, new Date().toISOString());
+        yield* readModels.setWatermark(
+          PROJECTOR,
+          last,
+          new Date().toISOString(),
+          PROJECTOR_VERSION,
+        );
         return { appended, last };
       });
 

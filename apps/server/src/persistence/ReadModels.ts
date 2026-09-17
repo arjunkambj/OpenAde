@@ -76,7 +76,12 @@ export class ReadModelStore extends Context.Service<
       projector: string,
       sequence: number,
       at: string,
+      projectorVersion: number,
     ) => Effect.Effect<void, SqlError>;
+    /** The projector version the stored rows were written by; `0` if none. */
+    readonly projectorVersion: (projector: string) => Effect.Effect<number, SqlError>;
+    /** Drops every projection row — the first half of a rebuild. */
+    readonly clearProjections: Effect.Effect<void, SqlError>;
   }
 >()("server/persistence/ReadModelStore") {
   static readonly layer = Layer.effect(
@@ -179,14 +184,31 @@ export class ReadModelStore extends Context.Service<
         SELECT workspace_root FROM projects
       `.pipe(Effect.map((rows) => rows.map((row) => row.workspace_root)));
 
-      const setWatermark = (projector: string, sequence: number, at: string) =>
+      const setWatermark = (
+        projector: string,
+        sequence: number,
+        at: string,
+        projectorVersion: number,
+      ) =>
         sql`
-          INSERT INTO projection_state (projector, last_applied_sequence, updated_at)
-          VALUES (${projector}, ${sequence}, ${at})
+          INSERT INTO projection_state
+            (projector, last_applied_sequence, updated_at, projector_version)
+          VALUES (${projector}, ${sequence}, ${at}, ${projectorVersion})
           ON CONFLICT (projector) DO UPDATE SET
             last_applied_sequence = excluded.last_applied_sequence,
-            updated_at = excluded.updated_at
+            updated_at = excluded.updated_at,
+            projector_version = excluded.projector_version
         `.pipe(Effect.asVoid);
+
+      const projectorVersion = (projector: string) =>
+        sql<{ readonly projector_version: number }>`
+          SELECT projector_version FROM projection_state WHERE projector = ${projector}
+        `.pipe(Effect.map((rows) => rows[0]?.projector_version ?? 0));
+
+      const clearProjections = Effect.all([
+        sql`DELETE FROM threads`,
+        sql`DELETE FROM projects`,
+      ]).pipe(Effect.asVoid);
 
       return ReadModelStore.of({
         putProject,
@@ -201,6 +223,8 @@ export class ReadModelStore extends Context.Service<
         projectExists,
         workspaceRoots,
         setWatermark,
+        projectorVersion,
+        clearProjections,
       });
     }),
   ).pipe(Layer.provide(migrationsLayer));
