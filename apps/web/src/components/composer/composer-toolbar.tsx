@@ -48,7 +48,14 @@ export function ComposerToolbar({
         hidden
         multiple
         accept={ATTACHMENT_ACCEPT}
-        onChange={(event) => onFilesPicked([...(event.target.files ?? [])])}
+        onChange={(event) => {
+          onFilesPicked([...(event.target.files ?? [])]);
+          // Emptied on the way out, not only when the list resets: a file the
+          // rules refused leaves the list unchanged, so without this the same
+          // file picked twice fires no `change` the second time and the user
+          // gets no answer at all.
+          event.target.value = "";
+        }}
       />
       <Button
         type="button"
