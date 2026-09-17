@@ -26,6 +26,7 @@ import type { ConnectorInstanceId, ProjectId, ThreadId } from "@OpenAde/contract
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
@@ -229,11 +230,21 @@ export class SettingsStore extends Context.Service<
       const sql = yield* SqlClient.SqlClient;
       const loaded = yield* load(sql);
       const ref = yield* SubscriptionRef.make<Settings>(loaded.settings);
+      /** The undecodable row, until the first write has archived it. */
+      const unreadable = yield* Ref.make<string | null>(loaded.unreadable);
       return SettingsStore.of({
         get: SubscriptionRef.get(ref),
         freshInstall: loaded.freshInstall,
         update: (patch) =>
           Effect.gen(function* () {
+            const archive = yield* Ref.getAndSet(unreadable, null);
+            if (archive !== null) {
+              yield* sql`
+                INSERT INTO settings (key, value_json, updated_at)
+                VALUES (${SETTINGS_UNREADABLE_ROW_KEY}, ${archive}, ${new Date().toISOString()})
+                ON CONFLICT (key) DO NOTHING
+              `;
+            }
             const current = yield* SubscriptionRef.get(ref);
             const next: Settings = {
               ...current,
@@ -275,16 +286,28 @@ const healed = (settings: Settings): Settings =>
     ? { ...settings, keybindings: defaultSettings().keybindings }
     : settings;
 
+/**
+ * Where a row this build cannot decode is kept. One field from a newer build,
+ * or one truncated write, used to be swallowed silently and then overwritten
+ * by the first save — taking the user's connector instances and permission
+ * rules with it. The raw text is copied here instead, and never clobbered, so
+ * a downgrade or a hand repair still has the original.
+ */
+const SETTINGS_UNREADABLE_ROW_KEY = "settings.unreadable";
+
 const load = (sql: SqlClient.SqlClient) =>
   Effect.gen(function* () {
     const rows = yield* sql<{ readonly value_json: string }>`
       SELECT value_json FROM settings WHERE key = ${SETTINGS_ROW_KEY}
     `;
     if (rows.length === 0) {
-      return { settings: defaultSettings(), freshInstall: true };
+      return { settings: defaultSettings(), freshInstall: true, unreadable: null };
     }
-    const settings = yield* Schema.decodeEffect(Schema.fromJsonString(Settings))(
-      rows[0]!.value_json,
-    ).pipe(Effect.catch(() => Effect.succeed(defaultSettings())));
-    return { settings: healed(settings), freshInstall: false };
+    const raw = rows[0]!.value_json;
+    const decoded = yield* Effect.exit(Schema.decodeEffect(Schema.fromJsonString(Settings))(raw));
+    if (decoded._tag === "Failure") {
+      yield* Effect.logError("settings row could not be decoded; serving defaults", decoded.cause);
+      return { settings: defaultSettings(), freshInstall: false, unreadable: raw };
+    }
+    return { settings: healed(decoded.value), freshInstall: false, unreadable: null };
   });

@@ -1,6 +1,7 @@
 /**
- * The SQLite-backed settings document: what a fresh install gets, and what
- * happens to a row an older build wrote without keybindings.
+ * The SQLite-backed settings document: what a fresh install gets, what happens
+ * to a row an older build wrote without keybindings, and what happens to one
+ * this build cannot read at all.
  */
 
 import { DEFAULT_KEYBINDINGS, defaultSettings } from "@OpenAde/contracts/settings";
@@ -15,6 +16,11 @@ import { testLayer as sqliteTestLayer } from "../persistence/Sqlite";
 import { SettingsStore } from "./services";
 
 /** A migrated database, optionally pre-seeded with one raw settings row. */
+const rowJson = (sql: SqlClient.SqlClient, key: string) =>
+  sql<{ readonly value_json: string }>`
+    SELECT value_json FROM settings WHERE key = ${key}
+  `.pipe(Effect.map((rows) => rows[0]?.value_json ?? null));
+
 const fixture = (row?: string) =>
   Effect.gen(function* () {
     const sqliteContext = yield* Layer.build(sqliteTestLayer());
@@ -59,6 +65,27 @@ describe("SettingsStore", () => {
         // Healing the table must not touch anything the user did choose.
         expect(settings.theme).toBe("dark");
         expect(store.freshInstall).toBe(false);
+      }),
+    ),
+  );
+
+  it.effect("an undecodable row is archived before the first write replaces it", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        // One field from a newer build is enough. The store cannot serve this
+        // document, but overwriting it would destroy the connector instances
+        // and permission rules a downgrade would otherwise still find.
+        const corrupt = JSON.stringify({ theme: "dark", writtenByANewerBuild: true });
+        const { store, sql } = yield* fixture(corrupt);
+        yield* store.update({ theme: "light" });
+
+        expect(yield* rowJson(sql, "settings.unreadable")).toBe(corrupt);
+        const settings = yield* store.get;
+        expect(settings.theme).toBe("light");
+
+        // A second save must not overwrite the archive with a readable row.
+        yield* store.update({ theme: "dark" });
+        expect(yield* rowJson(sql, "settings.unreadable")).toBe(corrupt);
       }),
     ),
   );
