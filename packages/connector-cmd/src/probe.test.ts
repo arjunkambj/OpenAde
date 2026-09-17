@@ -1,14 +1,14 @@
 /**
- * The probe: the model-list parser against the recorded table, and `probe()`
- * against real binaries that answer the way the CLI's exit codes say it does.
+ * The probe: the model-list parser against the REAL recorded table, and
+ * `probe()` against real binaries that answer the way the CLI's exit codes say.
  *
- * `parseModelList` is the sole data source for the whole model picker and for
- * every `ModelOption.efforts`, and it is a pair of hand-written regexes over an
- * output format nobody here has seen — the account has no credits
- * (docs/decisions/w2-cmd-frames.md). The fixture it runs against is
- * reconstructed from spec 5.1, not captured, which the decision doc says out
- * loud; the point of the test is that a change to the regexes has to explain
- * itself against a whole table rather than one line.
+ * `parseModelList` is the sole data source for the whole model picker, and the
+ * table it reads is `fixtures/cmd/probe/list-models.stdout.txt` — a real
+ * `cmd --list-models` captured from command-code 1.55.1 on 2026-09-18, not a
+ * reconstruction. The old hand-written fixture hid three bugs this file now
+ * pins: bare ids (`claude-opus-5`, `gpt-6-astra`) were dropped as headers,
+ * `:free`-tagged ids were truncated, and the table's own chrome was parsed as
+ * a model.
  */
 
 import * as NodeFS from "node:fs";
@@ -25,7 +25,7 @@ import { parseModelList, probe } from "./probe";
 
 const FIXTURE = NodePath.resolve(
   NodeURL.fileURLToPath(import.meta.url),
-  "../../../testkit/fixtures/cmd/list-models.txt",
+  "../../../testkit/fixtures/cmd/probe/list-models.stdout.txt",
 );
 
 const listModels = NodeFS.readFileSync(FIXTURE, "utf8");
@@ -48,57 +48,57 @@ const recordedCreditsError = NodeFS.readFileSync(
 describe("parseModelList", () => {
   const models = parseModelList(listModels);
 
-  it("reads every model line and groups them under their headers", () => {
-    expect(models.map((model) => model.id)).toEqual([
-      "anthropic/claude-sonnet-4.8",
-      "anthropic/claude-opus-4.6",
-      "deepseek/deepseek-v4-flash",
-      "deepseek/deepseek-v4",
-      "moonshotai/kimi-k3",
-      "moonshotai/kimi-k3-turbo",
-      "zai-org/glm-5.3",
-      "qwen/qwen3.8-max",
-      "stealth/ox-alpha",
-    ]);
-    // The header decides the family, with or without its trailing colon.
-    expect(models.find((model) => model.id === "deepseek/deepseek-v4")?.family).toBe("DeepSeek");
-    expect(models.find((model) => model.id === "zai-org/glm-5.3")?.family).toBe("Z.ai");
+  it("reads every model the CLI lists, including the bare-id families", () => {
+    // The table's own header says how many there should be.
+    expect(listModels).toContain("70 models");
+    expect(models).toHaveLength(70);
+    // Anthropic and OpenAI ids carry no `provider/` prefix; the old parser
+    // swallowed all sixteen of them as section headers.
+    expect(models.map((model) => model.id)).toContain("claude-opus-5");
+    expect(models.map((model) => model.id)).toContain("gpt-6-astra");
+    expect(models.find((model) => model.id === "claude-opus-5")?.family).toBe("Anthropic");
+    expect(models.find((model) => model.id === "gpt-5.3-codex")?.family).toBe("OpenAI");
+    expect(models.find((model) => model.id === "google/gemini-3.8-flash")?.family).toBe("Google");
+    expect(models.find((model) => model.id === "deepseek/deepseek-v4-pro")?.family).toBe(
+      "Open Source",
+    );
   });
 
-  it("strips the (default) and FREE markers out of the label", () => {
+  it("keeps a :free tag as part of the id", () => {
+    const longcat = models.find((model) => model.id.startsWith("meituan/longcat-2.0"));
+    // Truncating the tag would hand `--model` an id the CLI rejects.
+    expect(longcat?.id).toBe("meituan/longcat-2.0:free");
+    expect(longcat?.free).toBe(true);
+    expect(longcat?.label).toBe("trillion-parameter agentic coding with 1M context");
+  });
+
+  it("never parses the table's chrome as a model", () => {
+    const ids = models.map((model) => model.id);
+    expect(ids).not.toContain("Docs:");
+    expect(ids).not.toContain("Available");
+    expect(ids).not.toContain("cmd");
+    expect(models.every((model) => !model.id.includes(" "))).toBe(true);
+  });
+
+  it("strips the (default), (recommended) and FREE markers out of the label", () => {
     const flash = models.find((model) => model.id === "deepseek/deepseek-v4-flash");
-    expect(flash?.label).toBe("DeepSeek V4 Flash");
-    expect(flash?.free).toBe(true);
-    // The marker is parsed out but nothing consumes it yet: no ModelOption
-    // field carries "this is the default", so the picker cannot preselect.
-    expect(flash).not.toHaveProperty("default");
-    expect(models.filter((model) => model.free === true)).toHaveLength(2);
-    expect(models.find((model) => model.id === "deepseek/deepseek-v4")?.free).toBeUndefined();
+    expect(flash?.label).toBe("fast hybrid-attention reasoning");
+    const sonnet = models.find((model) => model.id === "claude-sonnet-5");
+    expect(sonnet?.label).toBe("best combo of speed & intelligence");
+    const sante = models.find((model) => model.id === "inclusionai/ling-3.0-flash-sante:free");
+    expect(sante?.free).toBe(true);
+    expect(sante?.label).not.toContain("FREE");
   });
 
-  it("takes the effort ladder from the line, or falls back to low/medium/high", () => {
-    expect(models.find((model) => model.id === "anthropic/claude-opus-4.6")?.efforts).toEqual([
-      "low",
-      "medium",
-      "high",
-      "xhigh",
-      "max",
-    ]);
-    expect(models.find((model) => model.id === "moonshotai/kimi-k3-turbo")?.efforts).toEqual([
-      "low",
-      "medium",
-    ]);
-    expect(models.find((model) => model.id === "qwen/qwen3.8-max")?.efforts).toEqual([
-      "medium",
-      "high",
-      "xhigh",
-    ]);
-    // No marker at all: the ladder every model is assumed to have.
-    expect(models.find((model) => model.id === "zai-org/glm-5.3")?.efforts).toEqual([
-      "low",
-      "medium",
-      "high",
-    ]);
+  it("flags the models whose description mentions vision or multimodality", () => {
+    expect(models.find((model) => model.id === "moonshotai/kimi-k2.6")?.vision).toBe(true);
+    expect(models.find((model) => model.id === "deepseek/deepseek-v4-pro")?.vision).toBeUndefined();
+  });
+
+  it("falls back to the common effort ladder when the table prints none", () => {
+    // 1.55.1 prints no [low,medium] markers at all.
+    expect(models.every((model) => model.efforts.length === 3)).toBe(true);
+    expect(models[0]?.efforts).toEqual(["low", "medium", "high"]);
   });
 
   it("labels a bare id with itself and survives an empty output", () => {

@@ -169,37 +169,67 @@ const belowMin = (version: string): boolean => {
   return false;
 };
 
-const MODEL_LINE = /^([a-z0-9_.-]+\/[a-z0-9_.-]+)\s*(.*)$/i;
-const EFFORT_MARKER = /\[(low|medium|high|xhigh|max)(?:,(low|medium|high|xhigh|max))*\]/i;
+/**
+ * A model row is `<id><two or more spaces><description>`; a section header is a
+ * line with no such gap. Splitting on the column gap rather than on a `/` is
+ * what keeps the Anthropic and OpenAI rows — whose ids are bare (`claude-opus-5`,
+ * `gpt-6-astra`), not `provider/model` — out of the header bucket.
+ */
+const MODEL_ROW = /^(\S+)\s{2,}(.+)$/;
 
 /**
- * `cmd --list-models` lines → `ModelOption`s. Section headers (a bare word or
- * a `Title:` line) become `family`; `(default)` and `FREE` markers are parsed
- * out of the label; an `[low,medium]` suffix pins the effort ladder when the
- * binary reports one.
+ * A model id: `provider/model` or a bare `model`, either optionally carrying a
+ * `:tag` suffix (`meituan/longcat-2.0:free`). Never a trailing colon — that is
+ * a label like `Docs:`.
+ */
+const MODEL_ID = /^[a-z0-9](?:[a-z0-9._-]|\/(?=[a-z0-9]))*(?::[a-z0-9._-]+)?$/i;
+
+const EFFORT_MARKER = /\[(low|medium|high|xhigh|max)(?:,(low|medium|high|xhigh|max))*\]/i;
+
+/** The lines that frame the table instead of listing a model. */
+const isTableChrome = (line: string): boolean =>
+  line.startsWith("Available models") ||
+  line.startsWith("Pass the full id") ||
+  line.startsWith("cmd ") ||
+  line.startsWith("Docs:");
+
+/**
+ * `cmd --list-models` → `ModelOption`s, parsed against the real 1.55.1 output
+ * recorded in `fixtures/cmd/probe/list-models.stdout.txt`.
+ *
+ * The table is two columns under section headers (`Open Source`, `Anthropic`,
+ * `OpenAI`, …), which become `family`. A model is free when its id carries a
+ * `:free` tag or its description says `FREE`; `(default)` and `(recommended)`
+ * are markers, not part of the label. The binary does not print effort ladders
+ * today, so `[low,medium]` is still honoured where it appears and otherwise the
+ * common ladder is assumed.
  */
 export const parseModelList = (output: string): ReadonlyArray<ModelOption> => {
   const models: Array<ModelOption> = [];
   let family = "";
   for (const rawLine of output.split("\n")) {
     const line = rawLine.trim();
-    if (line === "") {
+    if (line === "" || isTableChrome(line)) {
       continue;
     }
-    const match = MODEL_LINE.exec(line);
-    if (match === null) {
-      // A non-model line is a group header; strip a trailing colon.
+    const match = MODEL_ROW.exec(line);
+    // A lone token is a section header (`Anthropic`, `OpenAI`, `xAI`) unless it
+    // is unmistakably an id — `provider/model` never names a family.
+    const lone = match === null && MODEL_ID.test(line) && line.includes("/");
+    if (!lone && (match === null || !MODEL_ID.test(match[1]!))) {
       family = line.replace(/:$/, "").trim() || family;
       continue;
     }
-    const id = match[1]!;
-    let label = (match[2] ?? "").replace(/\((default)\)/i, "").trim();
-    const free = /\bFREE\b/i.test(match[2] ?? "");
-    label = label
-      .replace(/\bFREE\b/gi, "")
+    const id = lone ? line : match![1]!;
+    const description = lone ? "" : (match![2] ?? "");
+    const free = id.endsWith(":free") || /\bFREE\b/.test(description);
+    const label = description
+      .replace(/\((?:default|recommended)\)/gi, "")
+      .replace(/\bFREE\b/g, "")
       .replace(EFFORT_MARKER, "")
+      .replace(/\s{2,}/g, " ")
       .trim();
-    const effortMatch = EFFORT_MARKER.exec(match[2] ?? "");
+    const effortMatch = EFFORT_MARKER.exec(description);
     const efforts = (
       effortMatch !== null
         ? effortMatch[0]
@@ -211,9 +241,10 @@ export const parseModelList = (output: string): ReadonlyArray<ModelOption> => {
     models.push({
       id,
       label: label === "" ? id : label,
-      family: family === "" ? id.split("/")[0]! : family,
+      family: family === "" ? (id.split("/")[0] ?? id) : family,
       efforts,
       ...(free ? { free: true } : {}),
+      ...(/\bvision\b|\bmultimodal\b/i.test(description) ? { vision: true } : {}),
     });
   }
   return models;
