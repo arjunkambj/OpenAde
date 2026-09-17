@@ -17,13 +17,19 @@ const formatDurationMs = (ms: number): string => {
 /**
  * The folded work-group label: "Worked for 4s · 3 tools", "Worked · 1 tool"
  * when the ids carry no timing, "Thought for 2s" for a reasoning-only fold.
+ *
+ * A zero duration is treated as no timing rather than as a measurement: it
+ * means the group's items share a millisecond, and "Worked for 0ms" reads as a
+ * broken clock where "Worked" reads as a fact.
  */
 export const workGroupLabel = (group: {
   readonly toolCount: number;
   readonly durationMs: number | undefined;
 }): string => {
   const duration =
-    group.durationMs !== undefined ? ` for ${formatDurationMs(group.durationMs)}` : "";
+    group.durationMs !== undefined && group.durationMs > 0
+      ? ` for ${formatDurationMs(group.durationMs)}`
+      : "";
   if (group.toolCount === 0) {
     return `Thought${duration}`;
   }
