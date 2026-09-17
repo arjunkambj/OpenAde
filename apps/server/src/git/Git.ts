@@ -1,5 +1,6 @@
 /**
- * The real `GitService` behind the `git.status`/`git.diff` RPCs: argv-form git
+ * The real `GitService` behind the `git.status`/`git.diff`/`checkpoints.list`
+ * RPCs: argv-form git
  * over `process.ts`, porcelain-v2 parsing for status, and unified patches split
  * per file for the changes pane. A missing `projectId` or a non-repository
  * root answers `isRepository: false` with empty results rather than an RPC
@@ -18,6 +19,7 @@ import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
 
 import { ReadModelStore } from "../persistence/ReadModels";
 import { GitService } from "../rpc/services";
+import { make as checkpointStore } from "./CheckpointStore";
 import { GitError, isRepository, run } from "./process";
 
 const toRpcError = (error: GitError) =>
@@ -314,6 +316,25 @@ export const layer = Layer.effect(
         }).pipe(
           Effect.mapError((error) =>
             error instanceof OpenAdeRpcError ? error : toRpcError(error),
+          ),
+        ),
+
+      /**
+       * The refs that are actually there. The timeline's checkpoint list is a
+       * fold of `thread.checkpoint.created`, so it still names refs removed
+       * outside the app — a prune, a re-clone — and a caller intersects the
+       * two rather than offering a restore that can only fail.
+       */
+      checkpoints: (projectId, threadId) =>
+        Effect.gen(function* () {
+          const root = yield* workspaceRoot(projectId);
+          if (root === null || !(yield* isRepository(root))) {
+            return [];
+          }
+          return yield* checkpointStore.list({ threadId, workspaceRoot: root });
+        }).pipe(
+          Effect.mapError(
+            (error) => new OpenAdeRpcError({ code: "internal", message: error.message }),
           ),
         ),
     });

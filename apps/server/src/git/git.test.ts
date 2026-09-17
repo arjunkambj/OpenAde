@@ -153,6 +153,44 @@ describe("w8 git", () => {
     ),
   );
 
+  it.live("checkpoints.list reports only the refs that still exist", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = makeRepo();
+        const threadId = makeThreadId();
+        const kept = yield* checkpointStore.capture({
+          threadId,
+          turnId: makeTurnId(),
+          workspaceRoot: root,
+        });
+        writeFileSync(nodePath.join(root, "a.txt"), "one\ntwo\n");
+        const removed = yield* checkpointStore.capture({
+          threadId,
+          turnId: makeTurnId(),
+          workspaceRoot: root,
+        });
+
+        const { projectId, git: gitService } = yield* stack(root);
+        expect((yield* gitService.checkpoints(projectId, threadId)).map((c) => c.ref)).toEqual([
+          kept.ref,
+          removed.ref,
+        ]);
+
+        // Pruned outside the app — the thread's own projection still folds
+        // both, so this is the list a pane intersects it with.
+        git(root, "update-ref", "-d", removed.ref);
+        const live = yield* gitService.checkpoints(projectId, threadId);
+        expect(live.map((c) => c.ref)).toEqual([kept.ref]);
+        expect(live[0]?.checkpointId).toBe(kept.checkpointId);
+
+        // A workspace with no repository simply has none.
+        const plain = mkdtempSync(nodePath.join(tmpdir(), "openade-plain-"));
+        const { projectId: plainProject, git: plainGit } = yield* stack(plain);
+        expect(yield* plainGit.checkpoints(plainProject, threadId)).toEqual([]);
+      }),
+    ),
+  );
+
   it.live("restore leaves staged work outside the workspace root alone", () =>
     Effect.scoped(
       Effect.gen(function* () {

@@ -21,6 +21,7 @@ import { IsoDateTime, NonEmptyString, NonNegativeInt } from "./base";
 import { Effort } from "./enums";
 import { ConnectorInstanceId, ConnectorKind, ProjectId, ThreadId, UuidV7 } from "./ids";
 import {
+  CheckpointSummary,
   Command,
   CommandReceipt,
   ProjectSummary,
@@ -321,6 +322,7 @@ export const RPC_METHODS = {
   filesRead: "files.read",
   gitStatus: "git.status",
   gitDiff: "git.diff",
+  checkpointsList: "checkpoints.list",
   browserSubscribe: "browser.subscribe",
   browserHumanInput: "browser.humanInput",
   settingsGet: "settings.get",
@@ -450,6 +452,18 @@ const GitDiffRpc = Rpc.make(RPC_METHODS.gitDiff, {
   error: OpenAdeRpcError,
 });
 
+/**
+ * The checkpoints that still exist in the repository for one thread. The
+ * timeline's own list is a fold of `thread.checkpoint.created`, which cannot
+ * know about a ref removed outside the app (a prune, a re-clone); intersecting
+ * the two is what stops the pane offering a restore that can only fail.
+ */
+const CheckpointsListRpc = Rpc.make(RPC_METHODS.checkpointsList, {
+  payload: Schema.Struct({ projectId: ProjectId, threadId: ThreadId }),
+  success: Schema.Array(CheckpointSummary),
+  error: OpenAdeRpcError,
+});
+
 const BrowserSubscribeRpc = Rpc.make(RPC_METHODS.browserSubscribe, {
   payload: Schema.Struct({ threadId: ThreadId }),
   success: BrowserState,
@@ -538,6 +552,7 @@ export const OpenAdeRpcGroup = RpcGroup.make(
   FilesReadRpc,
   GitStatusRpc,
   GitDiffRpc,
+  CheckpointsListRpc,
   BrowserSubscribeRpc,
   BrowserHumanInputRpc,
   SettingsGetRpc,

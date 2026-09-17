@@ -86,6 +86,7 @@ export const handlersLayer = OpenAdeRpcGroup.toLayer(
 
       "git.status": ({ projectId }) => git.status(projectId),
       "git.diff": ({ projectId, from, to, path }) => git.diff(projectId, { from, to, path }),
+      "checkpoints.list": ({ projectId, threadId }) => git.checkpoints(projectId, threadId),
 
       "browser.subscribe": ({ threadId }) => browser.subscribe(threadId),
       "browser.humanInput": ({ threadId, input }) =>

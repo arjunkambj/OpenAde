@@ -19,6 +19,7 @@ import type {
   SkillSummary,
 } from "@OpenAde/contracts/rpc";
 import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
+import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
 import { Settings } from "@OpenAde/contracts/settings";
 import type { SettingsPatch } from "@OpenAde/contracts/settings";
 import type { ConnectorInstanceId, ProjectId, ThreadId } from "@OpenAde/contracts/ids";
@@ -103,6 +104,11 @@ export class GitService extends Context.Service<
         readonly path?: string;
       },
     ) => Effect.Effect<GitDiff, OpenAdeRpcError>;
+    /** The checkpoint refs that still exist for a thread, oldest first. */
+    readonly checkpoints: (
+      projectId: ProjectId,
+      threadId: ThreadId,
+    ) => Effect.Effect<ReadonlyArray<CheckpointSummary>, OpenAdeRpcError>;
   }
 >()("server/rpc/GitService") {
   static readonly empty = Layer.succeed(
@@ -112,6 +118,7 @@ export class GitService extends Context.Service<
         Effect.succeed({ branch: null, upstream: null, ahead: 0, behind: 0, files: [] }),
       diff: (_projectId, options) =>
         Effect.succeed({ from: options.from ?? null, to: options.to ?? null, files: [] }),
+      checkpoints: () => Effect.succeed([]),
     }),
   );
 }
