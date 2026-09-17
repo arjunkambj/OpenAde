@@ -12,7 +12,8 @@ import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import { makeConnectorInstanceId, type ConnectorInstanceId } from "@OpenAde/contracts/ids";
 import type { ConnectorSummary } from "@OpenAde/contracts/rpc";
-import { eraseConnectorDefinition } from "@OpenAde/connector-sdk/definition";
+import type { AnyConnectorDefinition } from "@OpenAde/connector-sdk/definition";
+import { eraseConnectorDefinition, ProbeFailed } from "@OpenAde/connector-sdk/definition";
 import { makeRegistry, type ConnectorRegistry } from "@OpenAde/connector-sdk/registry";
 import { makeFakeConnector } from "@OpenAde/testkit/fakeConnector";
 import { describe, expect, it } from "@effect/vitest";
@@ -45,6 +46,8 @@ interface Fixture {
  */
 const fixture = (
   makeSqliteLayer: () => Layer.Layer<SqlClient.SqlClient, SqlError.SqlError> = sqliteTestLayer,
+  /** Lets a test swap in a definition whose probe misbehaves. */
+  wrap: (definition: AnyConnectorDefinition) => AnyConnectorDefinition = (definition) => definition,
 ) =>
   Effect.gen(function* () {
     const sqliteContext = yield* Layer.build(makeSqliteLayer());
@@ -54,11 +57,11 @@ const fixture = (
     const fake = yield* makeFakeConnector();
     const probes = yield* Ref.make(0);
     const erased = eraseConnectorDefinition(fake.definition);
-    const counting = {
+    const counting = wrap({
       ...erased,
       probe: (config: unknown) =>
         erased.probe(config).pipe(Effect.tap(() => Ref.update(probes, (n) => n + 1))),
-    };
+    });
     const registry = yield* makeRegistry([counting]);
 
     const ctx = yield* Layer.build(
@@ -84,7 +87,8 @@ const fixture = (
 const withFixture = <A, E>(
   run: (fixture: Fixture) => Effect.Effect<A, E>,
   makeSqliteLayer?: Parameters<typeof fixture>[0],
-) => Effect.scoped(Effect.flatMap(fixture(makeSqliteLayer), run));
+  wrap?: Parameters<typeof fixture>[1],
+) => Effect.scoped(Effect.flatMap(fixture(makeSqliteLayer, wrap), run));
 
 /** First summaries matching `pred`, replaying the current value — never a timer. */
 const awaitSummaries = (
@@ -154,6 +158,28 @@ describe("ConnectorManager", () => {
         expect(list[0]!.probe.status).toBe("ready");
         const models = yield* manager.models(seeded[0]!.connectorInstanceId as ConnectorInstanceId);
         expect(models.map((model) => model.id)).toEqual(["fake/model"]);
+      }),
+    ),
+  );
+
+  it.effect("models fall back to the open instance when the probe failed", () =>
+    withFixture(
+      ({ manager }) =>
+        Effect.gen(function* () {
+          const summaries = yield* awaitSummaries(
+            manager,
+            (all) => all.length === 1 && all[0]!.probe.status === "error",
+          );
+          const instanceId = summaries[0]!.connectorInstanceId as ConnectorInstanceId;
+          // The instance opened fine; only its probe is broken, so the model
+          // pickers must still be filled from `listModels()`.
+          const models = yield* manager.models(instanceId);
+          expect(models.map((model) => model.id)).toEqual(["fake/model"]);
+        }),
+      undefined,
+      (definition) => ({
+        ...definition,
+        probe: () => Effect.fail(new ProbeFailed({ kind: definition.kind, message: "no binary" })),
       }),
     ),
   );

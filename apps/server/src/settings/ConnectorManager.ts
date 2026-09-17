@@ -276,7 +276,11 @@ export class ConnectorManager extends Context.Service<
       const models = (instanceId: ConnectorInstanceId) =>
         Effect.gen(function* () {
           const cached = (yield* Ref.get(probes)).get(instanceId);
-          if (cached !== undefined) {
+          // Reconcile always records a probe, and a failed or timed-out one
+          // carries an empty list — so only a probe that actually found models
+          // may answer. Otherwise ask the open instance, which is the thing
+          // the model pickers would otherwise be left empty by.
+          if (cached !== undefined && cached.models.length > 0) {
             return cached.models;
           }
           return yield* registry.instance(instanceId).pipe(
