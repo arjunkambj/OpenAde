@@ -244,6 +244,22 @@ export const makeService = (injected: {
         Effect.ignore,
       );
 
+    /**
+     * A human address-bar navigation: mirror the url immediately so the
+     * toolbar stops fighting the field, then move the page and re-read where
+     * it actually landed.
+     */
+    const navigateWith = (
+      session: Session,
+      driver: BrowserDriver,
+      url: string,
+    ): Effect.Effect<void> =>
+      Effect.gen(function* () {
+        yield* SubscriptionRef.update(session.state, (state) => ({ ...state, url }));
+        yield* driver.exec(["open", url]).pipe(Effect.ignore);
+        yield* refreshLocation(session, driver);
+      });
+
     /** `browser_eval` carries the `web` approval kind — denied in plan mode. */
     const gateEval = (
       threadId: ThreadId,
@@ -397,13 +413,14 @@ export const makeService = (injected: {
 
         const current = yield* Ref.get(session.driver);
         if (current === null) {
-          // No browser yet — a navigate input is enough reason to start one.
-          if (input.kind === "navigate") {
+          // No browser yet. A navigate is enough reason to start one, and so
+          // is a reload — that is the pane's "try again" after a failed open.
+          if (input.kind === "navigate" || input.kind === "history") {
             yield* session.queue.withPermits(1)(
               Effect.gen(function* () {
                 const ensured = yield* Effect.option(ensureDriver(session));
-                if (Option.isSome(ensured) && ensured.value.mode === "owned-chromium") {
-                  yield* ensured.value.exec(["open", input.url]).pipe(Effect.ignore);
+                if (Option.isSome(ensured) && input.kind === "navigate") {
+                  yield* navigateWith(session, ensured.value, input.url);
                 }
               }),
             );
@@ -412,19 +429,10 @@ export const makeService = (injected: {
         }
         const driver = current.driver;
 
-        if (driver.mode === "cdp-attach") {
-          // The guest owns the input; navigation/history were already applied
-          // by the pane's webview. Still mirror the url so the state stream
-          // stays truthful.
-          if (input.kind === "navigate") {
-            yield* SubscriptionRef.update(session.state, (state) => ({
-              ...state,
-              url: input.url,
-            }));
-          }
-          return;
-        }
-
+        // The toolbar drives the page in both modes. In cdp-attach the driver
+        // is bound to the pane's own guest target, so `open`/`back`/`forward`/
+        // `reload` move exactly the webview the human is looking at — the pane
+        // itself has no navigation path of its own.
         switch (input.kind) {
           case "click":
           case "key":
@@ -433,13 +441,7 @@ export const makeService = (injected: {
             yield* driver.sendInput(input).pipe(Effect.ignore);
             return;
           case "navigate":
-            yield* SubscriptionRef.update(session.state, (state) => ({
-              ...state,
-              url: input.url,
-            }));
-            yield* session.queue.withPermits(1)(
-              driver.exec(["open", input.url]).pipe(Effect.ignore),
-            );
+            yield* session.queue.withPermits(1)(navigateWith(session, driver, input.url));
             return;
           case "history":
             yield* session.queue.withPermits(1)(
@@ -451,7 +453,8 @@ export const makeService = (injected: {
                       ? ["forward"]
                       : ["reload"],
                 )
-                .pipe(Effect.ignore),
+                .pipe(Effect.ignore)
+                .pipe(Effect.andThen(refreshLocation(session, driver))),
             );
             return;
           default:

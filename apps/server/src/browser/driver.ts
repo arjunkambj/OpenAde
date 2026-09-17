@@ -381,9 +381,12 @@ export interface FakePage {
 export const makeFakeDriver = (
   page: FakePage,
   hooks?: {
-    readonly onExec?: (argv: ReadonlyArray<string>) => Effect.Effect<void>;
+    /** Failing here is how a test plays back a daemon error (e.g. `tab_gone`). */
+    readonly onExec?: (argv: ReadonlyArray<string>) => Effect.Effect<void, AgentBrowserError>;
     readonly onInput?: (input: BrowserHumanInput) => Effect.Effect<void>;
     readonly onClose?: () => Effect.Effect<void>;
+    /** The mode the driver reports; `owned-chromium` unless a test says otherwise. */
+    readonly mode?: BrowserMode;
   },
 ): BrowserDriver => {
   const record = (data: Record<string, unknown>) => ({
@@ -495,7 +498,7 @@ export const makeFakeDriver = (
     });
 
   return {
-    mode: "owned-chromium",
+    mode: hooks?.mode ?? "owned-chromium",
     exec,
     sendInput: (input) => (hooks?.onInput ?? (() => Effect.void))(input),
     location: Effect.sync(() => ({ url: page.url, title: page.title })),

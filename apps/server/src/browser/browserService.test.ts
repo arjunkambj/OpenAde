@@ -183,6 +183,43 @@ describe("BrowserService", () => {
     ),
   );
 
+  it.live("the toolbar drives the attached webview in cdp-attach mode", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const argvs: Array<ReadonlyArray<string>> = [];
+        const { browser } = yield* buildStack(() =>
+          Effect.succeed(
+            makeFakeDriver(fakePage(), {
+              mode: "cdp-attach",
+              onExec: (argv) =>
+                Effect.sync(() => {
+                  argvs.push(argv);
+                }),
+            }),
+          ),
+        );
+
+        // One agent call opens the driver; the toolbar then takes over.
+        yield* browser.callTool(threadId, "browser_snapshot", {});
+        yield* browser.humanInput(threadId, { kind: "navigate", url: "https://example.com/a" });
+        yield* browser.humanInput(threadId, { kind: "navigate", url: "https://example.com/b" });
+        yield* browser.humanInput(threadId, { kind: "history", direction: "back" });
+        yield* browser.humanInput(threadId, { kind: "history", direction: "reload" });
+
+        // The commands reached the bound guest instead of being swallowed.
+        expect(argvs).toContainEqual(["open", "https://example.com/a"]);
+        expect(argvs).toContainEqual(["open", "https://example.com/b"]);
+        expect(argvs).toContainEqual(["back"]);
+        expect(argvs).toContainEqual(["reload"]);
+
+        // `back` walked the page off the address the human typed last, and
+        // the state followed the page rather than the toolbar's optimism.
+        const state = yield* currentState(browser, threadId);
+        expect(state?.url).toBe("https://example.com/a");
+      }),
+    ),
+  );
+
   it.live("teardown stops the session and is idempotent", () =>
     Effect.scoped(
       Effect.gen(function* () {
