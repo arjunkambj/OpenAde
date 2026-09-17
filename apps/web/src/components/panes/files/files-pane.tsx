@@ -90,7 +90,7 @@ function SearchBody({
       <PaneMessage
         icon="hugeicons:search-01"
         text="Search this project's files."
-        detail="Ignored and untracked-but-ignored paths are left out."
+        detail="Anything .gitignore excludes is left out."
       />
     );
   }
