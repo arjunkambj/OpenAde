@@ -20,11 +20,9 @@
       "ignoreDependencies": ["@OpenAde/contracts", "@OpenAde/shared"]
     },
     "apps/server": {
+      "ignoreExportsUsedInFile": true,
       "ignoreDependencies": [
         "@OpenAde/connector-cmd",
-        "@OpenAde/connector-sdk",
-        "@OpenAde/contracts",
-        "@OpenAde/testkit",
         "@effect/platform-node"
       ]
     },
