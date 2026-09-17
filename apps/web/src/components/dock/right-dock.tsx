@@ -14,12 +14,9 @@ import * as React from "react";
 import { Button } from "@OpenAde/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
 
-import { InlineDiff } from "@/components/timeline/diff-pool";
-import { DisclosureRow } from "@/components/timeline/row-shell";
+import { ChangesPane } from "@/components/panes/changes/changes-pane";
 import { Icon } from "@/lib/icon";
-import { diffStats } from "@/lib/diff-stats";
 import { cn } from "@/lib/utils";
 import { useDockWidth } from "@/state/ui";
 
@@ -85,56 +82,6 @@ function DockTabButton({
       <Icon icon={meta.icon} className="size-3.5" />
       {meta.label}
     </button>
-  );
-}
-
-/** Latest `file_change` per path — the item stream repeats a path per edit. */
-const changedFiles = (snapshot: ThreadDetailSnapshot): ItemSnapshot[] => {
-  const byPath = new Map<string, ItemSnapshot>();
-  for (const item of snapshot.items) {
-    if (item.kind === "file_change" && item.fileChange !== undefined) {
-      byPath.set(item.fileChange.path, item);
-    }
-  }
-  return [...byPath.values()];
-};
-
-function ChangesPane({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
-  const files = changedFiles(snapshot);
-  if (files.length === 0) {
-    return <DockEmpty icon="hugeicons:git-compare" text="No file changes in this thread yet." />;
-  }
-  return (
-    <div className="flex flex-col gap-1 p-2">
-      {files.map((item) => {
-        const change = item.fileChange;
-        if (change === undefined) {
-          return null;
-        }
-        const stats = change.diff !== undefined ? diffStats(change.diff) : undefined;
-        return (
-          <DisclosureRow
-            key={item.itemId}
-            rowId={`dock-${item.itemId}`}
-            icon="hugeicons:file-edit"
-            label={<span className="font-mono text-xs">{change.path}</span>}
-            status={item.status}
-            meta={
-              stats !== undefined && (stats.added > 0 || stats.removed > 0) ? (
-                <span className="ml-1 inline-flex shrink-0 gap-1.5 font-mono text-xs tabular-nums">
-                  {stats.added > 0 ? <span className="text-added">+{stats.added}</span> : null}
-                  {stats.removed > 0 ? (
-                    <span className="text-removed">−{stats.removed}</span>
-                  ) : null}
-                </span>
-              ) : null
-            }
-          >
-            {change.diff !== undefined ? <InlineDiff patch={change.diff} /> : undefined}
-          </DisclosureRow>
-        );
-      })}
-    </div>
   );
 }
 
