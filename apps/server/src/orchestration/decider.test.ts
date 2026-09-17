@@ -665,6 +665,33 @@ describe("decide", () => {
     });
   }
 
+  it("copies the pending plan's path onto thread.plan.responded", () => {
+    const command = {
+      ...baseCommand,
+      type: "thread.plan.respond",
+      threadId: makeThreadId(),
+      turnId: "turn-1",
+      action: "accept",
+    } as unknown as Command;
+    const thread = threadDoc({
+      pendingPlan: {
+        turnId: "turn-1" as never,
+        planMarkdown: "# Plan",
+        planPath: "/home/u/.commandcode/plans/the-plan.md",
+      },
+      status: "waiting",
+    });
+    const result = decide(command, { project: null, thread }, ctx(), env);
+    expect(result.accepted).toBe(true);
+    if (result.accepted) {
+      // The fold clears pendingPlan on this event, so the path has to ride
+      // along on it — a reactor that restarts before the answer has no
+      // other source for the file the implement turn names.
+      const payload = result.events[0]!.payload as { planPath?: string };
+      expect(payload.planPath).toBe("/home/u/.commandcode/plans/the-plan.md");
+    }
+  });
+
   it("emits thread.created with caller settings over defaults", () => {
     const command = {
       commandId: "cmd",

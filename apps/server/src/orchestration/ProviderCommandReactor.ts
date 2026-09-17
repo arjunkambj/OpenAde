@@ -37,7 +37,6 @@ import type { UserQuestionAnswer } from "@OpenAde/contracts/runtime";
 import type { TurnInput } from "@OpenAde/connector-sdk/definition";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 
 import type { PlannedEvent } from "../persistence/EventStore";
@@ -68,16 +67,6 @@ export const ProviderCommandReactor = Layer.effectDiscard(
   Effect.gen(function* () {
     const engine = yield* OrchestrationEngine;
     const sessions = yield* SessionManager;
-
-    /**
-     * The plan file each thread has on the table. Spec section 8 wants the
-     * accept turn to name it — "Implement the approved plan at <path>" — but by
-     * the time `thread.plan.responded` reaches this reactor the fold has
-     * already cleared `doc.pendingPlan`, so the path is kept from the proposal.
-     * A restart between propose and accept loses it and the follow-up falls
-     * back to the bare sentence.
-     */
-    const planPaths = yield* Ref.make(new Map<ThreadId, string>());
 
     const dispatchSettings = (threadId: ThreadId, patch: ThreadSettingsPatch) =>
       engine.dispatch({
@@ -254,14 +243,6 @@ export const ProviderCommandReactor = Layer.effectDiscard(
             return;
           }
 
-          case "thread.plan.proposed": {
-            const planPath = payload.planPath;
-            if (typeof planPath === "string" && planPath !== "") {
-              yield* Ref.update(planPaths, (all) => new Map(all).set(threadId, planPath));
-            }
-            return;
-          }
-
           case "thread.plan.responded": {
             const handle = yield* sessions.handleFor(threadId);
             const action = payload.action as PlanResponseAction;
@@ -279,12 +260,10 @@ export const ProviderCommandReactor = Layer.effectDiscard(
             if (doc === null || doc.deleted || doc.status === "archived") {
               return;
             }
-            const planPath = (yield* Ref.get(planPaths)).get(threadId);
-            yield* Ref.update(planPaths, (all) => {
-              const next = new Map(all);
-              next.delete(threadId);
-              return next;
-            });
+            // Spec section 8 wants the accept turn to name the plan file. The
+            // decider copies it onto this event out of the pending plan it is
+            // clearing, so it survives a restart between propose and accept.
+            const planPath = typeof payload.planPath === "string" ? payload.planPath : undefined;
             if (action === "accept" || action === "accept-auto") {
               // Accepting leaves plan mode: without the reset the next turn
               // produces another plan instead of implementing this one.

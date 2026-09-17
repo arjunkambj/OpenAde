@@ -331,6 +331,11 @@ export const decide = (
           turnId: command.turnId,
           action: command.action,
           ...(command.feedback === undefined ? {} : { feedback: command.feedback }),
+          // The fold clears pendingPlan on this very event, so the path the
+          // accept turn names travels on it rather than in a reactor's memory.
+          ...(thread.pendingPlan.planPath === undefined
+            ? {}
+            : { planPath: thread.pendingPlan.planPath }),
         }),
       ]);
     }
