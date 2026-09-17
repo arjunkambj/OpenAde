@@ -2,9 +2,14 @@
  * "Add project" — a name plus a workspace root, dispatched as
  * `project.create`. Kept deliberately small; richer project management is not
  * part of the renderer shell.
+ *
+ * The root comes from the desktop's native directory picker where there is
+ * one, and the name defaults to the directory's own. In a plain browser tab
+ * there is no picker, so the field stays typed — and a path that cannot be a
+ * workspace root is said so here rather than travelling to the server to come
+ * back as a rejection reason.
  */
 
-import * as Exit from "effect/Exit";
 import * as React from "react";
 import { toast } from "sonner";
 
@@ -23,7 +28,10 @@ import { Label } from "@OpenAde/ui/components/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import { makeCommandId, makeProjectId } from "@OpenAde/contracts/ids";
 
+import { pickDirectory } from "@/lib/desktop";
+import { isAccepted, rejectionMessage } from "@/lib/dispatch-result";
 import { Icon } from "@/lib/icon";
+import { projectNameFromPath, workspacePathProblem } from "@/lib/workspace-path";
 import { useDispatchCommand } from "@/state/hooks";
 
 export function AddProjectDialog({ disabled }: { disabled?: boolean }) {
@@ -32,8 +40,28 @@ export function AddProjectDialog({ disabled }: { disabled?: boolean }) {
   const [name, setName] = React.useState("");
   const [workspaceRoot, setWorkspaceRoot] = React.useState("");
   const [pending, setPending] = React.useState(false);
+  // `window.openade` only exists under the desktop shell; read it once so the
+  // button is simply absent in a browser tab rather than doing nothing.
+  const [hasPicker] = React.useState(() => window.openade?.pickDirectory !== undefined);
 
-  const canSubmit = name.trim().length > 0 && workspaceRoot.trim().length > 0 && !pending;
+  const pathProblem = workspacePathProblem(workspaceRoot);
+  const canSubmit =
+    name.trim().length > 0 && workspaceRoot.trim().length > 0 && pathProblem === null && !pending;
+
+  /** The native picker fills the root, and names the project after it unless
+   * the user already typed a name of their own. */
+  const choose = async () => {
+    const picked = await pickDirectory();
+    if (picked === null) {
+      return;
+    }
+    setWorkspaceRoot(picked);
+    setName((current) =>
+      current.trim() === "" || current === projectNameFromPath(workspaceRoot)
+        ? projectNameFromPath(picked)
+        : current,
+    );
+  };
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -50,17 +78,13 @@ export function AddProjectDialog({ disabled }: { disabled?: boolean }) {
       workspaceRoot: workspaceRoot.trim(),
     });
     setPending(false);
-    if (Exit.isSuccess(exit) && exit.value.status === "accepted") {
+    if (isAccepted(exit)) {
       setOpen(false);
       setName("");
       setWorkspaceRoot("");
       return;
     }
-    toast.error(
-      Exit.isSuccess(exit)
-        ? (exit.value.reason ?? "Project was rejected")
-        : "Could not reach the server",
-    );
+    toast.error(rejectionMessage(exit, "Project was rejected"));
   };
 
   return (
@@ -105,12 +129,27 @@ export function AddProjectDialog({ disabled }: { disabled?: boolean }) {
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="project-root">Workspace root</Label>
-            <Input
-              id="project-root"
-              value={workspaceRoot}
-              onChange={(event) => setWorkspaceRoot(event.target.value)}
-              placeholder="/Users/you/code/my-app"
-            />
+            <div className="flex items-center gap-2">
+              <Input
+                id="project-root"
+                className="flex-1"
+                value={workspaceRoot}
+                onChange={(event) => setWorkspaceRoot(event.target.value)}
+                placeholder="/Users/you/code/my-app"
+                aria-invalid={pathProblem !== null}
+                aria-describedby={pathProblem === null ? undefined : "project-root-problem"}
+              />
+              {hasPicker ? (
+                <Button type="button" variant="outline" onClick={() => void choose()}>
+                  Choose…
+                </Button>
+              ) : null}
+            </div>
+            {pathProblem === null ? null : (
+              <p id="project-root-problem" className="type-micro text-destructive" role="alert">
+                {pathProblem}
+              </p>
+            )}
           </div>
           <DialogFooter>
             <Button type="submit" disabled={!canSubmit}>
