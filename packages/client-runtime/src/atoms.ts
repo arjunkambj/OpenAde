@@ -21,7 +21,12 @@ import type {
   ThreadListStreamItem,
   ThreadStreamItem,
 } from "@OpenAde/contracts/orchestration";
-import type { ConnectorSummary, FileSearchResult, ModelOption, SkillSummary } from "@OpenAde/contracts/rpc";
+import type {
+  ConnectorSummary,
+  FileSearchResult,
+  ModelOption,
+  SkillSummary,
+} from "@OpenAde/contracts/rpc";
 import type { Keybinding, Settings } from "@OpenAde/contracts/settings";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -199,12 +204,14 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
   );
 
   /** The model list a connector instance reported, for the header picker. */
-  const connectorModelsAtom = Atom.family((instanceId: ConnectorInstanceId) =>
+  const connectorModelsAtom = Atom.family((instanceId: ConnectorInstanceId | null) =>
     runtime.atom(
-      Effect.gen(function* () {
-        const client = yield* (yield* Connection).client;
-        return yield* client["connectors.models"]({ instanceId });
-      }),
+      instanceId === null
+        ? Effect.succeed([] as ReadonlyArray<ModelOption>)
+        : Effect.gen(function* () {
+            const client = yield* (yield* Connection).client;
+            return yield* client["connectors.models"]({ instanceId });
+          }),
       { initialValue: [] as ReadonlyArray<ModelOption> },
     ),
   );
@@ -214,9 +221,7 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
     runtime.atom(
       Effect.gen(function* () {
         const client = yield* (yield* Connection).client;
-        return yield* client["cmdConfig.skills.list"](
-          projectId === null ? {} : { projectId },
-        );
+        return yield* client["cmdConfig.skills.list"](projectId === null ? {} : { projectId });
       }),
       { initialValue: [] as ReadonlyArray<SkillSummary> },
     ),
@@ -232,14 +237,13 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
   );
 
   /** Replaces the whole table; refreshes `keybindingsAtom` on success. */
-  const keybindingsUpdateAtom = runtime.fn(
-    (keybindings: ReadonlyArray<Keybinding>, get) =>
-      Effect.gen(function* () {
-        const client = yield* (yield* Connection).client;
-        const next = yield* client["keybindings.update"]({ keybindings });
-        get.registry.refresh(keybindingsAtom);
-        return next;
-      }),
+  const keybindingsUpdateAtom = runtime.fn((keybindings: ReadonlyArray<Keybinding>, get) =>
+    Effect.gen(function* () {
+      const client = yield* (yield* Connection).client;
+      const next = yield* client["keybindings.update"]({ keybindings });
+      get.registry.refresh(keybindingsAtom);
+      return next;
+    }),
   );
 
   return {
