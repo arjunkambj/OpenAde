@@ -10,16 +10,37 @@ import { defineConfig, type Plugin } from "vite";
 // never bundled into the renderer.
 const DEV_CONNECTION_PATH = devConnectionPath();
 
+const DEV_PORT = 3001;
+
+/** This dev server's own origins — the only ones allowed to read the token. */
+const ALLOWED_ORIGINS = new Set([
+  `http://localhost:${DEV_PORT}`,
+  `http://127.0.0.1:${DEV_PORT}`,
+  `http://[::1]:${DEV_PORT}`,
+]);
+
 /**
  * Serves `~/.openade/dev/connection.json` at `/__openade/connection` so a
  * browser renderer can find a dev-mode server without Electron. Dev-only —
  * the production build embeds the desktop's preload channel instead.
+ *
+ * The body is the bearer token for a socket that accepts
+ * `orchestration.dispatch`, so a cross-origin read is refused: a page served
+ * by some other local dev server must not be able to fetch it. A request with
+ * no `Origin` header is same-origin navigation or a non-browser client, which
+ * is the normal case here.
  */
 const openadeConnection = (): Plugin => ({
   name: "openade-connection",
   apply: "serve",
   configureServer(server) {
-    server.middlewares.use("/__openade/connection", (_req, res) => {
+    server.middlewares.use("/__openade/connection", (req, res) => {
+      const origin = req.headers.origin;
+      if (typeof origin === "string" && !ALLOWED_ORIGINS.has(origin)) {
+        res.statusCode = 403;
+        res.end("cross-origin read refused");
+        return;
+      }
       if (!existsSync(DEV_CONNECTION_PATH)) {
         res.statusCode = 404;
         res.end("no dev server running");
@@ -34,7 +55,7 @@ const openadeConnection = (): Plugin => ({
 
 export default defineConfig({
   server: {
-    port: 3001,
+    port: DEV_PORT,
     strictPort: true,
   },
   resolve: {

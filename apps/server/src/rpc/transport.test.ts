@@ -327,8 +327,17 @@ describe("transport", () => {
           fetch(`${httpUrl}?token=wrong`).then((r) => r.status),
         );
         const missing = yield* Effect.promise(() => fetch(httpUrl).then((r) => r.status));
+        // The comparison is constant-time over equal-length buffers, so a
+        // wrong token of the same length and an empty one must both 401
+        // rather than throw out of the guard.
+        const sameLength = yield* Effect.promise(() =>
+          fetch(`${httpUrl}?token=${"x".repeat(TOKEN.length)}`).then((r) => r.status),
+        );
+        const empty = yield* Effect.promise(() => fetch(`${httpUrl}?token=`).then((r) => r.status));
         expect(denied).toBe(401);
         expect(missing).toBe(401);
+        expect(sameLength).toBe(401);
+        expect(empty).toBe(401);
       }),
     ),
   );

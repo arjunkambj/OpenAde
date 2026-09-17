@@ -4,6 +4,8 @@
  * ever runs. Everything else is `RpcServer` over `layerJson`.
  */
 
+import { Buffer } from "node:buffer";
+import { timingSafeEqual } from "node:crypto";
 import { OpenAdeRpcGroup } from "@OpenAde/contracts/rpc";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -26,6 +28,19 @@ export class ServerToken extends Context.Service<
   }
 >()("server/rpc/ServerToken") {}
 
+/**
+ * Constant-time token comparison. `timingSafeEqual` throws on unequal lengths,
+ * and the length itself is not a secret, so that case short-circuits.
+ */
+const tokenMatches = (presented: string | null, expected: string): boolean => {
+  if (presented === null) {
+    return false;
+  }
+  const a = Buffer.from(presented, "utf8");
+  const b = Buffer.from(expected, "utf8");
+  return a.length === b.length && timingSafeEqual(a, b);
+};
+
 const wsRoute = Effect.gen(function* () {
   const { token } = yield* ServerToken;
   const serialization = yield* Layer.build(RpcSerialization.layerJson);
@@ -41,7 +56,7 @@ const wsRoute = Effect.gen(function* () {
     Effect.gen(function* () {
       const request = yield* HttpServerRequest.HttpServerRequest;
       const url = new URL(request.url, "http://localhost");
-      if (url.searchParams.get("token") !== token) {
+      if (!tokenMatches(url.searchParams.get("token"), token)) {
         return HttpServerResponse.text("unauthorized", { status: 401 });
       }
       return yield* wsHandler;
