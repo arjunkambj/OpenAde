@@ -503,8 +503,20 @@ export const makeTranslator = (options: {
     }
   };
 
+  /**
+   * The streaming bookkeeping is turn-scoped: a row streamed this turn is only
+   * ever completed by this turn's transcript block or `nextState` replay, both
+   * of which land before the turn does. Carrying it further is what lets a
+   * later turn with the same text complete onto the earlier row.
+   */
+  const forgetStreamed = (): void => {
+    streamedText.clear();
+    streamedItemForText.clear();
+  };
+
   const completeTurn = (stopReason: TurnStopReason): PendingRuntimeEvent => {
     turnOpen = false;
+    forgetStreamed();
     return { type: "turn.completed", payload: { turnId: makeTurnId(), stopReason } };
   };
 
@@ -597,6 +609,12 @@ export const makeTranslator = (options: {
     }
     const full = (known ?? "") + text;
     streamedText.set(key, full);
+    // Only the whole text is a handle the transcript matches on: a shorter
+    // prefix is a stale key that both retains its string and answers a later
+    // lookup for text that happens to equal it.
+    if (known !== undefined) {
+      streamedItemForText.delete(known);
+    }
     streamedItemForText.set(full, itemId);
     out.push({ itemId, type: "content.delta", payload: { itemId, kind, delta: text } });
     return out;
@@ -633,6 +651,7 @@ export const makeTranslator = (options: {
       case "turn_start": {
         turnOpen = true;
         deltaRun += 1;
+        forgetStreamed();
         return [{ type: "turn.started", payload: { turnId: makeTurnId() } }];
       }
       case "message_start":
@@ -739,6 +758,8 @@ export const makeTranslator = (options: {
 
   const onExit = (code: number): ReadonlyArray<PendingRuntimeEvent> => {
     const out: Array<PendingRuntimeEvent> = [];
+    forgetStreamed(); // nothing can complete a dead process's rows any more
+
     const named = EXIT_MESSAGES[code];
     if (named !== undefined) {
       out.push({ type: "runtime.error", payload: { ...named } });

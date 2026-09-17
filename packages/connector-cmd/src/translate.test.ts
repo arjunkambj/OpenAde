@@ -735,6 +735,44 @@ describe("streaming deltas", () => {
     expect(toolInput[1]?.type === "content.delta" && toolInput[1].payload.kind).toBe("tool_input");
   });
 
+  it("matches on the whole streamed text, not on a prefix of it", () => {
+    const translate = translator();
+    translate.onFrame(runStart());
+    translate.onFrame(turnStart());
+    translate.onFrame(delta({ type: "message_delta", delta: { text: "one " } }));
+    translate.onFrame(delta({ type: "message_delta", delta: { text: "two" } }));
+
+    // "one " was a prefix on the way to "one two" — it is not a row anything
+    // may still complete onto.
+    const completed = translate.onTranscriptLine(
+      transcriptMessage("assistant", [{ type: "text", text: "one " }], "m-8"),
+    );
+    expect(types(completed)).toEqual(["item.completed"]);
+    expect(completed[0]?.type === "item.completed" && completed[0].payload.item.text).toBe("one ");
+  });
+
+  it("does not let one turn's streamed text complete the next turn's row", () => {
+    const translate = translator();
+    translate.onFrame(runStart());
+    translate.onFrame(turnStart());
+    const first = translate.onFrame(delta({ type: "message_delta", delta: { text: "same" } }));
+    translate.onTranscriptLine(
+      transcriptMessage("assistant", [{ type: "text", text: "same" }], "m-1"),
+    );
+    translate.onFrame(runEnd());
+
+    translate.onFrame(turnStart());
+    const second = translate.onFrame(delta({ type: "message_delta", delta: { text: "same" } }));
+    expect(types(second)).toEqual(["item.started", "content.delta"]);
+    expect(second[0]?.itemId).not.toBe(first[0]?.itemId);
+
+    // The second turn's identical text completes its own row.
+    const completed = translate.onTranscriptLine(
+      transcriptMessage("assistant", [{ type: "text", text: "same" }], "m-2"),
+    );
+    expect(completed[0]?.itemId).toBe(second[0]?.itemId);
+  });
+
   it("still reports a delta-shaped frame it cannot read as unmapped", () => {
     const translate = translator();
     expect(types(translate.onFrame(delta({ type: "mystery_delta", delta: {} })))).toEqual([
