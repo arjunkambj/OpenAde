@@ -17,8 +17,10 @@ import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
 
 import { BrowserPane } from "@/components/panes/browser/browser-pane";
 import { ChangesPane } from "@/components/panes/changes/changes-pane";
+import { FilesPane } from "@/components/panes/files/files-pane";
 import { Icon } from "@/lib/icon";
 import { cn } from "@/lib/utils";
+import { useConnectionState } from "@/state/hooks";
 import { useDockWidth } from "@/state/ui";
 
 const DOCK_TABS = ["changes", "browser", "files"] as const;
@@ -86,19 +88,6 @@ function DockTabButton({
   );
 }
 
-function DockEmpty({ icon, text }: { icon: string; text: string }) {
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-12 text-center">
-      <Icon icon={icon} className="size-6 text-muted-foreground" />
-      <p className="type-body text-muted-foreground">{text}</p>
-    </div>
-  );
-}
-
-function FilesPane() {
-  return <DockEmpty icon="hugeicons:folder-01" text="No workspace files to show yet." />;
-}
-
 export function RightDock({
   tab,
   onTabChange,
@@ -109,6 +98,7 @@ export function RightDock({
   snapshot: ThreadDetailSnapshot;
 }) {
   const { width, onPointerDown } = useDockResize();
+  const connection = useConnectionState();
 
   return (
     <aside
@@ -163,7 +153,12 @@ export function RightDock({
           <div className={tab === "browser" ? "contents" : "hidden"}>
             <BrowserPane threadId={snapshot.threadId} />
           </div>
-          {tab === "files" ? <FilesPane /> : null}
+          {tab === "files" ? (
+            <FilesPane
+              projectId={snapshot.projectId}
+              connected={connection.status === "connected"}
+            />
+          ) : null}
         </div>
       </div>
     </aside>
