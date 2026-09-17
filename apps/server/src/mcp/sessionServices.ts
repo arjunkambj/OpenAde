@@ -4,11 +4,11 @@
  * loopback MCP route, so every harness browser call arrives as
  * `mcp__openade__browser_*` against a per-session credential.
  *
- * `hookEndpoint` already returns a real bearer + route shape (it answers 501
- * until W2's hook bridge lands); `permissions.decide` falls back to the
- * thread-agnostic conservative default until the hook path supplies the
- * session's modes — the harness-side PreToolUse flow is where prompting
- * happens anyway.
+ * `hookEndpoint` returns a bearer + route shape for the same loopback server;
+ * the entrypoint replaces it with the hook bridge's own per-thread endpoint
+ * once that is built. `permissions.decide` forwards the thread and its live
+ * modes to the permission ladder, and a failure there reads as "prompt" —
+ * never as allow.
  */
 
 import { mkdir } from "node:fs/promises";
@@ -54,13 +54,15 @@ export class SessionServices extends Context.Service<SessionServices, ConnectorS
             bearer,
           })),
         permissions: {
-          decide: (request) =>
+          decide: (input) =>
             permissions
               .decide({
-                request,
-                runtimeMode: "approval-required",
-                interactionMode: "default",
+                request: input.request,
+                runtimeMode: input.runtimeMode,
+                interactionMode: input.interactionMode,
+                threadId: input.threadId,
               })
+              // A permissions failure must never read as allow.
               .pipe(Effect.orElseSucceed((): "prompt" => "prompt")),
         },
         attachmentsDir,
