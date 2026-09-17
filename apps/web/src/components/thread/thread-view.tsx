@@ -79,26 +79,31 @@ function ThreadHeader({
       </h1>
       <HeaderControls threadId={snapshot.threadId} className="min-w-0 flex-1 justify-end" />
       <StatusPill status={snapshot.status} />
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={dockTab === undefined ? "Open dock" : "Close dock"}
-              aria-pressed={dockTab !== undefined}
-              onClick={onDockToggle}
+      {/* The dock itself is `md:flex`, so below that breakpoint there is
+          nothing for this control to open — and a pressed toggle next to no
+          dock is the header lying about the layout. */}
+      <span className="hidden shrink-0 md:inline-flex">
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={dockTab === undefined ? "Open dock" : "Close dock"}
+                aria-pressed={dockTab !== undefined}
+                onClick={onDockToggle}
+              />
+            }
+          >
+            <Icon
+              icon="hugeicons:layout-right"
+              className={cn(dockTab !== undefined && "text-foreground")}
             />
-          }
-        >
-          <Icon
-            icon="hugeicons:layout-right"
-            className={cn(dockTab !== undefined && "text-foreground")}
-          />
-        </TooltipTrigger>
-        <TooltipContent>{dockTab === undefined ? "Open dock" : "Close dock"}</TooltipContent>
-      </Tooltip>
+          </TooltipTrigger>
+          <TooltipContent>{dockTab === undefined ? "Open dock" : "Close dock"}</TooltipContent>
+        </Tooltip>
+      </span>
     </header>
   );
 }
