@@ -3,11 +3,11 @@
  * and drop.
  *
  * Drop needs `dragover` cancelled — Chromium delivers `drop` only when the
- * preceding `dragover` was cancelled, so a bare `onDrop` never fires. The
- * window-level guard covers everywhere else: an uncancelled drop is a
- * navigation, which in the desktop shell replaces the app with the file.
- * Anything with its own drop target cancels the event first, so the guard
- * only eats what nothing wanted.
+ * preceding `dragover` was cancelled, so a bare `onDrop` never fires. That is
+ * all this hook does. Drops that land anywhere else are swallowed by
+ * `DropNavigationGuard` in `routes/__root.tsx`, which is mounted on every
+ * route — this hook is not, and a page with no composer must not be
+ * navigable away by a stray drop either.
  */
 
 import * as React from "react";
@@ -30,20 +30,6 @@ export interface Attachments {
 export function useAttachments(): Attachments {
   const [files, setFiles] = React.useState<ReadonlyArray<File>>([]);
   const [dragging, setDragging] = React.useState(false);
-
-  React.useEffect(() => {
-    const swallow = (event: DragEvent) => {
-      if (!event.defaultPrevented) {
-        event.preventDefault();
-      }
-    };
-    window.addEventListener("dragover", swallow);
-    window.addEventListener("drop", swallow);
-    return () => {
-      window.removeEventListener("dragover", swallow);
-      window.removeEventListener("drop", swallow);
-    };
-  }, []);
 
   const add = React.useCallback(
     (added: ReadonlyArray<File>) => setFiles((current) => [...current, ...added]),

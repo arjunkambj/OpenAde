@@ -69,6 +69,32 @@ function SettingsThemeSync() {
   return null;
 }
 
+/**
+ * Swallows a drop that lands on nothing. An uncancelled `drop` is a
+ * navigation, and in the desktop shell that replaces the whole app with the
+ * dropped file — so the guard has to be above the routes rather than inside
+ * the composer, which is not mounted on /welcome, /settings or /skills.
+ *
+ * Anything with its own drop target cancels the event first (the composer's
+ * `dropHandlers` do), so this only eats what nothing wanted.
+ */
+function DropNavigationGuard() {
+  React.useEffect(() => {
+    const swallow = (event: DragEvent) => {
+      if (!event.defaultPrevented) {
+        event.preventDefault();
+      }
+    };
+    window.addEventListener("dragover", swallow);
+    window.addEventListener("drop", swallow);
+    return () => {
+      window.removeEventListener("dragover", swallow);
+      window.removeEventListener("drop", swallow);
+    };
+  }, []);
+  return null;
+}
+
 function RootComponent() {
   return (
     <>
@@ -82,6 +108,7 @@ function RootComponent() {
         <AppAtomRegistryProvider>
           <ClientRuntimeBridge runtime={getAppAtoms()}>
             <SettingsThemeSync />
+            <DropNavigationGuard />
             {/* The only keydown listener in the renderer — see @/lib/shortcuts. */}
             <KeybindingsProvider>
               <DiffWorkerPoolProvider>
