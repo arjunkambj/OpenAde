@@ -16,7 +16,7 @@ This file is the hand-off between build sessions. Update the status table and th
 | W8 Git, checkpoints, files                       | `feat/w8-git`           | ready for review     | –              |
 | W4 Renderer shell and timeline                   | `feat/w4-renderer`      | ready for review     | –              |
 | W5 Composer and interaction cards                | `feat/w5-composer`      | ready for review     | –              |
-| W6 Browser, MCP server, preview pane             | `feat/w6-browser`       | not started (wave 2) | –              |
+| W6 Browser, MCP server, preview pane             | `feat/w6-browser`       | ready for review     | –              |
 | W9 Settings, connectors, MCP and skills editor   | `feat/w9-settings`      | ready for review     | –              |
 | W10 Integration                                  | `feat/w10-integration`  | not started (wave 3) | –              |
 
