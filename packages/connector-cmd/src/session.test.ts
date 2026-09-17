@@ -482,7 +482,39 @@ describe("makeCmdSession against a real spawned process", () => {
         hookSpecificOutput: { permissionDecision: string; permissionDecisionReason: string };
       };
       expect(questionResponse.hookSpecificOutput.permissionDecision).toBe("deny");
-      expect(questionResponse.hookSpecificOutput.permissionDecisionReason).toContain('"q1"');
+      // The model gets its own words back, not the ids the card ran on.
+      expect(JSON.parse(questionResponse.hookSpecificOutput.permissionDecisionReason)).toEqual([
+        { question: "which?", selected: ["A"] },
+      ]);
+
+      // A payload with no ids at all — bare string options, which the card
+      // numbers `o1`/`o2`. Those ids appear nowhere in the model's tool_input,
+      // so the answer has to travel as the labels it minted them for.
+      const bare = yield* Effect.forkChild(
+        handler!({
+          ...hookBody,
+          tool_name: "ask_user_question",
+          tool_input: { questions: [{ question: "ship it?", options: ["now", "after review"] }] },
+        }),
+      );
+      // Past items match too, so this has to be the card that is not the first.
+      const bareAsked = yield* collector.awaitItem(
+        (event) => event.type === "user-input.requested" && event.payload.requestId !== askedId,
+      );
+      const bareId = bareAsked.type === "user-input.requested" ? bareAsked.payload.requestId : null;
+      yield* handle.respondToUserInput(bareId!, [
+        { questionId: "q1", optionIds: ["o2"], text: "but check the migration" },
+      ]);
+      const bareResponse = (yield* Fiber.join(bare)) as {
+        hookSpecificOutput: { permissionDecisionReason: string };
+      };
+      expect(JSON.parse(bareResponse.hookSpecificOutput.permissionDecisionReason)).toEqual([
+        {
+          question: "ship it?",
+          selected: ["after review"],
+          text: "but check the migration",
+        },
+      ]);
 
       yield* handle.close();
     }),

@@ -11,11 +11,16 @@
  * So nothing here trusts the payload. Ids are minted when absent, string
  * options become `{optionId, label}`, a question that only has a header uses
  * it as its text, anything with no text at all is dropped, and no input can
- * make this throw. The minted ids are ours end to end — the answers go back to
- * the harness as JSON in `permissionDecisionReason`, never as its own ids.
+ * make this throw. The minted ids are ours end to end, and never go back out:
+ * `describeAnswers` resolves them to the question and option text the model
+ * itself wrote before the answers travel in `permissionDecisionReason`.
  */
 
-import type { UserQuestion, UserQuestionOption } from "@OpenAde/contracts/runtime";
+import type {
+  UserQuestion,
+  UserQuestionAnswer,
+  UserQuestionOption,
+} from "@OpenAde/contracts/runtime";
 
 const asRecord = (value: unknown): Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value)
@@ -89,6 +94,40 @@ const normalizeQuestion = (raw: unknown, index: number): UserQuestion | null => 
       : {}),
   };
 };
+
+/** One answer as the model can read it: the question, and what was picked. */
+interface DescribedAnswer {
+  readonly question: string;
+  readonly selected?: ReadonlyArray<string>;
+  readonly text?: string;
+}
+
+/**
+ * The answers, said in the model's own words rather than ours.
+ *
+ * Ids are the wrong currency going back: the ones above are minted whenever
+ * the payload omitted them, so `{"questionId":"q1","optionIds":["o2"]}` names
+ * nothing the model ever wrote and it cannot tell which option the user chose.
+ * Resolving each id against the question it came from puts the text back. An
+ * id with no question or option behind it is kept as-is — better a stray id
+ * than a dropped answer.
+ */
+export const describeAnswers = (
+  questions: ReadonlyArray<UserQuestion>,
+  answers: ReadonlyArray<UserQuestionAnswer>,
+): ReadonlyArray<DescribedAnswer> =>
+  answers.map((answer) => {
+    const asked = questions.find((question) => question.questionId === answer.questionId);
+    const selected = answer.optionIds.map(
+      (optionId) =>
+        asked?.options.find((option) => option.optionId === optionId)?.label ?? optionId,
+    );
+    return {
+      question: asked?.question ?? answer.questionId,
+      ...(selected.length === 0 ? {} : { selected }),
+      ...(answer.text === undefined || answer.text === "" ? {} : { text: answer.text }),
+    };
+  });
 
 /**
  * The `tool_input` of an `ask_user_question` call → the questions the card

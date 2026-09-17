@@ -21,6 +21,7 @@ import type {
   ApprovalRequest,
   ConnectorCapabilities,
   RuntimeEvent,
+  UserQuestion,
   UserQuestionAnswer,
 } from "@OpenAde/contracts/runtime";
 import * as Deferred from "effect/Deferred";
@@ -51,7 +52,7 @@ import { approvalKindFor, patternSuggestionFor } from "./approvals";
 import { ensureHookScript } from "./hookScript";
 import { makeLineSplitter, parseFrame } from "./ndjson";
 import { readPlanProposal } from "./plans";
-import { normalizeQuestions } from "./questions";
+import { describeAnswers, normalizeQuestions } from "./questions";
 import { buildArgs, envAllowlist, spawnProcess, type CmdProcess } from "./spawn";
 import { tailTranscript, transcriptPathFor } from "./transcript";
 import { makeTranslator, type PendingRuntimeEvent } from "./translate";
@@ -86,6 +87,8 @@ interface PendingApproval {
 
 interface PendingUserInput {
   readonly released: Deferred.Deferred<ReadonlyArray<UserQuestionAnswer>>;
+  /** What was asked, so the answer can go back as text rather than as our ids. */
+  readonly questions: ReadonlyArray<UserQuestion>;
 }
 
 /**
@@ -302,7 +305,9 @@ export const makeCmdSession = (
           // fails the encode and the card never reaches the renderer.
           const questions = normalizeQuestions(record.tool_input);
           const released = yield* Deferred.make<ReadonlyArray<UserQuestionAnswer>>();
-          yield* Ref.update(pendingUserInputs, (map) => new Map(map).set(requestId, { released }));
+          yield* Ref.update(pendingUserInputs, (map) =>
+            new Map(map).set(requestId, { released, questions }),
+          );
           yield* emit({
             type: "user-input.requested",
             requestId,
@@ -317,10 +322,11 @@ export const makeCmdSession = (
           yield* emit({ type: "user-input.resolved", requestId, payload: { requestId } });
           // Deny the tool and hand the answers back as the reason — the
           // harness reads them as context instead of asking interactively.
+          // In the model's own words: our ids mean nothing on its side.
           return {
             hookSpecificOutput: {
               permissionDecision: "deny",
-              permissionDecisionReason: JSON.stringify(answers),
+              permissionDecisionReason: JSON.stringify(describeAnswers(questions, answers)),
             },
           };
         }

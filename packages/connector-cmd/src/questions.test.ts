@@ -11,7 +11,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { UserQuestion } from "@OpenAde/contracts/runtime";
 import * as Schema from "effect/Schema";
 
-import { normalizeQuestions } from "./questions";
+import { describeAnswers, normalizeQuestions } from "./questions";
 
 const encodes = (questions: ReadonlyArray<UserQuestion>): boolean => {
   try {
@@ -109,6 +109,37 @@ describe("normalizeQuestions", () => {
     // A bare string is text, and text is a question worth showing.
     expect(normalizeQuestions("anything?")).toEqual([
       { questionId: "q1", question: "anything?", options: [] },
+    ]);
+  });
+});
+
+describe("describeAnswers", () => {
+  it("resolves our minted ids back to the text the model wrote", () => {
+    const questions = normalizeQuestions({
+      questions: [{ question: "Ship it?", options: ["now", "after review"] }],
+    });
+    expect(describeAnswers(questions, [{ questionId: "q1", optionIds: ["o2"] }])).toEqual([
+      { question: "Ship it?", selected: ["after review"] },
+    ]);
+  });
+
+  it("keeps freeform text, and every option of a multi-select", () => {
+    const questions = normalizeQuestions({
+      questions: [{ id: "which", question: "Which files?", options: ["a.ts", "b.ts"] }],
+    });
+    expect(
+      describeAnswers(questions, [
+        { questionId: "which", optionIds: ["o1", "o2"], text: "and c.ts" },
+      ]),
+    ).toEqual([{ question: "Which files?", selected: ["a.ts", "b.ts"], text: "and c.ts" }]);
+  });
+
+  it("falls back to the id when nothing is known about it", () => {
+    expect(describeAnswers([], [{ questionId: "q9", optionIds: ["o3"], text: "" }])).toEqual([
+      { question: "q9", selected: ["o3"] },
+    ]);
+    expect(describeAnswers([], [{ questionId: "q9", optionIds: [] }])).toEqual([
+      { question: "q9" },
     ]);
   });
 });
