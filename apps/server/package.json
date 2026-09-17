@@ -18,6 +18,7 @@
     "effect": "catalog:"
   },
   "devDependencies": {
+    "@OpenAde/client-runtime": "workspace:*",
     "@OpenAde/config": "workspace:*",
     "@OpenAde/testkit": "workspace:*",
     "@effect/vitest": "catalog:",

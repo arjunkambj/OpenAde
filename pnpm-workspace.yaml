@@ -2,6 +2,12 @@ packages:
   - "apps/*"
   - "packages/*"
 
+# Keep every Effect RC piece on the catalog's version — a transitive
+# resolution had pinned platform-node-shared@rc.115 against effect@rc.112,
+# which broke imports (effect/ByteSize does not exist in rc.112).
+overrides:
+  "@effect/platform-node-shared": 4.0.0-rc.112
+
 allowBuilds:
   electron: true
   esbuild: true
