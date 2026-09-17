@@ -4,6 +4,7 @@
  * and the `serverInstanceId` reset.
  */
 
+import { PROTOCOL_VERSION } from "@OpenAde/contracts/rpc";
 import { describe, expect, it } from "@effect/vitest";
 import type { ThreadId } from "@OpenAde/contracts/ids";
 import { makeEventId, makeItemId, makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
@@ -96,6 +97,8 @@ interface StubData {
   readonly list?: ListChannel;
   readonly projects?: Ref.Ref<ReadonlyArray<ProjectSummary>>;
   readonly settings?: () => Queue.Queue<Settings, unknown>;
+  /** What `server.hello` claims to speak; defaults to this build's version. */
+  readonly protocolVersion?: number;
 }
 
 /**
@@ -116,7 +119,7 @@ const fakeClient = (
         return () =>
           Ref.get(instanceId).pipe(
             Effect.map((serverInstanceId) => ({
-              protocolVersion: 1,
+              protocolVersion: data.protocolVersion ?? PROTOCOL_VERSION,
               serverInstanceId,
             })),
           );
@@ -506,6 +509,38 @@ describe("atoms", () => {
           awaitValue(registry, atom, (d) => d.items.length === 0),
         );
         expect(doc.items.length).toBe(0);
+      }),
+    ),
+  );
+
+  it.live("a server on another protocol version parks instead of subscribing", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const threadId = makeThreadId();
+        const queue = yield* Queue.unbounded<ThreadStreamItem, unknown>();
+        const instance = yield* Ref.make(INSTANCE);
+        const { registry, stateRef, threadDetailAtom } = yield* runtimeWith(
+          fakeClient(new Map([[threadId, queue]]), instance, {
+            protocolVersion: PROTOCOL_VERSION + 1,
+          }),
+          { status: "connecting", serverInstanceId: null },
+        );
+
+        registry.mount(threadDetailAtom(threadId));
+        // Decoding the other build's frames would fail opaquely, so the atom
+        // must never subscribe; the banner reads the status instead.
+        const seen = yield* SubscriptionRef.changes(stateRef).pipe(
+          Stream.filter((state) => state.status === "incompatible"),
+          Stream.take(1),
+          Stream.runCollect,
+          Effect.timeout("5 seconds"),
+        );
+        expect(seen[0]?.status).toBe("incompatible");
+
+        // A snapshot on the wire must not reach the atom.
+        yield* Queue.offer(queue, { kind: "snapshot", snapshot: snapshot(threadId) });
+        const result = registry.get(threadDetailAtom(threadId));
+        expect(AsyncResult.isSuccess(result)).toBe(false);
       }),
     ),
   );

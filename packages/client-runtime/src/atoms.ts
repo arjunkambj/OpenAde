@@ -40,9 +40,9 @@ import * as SubscriptionRef from "effect/SubscriptionRef";
 import * as Stream from "effect/Stream";
 import * as Atom from "effect/unstable/reactivity/Atom";
 import type * as RpcClientError from "effect/unstable/rpc/RpcClientError";
-import type { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
+import { PROTOCOL_VERSION, type OpenAdeRpcError } from "@OpenAde/contracts/rpc";
 
-import { Connection, ConnectionStateRef, markConnected } from "./connection";
+import { Connection, ConnectionStateRef, markConnected, markIncompatible } from "./connection";
 import { applyThreadListItem, applyThreadStreamItem } from "./clientState";
 
 export interface ConnectionLayer extends Layer.Layer<
@@ -85,6 +85,10 @@ const threadStream = (
       const client = yield* connection.client;
       const connectionState = yield* ConnectionStateRef;
       const hello = yield* client["server.hello"]({});
+      if (hello.protocolVersion !== PROTOCOL_VERSION) {
+        yield* markIncompatible;
+        return Stream.never;
+      }
       const doc = yield* Ref.get(state);
       const known = yield* SubscriptionRef.get(connectionState);
       const afterSequence =
@@ -121,6 +125,10 @@ const threadListStream = (
       const client = yield* connection.client;
       const connectionState = yield* ConnectionStateRef;
       const hello = yield* client["server.hello"]({});
+      if (hello.protocolVersion !== PROTOCOL_VERSION) {
+        yield* markIncompatible;
+        return Stream.never;
+      }
       const known = yield* SubscriptionRef.get(connectionState);
       const last = yield* Ref.get(sequence);
       const afterSequence =

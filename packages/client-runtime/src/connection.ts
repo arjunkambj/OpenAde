@@ -31,8 +31,17 @@ import * as RpcClient from "effect/unstable/rpc/RpcClient";
 import * as RpcSerialization from "effect/unstable/rpc/RpcSerialization";
 import * as Socket from "effect/unstable/socket/Socket";
 
-/** What `connectionStateAtom` and the reconnecting banner show. */
-export type ConnectionStatus = "connecting" | "connected" | "reconnecting" | "disconnected";
+/**
+ * What `connectionStateAtom` and the reconnecting banner show. `incompatible`
+ * is terminal: the server speaks a different protocol version, so retrying is
+ * pointless and one side has to be updated.
+ */
+export type ConnectionStatus =
+  | "connecting"
+  | "connected"
+  | "reconnecting"
+  | "disconnected"
+  | "incompatible";
 
 export interface ConnectionState {
   readonly status: ConnectionStatus;
@@ -261,3 +270,12 @@ export const markConnected = (serverInstanceId: string) =>
   ConnectionStateRef.use((state) =>
     SubscriptionRef.set(state, { status: "connected", serverInstanceId }),
   );
+
+/**
+ * The server answered `server.hello` with a protocol version this build does
+ * not speak. Subscribing anyway would fail with opaque decode errors, so the
+ * subscribers park and the banner asks for an update instead.
+ */
+export const markIncompatible = ConnectionStateRef.use((state) =>
+  SubscriptionRef.update(state, (previous) => ({ ...previous, status: "incompatible" as const })),
+);
