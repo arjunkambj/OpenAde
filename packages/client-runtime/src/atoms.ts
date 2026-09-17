@@ -22,6 +22,8 @@ import type {
   ThreadStreamItem,
 } from "@OpenAde/contracts/orchestration";
 import type {
+  BrowserHumanInput,
+  BrowserState,
   ConnectorSummary,
   FileSearchResult,
   ModelOption,
@@ -246,6 +248,29 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
     }),
   );
 
+  // W6: the thread's live browser state for the pane — `null` until the
+  // server answers, then the latest BrowserState (mode, url, frame, activeTool).
+  const browserStateAtom = Atom.family((threadId: ThreadId) =>
+    runtime.atom(
+      Effect.gen(function* () {
+        const client = yield* (yield* Connection).client;
+        return client["browser.subscribe"]({ threadId });
+      }).pipe(Stream.unwrap, Stream.retry(resubscribeSchedule)),
+      { initialValue: null as BrowserState | null },
+    ),
+  );
+
+  const sendBrowserInput = runtime.fn(
+    (args: { readonly threadId: ThreadId; readonly input: BrowserHumanInput }) =>
+      Effect.gen(function* () {
+        const client = yield* (yield* Connection).client;
+        return yield* client["browser.humanInput"]({
+          threadId: args.threadId,
+          input: args.input,
+        });
+      }),
+  );
+
   return {
     runtime,
     connectionStateAtom,
@@ -260,5 +285,7 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
     skillsAtom,
     keybindingsAtom,
     keybindingsUpdateAtom,
+    browserStateAtom,
+    sendBrowserInput,
   };
 };

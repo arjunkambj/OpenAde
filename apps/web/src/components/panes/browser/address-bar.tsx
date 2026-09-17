@@ -1,0 +1,113 @@
+/**
+ * The pane's toolbar: back/forward/reload as human gestures (each bumps the
+ * epoch, so they interrupt an in-flight agent call), an address field that
+ * mirrors the live url and navigates on Enter, and the status chip that shows
+ * who is driving — `agent: browser_click` while a `browser_*` call runs.
+ */
+import * as React from "react";
+
+import type { BrowserHumanInput, BrowserState } from "@OpenAde/contracts/rpc";
+import { Button } from "@OpenAde/ui/components/button";
+import { Input } from "@OpenAde/ui/components/input";
+
+import { Icon } from "@/lib/icon";
+import { cn } from "@/lib/utils";
+
+export interface AddressBarProps {
+  readonly state: BrowserState | null;
+  readonly onAction: (input: BrowserHumanInput) => void;
+}
+
+const normalizeAddress = (raw: string): string =>
+  /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(raw) ? raw : `https://${raw}`;
+
+const statusLabel = (state: BrowserState | null): { dot: string; label: string } => {
+  if (state === null) return { dot: "bg-muted-foreground/40", label: "connecting" };
+  if (state.activeTool !== undefined) {
+    return { dot: "bg-amber-500 animate-pulse", label: `agent: ${state.activeTool}` };
+  }
+  switch (state.status) {
+    case "ready":
+      return { dot: "bg-emerald-500", label: state.url === null ? "ready" : hostOf(state.url) };
+    case "starting":
+      return { dot: "bg-amber-500 animate-pulse", label: "starting" };
+    case "error":
+      return { dot: "bg-red-500", label: state.message ?? "error" };
+    case "stopped":
+      return { dot: "bg-muted-foreground/40", label: "stopped" };
+  }
+};
+
+const hostOf = (url: string): string => {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+};
+
+export function AddressBar({ state, onAction }: AddressBarProps) {
+  const [draft, setDraft] = React.useState("");
+  const [editing, setEditing] = React.useState(false);
+  const displayUrl = state?.url ?? "";
+  const status = statusLabel(state);
+
+  // The address mirrors the live url unless the human is mid-edit.
+  React.useEffect(() => {
+    if (!editing) setDraft(displayUrl);
+  }, [displayUrl, editing]);
+
+  const submit = () => {
+    const value = draft.trim();
+    if (value === "" || value === displayUrl) {
+      setEditing(false);
+      return;
+    }
+    onAction({ kind: "navigate", url: normalizeAddress(value) });
+    setEditing(false);
+  };
+
+  const history = (direction: "back" | "forward" | "reload") => () =>
+    onAction({ kind: "history", direction });
+
+  return (
+    <div className="flex items-center gap-1.5 border-b px-2 py-1.5">
+      <Button variant="ghost" size="icon-sm" onClick={history("back")} aria-label="Back">
+        <Icon icon="hugeicons:arrow-left-01" className="size-4" />
+      </Button>
+      <Button variant="ghost" size="icon-sm" onClick={history("forward")} aria-label="Forward">
+        <Icon icon="hugeicons:arrow-right-01" className="size-4" />
+      </Button>
+      <Button variant="ghost" size="icon-sm" onClick={history("reload")} aria-label="Reload">
+        <Icon icon="hugeicons:refresh" className="size-4" />
+      </Button>
+      <Input
+        value={draft}
+        onChange={(event) => {
+          setDraft(event.target.value);
+          setEditing(true);
+        }}
+        onFocus={() => setEditing(true)}
+        onBlur={() => setEditing(false)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") submit();
+          if (event.key === "Escape") {
+            setDraft(displayUrl);
+            setEditing(false);
+          }
+        }}
+        placeholder="Search or enter address"
+        spellCheck={false}
+        className="h-7 flex-1"
+        aria-label="Address"
+      />
+      <div
+        className="text-muted-foreground flex max-w-[40%] items-center gap-1.5 truncate px-1 text-xs"
+        title={status.label}
+      >
+        <span className={cn("size-1.5 shrink-0 rounded-full", status.dot)} />
+        <span className="truncate">{status.label}</span>
+      </div>
+    </div>
+  );
+}

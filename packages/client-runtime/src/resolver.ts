@@ -13,6 +13,12 @@ export interface ResolvedConnection {
   readonly token: string;
 }
 
+/** One gesture from inside a pane webview, shaped like `BrowserHumanInput`. */
+export interface BrowserPaneGuestInput {
+  readonly threadId: string;
+  readonly input: unknown;
+}
+
 declare global {
   interface Window {
     /**
@@ -26,6 +32,15 @@ declare global {
       readonly pickDirectory?: () => Promise<string | null>;
       /** Opens `url` in the system browser — the only sanctioned way out. */
       readonly openExternal?: (url: string) => Promise<void>;
+      /**
+       * Desktop-only browser-pane bridge (W6 mode A). Absent under a plain
+       * browser — the pane then renders the owned-Chromium frame stream.
+       */
+      readonly browserPane?: {
+        readonly attach: (threadId: string) => Promise<void>;
+        readonly detach: (threadId: string) => Promise<void>;
+        readonly onInput: (callback: (payload: BrowserPaneGuestInput) => void) => () => void;
+      };
     };
   }
 }
