@@ -17,6 +17,7 @@ import * as React from "react";
 
 import { CardShell } from "@/components/approvals/card-shell";
 import { useClientRuntime } from "@/lib/client-runtime";
+import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
 import { Icon } from "@/lib/icon";
 
 interface Draft {
@@ -141,12 +142,16 @@ export function QuestionCard({
       threadId,
       requestId,
       answers,
-    }).then((receipt) => {
-      setPending(false);
-      if (receipt.status === "rejected") {
-        setError(receipt.reason ?? "the server rejected the response");
-      }
-    });
+    }).then(
+      (receipt) => {
+        setPending(false);
+        setError(receiptError(receipt, "the server rejected the response"));
+      },
+      () => {
+        setPending(false);
+        setError(DISPATCH_UNREACHABLE);
+      },
+    );
   };
 
   return (

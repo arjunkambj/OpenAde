@@ -40,6 +40,7 @@ import {
 } from "@/components/composer/slash-menu";
 import { TriggerMenu, type TriggerMenuItem } from "@/components/composer/trigger-menu";
 import { useClientRuntime } from "@/lib/client-runtime";
+import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
 
 const ALL_EFFORTS: ReadonlyArray<Effort> = ["low", "medium", "high", "xhigh", "max"];
 
@@ -190,7 +191,10 @@ export function Composer({
           type: "thread.settings.update",
           threadId,
           ...item.action.patch,
-        });
+        }).then(
+          (receipt) => setError(receiptError(receipt, "the server rejected the setting")),
+          () => setError(DISPATCH_UNREACHABLE),
+        );
         return;
     }
   };
@@ -213,16 +217,18 @@ export function Composer({
       attachments,
       mentions: [...mentions],
       queued: queue || running,
-    }).then((receipt) => {
-      if (receipt.status === "accepted") {
-        setText("");
-        setMentions([]);
-        setFiles([]);
-        setError(null);
-      } else {
-        setError(receipt.reason ?? "the server rejected the message");
-      }
-    });
+    }).then(
+      (receipt) => {
+        const rejected = receiptError(receipt, "the server rejected the message");
+        if (rejected === null) {
+          setText("");
+          setMentions([]);
+          setFiles([]);
+        }
+        setError(rejected);
+      },
+      () => setError(DISPATCH_UNREACHABLE),
+    );
   };
 
   const onChangeText = (event: React.ChangeEvent<HTMLTextAreaElement>) => {

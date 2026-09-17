@@ -24,6 +24,7 @@ import * as React from "react";
 import { CardShell } from "@/components/approvals/card-shell";
 import { PatternEditor } from "@/components/approvals/pattern-editor";
 import { useClientRuntime } from "@/lib/client-runtime";
+import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
 import { Icon } from "@/lib/icon";
 
 const isEditableTarget = (target: EventTarget | null): boolean =>
@@ -91,12 +92,16 @@ export function ApprovalCard({
         requestId: request.requestId,
         decision,
         ...(withPattern ? { pattern } : {}),
-      }).then((receipt) => {
-        setPending(null);
-        if (receipt.status === "rejected") {
-          setError(receipt.reason ?? "the server rejected the response");
-        }
-      });
+      }).then(
+        (receipt) => {
+          setPending(null);
+          setError(receiptError(receipt, "the server rejected the response"));
+        },
+        () => {
+          setPending(null);
+          setError(DISPATCH_UNREACHABLE);
+        },
+      );
     },
     [dispatch, pattern, patternValid, request.requestId, threadId],
   );

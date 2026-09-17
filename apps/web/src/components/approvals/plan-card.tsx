@@ -22,6 +22,7 @@ import remarkGfm from "remark-gfm";
 
 import { CardShell } from "@/components/approvals/card-shell";
 import { useClientRuntime } from "@/lib/client-runtime";
+import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
 
 /** The elements a plan actually uses, styled against theme tokens. */
 const markdownComponents = {
@@ -93,12 +94,16 @@ export function PlanCard({
         turnId: plan.turnId,
         action,
         ...(note === undefined || note.length === 0 ? {} : { feedback: note }),
-      }).then((receipt) => {
-        setPending(null);
-        if (receipt.status === "rejected") {
-          setError(receipt.reason ?? "the server rejected the response");
-        }
-      });
+      }).then(
+        (receipt) => {
+          setPending(null);
+          setError(receiptError(receipt, "the server rejected the response"));
+        },
+        () => {
+          setPending(null);
+          setError(DISPATCH_UNREACHABLE);
+        },
+      );
     },
     [dispatch, plan.turnId, threadId],
   );
