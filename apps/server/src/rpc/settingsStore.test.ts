@@ -69,6 +69,20 @@ describe("SettingsStore", () => {
     ),
   );
 
+  it.effect("emptying the keybinding table through an update keeps it empty", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        // The same choice arrived at from the other direction: a fresh install
+        // seeded with the defaults, then emptied. Re-reading has to answer
+        // with the empty table, not slide the defaults back in.
+        const { store } = yield* fixture();
+        const updated = yield* store.update({ keybindings: [] });
+        expect(updated.keybindings).toEqual([]);
+        expect(yield* store.get).toEqual(updated);
+      }),
+    ),
+  );
+
   it.effect("an undecodable row is archived before the first write replaces it", () =>
     Effect.scoped(
       Effect.gen(function* () {
