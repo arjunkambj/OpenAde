@@ -158,7 +158,12 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
         },
       };
     case "thread.session.lost":
-      return { ...next, session: null, status: "error" };
+      // Dropping `currentTurn` matters as much as dropping the session: the
+      // turn it names can never complete, because the process that would have
+      // completed it is gone. Leaving it set makes the decider reject every
+      // later `thread.turn.start` ("a turn is already running") and leaves the
+      // queue with no drain — the thread would be wedged for good.
+      return { ...next, session: null, currentTurn: null, status: "error" };
     case "thread.turn.requested":
       return {
         ...next,
