@@ -15,9 +15,12 @@ import {
 } from "@OpenAde/ui/components/command";
 import { useSidebar } from "@OpenAde/ui/components/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+import type { ProjectId } from "@OpenAde/contracts/ids";
 
 import { Icon } from "@/lib/icon";
 import { matchShortcut, ShortcutKbd, type ShortcutId } from "@/lib/shortcuts";
+import { useCreateThread } from "@/lib/use-create-thread";
+import { useProjects, useThreadList } from "@/state/hooks";
 
 type SearchContextValue = {
   setOpen: (open: boolean) => void;
@@ -39,6 +42,10 @@ export function useSearch() {
   return context;
 }
 
+/**
+ * Every entry here has to land on something real — a palette that navigates to
+ * a blank pane is worse than one that is missing the entry.
+ */
 const searchItems = [
   {
     to: "/",
@@ -46,17 +53,7 @@ const searchItems = [
     label: "New task",
     shortcut: "newChat",
   },
-  {
-    to: "/review",
-    icon: "hugeicons:git-compare",
-    label: "Review work",
-  },
-  {
-    to: "/skills",
-    icon: "hugeicons:dashboard-circle-add",
-    label: "Skill & Plugins",
-    shortcut: "skills",
-  },
+  { to: "/settings/skills", icon: "hugeicons:magic-wand-01", label: "Skills" },
   { to: "/settings/connectors", icon: "hugeicons:plug-01", label: "Connectors" },
   {
     to: "/settings",
@@ -136,6 +133,69 @@ function ItemShortcut({ id }: { id?: ShortcutId }) {
   );
 }
 
+/**
+ * The threads and projects the palette can reach. A palette in a multi-thread
+ * app that cannot find a thread is a menu, so both lists come from the live
+ * atoms; picking a project starts a thread through the one create flow.
+ */
+function LiveGroups({ onDone }: { onDone: () => void }) {
+  const navigate = useNavigate();
+  const threads = useThreadList();
+  const projects = useProjects();
+  const { create } = useCreateThread();
+
+  const projectName = (projectId: ProjectId): string =>
+    projects.find((project) => project.projectId === projectId)?.name ?? "Other threads";
+
+  return (
+    <>
+      {threads.length === 0 ? null : (
+        <>
+          <CommandSeparator />
+          <CommandGroup heading="Threads">
+            {threads.map((thread) => (
+              <CommandItem
+                key={thread.threadId}
+                value={`${thread.title} ${projectName(thread.projectId)} ${thread.threadId}`}
+                onSelect={() => {
+                  onDone();
+                  void navigate({ to: "/t/$threadId", params: { threadId: thread.threadId } });
+                }}
+              >
+                <Icon icon="hugeicons:message-01" />
+                <span className="min-w-0 flex-1 truncate">{thread.title}</span>
+                <span className="shrink-0 type-micro text-muted-foreground">
+                  {projectName(thread.projectId)}
+                </span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </>
+      )}
+      {projects.length === 0 ? null : (
+        <>
+          <CommandSeparator />
+          <CommandGroup heading="Start a thread">
+            {projects.map((project) => (
+              <CommandItem
+                key={project.projectId}
+                value={`New thread in ${project.name}`}
+                onSelect={() => {
+                  onDone();
+                  void create(project.projectId);
+                }}
+              >
+                <Icon icon="hugeicons:add-01" />
+                New thread in {project.name}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </>
+      )}
+    </>
+  );
+}
+
 function SearchDialog({
   open,
   onOpenChange,
@@ -149,7 +209,7 @@ function SearchDialog({
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange} title="Search">
       <Command>
-        <CommandInput placeholder="Search..." />
+        <CommandInput placeholder="Search threads and commands…" />
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
           <CommandGroup heading="Navigation">
@@ -182,6 +242,7 @@ function SearchDialog({
               <ItemShortcut id="toggle" />
             </CommandItem>
           </CommandGroup>
+          <LiveGroups onDone={() => onOpenChange(false)} />
         </CommandList>
       </Command>
     </CommandDialog>
