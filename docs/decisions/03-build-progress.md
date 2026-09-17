@@ -12,7 +12,7 @@ This file is the hand-off between build sessions. Update the status table and th
 | W1 Persistence and orchestration engine          | `feat/w1-orchestration` | ready for review     | –              |
 | W2 Command Code connector                        | `feat/w2-connector-cmd` | not started          | –              |
 | W3 Transport and client runtime                  | `feat/w3-transport`     | ready for review     | –              |
-| W7 Desktop shell and packaging                   | `feat/w7-desktop`       | not started          | –              |
+| W7 Desktop shell and packaging                   | `feat/w7-desktop`       | ready for review     | –              |
 | W8 Git, checkpoints, files                       | `feat/w8-git`           | ready for review     | –              |
 | W4 Renderer shell and timeline                   | `feat/w4-renderer`      | not started (wave 2) | –              |
 | W5 Composer and interaction cards                | `feat/w5-composer`      | not started (wave 2) | –              |
