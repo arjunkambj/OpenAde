@@ -18,6 +18,7 @@ import type {
   ModelOption,
   SkillSummary,
 } from "@OpenAde/contracts/rpc";
+import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
 import { Settings } from "@OpenAde/contracts/settings";
 import type { SettingsPatch } from "@OpenAde/contracts/settings";
 import type { ConnectorInstanceId, ProjectId, ThreadId } from "@OpenAde/contracts/ids";
@@ -66,13 +67,13 @@ export class FileService extends Context.Service<
       projectId: ProjectId,
       query: string,
       limit?: number,
-    ) => Effect.Effect<ReadonlyArray<FileSearchResult>>;
+    ) => Effect.Effect<ReadonlyArray<FileSearchResult>, OpenAdeRpcError>;
     readonly read: (
       projectId: ProjectId,
       path: string,
       offset?: number,
       limit?: number,
-    ) => Effect.Effect<FileContent>;
+    ) => Effect.Effect<FileContent, OpenAdeRpcError>;
   }
 >()("server/rpc/FileService") {
   static readonly empty = Layer.succeed(
@@ -90,7 +91,7 @@ export class FileService extends Context.Service<
 export class GitService extends Context.Service<
   GitService,
   {
-    readonly status: (projectId: ProjectId) => Effect.Effect<GitStatus>;
+    readonly status: (projectId: ProjectId) => Effect.Effect<GitStatus, OpenAdeRpcError>;
     readonly diff: (
       projectId: ProjectId,
       options: {
@@ -98,7 +99,7 @@ export class GitService extends Context.Service<
         readonly to?: string;
         readonly path?: string;
       },
-    ) => Effect.Effect<GitDiff>;
+    ) => Effect.Effect<GitDiff, OpenAdeRpcError>;
   }
 >()("server/rpc/GitService") {
   static readonly empty = Layer.succeed(
