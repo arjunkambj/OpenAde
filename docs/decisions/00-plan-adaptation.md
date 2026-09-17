@@ -7,7 +7,7 @@ Applies to `docs/specs/mvp-build-spec.md` (v0.2, 2026-09-15). Every workstream r
 - The spec names `/Volumes/main/Code/ade/openade/` as the root. That path does not exist. The root is **this repository** (`OpenAde`).
 - Existing packages stay and are extended, never rebuilt: `apps/web` (React 19, TanStack Router, Tailwind 4), `apps/desktop` (Electron 44, esbuild scripts), `packages/ui` (shadcn/base-ui design system), `packages/config` (tsconfig base).
 - New packages follow the spec's section 4 exactly: `apps/server`, `packages/{contracts,connector-sdk,connector-cmd,client-runtime,shared,testkit}`.
-- Apps are unscoped (`web`, `desktop`, `server`). Packages are `@OpenAde/*` (matches `packages/ui`) and export TypeScript source, no build step (01 · D1). Config dir is `~/.openade`. The renderer scheme stays `app://openade/` as already implemented in `apps/desktop`.
+- Apps are unscoped (`web`, `desktop`, `server`). Packages are `@OpenAde/*` (matches `packages/ui`) and export TypeScript source, no build step (01 · D1). Config dir is `~/.openade`. The renderer scheme is `openade://app/` (spec sections 13 and 17); the scaffold's generic `app://openade/` was replaced when the browser pane made the renderer's origin load-bearing.
 - The spec's `docs/decisions/` lives at `docs/decisions/` in this repo and is tracked; the rest of `docs/` is private and ignored.
 
 ## Renderer

@@ -1,6 +1,11 @@
 /**
- * The `app://` scheme serves the bundled renderer with SPA fallback so the
- * history router keeps working inside Electron.
+ * The `openade://app/` scheme serves the bundled renderer with SPA fallback so
+ * the history router keeps working inside Electron.
+ *
+ * The scheme is the product's own (spec sections 13 and 17), not the generic
+ * `app://` the scaffold used: the renderer's origin is what any origin check or
+ * CSP is written against, and `app://` is one every other Electron app on the
+ * machine may also claim.
  */
 import { existsSync, statSync } from "node:fs";
 import { join, normalize, sep } from "node:path";
@@ -8,8 +13,8 @@ import { pathToFileURL } from "node:url";
 
 import { net, protocol } from "electron";
 
-export const APP_SCHEME = "app";
-export const APP_URL = `${APP_SCHEME}://openade/`;
+export const APP_SCHEME = "openade";
+export const APP_URL = `${APP_SCHEME}://app/`;
 
 const rendererRoot = normalize(join(__dirname, "..", "renderer"));
 

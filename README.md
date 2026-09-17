@@ -84,8 +84,8 @@ OpenAde/
 
 `apps/desktop` is an Electron shell around the `apps/web` build.
 
-- `src/main/index.ts`: main process — window, custom `app://` scheme that serves the
-  built web app (with SPA fallback so the router keeps working)
+- `src/main/index.ts`: main process — window, custom `openade://app/` scheme that serves
+  the built web app (with SPA fallback so the router keeps working)
 - `src/preload/index.ts`: sandboxed preload that flags the renderer with
   `data-desktop` / `data-desktop-mac`
 - `scripts/build.mjs`: bundles main + preload with esbuild and copies `apps/web/dist`
