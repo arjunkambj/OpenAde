@@ -25,6 +25,12 @@
  *   contains "tool"/"shell"  a shell_command tool call, through the hook
  *   anything else         a short text answer
  *
+ * Attachments come in the way the real CLI's argv leaves open (no image flag
+ * exists — docs/decisions/w10-attachments.md): an `Attachment (<type>): <path>`
+ * line in the prompt, with the directory passed as `--add-dir`. Every such path
+ * is really opened, recorded on the user message as a transcript image block,
+ * and described back, so a test can tell a staged file from a missing one.
+ *
  * Deliberately faithful where the connector looks: the transcript is appended
  * line by line while the run is in flight (so a tailer sees partial files), the
  * `session: <id>` line goes to stderr first, `--session` resumes an existing
@@ -181,9 +187,80 @@ const record = (message, extra = {}) => {
   });
 };
 
+// ── attachments (decision W10) ─────────────────────────────────
+
+/** The directories this run was allowed to read, from every `--add-dir`. */
+const addedDirs = argv.flatMap((arg, index) => (arg === "--add-dir" ? [argv[index + 1]] : []));
+
+/** `Attachment: <path>` / `Attachment (<media type>): <path>` lines, in order. */
+const attachmentPaths = prompt
+  .split("\n")
+  .map((line) => /^Attachment(?: \(([^)]*)\))?: (.+)$/.exec(line.trim()))
+  .filter((match) => match !== null)
+  .map((match) => ({ declaredType: match[1] ?? null, path: match[2] }));
+
+const MAGIC = [
+  ["image/png", [0x89, 0x50, 0x4e, 0x47]],
+  ["image/jpeg", [0xff, 0xd8, 0xff]],
+  ["image/gif", [0x47, 0x49, 0x46, 0x38]],
+];
+
+/** What the bytes are, the way a harness that actually looks would decide. */
+const sniff = (buffer) => {
+  for (const [type, signature] of MAGIC) {
+    if (signature.every((byte, index) => buffer[index] === byte)) return type;
+  }
+  if (
+    buffer.subarray(0, 4).toString("ascii") === "RIFF" &&
+    buffer.subarray(8, 12).toString("ascii") === "WEBP"
+  ) {
+    return "image/webp";
+  }
+  return null;
+};
+
+/** Reads each attachment; a failure is reported, never silently dropped. */
+const attachments = attachmentPaths.map((entry) => {
+  const readable = addedDirs.some((dir) => dir !== undefined && entry.path.startsWith(dir));
+  try {
+    const bytes = fs.readFileSync(entry.path);
+    return {
+      ...entry,
+      readable,
+      bytes,
+      mediaType: sniff(bytes),
+      name: path.basename(entry.path),
+    };
+  } catch (cause) {
+    return {
+      ...entry,
+      readable,
+      bytes: null,
+      error: String(cause),
+      name: path.basename(entry.path),
+    };
+  }
+});
+
+/** Transcript image blocks (spec 5.2/5.3) for everything that really opened. */
+const attachmentBlocks = attachments.flatMap((file) =>
+  file.bytes === null || file.mediaType === null
+    ? []
+    : [
+        {
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: file.mediaType,
+            data: file.bytes.toString("base64"),
+          },
+        },
+      ],
+);
+
 const userMessage = {
   role: "user",
-  content: [{ type: "text", text: prompt }],
+  content: [{ type: "text", text: prompt }, ...attachmentBlocks],
   meta: { source: "user", createdAt: Date.now(), messageId: nextId("user") },
 };
 
@@ -344,7 +421,23 @@ const writePlan = () => {
 
 const lower = prompt.toLowerCase();
 
+/** What the run says about the files it was handed. */
+const describeAttachments = () =>
+  attachments
+    .map((file) =>
+      file.bytes === null
+        ? `I could not open ${file.name}: ${file.error}`
+        : `I opened ${file.name} — ${file.mediaType ?? "not an image"}, ${file.bytes.length} bytes${
+            file.readable ? "" : " (outside every --add-dir)"
+          }`,
+    )
+    .join("\n");
+
 const scenario = () => {
+  if (attachments.length > 0) {
+    say(describeAttachments());
+    return "end_turn";
+  }
   if (lower.includes("question")) {
     const answer = runTool(
       "ask_user_question",
