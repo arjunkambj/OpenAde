@@ -40,6 +40,11 @@ export interface CheckpointRestoreInput {
   readonly workspaceRoot: string;
 }
 
+export interface CheckpointPruneInput {
+  readonly threadId: ThreadId;
+  readonly workspaceRoot: string;
+}
+
 export class CheckpointHook extends Context.Service<
   CheckpointHook,
   {
@@ -47,6 +52,7 @@ export class CheckpointHook extends Context.Service<
       input: CheckpointCaptureInput,
     ) => Effect.Effect<CheckpointSummary | null, CheckpointHookError>;
     readonly restore: (input: CheckpointRestoreInput) => Effect.Effect<void, CheckpointHookError>;
+    readonly prune: (input: CheckpointPruneInput) => Effect.Effect<void, CheckpointHookError>;
   }
 >()("server/orchestration/CheckpointHook") {
   /** No git integration yet — capture reports nothing to record. */
@@ -54,6 +60,7 @@ export class CheckpointHook extends Context.Service<
     CheckpointHook,
     CheckpointHook.of({
       capture: () => Effect.succeed(null),
+      prune: () => Effect.void,
       restore: () =>
         Effect.fail(
           new CheckpointHookError({
@@ -94,7 +101,29 @@ export const CheckpointReactor: Layer.Layer<never, never, OrchestrationEngine | 
       const eventMailbox = yield* engine.subscribeEvents;
       yield* Stream.runForEach(Stream.fromSubscription(eventMailbox), (event) =>
         Effect.gen(function* () {
-          if (event.streamKind !== "thread" || event.type !== "thread.turn.completed") {
+          if (event.streamKind !== "thread") {
+            return;
+          }
+          // Thread deleted → drop every hidden checkpoint ref under its prefix.
+          if (event.type === "thread.deleted") {
+            const threadId = event.streamId as ThreadId;
+            const doc = yield* engine.threadDoc(threadId);
+            if (doc === null) {
+              return;
+            }
+            const workspaceRoot = yield* workspaceRootFor(doc);
+            if (workspaceRoot === null) {
+              return;
+            }
+            return yield* hook
+              .prune({ threadId, workspaceRoot })
+              .pipe(
+                Effect.catch((error) =>
+                  Effect.logWarning(`checkpoint prune failed: ${error.message}`),
+                ),
+              );
+          }
+          if (event.type !== "thread.turn.completed") {
             return;
           }
           const threadId = event.streamId as ThreadId;
