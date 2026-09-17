@@ -5,8 +5,15 @@
  * `files.read` is a paging interface: it answers lines `[offset, offset+limit)`
  * plus the file's real `totalLines`, and reports `truncated` when its own byte
  * or character cap bit. So the preview is a page over the whole file rather
- * than one best-effort slice — page 41 of a 20,000-line file is a request, not
- * a scroll.
+ * than one best-effort slice — line 20,000 of a 20,000-line file is a request,
+ * not a scroll.
+ *
+ * Paging is by line offset rather than by page number, because the server is
+ * free to answer a window *short*: its 512K-character cap stops the read
+ * wherever it bites, so a 500-line request in the middle of a file with long
+ * lines comes back as 262 lines and `truncated`. Counting pages would then step
+ * over the 238 lines it did not send. The next window therefore starts at the
+ * last line this one actually returned, and `capped` says so in the footer.
  *
  * The judgement calls: what counts as binary (the server decodes every file as
  * UTF-8, so a PNG comes back as mojibake rather than as an error), and where a
@@ -18,9 +25,9 @@ import type { FileContent } from "@OpenAde/contracts/rpc";
 /** Lines per page. Big enough to read, small enough to render as plain DOM. */
 export const PAGE_LINES = 500;
 
-/** The `files.read` window for a zero-based page number. */
-export const windowFor = (page: number): { readonly offset: number; readonly limit: number } => ({
-  offset: Math.max(0, Math.trunc(page)) * PAGE_LINES,
+/** The `files.read` window that starts at a zero-based line offset. */
+export const windowFor = (offset: number): { readonly offset: number; readonly limit: number } => ({
+  offset: Math.max(0, Math.trunc(offset)),
   limit: PAGE_LINES,
 });
 
@@ -31,6 +38,10 @@ export interface PagePosition {
   readonly totalLines: number;
   readonly hasPrevious: boolean;
   readonly hasNext: boolean;
+  /** Where the following window starts — the line after this page's last. */
+  readonly nextOffset: number;
+  /** The server cut this window short of `PAGE_LINES` with more file to come. */
+  readonly capped: boolean;
   /** The footer sentence — "Lines 501–1,000 of 12,043". */
   readonly label: string;
 }
@@ -38,25 +49,30 @@ export interface PagePosition {
 const count = (value: number): string => value.toLocaleString("en-US");
 
 /** Where this page sits in the file, given what the server actually returned. */
-export const pagePosition = (page: number, content: FileContent): PagePosition => {
-  const { offset } = windowFor(page);
+export const pagePosition = (offset: number, content: FileContent): PagePosition => {
+  const start = windowFor(offset).offset;
   const lines = lineCount(content.text);
-  const total = Math.max(content.totalLines, offset + lines);
-  const firstLine = lines === 0 ? 0 : offset + 1;
-  const lastLine = offset + lines;
+  const total = Math.max(content.totalLines, start + lines);
+  const firstLine = lines === 0 ? 0 : start + 1;
+  const lastLine = start + lines;
+  const hasNext = lines > 0 && lastLine < total;
   return {
     firstLine,
     lastLine,
     totalLines: total,
-    hasPrevious: offset > 0,
-    // Trust the returned line count over `totalLines`: a page that came back
-    // short is the last one even if the file grew between two reads.
-    hasNext: lines > 0 && lastLine < total,
+    hasPrevious: start > 0,
+    // Trust the returned line count over `totalLines`: a window that ran to the
+    // end of the file is the last one even if the file grew between two reads.
+    hasNext,
+    nextOffset: lastLine,
+    // A short window with file still to come was cut by the server's own cap,
+    // not by the end of the file — the next page picks up where it stopped.
+    capped: hasNext && content.truncated && lines < PAGE_LINES,
     label:
       lines === 0
         ? total === 0
           ? "Empty file"
-          : `No lines past ${count(offset)} of ${count(total)}`
+          : `No lines past ${count(start)} of ${count(total)}`
         : `Lines ${count(firstLine)}–${count(lastLine)} of ${count(total)}`,
   };
 };
@@ -75,12 +91,12 @@ export interface PreviewLine {
   readonly text: string;
 }
 
-export const previewLines = (page: number, content: FileContent): ReadonlyArray<PreviewLine> => {
+export const previewLines = (offset: number, content: FileContent): ReadonlyArray<PreviewLine> => {
   if (content.text === "") {
     return [];
   }
-  const { offset } = windowFor(page);
-  return content.text.split("\n").map((text, index) => ({ number: offset + index + 1, text }));
+  const start = windowFor(offset).offset;
+  return content.text.split("\n").map((text, index) => ({ number: start + index + 1, text }));
 };
 
 /** How much of the text is sampled before deciding it is not text. */

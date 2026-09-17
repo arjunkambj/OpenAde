@@ -96,9 +96,12 @@ The Files tab was a placeholder reading "No workspace files to show yet". It is
 now a search over the project's ignore-aware listing (`files.search`), a
 directory row that drills in by searching its own prefix, and a read-only
 preview with line numbers over `files.read`. The preview **pages**: `files.read`
-answers a line window plus the file's real line count, so page 41 of a
+answers a line window plus the file's real line count, so line 20,000 of a
 20,000-line file is a request rather than a scroll into a cap the server will
-not lift. Verified live on this repository's own `pnpm-lock.yaml`
+not lift. Paging is by line offset, not by page number — the server's 512K-char
+cap can answer a 500-line window with 262 lines in the middle of a file, and the
+next window has to resume on line 263 rather than on line 501. Verified live on
+this repository's own `pnpm-lock.yaml`
 (10,181 lines, paged to lines 2,501–3,000) and on `apps/web/public/favicon.png`,
 which reports as binary rather than rendering mojibake.
 

@@ -6,8 +6,12 @@
  * Everything the server cannot express — an empty file, a window past the end,
  * bytes that are not text — is decided in `./preview` and tested there.
  *
- * The parent mounts this with `key={path}`, so opening another file starts on
- * page one instead of inheriting this file's.
+ * The page is a line *offset*, not a page number: the server may answer a
+ * window short when its character cap bites, so Next resumes at the last line
+ * it actually sent and Previous walks back over the offsets already visited.
+ *
+ * The parent mounts this with `key={path}`, so opening another file starts at
+ * the top instead of inheriting this file's position.
  */
 
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
@@ -22,10 +26,10 @@ import { Icon } from "@/lib/icon";
 
 import { useFileAtoms } from "./file-atoms";
 import { PaneMessage } from "./pane-message";
-import { looksBinary, pagePosition, previewLines, windowFor } from "./preview";
+import { looksBinary, PAGE_LINES, pagePosition, previewLines, windowFor } from "./preview";
 
-function LineTable({ page, content }: { page: number; content: FileContent }) {
-  const lines = previewLines(page, content);
+function LineTable({ offset, content }: { offset: number; content: FileContent }) {
+  const lines = previewLines(offset, content);
   return (
     <div className="min-h-0 flex-1 overflow-auto [scrollbar-width:thin]">
       <table className="w-full border-collapse font-mono text-xs">
@@ -56,8 +60,11 @@ export function FilePreview({
   readonly connected: boolean;
 }) {
   const atoms = useFileAtoms();
-  const [page, setPage] = React.useState(0);
-  const atom = atoms.fileContentAtom({ projectId, path, ...windowFor(page) });
+  const [offset, setOffset] = React.useState(0);
+  // The offsets Next came from, so Previous lands back on the exact windows the
+  // reader saw — a page the server cut short is not PAGE_LINES wide.
+  const [visited, setVisited] = React.useState<ReadonlyArray<number>>([]);
+  const atom = atoms.fileContentAtom({ projectId, path, ...windowFor(offset) });
   const result = useAtomValue(atom);
   const refresh = useAtomRefresh(atom);
 
@@ -108,17 +115,17 @@ export function FilePreview({
     );
   }
 
-  const position = pagePosition(page, content);
+  const position = pagePosition(offset, content);
   if (position.firstLine === 0 && !position.hasPrevious) {
     return <PaneMessage icon="hugeicons:file-01" text="This file is empty." detail={path} />;
   }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <LineTable page={page} content={content} />
+      <LineTable offset={offset} content={content} />
       <div className="flex h-8 shrink-0 items-center gap-1.5 border-t border-border px-2 type-micro text-muted-foreground">
         <span className="min-w-0 truncate">{position.label}</span>
-        {content.truncated && !position.hasNext ? (
+        {position.capped || (content.truncated && !position.hasNext) ? (
           <span className="shrink-0">· capped by the server</span>
         ) : null}
         <div className="ml-auto flex shrink-0 items-center gap-0.5">
@@ -128,7 +135,10 @@ export function FilePreview({
             size="icon-sm"
             aria-label="Previous page"
             disabled={!position.hasPrevious}
-            onClick={() => setPage((current) => Math.max(0, current - 1))}
+            onClick={() => {
+              setOffset(visited.at(-1) ?? Math.max(0, offset - PAGE_LINES));
+              setVisited((stack) => stack.slice(0, -1));
+            }}
           >
             <Icon icon="hugeicons:arrow-up-01" className="size-3.5" />
           </Button>
@@ -138,7 +148,10 @@ export function FilePreview({
             size="icon-sm"
             aria-label="Next page"
             disabled={!position.hasNext}
-            onClick={() => setPage((current) => current + 1)}
+            onClick={() => {
+              setVisited((stack) => [...stack, offset]);
+              setOffset(position.nextOffset);
+            }}
           >
             <Icon icon="hugeicons:arrow-down-01" className="size-3.5" />
           </Button>
