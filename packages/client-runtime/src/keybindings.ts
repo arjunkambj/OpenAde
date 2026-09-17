@@ -65,7 +65,16 @@ const KEY_ALIASES: Readonly<Record<string, string>> = {
   minus: "-",
 };
 
-const MODIFIER_TOKENS = new Set(["cmd", "mod", "meta", "ctrl", "control", "alt", "option", "shift"]);
+const MODIFIER_TOKENS = new Set([
+  "cmd",
+  "mod",
+  "meta",
+  "ctrl",
+  "control",
+  "alt",
+  "option",
+  "shift",
+]);
 
 const normaliseKey = (token: string): string | null => {
   const lower = token.toLowerCase();
@@ -297,7 +306,9 @@ export const evaluateWhen = (expression: string, context: WhenContext): boolean 
     if (token?.kind === "op" && token.value === "!") {
       take();
       const value = parseUnary();
-      return value === null ? null : !(value === true || (typeof value === "string" && value.length > 0));
+      return value === null
+        ? null
+        : !(value === true || (typeof value === "string" && value.length > 0));
     }
     return parsePrimary();
   };

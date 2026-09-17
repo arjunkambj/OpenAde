@@ -31,10 +31,7 @@ const TRIGGER_LOOKBACK = 64;
  * trigger char and the caret closes the token, so scanning stops at the first
  * space met walking backwards.
  */
-export const detectComposerTrigger = (
-  text: string,
-  cursor: number,
-): ComposerTrigger | null => {
+export const detectComposerTrigger = (text: string, cursor: number): ComposerTrigger | null => {
   const position = Math.max(0, Math.min(cursor, text.length));
   const start = Math.max(0, position - TRIGGER_LOOKBACK);
   const slice = text.slice(start, position);

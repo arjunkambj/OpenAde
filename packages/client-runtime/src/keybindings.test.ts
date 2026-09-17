@@ -77,9 +77,7 @@ describe("matchShortcut", () => {
 
   it("matches letters regardless of case from Shift", () => {
     const binding = parseShortcut("Cmd+Shift+B")!;
-    expect(
-      matchShortcut(binding, press("B", { metaKey: true, shiftKey: true }), mac),
-    ).toBe(true);
+    expect(matchShortcut(binding, press("B", { metaKey: true, shiftKey: true }), mac)).toBe(true);
   });
 });
 
@@ -146,9 +144,9 @@ describe("resolveKeybinding", () => {
     expect(
       resolveKeybinding(bindings, press("k", { metaKey: true }), () => false, "meta")?.command,
     ).toBe("commandPalette.toggle");
-    expect(
-      resolveKeybinding(bindings, press("Escape"), () => false, "meta")?.command,
-    ).toBe("thread.interrupt");
+    expect(resolveKeybinding(bindings, press("Escape"), () => false, "meta")?.command).toBe(
+      "thread.interrupt",
+    );
   });
 
   it("honours when clauses and returns null on no match", () => {
