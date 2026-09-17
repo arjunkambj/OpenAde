@@ -40,3 +40,23 @@ export const browserStatus = (state: BrowserState | null): BrowserStatusChip => 
       return { dot: "bg-muted-foreground/40", label: "stopped" };
   }
 };
+
+/**
+ * What the frame surface says when there is no frame yet.
+ *
+ * It used to be `state.message ?? "starting…"`, which told a *stopped* browser
+ * it was starting — the status chip beside it said "stopped" at the same time.
+ * Nothing is starting until an agent call (or the address bar) asks for it.
+ */
+export const frameFallback = (state: BrowserState): string => {
+  switch (state.status) {
+    case "ready":
+      return "waiting for first frame…";
+    case "starting":
+      return state.message ?? "starting…";
+    case "error":
+      return state.message ?? "the browser could not start";
+    case "stopped":
+      return state.message ?? "not running — it starts on the first agent call";
+  }
+};

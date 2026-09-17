@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { makeThreadId } from "@OpenAde/contracts/ids";
 import type { BrowserState } from "@OpenAde/contracts/rpc";
 
-import { browserStatus } from "./status";
+import { browserStatus, frameFallback } from "./status";
 
 const base: BrowserState = {
   threadId: makeThreadId(),
@@ -35,5 +35,36 @@ describe("browserStatus", () => {
     expect(browserStatus({ ...base, status: "error", message: "boom" }).label).toBe("boom");
     expect(browserStatus({ ...base, status: "stopped", activeTool: null }).label).toBe("stopped");
     expect(browserStatus(null).label).toBe("connecting");
+  });
+});
+
+describe("frameFallback", () => {
+  const state = (over: Partial<BrowserState>): BrowserState => ({
+    threadId: makeThreadId(),
+    status: "stopped",
+    mode: "owned-chromium",
+    url: null,
+    title: null,
+    frame: null,
+    ...over,
+  });
+
+  it("does not tell a stopped browser it is starting", () => {
+    // The chip beside this said "stopped" while the surface said "starting…".
+    expect(frameFallback(state({ status: "stopped" }))).toBe(
+      "not running — it starts on the first agent call",
+    );
+  });
+
+  it("names each of the other states", () => {
+    expect(frameFallback(state({ status: "starting" }))).toBe("starting…");
+    expect(frameFallback(state({ status: "ready" }))).toBe("waiting for first frame…");
+    expect(frameFallback(state({ status: "error" }))).toBe("the browser could not start");
+  });
+
+  it("prefers the server's own message when it sent one", () => {
+    expect(frameFallback(state({ status: "error", message: "agent-browser not found" }))).toBe(
+      "agent-browser not found",
+    );
   });
 });

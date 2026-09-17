@@ -101,10 +101,13 @@ export function BrowserPane({ threadId }: BrowserPaneProps) {
           attachUrl={`${httpBase}/browser/attach/${threadId}`}
           onLocation={onLocation}
         />
-      ) : state !== null ? (
+      ) : state !== null && state.status !== "stopped" ? (
         <FrameSurface state={state} onGesture={dispatch} />
       ) : (
-        <div className="text-muted-foreground flex flex-1 items-center justify-center text-sm">
+        // A stopped session has no frame and nothing to forward input to, so
+        // it gets this block rather than the frame surface's placeholder —
+        // which used to read "starting…" while the chip above said "stopped".
+        <div className="flex flex-1 items-center justify-center px-6 text-center text-sm text-muted-foreground">
           {httpBase === null
             ? "connecting to the server…"
             : "browser is stopped — it starts on the first agent call"}

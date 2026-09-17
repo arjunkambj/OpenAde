@@ -14,6 +14,8 @@ import type { BrowserHumanInput, BrowserState } from "@OpenAde/contracts/rpc";
 
 import { cn } from "@/lib/utils";
 
+import { frameFallback } from "./status";
+
 const WHEEL_THROTTLE_MS = 60;
 
 const modifiersOf = (
@@ -117,9 +119,7 @@ export function FrameSurface({ state, onGesture }: FrameSurfaceProps) {
       )}
     >
       {frame === null ? (
-        <div className="text-muted-foreground text-sm">
-          {state.status === "ready" ? "waiting for first frame…" : (state.message ?? "starting…")}
-        </div>
+        <div className="px-6 text-center text-sm text-muted-foreground">{frameFallback(state)}</div>
       ) : (
         <img
           src={`data:${frame.mediaType};base64,${frame.base64}`}
