@@ -11,7 +11,7 @@ This file is the hand-off between build sessions. Update the status table and th
 | W0 Foundation, contracts, connector SDK, testkit | `feat/w0-foundation`    | **done, merged**     | 2026-09-15     |
 | W1 Persistence and orchestration engine          | `feat/w1-orchestration` | ready for review     | –              |
 | W2 Command Code connector                        | `feat/w2-connector-cmd` | not started          | –              |
-| W3 Transport and client runtime                  | `feat/w3-transport`     | not started          | –              |
+| W3 Transport and client runtime                  | `feat/w3-transport`     | ready for review     | –              |
 | W7 Desktop shell and packaging                   | `feat/w7-desktop`       | not started          | –              |
 | W8 Git, checkpoints, files                       | `feat/w8-git`           | not started          | –              |
 | W4 Renderer shell and timeline                   | `feat/w4-renderer`      | not started (wave 2) | –              |
@@ -100,9 +100,10 @@ the same gate on Linux and macOS (`.github/workflows/ci.yml`).
     `@OpenAde/shared/ids` but not `/paths`.
 13. `apps/desktop` lists contracts and shared as devDependencies (esbuild bundles
     them; electron-builder packs only `dependencies`).
-14. `apps/web/.env` still holds the template's `VITE_SERVER_URL`; W3 removes it when
-    decision D3 (dev connection file + Vite plugin) lands. `.claude/launch.json`
-    still points `dev` at port 3000; W7 fixes it (D9).
+14. W3 landed decision D3: `apps/web` no longer reads `VITE_SERVER_URL`; the dev
+    server writes `~/.openade/dev/connection.json` and the web Vite plugin serves
+    it at `/__openade/connection`. `.claude/launch.json` still points `dev` at
+    port 3000; W7 fixes it (D9).
 15. Two guardrail tests are assigned, not written: transfer budget → W3, migration
     lineage → W1 (02 · last section).
 
