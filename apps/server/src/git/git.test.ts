@@ -20,6 +20,7 @@ import { FileService, GitService } from "../rpc/services";
 import { layer as fileLayer } from "./Files";
 import { layer as gitLayer } from "./Git";
 import { make as checkpointStore } from "./CheckpointStore";
+import { GitError, run } from "./process";
 
 const git = (cwd: string, ...args: Array<string>) =>
   execFileSync("git", args, { cwd, encoding: "utf8" });
@@ -65,6 +66,26 @@ const stack = (root: string) =>
   });
 
 describe("w8 git", () => {
+  it.live("run fails with GitError when git cannot be spawned", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = makeRepo();
+        // An empty PATH makes the git binary itself unresolvable — the spawn
+        // error carries the string code "ENOENT", which must fail the effect
+        // rather than report exit 0 with empty output.
+        const error = yield* run(root, ["status"], { env: { PATH: "/nonexistent" } }).pipe(
+          Effect.flip,
+        );
+        expect(error).toBeInstanceOf(GitError);
+        expect(error.exitCode).toBeNull();
+
+        // A truncated result is a process failure too, not a silent success.
+        const overflow = yield* run(root, ["--version"], { maxOutputBytes: 1 }).pipe(Effect.flip);
+        expect(overflow).toBeInstanceOf(GitError);
+      }),
+    ),
+  );
+
   it.live("two checkpoints diff correctly and restore reverts the worktree", () =>
     Effect.scoped(
       Effect.gen(function* () {

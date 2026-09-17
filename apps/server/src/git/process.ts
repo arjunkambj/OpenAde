@@ -45,7 +45,11 @@ export const run = (
         maxBuffer: options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT,
       },
       (error, stdout, stderr) => {
-        if (error !== null && error.code === undefined) {
+        // A numeric code is the child's exit status; anything else — a string
+        // like "ENOENT" or "ERR_CHILD_PROCESS_STDIO_MAXBUFFER", or null on a
+        // signal kill — means the process never produced a result, so this
+        // must fail rather than report exit 0 with empty output.
+        if (error !== null && typeof error.code !== "number") {
           resume(
             Effect.fail(
               new GitError({
