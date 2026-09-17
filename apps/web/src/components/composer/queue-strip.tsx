@@ -6,15 +6,17 @@
  * the event lands, so the strip never disagrees with the server about what is
  * still going to be sent.
  *
- * Reordering is not offered — there is no command for it yet, and a drag
- * handle that silently did nothing would be worse than its absence.
+ * Reordering goes the same way: `thread.queue.reorder` names the message and
+ * the position it should end up in, and the strip redraws when
+ * `thread.queue.reordered` lands. Buttons rather than a drag handle — the list
+ * is short, and up/down works with a keyboard and a screen reader.
  */
 
 import { useAtomSet } from "@effect/atom-react";
 import { Button } from "@OpenAde/ui/components/button";
 import { makeCommandId } from "@OpenAde/contracts/ids";
 import type { ItemId, ThreadId } from "@OpenAde/contracts/ids";
-import type { QueuedMessage } from "@OpenAde/contracts/orchestration";
+import type { Command, QueuedMessage } from "@OpenAde/contracts/orchestration";
 import * as React from "react";
 
 import { useClientRuntime } from "@/lib/client-runtime";
@@ -30,29 +32,51 @@ export function QueueStrip({
 }) {
   const { dispatchAtom } = useClientRuntime();
   const dispatch = useAtomSet(dispatchAtom, { mode: "promise" });
-  const [removing, setRemoving] = React.useState<ItemId | null>(null);
+  const [busy, setBusy] = React.useState<ItemId | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
-  const remove = (queuedMessageId: ItemId) => {
-    setRemoving(queuedMessageId);
+  /** One dispatch, with the row locked until the receipt or the failure. */
+  const send = (queuedMessageId: ItemId, command: Command, rejection: string) => {
+    setBusy(queuedMessageId);
     setError(null);
-    void dispatch({
-      commandId: makeCommandId(),
-      createdAt: new Date().toISOString(),
-      type: "thread.queue.remove",
-      threadId,
-      queuedMessageId,
-    }).then(
+    void dispatch(command).then(
       (receipt) => {
-        setRemoving(null);
-        setError(receiptError(receipt, "the server rejected the removal"));
+        setBusy(null);
+        setError(receiptError(receipt, rejection));
       },
       () => {
-        setRemoving(null);
+        setBusy(null);
         setError(DISPATCH_UNREACHABLE);
       },
     );
   };
+
+  const remove = (queuedMessageId: ItemId) =>
+    send(
+      queuedMessageId,
+      {
+        commandId: makeCommandId(),
+        createdAt: new Date().toISOString(),
+        type: "thread.queue.remove",
+        threadId,
+        queuedMessageId,
+      },
+      "the server rejected the removal",
+    );
+
+  const move = (queuedMessageId: ItemId, toIndex: number) =>
+    send(
+      queuedMessageId,
+      {
+        commandId: makeCommandId(),
+        createdAt: new Date().toISOString(),
+        type: "thread.queue.reorder",
+        threadId,
+        queuedMessageId,
+        toIndex,
+      },
+      "the server rejected the move",
+    );
 
   if (queue.length === 0) {
     return null;
@@ -88,9 +112,35 @@ export function QueueStrip({
               tone="muted"
               size="icon-sm"
               className="shrink-0"
+              aria-label={`Move queued message ${index + 1} up`}
+              title="Send this one sooner"
+              disabled={busy !== null || index === 0}
+              onClick={() => move(message.queuedMessageId, index - 1)}
+            >
+              <Icon icon="hugeicons:arrow-up-01" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              tone="muted"
+              size="icon-sm"
+              className="shrink-0"
+              aria-label={`Move queued message ${index + 1} down`}
+              title="Send this one later"
+              disabled={busy !== null || index === queue.length - 1}
+              onClick={() => move(message.queuedMessageId, index + 1)}
+            >
+              <Icon icon="hugeicons:arrow-down-01" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              tone="muted"
+              size="icon-sm"
+              className="shrink-0"
               aria-label={`Remove queued message ${index + 1}`}
               title="Remove from the queue"
-              disabled={removing !== null}
+              disabled={busy !== null}
               onClick={() => remove(message.queuedMessageId)}
             >
               <Icon icon="hugeicons:cancel-01" />

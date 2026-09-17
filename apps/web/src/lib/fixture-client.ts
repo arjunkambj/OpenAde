@@ -342,6 +342,18 @@ export const makeFixtureClient = (): FixtureClient => {
             }
           : { events: () => {}, reason: "no such queued message" };
       }
+      case "thread.queue.reorder": {
+        const from = doc.queue.findIndex(
+          (message) => message.queuedMessageId === command.queuedMessageId,
+        );
+        if (from === -1 || command.toIndex >= doc.queue.length) {
+          return { events: () => {}, reason: "no such queue position" };
+        }
+        const order = doc.queue.map((message) => message.queuedMessageId);
+        order.splice(from, 1);
+        order.splice(command.toIndex, 0, command.queuedMessageId);
+        return { events: () => next("thread.queue.reordered", { order }) };
+      }
       case "thread.settings.update": {
         return {
           events: () => next("thread.settings.updated", settingsPatch(command)),
