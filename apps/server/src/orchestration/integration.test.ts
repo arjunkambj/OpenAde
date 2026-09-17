@@ -1,6 +1,11 @@
+import * as NodeFS from "node:fs";
+import * as NodeOS from "node:os";
+import * as NodePath from "node:path";
+
 import { describe, expect, it } from "@effect/vitest";
 import {
   makeCommandId,
+  makeEventId,
   makeConnectorInstanceId,
   makeItemId,
   makeProjectId,
@@ -24,7 +29,7 @@ import * as TestConsole from "effect/testing/TestConsole";
 import type { PlannedEvent } from "../persistence/EventStore";
 import { EngineEnv, OrchestrationEngine } from "./Engine";
 import { SessionManager } from "./SessionManager";
-import { engineLayer, stackLayer } from "../../test/layers";
+import { engineLayer, persistenceLayer, stackLayer } from "../../test/layers";
 
 const NOW = "2026-01-02T03:04:05.000Z";
 
@@ -493,6 +498,67 @@ describe("orchestration with a fake connector", () => {
         ),
       );
     }),
+  );
+
+  it.effect("resumes a mid-turn thread from a database a previous process left", () =>
+    Effect.gen(function* () {
+      const directory = yield* Effect.acquireRelease(
+        Effect.sync(() => NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "openade-boot-"))),
+        (path) => Effect.sync(() => NodeFS.rmSync(path, { recursive: true, force: true })),
+      );
+      const persistence = persistenceLayer(NodePath.join(directory, "state.sqlite"));
+      const sessionRef = { sessionId: "persisted-session" };
+      const { fake, instance } = yield* openFake();
+
+      // The state a killed process leaves behind: a bound session and a turn
+      // still in flight, on disk and nowhere else.
+      yield* Effect.gen(function* () {
+        const engine = yield* OrchestrationEngine;
+        yield* engine.dispatch(createProject);
+        yield* engine.dispatch(createThread);
+        yield* engine.dispatch(turnStart("survive the restart"));
+        yield* engine.appendThreadEvents(threadId, [
+          {
+            eventId: makeEventId(),
+            streamKind: "thread",
+            streamId: threadId,
+            occurredAt: NOW,
+            actor: "connector",
+            type: "thread.session.bound",
+            payload: {
+              connectorInstanceId: instance.instanceId,
+              connectorKind: instance.kind,
+              sessionRef,
+            },
+          } as PlannedEvent,
+        ]);
+        const doc = yield* engine.threadDoc(threadId);
+        expect(doc?.currentTurn).not.toBeNull();
+      }).pipe(Effect.provide(engineLayer(persistence)));
+
+      // A second stack over the same file: the boot scan resumes the session
+      // and the reactor re-sends the turn the first process never finished.
+      yield* Effect.gen(function* () {
+        const engine = yield* OrchestrationEngine;
+        yield* Stream.runHead(
+          engine.events.pipe(Stream.filter(isType("thread.turn.completed"))),
+        ).pipe(Effect.timeout("10 seconds"));
+        expect((yield* engine.threadDetail(threadId))?.status).toBe("idle");
+      }).pipe(
+        Effect.provide(
+          stackLayer({ instance, persistence, supervisor: { baseDelayMillis: 0, maxAttempts: 3 } }),
+        ),
+      );
+
+      const session = yield* fake.session(threadId);
+      expect(session).not.toBeUndefined();
+      // `resumeSession`, not `startSession`: the ref the first process stored
+      // is the one the new session carries.
+      expect((yield* fake.sessions).length).toBe(1);
+      expect(yield* session!.handle.sessionRef()).toEqual(sessionRef);
+      const sends = (yield* session!.calls).filter((call) => call.method === "send");
+      expect(sends.map((call) => call.detail.text)).toContain("survive the restart");
+    }).pipe(Effect.scoped),
   );
 
   it.effect("logs every failed resume attempt before declaring the session lost", () =>

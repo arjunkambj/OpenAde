@@ -22,14 +22,20 @@ import {
 } from "../src/orchestration/SessionSupervisor";
 import { EventStore } from "../src/persistence/EventStore";
 import { ReadModelStore } from "../src/persistence/ReadModels";
-import { testLayer as sqliteTestLayer } from "../src/persistence/Sqlite";
+import { layer as sqliteFileLayer, testLayer as sqliteTestLayer } from "../src/persistence/Sqlite";
 
-/** In-memory SQLite plus the stores that sit on it. */
-export const persistenceLayer = (): Layer.Layer<
+export type PersistenceLayer = Layer.Layer<
   import("effect/unstable/sql/SqlClient").SqlClient | EventStore | ReadModelStore,
   SqlError
-> => {
-  const sqlite = sqliteTestLayer();
+>;
+
+/**
+ * SQLite plus the stores that sit on it. In-memory by default; pass a path to
+ * get a real file, which is the only way to build a second engine over a
+ * database a first one already wrote — the cold-boot resume path.
+ */
+export const persistenceLayer = (filename = ":memory:"): PersistenceLayer => {
+  const sqlite = filename === ":memory:" ? sqliteTestLayer() : sqliteFileLayer({ filename });
   return Layer.mergeAll(
     sqlite,
     Layer.mergeAll(EventStore.layer, ReadModelStore.layer).pipe(Layer.provide(sqlite)),
@@ -37,14 +43,18 @@ export const persistenceLayer = (): Layer.Layer<
 };
 
 /** The migrated engine over in-memory persistence. */
-export const engineLayer = (): Layer.Layer<OrchestrationEngine, SqlError | MigrationError> =>
-  OrchestrationEngine.layer.pipe(Layer.provide(persistenceLayer()));
+export const engineLayer = (
+  persistence: PersistenceLayer = persistenceLayer(),
+): Layer.Layer<OrchestrationEngine, SqlError | MigrationError> =>
+  OrchestrationEngine.layer.pipe(Layer.provide(persistence));
 
 export interface StackOptions {
   /** The connector every thread runs on — tests pass a `FakeConnector` instance. */
   readonly instance: ConnectorInstance;
   /** `false` skips the supervisor; otherwise its options (defaults: no backoff sleep). */
   readonly supervisor?: SupervisorOptions | false;
+  /** Where the log lives. Defaults to a fresh in-memory database. */
+  readonly persistence?: PersistenceLayer;
 }
 
 /**
@@ -57,7 +67,7 @@ export const stackLayer = (
   // One persistence layer shared by the engine and the reactors — the
   // CheckpointReactor reads the event log directly, so a second in-memory
   // database would leave it blind.
-  const persistence = persistenceLayer();
+  const persistence = options.persistence ?? persistenceLayer();
   const engine = OrchestrationEngine.layer.pipe(Layer.provide(persistence));
   const selection = ConnectorSelection.fromInstance(options.instance);
   const manager = SessionManager.layer.pipe(Layer.provide(Layer.mergeAll(engine, selection)));
