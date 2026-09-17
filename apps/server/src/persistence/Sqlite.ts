@@ -1,0 +1,186 @@
+/**
+ * The server's SQL client, backed by `node:sqlite`'s `DatabaseSync`.
+ *
+ * Electron 44 ships a Node whose embedded SQLite is verified (decision log 01),
+ * so the store uses it directly rather than a native module. One `DatabaseSync`
+ * underneath, serialised by a semaphore: SQLite is a single-writer engine, and
+ * keeping every statement on one connection makes `withTransaction` mean what
+ * it says — everything the engine does between BEGIN and COMMIT is atomic.
+ */
+
+import * as NodeFS from "node:fs";
+import * as NodePath from "node:path";
+import { DatabaseSync, type StatementSync } from "node:sqlite";
+import { databasePath } from "@OpenAde/shared/paths";
+import * as Context from "effect/Context";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Semaphore from "effect/Semaphore";
+import * as Scope from "effect/Scope";
+import * as Stream from "effect/Stream";
+import * as Reactivity from "effect/unstable/reactivity/Reactivity";
+import * as Client from "effect/unstable/sql/SqlClient";
+import type { Connection } from "effect/unstable/sql/SqlConnection";
+import { classifySqliteError, SqlError } from "effect/unstable/sql/SqlError";
+import * as Statement from "effect/unstable/sql/Statement";
+
+type SqliteRow = Record<string, unknown>;
+
+export interface SqliteConfig {
+  /** Database location. `:memory:` gives every test its own store. */
+  readonly filename: string;
+  /** WAL is skipped for in-memory databases, where it cannot apply. */
+  readonly disableWAL?: boolean;
+}
+
+const toSqlError =
+  (operation: string) =>
+  (cause: unknown): SqlError =>
+    new SqlError({
+      reason: classifySqliteError(cause, {
+        message: cause instanceof Error ? cause.message : operation,
+        operation,
+      }),
+    });
+
+/** node:sqlite binds no booleans or Dates; normalise the two we produce. */
+const normalizeParams = (params: ReadonlyArray<unknown>): ReadonlyArray<unknown> =>
+  params.some((param) => typeof param === "boolean")
+    ? params.map((param) => (typeof param === "boolean" ? (param ? 1 : 0) : param))
+    : params;
+
+const openDatabase = (config: SqliteConfig): Effect.Effect<DatabaseSync, SqlError> =>
+  Effect.try({
+    try: () => {
+      if (config.filename !== ":memory:") {
+        NodeFS.mkdirSync(NodePath.dirname(config.filename), { recursive: true });
+      }
+      return new DatabaseSync(config.filename, { enableForeignKeyConstraints: true });
+    },
+    catch: toSqlError("connect"),
+  }).pipe(
+    Effect.tap((db) =>
+      Effect.try({
+        try: () => {
+          db.exec("PRAGMA busy_timeout = 5000");
+          if (config.disableWAL !== true && config.filename !== ":memory:") {
+            db.exec("PRAGMA journal_mode = WAL");
+          }
+        },
+        catch: toSqlError("configure"),
+      }),
+    ),
+  );
+
+const makeConnection = (config: SqliteConfig): Effect.Effect<Connection, SqlError, Scope.Scope> =>
+  Effect.gen(function* () {
+    const db = yield* openDatabase(config);
+    yield* Effect.addFinalizer(() =>
+      Effect.sync(() => {
+        try {
+          db.close();
+        } catch {
+          // Closing twice is not an error; teardown runs after tests may close.
+        }
+      }),
+    );
+
+    const cache = new Map<string, StatementSync>();
+    const prepare = (sql: string): StatementSync => {
+      const cached = cache.get(sql);
+      if (cached !== undefined) {
+        return cached;
+      }
+      const statement = db.prepare(sql);
+      cache.set(sql, statement);
+      return statement;
+    };
+
+    const run = (
+      sql: string,
+      params: ReadonlyArray<unknown> = [],
+      prepared = true,
+    ): Effect.Effect<ReadonlyArray<SqliteRow>, SqlError> =>
+      Effect.withFiber((fiber) => {
+        const useSafeIntegers = Context.get(fiber.context, Client.SafeIntegers);
+        try {
+          const statement = prepared ? prepare(sql) : db.prepare(sql);
+          statement.setReadBigInts(useSafeIntegers);
+          return Effect.succeed(
+            statement.all(
+              ...(normalizeParams(params) as Array<null | number | bigint | string | Uint8Array>),
+            ) as ReadonlyArray<SqliteRow>,
+          );
+        } catch (cause) {
+          return Effect.fail(toSqlError("execute")(cause));
+        }
+      });
+
+    return {
+      execute(sql, params, transformRows) {
+        const result = run(sql, params);
+        return transformRows ? Effect.map(result, transformRows) : result;
+      },
+      executeRaw: (sql, params) => run(sql, params),
+      executeValues: (sql, params) =>
+        Effect.map(run(sql, params), (rows) => rows.map((row) => Object.values(row))),
+      executeValuesUnprepared: (sql, params) =>
+        Effect.map(run(sql, params, false), (rows) => rows.map((row) => Object.values(row))),
+      executeUnprepared(sql, params, transformRows) {
+        const result = run(sql, params, false);
+        return transformRows ? Effect.map(result, transformRows) : result;
+      },
+      executeStream(sql, params, transformRows) {
+        const result = run(sql, params);
+        return Stream.fromIterableEffect(
+          transformRows ? Effect.map(result, transformRows) : result,
+        );
+      },
+    } satisfies Connection;
+  });
+
+/**
+ * Builds a `SqlClient` over one serialised `DatabaseSync`. The transaction
+ * acquirer holds the write permit for the scope of the transaction, so nested
+ * work joins the outer transaction instead of deadlocking on itself.
+ */
+/** @public Composition root entry. */
+export const makeSqlite = (
+  config: SqliteConfig,
+): Effect.Effect<Client.SqlClient, SqlError, Scope.Scope | Reactivity.Reactivity> =>
+  Effect.gen(function* () {
+    const compiler = Statement.makeCompilerSqlite();
+    const semaphore = yield* Semaphore.make(1);
+    const connection = yield* makeConnection(config);
+    const acquirer = semaphore.withPermits(1)(Effect.succeed(connection));
+    const transactionAcquirer = Effect.uninterruptibleMask((restore) =>
+      Effect.as(
+        Effect.andThen(
+          restore(semaphore.take(1)),
+          Effect.tap(Effect.scope, (scope) => Scope.addFinalizer(scope, semaphore.release(1))),
+        ),
+        connection,
+      ),
+    );
+    return yield* Client.make({
+      acquirer,
+      compiler,
+      transactionAcquirer,
+      spanAttributes: [["db.system.name", "sqlite"]],
+    });
+  });
+
+/** @public */
+export const layer = (config: SqliteConfig): Layer.Layer<Client.SqlClient, SqlError> =>
+  Layer.unwrap(
+    Effect.map(makeSqlite(config), (client) => Layer.succeed(Client.SqlClient, client)),
+  ).pipe(Layer.provide(Reactivity.layer));
+
+/** The production location: `~/.openade/state.sqlite`. */
+/** @public */
+export const defaultLayer = (): Layer.Layer<Client.SqlClient, SqlError> =>
+  layer({ filename: databasePath() });
+
+/** An in-memory database for tests; closes when the test's scope does. */
+export const testLayer = (): Layer.Layer<Client.SqlClient, SqlError> =>
+  layer({ filename: ":memory:" });

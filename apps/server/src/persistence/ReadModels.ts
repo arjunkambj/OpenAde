@@ -1,0 +1,204 @@
+/**
+ * The projection tables the read side answers from.
+ *
+ * A thread's document is the whole `ThreadDetailSnapshot` as JSON — the
+ * snapshot IS the projection, so reads are single-row fetches and replay is a
+ * pure fold. Every write runs inside the command's transaction, so a
+ * projection can never get ahead of its events.
+ */
+
+import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
+import type { ProjectSummary, ThreadSummary } from "@OpenAde/contracts/orchestration";
+import * as Context from "effect/Context";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as SqlClient from "effect/unstable/sql/SqlClient";
+import type { SqlError } from "effect/unstable/sql/SqlError";
+
+import {
+  projectSummaryOf,
+  threadSummaryOf,
+  type ProjectDoc,
+  type ThreadDoc,
+} from "../orchestration/state";
+
+interface ProjectRow {
+  readonly project_id: string;
+  readonly name: string;
+  readonly workspace_root: string;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+interface ThreadRow {
+  readonly thread_id: string;
+  readonly project_id: string;
+  readonly title: string;
+  readonly status: string;
+  readonly doc_json: string;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+const rowToProjectDoc = (row: ProjectRow): ProjectDoc => ({
+  projectId: row.project_id as ProjectDoc["projectId"],
+  name: row.name,
+  workspaceRoot: row.workspace_root,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+  removed: false,
+});
+
+const rowToThreadDoc = (row: ThreadRow): ThreadDoc => JSON.parse(row.doc_json) as ThreadDoc;
+
+export class ReadModelStore extends Context.Service<
+  ReadModelStore,
+  {
+    readonly putProject: (doc: ProjectDoc) => Effect.Effect<void, SqlError>;
+    /** Removes the project row and every thread row under it. */
+    readonly removeProject: (projectId: ProjectId) => Effect.Effect<void, SqlError>;
+    readonly putThread: (doc: ThreadDoc) => Effect.Effect<void, SqlError>;
+    readonly removeThread: (threadId: ThreadId) => Effect.Effect<void, SqlError>;
+    readonly getThreadDoc: (threadId: ThreadId) => Effect.Effect<ThreadDoc | null, SqlError>;
+    readonly getProjectDoc: (projectId: ProjectId) => Effect.Effect<ProjectDoc | null, SqlError>;
+    readonly listProjects: () => Effect.Effect<ReadonlyArray<ProjectSummary>, SqlError>;
+    readonly listThreads: (
+      projectId?: ProjectId,
+      includeArchived?: boolean,
+    ) => Effect.Effect<ReadonlyArray<ThreadSummary>, SqlError>;
+    /** Every stored thread document — the supervisor's resume scan. */
+    readonly listThreadDocs: Effect.Effect<ReadonlyArray<ThreadDoc>, SqlError>;
+    readonly projectExists: (projectId: ProjectId) => Effect.Effect<boolean, SqlError>;
+    readonly workspaceRoots: Effect.Effect<ReadonlyArray<string>, SqlError>;
+    readonly setWatermark: (
+      projector: string,
+      sequence: number,
+      at: string,
+    ) => Effect.Effect<void, SqlError>;
+  }
+>()("server/persistence/ReadModelStore") {
+  static readonly layer = Layer.effect(
+    ReadModelStore,
+    Effect.gen(function* () {
+      const sql = yield* SqlClient.SqlClient;
+
+      const putProject = (doc: ProjectDoc) =>
+        sql`
+          INSERT INTO projects (project_id, name, workspace_root, created_at, updated_at)
+          VALUES (
+            ${doc.projectId}, ${doc.name}, ${doc.workspaceRoot},
+            ${doc.createdAt}, ${doc.updatedAt}
+          )
+          ON CONFLICT (project_id) DO UPDATE SET
+            name = excluded.name,
+            workspace_root = excluded.workspace_root,
+            updated_at = excluded.updated_at
+        `.pipe(Effect.asVoid);
+
+      const removeProject = (projectId: ProjectId) =>
+        Effect.all([
+          sql`DELETE FROM threads WHERE project_id = ${projectId}`,
+          sql`DELETE FROM projects WHERE project_id = ${projectId}`,
+        ]).pipe(Effect.asVoid);
+
+      const putThread = (doc: ThreadDoc) =>
+        sql`
+          INSERT INTO threads (
+            thread_id, project_id, title, status, doc_json, created_at, updated_at
+          ) VALUES (
+            ${doc.threadId}, ${doc.projectId}, ${doc.title}, ${doc.status},
+            ${JSON.stringify(doc)}, ${doc.createdAt}, ${doc.updatedAt}
+          )
+          ON CONFLICT (thread_id) DO UPDATE SET
+            project_id = excluded.project_id,
+            title = excluded.title,
+            status = excluded.status,
+            doc_json = excluded.doc_json,
+            updated_at = excluded.updated_at
+        `.pipe(Effect.asVoid);
+
+      const removeThread = (threadId: ThreadId) =>
+        sql`DELETE FROM threads WHERE thread_id = ${threadId}`.pipe(Effect.asVoid);
+
+      const getThreadDoc = (threadId: ThreadId) =>
+        sql<ThreadRow>`
+          SELECT thread_id, project_id, title, status, doc_json, created_at, updated_at
+          FROM threads WHERE thread_id = ${threadId}
+        `.pipe(Effect.map((rows) => (rows.length === 0 ? null : rowToThreadDoc(rows[0]!))));
+
+      const getProjectDoc = (projectId: ProjectId) =>
+        sql<ProjectRow>`
+          SELECT project_id, name, workspace_root, created_at, updated_at
+          FROM projects WHERE project_id = ${projectId}
+        `.pipe(Effect.map((rows) => (rows.length === 0 ? null : rowToProjectDoc(rows[0]!))));
+
+      const listProjects = () =>
+        sql<ProjectRow & { readonly thread_count: number }>`
+          SELECT p.project_id, p.name, p.workspace_root, p.created_at, p.updated_at,
+            (SELECT COUNT(*) FROM threads t WHERE t.project_id = p.project_id)
+              AS thread_count
+          FROM projects p
+          ORDER BY p.created_at
+        `.pipe(
+          Effect.map((rows) =>
+            rows.map((row) => projectSummaryOf(rowToProjectDoc(row), row.thread_count)),
+          ),
+        );
+
+      const listThreads = (projectId?: ProjectId, includeArchived = false) =>
+        Effect.gen(function* () {
+          const rows = yield* sql<ThreadRow>`
+            SELECT thread_id, project_id, title, status, doc_json, created_at, updated_at
+            FROM threads
+            ORDER BY updated_at DESC
+          `;
+          return rows
+            .map(rowToThreadDoc)
+            .filter(
+              (doc) =>
+                (projectId === undefined || doc.projectId === projectId) &&
+                (includeArchived || doc.status !== "archived"),
+            )
+            .map(threadSummaryOf);
+        });
+
+      const listThreadDocs = sql<ThreadRow>`
+          SELECT thread_id, project_id, title, status, doc_json, created_at, updated_at
+          FROM threads
+        `.pipe(Effect.map((rows) => rows.map(rowToThreadDoc)));
+
+      const projectExists = (projectId: ProjectId) =>
+        sql<{ readonly n: number }>`
+          SELECT 1 AS n FROM projects WHERE project_id = ${projectId}
+        `.pipe(Effect.map((rows) => rows.length > 0));
+
+      const workspaceRoots = sql<{ readonly workspace_root: string }>`
+        SELECT workspace_root FROM projects
+      `.pipe(Effect.map((rows) => rows.map((row) => row.workspace_root)));
+
+      const setWatermark = (projector: string, sequence: number, at: string) =>
+        sql`
+          INSERT INTO projection_state (projector, last_applied_sequence, updated_at)
+          VALUES (${projector}, ${sequence}, ${at})
+          ON CONFLICT (projector) DO UPDATE SET
+            last_applied_sequence = excluded.last_applied_sequence,
+            updated_at = excluded.updated_at
+        `.pipe(Effect.asVoid);
+
+      return ReadModelStore.of({
+        putProject,
+        removeProject,
+        putThread,
+        removeThread,
+        getThreadDoc,
+        getProjectDoc,
+        listProjects,
+        listThreads,
+        listThreadDocs,
+        projectExists,
+        workspaceRoots,
+        setWatermark,
+      });
+    }),
+  );
+}
