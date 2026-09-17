@@ -5,10 +5,10 @@
  * warm (the composer hits this on every `@` keystroke).
  */
 import { statSync } from "node:fs";
-import { readFile, realpath, stat } from "node:fs/promises";
+import { open, realpath } from "node:fs/promises";
 import * as nodePath from "node:path";
 import type { ProjectId } from "@OpenAde/contracts/ids";
-import type { FileSearchResult } from "@OpenAde/contracts/rpc";
+import type { FileContent, FileSearchResult } from "@OpenAde/contracts/rpc";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -159,29 +159,35 @@ export const layer = Layer.effect(
               message: `path escapes the project root: ${path}`,
             });
           }
-          const info = yield* Effect.tryPromise({
-            try: () => stat(realTarget),
-            catch: () => new FileServiceError({ message: `cannot stat ${path}` }),
-          });
-          if (info.isDirectory()) {
-            return { path, text: "", totalLines: 0, truncated: false };
-          }
-          const truncated = info.size > READ_CAP_BYTES;
-          const handle = yield* Effect.tryPromise({
-            try: () => readFile(realTarget),
+          return yield* Effect.tryPromise({
+            try: async (): Promise<FileContent> => {
+              const handle = await open(realTarget, "r");
+              try {
+                const info = await handle.stat();
+                if (info.isDirectory()) {
+                  return { path, text: "", totalLines: 0, truncated: false };
+                }
+                // Read at most READ_CAP_BYTES — a huge file never buffers
+                // whole just to be sliced down afterwards.
+                const buffer = Buffer.alloc(READ_CAP_BYTES);
+                const { bytesRead } = await handle.read(buffer, 0, READ_CAP_BYTES, 0);
+                const text = buffer.subarray(0, bytesRead).toString("utf8");
+                const lines = text.split("\n");
+                const totalLines = lines.length;
+                const slice =
+                  limit === undefined ? lines.slice(offset) : lines.slice(offset, offset + limit);
+                return {
+                  path,
+                  text: slice.join("\n"),
+                  totalLines,
+                  truncated: info.size > READ_CAP_BYTES || offset + slice.length < totalLines,
+                };
+              } finally {
+                await handle.close();
+              }
+            },
             catch: () => new FileServiceError({ message: `cannot read ${path}` }),
           });
-          const text = handle.subarray(0, READ_CAP_BYTES).toString("utf8");
-          const lines = text.split("\n");
-          const totalLines = lines.length;
-          const slice =
-            limit === undefined ? lines.slice(offset) : lines.slice(offset, offset + limit);
-          return {
-            path,
-            text: slice.join("\n"),
-            totalLines,
-            truncated: truncated || offset + slice.length < totalLines,
-          };
         }).pipe(Effect.mapError(toRpcError)),
     });
 

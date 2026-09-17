@@ -338,6 +338,20 @@ describe("w8 git", () => {
     ),
   );
 
+  it.live("files.read bounds a large file at the read cap", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = makeRepo();
+        // ~600KB — comfortably over the 512KB cap.
+        writeFileSync(nodePath.join(root, "big.txt"), "x".repeat(600 * 1024));
+        const { projectId, files } = yield* stack(root);
+        const content = yield* files.read(projectId, "big.txt");
+        expect(content.truncated).toBe(true);
+        expect(content.text.length).toBeLessThanOrEqual(512 * 1024);
+      }),
+    ),
+  );
+
   it.live("search stays warm under the cache TTL", () =>
     Effect.scoped(
       Effect.gen(function* () {
