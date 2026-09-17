@@ -29,8 +29,26 @@ export const sessionNameFor = (threadId: string): string => `ade-${threadId}`;
 /** Every call gets this long before the child is SIGKILLed (spec: 30s ceiling). */
 export const COMMAND_TIMEOUT_MS = 30_000;
 
-/** Owned-Chromium daemons exit this long after the last command if we never close. */
-const OWNED_IDLE_TIMEOUT_MS = "300000";
+/** A daemon exits this long after its last command if we never close it. */
+const IDLE_TIMEOUT_MS = "300000";
+
+/**
+ * The env one session's invocations run with.
+ *
+ * Both kinds of session get an idle timeout. For owned Chromium it is the
+ * safety net behind `close`. For a `--cdp` attachment it is the *only* net:
+ * closing that session would mean destroying a tab the desktop owns (the
+ * pane's `<webview>`), so the driver's `close` deliberately does nothing and
+ * the daemon has to reap its own attachment — otherwise every thread ever
+ * opened leaves an `ade-<threadId>` daemon behind, across window close and
+ * app restart.
+ */
+export const sessionEnvFor = (
+  extra?: Readonly<Record<string, string>>,
+): Readonly<Record<string, string>> => ({
+  AGENT_BROWSER_IDLE_TIMEOUT_MS: IDLE_TIMEOUT_MS,
+  ...extra,
+});
 
 const Envelope = Schema.Struct({
   success: Schema.Boolean,
@@ -198,21 +216,7 @@ export class AgentBrowser extends Context.Service<
           return {
             session: name,
             exec: (argv, execOptions = {}) =>
-              exec(
-                name,
-                resolvedCdpPort,
-                // The idle timeout only matters for owned sessions; on --cdp
-                // the browser belongs to the desktop and the daemon never
-                // reaps it.
-                resolvedCdpPort === null
-                  ? {
-                      AGENT_BROWSER_IDLE_TIMEOUT_MS: OWNED_IDLE_TIMEOUT_MS,
-                      ...options.env,
-                    }
-                  : (options.env ?? {}),
-                argv,
-                execOptions,
-              ),
+              exec(name, resolvedCdpPort, sessionEnvFor(options.env), argv, execOptions),
           };
         },
       });

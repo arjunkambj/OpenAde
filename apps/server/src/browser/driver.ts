@@ -249,8 +249,11 @@ const makeCdpDriver = (
     sendInput: () => Effect.void,
     location: locationOf(session),
     // The webview belongs to the pane; "closing" the browser is the pane
-    // unmounting. `close` here would destroy the visible guest, so just let
-    // the daemon's idle timeout release the CDP attachment.
+    // unmounting, and `close` here would destroy a tab the desktop owns. The
+    // attachment is released by the daemon's idle timeout instead, which
+    // `sessionEnvFor` sets for cdp sessions as well as owned ones — without
+    // it an `ade-<threadId>` daemon outlived the thread, the window and the
+    // app.
     close: Effect.void,
   };
 };
