@@ -12,6 +12,7 @@ import { Input } from "@OpenAde/ui/components/input";
 
 import { Icon } from "@/lib/icon";
 import { cn } from "@/lib/utils";
+import { browserStatus } from "./status";
 
 export interface AddressBarProps {
   readonly state: BrowserState | null;
@@ -21,36 +22,11 @@ export interface AddressBarProps {
 const normalizeAddress = (raw: string): string =>
   /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(raw) ? raw : `https://${raw}`;
 
-const statusLabel = (state: BrowserState | null): { dot: string; label: string } => {
-  if (state === null) return { dot: "bg-muted-foreground/40", label: "connecting" };
-  if (state.activeTool !== undefined) {
-    return { dot: "bg-amber-500 animate-pulse", label: `agent: ${state.activeTool}` };
-  }
-  switch (state.status) {
-    case "ready":
-      return { dot: "bg-emerald-500", label: state.url === null ? "ready" : hostOf(state.url) };
-    case "starting":
-      return { dot: "bg-amber-500 animate-pulse", label: "starting" };
-    case "error":
-      return { dot: "bg-red-500", label: state.message ?? "error" };
-    case "stopped":
-      return { dot: "bg-muted-foreground/40", label: "stopped" };
-  }
-};
-
-const hostOf = (url: string): string => {
-  try {
-    return new URL(url).host;
-  } catch {
-    return url;
-  }
-};
-
 export function AddressBar({ state, onAction }: AddressBarProps) {
   const [draft, setDraft] = React.useState("");
   const [editing, setEditing] = React.useState(false);
   const displayUrl = state?.url ?? "";
-  const status = statusLabel(state);
+  const status = browserStatus(state);
 
   // The address mirrors the live url unless the human is mid-edit.
   React.useEffect(() => {
