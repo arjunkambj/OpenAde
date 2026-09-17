@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/main.ts",
+    "dev": "tsx watch src/main.ts --dev",
     "build": "esbuild src/main.ts --bundle --platform=node --format=cjs --target=node22 --outfile=out/main.cjs",
     "check-types": "tsc --noEmit",
     "test": "vitest run"
