@@ -13,7 +13,9 @@
  * The git work itself runs in the server's checkpoint reactor after the event
  * is durable, so an accepted receipt means "queued", not "done" — a failure
  * there lands in the thread timeline as an error. The dialog says so instead
- * of implying the files are already back.
+ * of implying the files are already back, and `onAccepted` is named for what
+ * actually happened: the pane waits for the thread to advance before it
+ * refetches, because a refetch on the receipt would read the old worktree.
  */
 
 import * as React from "react";
@@ -40,14 +42,15 @@ export function RestoreCheckpointDialog({
   checkpoint,
   label,
   disabledReason,
-  onRestored,
+  onAccepted,
 }: {
   threadId: ThreadId;
   checkpoint: CheckpointSummary | null;
   label: string;
   /** Non-null disables the trigger and explains why on hover. */
   disabledReason: string | null;
-  onRestored: () => void;
+  /** The server took the restore order; the git work has not run yet. */
+  onAccepted: () => void;
 }) {
   const dispatch = useDispatchCommand();
   const [open, setOpen] = React.useState(false);
@@ -72,7 +75,7 @@ export function RestoreCheckpointDialog({
     setPending(false);
     if (Exit.isSuccess(exit) && exit.value.status === "accepted") {
       setOpen(false);
-      onRestored();
+      onAccepted();
       return;
     }
     setError(
