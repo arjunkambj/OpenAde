@@ -22,6 +22,8 @@ import type { ConnectorProbe } from "@OpenAde/connector-sdk/definition";
 import { ProbeFailed } from "@OpenAde/connector-sdk/definition";
 import * as Effect from "effect/Effect";
 
+import { envAllowlist } from "./spawn";
+
 /** The package version the npx fallback pins and the version warnings compare to. */
 export const PINNED_VERSION = "1.54.0";
 const MIN_VERSION = PINNED_VERSION;
@@ -99,13 +101,18 @@ interface RunResult {
 const runBinary = (
   binary: ResolvedBinary,
   args: ReadonlyArray<string>,
-  options: { readonly timeoutMs: number },
+  options: { readonly timeoutMs: number; readonly env: Record<string, string> },
 ): Effect.Effect<RunResult, ProbeFailed> =>
   Effect.callback<RunResult, ProbeFailed>((resume) => {
     const child = execFile(
       binary.command,
       [...binary.prefixArgs, ...args],
-      { timeout: options.timeoutMs, encoding: "utf8", maxBuffer: 16 * 1024 * 1024 },
+      {
+        timeout: options.timeoutMs,
+        encoding: "utf8",
+        maxBuffer: 16 * 1024 * 1024,
+        env: options.env,
+      },
       (error, stdout, stderr) => {
         if (error !== null && typeof (error as { code?: unknown }).code !== "number") {
           resume(
@@ -216,6 +223,11 @@ export const probe = (config: CmdConnectorConfig): Effect.Effect<ConnectorProbe,
   Effect.gen(function* () {
     const probedAt = new Date().toISOString();
     const binary = resolveBinary(config, process.env);
+    // The probe's children get the same leak guard the turns do (spec section
+    // 8): no OPENADE_SERVER_*, ANTHROPIC_* or OPENAI_* reaches them — and the
+    // operator's extraEnv does, so a COMMAND_CODE_API_KEY supplied there is
+    // not reported as "not authenticated" while turns work fine.
+    const env = envAllowlist(process.env, config.extraEnv ?? {});
     if (binary === null) {
       return {
         status: "not-installed" as const,
@@ -227,7 +239,7 @@ export const probe = (config: CmdConnectorConfig): Effect.Effect<ConnectorProbe,
       };
     }
 
-    const status = yield* runBinary(binary, ["status", "--json"], { timeoutMs: 30_000 });
+    const status = yield* runBinary(binary, ["status", "--json"], { timeoutMs: 30_000, env });
     if (status.code === 3) {
       return {
         status: "not-authenticated" as const,
@@ -255,7 +267,10 @@ export const probe = (config: CmdConnectorConfig): Effect.Effect<ConnectorProbe,
       warnings.push(`cmd ${parsed.version} is below the tested ${MIN_VERSION}`);
     }
 
-    const models = yield* runBinary(binary, ["--list-models"], { timeoutMs: 60_000 }).pipe(
+    const models = yield* runBinary(binary, ["--list-models"], {
+      timeoutMs: 60_000,
+      env,
+    }).pipe(
       Effect.map((result) => (result.code === 0 ? parseModelList(result.stdout) : [])),
       Effect.catch((error) => {
         warnings.push(`--list-models failed: ${error.message}`);
