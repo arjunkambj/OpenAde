@@ -1,0 +1,194 @@
+{
+  "scenario": "shell-yolo",
+  "description": "the same shell call WITH --yolo — proves --yolo skips PreToolUse entirely (no hook fires)",
+  "cli": "/opt/homebrew/bin/cmd",
+  "cliVersion": "1.55.1",
+  "recordedOn": "2026-09-18",
+  "model": "the CLI's configured default",
+  "real": true,
+  "turns": [
+    {
+      "index": 0,
+      "prompt": "Run the shell command `cat note.txt` and tell me the output. Use the shell tool.",
+      "connectorArgs": [
+        "-p",
+        "Run the shell command `cat note.txt` and tell me the output. Use the shell tool.",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--yolo",
+        "--max-turns",
+        "3"
+      ],
+      "argv": [
+        "-p",
+        "Run the shell command `cat note.txt` and tell me the output. Use the shell tool.",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--yolo",
+        "--max-turns",
+        "3"
+      ],
+      "envKeys": [
+        "HOME",
+        "OPENADE_RECORD_HOOK_LOG",
+        "OPENADE_RECORD_HOOK_POLICY",
+        "OPENADE_THREAD_ID",
+        "PATH",
+        "SHELL",
+        "SSH_AUTH_SOCK",
+        "TMPDIR",
+        "USER"
+      ],
+      "sessionId": "2fb84057-affc-43d4-a3f5-c09b63f0661a",
+      "exitCode": 0,
+      "signal": null,
+      "interrupted": false,
+      "durationMs": 8822,
+      "stdoutChunks": [
+        {
+          "at": 471,
+          "chars": 97
+        },
+        {
+          "at": 507,
+          "chars": 62
+        },
+        {
+          "at": 575,
+          "chars": 50
+        },
+        {
+          "at": 575,
+          "chars": 98
+        },
+        {
+          "at": 637,
+          "chars": 93
+        },
+        {
+          "at": 4500,
+          "chars": 231
+        },
+        {
+          "at": 4541,
+          "chars": 233
+        },
+        {
+          "at": 4541,
+          "chars": 228
+        },
+        {
+          "at": 4541,
+          "chars": 208
+        },
+        {
+          "at": 4733,
+          "chars": 148
+        },
+        {
+          "at": 4738,
+          "chars": 173
+        },
+        {
+          "at": 4739,
+          "chars": 192
+        },
+        {
+          "at": 4739,
+          "chars": 174
+        },
+        {
+          "at": 4740,
+          "chars": 62
+        },
+        {
+          "at": 4741,
+          "chars": 50
+        },
+        {
+          "at": 4741,
+          "chars": 98
+        },
+        {
+          "at": 4741,
+          "chars": 93
+        },
+        {
+          "at": 8734,
+          "chars": 63
+        },
+        {
+          "at": 8734,
+          "chars": 94
+        },
+        {
+          "at": 8801,
+          "chars": 227
+        },
+        {
+          "at": 8801,
+          "chars": 91
+        },
+        {
+          "at": 8802,
+          "chars": 175
+        },
+        {
+          "at": 8806,
+          "chars": 1759
+        },
+        {
+          "at": 8807,
+          "chars": 245
+        }
+      ],
+      "transcriptPath": "<HOME>/.commandcode/projects/private-tmp-claude-501-volumes-main-code-open-ade-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-shell-yolo-5ea6e8a7-repo/2fb84057-affc-43d4-a3f5-c09b63f0661a.jsonl",
+      "guessedTranscriptPath": "<HOME>/.commandcode/projects/private-tmp-claude-501--volumes-main-code-openade-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-shell-yolo-5ea6e8a7-repo/2fb84057-affc-43d4-a3f5-c09b63f0661a.jsonl",
+      "transcriptDirMatchesConnectorSlug": false,
+      "projectDirListing": [
+        "2fb84057-affc-43d4-a3f5-c09b63f0661a.checkpoints.jsonl",
+        "2fb84057-affc-43d4-a3f5-c09b63f0661a.jsonl",
+        "2fb84057-affc-43d4-a3f5-c09b63f0661a.meta.json"
+      ],
+      "transcriptGrowth": [
+        {
+          "at": 4748,
+          "bytes": 1503,
+          "lines": 4
+        },
+        {
+          "at": 8809,
+          "bytes": 1962,
+          "lines": 5
+        }
+      ],
+      "transcriptBytes": 1962,
+      "checkpointGrowth": [
+        {
+          "at": 493,
+          "bytes": 270,
+          "lines": 1
+        }
+      ],
+      "transcriptMeta": "{\n  \"entrypoint\": \"print\",\n  \"traceIds\": [\n    \"59e1e1d4d9e8c2bceba9acd71b8e4253\",\n    \"5a996dc1f9d1c9212657cf0adda3ec04\"\n  ]\n}",
+      "hookCount": 1,
+      "plans": [],
+      "touchedFiles": [],
+      "files": {
+        "stdout": "stdout.ndjson",
+        "stderr": "stderr.txt",
+        "transcript": "transcript.jsonl",
+        "checkpoints": "checkpoints.jsonl",
+        "hooks": "hooks.json"
+      }
+    }
+  ]
+}

@@ -1,0 +1,149 @@
+{
+  "scenario": "max-turns",
+  "description": "--max-turns exhausted: stopReason, result.subtype and exit code",
+  "cli": "/opt/homebrew/bin/cmd",
+  "cliVersion": "1.55.1",
+  "recordedOn": "2026-09-18",
+  "model": "the CLI's configured default",
+  "real": true,
+  "turns": [
+    {
+      "index": 0,
+      "prompt": "Read note.txt, then run `ls`, then run `pwd`, then run `date`, then summarise. Use one tool per step.",
+      "connectorArgs": [
+        "-p",
+        "Read note.txt, then run `ls`, then run `pwd`, then run `date`, then summarise. Use one tool per step.",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--yolo",
+        "--max-turns",
+        "1"
+      ],
+      "argv": [
+        "-p",
+        "Read note.txt, then run `ls`, then run `pwd`, then run `date`, then summarise. Use one tool per step.",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--yolo",
+        "--max-turns",
+        "1"
+      ],
+      "envKeys": [
+        "HOME",
+        "OPENADE_RECORD_HOOK_LOG",
+        "OPENADE_RECORD_HOOK_POLICY",
+        "OPENADE_THREAD_ID",
+        "PATH",
+        "SHELL",
+        "SSH_AUTH_SOCK",
+        "TMPDIR",
+        "USER"
+      ],
+      "sessionId": "62151db3-2b05-4cc3-861f-56c84a359342",
+      "exitCode": 8,
+      "signal": null,
+      "interrupted": false,
+      "durationMs": 5019,
+      "stdoutChunks": [
+        {
+          "at": 442,
+          "chars": 97
+        },
+        {
+          "at": 472,
+          "chars": 62
+        },
+        {
+          "at": 534,
+          "chars": 50
+        },
+        {
+          "at": 534,
+          "chars": 98
+        },
+        {
+          "at": 586,
+          "chars": 93
+        },
+        {
+          "at": 4574,
+          "chars": 307
+        },
+        {
+          "at": 4809,
+          "chars": 231
+        },
+        {
+          "at": 4809,
+          "chars": 304
+        },
+        {
+          "at": 4809,
+          "chars": 284
+        },
+        {
+          "at": 5011,
+          "chars": 144
+        },
+        {
+          "at": 5013,
+          "chars": 210
+        },
+        {
+          "at": 5014,
+          "chars": 172
+        },
+        {
+          "at": 5014,
+          "chars": 1917
+        },
+        {
+          "at": 5015,
+          "chars": 241
+        }
+      ],
+      "transcriptPath": "<HOME>/.commandcode/projects/private-tmp-claude-501-volumes-main-code-open-ade-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-max-turns-1c838e1d-repo/62151db3-2b05-4cc3-861f-56c84a359342.jsonl",
+      "guessedTranscriptPath": "<HOME>/.commandcode/projects/private-tmp-claude-501--volumes-main-code-openade-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-max-turns-1c838e1d-repo/62151db3-2b05-4cc3-861f-56c84a359342.jsonl",
+      "transcriptDirMatchesConnectorSlug": false,
+      "projectDirListing": [
+        "62151db3-2b05-4cc3-861f-56c84a359342.checkpoints.jsonl",
+        "62151db3-2b05-4cc3-861f-56c84a359342.jsonl",
+        "62151db3-2b05-4cc3-861f-56c84a359342.meta.json"
+      ],
+      "transcriptGrowth": [
+        {
+          "at": 5019,
+          "bytes": 1629,
+          "lines": 4
+        }
+      ],
+      "transcriptBytes": 1629,
+      "checkpointGrowth": [
+        {
+          "at": 467,
+          "bytes": 291,
+          "lines": 1
+        }
+      ],
+      "transcriptMeta": "{\n  \"entrypoint\": \"print\",\n  \"traceIds\": [\n    \"0a5a5adb43f6c6383b2c54e58fe2afee\"\n  ]\n}",
+      "hookCount": 1,
+      "plans": [],
+      "touchedFiles": [],
+      "files": {
+        "stdout": "stdout.ndjson",
+        "stderr": "stderr.txt",
+        "transcript": "transcript.jsonl",
+        "checkpoints": "checkpoints.jsonl",
+        "hooks": "hooks.json"
+      }
+    }
+  ]
+}

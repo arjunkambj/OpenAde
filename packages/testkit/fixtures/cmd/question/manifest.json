@@ -1,0 +1,148 @@
+{
+  "scenario": "question",
+  "description": "ask_user_question in print mode: fail, auto-answer, or block? (5.7 q3)",
+  "cli": "/opt/homebrew/bin/cmd",
+  "cliVersion": "1.55.1",
+  "recordedOn": "2026-09-18",
+  "model": "the CLI's configured default",
+  "real": true,
+  "turns": [
+    {
+      "index": 0,
+      "prompt": "Use the ask_user_question tool to ask me whether I prefer tabs or spaces. Ask before doing anything else.",
+      "connectorArgs": [
+        "-p",
+        "Use the ask_user_question tool to ask me whether I prefer tabs or spaces. Ask before doing anything else.",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--yolo",
+        "--max-turns",
+        "2"
+      ],
+      "argv": [
+        "-p",
+        "Use the ask_user_question tool to ask me whether I prefer tabs or spaces. Ask before doing anything else.",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--yolo",
+        "--max-turns",
+        "2"
+      ],
+      "envKeys": [
+        "HOME",
+        "OPENADE_RECORD_HOOK_LOG",
+        "OPENADE_RECORD_HOOK_POLICY",
+        "OPENADE_THREAD_ID",
+        "PATH",
+        "SHELL",
+        "SSH_AUTH_SOCK",
+        "TMPDIR",
+        "USER"
+      ],
+      "sessionId": "7e71a30d-3ca7-4d25-bc52-2fb7d49a443b",
+      "exitCode": 0,
+      "signal": null,
+      "interrupted": false,
+      "durationMs": 6603,
+      "stdoutChunks": [
+        {
+          "at": 439,
+          "chars": 97
+        },
+        {
+          "at": 469,
+          "chars": 62
+        },
+        {
+          "at": 524,
+          "chars": 50
+        },
+        {
+          "at": 524,
+          "chars": 98
+        },
+        {
+          "at": 575,
+          "chars": 93
+        },
+        {
+          "at": 6252,
+          "chars": 60
+        },
+        {
+          "at": 6252,
+          "chars": 91
+        },
+        {
+          "at": 6300,
+          "chars": 85
+        },
+        {
+          "at": 6300,
+          "chars": 118
+        },
+        {
+          "at": 6586,
+          "chars": 227
+        },
+        {
+          "at": 6586,
+          "chars": 115
+        },
+        {
+          "at": 6587,
+          "chars": 175
+        },
+        {
+          "at": 6592,
+          "chars": 1324
+        },
+        {
+          "at": 6593,
+          "chars": 269
+        }
+      ],
+      "transcriptPath": "<HOME>/.commandcode/projects/private-tmp-claude-501-volumes-main-code-open-ade-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-question-8c4f9034-repo/7e71a30d-3ca7-4d25-bc52-2fb7d49a443b.jsonl",
+      "guessedTranscriptPath": "<HOME>/.commandcode/projects/private-tmp-claude-501--volumes-main-code-openade-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-question-8c4f9034-repo/7e71a30d-3ca7-4d25-bc52-2fb7d49a443b.jsonl",
+      "transcriptDirMatchesConnectorSlug": false,
+      "projectDirListing": [
+        "7e71a30d-3ca7-4d25-bc52-2fb7d49a443b.checkpoints.jsonl",
+        "7e71a30d-3ca7-4d25-bc52-2fb7d49a443b.jsonl",
+        "7e71a30d-3ca7-4d25-bc52-2fb7d49a443b.meta.json"
+      ],
+      "transcriptGrowth": [
+        {
+          "at": 6603,
+          "bytes": 1092,
+          "lines": 3
+        }
+      ],
+      "transcriptBytes": 1092,
+      "checkpointGrowth": [
+        {
+          "at": 441,
+          "bytes": 295,
+          "lines": 1
+        }
+      ],
+      "transcriptMeta": "{\n  \"entrypoint\": \"print\",\n  \"traceIds\": [\n    \"baee7475a92d1095a022ad674c24b28a\"\n  ]\n}",
+      "hookCount": 0,
+      "plans": [],
+      "touchedFiles": [],
+      "files": {
+        "stdout": "stdout.ndjson",
+        "stderr": "stderr.txt",
+        "transcript": "transcript.jsonl",
+        "checkpoints": "checkpoints.jsonl"
+      }
+    }
+  ]
+}

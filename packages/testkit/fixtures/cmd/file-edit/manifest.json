@@ -1,0 +1,245 @@
+{
+  "scenario": "file-edit",
+  "description": "edit_file / write_file blocks in frames and transcript",
+  "cli": "/opt/homebrew/bin/cmd",
+  "cliVersion": "1.55.1",
+  "recordedOn": "2026-09-18",
+  "model": "the CLI's configured default",
+  "real": true,
+  "turns": [
+    {
+      "index": 0,
+      "prompt": "Edit greeting.txt so it says `hello there` instead of `hello world`.",
+      "connectorArgs": [
+        "-p",
+        "Edit greeting.txt so it says `hello there` instead of `hello world`.",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--yolo",
+        "--max-turns",
+        "3"
+      ],
+      "argv": [
+        "-p",
+        "Edit greeting.txt so it says `hello there` instead of `hello world`.",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--yolo",
+        "--max-turns",
+        "3"
+      ],
+      "envKeys": [
+        "HOME",
+        "OPENADE_RECORD_HOOK_LOG",
+        "OPENADE_RECORD_HOOK_POLICY",
+        "OPENADE_THREAD_ID",
+        "PATH",
+        "SHELL",
+        "SSH_AUTH_SOCK",
+        "TMPDIR",
+        "USER"
+      ],
+      "sessionId": "3fb51a4a-17dd-44ae-a50c-e017b823d835",
+      "exitCode": 0,
+      "signal": null,
+      "interrupted": false,
+      "durationMs": 10226,
+      "stdoutChunks": [
+        {
+          "at": 446,
+          "chars": 97
+        },
+        {
+          "at": 477,
+          "chars": 62
+        },
+        {
+          "at": 536,
+          "chars": 50
+        },
+        {
+          "at": 536,
+          "chars": 98
+        },
+        {
+          "at": 591,
+          "chars": 93
+        },
+        {
+          "at": 4439,
+          "chars": 311
+        },
+        {
+          "at": 4480,
+          "chars": 231
+        },
+        {
+          "at": 4481,
+          "chars": 308
+        },
+        {
+          "at": 4481,
+          "chars": 288
+        },
+        {
+          "at": 4755,
+          "chars": 144
+        },
+        {
+          "at": 4758,
+          "chars": 218
+        },
+        {
+          "at": 4758,
+          "chars": 172
+        },
+        {
+          "at": 4759,
+          "chars": 62
+        },
+        {
+          "at": 4760,
+          "chars": 50
+        },
+        {
+          "at": 4760,
+          "chars": 98
+        },
+        {
+          "at": 4760,
+          "chars": 93
+        },
+        {
+          "at": 7484,
+          "chars": 365
+        },
+        {
+          "at": 7522,
+          "chars": 232
+        },
+        {
+          "at": 7522,
+          "chars": 704
+        },
+        {
+          "at": 7616,
+          "chars": 144
+        },
+        {
+          "at": 7620,
+          "chars": 393
+        },
+        {
+          "at": 7620,
+          "chars": 173
+        },
+        {
+          "at": 7621,
+          "chars": 62
+        },
+        {
+          "at": 7623,
+          "chars": 50
+        },
+        {
+          "at": 7623,
+          "chars": 98
+        },
+        {
+          "at": 7623,
+          "chars": 93
+        },
+        {
+          "at": 10206,
+          "chars": 63
+        },
+        {
+          "at": 10206,
+          "chars": 328
+        },
+        {
+          "at": 10207,
+          "chars": 226
+        },
+        {
+          "at": 10207,
+          "chars": 132
+        },
+        {
+          "at": 10207,
+          "chars": 174
+        },
+        {
+          "at": 10211,
+          "chars": 2848
+        },
+        {
+          "at": 10212,
+          "chars": 286
+        }
+      ],
+      "transcriptPath": "<HOME>/.commandcode/projects/private-tmp-claude-501-volumes-main-code-open-ade-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-file-edit-082f296f-repo/3fb51a4a-17dd-44ae-a50c-e017b823d835.jsonl",
+      "guessedTranscriptPath": "<HOME>/.commandcode/projects/private-tmp-claude-501--volumes-main-code-openade-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-file-edit-082f296f-repo/3fb51a4a-17dd-44ae-a50c-e017b823d835.jsonl",
+      "transcriptDirMatchesConnectorSlug": false,
+      "projectDirListing": [
+        "3fb51a4a-17dd-44ae-a50c-e017b823d835.checkpoints.jsonl",
+        "3fb51a4a-17dd-44ae-a50c-e017b823d835.jsonl",
+        "3fb51a4a-17dd-44ae-a50c-e017b823d835.meta.json"
+      ],
+      "transcriptGrowth": [
+        {
+          "at": 4779,
+          "bytes": 1608,
+          "lines": 4
+        },
+        {
+          "at": 7628,
+          "bytes": 2873,
+          "lines": 6
+        },
+        {
+          "at": 10226,
+          "bytes": 3361,
+          "lines": 7
+        }
+      ],
+      "transcriptBytes": 3361,
+      "checkpointGrowth": [
+        {
+          "at": 467,
+          "bytes": 258,
+          "lines": 1
+        },
+        {
+          "at": 7628,
+          "bytes": 482,
+          "lines": 1
+        }
+      ],
+      "transcriptMeta": "{\n  \"entrypoint\": \"print\",\n  \"traceIds\": [\n    \"dfde3f9a45164ae90b0af32308cb848d\",\n    \"e64a5c816abac77d1a61032d37d2748e\",\n    \"c614f31691d40fb3c8d0b13e6c1fa26a\"\n  ]\n}",
+      "hookCount": 2,
+      "plans": [],
+      "touchedFiles": [
+        {
+          "name": "greeting.txt",
+          "content": "hello there\n"
+        }
+      ],
+      "files": {
+        "stdout": "stdout.ndjson",
+        "stderr": "stderr.txt",
+        "transcript": "transcript.jsonl",
+        "checkpoints": "checkpoints.jsonl",
+        "hooks": "hooks.json"
+      }
+    }
+  ]
+}

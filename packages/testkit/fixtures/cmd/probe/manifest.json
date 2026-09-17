@@ -1,0 +1,70 @@
+{
+  "cli": "command-code@1.54.0",
+  "recordedOn": "2026-09-18",
+  "real": true,
+  "probes": [
+    {
+      "name": "status",
+      "args": [
+        "status",
+        "--json"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "stdoutBytes": 155,
+      "stderrBytes": 0
+    },
+    {
+      "name": "list-models",
+      "args": [
+        "--list-models"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "stdoutBytes": 6135,
+      "stderrBytes": 0
+    },
+    {
+      "name": "version",
+      "args": [
+        "--version"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "stdoutBytes": 7,
+      "stderrBytes": 0
+    },
+    {
+      "name": "help",
+      "args": [
+        "--help"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "stdoutBytes": 10820,
+      "stderrBytes": 0
+    },
+    {
+      "name": "invalid-model",
+      "args": [
+        "-p",
+        "hi",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--no-session",
+        "--model",
+        "definitely/not-a-real-model",
+        "--max-turns",
+        "1"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "stdoutBytes": 0,
+      "stderrBytes": 104
+    }
+  ]
+}

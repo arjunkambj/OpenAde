@@ -1,0 +1,2 @@
+session: 62151db3-2b05-4cc3-861f-56c84a359342
+Warning: Reached maximum conversation turns (1). The response may be incomplete. Retry with --max-turns 2 to extend the budget.

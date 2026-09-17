@@ -1,0 +1,12 @@
+{"type":"event","event":{"type":"run_start","sessionId":"fe08132f-c02b-4223-a350-770b29475b95"}}
+{"type":"event","event":{"type":"turn_start","turnNumber":1}}
+{"type":"event","event":{"type":"message_start"}}
+{"type":"event","event":{"type":"model_request_start","model":"meta/muse-spark-1.3-contributor"}}
+{"type":"event","event":{"type":"model_trace","traceId":"9793c386d1178e0ba4800fc4efe21b34"}}
+{"type":"event","event":{"type":"text_delta","delta":"stored"}}
+{"type":"event","event":{"type":"message_update","content":[{"type":"text","text":"stored"}]}}
+{"type":"event","event":{"type":"model_request_end","model":"meta/muse-spark-1.3-contributor","usage":{"inputTokens":20129,"outputTokens":159,"cacheReadTokens":113,"cacheWriteTokens":0},"stopReason":"stop","effort":"xhigh"}}
+{"type":"event","event":{"type":"message_end","content":[{"type":"text","text":"stored"}]}}
+{"type":"event","event":{"type":"turn_end","turnNumber":1,"hadToolCalls":false,"usage":{"inputTokens":20129,"outputTokens":159,"cacheReadTokens":113,"cacheWriteTokens":0}}}
+{"type":"event","event":{"type":"run_end","result":{"finalText":"stored","stopReason":"end_turn","turnCount":1,"usage":{"inputTokens":20129,"outputTokens":159,"cacheReadTokens":113,"cacheWriteTokens":0},"systemPromptTokens":null,"nextState":{"sessionId":"fe08132f-c02b-4223-a350-770b29475b95","messages":[{"role":"user","content":[{"type":"text","text":"Remember the word `pineapple`. Reply with exactly: stored"}],"meta":{"source":"user","createdAt":1789686367889,"messageId":"fb780876-41c5-4aa9-a995-313b18fbcef2"}},{"role":"assistant","content":[{"type":"text","text":"stored"}],"meta":{"source":"model","createdAt":1789686373538,"messageId":"7d36aea6-5cb4-40e8-9c84-af72dafb5de4"}}],"interrupted":false,"modState":{"workspace":{"cwd":"<SCRATCH>/repo","platform":"darwin","branch":"main","gitStatus":"?? .commandcode/","recentCommits":["c740f09 seed"],"additionalDirectories":[]},"compaction":{"tokens":20137,"basis":{"role":"assistant","content":[{"type":"text","text":"stored"}],"meta":{"source":"model","createdAt":1789686373538,"messageId":"7d36aea6-5cb4-40e8-9c84-af72dafb5de4"}}}}}}}}
+{"type":"result","subtype":"success","sessionId":"fe08132f-c02b-4223-a350-770b29475b95","stopReason":"end_turn","usage":{"inputTokens":20129,"outputTokens":159,"cacheReadTokens":113,"cacheWriteTokens":0},"durationMs":5695,"finalText":"stored"}
