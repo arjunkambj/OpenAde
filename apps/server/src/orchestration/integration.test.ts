@@ -202,7 +202,11 @@ describe("orchestration with a fake connector", () => {
         {
           turnId,
           type: "turn.plan.proposed",
-          payload: { turnId, planMarkdown: "# the plan" },
+          payload: {
+            turnId,
+            planMarkdown: "# the plan",
+            planPath: "/home/u/.commandcode/plans/the-plan.md",
+          },
         },
       ];
       const { fake, instance } = yield* openFake({ script: planTurnScript });
@@ -240,7 +244,10 @@ describe("orchestration with a fake connector", () => {
       const session = yield* fake.session(threadId);
       const calls = yield* session!.calls;
       const sends = calls.filter((call) => call.method === "send");
-      expect(sends.map((call) => call.detail.text)).toContain("Implement the approved plan.");
+      // Spec section 8: the implement turn names the plan file it approved.
+      expect(sends.map((call) => call.detail.text)).toContain(
+        "Implement the approved plan at /home/u/.commandcode/plans/the-plan.md",
+      );
       const settings = calls.filter((call) => call.method === "updateSettings");
       expect(settings.map((call) => call.detail.patch)).toContainEqual({
         interactionMode: "default",
