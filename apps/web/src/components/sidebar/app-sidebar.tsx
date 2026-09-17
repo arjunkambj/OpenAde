@@ -11,16 +11,12 @@ import {
   useSidebar,
 } from "@OpenAde/ui/components/sidebar";
 
-import { SidebarProjects } from "@/components/Layout/sidebar-projects";
-import { SidebarUser } from "@/components/Layout/sidebar-user";
 import { SidebarWindowChrome } from "@/components/Layout/window-chrome";
+import { ProjectTree } from "@/components/sidebar/project-tree";
+import { SidebarUser } from "@/components/sidebar/sidebar-user";
 import { Icon } from "@/lib/icon";
 
-const navItems = [
-  { to: "/", icon: "hugeicons:add-01", label: "New task" },
-  { to: "/review", icon: "hugeicons:git-compare", label: "Review work" },
-  { to: "/skills", icon: "hugeicons:dashboard-circle-add", label: "Skill & Plugins" },
-] as const;
+const navItems = [{ to: "/", icon: "hugeicons:add-01", label: "New task" }] as const;
 
 export function AppSidebar() {
   const matchRoute = useMatchRoute();
@@ -52,7 +48,7 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       <SidebarContent gap="none" className="overflow-hidden">
-        <SidebarProjects />
+        <ProjectTree />
       </SidebarContent>
       <SidebarUser onNavigate={closeMobile} />
       <SidebarRail />

@@ -27,7 +27,8 @@ export function SidebarUser({ onNavigate }: { onNavigate?: () => void }) {
           <TooltipTrigger
             render={
               <Link
-                to="/settings"
+                to="/settings/$section"
+                params={{ section: "general" }}
                 aria-label="Settings"
                 className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
                 onClick={onNavigate}

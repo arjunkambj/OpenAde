@@ -33,20 +33,10 @@
         "src/lib/shortcuts.tsx": ["exports"]
       },
       "ignoreDependencies": [
-        "@OpenAde/client-runtime",
         "@OpenAde/config",
-        "@OpenAde/contracts",
-        "@OpenAde/shared",
-        "@effect/atom-react",
         "@iconify-json/solar",
-        "@legendapp/list",
-        "@pierre/diffs",
         "clsx",
-        "effect",
         "postcss",
-        "react-markdown",
-        "remark-gfm",
-        "sonner",
         "tailwind-merge",
         "tailwindcss"
       ]
