@@ -8,8 +8,8 @@
  *   into its webview. Its URL is how the CDP driver identifies the guest
  *   target, so it stays unauthenticated (the webview cannot send headers) and
  *   completely inert.
- * - `POST /hooks/pretooluse` — the endpoint `services.hookEndpoint` already
- *   hands out; it answers 501 until W2's hook bridge lands.
+ *
+ * `POST /hooks/pretooluse` is not here: the hook bridge mounts the real one.
  */
 
 import * as Effect from "effect/Effect";
@@ -109,14 +109,8 @@ const attachPage = (threadId: string): string => `<!doctype html>
 const escapeHtml = (text: string): string =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-const hooksStub = HttpServerResponse.jsonUnsafe(
-  { error: "hook bridge not implemented (W2)" },
-  { status: 501 },
-);
-
 /** The extra HTTP routes W6 adds to the server's router. */
 export const mcpRoutesLayer = Layer.mergeAll(
   HttpRouter.add("POST", "/mcp", mcpRoute),
   HttpRouter.add("GET", "/browser/attach/:threadId", attachPageRoute),
-  HttpRouter.add("POST", "/hooks/pretooluse", hooksStub),
 );
