@@ -287,16 +287,6 @@ const SETTINGS_ROW_KEY = "settings";
  */
 
 /**
- * Repairs a document written by the build whose defaults had no keybindings.
- * The editor cannot add a binding back, so an empty table is not a state a
- * user can have chosen or escape from — it only ever means that bug.
- */
-const healed = (settings: Settings): Settings =>
-  settings.keybindings.length === 0
-    ? { ...settings, keybindings: defaultSettings().keybindings }
-    : settings;
-
-/**
  * Where a row this build cannot decode is kept. One field from a newer build,
  * or one truncated write, used to be swallowed silently and then overwritten
  * by the first save — taking the user's connector instances and permission
@@ -319,5 +309,8 @@ const load = (sql: SqlClient.SqlClient) =>
       yield* Effect.logError("settings row could not be decoded; serving defaults", decoded.cause);
       return { settings: defaultSettings(), freshInstall: false, unreadable: raw };
     }
-    return { settings: healed(decoded.value), freshInstall: false, unreadable: null };
+    // A stored document is served exactly as written: the keybindings page can
+    // add, remove and reset rows, so an empty table is a choice the user made
+    // and a "repair" here would silently revert it on the next server start.
+    return { settings: decoded.value, freshInstall: false, unreadable: null };
   });

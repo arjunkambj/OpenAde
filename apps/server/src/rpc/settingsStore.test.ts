@@ -1,7 +1,7 @@
 /**
- * The SQLite-backed settings document: what a fresh install gets, what happens
- * to a row an older build wrote without keybindings, and what happens to one
- * this build cannot read at all.
+ * The SQLite-backed settings document: what a fresh install gets, that a
+ * stored document is served exactly as written, and what happens to a row this
+ * build cannot read at all.
  */
 
 import { DEFAULT_KEYBINDINGS, defaultSettings } from "@OpenAde/contracts/settings";
@@ -52,17 +52,17 @@ describe("SettingsStore", () => {
     ),
   );
 
-  it.effect("a row written with an empty keybinding table is healed", () =>
+  it.effect("a stored empty keybinding table survives a restart", () =>
     Effect.scoped(
       Effect.gen(function* () {
-        // What the build with the server's own defaults wrote: a valid
-        // document whose keybinding table disables every shortcut.
+        // The keybindings page can remove every row, so an empty table is a
+        // state the user can choose. Seeding defaults back over it would
+        // revert that choice on the next start, with nothing to make it stick.
         const { store } = yield* fixture(
           JSON.stringify({ ...defaultSettings(), keybindings: [], theme: "dark" }),
         );
         const settings = yield* store.get;
-        expect(settings.keybindings.length).toBe(DEFAULT_KEYBINDINGS.length);
-        // Healing the table must not touch anything the user did choose.
+        expect(settings.keybindings).toEqual([]);
         expect(settings.theme).toBe("dark");
         expect(store.freshInstall).toBe(false);
       }),
