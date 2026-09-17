@@ -8,7 +8,8 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
-import { makeCheckpointId } from "@OpenAde/contracts/ids";
+import { decodeCheckpointId } from "@OpenAde/contracts/ids";
+import type { CheckpointId } from "@OpenAde/contracts/ids";
 import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
 import type { ThreadId, TurnId } from "@OpenAde/contracts/ids";
 import * as Data from "effect/Data";
@@ -22,6 +23,20 @@ export class CheckpointStoreError extends Data.TaggedError("CheckpointStoreError
 
 const REF_PREFIX = "refs/openade/checkpoints";
 const refFor = (threadId: ThreadId, turnId: TurnId) => `${REF_PREFIX}/${threadId}/${turnId}`;
+
+/**
+ * A checkpoint's id is a pure function of its commit: the SHA's first 32
+ * nibbles with the version and variant fields forced to UUIDv7. `capture` and
+ * `list` therefore report the same id — a `checkpointId` taken from a list
+ * response always matches the one `thread.checkpoint.created` recorded.
+ */
+const checkpointIdOf = (commitSha: string): CheckpointId => {
+  const hex = commitSha.toLowerCase();
+  const variant = ((Number.parseInt(hex[16] ?? "0", 16) & 0x3) | 0x8).toString(16);
+  return decodeCheckpointId(
+    `${hex.slice(0, 8)}-${hex.slice(8, 12)}-7${hex.slice(13, 16)}-${variant}${hex.slice(17, 20)}-${hex.slice(20, 32)}`,
+  );
+};
 
 const gitEnv = {
   GIT_AUTHOR_NAME: "OpenAde",
@@ -100,9 +115,10 @@ export const make: CheckpointStoreShape = {
             { env },
           );
           const ref = refFor(threadId, turnId);
-          yield* run(workspaceRoot, ["update-ref", ref, commit.stdout.trim()]);
+          const sha = commit.stdout.trim();
+          yield* run(workspaceRoot, ["update-ref", ref, sha]);
           return {
-            checkpointId: makeCheckpointId(),
+            checkpointId: checkpointIdOf(sha),
             turnId,
             ref,
             createdAt: new Date().toISOString(),
@@ -119,17 +135,17 @@ export const make: CheckpointStoreShape = {
       Effect.gen(function* () {
         const result = yield* run(workspaceRoot, [
           "for-each-ref",
-          "--format=%(refname)%00%(creatordate:iso-strict)",
+          "--format=%(refname)%00%(objectname)%00%(creatordate:iso-strict)",
           `${REF_PREFIX}/${threadId}`,
         ]);
         const summaries: Array<CheckpointSummary> = [];
         for (const line of result.stdout.split("\n")) {
           if (line.length === 0) continue;
-          const [ref, createdAt] = line.split("\0");
+          const [ref, objectName, createdAt] = line.split("\0");
           const turnId = ref!.split("/").pop();
-          if (turnId === undefined) continue;
+          if (turnId === undefined || objectName === undefined) continue;
           summaries.push({
-            checkpointId: makeCheckpointId(),
+            checkpointId: checkpointIdOf(objectName),
             turnId: turnId as TurnId,
             ref: ref!,
             createdAt: createdAt ?? new Date(0).toISOString(),

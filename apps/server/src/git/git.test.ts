@@ -112,9 +112,15 @@ describe("w8 git", () => {
           workspaceRoot: root,
         });
 
-        // list sees both, oldest first.
+        // list sees both, oldest first — and reports the same checkpointIds
+        // capture minted, so a restore driven by a list() response validates.
         const listed = yield* checkpointStore.list({ threadId, workspaceRoot: root });
         expect(listed.map((c) => c.ref)).toEqual([cp1.ref, cp2.ref]);
+        expect(listed.map((c) => c.checkpointId)).toEqual([cp1.checkpointId, cp2.checkpointId]);
+
+        // The ids are stable across calls — they derive from the commit.
+        const relisted = yield* checkpointStore.list({ threadId, workspaceRoot: root });
+        expect(relisted.map((c) => c.checkpointId)).toEqual([cp1.checkpointId, cp2.checkpointId]);
 
         // The diff between checkpoints is exactly turn 2's changes.
         const { projectId, git: gitService } = yield* stack(root);
