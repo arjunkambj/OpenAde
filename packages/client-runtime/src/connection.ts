@@ -31,8 +31,6 @@ import * as RpcClient from "effect/unstable/rpc/RpcClient";
 import * as RpcSerialization from "effect/unstable/rpc/RpcSerialization";
 import * as Socket from "effect/unstable/socket/Socket";
 
-import type { ResolvedConnection } from "./resolver";
-
 /** What `connectionStateAtom` and the reconnecting banner show. */
 export type ConnectionStatus = "connecting" | "connected" | "reconnecting" | "disconnected";
 
@@ -65,6 +63,20 @@ export class Connection extends Context.Service<
   }
 >()("@OpenAde/client-runtime/Connection") {}
 
+/**
+ * What one connect attempt needs. Structurally the resolver's
+ * `ResolvedConnection`, declared here so this module stays free of the
+ * resolver's DOM types — `apps/server`'s transport test imports the layer and
+ * typechecks without a `dom` lib.
+ */
+export interface ConnectionCredentials {
+  /** `http(s)` or `ws(s)` URL including the `/ws` path. */
+  readonly url: string;
+  readonly token: string;
+  /** The server's boot id, when the channel knows it. */
+  readonly serverInstanceId?: string;
+}
+
 export interface ConnectionOptions {
   /** `http(s)` or `ws(s)` URL including the `/ws` path. */
   readonly url: string;
@@ -79,7 +91,7 @@ export interface ConnectionOptions {
    * It never fails: `null` means "no channel answered", and the last
    * credentials that did answer are reused.
    */
-  readonly resolve?: Effect.Effect<ResolvedConnection | null>;
+  readonly resolve?: Effect.Effect<ConnectionCredentials | null>;
   /**
    * Overrides the WebSocket implementation — tests substitute a constructor
    * that records instances so they can force a disconnect.
@@ -112,7 +124,7 @@ export const makeConnection = (
       });
       const current = yield* Ref.make(yield* Deferred.make<Attempt>());
       /** The last credentials a channel actually answered with. */
-      const credentials = yield* Ref.make<ResolvedConnection>({
+      const credentials = yield* Ref.make<ConnectionCredentials>({
         url: options.url,
         token: options.token,
       });

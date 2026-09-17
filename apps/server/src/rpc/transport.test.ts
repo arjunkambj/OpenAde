@@ -21,8 +21,11 @@ import {
 } from "@OpenAde/contracts/ids";
 import type { Command } from "@OpenAde/contracts/orchestration";
 import { OpenAdeRpcError, STREAM_BUDGET_BYTES } from "@OpenAde/contracts/rpc";
-import { Connection, makeConnection } from "@OpenAde/client-runtime/connection";
-import type { ResolvedConnection } from "@OpenAde/client-runtime/resolver";
+import {
+  Connection,
+  makeConnection,
+  type ConnectionCredentials,
+} from "@OpenAde/client-runtime/connection";
 import { makeFakeConnector } from "@OpenAde/testkit/fakeConnector";
 import type { ConnectorServices } from "@OpenAde/connector-sdk/definition";
 import { describe, expect, it } from "@effect/vitest";
@@ -126,7 +129,7 @@ const connect = (
   url: string,
   token: string,
   sockets?: Array<WebSocket>,
-  resolve?: Effect.Effect<ResolvedConnection | null>,
+  resolve?: Effect.Effect<ConnectionCredentials | null>,
 ) =>
   Layer.build(
     makeConnection({
@@ -211,7 +214,7 @@ describe("transport", () => {
         // channel knows the live ones. Each attempt re-reads them, so the
         // supervisor's replacement server is reachable without a reload.
         const stale = { url: "ws://127.0.0.1:1/ws", token: "dead-token" };
-        const live = yield* Ref.make<ResolvedConnection | null>(null);
+        const live = yield* Ref.make<ConnectionCredentials | null>(null);
         const connection = yield* connect(stale.url, stale.token, undefined, Ref.get(live));
 
         // Nothing answers yet: the layer keeps failing over the dead port.
