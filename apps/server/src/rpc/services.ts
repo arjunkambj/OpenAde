@@ -279,16 +279,27 @@ export class SettingsStore extends Context.Service<
                   Object.entries(patch).filter(([, value]) => value !== undefined),
                 ),
               };
-              if (patch.permissions !== undefined) {
-                yield* writeRules(sql, patch.permissions);
-              }
               const stored: Settings = { ...next, permissions: [] };
-              yield* sql`
-              INSERT INTO settings (key, value_json, updated_at)
-              VALUES (${SETTINGS_ROW_KEY}, ${JSON.stringify(stored)}, ${new Date().toISOString()})
-              ON CONFLICT (key) DO UPDATE
-                SET value_json = excluded.value_json, updated_at = excluded.updated_at
-            `;
+              // The rules table and the document are one edit. `writeRules`
+              // replaces the whole table, so a failure between the two halves
+              // would leave the user's rules gone and their preferences
+              // unwritten — with nothing to tell them which half took.
+              yield* sql.withTransaction(
+                Effect.gen(function* () {
+                  if (patch.permissions !== undefined) {
+                    yield* writeRules(sql, patch.permissions);
+                  }
+                  yield* sql`
+                    INSERT INTO settings (key, value_json, updated_at)
+                    VALUES (
+                      ${SETTINGS_ROW_KEY}, ${JSON.stringify(stored)},
+                      ${new Date().toISOString()}
+                    )
+                    ON CONFLICT (key) DO UPDATE
+                      SET value_json = excluded.value_json, updated_at = excluded.updated_at
+                  `;
+                }),
+              );
               yield* SubscriptionRef.set(ref, stored);
               return yield* withRules(stored);
             }),
