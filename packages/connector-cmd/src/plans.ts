@@ -1,13 +1,25 @@
 /**
  * Reading the plan a plan-mode turn leaves behind (spec sections 5.6 and 8).
  *
- * `--permission-mode plan` makes the harness write
- * `~/.commandcode/plans/<name>.md` and record it in `plans-index.json` beside
- * it: `{ version, plans: { <file>: { title, sessionId, cwd, status,
- * createdAt, updatedAt, annotations[] } } }`. The index entry's `sessionId`
- * is how a finished turn finds its plan — the file name alone says nothing
- * about which session wrote it. A plan-mode turn that produced no plan is a
- * normal outcome, so every failure here resolves to "nothing proposed".
+ * Plan mode puts a markdown file in `~/.commandcode/plans/`. Interactive
+ * sessions also record it in `plans-index.json` beside it — `{ version, plans:
+ * { <file>: { title, sessionId, cwd, status, createdAt, updatedAt,
+ * annotations[] } } }` — and that entry's `sessionId` is the clean way to tell
+ * which session wrote which plan.
+ *
+ * **Print mode does not write that index.** In `fixtures/cmd/plan/` the model
+ * puts the plan there with an ordinary `write_file` and `plans-index.json` is
+ * untouched — on this machine it has not changed since two interactive sessions
+ * in August. An index-only lookup therefore never proposes anything from a
+ * headless plan turn, which is every plan turn this connector runs.
+ *
+ * So the index is consulted first and a file the turn itself created is the
+ * fallback: the newest `.md` in the plans directory whose mtime is at or after
+ * the moment the turn was spawned. `since` is what keeps that from proposing
+ * somebody else's month-old plan.
+ *
+ * A plan-mode turn that produced no plan is a normal outcome, so every failure
+ * here resolves to "nothing proposed".
  */
 
 import * as NodeFS from "node:fs";
@@ -50,12 +62,8 @@ const timeOf = (value: unknown): number => {
   return 0;
 };
 
-/**
- * The newest index entry recorded against `sessionId`, with its markdown —
- * or null when the index is absent/corrupt or the file is unreadable.
- */
-export const readPlanProposal = (sessionId: string, home?: string): PlanProposal | null => {
-  const dir = plansDirFor(home);
+/** The newest `plans-index.json` entry recorded against `sessionId`. */
+const fromIndex = (sessionId: string, home?: string): { file: string; at: number } | null => {
   let index: unknown;
   try {
     index = JSON.parse(NodeFS.readFileSync(plansIndexPathFor(home), "utf8"));
@@ -66,7 +74,7 @@ export const readPlanProposal = (sessionId: string, home?: string): PlanProposal
   if (typeof plans !== "object" || plans === null) {
     return null;
   }
-  let best: { readonly file: string; readonly at: number } | null = null;
+  let best: { file: string; at: number } | null = null;
   for (const [file, entry] of Object.entries(plans)) {
     const record = entry as PlansIndexEntry;
     if (record.sessionId !== sessionId) {
@@ -77,10 +85,60 @@ export const readPlanProposal = (sessionId: string, home?: string): PlanProposal
       best = { file, at };
     }
   }
+  return best;
+};
+
+/**
+ * The newest plan markdown written at or after `since` — the headless fallback,
+ * because print mode leaves `plans-index.json` alone. A one-second allowance
+ * absorbs the gap between our clock and the file system's.
+ */
+const MTIME_SLACK_MS = 1000;
+
+const writtenThisTurn = (since: number, home?: string): { file: string; at: number } | null => {
+  let entries: ReadonlyArray<NodeFS.Dirent>;
+  try {
+    entries = NodeFS.readdirSync(plansDirFor(home), { withFileTypes: true });
+  } catch {
+    return null;
+  }
+  let best: { file: string; at: number } | null = null;
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith(".md")) {
+      continue;
+    }
+    let at: number;
+    try {
+      at = NodeFS.statSync(NodePath.join(plansDirFor(home), entry.name)).mtimeMs;
+    } catch {
+      continue;
+    }
+    if (at + MTIME_SLACK_MS < since) {
+      continue;
+    }
+    if (best === null || at > best.at) {
+      best = { file: entry.name, at };
+    }
+  }
+  return best;
+};
+
+/**
+ * The plan this session's turn left behind, with its markdown — or null when
+ * there is none. `since` is when the turn was spawned; without it only the
+ * index is consulted, which in print mode means nothing is ever found.
+ */
+export const readPlanProposal = (
+  sessionId: string,
+  home?: string,
+  since?: number,
+): PlanProposal | null => {
+  const best =
+    fromIndex(sessionId, home) ?? (since === undefined ? null : writtenThisTurn(since, home));
   if (best === null) {
     return null;
   }
-  const planPath = NodePath.join(dir, best.file);
+  const planPath = NodePath.join(plansDirFor(home), best.file);
   try {
     return { planPath, markdown: NodeFS.readFileSync(planPath, "utf8"), updatedAt: best.at };
   } catch {

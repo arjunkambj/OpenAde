@@ -5,8 +5,9 @@
  * `cmd -p "<prompt>" --session <sessionId> --yolo` and the harness resumes its
  * own persisted session. `--yolo` keeps the CLI from ever blocking on its own
  * prompts — approvals flow through our PreToolUse hook instead, which the
- * HookBridge route answers. `interactionMode: "plan"` swaps `--yolo` for
- * `--permission-mode plan`.
+ * HookBridge route answers. `interactionMode: "plan"` adds
+ * `--permission-mode plan` on top; it does not replace `--yolo`, because
+ * without it the harness refuses even to write the plan file.
  *
  * Three sources feed the event stream: NDJSON frames on stdout, the session
  * transcript the harness appends on disk, and hook posts. The translator —
@@ -108,6 +109,12 @@ interface ActiveProcess {
   readonly settled: Deferred.Deferred<void>;
   /** Spawned with `--permission-mode plan` — its run may leave a plan file behind. */
   readonly plan: boolean;
+  /**
+   * When the process was spawned. Print mode does not record its plan in
+   * `plans-index.json`, so a file's mtime against this is how a plan written by
+   * *this* turn is told from one sitting in the directory since last month.
+   */
+  readonly startedAt: number;
   /**
    * The user asked for this one to stop. It decides how the exit reads: a
    * child we killed ourselves settles the turn `interrupted`, the same signal
@@ -250,7 +257,9 @@ export const makeCmdSession = (
         if (sessionId === null) {
           return;
         }
-        const proposal = yield* Effect.sync(() => readPlanProposal(sessionId, options.home));
+        const proposal = yield* Effect.sync(() =>
+          readPlanProposal(sessionId, options.home, active.startedAt),
+        );
         if (proposal === null) {
           return;
         }
@@ -677,7 +686,15 @@ export const makeCmdSession = (
               model: settings.model,
               ...(settings.effort === undefined ? {} : { effort: settings.effort }),
               ...(prior === null ? {} : { sessionId: prior.sessionId }),
-              yolo: !plan, // plan mode replaces --yolo (spec section 8)
+              // `--yolo` on every turn, plan mode included. Print mode refuses
+              // writes and shell without it whatever a hook answered
+              // (`fixtures/cmd/shell-allow/`), and in plan mode that refusal
+              // extends to the plan file the model is told to write, so a plan
+              // turn without it produces no plan at all
+              // (`fixtures/cmd/plan-no-yolo/`). It costs no gate: plan mode
+              // skips PreToolUse entirely either way, and the plan ladder still
+              // declines to touch the workspace (`fixtures/cmd/plan-guard/`).
+              yolo: true,
               ...(plan ? { permissionMode: "plan" as const } : {}),
               ...(attached.addDirs.length === 0 ? {} : { addDir: attached.addDirs }),
               toolsEnable: TOOLS_ENABLED,
@@ -699,6 +716,7 @@ export const makeCmdSession = (
               turnDone: yield* Deferred.make<void>(),
               settled: yield* Deferred.make<void>(),
               plan,
+              startedAt: yield* Effect.clockWith((clock) => clock.currentTimeMillis),
               interrupted: yield* Ref.make(false),
             };
             yield* Ref.set(processRef, active);
