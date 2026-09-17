@@ -11,6 +11,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  symlinkSync,
   unlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -307,6 +308,32 @@ describe("w8 git", () => {
         expect(content.text).toContain("export const a = 1");
         const outside = yield* files.read(projectId, "../outside").pipe(Effect.exit);
         expect(outside._tag).toBe("Failure");
+      }),
+    ),
+  );
+
+  it.live("files.read refuses a symlink that escapes the workspace", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = makeRepo();
+        const outside = mkdtempSync(nodePath.join(tmpdir(), "openade-outside-"));
+        writeFileSync(nodePath.join(outside, "secret.txt"), "do not serve\n");
+        // A symlink inside the repo whose target lives outside it — the
+        // lexical prefix check passes, the canonical one must not.
+        symlinkSync(outside, nodePath.join(root, "linked"));
+
+        const { projectId, files } = yield* stack(root);
+        const viaDir = yield* files.read(projectId, "linked/secret.txt").pipe(Effect.exit);
+        expect(viaDir._tag).toBe("Failure");
+        const viaDirItself = yield* files.read(projectId, "linked").pipe(Effect.exit);
+        expect(viaDirItself._tag).toBe("Failure");
+
+        // A symlink to an in-repo file still resolves — canonical containment
+        // is the check, not the mere presence of a link.
+        writeFileSync(nodePath.join(root, "real.txt"), "real\n");
+        symlinkSync("real.txt", nodePath.join(root, "alias.txt"));
+        const aliased = yield* files.read(projectId, "alias.txt");
+        expect(aliased.text).toContain("real");
       }),
     ),
   );

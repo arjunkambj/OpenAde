@@ -5,7 +5,7 @@
  * warm (the composer hits this on every `@` keystroke).
  */
 import { statSync } from "node:fs";
-import { readFile, stat } from "node:fs/promises";
+import { readFile, realpath, stat } from "node:fs/promises";
 import * as nodePath from "node:path";
 import type { ProjectId } from "@OpenAde/contracts/ids";
 import type { FileSearchResult } from "@OpenAde/contracts/rpc";
@@ -143,8 +143,24 @@ export const layer = Layer.effect(
               message: `path escapes the project root: ${path}`,
             });
           }
+          // Lexical containment misses symlinks — a workspace link can point
+          // at /etc or ~/.ssh and still resolve under the root string.
+          // Compare canonical paths on both sides instead.
+          const realRoot = yield* Effect.tryPromise({
+            try: () => realpath(root),
+            catch: () => new FileServiceError({ message: "cannot resolve the project root" }),
+          });
+          const realTarget = yield* Effect.tryPromise({
+            try: () => realpath(absolute),
+            catch: () => new FileServiceError({ message: `cannot read ${path}` }),
+          });
+          if (realTarget !== realRoot && !realTarget.startsWith(realRoot + nodePath.sep)) {
+            return yield* new FileServiceError({
+              message: `path escapes the project root: ${path}`,
+            });
+          }
           const info = yield* Effect.tryPromise({
-            try: () => stat(absolute),
+            try: () => stat(realTarget),
             catch: () => new FileServiceError({ message: `cannot stat ${path}` }),
           });
           if (info.isDirectory()) {
@@ -152,7 +168,7 @@ export const layer = Layer.effect(
           }
           const truncated = info.size > READ_CAP_BYTES;
           const handle = yield* Effect.tryPromise({
-            try: () => readFile(absolute),
+            try: () => readFile(realTarget),
             catch: () => new FileServiceError({ message: `cannot read ${path}` }),
           });
           const text = handle.subarray(0, READ_CAP_BYTES).toString("utf8");
