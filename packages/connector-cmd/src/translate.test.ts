@@ -417,6 +417,69 @@ describe("tool calls dedupe on tool_use.id across ndjson and transcript", () => 
   });
 });
 
+describe("anonymous messages key by content hash, not block index", () => {
+  /** A transcript line whose message carries no meta.messageId. */
+  const anonymousLine = (role: string, content: ReadonlyArray<unknown>) => ({
+    type: "message",
+    id: "line-anon",
+    parentId: null,
+    timestamp: "2026-09-18T00:00:00.000Z",
+    message: { role, content, meta: { source: "model", createdAt: 1 } },
+  });
+
+  it("two different anonymous messages no longer share one itemId", () => {
+    const translate = translator();
+    // Pre-fix both keyed as `anon:0` — the second row overwrote the first.
+    const first = translate.onTranscriptLine(
+      anonymousLine("assistant", [{ type: "text", text: "first" }]),
+    );
+    const second = translate.onTranscriptLine(
+      anonymousLine("assistant", [{ type: "text", text: "second" }]),
+    );
+    expect(types(first)).toEqual(["item.completed"]);
+    expect(types(second)).toEqual(["item.completed"]);
+    const itemA = first[0]?.type === "item.completed" ? first[0].payload.item.itemId : undefined;
+    const itemB = second[0]?.type === "item.completed" ? second[0].payload.item.itemId : undefined;
+    expect(itemA).toBeDefined();
+    expect(itemB).toBeDefined();
+    expect(itemA).not.toBe(itemB);
+  });
+
+  it("the same anonymous message re-delivered dedupes — via transcript or nextState", () => {
+    const translate = translator();
+    const line = anonymousLine("assistant", [{ type: "text", text: "same" }]);
+    expect(types(translate.onTranscriptLine(line))).toEqual(["item.completed"]);
+    expect(translate.onTranscriptLine(line)).toEqual([]);
+
+    translate.onFrame(runStart());
+    translate.onFrame(turnStart());
+    const end = translate.onFrame(runEnd("end_turn", [line.message]));
+    expect(end.filter((event) => event.type.startsWith("item."))).toEqual([]);
+  });
+
+  it("anonymous tool_use blocks in one message get distinct stable rows", () => {
+    const translate = translator();
+    const events = translate.onTranscriptLine(
+      anonymousLine("assistant", [
+        { type: "tool_use", name: "glob", input: { pattern: "*.ts" } },
+        { type: "tool_use", name: "grep", input: { pattern: "x" } },
+      ]),
+    );
+    expect(types(events)).toEqual(["item.started", "item.started"]);
+    const ids = events.map((event) => (event.type === "item.started" ? event.itemId : null));
+    expect(ids[0]).not.toBe(ids[1]);
+    // Re-delivery is a no-op at message level — no duplicate item.started.
+    expect(
+      translate.onTranscriptLine(
+        anonymousLine("assistant", [
+          { type: "tool_use", name: "glob", input: { pattern: "*.ts" } },
+          { type: "tool_use", name: "grep", input: { pattern: "x" } },
+        ]),
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe("transcript messages dedupe on meta.messageId", () => {
   it("an assistant text lands once whether tailer or run_end delivers it", () => {
     const translate = translator();

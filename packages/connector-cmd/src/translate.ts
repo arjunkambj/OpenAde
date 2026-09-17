@@ -19,6 +19,7 @@
  * the same work lands on the same timeline row.
  */
 
+import * as NodeCrypto from "node:crypto";
 import type { ItemKind } from "@OpenAde/contracts/enums";
 import type { ItemId } from "@OpenAde/contracts/ids";
 import { makeItemId, makeTurnId } from "@OpenAde/contracts/ids";
@@ -114,6 +115,19 @@ const kindForTool = (name: string): ItemKind =>
 const asRecord = (value: unknown): Record<string, unknown> =>
   typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
 
+/**
+ * A stable key for a message with no `meta.messageId`. The old
+ * `anon:<blockIndex>` scheme collapsed every anonymous message's block N onto
+ * one itemId and gave anonymous tool_use a fresh key per sighting; hashing
+ * role+content dedupes the same message re-seen (tailer then run_end) while
+ * keeping different messages apart.
+ */
+const anonymousKey = (message: TranscriptMessage): string =>
+  `anon:${NodeCrypto.createHash("sha256")
+    .update(JSON.stringify({ role: message.role, content: message.content }), "utf8")
+    .digest("hex")
+    .slice(0, 16)}`;
+
 const asString = (value: unknown): string | undefined =>
   typeof value === "string" ? value : undefined;
 
@@ -167,7 +181,7 @@ export const makeTranslator = (options: {
   let announced = false;
   let model: string | null = null;
   let turnOpen = false;
-  /** meta.messageId of every message already folded into items. */
+  /** meta.messageId — or content-hash key — of every message already folded. */
   const seenMessages = new Set<string>();
   /** tool_use.id → minted itemId (the dedupe key across ndjson + transcript). */
   const toolItems = new Map<string, ItemId>();
@@ -251,8 +265,11 @@ export const makeTranslator = (options: {
     toolName: string,
     input: unknown,
     description?: string,
+    fallbackKey?: string,
   ): ReadonlyArray<PendingRuntimeEvent> => {
-    const key = toolUseId ?? `anon:${toolName}:${makeItemId()}`;
+    // No tool_use.id: the containing message's dedupe key + block index is a
+    // stable fallback — a key minted per sighting duplicated the row on replay.
+    const key = toolUseId ?? fallbackKey ?? `anon:${toolName}:${makeItemId()}`;
     const existing = toolItems.get(key);
     if (existing !== undefined) {
       const prior = toolSnapshots.get(key);
@@ -306,12 +323,12 @@ export const makeTranslator = (options: {
   const processMessage = (message: TranscriptMessage): ReadonlyArray<PendingRuntimeEvent> => {
     const meta = message.meta ?? {};
     const messageId = meta.messageId;
-    if (messageId !== undefined && seenMessages.has(messageId)) {
+    // meta.messageId, or the content hash for a message without one.
+    const dedupeKey = messageId ?? anonymousKey(message);
+    if (seenMessages.has(dedupeKey)) {
       return [];
     }
-    if (messageId !== undefined) {
-      seenMessages.add(messageId);
-    }
+    seenMessages.add(dedupeKey);
     const out: Array<PendingRuntimeEvent> = [];
     const content = Array.isArray(message.content) ? message.content : [];
 
@@ -336,7 +353,7 @@ export const makeTranslator = (options: {
 
     content.forEach((block, index) => {
       const record = asRecord(block);
-      const key = `${messageId ?? "anon"}:${index}`;
+      const key = `${dedupeKey}:${index}`;
       switch (record.type) {
         case "text": {
           const text = asString(record.text) ?? "";
@@ -380,7 +397,15 @@ export const makeTranslator = (options: {
         }
         case "tool_use": {
           const toolUse = record as unknown as ToolUseBlock;
-          out.push(...toolStarted(toolUse.id, toolUse.name ?? "unknown", toolUse.input, undefined));
+          out.push(
+            ...toolStarted(
+              toolUse.id,
+              toolUse.name ?? "unknown",
+              toolUse.input,
+              undefined,
+              `tool:${key}`,
+            ),
+          );
           return;
         }
         case "tool_result": {
