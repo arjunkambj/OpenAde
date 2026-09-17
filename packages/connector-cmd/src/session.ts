@@ -29,6 +29,7 @@ import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Ref from "effect/Ref";
 import * as Scope from "effect/Scope";
+import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 
 import type {
@@ -175,6 +176,12 @@ export const makeCmdSession = (
     const pendingUserInputs = yield* Ref.make(new Map<RequestId, PendingUserInput>());
     /** Plan files already proposed this session — a settled plan turn must not re-propose. */
     const proposedPlans = yield* Ref.make(new Set<string>());
+    /**
+     * One send at a time through the check→settle→spawn→install sequence:
+     * without the permit, two concurrent sends can both observe `null` in
+     * processRef and each spawn a turn.
+     */
+    const sendMutex = yield* Semaphore.make(1);
     const closedRef = yield* Ref.make(false);
     const scope = yield* Effect.scope;
 
@@ -588,71 +595,75 @@ export const makeCmdSession = (
     });
 
     const send = (turn: TurnInput): Effect.Effect<void, ConnectorError> =>
-      Effect.gen(function* () {
-        if (yield* Ref.get(closedRef)) {
-          return yield* new SessionClosed({ threadId: options.threadId });
-        }
-        const previous = yield* Ref.get(processRef);
-        if (previous !== null) {
-          if (!(yield* Deferred.isDone(previous.turnDone))) {
-            // Caller queues the next turn; print mode runs one turn per process.
-            return yield* new TurnInProgress({
-              threadId: options.threadId,
-              activeTurnId: null,
+      sendMutex
+        .withPermit(
+          Effect.gen(function* () {
+            if (yield* Ref.get(closedRef)) {
+              return yield* new SessionClosed({ threadId: options.threadId });
+            }
+            const previous = yield* Ref.get(processRef);
+            if (previous !== null) {
+              if (!(yield* Deferred.isDone(previous.turnDone))) {
+                // Caller queues the next turn; print mode runs one turn per process.
+                return yield* new TurnInProgress({
+                  threadId: options.threadId,
+                  activeTurnId: null,
+                });
+              }
+              // turn.completed already left but the child is mid-reap — wait
+              // the pump out rather than report a turn that no longer exists.
+              yield* Deferred.await(previous.settled);
+            }
+            const settings = yield* Ref.get(settingsRef);
+            const prior = yield* Ref.get(sessionRef);
+            const hook = yield* options.services.hookEndpoint(options.threadId);
+            const mentioned = turn.mentions.map((m) => `@${m}`);
+            const attached = turn.attachments.map((a) => `Attachment: ${a.path}`);
+            const prompt = [turn.text, ...mentioned, ...attached]
+              .filter((part) => part.length > 0)
+              .join("\n\n");
+            const plan = settings.interactionMode === "plan";
+            const args = buildArgs({
+              prompt,
+              model: settings.model === "" ? options.defaultModel : settings.model,
+              ...(settings.effort === undefined ? {} : { effort: settings.effort }),
+              ...(prior === null ? {} : { sessionId: prior.sessionId }),
+              yolo: !plan, // plan mode replaces --yolo (spec section 8)
+              ...(plan ? { permissionMode: "plan" as const } : {}),
             });
-          }
-          // turn.completed already left but the child is mid-reap — wait the
-          // pump out rather than report a turn that no longer exists.
-          yield* Deferred.await(previous.settled);
-        }
-        const settings = yield* Ref.get(settingsRef);
-        const prior = yield* Ref.get(sessionRef);
-        const hook = yield* options.services.hookEndpoint(options.threadId);
-        const mentioned = turn.mentions.map((m) => `@${m}`);
-        const attached = turn.attachments.map((a) => `Attachment: ${a.path}`);
-        const prompt = [turn.text, ...mentioned, ...attached]
-          .filter((part) => part.length > 0)
-          .join("\n\n");
-        const plan = settings.interactionMode === "plan";
-        const args = buildArgs({
-          prompt,
-          model: settings.model === "" ? options.defaultModel : settings.model,
-          ...(settings.effort === undefined ? {} : { effort: settings.effort }),
-          ...(prior === null ? {} : { sessionId: prior.sessionId }),
-          yolo: !plan, // plan mode replaces --yolo (spec section 8)
-          ...(plan ? { permissionMode: "plan" as const } : {}),
-        });
-        const proc = yield* spawnProcess({
-          binaryPath: options.binaryPath ?? "cmd",
-          args,
-          cwd: options.workspaceRoot,
-          env: envAllowlist(process.env, {
-            OPENADE_HOOK_URL: hook.url,
-            OPENADE_HOOK_TOKEN: hook.bearer,
-            OPENADE_THREAD_ID: options.threadId,
-            ...(mcp === null ? {} : { OPENADE_MCP_TOKEN: mcp.bearer }),
-            ...options.extraEnv,
-          }),
-        }).pipe(Effect.provideService(Scope.Scope, scope));
-        const active: ActiveProcess = {
-          proc,
-          turnDone: yield* Deferred.make<void>(),
-          settled: yield* Deferred.make<void>(),
-          plan,
-        };
-        yield* Ref.set(processRef, active);
-        yield* pump(active).pipe(Effect.forkIn(scope));
-      }).pipe(
-        Effect.mapError((error): ConnectorError =>
-          error instanceof SessionClosed || error instanceof TurnInProgress
-            ? error
-            : new SpawnFailed({
-                kind: "cmd",
-                instanceId: options.instanceId,
-                message: error instanceof Error ? error.message : String(error),
+            const proc = yield* spawnProcess({
+              binaryPath: options.binaryPath ?? "cmd",
+              args,
+              cwd: options.workspaceRoot,
+              env: envAllowlist(process.env, {
+                OPENADE_HOOK_URL: hook.url,
+                OPENADE_HOOK_TOKEN: hook.bearer,
+                OPENADE_THREAD_ID: options.threadId,
+                ...(mcp === null ? {} : { OPENADE_MCP_TOKEN: mcp.bearer }),
+                ...options.extraEnv,
               }),
-        ),
-      );
+            }).pipe(Effect.provideService(Scope.Scope, scope));
+            const active: ActiveProcess = {
+              proc,
+              turnDone: yield* Deferred.make<void>(),
+              settled: yield* Deferred.make<void>(),
+              plan,
+            };
+            yield* Ref.set(processRef, active);
+            yield* pump(active).pipe(Effect.forkIn(scope));
+          }),
+        )
+        .pipe(
+          Effect.mapError((error): ConnectorError =>
+            error instanceof SessionClosed || error instanceof TurnInProgress
+              ? error
+              : new SpawnFailed({
+                  kind: "cmd",
+                  instanceId: options.instanceId,
+                  message: error instanceof Error ? error.message : String(error),
+                }),
+          ),
+        );
 
     const close: Effect.Effect<void> = Effect.gen(function* () {
       if (yield* Ref.get(closedRef)) {

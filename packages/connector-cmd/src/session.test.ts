@@ -18,6 +18,7 @@ import { makeConnectorInstanceId, makeThreadId } from "@OpenAde/contracts/ids";
 import type { ConnectorServices, PermissionDecision } from "@OpenAde/connector-sdk/definition";
 import { makeStreamCollector } from "@OpenAde/connector-sdk/streamCollector";
 import * as Effect from "effect/Effect";
+import * as Result from "effect/Result";
 import * as Fiber from "effect/Fiber";
 import * as Ref from "effect/Ref";
 import type * as Scope from "effect/Scope";
@@ -496,6 +497,36 @@ describe("makeCmdSession against a real spawned process", () => {
       );
       const all = yield* collector.collected;
       expect(all.filter(isType("turn.plan.proposed"))).toHaveLength(1);
+
+      yield* handle.close();
+    }),
+  );
+
+  it.effect("concurrent sends are serialized — one wins, one gets TurnInProgress", () =>
+    Effect.gen(function* () {
+      const f = yield* fixture();
+      withOpenadeHome(f);
+      // The sleeping fake keeps turn 1 open, so the loser must fail — the
+      // pre-mutex race spawned a second process instead.
+      const { handle } = yield* startSession(f, "allow", undefined, {
+        OPENADE_FAKE_SLEEP: "1",
+      });
+      const first = yield* Effect.forkChild(
+        handle.send({ text: "one", attachments: [], mentions: [] }),
+      );
+      const second = yield* Effect.forkChild(
+        handle.send({ text: "two", attachments: [], mentions: [] }),
+      );
+      const outcomes = yield* Effect.all([
+        Effect.result(Fiber.join(first)),
+        Effect.result(Fiber.join(second)),
+      ]);
+      const succeeded = outcomes.filter(Result.isSuccess);
+      const turnBusy = outcomes.filter(
+        (result) => Result.isFailure(result) && result.failure._tag === "TurnInProgress",
+      );
+      expect(succeeded).toHaveLength(1);
+      expect(turnBusy).toHaveLength(1);
 
       yield* handle.close();
     }),
