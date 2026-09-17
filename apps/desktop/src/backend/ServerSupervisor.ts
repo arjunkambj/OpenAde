@@ -84,7 +84,12 @@ export class ServerSupervisor extends EventEmitter {
   }
 
   start() {
+    // Idempotent: a live child or a pending restart already means "started" —
+    // a second call here would orphan the first child.
+    if (this.child !== null || this.restartTimer !== null) return;
     this.stopped = false;
+    this.failures = 0;
+    this.backoff = INITIAL_BACKOFF_MS;
     this.spawnOnce();
   }
 
