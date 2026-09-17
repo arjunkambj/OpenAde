@@ -65,6 +65,16 @@ export const installAppAtoms = (resolved: ResolvedConnection | null): AppAtoms =
 /** What `resolveConnection` found at boot — the /welcome page displays it. */
 export const getResolvedConnection = (): ResolvedConnection | null => resolvedConnection;
 
+/**
+ * The server's http(s) origin, derived from the socket url. Loopback routes
+ * that are not RPC live on it — the browser pane's attach marker, which the
+ * desktop `<webview>` loads so the CDP driver can recognise that guest.
+ */
+export const getHttpBase = (): string => {
+  const url = resolvedConnection?.url ?? "";
+  return (url.startsWith("ws") ? `http${url.slice(2)}` : url).replace(/\/ws\/?$/, "");
+};
+
 export const getAppAtoms = (): AppAtoms => {
   if (appAtoms === null) {
     throw new Error("app atoms not installed — installAppAtoms must run before render");

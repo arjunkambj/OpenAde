@@ -15,6 +15,7 @@ import { Button } from "@OpenAde/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
 
+import { BrowserPane } from "@/components/panes/browser/browser-pane";
 import { ChangesPane } from "@/components/panes/changes/changes-pane";
 import { Icon } from "@/lib/icon";
 import { cn } from "@/lib/utils";
@@ -94,10 +95,6 @@ function DockEmpty({ icon, text }: { icon: string; text: string }) {
   );
 }
 
-function BrowserPane() {
-  return <DockEmpty icon="hugeicons:globe-02" text="No browser session on this thread." />;
-}
-
 function FilesPane() {
   return <DockEmpty icon="hugeicons:folder-01" text="No workspace files to show yet." />;
 }
@@ -156,7 +153,7 @@ export function RightDock({
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">
           {tab === "changes" ? <ChangesPane snapshot={snapshot} /> : null}
-          {tab === "browser" ? <BrowserPane /> : null}
+          {tab === "browser" ? <BrowserPane threadId={snapshot.threadId} /> : null}
           {tab === "files" ? <FilesPane /> : null}
         </div>
       </div>

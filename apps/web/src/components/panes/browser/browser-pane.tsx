@@ -1,5 +1,5 @@
 /**
- * The thread's browser pane.
+ * The thread's browser pane — the dock's Browser tab.
  *
  * - Mode A (`cdp-attach`, desktop): a real `<webview>` shows the live page;
  *   the server attaches to it over CDP. Human gestures inside the guest come
@@ -12,6 +12,9 @@
  * Toolbar actions are human gestures (`history`, `navigate`); observed
  * navigation in the guest is synced as passive `location` so the agent's own
  * navigations don't masquerade as a takeover.
+ *
+ * The atoms come from the one app runtime (`@/state/app-runtime`) — there is
+ * a single socket to the server, and this pane is one of its subscribers.
  */
 import * as React from "react";
 
@@ -22,7 +25,7 @@ import { BrowserHumanInput as BrowserHumanInputSchema } from "@OpenAde/contracts
 import * as Schema from "effect/Schema";
 import { AsyncResult } from "effect/unstable/reactivity";
 
-import { useAppRuntime, type AppRuntime } from "@/lib/runtime";
+import { getAppAtoms, getHttpBase } from "@/state/app-runtime";
 import { AddressBar } from "./address-bar";
 import { FrameSurface } from "./frame-surface";
 import { WebviewSurface } from "./webview-surface";
@@ -32,21 +35,10 @@ export interface BrowserPaneProps {
 }
 
 export function BrowserPane({ threadId }: BrowserPaneProps) {
-  const app = useAppRuntime();
-  if (app === null) {
-    return (
-      <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
-        connecting…
-      </div>
-    );
-  }
-  return <BrowserPaneInner app={app} threadId={threadId} />;
-}
-
-function BrowserPaneInner({ app, threadId }: { app: AppRuntime; threadId: ThreadId }) {
-  const stateResult = useAtomValue(app.atoms.browserStateAtom(threadId));
+  const atoms = getAppAtoms();
+  const stateResult = useAtomValue(atoms.browserStateAtom(threadId));
   const state = AsyncResult.isSuccess(stateResult) ? stateResult.value : null;
-  const sendInput = useAtomSet(app.atoms.sendBrowserInput, { mode: "promiseExit" });
+  const sendInput = useAtomSet(atoms.sendBrowserInput, { mode: "promiseExit" });
   const bridge = window.openade?.browserPane;
 
   const dispatch = React.useCallback(
@@ -88,7 +80,7 @@ function BrowserPaneInner({ app, threadId }: { app: AppRuntime; threadId: Thread
       {useWebview ? (
         <WebviewSurface
           threadId={threadId}
-          attachUrl={`${app.httpBase}/browser/attach/${threadId}`}
+          attachUrl={`${getHttpBase()}/browser/attach/${threadId}`}
           onLocation={onLocation}
         />
       ) : state !== null ? (
