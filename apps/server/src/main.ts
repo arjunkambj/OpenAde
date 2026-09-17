@@ -41,11 +41,12 @@ import { writeHandshake } from "./rpc/bootstrap";
 import { serverLayer, ServerToken } from "./rpc/server";
 import {
   BrowserService,
-  ConnectorCatalog,
   ServerIdentity,
   SettingsStore,
 } from "./rpc/services";
 import { layer as cmdConfigLayer } from "./settings/CmdConfig";
+import { ConnectorHost } from "./settings/ConnectorHost";
+import { ConnectorManager, ConnectorRegistryService } from "./settings/ConnectorManager";
 
 const DEV = process.env.OPENADE_DEV === "1" || process.argv.includes("--dev");
 const PORT = Number.parseInt(process.env.OPENADE_PORT ?? "0", 10);
@@ -69,15 +70,34 @@ const main = Effect.gen(function* () {
     makeSessionSupervisor({}),
   ).pipe(Layer.provide(Layer.mergeAll(engine, manager, gitCheckpointHookLayer, persistence)));
 
+  // The settings store and the connector manager share one graph: the manager
+  // watches the same store instance the RPC handlers mutate, and the catalog
+  // answers from the manager's probes. Built once inside `services`.
+  const sharedSettings = ConnectorManager.catalogLayer.pipe(
+    Layer.provideMerge(
+      ConnectorManager.layer.pipe(
+        Layer.provideMerge(
+          Layer.mergeAll(
+            SettingsStore.layer,
+            ConnectorHost.layer,
+            Layer.succeed(ConnectorRegistryService, registry),
+          ),
+        ),
+      ),
+    ),
+    Layer.provide(sqlite),
+  );
+
   const services = Layer.mergeAll(
     Layer.succeed(ServerIdentity, { serverInstanceId }),
     Layer.succeed(ServerToken, { token }),
-    ConnectorCatalog.empty,
+    sharedSettings,
     fileServiceLayer.pipe(Layer.provide(persistence)),
     gitServiceLayer.pipe(Layer.provide(persistence)),
     BrowserService.empty,
     cmdConfigLayer().pipe(Layer.provide(persistence)),
-    SettingsStore.layer.pipe(Layer.provide(sqlite)),
+    // SettingsStore is not listed here: `sharedSettings` already merges the one
+    // instance the manager watches and the RPC handlers mutate.
     PermissionService.layer.pipe(Layer.provide(sqlite)),
   );
 
