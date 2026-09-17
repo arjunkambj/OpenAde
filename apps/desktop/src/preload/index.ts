@@ -23,6 +23,10 @@ export interface ServerConnection {
 export interface ServerState {
   readonly status: "starting" | "ready" | "restarting" | "failed";
   readonly connection: ServerConnection | null;
+  /** Which restart is running, while `restarting`; null otherwise. */
+  readonly attempt: number | null;
+  /** Why the supervisor gave up, while `failed`; null otherwise. */
+  readonly reason: string | null;
 }
 
 const openade = {
