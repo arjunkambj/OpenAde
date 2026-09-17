@@ -17,29 +17,18 @@ import * as Schema from "effect/Schema";
 
 import { Button } from "@OpenAde/ui/components/button";
 import fixture from "@OpenAde/contracts/fixtures/thread-detail-snapshot.json";
-import { decodeItemId, decodeTurnId } from "@OpenAde/contracts/ids";
+import { decodeTurnId } from "@OpenAde/contracts/ids";
 import { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
 
 import { ModeToggle } from "@/components/mode-toggle";
 import { Timeline } from "@/components/timeline/timeline";
+import { cloneItems } from "@/lib/fixture-clone";
 
 export const Route = createFileRoute("/dev/timeline")({
   component: DevTimelinePage,
 });
 
 const baseSnapshot = Schema.decodeUnknownSync(ThreadDetailSnapshot)(fixture);
-
-/** A valid UUIDv7 clone: the last 12 nibbles become a per-copy counter. */
-const copyId = (id: string, copy: number) =>
-  decodeItemId(`${id.slice(0, 24)}${(copy + 1).toString(16).padStart(12, "0")}`);
-
-const cloneItem = (item: ItemSnapshot, copy: number): ItemSnapshot => ({
-  ...item,
-  itemId: copyId(item.itemId, copy),
-  // Children follow their own copy's parent, not copy 0's.
-  parentItemId: item.parentItemId === undefined ? undefined : copyId(item.parentItemId, copy),
-});
 
 const MULTIPLIERS = [1, 10, 50] as const;
 
@@ -48,15 +37,9 @@ function DevTimelinePage() {
   const [live, setLive] = React.useState(false);
 
   const snapshot = React.useMemo<ThreadDetailSnapshot>(() => {
-    const items =
-      multiplier === 1
-        ? baseSnapshot.items
-        : Array.from({ length: multiplier }, (_, copy) =>
-            baseSnapshot.items.map((item) => cloneItem(item, copy)),
-          ).flat();
     return {
       ...baseSnapshot,
-      items,
+      items: cloneItems(baseSnapshot.items, multiplier),
       status: live ? "running" : baseSnapshot.status,
       currentTurnId: live
         ? decodeTurnId("0199c0de-0009-7000-8000-000000000001")
