@@ -38,6 +38,7 @@ import { InlineDiff } from "@/components/timeline/diff-pool";
 import { DisclosureRow } from "@/components/timeline/row-shell";
 import { Icon } from "@/lib/icon";
 import { useConnectionState } from "@/state/hooks";
+import { useRowDisclosure } from "@/state/ui";
 
 import { useGitAtoms } from "./git-atoms";
 import { RestoreCheckpointDialog } from "./restore-dialog";
@@ -69,9 +70,17 @@ function PaneMessage({
 }
 
 function FileRow({ file, rangeKey }: { file: GitDiffFile; rangeKey: string }) {
+  const rowId = `changes-${rangeKey}-${file.path}`;
+  // `DisclosureRow` keeps its content mounted, so mounting every `InlineDiff`
+  // up front would hand the whole patch set to the two-worker highlight pool
+  // the moment the list renders — and a working-tree diff against HEAD can be
+  // hundreds of files and megabytes of patch text. Read the same disclosure
+  // state the row uses and render a placeholder until it is opened;
+  // non-undefined, so the row still counts as expandable.
+  const [open] = useRowDisclosure(rowId);
   return (
     <DisclosureRow
-      rowId={`changes-${rangeKey}-${file.path}`}
+      rowId={rowId}
       icon={KIND_ICON[file.kind]}
       label={
         <span className="font-mono text-xs">
@@ -87,7 +96,7 @@ function FileRow({ file, rangeKey }: { file: GitDiffFile; rangeKey: string }) {
         ) : null
       }
     >
-      {file.diff === "" ? undefined : <InlineDiff patch={file.diff} />}
+      {file.diff === "" ? undefined : open ? <InlineDiff patch={file.diff} /> : <div />}
     </DisclosureRow>
   );
 }
