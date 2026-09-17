@@ -190,6 +190,9 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<Keybinding> = [
   { command: "composer.queue", shortcut: "Cmd+Enter" },
   { command: "thread.interrupt", shortcut: "Escape" },
   { command: "browserPane.toggle", shortcut: "Cmd+Shift+B" },
+  { command: "sidebar.toggle", shortcut: "Cmd+B" },
+  { command: "skills.open", shortcut: "Cmd+Shift+S" },
+  { command: "settings.open", shortcut: "Cmd+," },
 ];
 
 // ── The document ───────────────────────────────────────────────
