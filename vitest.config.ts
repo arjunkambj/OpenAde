@@ -4,6 +4,10 @@ import { defineConfig } from "vitest/config";
 // picks up every package. `pnpm test` runs the same suites through turbo.
 export default defineConfig({
   test: {
-    projects: ["packages/*/vitest.config.ts", "apps/server/vitest.config.ts"],
+    projects: [
+      "packages/*/vitest.config.ts",
+      "apps/server/vitest.config.ts",
+      "apps/desktop/vitest.config.ts",
+    ],
   },
 });

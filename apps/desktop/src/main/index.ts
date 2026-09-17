@@ -6,6 +6,7 @@
 import { BrowserWindow, app, protocol } from "electron";
 
 import { ServerSupervisor } from "../backend/ServerSupervisor";
+import { serverSpawnSpec, showServerCrashDialog } from "../backend/serverDeps";
 import { registerIpc } from "./ipc";
 import { applyPlatformDefaults } from "./platform";
 import { APP_SCHEME, registerAppProtocol } from "./protocol";
@@ -39,7 +40,10 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   app.on("second-instance", focusExistingWindow);
 
-  const supervisor = new ServerSupervisor();
+  const supervisor = new ServerSupervisor({
+    spec: serverSpawnSpec,
+    onRepeatedFailure: showServerCrashDialog,
+  });
 
   void app.whenReady().then(async () => {
     registerAppProtocol();

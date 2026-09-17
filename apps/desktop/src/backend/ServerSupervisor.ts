@@ -1,16 +1,14 @@
 /**
- * Owns the OpenAde server process: spawn it (the bundled `main.cjs` under
- * `ELECTRON_RUN_AS_NODE`, or `tsx watch` in dev), read the bootstrap handshake
- * off fd 3, and restart it on crash with 500ms→10s backoff. After five
- * consecutive failed attempts it pauses and shows a dialog instead of
- * spinning forever.
+ * Owns the OpenAde server process: spawn it, read the bootstrap handshake off
+ * fd 3, and restart it on crash with 500ms→10s backoff. After five consecutive
+ * failed attempts it pauses and reports instead of spinning forever.
+ *
+ * Nothing Electron-specific lives here: the spawn spec, the spawn call itself
+ * and the repeated-failure hook are injected so the supervisor is unit-testable
+ * under plain node. `serverDeps.ts` wires the real ones from the main process.
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
-import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
-
-import { app, dialog } from "electron";
 
 export interface ServerConnection {
   readonly url: string;
@@ -31,6 +29,30 @@ const HANDSHAKE_TIMEOUT_MS = 15_000;
 const KILL_GRACE_MS = 5_000;
 const MAX_HANDSHAKE_BYTES = 64 * 1024;
 
+/** What to spawn — the bundled server entry, or `tsx watch` in dev. */
+export interface SpawnSpec {
+  readonly command: string;
+  readonly args: ReadonlyArray<string>;
+  readonly env: NodeJS.ProcessEnv;
+}
+
+export type SpawnServer = (spec: SpawnSpec) => ChildProcess;
+
+export interface ServerSupervisorDeps {
+  readonly spec: () => SpawnSpec;
+  /** Injectable for tests; defaults to node spawn with fd 3 piped. */
+  readonly spawn?: SpawnServer;
+  /** Called once the failure streak hits the cap — the crash dialog in prod. */
+  readonly onRepeatedFailure: (reason: string) => void;
+}
+
+const nodeSpawn: SpawnServer = (spec) =>
+  spawn(spec.command, [...spec.args], {
+    env: spec.env,
+    // stdin/out/err inherited for server logs; fd 3 carries the handshake.
+    stdio: ["ignore", "inherit", "inherit", "pipe"],
+  });
+
 /** Accept only a JSON object carrying the three non-empty connection fields. */
 const parseHandshake = (line: string): ServerConnection | null => {
   try {
@@ -46,11 +68,8 @@ const parseHandshake = (line: string): ServerConnection | null => {
   }
 };
 
-// Bundled to cjs — `__dirname` is real at runtime.
-declare const __dirname: string;
-const here = dirname(__dirname);
-
 export class ServerSupervisor extends EventEmitter {
+  private readonly spawnServer: SpawnServer;
   private child: ChildProcess | null = null;
   private state: ServerState = { status: "starting" };
   private failures = 0;
@@ -59,32 +78,9 @@ export class ServerSupervisor extends EventEmitter {
   private handshakeTimer: NodeJS.Timeout | null = null;
   private stopped = false;
 
-  /** The bundled server entry, or the tsx entry in dev. */
-  private spawnSpec(): { command: string; args: Array<string>; env: NodeJS.ProcessEnv } {
-    const env: NodeJS.ProcessEnv = {
-      ...process.env,
-      ELECTRON_RUN_AS_NODE: "1",
-      OPENADE_DEV: app.isPackaged ? "" : "1",
-    };
-    if (app.isPackaged) {
-      // The bundle is asar-unpacked so the child can spawn it directly.
-      const entry = join(__dirname, "..", "server", "main.cjs").replace(
-        "app.asar",
-        "app.asar.unpacked",
-      );
-      return {
-        command: process.execPath,
-        args: [entry],
-        env,
-      };
-    }
-    const require = createRequire(join(here, "../../server/package.json"));
-    const tsx = require.resolve("tsx/cli");
-    return {
-      command: process.execPath,
-      args: [tsx, "watch", join(here, "../../server/src/main.ts")],
-      env,
-    };
+  constructor(private readonly deps: ServerSupervisorDeps) {
+    super();
+    this.spawnServer = deps.spawn ?? nodeSpawn;
   }
 
   get current(): ServerState {
@@ -136,13 +132,9 @@ export class ServerSupervisor extends EventEmitter {
   }
 
   private spawnOnce() {
-    const { command, args, env } = this.spawnSpec();
-    const child = spawn(command, args, {
-      env,
-      // stdin/out/err inherited for server logs; fd 3 carries the handshake.
-      stdio: ["ignore", "inherit", "inherit", "pipe"],
-    });
+    const child = this.spawnServer(this.deps.spec());
     this.child = child;
+    this.setState({ status: "starting" });
 
     // The handshake timeout, the spawn error and the exit event can all
     // report the same death — only the first one counts.
@@ -210,13 +202,7 @@ export class ServerSupervisor extends EventEmitter {
     this.failures += 1;
     if (this.failures >= MAX_CONSECUTIVE_FAILURES) {
       this.setState({ status: "failed", reason });
-      void dialog.showMessageBox({
-        type: "error",
-        title: "OpenAde server stopped",
-        message: "The OpenAde server crashed repeatedly and will not restart.",
-        detail: reason,
-        buttons: ["OK"],
-      });
+      this.deps.onRepeatedFailure(reason);
       return;
     }
     this.setState({ status: "restarting", attempt: this.failures });
