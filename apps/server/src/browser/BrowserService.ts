@@ -48,6 +48,7 @@ import { openAgentBrowserDriver, type BrowserDriver, type DriverEvents } from ".
 import {
   findBrowserTool,
   type BrowserCallOutcome,
+  type InputBudget,
   type InputClass,
   type PreparedCall,
 } from "./tools";
@@ -58,10 +59,10 @@ interface Session {
   readonly threadId: ThreadId;
   readonly state: SubscriptionRef.SubscriptionRef<BrowserState>;
   readonly epoch: Ref.Ref<number>;
-  /** The in-flight tool's expected self-caused input classes, or none. */
+  /** What the in-flight tool may still echo back of its own input, or none. */
   readonly inFlight: Ref.Ref<{
     readonly tool: string;
-    readonly expects: ReadonlySet<InputClass>;
+    readonly expects: InputBudget;
   } | null>;
   readonly queue: Semaphore.Semaphore;
   /** The open driver plus the scope its stream/fibers live under. */
@@ -160,7 +161,7 @@ export const makeService = (injected: {
             epoch: yield* Ref.make(0),
             inFlight: yield* Ref.make<{
               readonly tool: string;
-              readonly expects: ReadonlySet<InputClass>;
+              readonly expects: InputBudget;
             } | null>(null),
             queue: yield* Semaphore.make(1),
             driver: yield* Ref.make<{
@@ -424,18 +425,21 @@ export const makeService = (injected: {
         }
 
         // Human control: bump the epoch unless an in-flight call expected to
-        // synthesize exactly this class of input itself. The expectation is a
-        // lease, spent the first time it matches — a `browser_click` echoes
-        // one pointer event, so the *second* click during that call is the
-        // human taking over and does interrupt.
+        // synthesize this input itself. The expectation is a per-class budget
+        // sized by the call — one pointer event for a `browser_click`, one
+        // key event per character for a `browser_type`. Gestures beyond the
+        // budget are the human taking over, and do interrupt.
         const inputClass = inputClassOf(input);
         const expected = yield* Ref.modify(session.inFlight, (current) => {
-          if (current === null || inputClass === null || !current.expects.has(inputClass)) {
+          const remaining =
+            current === null || inputClass === null ? 0 : (current.expects.get(inputClass) ?? 0);
+          if (current === null || inputClass === null || remaining <= 0) {
             return [false, current] as const;
           }
-          const remaining = new Set(current.expects);
-          remaining.delete(inputClass);
-          return [true, { ...current, expects: remaining }] as const;
+          const next = new Map(current.expects);
+          if (remaining === 1) next.delete(inputClass);
+          else next.set(inputClass, remaining - 1);
+          return [true, { ...current, expects: next }] as const;
         });
         if (!expected) {
           yield* Ref.update(session.epoch, (epoch) => epoch + 1);

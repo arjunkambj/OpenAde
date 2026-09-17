@@ -7,7 +7,8 @@
  *   `interrupted` — the epoch flip the MCP layer maps to
  *   `interrupted_by_human`.
  * - A pointer gesture during an in-flight `browser_click` is the agent's own
- *   echo (the call `expects` pointer input) and does NOT interrupt.
+ *   echo (the call `expects` pointer input) and does NOT interrupt, and a
+ *   `browser_type` survives one echoed keystroke per character of its text.
  * - A `tab_gone` the cdp driver could not rebind drops the dead driver and
  *   retries the call on a fresh one instead of erroring for the rest of the
  *   thread.
@@ -222,6 +223,40 @@ describe("BrowserService", () => {
 
         const outcome = yield* Fiber.join(call);
         expect(outcome.kind).toBe("interrupted");
+      }),
+    ),
+  );
+
+  it.live("typing echoes one key per character and still settles as ok", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const started = yield* Deferred.make<void>();
+        const release = yield* Deferred.make<void>();
+        const { browser } = yield* buildStack(() =>
+          Effect.succeed(
+            makeFakeDriver(fakePage(), {
+              onExec: (argv) =>
+                argv[0] === "keyboard"
+                  ? Effect.andThen(Deferred.succeed(started, undefined), Deferred.await(release))
+                  : Effect.void,
+            }),
+          ),
+        );
+
+        const text = "hello";
+        const call = yield* browser
+          .callTool(threadId, "browser_type", { text })
+          .pipe(Effect.forkChild);
+        yield* Deferred.await(started);
+
+        // The desktop relay reports every synthesized keystroke back to us.
+        for (const key of text) {
+          yield* browser.humanInput(threadId, { kind: "key", key });
+        }
+        yield* Deferred.succeed(release, undefined);
+
+        const outcome = yield* Fiber.join(call);
+        expect(outcome.kind).toBe("ok");
       }),
     ),
   );

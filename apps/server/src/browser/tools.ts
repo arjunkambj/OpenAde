@@ -5,15 +5,23 @@
  *
  * Two fields on the prepared call matter beyond the CLI mapping:
  *
- * - `expects` — the input classes this command can synthesize over CDP. While
- *   a call is in flight, human input of a class it expects is the agent's own
- *   echo (a `browser_click` produces pointer events) and does not bump the
- *   human-control epoch.
+ * - `expects` — how many gestures of each input class this command can
+ *   synthesize over CDP. While a call is in flight, human input of a class it
+ *   expects is the agent's own echo (a `browser_click` produces one pointer
+ *   event, a `browser_type` one key event per character) and does not bump
+ *   the human-control epoch until that class's budget is spent.
  * - `mutating` — calls that can move the page; the service re-reads url/title
  *   afterwards so `browser.subscribe` stays truthful.
  */
 
 export type InputClass = "pointer" | "key" | "wheel";
+
+/**
+ * How many gestures of each class a prepared call may echo back before the
+ * next one counts as the human taking over. Classes absent from the map are
+ * never the agent's own doing.
+ */
+export type InputBudget = ReadonlyMap<InputClass, number>;
 
 export type BrowserToolName =
   | "browser_open"
@@ -32,7 +40,7 @@ export type BrowserToolName =
 export interface PreparedCall {
   readonly name: BrowserToolName;
   readonly argv: ReadonlyArray<string>;
-  readonly expects: ReadonlySet<InputClass>;
+  readonly expects: InputBudget;
   readonly mutating: boolean;
   /** Result carries a screenshot file at `data.path` to inline as an image. */
   readonly screenshot: boolean;
@@ -80,17 +88,27 @@ const boolean = { type: "boolean" };
 
 const SEL_DOC = "An element ref like @e3 from browser_snapshot, or a CSS/XPath/role selector.";
 
-const NO_INPUT: ReadonlySet<InputClass> = new Set();
-const POINTER: ReadonlySet<InputClass> = new Set(["pointer"]);
-const POINTER_KEY: ReadonlySet<InputClass> = new Set(["pointer", "key"]);
-const KEY: ReadonlySet<InputClass> = new Set(["key"]);
-const WHEEL: ReadonlySet<InputClass> = new Set(["wheel"]);
+const NO_INPUT: InputBudget = new Map();
+
+const budget = (...entries: ReadonlyArray<readonly [InputClass, number]>): InputBudget =>
+  new Map(entries);
+
+/** The text a `fill`/`keyboard type` argv ends with. */
+const textOf = (argv: ReadonlyArray<string>): string => argv[argv.length - 1] ?? "";
+
+/**
+ * Typing is one CDP key event per character and the desktop relays every one
+ * of them back to us as a gesture, so the budget has to be the length of the
+ * text. The two spare cover the focus/commit keys a fill can add around it.
+ */
+const typingKeys = (text: string): number => text.length + 2;
 
 interface MakeOptions {
   readonly description: string;
   readonly inputSchema: Record<string, unknown>;
   readonly annotations?: Record<string, unknown>;
-  readonly expects?: ReadonlySet<InputClass>;
+  /** Sized from the prepared argv — typing's budget depends on the text. */
+  readonly expects?: (argv: ReadonlyArray<string>) => InputBudget;
   readonly mutating?: boolean;
   readonly screenshot?: boolean;
   readonly toArgv: (args: Record<string, unknown>) => ReadonlyArray<string> | { error: string };
@@ -102,7 +120,7 @@ const makeTool = (name: BrowserToolName, options: MakeOptions): BrowserToolSpec 
   inputSchema: options.inputSchema,
   annotations: {
     title: name.replace("browser_", "browser ").replace(/_/g, " "),
-    readOnlyHint: (options.expects ?? NO_INPUT).size === 0 && options.mutating !== true,
+    readOnlyHint: options.expects === undefined && options.mutating !== true,
     destructiveHint: false,
     openWorldHint: true,
     ...options.annotations,
@@ -120,7 +138,7 @@ const makeTool = (name: BrowserToolName, options: MakeOptions): BrowserToolSpec 
       call: {
         name,
         argv,
-        expects: options.expects ?? NO_INPUT,
+        expects: options.expects === undefined ? NO_INPUT : options.expects(argv),
         mutating: options.mutating ?? false,
         screenshot: options.screenshot ?? false,
       },
@@ -171,7 +189,7 @@ export const BROWSER_TOOLS: ReadonlyArray<BrowserToolSpec> = [
   makeTool("browser_click", {
     description: "Click an element.",
     inputSchema: objectSchema({ selector: { ...string, description: SEL_DOC } }, ["selector"]),
-    expects: POINTER,
+    expects: () => budget(["pointer", 1]),
     mutating: true,
     toArgv: (args) => {
       const selector = requiredString(args, "selector");
@@ -188,7 +206,7 @@ export const BROWSER_TOOLS: ReadonlyArray<BrowserToolSpec> = [
       },
       ["selector", "text"],
     ),
-    expects: POINTER_KEY,
+    expects: (argv) => budget(["pointer", 1], ["key", typingKeys(textOf(argv))]),
     mutating: true,
     toArgv: (args) => {
       const selector = requiredString(args, "selector");
@@ -203,7 +221,7 @@ export const BROWSER_TOOLS: ReadonlyArray<BrowserToolSpec> = [
   makeTool("browser_type", {
     description: "Type text into whatever element has focus, with real keystrokes.",
     inputSchema: objectSchema({ text: { ...string } }, ["text"]),
-    expects: KEY,
+    expects: (argv) => budget(["key", typingKeys(textOf(argv))]),
     toArgv: (args) => {
       const text = args.text;
       return typeof text === "string"
@@ -215,7 +233,8 @@ export const BROWSER_TOOLS: ReadonlyArray<BrowserToolSpec> = [
   makeTool("browser_press", {
     description: "Press a key or combination — Enter, Tab, Escape, ArrowDown, Control+a, …",
     inputSchema: objectSchema({ key: { ...string } }, ["key"]),
-    expects: KEY,
+    // One key event, plus a spare for a combination's modifier.
+    expects: () => budget(["key", 2]),
     mutating: true,
     toArgv: (args) => {
       const key = requiredString(args, "key");
@@ -233,7 +252,7 @@ export const BROWSER_TOOLS: ReadonlyArray<BrowserToolSpec> = [
       },
       [],
     ),
-    expects: WHEEL,
+    expects: () => budget(["wheel", 1]),
     toArgv: (args) => {
       const direction = args.direction ?? "down";
       if (typeof direction !== "string" || !["up", "down", "left", "right"].includes(direction)) {
