@@ -3,13 +3,22 @@
  *
  * Resolution order: the configured `binaryPath`, then `cmd` on `PATH` (plus
  * the usual global bin dirs), then the npx fallback `npx -y
- * command-code@<PINNED>` so a machine without the global install still works —
+ * command-code@latest` so a machine without the global install still works —
  * at the cost of a slower first probe.
  *
+ * **Version policy.** We run whatever the user has installed, at whatever
+ * version it is, and we never prefer a pinned copy of our own: the CLI
+ * self-updates and the harness is the user's, not ours. Nothing is pinned
+ * anywhere — the npx fallback asks for `@latest`, and `OLDEST_TESTED_VERSION`
+ * is only the floor our recordings were made at. Below it the probe warns;
+ * equal or above it says nothing, today and for every release after.
+ *
  * `status --json` answers auth, account and version; `--list-models` feeds the
- * model picker. Both run against the resolved binary with a timeout, and a
- * version below `MIN_VERSION` is a warning, not a failure — older binaries may
- * still run turns.
+ * model picker. Both run against the resolved binary with a timeout, and both
+ * deliberately go without `--no-auto-update`: a probe is the one moment where
+ * letting the CLI upgrade itself is safe and wanted. Turn spawns keep
+ * `--no-auto-update` (`buildArgs`), because an upgrade in the middle of a turn
+ * would swap the binary under a running conversation.
  */
 
 import { execFile } from "node:child_process";
@@ -26,9 +35,14 @@ import * as Effect from "effect/Effect";
 import { EXIT_MESSAGES } from "./exitCodes";
 import { envAllowlist } from "./spawn";
 
-/** The package version the npx fallback pins and the version warnings compare to. */
-export const PINNED_VERSION = "1.54.0";
-const MIN_VERSION = PINNED_VERSION;
+/**
+ * The oldest release the connector has been recorded against — the floor the
+ * probe warns below, never a version it asks for. A newer `cmd` is always fine.
+ */
+export const OLDEST_TESTED_VERSION = "1.54.0";
+
+/** What the npx fallback installs when there is no `cmd` on the machine. */
+const NPX_PACKAGE = "command-code@latest";
 
 interface ResolvedBinary {
   readonly command: string;
@@ -87,8 +101,8 @@ const resolveBinary = (
   if (findOnPath("npx", env) !== null) {
     return {
       command: "npx",
-      prefixArgs: ["-y", `command-code@${PINNED_VERSION}`],
-      display: `npx command-code@${PINNED_VERSION}`,
+      prefixArgs: ["-y", NPX_PACKAGE],
+      display: `npx ${NPX_PACKAGE}`,
     };
   }
   return null;
@@ -149,21 +163,27 @@ interface StatusJson {
   readonly model?: string;
 }
 
-/** `1.54.0` → [1,54,0]; unparseable → null. */
+/** `1.55.1` → [1,55,1]; unparseable → null. */
 const parseVersion = (raw: string): Array<number> | null => {
   const match = /(\d+)\.(\d+)\.(\d+)/.exec(raw);
   return match === null ? null : [Number(match[1]), Number(match[2]), Number(match[3])];
 };
 
-const belowMin = (version: string): boolean => {
+/**
+ * Strictly older than the oldest release we have recordings for. Equal is fine,
+ * newer is fine — a version we cannot parse is fine too, because refusing to
+ * run on a build whose version string we do not recognize would be the pin this
+ * connector deliberately does not have.
+ */
+export const isBelowOldestTested = (version: string): boolean => {
   const parsed = parseVersion(version);
-  const min = parseVersion(MIN_VERSION);
-  if (parsed === null || min === null) {
+  const floor = parseVersion(OLDEST_TESTED_VERSION);
+  if (parsed === null || floor === null) {
     return false;
   }
   for (let index = 0; index < 3; index += 1) {
-    if (parsed[index]! !== min[index]!) {
-      return parsed[index]! < min[index]!;
+    if (parsed[index]! !== floor[index]!) {
+      return parsed[index]! < floor[index]!;
     }
   }
   return false;
@@ -320,8 +340,10 @@ export const probe = (config: CmdConnectorConfig): Effect.Effect<ConnectorProbe,
     }
 
     const warnings: Array<string> = [];
-    if (parsed.version !== undefined && belowMin(parsed.version)) {
-      warnings.push(`cmd ${parsed.version} is below the tested ${MIN_VERSION}`);
+    if (parsed.version !== undefined && isBelowOldestTested(parsed.version)) {
+      warnings.push(
+        `cmd ${parsed.version} is older than ${OLDEST_TESTED_VERSION}, the oldest release OpenAde has been tested against`,
+      );
     }
 
     const models = yield* runBinary(binary, ["--list-models"], {

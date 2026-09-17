@@ -21,7 +21,7 @@ import * as Effect from "effect/Effect";
 import type * as Scope from "effect/Scope";
 
 import { EXIT_MESSAGES } from "./exitCodes";
-import { parseModelList, probe } from "./probe";
+import { isBelowOldestTested, OLDEST_TESTED_VERSION, parseModelList, probe } from "./probe";
 
 const FIXTURE = NodePath.resolve(
   NodeURL.fileURLToPath(import.meta.url),
@@ -202,7 +202,26 @@ describe("probe", () => {
     }),
   );
 
-  it.effect("warns about a version below the tested one", () =>
+  /**
+   * The version policy in one table: nothing is pinned, so only a binary
+   * *older* than the oldest release we have recordings for is worth a word.
+   * 1.55.1 is what is installed today and 1.54.0 is the floor — neither warns,
+   * and neither does whatever ships next.
+   */
+  it("warns below the oldest tested version and nowhere else", () => {
+    expect(OLDEST_TESTED_VERSION).toBe("1.54.0");
+    expect(isBelowOldestTested("1.53.9")).toBe(true);
+    expect(isBelowOldestTested("0.9.0")).toBe(true);
+    expect(isBelowOldestTested("1.54.0")).toBe(false); // equal
+    expect(isBelowOldestTested("1.55.1")).toBe(false); // installed today
+    expect(isBelowOldestTested("2.0.0")).toBe(false); // whatever comes next
+    // Unparseable is not old: refusing a build whose version string we cannot
+    // read would be the pin this connector deliberately does not have.
+    expect(isBelowOldestTested("nightly")).toBe(false);
+    expect(isBelowOldestTested("")).toBe(false);
+  });
+
+  it.effect("carries that warning on the probe, and says nothing for a newer cmd", () =>
     Effect.gen(function* () {
       const fake = yield* fakes();
       const old = yield* probe({
@@ -212,6 +231,15 @@ describe("probe", () => {
       });
       expect(old.status).toBe("ready");
       expect(old.warnings.join(" ")).toContain("1.53.9");
+      expect(old.warnings.join(" ")).toContain(OLDEST_TESTED_VERSION);
+
+      // The version the operator actually has installed.
+      const installed = yield* probe({
+        binaryPath: fake.binary(
+          statusBinary(JSON.stringify({ authenticated: true, version: "1.55.1" }), 0, "a/b\n"),
+        ),
+      });
+      expect(installed.warnings).toEqual([]);
 
       const newer = yield* probe({
         binaryPath: fake.binary(

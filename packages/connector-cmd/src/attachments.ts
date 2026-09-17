@@ -1,11 +1,15 @@
 /**
  * Handing a turn's attachments to the harness.
  *
- * Print mode has no image flag — the probe of `command-code@1.54.0 --help`
- * found none, and the spec records the same gap (§5.7) with the fallback this
- * module implements: put the file under `<attachmentsDir>/<threadId>/`, add
- * that directory to the run's workspace scope, and name the absolute path in
- * the prompt so the model reads it (decision docs/decisions/w10-attachments.md).
+ * Print mode has no image flag — `cmd --help` lists none at any version we have
+ * run, and the spec records the same gap (§5.7) with the fallback this module
+ * implements: put the file under `<attachmentsDir>/<threadId>/`, add that
+ * directory to the run's workspace scope, and name the absolute path in the
+ * prompt so the model reads it (decision docs/decisions/w10-attachments.md).
+ *
+ * That fallback is no longer a guess: `fixtures/cmd/image/` is a real turn
+ * staged exactly this way. The model called `read_file` on the PNG, the harness
+ * answered with an image block, and the answer was the colour of the pixels.
  *
  * Most files are already there: the server stages a composer upload straight
  * into that directory. One that is not — a path that came from somewhere else —
