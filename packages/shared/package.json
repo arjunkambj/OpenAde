@@ -11,6 +11,10 @@
     "./paths": {
       "types": "./src/paths.ts",
       "import": "./src/paths.ts"
+    },
+    "./permissionPattern": {
+      "types": "./src/permissionPattern.ts",
+      "import": "./src/permissionPattern.ts"
     }
   },
   "scripts": {
