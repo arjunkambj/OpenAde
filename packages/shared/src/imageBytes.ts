@@ -79,9 +79,6 @@ export const sniffImageMediaType = (bytes: Uint8Array): ImageMediaType | null =>
   return null;
 };
 
-/** How many header bytes `sniffImageMediaType` can possibly look at. */
-export const IMAGE_SNIFF_BYTES = 12;
-
 /**
  * A file name safe to put on disk and in a prompt line: the basename only,
  * every character outside `[A-Za-z0-9._-]` folded to `-`, leading dots dropped
