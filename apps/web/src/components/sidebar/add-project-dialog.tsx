@@ -49,9 +49,17 @@ export function AddProjectDialog({ disabled }: { disabled?: boolean }) {
     name.trim().length > 0 && workspaceRoot.trim().length > 0 && pathProblem === null && !pending;
 
   /** The native picker fills the root, and names the project after it unless
-   * the user already typed a name of their own. */
+   * the user already typed a name of their own. The main process can fail to
+   * open the dialog at all; say so rather than leaving a button that looks
+   * dead, since the field below is still typeable. */
   const choose = async () => {
-    const picked = await pickDirectory();
+    let picked: string | null;
+    try {
+      picked = await pickDirectory();
+    } catch {
+      toast.error("Could not open the directory picker");
+      return;
+    }
     if (picked === null) {
       return;
     }
