@@ -29,6 +29,22 @@ const MAX_BACKOFF_MS = 10_000;
 const MAX_CONSECUTIVE_FAILURES = 5;
 const HANDSHAKE_TIMEOUT_MS = 15_000;
 const KILL_GRACE_MS = 5_000;
+const MAX_HANDSHAKE_BYTES = 64 * 1024;
+
+/** Accept only a JSON object carrying the three non-empty connection fields. */
+const parseHandshake = (line: string): ServerConnection | null => {
+  try {
+    const parsed: unknown = JSON.parse(line);
+    if (typeof parsed !== "object" || parsed === null) return null;
+    const { url, token, serverInstanceId } = parsed as Record<string, unknown>;
+    if (typeof url !== "string" || url.length === 0) return null;
+    if (typeof token !== "string" || token.length === 0) return null;
+    if (typeof serverInstanceId !== "string" || serverInstanceId.length === 0) return null;
+    return { url, token, serverInstanceId };
+  } catch {
+    return null;
+  }
+};
 
 // Bundled to cjs — `__dirname` is real at runtime.
 declare const __dirname: string;
@@ -153,24 +169,35 @@ export class ServerSupervisor extends EventEmitter {
     this.handshakeTimer.unref();
 
     let handshake = "";
-    const onHandshake = (chunk: Buffer) => {
-      handshake += chunk.toString("utf8");
-      const newline = handshake.indexOf("\n");
-      if (newline === -1) return;
-      const line = handshake.slice(0, newline).trim();
-      try {
-        const parsed = JSON.parse(line) as ServerConnection;
-        this.failures = 0;
-        this.backoff = INITIAL_BACKOFF_MS;
-        this.setState({ status: "ready", connection: parsed });
-      } catch {
-        this.setState({ status: "failed", reason: `bad handshake: ${line.slice(0, 120)}` });
-      }
+    const settleHandshake = (connection: ServerConnection | null, reason: string) => {
       if (this.handshakeTimer !== null) {
         clearTimeout(this.handshakeTimer);
         this.handshakeTimer = null;
       }
       child.stdio[3]?.removeListener("data", onHandshake);
+      if (connection === null) {
+        // A child speaking the wrong protocol is not connectable — recycle it
+        // through the same failure/backoff path as a crash.
+        this.killChild(child);
+        countExit(reason);
+        return;
+      }
+      this.failures = 0;
+      this.backoff = INITIAL_BACKOFF_MS;
+      this.setState({ status: "ready", connection });
+    };
+    const onHandshake = (chunk: Buffer) => {
+      handshake += chunk.toString("utf8");
+      const newline = handshake.indexOf("\n");
+      if (newline === -1) {
+        // A flood of bytes without a newline is not a handshake either.
+        if (handshake.length > MAX_HANDSHAKE_BYTES) {
+          settleHandshake(null, `bad handshake: no newline in ${MAX_HANDSHAKE_BYTES} bytes`);
+        }
+        return;
+      }
+      const line = handshake.slice(0, newline).trim();
+      settleHandshake(parseHandshake(line), `bad handshake: ${line.slice(0, 120)}`);
     };
     child.stdio[3]?.on("data", onHandshake);
 
