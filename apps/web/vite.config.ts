@@ -1,12 +1,14 @@
 import { existsSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { devConnectionPath } from "@OpenAde/shared/paths";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 
-const DEV_CONNECTION_PATH = join(homedir(), ".openade", "dev", "connection.json");
+// Resolved through the shared paths module so an `OPENADE_HOME` override moves
+// the dev handshake file for the plugin and the server alike. Node-side config,
+// never bundled into the renderer.
+const DEV_CONNECTION_PATH = devConnectionPath();
 
 /**
  * Serves `~/.openade/dev/connection.json` at `/__openade/connection` so a

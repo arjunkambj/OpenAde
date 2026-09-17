@@ -6,8 +6,8 @@
  */
 
 import { mkdirSync, writeFileSync, writeSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname } from "node:path";
+import { devConnectionPath } from "@OpenAde/shared/paths";
 import * as Effect from "effect/Effect";
 
 export interface ServerHandshake {
@@ -16,7 +16,8 @@ export interface ServerHandshake {
   readonly serverInstanceId: string;
 }
 
-export const DEV_CONNECTION_PATH = join(homedir(), ".openade", "dev", "connection.json");
+/** `<config dir>/dev/connection.json`, so `OPENADE_HOME` moves it with the rest. */
+export const DEV_CONNECTION_PATH = devConnectionPath();
 
 /**
  * Emits the handshake. fd 3 exists only when the desktop spawned us with an
@@ -37,7 +38,7 @@ export const writeHandshake = (
       process.stdout.write(`${line}\n`);
     }
     if (options.dev) {
-      mkdirSync(join(homedir(), ".openade", "dev"), { recursive: true });
+      mkdirSync(dirname(DEV_CONNECTION_PATH), { recursive: true });
       writeFileSync(DEV_CONNECTION_PATH, `${line}\n`);
     }
     return channel;
