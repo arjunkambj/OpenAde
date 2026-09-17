@@ -224,6 +224,36 @@ describe("w8 git", () => {
     ),
   );
 
+  it.live("status parses paths with spaces and staged renames", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = makeRepo();
+        const { projectId, git: gitService } = yield* stack(root);
+
+        writeFileSync(nodePath.join(root, "has space.txt"), "v1\n");
+        git(root, "add", "-A");
+        git(root, "commit", "-qm", "add spaced file");
+        // Unstaged `1 ` row whose path contains a space.
+        writeFileSync(nodePath.join(root, "has space.txt"), "v2\n");
+        // Staged `2 ` rename row: path and origPath both carry spaces, and
+        // the origPath travels as a second NUL record.
+        git(root, "mv", "has space.txt", "renamed file.txt");
+        writeFileSync(nodePath.join(root, "untracked space.txt"), "new\n");
+
+        const status = yield* gitService.status(projectId);
+        const byPath = new Map(status.files.map((f) => [f.path, f]));
+        const renamed = byPath.get("renamed file.txt");
+        expect(renamed?.status).toBe("renamed");
+        expect(renamed?.oldPath).toBe("has space.txt");
+        expect(renamed?.staged).toBe(true);
+        expect(byPath.get("untracked space.txt")?.status).toBe("untracked");
+        // The origPath record must not surface as its own file entry.
+        expect(byPath.has("has space.txt")).toBe(false);
+        expect(status.files.every((f) => !f.path.includes("R100"))).toBe(true);
+      }),
+    ),
+  );
+
   it.live("worktree diff includes untracked files", () =>
     Effect.scoped(
       Effect.gen(function* () {

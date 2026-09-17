@@ -46,7 +46,9 @@ const parseStatus = (stdout: string): GitStatus => {
   let behind = 0;
   const files: Array<GitFileChange> = [];
   const lines = stdout.split(NUL).filter((line) => line.length > 0);
-  for (const line of lines) {
+  // Index-based: `2 ` rename rows consume the following NUL record too.
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]!;
     if (line.startsWith("# branch.head ")) {
       branch = line.slice("# branch.head ".length) || null;
     } else if (line.startsWith("# branch.upstream ")) {
@@ -60,9 +62,21 @@ const parseStatus = (stdout: string): GitStatus => {
     } else if (line.startsWith("1 ") || line.startsWith("2 ") || line.startsWith("u ")) {
       const parts = line.split(" ");
       const xy = parts[1] ?? "..";
-      // v2 rename rows put `path` last and `origPath` second to last.
-      const path = parts[parts.length - 1]!;
-      const oldPath = line.startsWith("2 ") ? parts[parts.length - 2] : undefined;
+      // Fixed-field counts before the path: `1 ` carries 8 (`<XY> <sub>
+      // <mH> <mI> <mW> <hH> <hI>`), `2 ` adds the `<X><score>` token (9),
+      // `u ` carries 10. The path itself may contain spaces, so it is the
+      // remainder of the row re-joined, never a single part.
+      const pathStart = line.startsWith("2 ") ? 9 : line.startsWith("u ") ? 10 : 8;
+      const path = parts.slice(pathStart).join(" ");
+      let oldPath: string | undefined;
+      if (line.startsWith("2 ")) {
+        // A rename/copy row is followed by a second NUL record carrying the
+        // original path — consume it so it is not mistaken for an entry.
+        oldPath = lines[index + 1];
+        if (oldPath !== undefined) {
+          index += 1;
+        }
+      }
       files.push({
         path,
         ...(oldPath === undefined ? {} : { oldPath }),
