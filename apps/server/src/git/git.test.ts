@@ -398,6 +398,31 @@ describe("w8 git", () => {
     ),
   );
 
+  it.live("files.read pages into a file far past the text cap", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = makeRepo();
+        // 40,000 lines of ~30 bytes — about 1.2MB, so line 20,000 is well
+        // beyond anything a single 512KB window could reach.
+        const lines = Array.from({ length: 40_000 }, (_, i) => `line ${i} ${"-".repeat(20)}`);
+        writeFileSync(nodePath.join(root, "long.txt"), `${lines.join("\n")}\n`);
+        const { projectId, files } = yield* stack(root);
+
+        const page = yield* files.read(projectId, "long.txt", 20_000, 3);
+        expect(page.text.split("\n")).toEqual([lines[20_000], lines[20_001], lines[20_002]]);
+        // The trailing newline makes the last line an empty one, as
+        // String.split("\n") would report it.
+        expect(page.totalLines).toBe(40_001);
+        expect(page.truncated).toBe(true);
+
+        // The final page reaches the end of the file rather than a window.
+        const tail = yield* files.read(projectId, "long.txt", 39_999, 2);
+        expect(tail.text).toBe(`${lines[39_999]}\n`);
+        expect(tail.truncated).toBe(false);
+      }),
+    ),
+  );
+
   it.live("files.read bounds a large file at the read cap", () =>
     Effect.scoped(
       Effect.gen(function* () {

@@ -9,10 +9,10 @@
  * the ignore-aware filesystem walk in `walk.ts` rather than failing the RPC.
  */
 import { statSync } from "node:fs";
-import { open, realpath } from "node:fs/promises";
+import { realpath } from "node:fs/promises";
 import * as nodePath from "node:path";
 import type { ProjectId } from "@OpenAde/contracts/ids";
-import type { FileContent, FileSearchResult } from "@OpenAde/contracts/rpc";
+import type { FileSearchResult } from "@OpenAde/contracts/rpc";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -22,6 +22,7 @@ import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
 import { ReadModelStore } from "../persistence/ReadModels";
 import { FileService } from "../rpc/services";
 import { isRepository, run } from "./process";
+import { readFileWindow } from "./read";
 import { walkWorkspace } from "./walk";
 
 export class FileServiceError extends Data.TaggedError("FileServiceError")<{
@@ -31,8 +32,6 @@ export class FileServiceError extends Data.TaggedError("FileServiceError")<{
 const toRpcError = (error: FileServiceError) =>
   new OpenAdeRpcError({ code: "internal", message: error.message });
 
-/** Read at most this many bytes; larger files answer `truncated: true`. */
-const READ_CAP_BYTES = 512 * 1024;
 const DEFAULT_SEARCH_LIMIT = 50;
 const MAX_SEARCH_LIMIT = 200;
 /** A cached file list stays warm for this long — typing bursts hit it. */
@@ -181,32 +180,7 @@ export const layer = Layer.effect(
             });
           }
           return yield* Effect.tryPromise({
-            try: async (): Promise<FileContent> => {
-              const handle = await open(realTarget, "r");
-              try {
-                const info = await handle.stat();
-                if (info.isDirectory()) {
-                  return { path, text: "", totalLines: 0, truncated: false };
-                }
-                // Read at most READ_CAP_BYTES — a huge file never buffers
-                // whole just to be sliced down afterwards.
-                const buffer = Buffer.alloc(READ_CAP_BYTES);
-                const { bytesRead } = await handle.read(buffer, 0, READ_CAP_BYTES, 0);
-                const text = buffer.subarray(0, bytesRead).toString("utf8");
-                const lines = text.split("\n");
-                const totalLines = lines.length;
-                const slice =
-                  limit === undefined ? lines.slice(offset) : lines.slice(offset, offset + limit);
-                return {
-                  path,
-                  text: slice.join("\n"),
-                  totalLines,
-                  truncated: info.size > READ_CAP_BYTES || offset + slice.length < totalLines,
-                };
-              } finally {
-                await handle.close();
-              }
-            },
+            try: () => readFileWindow(realTarget, path, offset, limit),
             catch: () => new FileServiceError({ message: `cannot read ${path}` }),
           });
         }).pipe(Effect.mapError(toRpcError)),
