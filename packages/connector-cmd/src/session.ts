@@ -811,8 +811,5 @@ export const makeCmdSession = (
       updateSettings: (patch) => Ref.update(settingsRef, (settings) => ({ ...settings, ...patch })),
       sessionRef: () => Ref.get(sessionRef),
       close: () => close,
-      // Direct access for tests without a hook bridge (the bridge normally
-      // routes through registerHookHandler above).
-      __hookHandler: onHookPost,
-    } as SessionHandle & { readonly __hookHandler: typeof onHookPost };
+    };
   });
