@@ -40,6 +40,10 @@
       "types": "./src/config.ts",
       "import": "./src/config.ts"
     },
+    "./questions": {
+      "types": "./src/questions.ts",
+      "import": "./src/questions.ts"
+    },
     "./probe": {
       "types": "./src/probe.ts",
       "import": "./src/probe.ts"

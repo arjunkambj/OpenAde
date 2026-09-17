@@ -21,7 +21,6 @@ import type {
   ApprovalRequest,
   ConnectorCapabilities,
   RuntimeEvent,
-  UserQuestion,
   UserQuestionAnswer,
 } from "@OpenAde/contracts/runtime";
 import * as Deferred from "effect/Deferred";
@@ -51,6 +50,7 @@ import {
 import { ensureHookScript } from "./hookScript";
 import { makeLineSplitter, parseFrame } from "./ndjson";
 import { readPlanProposal } from "./plans";
+import { normalizeQuestions } from "./questions";
 import { buildArgs, envAllowlist, spawnProcess, type CmdProcess } from "./spawn";
 import { tailTranscript, transcriptPathFor } from "./transcript";
 import { makeTranslator, type PendingRuntimeEvent } from "./translate";
@@ -352,16 +352,16 @@ export const makeCmdSession = (
         const requestId = makeRequestId();
 
         if (record.tool_name === "ask_user_question") {
-          const questions = (record.tool_input as { questions?: unknown })?.questions;
+          // The payload shape is a 5.7 unknown, and the wire schema is not
+          // forgiving — normalize rather than cast, or one unexpected field
+          // fails the encode and the card never reaches the renderer.
+          const questions = normalizeQuestions(record.tool_input);
           const released = yield* Deferred.make<ReadonlyArray<UserQuestionAnswer>>();
           yield* Ref.update(pendingUserInputs, (map) => new Map(map).set(requestId, { released }));
           yield* emit({
             type: "user-input.requested",
             requestId,
-            payload: {
-              requestId,
-              questions: (Array.isArray(questions) ? questions : []) as ReadonlyArray<UserQuestion>,
-            },
+            payload: { requestId, questions },
           });
           const answers = yield* Deferred.await(released);
           yield* Ref.update(pendingUserInputs, (map) => {
