@@ -75,8 +75,27 @@ export const buildArgs = (input: BuildArgsInput): Array<string> => {
 
 // ── environment ────────────────────────────────────────────────
 
-/** Exact names the child always keeps. */
-const BASE_ENV = new Set(["HOME", "PATH", "USER", "SHELL", "LANG", "TERM", "TMPDIR"]);
+/**
+ * Exact names the child always keeps. The second row is what a CLI needs to
+ * reach the network and git in the real world: the ssh agent for git-over-ssh
+ * inside shell commands, and the corporate-proxy variables its own API calls
+ * depend on.
+ */
+const BASE_ENV = new Set([
+  "HOME",
+  "PATH",
+  "USER",
+  "SHELL",
+  "LANG",
+  "TERM",
+  "TMPDIR",
+  "SSH_AUTH_SOCK",
+  "HTTP_PROXY",
+  "HTTPS_PROXY",
+  "NO_PROXY",
+  "SSL_CERT_FILE",
+  "NODE_EXTRA_CA_CERTS",
+]);
 
 /**
  * Prefixes that pass the allowlist — `LC_*` locales, Command Code's own

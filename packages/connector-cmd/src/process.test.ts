@@ -110,6 +110,26 @@ describe("envAllowlist", () => {
     });
   });
 
+  it("keeps the ssh agent and corporate proxy/CA variables", () => {
+    const out = envAllowlist({
+      SSH_AUTH_SOCK: "/tmp/ssh-agent.sock",
+      HTTP_PROXY: "http://corp:3128",
+      HTTPS_PROXY: "http://corp:3128",
+      NO_PROXY: "localhost,.internal",
+      SSL_CERT_FILE: "/etc/corp-ca.pem",
+      NODE_EXTRA_CA_CERTS: "/etc/corp-ca.pem",
+      AWS_SECRET_ACCESS_KEY: "nope",
+    });
+    expect(out).toEqual({
+      SSH_AUTH_SOCK: "/tmp/ssh-agent.sock",
+      HTTP_PROXY: "http://corp:3128",
+      HTTPS_PROXY: "http://corp:3128",
+      NO_PROXY: "localhost,.internal",
+      SSL_CERT_FILE: "/etc/corp-ca.pem",
+      NODE_EXTRA_CA_CERTS: "/etc/corp-ca.pem",
+    });
+  });
+
   it("drops control-plane and foreign credentials even through extra", () => {
     const out = envAllowlist(
       { HOME: "/home/u", ANTHROPIC_API_KEY: "sk-1", OPENAI_API_KEY: "sk-2" },
