@@ -20,6 +20,10 @@
       "types": "./src/gitAtoms.ts",
       "import": "./src/gitAtoms.ts"
     },
+    "./fileAtoms": {
+      "types": "./src/fileAtoms.ts",
+      "import": "./src/fileAtoms.ts"
+    },
     "./desktop": {
       "types": "./src/desktop.ts",
       "import": "./src/desktop.ts"
