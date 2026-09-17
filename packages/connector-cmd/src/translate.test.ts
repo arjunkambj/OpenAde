@@ -137,7 +137,6 @@ describe("fixture replay: the captured insufficient-credits run", () => {
       "turn.started",
       "model.changed",
       "runtime.error",
-      "item.completed",
       "usage.updated",
       "turn.completed",
       "runtime.error",
@@ -156,13 +155,9 @@ describe("fixture replay: the captured insufficient-credits run", () => {
     ).toBe(true);
     expect(failure?.type === "runtime.error" && failure.payload.fatal).toBe(true);
 
-    // The user's prompt survives as a user_message item via run_end.nextState.
-    const prompt = events.find((event) => event.type === "item.completed");
-    expect(
-      prompt?.type === "item.completed" &&
-        prompt.payload.item.kind === "user_message" &&
-        prompt.payload.item.text === "Reply with exactly: ok",
-    ).toBe(true);
+    // The user's prompt does NOT become a user_message item: the engine's
+    // turn.requested fold owns that row — re-emitting it duplicated the prompt.
+    expect(events.some((event) => event.type.startsWith("item."))).toBe(false);
 
     const completed = events.find((event) => event.type === "turn.completed");
     expect(completed?.type === "turn.completed" && completed.payload.stopReason === "error").toBe(

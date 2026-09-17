@@ -323,27 +323,10 @@ export const makeTranslator = (options: {
         for (const block of results) {
           out.push(...toolCompleted(block));
         }
-        return out;
       }
-      const text = content
-        .map((block) => asString(asRecord(block).text))
-        .filter((part): part is string => part !== undefined)
-        .join("\n");
-      if (text !== "") {
-        const itemId = itemIdFor(`${messageId ?? "anon"}:user`);
-        out.push({
-          itemId,
-          type: "item.completed",
-          payload: {
-            item: {
-              itemId,
-              kind: "user_message",
-              status: "completed",
-              text,
-            },
-          },
-        });
-      }
+      // A user *text* message emits nothing: the engine's turn.requested fold
+      // already mints the user_message row — a second one here would show
+      // every prompt twice.
       return out;
     }
 
