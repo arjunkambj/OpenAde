@@ -95,7 +95,7 @@ export const makeConnection = (
         status: "connecting",
         serverInstanceId: null,
       });
-      const current = yield* Ref.make(yield* Deferred.make<OpenAdeRpcClient>());
+      const current = yield* Ref.make(yield* Deferred.make<Attempt>());
 
       /**
        * One connect attempt, built in the connection layer's scope — a child
@@ -150,16 +150,27 @@ export const makeConnection = (
             backoff = Duration.min(Duration.times(backoff, 2), MAX_BACKOFF);
             return;
           }
-          const { client, disconnected } = exit.value;
+          const epoch: Attempt = exit.value;
           backoff = INITIAL_BACKOFF;
-          const pending = yield* Deferred.make<OpenAdeRpcClient>();
-          const previous = yield* Ref.getAndSet(current, pending);
-          yield* Deferred.succeed(previous, client);
+          // The installed deferred is already resolved: `.client` calls made
+          // while connected return this epoch's client immediately instead of
+          // hanging until the next reconnect resolves them.
+          const resolved = yield* Deferred.make<Attempt>();
+          yield* Deferred.succeed(resolved, epoch);
+          const previous = yield* Ref.getAndSet(current, resolved);
+          // Callers that grabbed the previous deferred during the reconnect
+          // gap are still awaiting it — hand them this epoch's client too.
+          yield* Deferred.succeed(previous, epoch);
           yield* SubscriptionRef.set(state, {
             status: "connected",
             serverInstanceId: null,
           });
-          yield* Deferred.await(disconnected);
+          yield* Deferred.await(epoch.disconnected);
+          // This epoch is dead: put an unresolved deferred back so `.client`
+          // calls wait for the next connect. The identity check keeps a late
+          // disconnect from clobbering a newer epoch's resolved deferred.
+          const pending = yield* Deferred.make<Attempt>();
+          yield* Ref.update(current, (installed) => (installed === resolved ? pending : installed));
           yield* SubscriptionRef.set(state, {
             status: "reconnecting",
             serverInstanceId: null,
@@ -170,11 +181,27 @@ export const makeConnection = (
 
       yield* loop.pipe(Effect.forkScoped);
 
+      /**
+       * `.client` waits on whatever deferred `current` holds, then refuses to
+       * hand out a client whose epoch is already dead — a socket can die in
+       * the window between `onDisconnect` firing and the supervisor's
+       * swap-back, so known-dead attempts loop until a live one is installed.
+       */
+      const client: Effect.Effect<OpenAdeRpcClient> = Effect.gen(function* () {
+        for (;;) {
+          const attempt = yield* Ref.get(current).pipe(Effect.flatMap(Deferred.await));
+          if (!(yield* Deferred.isDone(attempt.disconnected))) {
+            return attempt.client;
+          }
+          yield* Effect.yieldNow;
+        }
+      });
+
       return Layer.mergeAll(
         Layer.succeed(
           Connection,
           Connection.of({
-            client: Ref.get(current).pipe(Effect.flatMap(Deferred.await)),
+            client,
             state,
           }),
         ),

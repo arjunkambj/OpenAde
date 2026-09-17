@@ -29,6 +29,7 @@ import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";
+import * as SubscriptionRef from "effect/SubscriptionRef";
 import * as HttpServer from "effect/unstable/http/HttpServer";
 
 import { CheckpointHook, CheckpointReactor } from "../orchestration/CheckpointReactor";
@@ -173,6 +174,24 @@ describe("transport", () => {
     ),
   );
 
+  it.live("connection.client resolves on every call within one connection epoch", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const { url } = yield* testStack();
+        const connection = yield* connect(url, TOKEN);
+        const client = yield* connection.client;
+        yield* client["orchestration.dispatch"]({ command: createProject });
+
+        // The regression: `.client` used to install an unresolved deferred on
+        // connect, so a second call in the same epoch hung until the next
+        // reconnect. It must resolve immediately with the live client.
+        const again = yield* connection.client.pipe(Effect.timeout("5 seconds"));
+        const receipt = yield* again["orchestration.dispatch"]({ command: createThread });
+        expect(receipt.status).toBe("accepted");
+      }),
+    ),
+  );
+
   it.live("a wrong token gets a 401 on the upgrade", () =>
     Effect.scoped(
       Effect.gen(function* () {
@@ -225,8 +244,15 @@ describe("transport", () => {
           Effect.timeout("5 seconds"),
         );
 
-        // Drop the socket, then produce one event the client cannot see.
+        // Drop the socket and wait for the supervisor to observe it — until
+        // the state flips to "reconnecting", `.client` can still hand out the
+        // dying epoch's client (the close handshake is async).
         sockets.forEach((ws) => ws.close());
+        yield* SubscriptionRef.changes(connection.state).pipe(
+          Stream.filter((state) => state.status === "reconnecting"),
+          Stream.runHead,
+          Effect.timeout("5 seconds"),
+        );
         yield* engine.appendThreadEvents(threadId, [
           {
             eventId: makeEventId(),
