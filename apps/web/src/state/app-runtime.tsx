@@ -2,10 +2,11 @@
  * The renderer's atom runtime wiring.
  *
  * `main.tsx` resolves the connection, then `installAppAtoms` builds the
- * `AtomRuntime` layer once — `makeConnection` when a server is reachable, an
- * offline layer otherwise. The offline layer keeps every atom mountable (lists
- * stay empty, the connection state reads "disconnected") so components never
- * branch on "is there a runtime".
+ * `AtomRuntime` layer once — `makeConnection` when a server is reachable or a
+ * desktop supervisor is still bringing one up, an offline layer otherwise. The
+ * offline layer keeps every atom mountable (lists stay empty, the connection
+ * state reads "disconnected") so components never branch on "is there a
+ * runtime".
  *
  * `appAtomRegistry` is the one registry the whole app shares — mounted atoms
  * (and the connection's supervisor fibers) live exactly as long as their
@@ -60,15 +61,46 @@ let resolvedConnection: ResolvedConnection | null = null;
  * Every reconnect attempt goes back to the channel instead of reusing the
  * credentials boot resolved: a supervisor-restarted server has a new port and
  * a new token, and the frozen pair would loop against a dead port forever.
+ *
+ * Whatever it finds also becomes the app's idea of the current connection, so
+ * `getHttpBase` — the browser pane's attach marker — follows the server across
+ * a restart instead of pointing at the port the window opened on.
  */
-const reresolve = Effect.promise(() => resolveConnection().catch(() => null));
+const reresolve = Effect.promise(() =>
+  resolveConnection()
+    .then((next) => {
+      if (next !== null) {
+        resolvedConnection = next;
+      }
+      return next;
+    })
+    .catch(() => null),
+);
+
+/**
+ * Is there a desktop supervisor behind this window? If so, "nothing resolved"
+ * means "not yet": `createWindow` does not wait for the server to be up, so a
+ * cold boot paints while the supervisor is still `starting` and no channel has
+ * a port to hand out. Pinning the offline layer there would leave the window
+ * disconnected until the user reloaded it by hand, so the connection is built
+ * with nothing but `resolve` and its attempt loop picks the server up as soon
+ * as the handshake lands.
+ *
+ * A plain browser tab with no channel really is offline, and gets the offline
+ * layer and the banner that says so.
+ */
+const hasDesktopSupervisor = (): boolean =>
+  typeof window !== "undefined" &&
+  (window.openade?.onServerState !== undefined || window.openade?.getServerState !== undefined);
 
 export const installAppAtoms = (resolved: ResolvedConnection | null): AppAtoms => {
   resolvedConnection = resolved;
   appAtoms ??= makeRuntime(
-    resolved === null
-      ? offlineConnectionLayer
-      : makeConnection({ ...resolved, resolve: reresolve }),
+    resolved !== null
+      ? makeConnection({ ...resolved, resolve: reresolve })
+      : hasDesktopSupervisor()
+        ? makeConnection({ resolve: reresolve })
+        : offlineConnectionLayer,
   );
   return appAtoms;
 };

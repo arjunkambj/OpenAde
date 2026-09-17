@@ -13,7 +13,10 @@
  *
  * Credentials are re-read per attempt, not captured once: the server binds an
  * ephemeral port and mints a new token every boot, so a supervisor restart
- * would otherwise leave the renderer looping against a dead port forever.
+ * would otherwise leave the renderer looping against a dead port forever. For
+ * the same reason `url`/`token` are optional — the desktop window opens while
+ * the supervisor is still starting the server, and an attempt with nothing to
+ * dial is a retry, not a dead end.
  */
 
 import { OpenAdeRpcGroup } from "@OpenAde/contracts/rpc";
@@ -87,9 +90,17 @@ export interface ConnectionCredentials {
 }
 
 export interface ConnectionOptions {
-  /** `http(s)` or `ws(s)` URL including the `/ws` path. */
-  readonly url: string;
-  readonly token: string;
+  /**
+   * `http(s)` or `ws(s)` URL including the `/ws` path.
+   *
+   * Optional, together with `token`: the desktop shell paints before the
+   * server supervisor has bound a port, so the renderer builds this layer with
+   * nothing but `resolve` and the attempt loop waits for the first channel
+   * that answers. Omitting both without a `resolve` is a connection that can
+   * never come up.
+   */
+  readonly url?: string;
+  readonly token?: string;
   /**
    * Re-reads the credentials before every connect attempt. The server binds an
    * ephemeral port and mints a fresh token on each boot, so a supervisor that
@@ -98,7 +109,8 @@ export interface ConnectionOptions {
    * attempt lands on the new server instead of looping against a dead port.
    *
    * It never fails: `null` means "no channel answered", and the last
-   * credentials that did answer are reused.
+   * credentials that did answer are reused — or, when none ever did, the
+   * attempt is retried on the same backoff as a refused socket.
    */
   readonly resolve?: Effect.Effect<ConnectionCredentials | null>;
   /**
@@ -116,6 +128,13 @@ const toWebSocketUrl = (url: string): string =>
 
 const INITIAL_BACKOFF = Duration.millis(100);
 const MAX_BACKOFF = Duration.seconds(2);
+
+/**
+ * The attempt failure that means "no channel has answered yet". It travels the
+ * same path as a refused socket — the loop backs off and tries again — so a
+ * renderer that started before its server did converges on its own.
+ */
+const NO_CREDENTIALS = "no-credentials" as const;
 
 interface Attempt {
   readonly client: OpenAdeRpcClient;
@@ -171,11 +190,16 @@ export const makeConnection = (
         serverInstanceId: null,
       });
       const current = yield* Ref.make(yield* Deferred.make<Attempt>());
-      /** The last credentials a channel actually answered with. */
-      const credentials = yield* Ref.make<ConnectionCredentials>({
-        url: options.url,
-        token: options.token,
-      });
+      /**
+       * The last credentials a channel actually answered with — `null` until
+       * one has, which is the state the desktop renderer boots in while its
+       * server supervisor is still starting.
+       */
+      const credentials = yield* Ref.make<ConnectionCredentials | null>(
+        options.url === undefined || options.token === undefined
+          ? null
+          : { url: options.url, token: options.token },
+      );
 
       /**
        * Status moves; the boot id does not. Clearing it on every drop would
@@ -190,52 +214,60 @@ export const makeConnection = (
        * left to the ambient scope's finalizers instead.
        * `disconnected` completes when the socket's `onDisconnect` hook fires.
        */
-      const attempt: Effect.Effect<Attempt, never, Scope.Scope> = Effect.gen(function* () {
-        const resolved = options.resolve === undefined ? null : yield* options.resolve;
-        const active = resolved ?? (yield* Ref.get(credentials));
-        yield* Ref.set(credentials, active);
-        // A restarted server is a different server: drop the remembered boot
-        // id so every subscription resnapshots instead of resuming against a
-        // sequence the new instance never issued.
-        yield* SubscriptionRef.update(state, (previous) => {
-          const retained = retainedInstanceId(previous.serverInstanceId, active.serverInstanceId);
-          return retained === previous.serverInstanceId
-            ? previous
-            : { ...previous, serverInstanceId: retained };
-        });
-        const wsUrl = `${toWebSocketUrl(active.url)}?token=${encodeURIComponent(active.token)}`;
-        const disconnected = yield* Deferred.make<void>();
-        const socketLayer = Socket.layerWebSocket(wsUrl).pipe(
-          Layer.provide(
-            options.webSocketConstructor === undefined
-              ? Socket.layerWebSocketConstructorGlobal
-              : Layer.succeed(Socket.WebSocketConstructor, options.webSocketConstructor),
-          ),
-        );
-        const protocolLayer = Layer.effect(
-          RpcClient.Protocol,
-          RpcClient.makeProtocolSocket({
-            // This supervisor owns the reconnect loop; the protocol fails fast
-            // instead of retrying underneath it.
-            retryTransientErrors: false,
-            retryPolicy: Schedule.recurs(0),
-          }),
-        ).pipe(
-          Layer.provide(
-            Layer.mergeAll(
-              socketLayer,
-              RpcSerialization.layerJson,
-              Layer.succeed(RpcClient.ConnectionHooks, {
-                onConnect: Effect.void,
-                onDisconnect: Deferred.done(disconnected, Exit.void).pipe(Effect.asVoid),
-              }),
+      const attempt: Effect.Effect<Attempt, typeof NO_CREDENTIALS, Scope.Scope> = Effect.gen(
+        function* () {
+          const resolved = options.resolve === undefined ? null : yield* options.resolve;
+          const active = resolved ?? (yield* Ref.get(credentials));
+          if (active === null) {
+            // Nothing to dial yet — the supervisor has not published a port.
+            // That is an attempt that failed, not a connection that cannot
+            // exist, so the loop backs off and asks the channel again.
+            return yield* Effect.fail(NO_CREDENTIALS);
+          }
+          yield* Ref.set(credentials, active);
+          // A restarted server is a different server: drop the remembered boot
+          // id so every subscription resnapshots instead of resuming against a
+          // sequence the new instance never issued.
+          yield* SubscriptionRef.update(state, (previous) => {
+            const retained = retainedInstanceId(previous.serverInstanceId, active.serverInstanceId);
+            return retained === previous.serverInstanceId
+              ? previous
+              : { ...previous, serverInstanceId: retained };
+          });
+          const wsUrl = `${toWebSocketUrl(active.url)}?token=${encodeURIComponent(active.token)}`;
+          const disconnected = yield* Deferred.make<void>();
+          const socketLayer = Socket.layerWebSocket(wsUrl).pipe(
+            Layer.provide(
+              options.webSocketConstructor === undefined
+                ? Socket.layerWebSocketConstructorGlobal
+                : Layer.succeed(Socket.WebSocketConstructor, options.webSocketConstructor),
             ),
-          ),
-        );
-        const protocolContext = yield* Layer.build(protocolLayer);
-        const client = yield* makeClient.pipe(Effect.provide(protocolContext));
-        return { client, disconnected };
-      });
+          );
+          const protocolLayer = Layer.effect(
+            RpcClient.Protocol,
+            RpcClient.makeProtocolSocket({
+              // This supervisor owns the reconnect loop; the protocol fails
+              // fast instead of retrying underneath it.
+              retryTransientErrors: false,
+              retryPolicy: Schedule.recurs(0),
+            }),
+          ).pipe(
+            Layer.provide(
+              Layer.mergeAll(
+                socketLayer,
+                RpcSerialization.layerJson,
+                Layer.succeed(RpcClient.ConnectionHooks, {
+                  onConnect: Effect.void,
+                  onDisconnect: Deferred.done(disconnected, Exit.void).pipe(Effect.asVoid),
+                }),
+              ),
+            ),
+          );
+          const protocolContext = yield* Layer.build(protocolLayer);
+          const client = yield* makeClient.pipe(Effect.provide(protocolContext));
+          return { client, disconnected };
+        },
+      );
 
       const loop: Effect.Effect<void, never, Scope.Scope> = Effect.suspend(() => {
         let backoff = INITIAL_BACKOFF;
