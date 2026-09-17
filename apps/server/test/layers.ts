@@ -24,8 +24,17 @@ import { EventStore } from "../src/persistence/EventStore";
 import { ReadModelStore } from "../src/persistence/ReadModels";
 import { layer as sqliteFileLayer, testLayer as sqliteTestLayer } from "../src/persistence/Sqlite";
 
+/**
+ * `Reactivity` is one of the outputs because the SQLite layer builds it: a
+ * write tells a dependent read to re-run through it (the settings document
+ * re-reads the permission rules that way), so everything on one database has to
+ * see the one instance.
+ */
 export type PersistenceLayer = Layer.Layer<
-  import("effect/unstable/sql/SqlClient").SqlClient | EventStore | ReadModelStore,
+  | import("effect/unstable/sql/SqlClient").SqlClient
+  | import("effect/unstable/reactivity/Reactivity").Reactivity
+  | EventStore
+  | ReadModelStore,
   SqlError | MigrationError
 >;
 

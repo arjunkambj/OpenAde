@@ -36,11 +36,13 @@ import * as Semaphore from "effect/Semaphore";
 import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";
 import type * as Duration from "effect/Duration";
+import * as Reactivity from "effect/unstable/reactivity/Reactivity";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import type { SqlError } from "effect/unstable/sql/SqlError";
 
 import { EventStore, type ConcurrencyConflict, type PlannedEvent } from "../persistence/EventStore";
 import { layer as migrationsLayer } from "../persistence/Migrations";
+import { PERMISSION_RULES_KEY } from "../permissions/PermissionService";
 import { ReadModelStore } from "../persistence/ReadModels";
 import {
   foldProject,
@@ -168,6 +170,7 @@ export class OrchestrationEngine extends Context.Service<
     OrchestrationEngine,
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient;
+      const reactivity = yield* Reactivity.Reactivity;
       const store = yield* EventStore;
       const readModels = yield* ReadModelStore;
 
@@ -279,7 +282,12 @@ export class OrchestrationEngine extends Context.Service<
           ON CONFLICT (scope, project_id, thread_id, pattern) DO UPDATE SET
             decision = excluded.decision,
             created_at = excluded.created_at
-        `.pipe(Effect.asVoid);
+        `.pipe(
+          Effect.asVoid,
+          // "Allow always" writes here, behind the settings document's back;
+          // the signal is what lets an open settings page see the new rule.
+          Effect.tap(() => reactivity.invalidate([PERMISSION_RULES_KEY])),
+        );
 
       /** Writes the projections a set of appended events imply. */
       const applyProjection = (

@@ -170,17 +170,26 @@ export const makeSqlite = (
     });
   });
 
-/** @public */
-export const layer = (config: SqliteConfig): Layer.Layer<Client.SqlClient, SqlError> =>
+/**
+ * The client and the `Reactivity` service it was built with. Reactivity is an
+ * output rather than a private input because it is how a write tells a
+ * dependent read to re-run — the settings document re-reads the permission
+ * rules that way — and both sides have to mean the same instance.
+ *
+ * @public
+ */
+export const layer = (
+  config: SqliteConfig,
+): Layer.Layer<Client.SqlClient | Reactivity.Reactivity, SqlError> =>
   Layer.unwrap(
     Effect.map(makeSqlite(config), (client) => Layer.succeed(Client.SqlClient, client)),
-  ).pipe(Layer.provide(Reactivity.layer));
+  ).pipe(Layer.provideMerge(Reactivity.layer));
 
 /** The production location: `~/.openade/state.sqlite`. */
 /** @public */
-export const defaultLayer = (): Layer.Layer<Client.SqlClient, SqlError> =>
+export const defaultLayer = (): Layer.Layer<Client.SqlClient | Reactivity.Reactivity, SqlError> =>
   layer({ filename: databasePath() });
 
 /** An in-memory database for tests; closes when the test's scope does. */
-export const testLayer = (): Layer.Layer<Client.SqlClient, SqlError> =>
+export const testLayer = (): Layer.Layer<Client.SqlClient | Reactivity.Reactivity, SqlError> =>
   layer({ filename: ":memory:" });

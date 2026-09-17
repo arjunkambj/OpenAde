@@ -7,11 +7,15 @@
 import { DEFAULT_KEYBINDINGS, defaultSettings } from "@OpenAde/contracts/settings";
 import { describe, expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
+import * as Stream from "effect/Stream";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
 import { runMigrations } from "../persistence/Migrations";
+import { PermissionService } from "../permissions/PermissionService";
 import { testLayer as sqliteTestLayer } from "../persistence/Sqlite";
 import { SettingsStore } from "./services";
 
@@ -33,8 +37,16 @@ const fixture = (row?: string) =>
         VALUES ('settings', ${row}, '2026-01-01T00:00:00.000Z')
       `;
     }
-    const ctx = yield* Layer.build(SettingsStore.layer.pipe(Layer.provide(sqlite)));
-    return { store: Context.get(ctx, SettingsStore), sql };
+    const ctx = yield* Layer.build(
+      Layer.mergeAll(SettingsStore.layer, PermissionService.layer).pipe(Layer.provide(sqlite)),
+    );
+    return {
+      store: Context.get(ctx, SettingsStore),
+      // Built over the same SQLite layer on purpose: that is what makes the two
+      // share one `Reactivity`, which is how a rule written here reaches there.
+      permissions: Context.get(ctx, PermissionService),
+      sql,
+    };
   });
 
 describe("SettingsStore", () => {
@@ -100,6 +112,37 @@ describe("SettingsStore", () => {
         // A second save must not overwrite the archive with a readable row.
         yield* store.update({ theme: "dark" });
         expect(yield* rowJson(sql, "settings.unreadable")).toBe(corrupt);
+      }),
+    ),
+  );
+
+  it.effect("a rule the approval flow appends reaches an open subscriber", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        // "Allow always" writes to `permission_rules` directly, so the stored
+        // document never changes and the settings page saw its list freeze at
+        // whatever it loaded with.
+        const { store, permissions } = yield* fixture();
+        const subscribed = yield* Deferred.make<void>();
+        const collected = yield* store.changes.pipe(
+          Stream.tap(() => Deferred.succeed(subscribed, undefined)),
+          Stream.take(2),
+          Stream.runCollect,
+          Effect.forkChild,
+        );
+        // The feed replays the current document, so the first element proves
+        // the subscription exists — no timer, and no write into a gap.
+        yield* Deferred.await(subscribed);
+
+        yield* permissions.addRule({
+          scope: "global",
+          pattern: "Shell(git status)",
+          decision: "allow",
+        });
+
+        const seen = yield* Fiber.join(collected);
+        expect(seen[0]!.permissions).toEqual([]);
+        expect(seen[1]!.permissions.map((rule) => rule.pattern)).toEqual(["Shell(git status)"]);
       }),
     ),
   );

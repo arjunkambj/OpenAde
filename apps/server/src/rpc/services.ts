@@ -26,14 +26,15 @@ import type { ConnectorInstanceId, ProjectId, ThreadId } from "@OpenAde/contract
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as PubSub from "effect/PubSub";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
-import * as SubscriptionRef from "effect/SubscriptionRef";
+import * as Reactivity from "effect/unstable/reactivity/Reactivity";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
-import { readRules, writeRules } from "../permissions/PermissionService";
+import { PERMISSION_RULES_KEY, readRules, writeRules } from "../permissions/PermissionService";
 import { layer as migrationsLayer } from "../persistence/Migrations";
 import type { BrowserCallOutcome } from "../browser/tools";
 
@@ -242,8 +243,34 @@ export class SettingsStore extends Context.Service<
     SettingsStore,
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient;
+      const reactivity = yield* Reactivity.Reactivity;
       const loaded = yield* load(sql);
-      const ref = yield* SubscriptionRef.make<Settings>(loaded.settings);
+      const ref = yield* Ref.make<Settings>(loaded.settings);
+      /**
+       * The document's one change feed, replaying the current value so a late
+       * subscriber starts from it.
+       *
+       * It is a hub of its own rather than a `SubscriptionRef`'s, because two
+       * different things make this document change: a write through `update`,
+       * and a rule appended straight to `permission_rules` by the approval
+       * card's "allow always". The second leaves the stored row untouched, so
+       * there is no new *value* to set — only the same document to re-read.
+       * One feed both can publish to keeps `changes` a single subscription,
+       * which is also what makes it impossible for a subscriber to be attached
+       * to one source and miss the other.
+       */
+      const feed = yield* PubSub.unbounded<Settings>({ replay: 1 });
+      yield* PubSub.publish(feed, loaded.settings);
+      // Registered for the layer's lifetime — before any subscriber exists, so
+      // no rule can be written into a gap where nothing is listening.
+      yield* Effect.acquireRelease(
+        Effect.sync(() =>
+          reactivity.registerUnsafe([PERMISSION_RULES_KEY], () => {
+            PubSub.publishUnsafe(feed, Ref.getUnsafe(ref));
+          }),
+        ),
+        (unregister) => Effect.sync(unregister),
+      );
       /** The undecodable row, until the first write has archived it. */
       const unreadable = yield* Ref.make<string | null>(loaded.unreadable);
       /**
@@ -264,7 +291,7 @@ export class SettingsStore extends Context.Service<
         );
 
       return SettingsStore.of({
-        get: SubscriptionRef.get(ref).pipe(Effect.flatMap(withRules)),
+        get: Ref.get(ref).pipe(Effect.flatMap(withRules)),
         freshInstall: loaded.freshInstall,
         update: (patch) =>
           writeMutex.withPermits(1)(
@@ -277,7 +304,7 @@ export class SettingsStore extends Context.Service<
                 ON CONFLICT (key) DO NOTHING
               `;
               }
-              const current = yield* SubscriptionRef.get(ref);
+              const current = yield* Ref.get(ref);
               const next: Settings = {
                 ...current,
                 ...Object.fromEntries(
@@ -305,11 +332,15 @@ export class SettingsStore extends Context.Service<
                   `;
                 }),
               );
-              yield* SubscriptionRef.set(ref, stored);
+              yield* Ref.set(ref, stored);
+              yield* PubSub.publish(feed, stored);
               return yield* withRules(stored);
             }),
           ),
-        changes: SubscriptionRef.changes(ref).pipe(Stream.mapEffect(withRules)),
+        // `withRules` on the way out: what a subscriber is owed is the document
+        // *plus* the rules as they are now, which is exactly what a rules-only
+        // change republishes the unchanged stored value for.
+        changes: Stream.fromPubSub(feed).pipe(Stream.mapEffect(withRules)),
       });
     }),
   ).pipe(Layer.provide(migrationsLayer));

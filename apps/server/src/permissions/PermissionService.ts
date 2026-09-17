@@ -28,6 +28,7 @@ import type { PermissionRule, PermissionScope } from "@OpenAde/contracts/setting
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Reactivity from "effect/unstable/reactivity/Reactivity";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import type { SqlError } from "effect/unstable/sql/SqlError";
 
@@ -114,6 +115,24 @@ export const decidePermission = (input: DecideInput): PermissionDecision => {
 // rather than a second store. The functions below are the table's whole API,
 // taken as plain SqlClient effects so the settings document can project them
 // without pulling the service into its layer graph.
+
+/**
+ * The reactivity key that says "the rules table changed".
+ *
+ * The settings document projects this table, and the two writers that append a
+ * rule — `addRule` here and the engine's own insert behind an "allow always"
+ * approval — go straight to SQL without passing through `SettingsStore.update`.
+ * Without a signal an open settings page kept showing the list as it was when
+ * it loaded. Those writers invalidate this key; `SettingsStore.changes`
+ * subscribes to it and re-reads.
+ *
+ * `writeRules` deliberately does not: its only caller is `SettingsStore.update`,
+ * which already emits the new document itself, and invalidating mid-transaction
+ * would emit the *pre-update* settings just before it.
+ *
+ * @public
+ */
+export const PERMISSION_RULES_KEY = "permission_rules";
 
 const toRule = (row: RuleRow): PermissionRule => ({
   scope: row.scope as PermissionScope,
@@ -202,6 +221,9 @@ export class PermissionService extends Context.Service<
     PermissionService,
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient;
+      // Held rather than required per call, so `addRule` keeps the plain
+      // `Effect<void, SqlError>` its callers (and their test doubles) declare.
+      const reactivity = yield* Reactivity.Reactivity;
 
       /** The listing API: an argument given is an exact filter. */
       const rules = (scope?: PermissionScope, projectId?: ProjectId, threadId?: ThreadId) =>
@@ -241,7 +263,10 @@ export class PermissionService extends Context.Service<
             }),
           ),
         rules,
-        addRule: (rule) => insertRule(sql, rule),
+        // "Allow always" lands here and in the engine's own insert; both tell
+        // the settings document its projection is stale.
+        addRule: (rule) =>
+          Effect.tap(insertRule(sql, rule), () => reactivity.invalidate([PERMISSION_RULES_KEY])),
       });
     }),
   ).pipe(Layer.provide(migrationsLayer));

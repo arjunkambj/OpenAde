@@ -24,6 +24,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
+import type * as Reactivity from "effect/unstable/reactivity/Reactivity";
 import type * as SqlClient from "effect/unstable/sql/SqlClient";
 import type * as SqlError from "effect/unstable/sql/SqlError";
 
@@ -46,7 +47,10 @@ interface Fixture {
  * restart test can point two boots at the same file.
  */
 const fixture = (
-  makeSqliteLayer: () => Layer.Layer<SqlClient.SqlClient, SqlError.SqlError> = sqliteTestLayer,
+  makeSqliteLayer: () => Layer.Layer<
+    SqlClient.SqlClient | Reactivity.Reactivity,
+    SqlError.SqlError
+  > = sqliteTestLayer,
   /** Lets a test swap in a definition whose probe misbehaves. */
   wrap: (definition: AnyConnectorDefinition) => AnyConnectorDefinition = (definition) => definition,
 ) =>
