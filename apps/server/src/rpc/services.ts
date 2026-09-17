@@ -258,8 +258,15 @@ export class SettingsStore extends Context.Service<
        * One feed both can publish to keeps `changes` a single subscription,
        * which is also what makes it impossible for a subscriber to be attached
        * to one source and miss the other.
+       *
+       * Sliding, and one deep. `settings.subscribe` hands this stream straight
+       * to a WebSocket client, and an unbounded hub would let a stalled one
+       * grow a queue of whole settings documents on the server — the same leak
+       * the gateway and browser reactors carry a warning about. Dropping the
+       * older element is lossless here: every element is the entire current
+       * document, so the newest one says everything the ones behind it did.
        */
-      const feed = yield* PubSub.unbounded<Settings>({ replay: 1 });
+      const feed = yield* PubSub.sliding<Settings>({ capacity: 1, replay: 1 });
       yield* PubSub.publish(feed, loaded.settings);
       // Registered for the layer's lifetime — before any subscriber exists, so
       // no rule can be written into a gap where nothing is listening.
