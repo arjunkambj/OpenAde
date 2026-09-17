@@ -6,7 +6,8 @@
  * Keys: Enter sends (queues while a turn runs — the decider rejects a second
  * turn, so "send" on a busy thread means queue), Shift+Enter newline,
  * Cmd+Enter queues explicitly, Escape closes an open trigger menu first and
- * otherwise reaches the global `thread.interrupt` binding. State reads
+ * otherwise reaches the `thread.interrupt` binding this component registers —
+ * the toolbar's Stop button is the same call with a mouse. State reads
  * `threadDetailAtom`; mutations go through `dispatchAtom`; cards close on
  * their resolved events — nothing here clears them locally.
  */
@@ -40,7 +41,9 @@ import {
 } from "@/components/composer/slash-menu";
 import { TriggerMenu, type TriggerMenuItem } from "@/components/composer/trigger-menu";
 import { useAttachments } from "@/components/composer/use-attachments";
+import { useInterrupt } from "@/components/composer/use-interrupt";
 import { useClientRuntime } from "@/lib/client-runtime";
+import { useKeybindingCommand, useKeybindingFlag } from "@/lib/shortcuts";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
 
 const ALL_EFFORTS: ReadonlyArray<Effort> = ["low", "medium", "high", "xhigh", "max"];
@@ -90,6 +93,7 @@ export function Composer({
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
   const running = doc !== null && doc.currentTurnId !== null;
+  const { interrupting, interrupt } = useInterrupt(threadId, running, setError);
 
   // Debounce via React — the atom family keys per query, so the deferred value
   // is what actually reaches files.search.
@@ -232,6 +236,14 @@ export function Composer({
     );
   };
 
+  const focusInput = React.useCallback(() => textareaRef.current?.focus(), []);
+
+  useKeybindingFlag("threadRunning", running);
+  useKeybindingCommand("thread.interrupt", interrupt);
+  // Cmd+Enter inside the textarea is handled by onKeyDown; reaching here means
+  // focus is elsewhere, so the useful thing to do is put it back.
+  useKeybindingCommand("composer.queue", focusInput);
+
   const onChangeText = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     const next = event.target.value;
     setText(next);
@@ -357,9 +369,11 @@ export function Composer({
           canSend={canSend}
           contextUsed={doc?.context?.used}
           contextLimit={doc?.context?.limit}
+          interrupting={interrupting}
           filesKey={attachments.files.length}
           onFilesPicked={attachments.add}
           onSend={() => send(running)}
+          onInterrupt={interrupt}
         />
         {error === null ? null : (
           <p className="text-xs text-destructive" role="alert">

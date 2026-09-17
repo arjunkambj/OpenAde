@@ -1,7 +1,11 @@
 /**
  * The composer's bottom row: attach button, live status (running notice,
- * context usage), and the send/queue button — the queue glyph while a turn
- * runs, matching what Enter would do.
+ * context usage), Stop, and the send/queue button — the queue glyph while a
+ * turn runs, matching what Enter would do.
+ *
+ * Stop only exists while a turn is running and is the visible half of the
+ * `thread.interrupt` binding: a user who never learns the chord still has a
+ * way to end a turn that is going wrong.
  */
 
 import { Button } from "@OpenAde/ui/components/button";
@@ -14,18 +18,23 @@ export function ComposerToolbar({
   canSend,
   contextUsed,
   contextLimit,
+  interrupting,
   filesKey,
   onFilesPicked,
   onSend,
+  onInterrupt,
 }: {
   readonly running: boolean;
   readonly canSend: boolean;
   readonly contextUsed?: number;
   readonly contextLimit?: number;
+  /** An interrupt is in flight — the turn has not settled yet. */
+  readonly interrupting: boolean;
   /** Remounts the file input when the attachment list resets, clearing it. */
   readonly filesKey: number;
   readonly onFilesPicked: (files: ReadonlyArray<File>) => void;
   readonly onSend: () => void;
+  readonly onInterrupt: () => void;
 }) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   return (
@@ -57,6 +66,21 @@ export function ComposerToolbar({
           </span>
         ) : null}
       </span>
+      {running ? (
+        <Button
+          type="button"
+          variant="secondary"
+          size="icon-sm"
+          shape="pill"
+          className="shrink-0"
+          aria-label="Stop turn"
+          title="Stop the running turn (Esc)"
+          disabled={interrupting}
+          onClick={onInterrupt}
+        >
+          <Icon icon={interrupting ? "hugeicons:loading-03" : "hugeicons:stop"} />
+        </Button>
+      ) : null}
       <Button
         type="button"
         size="icon-sm"
