@@ -523,12 +523,20 @@ export const makeService = (injected: {
     // PubSub drops what it publishes while nobody is listening, and a forked
     // fiber does not start until this one yields. Subscribing first means no
     // thread.deleted can slip through the gap between build and first tick.
-    const events = yield* engine.subscribeEvents;
+    //
+    // Its lifetime is the consumer's, not the service's: the PubSub is
+    // unbounded, so a subscription nobody drains retains every event forever.
+    // The reactor's own scope closes it whether it ends or is interrupted.
+    const reactorScope = yield* Scope.make();
+    const events = yield* Scope.provide(reactorScope)(engine.subscribeEvents);
     const reactor = Stream.runForEach(Stream.fromSubscription(events), (event) =>
       event.type === "thread.deleted" || event.type === "thread.archived"
         ? teardown(event.streamId as ThreadId)
         : Effect.void,
-    ).pipe(Effect.catch((error) => Effect.logWarning("browser teardown reactor ended", error)));
+    ).pipe(
+      Effect.catch((error) => Effect.logWarning("browser teardown reactor ended", error)),
+      Effect.ensuring(Scope.close(reactorScope, Exit.void)),
+    );
     yield* Effect.forkIn(reactor, serviceScope);
 
     return BrowserService.of({

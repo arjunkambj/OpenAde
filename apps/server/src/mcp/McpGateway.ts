@@ -19,9 +19,11 @@ import { randomBytes } from "node:crypto";
 
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
+import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 import * as HttpServer from "effect/unstable/http/HttpServer";
 
@@ -275,7 +277,11 @@ export class McpGateway extends Context.Service<
       // drops what it publishes with nobody listening, and a fork does not run
       // until this fiber yields — a thread closed in that gap would keep a
       // live bearer.
-      const threadEvents = yield* engine.subscribeEvents;
+      //
+      // It belongs to the reactor, not to this scope: the PubSub is unbounded,
+      // so a subscription nobody drains retains every event forever.
+      const reactorScope = yield* Scope.make();
+      const threadEvents = yield* Scope.provide(reactorScope)(engine.subscribeEvents);
       const endedSessions = manager.lifecycle.pipe(
         Stream.filter((entry) => entry.kind === "ended"),
         Stream.map((entry) => entry.threadId),
@@ -288,6 +294,7 @@ export class McpGateway extends Context.Service<
       );
       const reactor = Stream.runForEach(Stream.merge(endedSessions, closedThreads), revoke).pipe(
         Effect.catch((error) => Effect.logWarning("mcp gateway revoke reactor ended", error)),
+        Effect.ensuring(Scope.close(reactorScope, Exit.void)),
       );
       yield* Effect.forkIn(reactor, scope);
 
