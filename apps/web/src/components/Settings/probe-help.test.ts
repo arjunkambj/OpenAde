@@ -22,10 +22,18 @@ describe("helpUrlFor", () => {
   });
 
   it("sends an unnamed credits or auth failure to the account page", () => {
-    // What an exit-code-10 style credits failure looks like without a helpUrl.
-    expect(helpUrlFor(probe({ status: "error", auth: "unknown", message: "out of credits" }))).toBe(
-      ACCOUNT_HELP_URL,
-    );
+    // What an exit-code-10 style credits failure looks like without a helpUrl:
+    // the harness ran — it named its binary — and refused.
+    expect(
+      helpUrlFor(
+        probe({
+          status: "error",
+          auth: "unknown",
+          binaryPath: "/usr/local/bin/harness",
+          message: "out of credits",
+        }),
+      ),
+    ).toBe(ACCOUNT_HELP_URL);
     expect(helpUrlFor(probe({ status: "not-authenticated", auth: "absent" }))).toBe(
       ACCOUNT_HELP_URL,
     );
@@ -34,5 +42,22 @@ describe("helpUrlFor", () => {
   it("does not send a missing binary, or a probe that saw credentials, to billing", () => {
     expect(helpUrlFor(probe({ status: "not-installed" }))).toBeNull();
     expect(helpUrlFor(probe({ status: "error", auth: "present" }))).toBeNull();
+  });
+
+  it("offers nothing for a failure the account page cannot fix", () => {
+    // The server stamps these itself, with `auth: "unknown"` and no binary: an
+    // unregistered kind, a probe that ran out of time, a probe that crashed.
+    expect(
+      helpUrlFor(
+        probe({
+          status: "error",
+          auth: "unknown",
+          message: 'this build has no connector for kind "x"',
+        }),
+      ),
+    ).toBeNull();
+    expect(
+      helpUrlFor(probe({ status: "error", auth: "unknown", message: "probe timed out" })),
+    ).toBeNull();
   });
 });
