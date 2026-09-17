@@ -15,10 +15,12 @@ import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import * as NodeURL from "node:url";
+import { ACCOUNT_HELP_URL } from "@OpenAde/contracts/rpc";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import type * as Scope from "effect/Scope";
 
+import { EXIT_MESSAGES } from "./exitCodes";
 import { parseModelList, probe } from "./probe";
 
 const FIXTURE = NodePath.resolve(
@@ -27,6 +29,21 @@ const FIXTURE = NodePath.resolve(
 );
 
 const listModels = NodeFS.readFileSync(FIXTURE, "utf8");
+
+/**
+ * The last line of a real run this machine made after the account ran out —
+ * the harness's own wording, so the test cannot drift from what it prints.
+ */
+const recordedCreditsError = NodeFS.readFileSync(
+  NodePath.resolve(
+    NodeURL.fileURLToPath(import.meta.url),
+    "../../../testkit/fixtures/cmd/probe-insufficient-credits.ndjson",
+  ),
+  "utf8",
+)
+  .trimEnd()
+  .split("\n")
+  .at(-1)!;
 
 describe("parseModelList", () => {
   const models = parseModelList(listModels);
@@ -227,12 +244,48 @@ describe("probe", () => {
       const result = yield* probe({
         binaryPath: fake.binary(`
 process.stderr.write("something broke");
-process.exit(4);
+process.exit(42);
 `),
       });
       expect(result.status).toBe("error");
       expect(result.auth).toBe("unknown");
       expect(result.message).toContain("something broke");
+      expect(result.message).toContain("42");
+    }),
+  );
+
+  it.effect("names an exit code the spec knows, and keeps the harness's own words", () =>
+    Effect.gen(function* () {
+      const fake = yield* fakes();
+      const result = yield* probe({
+        binaryPath: fake.binary(`
+process.stderr.write("429 Too Many Requests");
+process.exit(5);
+`),
+      });
+      // "status exited 5" told the user nothing they could act on.
+      expect(result.message).toBe(`${EXIT_MESSAGES[5]!.message} (429 Too Many Requests)`);
+    }),
+  );
+
+  it.effect("sends an out-of-credits account to the billing page", () =>
+    Effect.gen(function* () {
+      const fake = yield* fakes();
+      // What the real CLI printed when this machine's account ran out, taken
+      // from the recording rather than invented.
+      const result = yield* probe({
+        binaryPath: fake.binary(`
+process.stderr.write(${JSON.stringify(recordedCreditsError)} + "\\n");
+process.exit(10);
+`),
+      });
+      expect(result.status).toBe("error");
+      // Not "unknown": the login is fine, the balance is not — and the welcome
+      // flow needs the difference to be able to offer a way forward.
+      expect(result.auth).toBe("present");
+      expect(result.helpUrl).toBe(ACCOUNT_HELP_URL);
+      expect(result.message).toBe(EXIT_MESSAGES[10]!.message);
+      expect(recordedCreditsError).toContain("insufficient credits");
     }),
   );
 

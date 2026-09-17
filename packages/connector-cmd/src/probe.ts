@@ -18,10 +18,12 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import type { CmdConnectorConfig } from "@OpenAde/contracts/settings";
 import type { ModelOption } from "@OpenAde/contracts/rpc";
+import { ACCOUNT_HELP_URL } from "@OpenAde/contracts/rpc";
 import type { ConnectorProbe } from "@OpenAde/connector-sdk/definition";
 import { ProbeFailed } from "@OpenAde/connector-sdk/definition";
 import * as Effect from "effect/Effect";
 
+import { EXIT_MESSAGES } from "./exitCodes";
 import { envAllowlist } from "./spawn";
 
 /** The package version the npx fallback pins and the version warnings compare to. */
@@ -219,6 +221,12 @@ export const parseModelList = (output: string): ReadonlyArray<ModelOption> => {
 
 // ── the probe ──────────────────────────────────────────────────
 
+/** Spec 5.1: the account is fine, it has simply run out of credit. */
+const INSUFFICIENT_CREDITS = 10;
+
+/** The detail line a failing `status` left behind, if it left one. */
+const detailOf = (result: RunResult): string => result.stderr.trim() || result.stdout.trim();
+
 export const probe = (config: CmdConnectorConfig): Effect.Effect<ConnectorProbe, ProbeFailed> =>
   Effect.gen(function* () {
     const probedAt = new Date().toISOString();
@@ -252,6 +260,24 @@ export const probe = (config: CmdConnectorConfig): Effect.Effect<ConnectorProbe,
       };
     }
 
+    if (status.code === INSUFFICIENT_CREDITS) {
+      // Distinct from the generic failure below on purpose. The credentials are
+      // good — `auth: "unknown"` sent the welcome flow to an error with nothing
+      // to do about it — and what fixes this is a billing page, which only the
+      // connector knows the address of. Listing models is skipped for the same
+      // reason exit 3 skips it: no turn can run until this is resolved.
+      return {
+        status: "error" as const,
+        probedAt,
+        binaryPath: binary.display,
+        message: EXIT_MESSAGES[INSUFFICIENT_CREDITS]!.message,
+        auth: "present" as const,
+        helpUrl: ACCOUNT_HELP_URL,
+        models: [],
+        warnings: [],
+      };
+    }
+
     let parsed: StatusJson = {};
     try {
       const json: unknown = JSON.parse(status.stdout);
@@ -279,11 +305,21 @@ export const probe = (config: CmdConnectorConfig): Effect.Effect<ConnectorProbe,
     );
 
     if (status.code !== 0 && parsed.authenticated === undefined) {
+      // A code spec 5.1 names reads as the sentence it was written for; the
+      // raw detail is kept in brackets rather than dropped, because "rate
+      // limited" without the harness's own wording is hard to act on.
+      const known = EXIT_MESSAGES[status.code];
+      const detail = detailOf(status);
       return {
         status: "error" as const,
         probedAt,
         binaryPath: binary.display,
-        message: `status exited ${status.code}: ${status.stderr.trim() || status.stdout.trim()}`,
+        message:
+          known === undefined
+            ? `status exited ${status.code}: ${detail}`
+            : detail === ""
+              ? known.message
+              : `${known.message} (${detail})`,
         auth: "unknown" as const,
         models,
         warnings,
