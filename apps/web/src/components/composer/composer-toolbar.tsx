@@ -21,6 +21,7 @@ export function ComposerToolbar({
   contextUsed,
   contextLimit,
   interrupting,
+  sending,
   filesKey,
   onFilesPicked,
   onSend,
@@ -32,6 +33,8 @@ export function ComposerToolbar({
   readonly contextLimit?: number;
   /** An interrupt is in flight — the turn has not settled yet. */
   readonly interrupting: boolean;
+  /** A message is on its way out — the button stays down until it lands. */
+  readonly sending: boolean;
   /** Remounts the file input when the attachment list resets, clearing it. */
   readonly filesKey: number;
   readonly onFilesPicked: (files: ReadonlyArray<File>) => void;
@@ -98,10 +101,18 @@ export function ComposerToolbar({
         className="shrink-0"
         aria-label={running ? "Queue message" : "Send message"}
         title={running ? "Queue message (⌘↵)" : "Send (⏎) · queue (⌘↵)"}
-        disabled={!canSend}
+        disabled={!canSend || sending}
         onClick={onSend}
       >
-        <Icon icon={running ? "hugeicons:queue-02" : "hugeicons:arrow-up-02"} />
+        <Icon
+          icon={
+            sending
+              ? "hugeicons:loading-03"
+              : running
+                ? "hugeicons:queue-02"
+                : "hugeicons:arrow-up-02"
+          }
+        />
       </Button>
     </div>
   );

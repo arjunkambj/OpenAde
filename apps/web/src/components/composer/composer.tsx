@@ -102,7 +102,7 @@ export function Composer({
   // The header and the timeline already read the shared helper.
   const running = doc !== null && turnInFlight(doc);
   const { interrupting, interrupt } = useInterrupt(threadId, running, setError);
-  const { send: sendDraft } = useSendDraft(threadId, attachments, setError, () => {
+  const { sending, send: sendDraft } = useSendDraft(threadId, attachments, setError, () => {
     setText("");
     setMentions([]);
   });
@@ -362,6 +362,7 @@ export function Composer({
           contextUsed={doc?.context?.used}
           contextLimit={doc?.context?.limit}
           interrupting={interrupting}
+          sending={sending}
           filesKey={attachments.files.length}
           onFilesPicked={attachments.add}
           onSend={() => send(running)}

@@ -28,6 +28,15 @@ import {
 } from "@/components/composer/attachment-rules";
 import { useClientRuntime } from "@/lib/client-runtime";
 
+/**
+ * One upload round. `files` is the list `stage` actually read, so a file that
+ * arrived while the bytes were going up is not in it and survives the clear.
+ */
+export interface StagedAttachments {
+  readonly files: ReadonlyArray<File>;
+  readonly references: ReadonlyArray<Attachment>;
+}
+
 export interface Attachments {
   readonly files: ReadonlyArray<File>;
   readonly dragging: boolean;
@@ -36,8 +45,10 @@ export interface Attachments {
   readonly add: (files: ReadonlyArray<File>) => void;
   readonly removeAt: (index: number) => void;
   readonly clear: () => void;
-  /** Uploads every kept file and resolves with the references for the turn. */
-  readonly stage: () => Promise<ReadonlyArray<Attachment>>;
+  /** Forgets exactly the files `stage` uploaded, by identity. */
+  readonly clearStaged: (uploaded: ReadonlyArray<File>) => void;
+  /** Uploads every kept file and resolves with what went up and what came back. */
+  readonly stage: () => Promise<StagedAttachments>;
   readonly onPaste: (event: React.ClipboardEvent) => void;
   readonly dropHandlers: {
     readonly onDragEnter: (event: React.DragEvent) => void;
@@ -62,12 +73,13 @@ export function useAttachments(threadId: ThreadId): Attachments {
     }
   }, []);
 
-  const stage = React.useCallback(async (): Promise<ReadonlyArray<Attachment>> => {
-    const staged: Array<Attachment> = [];
-    for (const file of files) {
+  const stage = React.useCallback(async (): Promise<StagedAttachments> => {
+    const uploading = files;
+    const references: Array<Attachment> = [];
+    for (const file of uploading) {
       const base64 = await readAsBase64(file);
       const reference = await stageOne({ threadId, name: file.name, base64 });
-      staged.push({
+      references.push({
         path: reference.path,
         mime: reference.mime,
         name: reference.name,
@@ -75,7 +87,7 @@ export function useAttachments(threadId: ThreadId): Attachments {
         sha256: reference.sha256,
       });
     }
-    return staged;
+    return { files: uploading, references };
   }, [files, stageOne, threadId]);
 
   return {
@@ -90,6 +102,10 @@ export function useAttachments(threadId: ThreadId): Attachments {
     ),
     clear: React.useCallback(() => {
       setFiles([]);
+      setRejected(null);
+    }, []),
+    clearStaged: React.useCallback((uploaded: ReadonlyArray<File>) => {
+      setFiles((current) => current.filter((file) => !uploaded.includes(file)));
       setRejected(null);
     }, []),
     onPaste: React.useCallback(
