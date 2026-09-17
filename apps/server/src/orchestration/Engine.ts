@@ -244,9 +244,19 @@ export class OrchestrationEngine extends Context.Service<
           const exists = projectId === null ? false : yield* readModels.projectExists(projectId);
           const roots = command.type === "project.create" ? yield* readModels.workspaceRoots : [];
           const model = command.type === "thread.create" ? yield* defaultModel : null;
+          // A checkpoint restore rewrites the project's whole workspace root,
+          // so the commands it excludes have to see every sibling thread's
+          // `restoring` flag, not just their own stream's.
+          const guardsRestore =
+            command.type === "thread.turn.start" || command.type === "thread.checkpoint.restore";
+          const restoring = guardsRestore
+            ? (yield* readModels.listThreadDocs).filter((doc) => !doc.deleted && doc.restoring)
+            : [];
           return {
             projectExists: (id) => id === projectId && exists,
             workspaceRootTaken: (root) => roots.includes(root),
+            restoreInFlight: (id, exceptThreadId) =>
+              restoring.some((doc) => doc.projectId === id && doc.threadId !== exceptThreadId),
             defaultModel: model,
           };
         });

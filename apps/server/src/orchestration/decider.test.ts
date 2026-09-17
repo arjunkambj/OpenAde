@@ -25,6 +25,7 @@ const env: DecideEnv = {
 const ctx = (overrides: Partial<DeciderContext> = {}): DeciderContext => ({
   projectExists: () => true,
   workspaceRootTaken: () => false,
+  restoreInFlight: () => false,
   defaultModel: "fake/model",
   ...overrides,
 });
@@ -584,6 +585,45 @@ const rows: ReadonlyArray<Row> = [
     } as unknown as Command,
     thread: threadDoc({ restoring: true }),
     rejects: "already restoring",
+  },
+  {
+    // `git restore` + `git clean -fd` run over the project's workspace root,
+    // which every thread of the project shares: a sibling's restore would
+    // delete whatever this turn wrote.
+    name: "thread.turn.start rejects while a sibling thread is restoring",
+    command: {
+      ...baseCommand,
+      type: "thread.turn.start",
+      threadId: makeThreadId(),
+      text: "hello",
+      attachments: [],
+      mentions: [],
+      queued: false,
+    } as Command,
+    thread: threadDoc(),
+    context: ctx({ restoreInFlight: () => true }),
+    rejects: "another thread in project",
+  },
+  {
+    name: "thread.checkpoint.restore rejects while a sibling thread is restoring",
+    command: {
+      ...baseCommand,
+      type: "thread.checkpoint.restore",
+      threadId: makeThreadId(),
+      checkpointId: "cp-1",
+    } as unknown as Command,
+    thread: threadDoc({
+      checkpoints: [
+        {
+          checkpointId: "cp-1" as never,
+          turnId: makeTurnId(),
+          ref: "refs/ade/checkpoint/cp-1",
+          createdAt: NOW,
+        },
+      ],
+    }),
+    context: ctx({ restoreInFlight: () => true }),
+    rejects: "another thread in project",
   },
   {
     name: "thread.checkpoint.restore rejects an unknown checkpoint",

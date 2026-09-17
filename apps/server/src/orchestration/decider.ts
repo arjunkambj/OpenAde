@@ -57,6 +57,12 @@ export const streamOf = (
 export interface DeciderContext {
   readonly projectExists: (projectId: ProjectId) => boolean;
   readonly workspaceRootTaken: (root: string, exceptProjectId?: ProjectId) => boolean;
+  /**
+   * Whether a sibling thread of this project has a checkpoint restore in
+   * flight. The git work runs over the project's whole workspace root, so the
+   * exclusion has to be project-wide even though `restoring` is per-thread.
+   */
+  readonly restoreInFlight: (projectId: ProjectId, exceptThreadId: ThreadId) => boolean;
   /** Settings default for a thread whose create command did not choose one. */
   readonly defaultModel: string | null;
 }
@@ -192,9 +198,13 @@ export const decide = (
         return rejected(`thread ${command.threadId} is archived`);
       }
       // A restore is rewriting the worktree right now: `git clean -fd` would
-      // delete whatever the turn wrote while it ran.
+      // delete whatever the turn wrote while it ran. The worktree belongs to
+      // the project, not the thread, so a sibling's restore bars this turn too.
       if (thread.restoring) {
         return rejected(`thread ${command.threadId} is restoring a checkpoint`);
+      }
+      if (ctx.restoreInFlight(thread.projectId, thread.threadId)) {
+        return rejected(`another thread in project ${thread.projectId} is restoring a checkpoint`);
       }
       if (thread.currentTurn !== null) {
         // An interrupt that has not settled yet always queues, whatever the
@@ -336,6 +346,13 @@ export const decide = (
       }
       if (thread.restoring) {
         return rejected(`thread ${command.threadId} is already restoring a checkpoint`);
+      }
+      // Two restores in one worktree race each other's `git restore` and
+      // `git clean -fd` (and each other's index.lock).
+      if (ctx.restoreInFlight(thread.projectId, thread.threadId)) {
+        return rejected(
+          `another thread in project ${thread.projectId} is already restoring a checkpoint`,
+        );
       }
       const checkpoint = thread.checkpoints.find(
         (entry) => entry.checkpointId === command.checkpointId,

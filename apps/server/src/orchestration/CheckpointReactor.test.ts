@@ -292,6 +292,66 @@ describe("CheckpointReactor", () => {
     }),
   );
 
+  it.effect("a restore locks out the whole project, not just its own thread", () =>
+    Effect.gen(function* () {
+      const sibling = makeThreadId();
+      const running = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      const layer = stack({
+        restore: () =>
+          Deferred.succeed(running, undefined).pipe(Effect.andThen(Deferred.await(release))),
+      });
+      yield* Effect.gen(function* () {
+        const engine = yield* OrchestrationEngine;
+        yield* engine.dispatch(createProject);
+        yield* engine.dispatch(createThread);
+        yield* engine.dispatch({
+          commandId: makeCommandId(),
+          createdAt: NOW,
+          type: "thread.create",
+          threadId: sibling,
+          projectId,
+          settings: { model: "fake/model" },
+        });
+        yield* engine.appendThreadEvents(threadId, [
+          planned("thread.checkpoint.created", { checkpoint }),
+        ]);
+
+        yield* engine.dispatch(restoreCommand(checkpoint.checkpointId));
+        // The git work has started and is holding the worktree.
+        yield* Deferred.await(running).pipe(Effect.timeout("5 seconds"));
+
+        // `git clean -fd` runs over the project's whole workspace root, so a
+        // sibling thread's turn would have its files deleted underneath it.
+        const turn = yield* engine.dispatch({
+          commandId: makeCommandId(),
+          createdAt: NOW,
+          type: "thread.turn.start",
+          threadId: sibling,
+          text: "work",
+          attachments: [],
+          mentions: [],
+          queued: false,
+        });
+        expect(turn.status).toBe("rejected");
+        expect(turn.reason).toContain("another thread in project");
+
+        // And so would a second restore in the same repository.
+        const second = yield* engine.dispatch({
+          commandId: makeCommandId(),
+          createdAt: NOW,
+          type: "thread.checkpoint.restore",
+          threadId: sibling,
+          checkpointId: checkpoint.checkpointId,
+        });
+        expect(second.status).toBe("rejected");
+        expect(second.reason).toContain("another thread in project");
+
+        yield* Deferred.succeed(release, undefined);
+      }).pipe(Effect.provide(layer));
+    }),
+  );
+
   it.effect("project.removed prunes every thread's checkpoint prefix", () =>
     Effect.gen(function* () {
       const secondThread = makeThreadId();

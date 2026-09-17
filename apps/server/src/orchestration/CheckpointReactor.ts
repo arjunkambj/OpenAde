@@ -24,6 +24,7 @@ import * as Context from "effect/Context";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 
 import type { PlannedEvent } from "../persistence/EventStore";
@@ -129,11 +130,19 @@ export const CheckpointReactor: Layer.Layer<
       ]);
 
     /**
+     * One restore at a time, whatever fiber asks for it. The decider already
+     * excludes a second restore in the same project, but the boot replay runs
+     * on its own fiber beside the live subscription — this is what keeps two
+     * `git restore`/`git clean -fd` pairs out of one repository even so.
+     */
+    const restoreMutex = yield* Semaphore.make(1);
+
+    /**
      * The git work for one accepted restore, and the durable record of how it
      * went. `restored` is written only after git succeeded — a client that
      * folded the work order sees the thread leave `restoring` either way.
      */
-    const runRestore = (
+    const restoreOnce = (
       threadId: ThreadId,
       checkpoint: CheckpointSummary,
       causedBy: string,
@@ -166,6 +175,13 @@ export const CheckpointReactor: Layer.Layer<
               causedBy,
             );
       });
+
+    const runRestore = (
+      threadId: ThreadId,
+      checkpoint: CheckpointSummary,
+      causedBy: string,
+    ): Effect.Effect<void, EngineError> =>
+      restoreMutex.withPermits(1)(restoreOnce(threadId, checkpoint, causedBy));
 
     // A finished turn is a checkpoint point.
     const eventMailbox = yield* engine.subscribeEvents;
