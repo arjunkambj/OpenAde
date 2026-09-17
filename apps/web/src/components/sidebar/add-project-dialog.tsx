@@ -29,7 +29,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/
 import { makeCommandId, makeProjectId } from "@OpenAde/contracts/ids";
 
 import { pickDirectory } from "@/lib/desktop";
-import { isAccepted, rejectionMessage } from "@/lib/dispatch-result";
+import { isAccepted, rejectionMessage } from "@/lib/dispatch-outcome";
 import { Icon } from "@/lib/icon";
 import { projectNameFromPath, workspacePathProblem } from "@/lib/workspace-path";
 import { useDispatchCommand } from "@/state/hooks";

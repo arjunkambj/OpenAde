@@ -12,7 +12,7 @@ import { toast } from "sonner";
 
 import { makeCommandId, makeThreadId, type ProjectId } from "@OpenAde/contracts/ids";
 
-import { isAccepted, rejectionMessage } from "@/lib/dispatch-result";
+import { isAccepted, rejectionMessage } from "@/lib/dispatch-outcome";
 import { useDispatchCommand } from "@/state/hooks";
 
 export const useCreateThread = () => {
