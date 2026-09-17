@@ -333,9 +333,9 @@ describe("transcript paths", () => {
       const real = NodePath.join(realDir, `${recorded.sessionId}.jsonl`);
       NodeFS.writeFileSync(real, "{}\n");
 
-      expect(
-        NodePath.basename(NodePath.dirname(recorded.guessedTranscriptPath)),
-      ).not.toBe(NodePath.basename(realDir));
+      expect(NodePath.basename(NodePath.dirname(recorded.guessedTranscriptPath))).not.toBe(
+        NodePath.basename(realDir),
+      );
       expect(findTranscriptPath("/whatever/the/cwd/was", recorded.sessionId, home)).toBe(real);
       expect(findTranscriptPath("/whatever/the/cwd/was", "no-such-session", home)).toBeNull();
     } finally {

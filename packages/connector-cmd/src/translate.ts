@@ -3,8 +3,25 @@
  *
  * Three sources describe the same work and overlap heavily: NDJSON frames on
  * stdout (spec 5.2), the session transcript on disk (5.3), and — on `run_end` —
- * `nextState.messages`, the authoritative message list. The translator's job is
- * to make the overlap idempotent:
+ * `nextState.messages`, the authoritative message list.
+ *
+ * **Which source is live.** The recordings under `packages/testkit/fixtures/cmd`
+ * settle what spec 5.7 left open. Text and thinking stream as `text_delta` /
+ * `thinking_delta`, tool calls arrive as a `tool_queued` → `tool_running` →
+ * `tool_completed` lifecycle, and the transcript is *not* a live source: it
+ * appears seconds into the turn and then grows once per completed message, one
+ * whole model round trip behind the frames. So the frames drive the UI and the
+ * transcript is history — the thing that survives a restart, carries `costUsd`,
+ * and lets a resumed session pick up where a dead one stopped.
+ *
+ * **What a "turn" is.** The harness's `turn_start`/`turn_end` count *agent
+ * steps* — one model round trip each, three of them in `shell-allow/`. One user
+ * turn is one process: `run_start` to `run_end`. Mapping `turn_start` to
+ * `turn.started` emitted three `turn.started` events for one turn and one
+ * `turn.completed`; spec section 8 step 5 says `run_start` opens the turn, and
+ * that is what happens here.
+ *
+ * The translator's remaining job is to make the overlap idempotent:
  *
  * - tool calls dedupe on `tool_use.id`: a `tool_running` frame and the
  *   transcript's `tool_use` block produce one `itemId`, so the second source
@@ -124,6 +141,14 @@ const kindForTool = (name: string): ItemKind =>
 const asRecord = (value: unknown): Record<string, unknown> =>
   typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
 
+/** Nothing worth showing: `undefined`, `null`, or `{}`. */
+const isEmptyInput = (value: unknown): boolean =>
+  value === undefined || value === null || Object.keys(asRecord(value)).length === 0;
+
+/** The harness writes `description: null`, which is not the same as absent. */
+const asOptionalString = (value: unknown): string | undefined =>
+  typeof value === "string" && value !== "" ? value : undefined;
+
 /**
  * A stable key for a message with no `meta.messageId`. The old
  * `anon:<blockIndex>` scheme collapsed every anonymous message's block N onto
@@ -217,6 +242,13 @@ export const makeTranslator = (options: {
   const toolItems = new Map<string, ItemId>();
   /** tool_use.id → the last snapshot emitted for it, for result merging. */
   const toolSnapshots = new Map<string, ItemSnapshot>();
+  /**
+   * tool_use.id → the input the call was announced with. `tool_queued` carries
+   * it; `tool_running` and `tool_completed` do not (`description` is null in
+   * every recording), so without this a later frame would rebuild the row from
+   * `{}` and wipe the command it is showing.
+   */
+  const toolInputs = new Map<string, unknown>();
   /** `${messageId}:${blockIndex}` → itemId, so a replayed block hits its row. */
   const blockItems = new Map<string, ItemId>();
   /**
@@ -232,16 +264,23 @@ export const makeTranslator = (options: {
   /** Cost the transcript reported for this turn's assistant messages. */
   let turnCostUsd = 0;
   const costedLines = new Set<string>();
+  /** Tokens the run's agent steps have reported so far (`turn_end.usage`). */
+  let turnUsage: CmdUsage = {};
 
   /**
-   * Turn-scoped bookkeeping, dropped at every turn boundary: a streamed row is
-   * only completed inside the turn that streamed it, and a turn's dollars are
-   * its own — a turn ending without `run_end` never reaches `usageUpdated`.
+   * A run's counters, zeroed when the next process announces itself.
+   *
+   * Not at `turn.completed`, which is where they used to be cleared: the
+   * transcript is the only source of `costUsd` and its last flush lands *with*
+   * or after `run_end`, so a cost cleared at turn end was a cost never reported.
+   * The same goes for `streamedItemForText`, which is how a transcript line
+   * arriving after the turn finds the row it already streamed on — it now lives
+   * as long as the session, beside `seenMessages` and `blockItems`.
    */
-  const forgetTurn = (): void => {
+  const forgetRun = (): void => {
     streamedText.clear();
-    streamedItemForText.clear();
     turnCostUsd = 0;
+    turnUsage = {};
   };
 
   const unmapped = (source: string, payload: unknown): PendingRuntimeEvent => ({
@@ -324,10 +363,18 @@ export const makeTranslator = (options: {
     // No tool_use.id: the containing message's dedupe key + block index is a
     // stable fallback — a key minted per sighting duplicated the row on replay.
     const key = toolUseId ?? fallbackKey ?? `anon:${toolName}:${makeItemId()}`;
+    // `tool_running` and `tool_completed` announce no input; the one
+    // `tool_queued` carried is the row's, and an empty object must never
+    // replace it.
+    const known = toolInputs.get(key);
+    const effective = isEmptyInput(input) && known !== undefined ? known : input;
+    if (!isEmptyInput(effective)) {
+      toolInputs.set(key, effective);
+    }
     const existing = toolItems.get(key);
     if (existing !== undefined) {
       const prior = toolSnapshots.get(key);
-      const next = snapshotForTool(existing, toolName, input, description);
+      const next = snapshotForTool(existing, toolName, effective, description);
       // Never regress a finished row back to in_progress on a late duplicate.
       const snapshot = prior === undefined ? next : { ...prior, ...next, status: prior.status };
       toolSnapshots.set(key, snapshot);
@@ -335,9 +382,40 @@ export const makeTranslator = (options: {
     }
     const itemId = makeItemId();
     toolItems.set(key, itemId);
-    const snapshot = snapshotForTool(itemId, toolName, input, description);
+    const snapshot = snapshotForTool(itemId, toolName, effective, description);
     toolSnapshots.set(key, snapshot);
     return [{ itemId, type: "item.started", payload: { item: snapshot } }];
+  };
+
+  /**
+   * A `tool_completed` / `tool_hook_blocked` frame → `item.completed` on the row
+   * its `tool_queued` opened. Same shape as the transcript's `tool_result`, but
+   * arriving one model round trip earlier, so this is what settles the row on
+   * screen.
+   */
+  const toolFinished = (
+    toolCallId: string | undefined,
+    toolName: string,
+    output: string,
+    failed: boolean,
+  ): ReadonlyArray<PendingRuntimeEvent> => {
+    const key = toolCallId ?? `anon:${toolName}:${makeItemId()}`;
+    const existing = toolItems.get(key);
+    const itemId = existing ?? makeItemId();
+    const prior =
+      toolSnapshots.get(key) ??
+      snapshotForTool(itemId, toolName, toolInputs.get(key) ?? {}, undefined);
+    const snapshot: ItemSnapshot = {
+      ...prior,
+      itemId,
+      status: failed ? "failed" : "completed",
+      ...(prior.command === undefined ? {} : { command: { ...prior.command, output } }),
+      ...(prior.tool === undefined ? {} : { tool: { ...prior.tool, output } }),
+      ...(failed ? { error: { message: output } } : {}),
+    };
+    toolItems.set(key, itemId);
+    toolSnapshots.set(key, snapshot);
+    return [{ itemId, type: "item.completed", payload: { item: snapshot } }];
   };
 
   /** A tool_result block → item.completed on the row the tool_use opened. */
@@ -346,7 +424,14 @@ export const makeTranslator = (options: {
     const existing = block.tool_use_id === undefined ? undefined : toolItems.get(block.tool_use_id);
     const itemId = existing ?? makeItemId();
     const prior = existing === undefined ? undefined : toolSnapshots.get(block.tool_use_id!);
-    const status = block.is_error === true ? ("failed" as const) : ("completed" as const);
+    // A call a hook blocked still gets a `tool_result` in the transcript — the
+    // refusal is what the model is told — and it carries no `is_error`. The
+    // frames are the authority on whether the call ran, so a row already marked
+    // failed is never talked back into "completed".
+    const status =
+      prior?.status === "failed" || block.is_error === true
+        ? ("failed" as const)
+        : ("completed" as const);
     const snapshot: ItemSnapshot =
       prior !== undefined
         ? {
@@ -478,14 +563,72 @@ export const makeTranslator = (options: {
   };
 
   /**
+   * The content blocks of a `message_end` frame → the events that settle them.
+   *
+   * This is `processMessage`'s job done from the live side, and it shares every
+   * dedupe key with it: text and thinking find the row they streamed on through
+   * `streamedItemForText`, tool calls key on `toolCallId`. The transcript
+   * replaying the same message later therefore lands on the same rows instead of
+   * opening a second set beside them.
+   */
+  const onMessageContent = (content: unknown): ReadonlyArray<PendingRuntimeEvent> => {
+    if (!Array.isArray(content)) {
+      return [];
+    }
+    const out: Array<PendingRuntimeEvent> = [];
+    content.forEach((block, index) => {
+      const record = asRecord(block);
+      switch (record.type) {
+        case "text":
+        case "thinking": {
+          const text = asOptionalString(record.type === "text" ? record.text : record.thinking);
+          if (text === undefined) {
+            return;
+          }
+          const kind =
+            record.type === "text" ? ("assistant_message" as const) : ("reasoning" as const);
+          // A model that streams no deltas still gets a row: mint one, and
+          // register it so the transcript recognizes it as already emitted.
+          const itemId =
+            streamedItemForText.get(text) ?? itemIdFor(`message_end:${deltaRun}:${index}`);
+          streamedItemForText.set(text, itemId);
+          out.push({
+            itemId,
+            type: "item.completed",
+            payload: { item: { itemId, kind, status: "completed", text } },
+          });
+          return;
+        }
+        case "tool_use": {
+          const toolUse = record as unknown as ToolUseBlock;
+          out.push(...toolStarted(toolUse.id, toolUse.name ?? "unknown", toolUse.input));
+          return;
+        }
+        default: {
+          return;
+        }
+      }
+    });
+    return out;
+  };
+
+  /**
    * `run_end.result.usage` has no cost field (spec 5.2) — the only place a
    * price appears is the transcript's per-assistant `usage.costUsd` (5.3), so
    * the turn's cost is the sum of the lines it wrote. Zero stays absent rather
    * than being reported as a free turn.
    */
-  const usageUpdated = (usage: CmdUsage | undefined): PendingRuntimeEvent => {
+  /**
+   * Every `usage.updated` is a snapshot of the run so far, never a delta: the
+   * counters are cumulative and are zeroed only when the next process starts
+   * (`forgetRun`). A turn whose price arrives late therefore restates the whole
+   * figure rather than asking the consumer to add up instalments.
+   */
+  const usageUpdated = (
+    usage: CmdUsage | undefined,
+    options_: { readonly withCost: boolean },
+  ): PendingRuntimeEvent => {
     const costUsd = turnCostUsd;
-    turnCostUsd = 0;
     return {
       type: "usage.updated",
       payload: {
@@ -494,8 +637,23 @@ export const makeTranslator = (options: {
         output: usage?.outputTokens ?? 0,
         cacheRead: usage?.cacheReadTokens ?? 0,
         cacheWrite: usage?.cacheWriteTokens ?? 0,
-        ...(costUsd > 0 ? { costUsd } : {}),
+        ...(options_.withCost && costUsd > 0 ? { costUsd } : {}),
       },
+    };
+  };
+
+  /**
+   * The running token total of the agent steps finished so far. `run_end`
+   * reports the same figure for the whole run, so this is only what makes the
+   * count move while a multi-step turn is still working — `shell-allow/` spends
+   * 26 seconds over three steps before its `run_end`.
+   */
+  const accumulate = (usage: CmdUsage | undefined): void => {
+    turnUsage = {
+      inputTokens: (turnUsage.inputTokens ?? 0) + (usage?.inputTokens ?? 0),
+      outputTokens: (turnUsage.outputTokens ?? 0) + (usage?.outputTokens ?? 0),
+      cacheReadTokens: (turnUsage.cacheReadTokens ?? 0) + (usage?.cacheReadTokens ?? 0),
+      cacheWriteTokens: (turnUsage.cacheWriteTokens ?? 0) + (usage?.cacheWriteTokens ?? 0),
     };
   };
 
@@ -516,7 +674,6 @@ export const makeTranslator = (options: {
 
   const completeTurn = (stopReason: TurnStopReason): PendingRuntimeEvent => {
     turnOpen = false;
-    forgetTurn();
     return { type: "turn.completed", payload: { turnId: makeTurnId(), stopReason } };
   };
 
@@ -527,6 +684,7 @@ export const makeTranslator = (options: {
     // session, which the engine needs to hear about.
     if (announced && (id === undefined || id === sessionId)) {
       turnOpen = true;
+      forgetRun();
       return [];
     }
     if (id !== undefined) {
@@ -534,6 +692,7 @@ export const makeTranslator = (options: {
     }
     announced = true;
     turnOpen = true;
+    forgetRun();
     return [
       {
         type: "session.started",
@@ -646,17 +805,30 @@ export const makeTranslator = (options: {
     const event = frame.event;
     switch (event.type) {
       case "run_start": {
-        return [...onRunStart(event)];
+        // One process is one user turn (spec section 8 step 5). The harness's
+        // own `turn_start` counts agent steps inside it.
+        return [...onRunStart(event), { type: "turn.started", payload: { turnId: makeTurnId() } }];
       }
       case "turn_start": {
         turnOpen = true;
         deltaRun += 1;
-        forgetTurn();
-        return [{ type: "turn.started", payload: { turnId: makeTurnId() } }];
+        return [];
+      }
+      case "turn_end": {
+        // The step's tokens. `model_request_end` reports the same numbers one
+        // frame earlier, so only one of the two may be counted.
+        accumulate(event.usage as CmdUsage | undefined);
+        return [usageUpdated(turnUsage, { withCost: false })];
       }
       case "message_start":
+      case "message_update":
       case "model_trace":
+      case "thinking_start":
       case "notice": {
+        // Recognized and deliberately silent. `message_update` re-sends the
+        // whole message on every delta — the deltas already stream it and
+        // `message_end` closes it — and `thinking_start` carries nothing the
+        // first `thinking_delta` does not open.
         return [];
       }
       case "model_request_start": {
@@ -669,9 +841,112 @@ export const makeTranslator = (options: {
         model = event.model;
         return [{ type: "model.changed", payload: { model: event.model } }];
       }
+      case "model_request_end": {
+        // Usage is `turn_end`'s to report (counting both would double the
+        // turn); the model is worth taking, because a run that switched models
+        // says so here as well.
+        if (event.model !== undefined && event.model !== model) {
+          model = event.model;
+          return [{ type: "model.changed", payload: { model: event.model } }];
+        }
+        return [];
+      }
+      case "message_end": {
+        // The finished message. Its text and thinking blocks settle the rows
+        // the deltas opened — without this the timeline waits for the
+        // transcript, a whole model round trip later. Tool calls in it are the
+        // same ones `tool_queued` announces, and dedupe on `toolCallId`.
+        return [...onMessageContent(event.content)];
+      }
+      case "thinking_end": {
+        const text = asOptionalString(event.text);
+        if (text === undefined) {
+          return [];
+        }
+        const itemId = streamedItemForText.get(text) ?? itemIdFor(`thinking_end:${deltaRun}`);
+        return [
+          {
+            itemId,
+            type: "item.completed",
+            payload: { item: { itemId, kind: "reasoning", status: "completed", text } },
+          },
+        ];
+      }
+      case "tool_queued": {
+        // Where a tool call's input lives: `tool_running` announces neither
+        // input nor description.
+        return [...toolStarted(event.toolCallId, event.toolName ?? "unknown", event.input)];
+      }
       case "tool_running": {
         return [
-          ...toolStarted(event.toolCallId, event.toolName ?? "unknown", {}, event.description),
+          ...toolStarted(
+            event.toolCallId,
+            event.toolName ?? "unknown",
+            undefined,
+            asOptionalString(event.description),
+          ),
+        ];
+      }
+      case "tool_update": {
+        // A long-running tool streaming its output as it goes.
+        const partial = asString(event.partial) ?? textOfToolResult(event.partial);
+        const key = event.toolCallId;
+        const itemId = key === undefined ? undefined : toolItems.get(key);
+        const prior = key === undefined ? undefined : toolSnapshots.get(key);
+        if (itemId === undefined || prior === undefined || partial === "") {
+          return [];
+        }
+        const snapshot: ItemSnapshot = {
+          ...prior,
+          ...(prior.command === undefined
+            ? {}
+            : { command: { ...prior.command, output: truncateToolOutput(partial) } }),
+          ...(prior.tool === undefined
+            ? {}
+            : { tool: { ...prior.tool, output: truncateToolOutput(partial) } }),
+        };
+        toolSnapshots.set(key!, snapshot);
+        return [{ itemId, type: "item.updated", payload: { item: snapshot } }];
+      }
+      case "tool_completed": {
+        return [
+          ...toolFinished(
+            event.toolCallId,
+            event.toolName ?? "unknown",
+            truncateToolOutput(textOfToolResult(event.result)),
+            false,
+          ),
+        ];
+      }
+      case "tool_hooks": {
+        // The hook's own verdict, one frame before `tool_hook_blocked`. Only a
+        // block is news: an allow outcome means the call is about to run, which
+        // the lifecycle frames already say.
+        const outcome = asRecord(event.outcome);
+        if (outcome.kind !== "block") {
+          return [];
+        }
+        return [
+          ...toolFinished(
+            event.toolCallId,
+            event.toolName ?? "unknown",
+            asString(outcome.text) ?? "blocked by a hook",
+            true,
+          ),
+        ];
+      }
+      case "tool_hook_blocked": {
+        // Either the user's decision coming back through our PreToolUse hook,
+        // or the CLI's own ladder refusing outright — `shell-allow/` shows the
+        // second: without `--yolo`, print mode declines a shell call the hook
+        // already allowed. Both read as a failed row carrying the reason.
+        return [
+          ...toolFinished(
+            event.toolCallId,
+            event.toolName ?? "unknown",
+            asString(event.hookOutput) ?? "blocked by a hook",
+            true,
+          ),
         ];
       }
       case "run_error": {
@@ -710,7 +985,7 @@ export const makeTranslator = (options: {
             out.push(...processMessage(message));
           }
         }
-        out.push(usageUpdated(result.usage));
+        out.push(usageUpdated(result.usage ?? turnUsage, { withCost: true }));
         if (turnOpen) {
           out.push(completeTurn(stopReasonFor(result.stopReason)));
         }
@@ -740,25 +1015,35 @@ export const makeTranslator = (options: {
       }
       const cost = record.usage?.costUsd;
       const costKey = record.message.meta?.messageId ?? record.id;
+      let priced = false;
       if (typeof cost === "number" && cost > 0 && costKey !== undefined) {
         // A resumed tailer can re-read a line it already costed; the id keeps
         // the turn's total honest.
         if (!costedLines.has(costKey)) {
           costedLines.add(costKey);
           turnCostUsd += cost;
+          priced = true;
         }
       }
       // The newest message seen is the resume marker: meta.messageId when the
       // harness names it, else the transcript line's own id.
       lastMessageId = record.message.meta?.messageId ?? record.id ?? lastMessageId;
-      return [...processMessage(record.message)];
+      const out = [...processMessage(record.message)];
+      if (priced) {
+        // The transcript is the only source of a dollar figure, and its last
+        // flush lands with or after `run_end` — so the price is reported when
+        // it arrives rather than only at a turn boundary that may already have
+        // passed. `costedLines` is what keeps a re-read line from charging
+        // twice.
+        out.push(usageUpdated(turnUsage, { withCost: true }));
+      }
+      return out;
     }
     return [unmapped("cmd.transcript", line)];
   };
 
   const onExit = (code: number): ReadonlyArray<PendingRuntimeEvent> => {
     const out: Array<PendingRuntimeEvent> = [];
-    forgetTurn(); // a dead process's rows and dollars end with it
 
     const named = EXIT_MESSAGES[code];
     if (named !== undefined) {

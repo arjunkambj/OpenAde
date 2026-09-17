@@ -179,21 +179,27 @@ describe("fixture replay: the captured insufficient-credits run", () => {
 });
 
 describe("turn lifecycle", () => {
+  /**
+   * One process is one user turn, so `run_start` opens it (spec section 8 step
+   * 5). The harness's own `turn_start` counts agent steps — `shell-allow/` has
+   * three of them inside one turn — and must not open a turn of its own.
+   */
   it("announces the session once across turns of the same session", () => {
     const translate = translator();
-    expect(types(translate.onFrame(runStart()))).toEqual(["session.started"]);
-    expect(types(translate.onFrame(turnStart()))).toEqual(["turn.started"]);
+    expect(types(translate.onFrame(runStart()))).toEqual(["session.started", "turn.started"]);
+    expect(types(translate.onFrame(turnStart()))).toEqual([]);
     expect(types(translate.onFrame(runEnd()))).toEqual(["usage.updated", "turn.completed"]);
-    // Next turn's process: same sessionId → no second session.started.
-    expect(types(translate.onFrame(runStart()))).toEqual([]);
-    expect(types(translate.onFrame(turnStart()))).toEqual(["turn.started"]);
+    // Next turn's process: same sessionId → no second session.started, but it
+    // is a new turn.
+    expect(types(translate.onFrame(runStart()))).toEqual(["turn.started"]);
+    expect(types(translate.onFrame(turnStart()))).toEqual([]);
   });
 
   it("announces again when the harness hands back a different session id", () => {
     const translate = translator();
     translate.onFrame(runStart("sess-1"));
     const events = translate.onFrame(runStart("sess-2"));
-    expect(types(events)).toEqual(["session.started"]);
+    expect(types(events)).toEqual(["session.started", "turn.started"]);
     expect(translate.sessionId).toBe("sess-2");
   });
 
@@ -817,12 +823,23 @@ describe("cost", () => {
       ...transcriptMessage("assistant", [{ type: "text", text: "one" }], "m-1"),
       usage: { costUsd: 0.5 },
     };
-    translate.onTranscriptLine(line);
-    translate.onTranscriptLine(line); // a resumed tailer re-reading its file
+    // The priced line reports the run's cost as soon as it lands — the
+    // transcript's last flush arrives with or after run_end, so waiting for a
+    // turn boundary would mean never reporting it at all.
+    const priced = translate.onTranscriptLine(line);
+    const pricedUsage = priced.find((event) => event.type === "usage.updated");
+    expect(pricedUsage?.type === "usage.updated" && pricedUsage.payload.costUsd).toBe(0.5);
+
+    // A resumed tailer re-reading its own file charges nothing twice, and says
+    // nothing about usage either.
+    expect(types(translate.onTranscriptLine(line))).toEqual([]);
+
     const first = translate.onFrame(runEnd());
     const firstUsage = first.find((event) => event.type === "usage.updated");
     expect(firstUsage?.type === "usage.updated" && firstUsage.payload.costUsd).toBe(0.5);
 
+    // The next turn is the next process, and its counters start at zero.
+    translate.onFrame(runStart());
     translate.onFrame(turnStart());
     const second = translate.onFrame(runEnd());
     const secondUsage = second.find((event) => event.type === "usage.updated");
