@@ -31,8 +31,24 @@ function AttachmentThumbnail({
   const result = useAtomValue(attachmentAtom(threadId)(attachment.path));
   const bytes = AsyncResult.isSuccess(result) ? result.value : null;
   const label = attachment.name ?? "attachment";
+  // The file is gone: deleted from the attachments directory by hand, or
+  // purged with an older thread. Say so, rather than leaving an empty grey
+  // square that is indistinguishable from one still loading.
+  if (AsyncResult.isFailure(result)) {
+    return (
+      <span
+        className="inline-flex size-20 items-center justify-center overflow-hidden rounded-md border border-dashed border-border bg-muted px-1 text-center text-xs leading-tight break-all text-muted-foreground"
+        title={`${label} is no longer available`}
+      >
+        {label}
+      </span>
+    );
+  }
   return (
-    <span className="inline-flex size-20 overflow-hidden rounded-md border border-border bg-muted">
+    <span
+      className="inline-flex size-20 overflow-hidden rounded-md border border-border bg-muted"
+      title={bytes === null ? label : undefined}
+    >
       {bytes === null ? null : (
         <img
           src={`data:${bytes.mime};base64,${bytes.base64}`}
