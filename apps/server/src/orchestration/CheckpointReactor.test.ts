@@ -352,6 +352,32 @@ describe("CheckpointReactor", () => {
     }),
   );
 
+  it.effect("thread.delete prunes the deleted thread's checkpoint prefix", () =>
+    Effect.gen(function* () {
+      const pruned = yield* Queue.unbounded<CheckpointPruneInput>();
+      const layer = stack({ prune: (input) => Queue.offer(pruned, input).pipe(Effect.asVoid) });
+      yield* Effect.gen(function* () {
+        const engine = yield* OrchestrationEngine;
+        yield* engine.dispatch(createProject);
+        yield* engine.dispatch(createThread);
+
+        const receipt = yield* engine.dispatch({
+          commandId: makeCommandId(),
+          createdAt: NOW,
+          type: "thread.delete",
+          threadId,
+        });
+        expect(receipt.status).toBe("accepted");
+
+        // The delete removed the read-model row inside its own transaction,
+        // so the prune has to find the worktree in the log instead.
+        const input = yield* Queue.take(pruned).pipe(Effect.timeout("5 seconds"));
+        expect(input.threadId).toBe(threadId);
+        expect(input.workspaceRoot).toBe("/repo");
+      }).pipe(Effect.provide(layer));
+    }),
+  );
+
   it.effect("project.removed prunes every thread's checkpoint prefix", () =>
     Effect.gen(function* () {
       const secondThread = makeThreadId();

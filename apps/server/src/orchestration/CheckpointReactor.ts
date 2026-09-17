@@ -31,7 +31,7 @@ import * as Stream from "effect/Stream";
 import type { PlannedEvent } from "../persistence/EventStore";
 import { EventStore } from "../persistence/EventStore";
 import { OrchestrationEngine, type EngineError } from "./Engine";
-import { foldProject, type ThreadDoc } from "./state";
+import { foldProject, foldThread, type ThreadDoc } from "./state";
 
 export class CheckpointHookError extends Data.TaggedError("CheckpointHookError")<{
   readonly message: string;
@@ -287,16 +287,20 @@ export const CheckpointReactor: Layer.Layer<
           return;
         }
         // Thread deleted → drop every hidden checkpoint ref under its prefix.
+        // The delete's transaction removed the read-model row before this
+        // event was published, so the thread's project — and with it the
+        // worktree the refs live in — comes from the log, not `threadDoc`.
         if (event.type === "thread.deleted") {
           const threadId = event.streamId as ThreadId;
-          const doc = yield* engine.threadDoc(threadId);
+          const doc = foldThread(yield* store.loadStream("thread", threadId));
           if (doc === null) {
             return;
           }
-          const workspaceRoot = yield* workspaceRootFor(doc);
-          if (workspaceRoot === null) {
+          const projectDoc = foldProject(yield* store.loadStream("project", doc.projectId));
+          if (projectDoc === null) {
             return;
           }
+          const workspaceRoot = projectDoc.workspaceRoot;
           return yield* hook
             .prune({ threadId, workspaceRoot })
             .pipe(
