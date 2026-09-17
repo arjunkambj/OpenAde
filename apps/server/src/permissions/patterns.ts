@@ -9,6 +9,7 @@ export {
   matchPattern,
   parsePattern,
   patternMatches,
+  requestCommand,
   requestPath,
 } from "@OpenAde/shared/permissionPattern";
 export type {

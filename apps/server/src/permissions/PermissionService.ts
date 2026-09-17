@@ -6,8 +6,9 @@
  * 1. A `deny` rule that matches → `deny`.
  * 2. Plan mode (`interactionMode: "plan"`) → anything that isn't a read is
  *    `deny` — plan mode is read-only.
- * 3. A sensitive path → `prompt`. "Ask" outranks allow rules: a remembered
- *    `allow` can never skip the secrets check.
+ * 3. A sensitive path → `prompt`, whether it is the subject of a file request
+ *    or an argument of a shell command. "Ask" outranks allow rules: a
+ *    remembered `allow` can never skip the secrets check.
  * 4. An `allow` rule that matches → `allow`.
  * 5. Reads are always safe → `allow`.
  * 6. The runtime mode decides the rest: `approval-required` asks,
@@ -28,8 +29,24 @@ import * as Layer from "effect/Layer";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import type { SqlError } from "effect/unstable/sql/SqlError";
 
-import { parsePattern, matchPattern, requestPath } from "./patterns";
-import { isSensitivePath } from "./sensitivePaths";
+import { parsePattern, matchPattern, requestCommand, requestPath } from "./patterns";
+import { commandTouchesSensitivePath, isSensitivePath } from "./sensitivePaths";
+
+/**
+ * Whether the request touches credentials or key material — a file path for
+ * the file kinds, any argument of the command line for `command`.
+ */
+const touchesSensitivePath = (request: ApprovalRequest): boolean => {
+  if (request.kind === "file_read" || request.kind === "file_write") {
+    const path = requestPath(request);
+    return path !== null && isSensitivePath(path);
+  }
+  if (request.kind === "command") {
+    const command = requestCommand(request);
+    return command !== null && commandTouchesSensitivePath(command);
+  }
+  return false;
+};
 
 export type PermissionDecision = "allow" | "prompt" | "deny";
 
@@ -57,13 +74,7 @@ export const decidePermission = (input: DecideInput): PermissionDecision => {
   if (interactionMode === "plan" && request.kind !== "file_read") {
     return "deny";
   }
-  if (
-    (request.kind === "file_read" || request.kind === "file_write") &&
-    (() => {
-      const path = requestPath(request);
-      return path !== null && isSensitivePath(path);
-    })()
-  ) {
+  if (touchesSensitivePath(request)) {
     return "prompt";
   }
   if (matching.some((rule) => rule.decision === "allow")) {

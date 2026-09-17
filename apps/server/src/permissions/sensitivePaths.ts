@@ -50,3 +50,18 @@ export const isSensitivePath = (path: string): boolean => {
   // `.config/gh` is a two-segment match — hosts.yml holds tokens.
   return lowered.some((segment, index) => segment === ".config" && lowered[index + 1] === "gh");
 };
+
+/**
+ * Whether a command line names a sensitive path anywhere in its arguments.
+ *
+ * `cat ~/.ssh/id_rsa` and `cp .env /tmp` read secrets just as surely as a
+ * `file_read` request does, and spec section 9 says sensitive paths always
+ * prompt — so the check cannot be limited to file-kind requests. Splitting on
+ * shell separators and quotes is deliberately rough: this decides whether to
+ * *ask*, and asking about one argument too many costs a keystroke.
+ */
+export const commandTouchesSensitivePath = (command: string): boolean =>
+  command
+    .split(/[\s;|&<>()`]+/)
+    .map((token) => token.replace(/^["']+/, "").replace(/["']+$/, ""))
+    .some((token) => token.length > 0 && isSensitivePath(token));

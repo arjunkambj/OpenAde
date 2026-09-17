@@ -172,6 +172,32 @@ const rows: ReadonlyArray<Row> = [
   { kind: "file_write", input: write(".env"), mode: "auto-accept-edits", want: "prompt" },
   { kind: "file_write", input: write("keys/site.key"), mode: "full-access", want: "prompt" },
   { kind: "file_write", input: write(".env"), mode: "approval-required", want: "prompt" },
+  // ... and a shell command that names one is no different from a read.
+  { kind: "command", input: shell("cat ~/.ssh/id_rsa"), mode: "full-access", want: "prompt" },
+  { kind: "command", input: shell("cp .env /tmp"), mode: "full-access", want: "prompt" },
+  { kind: "command", input: shell("cat 'keys/site.pem'"), mode: "full-access", want: "prompt" },
+  {
+    kind: "command",
+    input: shell("ls && cat .aws/credentials"),
+    mode: "full-access",
+    want: "prompt",
+  },
+  {
+    kind: "command",
+    input: shell("cat .env"),
+    mode: "full-access",
+    rules: [{ pattern: "Shell(cat *)", decision: "allow" }],
+    want: "prompt",
+  },
+  // Ordinary commands still pass: the check is about secrets, not caution.
+  { kind: "command", input: shell("git status"), mode: "full-access", want: "allow" },
+  { kind: "command", input: shell("cat .gitignore"), mode: "full-access", want: "allow" },
+  {
+    kind: "command",
+    input: shell("npm run build --key=value"),
+    mode: "full-access",
+    want: "allow",
+  },
 
   // Plan mode denies anything that is not a read, in any runtime mode.
   {
