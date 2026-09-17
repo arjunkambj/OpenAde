@@ -1,80 +1,43 @@
 /**
- * `/dev/changes` — the changes pane without a server.
+ * `/dev/changes` — the route entry for the changes-pane fixture page.
  *
- * The git atoms need a live connection, so offline this page shows the pane's
- * "not connected" state; what it does exercise, and what a fixture is the only
- * cheap way to see, is the chrome around the diff: the turn selector over a
- * real `CheckpointSummary`, the checkpoint count, and the restore button in its
- * three states (no checkpoints, a turn running, ready).
+ * Same shape as `/dev/timeline` and `/dev/composer`: the page body is behind a
+ * dynamic import guarded by `import.meta.env.DEV`, so the fixture and the
+ * snapshot JSON it decodes stay out of the packaged app. This route used to
+ * import that JSON at module scope, which shipped a thread of fake ids in the
+ * production bundle.
  */
 
 import { createFileRoute } from "@tanstack/react-router";
 import * as React from "react";
-import * as Schema from "effect/Schema";
 
-import { Button } from "@OpenAde/ui/components/button";
-import fixture from "@OpenAde/contracts/fixtures/thread-detail-snapshot.json";
-import { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
+export const Route = createFileRoute("/dev/changes")({ component: DevChangesRoute });
 
-import { ChangesPane } from "@/components/panes/changes/changes-pane";
-import { ModeToggle } from "@/components/mode-toggle";
-import { useProjects } from "@/state/hooks";
+function DevChangesRoute() {
+  const [Page, setPage] = React.useState<React.ComponentType | null>(null);
 
-export const Route = createFileRoute("/dev/changes")({
-  component: DevChangesPage,
-});
+  React.useEffect(() => {
+    let live = true;
+    if (import.meta.env.DEV) {
+      void import("@/components/dev/changes-fixture").then((module) => {
+        if (live) {
+          setPage(() => module.ChangesFixture);
+        }
+      });
+    }
+    return () => {
+      live = false;
+    };
+  }, []);
 
-const baseSnapshot = Schema.decodeUnknownSync(ThreadDetailSnapshot)(fixture);
-
-const CASES = ["ready", "running", "no checkpoints"] as const;
-type Case = (typeof CASES)[number];
-
-const snapshotFor = (which: Case): ThreadDetailSnapshot => {
-  if (which === "no checkpoints") {
-    return { ...baseSnapshot, checkpoints: [] };
+  if (Page !== null) {
+    return <Page />;
   }
-  if (which === "running") {
-    return { ...baseSnapshot, currentTurnId: baseSnapshot.checkpoints[0]?.turnId ?? null };
-  }
-  return baseSnapshot;
-};
-
-function DevChangesPage() {
-  const [which, setWhich] = React.useState<Case>("ready");
-  // With a dev server running, borrow the first real project so the pane talks
-  // to actual git instead of a project id nothing knows about.
-  const projectId = useProjects()[0]?.projectId;
-  const snapshot = React.useMemo(() => {
-    const base = snapshotFor(which);
-    return projectId === undefined ? base : { ...base, projectId };
-  }, [which, projectId]);
-
   return (
-    <div className="flex h-dvh flex-col bg-background">
-      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3">
-        {CASES.map((option) => (
-          <Button
-            key={option}
-            type="button"
-            size="sm"
-            variant={option === which ? "default" : "ghost"}
-            onClick={() => setWhich(option)}
-          >
-            {option}
-          </Button>
-        ))}
-        <div className="ml-auto">
-          <ModeToggle />
-        </div>
-      </div>
-      <div className="flex h-6 shrink-0 items-center px-3 type-micro text-muted-foreground">
-        {projectId === undefined ? "fixture project (no server)" : `project ${projectId}`}
-      </div>
-      <div className="flex min-h-0 flex-1">
-        <div className="w-96 shrink-0 border-r border-border">
-          <ChangesPane snapshot={snapshot} />
-        </div>
-      </div>
-    </div>
+    <p className="p-8 text-sm text-muted-foreground">
+      {import.meta.env.DEV
+        ? "Loading the changes fixture…"
+        : "Fixture pages are not part of this build."}
+    </p>
   );
 }
