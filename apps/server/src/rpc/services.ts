@@ -45,7 +45,8 @@ export class ServerIdentity extends Context.Service<
 export class ConnectorCatalog extends Context.Service<
   ConnectorCatalog,
   {
-    readonly list: () => Effect.Effect<ReadonlyArray<ConnectorSummary>>;
+    /** `refresh` re-runs each connector's probe before answering. */
+    readonly list: (refresh?: boolean) => Effect.Effect<ReadonlyArray<ConnectorSummary>>;
     readonly models: (instanceId: ConnectorInstanceId) => Effect.Effect<ReadonlyArray<ModelOption>>;
   }
 >()("server/rpc/ConnectorCatalog") {
@@ -148,17 +149,21 @@ export class BrowserService extends Context.Service<
 export class CmdConfig extends Context.Service<
   CmdConfig,
   {
-    readonly mcpList: (projectId?: ProjectId) => Effect.Effect<ReadonlyArray<McpServerConfig>>;
+    readonly mcpList: (
+      projectId?: ProjectId,
+    ) => Effect.Effect<ReadonlyArray<McpServerConfig>, OpenAdeRpcError>;
     readonly mcpUpsert: (
       projectId: ProjectId | undefined,
       server: McpServerConfig,
-    ) => Effect.Effect<ReadonlyArray<McpServerConfig>>;
+    ) => Effect.Effect<ReadonlyArray<McpServerConfig>, OpenAdeRpcError>;
     readonly mcpRemove: (
       projectId: ProjectId | undefined,
       scope: McpServerScope,
       name: string,
-    ) => Effect.Effect<ReadonlyArray<McpServerConfig>>;
-    readonly skillsList: (projectId?: ProjectId) => Effect.Effect<ReadonlyArray<SkillSummary>>;
+    ) => Effect.Effect<ReadonlyArray<McpServerConfig>, OpenAdeRpcError>;
+    readonly skillsList: (
+      projectId?: ProjectId,
+    ) => Effect.Effect<ReadonlyArray<SkillSummary>, OpenAdeRpcError>;
   }
 >()("server/rpc/CmdConfig") {
   static readonly empty = Layer.succeed(
@@ -183,6 +188,12 @@ export class SettingsStore extends Context.Service<
     ) => Effect.Effect<Settings, import("effect/unstable/sql/SqlError").SqlError>;
     /** Emits the current settings, then every update. */
     readonly changes: Stream.Stream<Settings>;
+    /**
+     * True when no `settings` row existed at boot. The connector manager reads
+     * this to seed a default instance on first run only — a user who later
+     * removes every connector must not see it resurrected on the next boot.
+     */
+    readonly freshInstall: boolean;
   }
 >()("server/rpc/SettingsStore") {
   /**
@@ -193,9 +204,11 @@ export class SettingsStore extends Context.Service<
     SettingsStore,
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient;
-      const ref = yield* SubscriptionRef.make<Settings>(yield* load(sql));
+      const loaded = yield* load(sql);
+      const ref = yield* SubscriptionRef.make<Settings>(loaded.settings);
       return SettingsStore.of({
         get: SubscriptionRef.get(ref),
+        freshInstall: loaded.freshInstall,
         update: (patch) =>
           Effect.gen(function* () {
             const current = yield* SubscriptionRef.get(ref);
@@ -236,9 +249,10 @@ const load = (sql: SqlClient.SqlClient) =>
       SELECT value_json FROM settings WHERE key = ${SETTINGS_ROW_KEY}
     `;
     if (rows.length === 0) {
-      return DEFAULT_SETTINGS;
+      return { settings: DEFAULT_SETTINGS, freshInstall: true };
     }
-    return yield* Schema.decodeEffect(Schema.fromJsonString(Settings))(rows[0]!.value_json).pipe(
-      Effect.catch(() => Effect.succeed(DEFAULT_SETTINGS)),
-    );
+    const settings = yield* Schema.decodeEffect(Schema.fromJsonString(Settings))(
+      rows[0]!.value_json,
+    ).pipe(Effect.catch(() => Effect.succeed(DEFAULT_SETTINGS)));
+    return { settings, freshInstall: false };
   });

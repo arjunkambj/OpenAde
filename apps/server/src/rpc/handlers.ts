@@ -77,7 +77,7 @@ export const handlersLayer = OpenAdeRpcGroup.toLayer(
             .pipe(Effect.mapError(toRpcError)),
         ),
 
-      "connectors.list": () => connectors.list(),
+      "connectors.list": ({ refresh }) => connectors.list(refresh ?? false),
       "connectors.models": ({ instanceId }) => connectors.models(instanceId),
 
       "files.search": ({ projectId, query, limit }) => files.search(projectId, query, limit),

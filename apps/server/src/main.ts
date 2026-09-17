@@ -41,11 +41,11 @@ import { writeHandshake } from "./rpc/bootstrap";
 import { serverLayer, ServerToken } from "./rpc/server";
 import {
   BrowserService,
-  CmdConfig,
   ConnectorCatalog,
   ServerIdentity,
   SettingsStore,
 } from "./rpc/services";
+import { layer as cmdConfigLayer } from "./settings/CmdConfig";
 
 const DEV = process.env.OPENADE_DEV === "1" || process.argv.includes("--dev");
 const PORT = Number.parseInt(process.env.OPENADE_PORT ?? "0", 10);
@@ -76,7 +76,7 @@ const main = Effect.gen(function* () {
     fileServiceLayer.pipe(Layer.provide(persistence)),
     gitServiceLayer.pipe(Layer.provide(persistence)),
     BrowserService.empty,
-    CmdConfig.empty,
+    cmdConfigLayer().pipe(Layer.provide(persistence)),
     SettingsStore.layer.pipe(Layer.provide(sqlite)),
     PermissionService.layer.pipe(Layer.provide(sqlite)),
   );
