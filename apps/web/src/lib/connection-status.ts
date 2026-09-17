@@ -12,11 +12,15 @@
  *
  *  1. `incompatible` is terminal and outranks everything — retrying cannot fix
  *     a protocol mismatch, and the supervisor's own state is irrelevant to it.
- *  2. A supervisor that has given up is the next most important thing to say,
+ *  2. A live socket says nothing at all. Whatever the supervisor got up to, it
+ *     is not the user's problem while the app is talking to a server — in dev
+ *     the shell's own child can exhaust its restarts against a server the
+ *     renderer never used.
+ *  3. A supervisor that has given up is the next most important thing to say,
  *     even while the socket is still politely "reconnecting".
- *  3. A server that is starting or restarting explains a socket that is down,
+ *  4. A server that is starting or restarting explains a socket that is down,
  *     so the banner names the cause rather than the symptom.
- *  4. Otherwise the socket speaks for itself.
+ *  5. Otherwise the socket speaks for itself.
  *
  * `null` means "say nothing": the socket is up, so whatever the supervisor
  * did, it landed.
@@ -73,11 +77,11 @@ export const connectionNotice = (
       details: false,
     };
   }
-  if (server !== null && server.status === "failed") {
-    return gaveUp(server.reason);
-  }
   if (connection.status === "connected") {
     return null;
+  }
+  if (server !== null && server.status === "failed") {
+    return gaveUp(server.reason);
   }
   if (server !== null && server.status === "restarting") {
     const attempt = server.attempt ?? null;

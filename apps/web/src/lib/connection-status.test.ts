@@ -18,6 +18,13 @@ describe("connectionNotice", () => {
     expect(
       connectionNotice(socket("connected"), server({ status: "restarting", attempt: 2 })),
     ).toBeNull();
+    // Even a supervisor that gave up: in dev its `tsx watch` child can burn
+    // through its restarts while the renderer is happily connected to a
+    // separately started server through the dev endpoint. Painting "reopen
+    // OpenAde" over a working app would be a lie.
+    expect(
+      connectionNotice(socket("connected"), server({ status: "failed", reason: "exited 5 times" })),
+    ).toBeNull();
   });
 
   it("outranks everything with a protocol mismatch", () => {
