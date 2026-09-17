@@ -10,63 +10,72 @@ import { BrowserWindow, app, screen, shell } from "electron";
 import { APP_URL } from "./protocol";
 import { titleBarStyle } from "../platform";
 import { applyWebviewAttachPolicy } from "./webview";
+import {
+  captureWindowState,
+  clampToDisplays,
+  parseWindowState,
+  type WindowState,
+} from "./windowState";
 
 const MIN_WINDOW_WIDTH = 256;
 const MIN_WINDOW_HEIGHT = 248;
 const DEV_SERVER_URL = process.env.ELECTRON_RENDERER_URL;
 
-interface WindowState {
-  readonly x?: number;
-  readonly y?: number;
-  readonly width: number;
-  readonly height: number;
-}
-
 const statePath = () => join(app.getPath("userData"), "window-state.json");
 
-/** A restored position must keep this much of the window on some display. */
-const MIN_VISIBLE_WIDTH = 100;
-const MIN_VISIBLE_HEIGHT = 48;
-
-/**
- * Drop the persisted position when a monitor disconnect would leave the
- * window off-screen: the rect must overlap some display's work area by at
- * least the visible minimum, otherwise Electron re-centers it.
- */
-const clampToDisplays = (state: WindowState): WindowState => {
-  const { x, y, width, height } = state;
-  if (x === undefined || y === undefined) return state;
-  const onScreen = screen.getAllDisplays().some((display) => {
-    const area = display.workArea;
-    const overlapX = Math.min(x + width, area.x + area.width) - Math.max(x, area.x);
-    const overlapY = Math.min(y + height, area.y + area.height) - Math.max(y, area.y);
-    return overlapX >= MIN_VISIBLE_WIDTH && overlapY >= MIN_VISIBLE_HEIGHT;
-  });
-  return onScreen ? state : { width, height };
-};
+/** Geometry settles in bursts; one write per burst is enough. */
+const SAVE_DEBOUNCE_MS = 500;
 
 const loadWindowState = (): WindowState => {
+  let raw = "";
   try {
-    const parsed = JSON.parse(readFileSync(statePath(), "utf8")) as WindowState;
-    return clampToDisplays({
-      ...(typeof parsed.x === "number" ? { x: parsed.x } : {}),
-      ...(typeof parsed.y === "number" ? { y: parsed.y } : {}),
-      width: typeof parsed.width === "number" ? parsed.width : 1280,
-      height: typeof parsed.height === "number" ? parsed.height : 820,
-    });
+    raw = readFileSync(statePath(), "utf8");
   } catch {
-    return { width: 1280, height: 820 };
+    // first run, or the file was removed
   }
+  return clampToDisplays(
+    parseWindowState(raw),
+    screen.getAllDisplays().map((display) => display.workArea),
+  );
 };
 
 const saveWindowState = (win: BrowserWindow) => {
-  if (win.isMinimized() || win.isFullScreen()) return;
-  const bounds = win.getBounds();
+  // A minimized window reports neither its real rect nor its real flags.
+  if (win.isDestroyed() || win.isMinimized()) return;
   try {
-    writeFileSync(statePath(), JSON.stringify(bounds));
+    writeFileSync(statePath(), JSON.stringify(captureWindowState(win)));
   } catch {
     // best-effort persistence
   }
+};
+
+/**
+ * Persist on every geometry change, debounced, and once more on close: bound
+ * to `close` alone, a crash or a force-quit persisted nothing at all.
+ */
+const trackWindowState = (win: BrowserWindow) => {
+  let timer: NodeJS.Timeout | null = null;
+  const schedule = () => {
+    if (timer !== null) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      saveWindowState(win);
+    }, SAVE_DEBOUNCE_MS);
+    timer.unref();
+  };
+  win.on("resize", schedule);
+  win.on("move", schedule);
+  win.on("maximize", schedule);
+  win.on("unmaximize", schedule);
+  win.on("enter-full-screen", schedule);
+  win.on("leave-full-screen", schedule);
+  win.on("close", () => {
+    if (timer !== null) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    saveWindowState(win);
+  });
 };
 
 /**
@@ -96,12 +105,13 @@ const waitForDevServer = async (url: string): Promise<boolean> => {
 };
 
 export async function createWindow(): Promise<BrowserWindow> {
-  const state = loadWindowState();
+  const { maximized, fullScreen, ...bounds } = loadWindowState();
   const win = new BrowserWindow({
     title: "OpenAde",
-    ...state,
+    ...bounds,
     minWidth: MIN_WINDOW_WIDTH,
     minHeight: MIN_WINDOW_HEIGHT,
+    fullscreen: fullScreen,
     show: false,
     titleBarStyle: titleBarStyle(),
     webPreferences: {
@@ -113,8 +123,10 @@ export async function createWindow(): Promise<BrowserWindow> {
     },
   });
 
+  if (maximized && !fullScreen) win.maximize();
+
   win.once("ready-to-show", () => win.show());
-  win.on("close", () => saveWindowState(win));
+  trackWindowState(win);
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith("https://") || url.startsWith("http://")) {
