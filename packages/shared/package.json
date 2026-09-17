@@ -8,6 +8,10 @@
       "types": "./src/ids.ts",
       "import": "./src/ids.ts"
     },
+    "./imageBytes": {
+      "types": "./src/imageBytes.ts",
+      "import": "./src/imageBytes.ts"
+    },
     "./paths": {
       "types": "./src/paths.ts",
       "import": "./src/paths.ts"
