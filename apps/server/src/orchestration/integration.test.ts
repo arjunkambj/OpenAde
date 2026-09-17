@@ -239,6 +239,15 @@ describe("orchestration with a fake connector", () => {
         // yet another plan forever.
         const after = yield* engine.threadDetail(threadId);
         expect(after?.settings.interactionMode).toBe("default");
+        // The implement turn is a turn like any other (spec section 8), so it
+        // mints a user row like any other: the timeline says what was asked,
+        // and the implementation that follows is not an answer to nothing.
+        expect(
+          after?.items.filter((item) => item.kind === "user_message").map((item) => item.text),
+        ).toEqual([
+          "plan it",
+          "Implement the approved plan at /home/u/.commandcode/plans/the-plan.md",
+        ]);
       }).pipe(Effect.provide(stackLayer({ instance })));
 
       const session = yield* fake.session(threadId);
