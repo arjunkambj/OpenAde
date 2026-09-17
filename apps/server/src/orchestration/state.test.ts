@@ -178,4 +178,26 @@ describe("the thread fold", () => {
     expect(doc?.items).toHaveLength(1);
     expect(doc?.items[0]?.turnId).toBe(turnId);
   });
+
+  it("keeps a stored item's turn when a later upsert carries none", () => {
+    const turnId = makeTurnId();
+    const itemId = makeItemId();
+    const doc = foldThread([
+      created(),
+      turnRequested(turnId),
+      event("thread.item.upserted", {
+        item: { itemId, kind: "tool_call", status: "in_progress" },
+        turnId,
+      }),
+      // A tool row finalised after the turn's scope closed: ingestion has no
+      // turn to stamp, and the row must not lose the one it already had.
+      event("thread.item.upserted", {
+        item: { itemId, kind: "tool_call", status: "completed" },
+      }),
+    ]);
+
+    expect(doc?.items).toHaveLength(1);
+    expect(doc?.items[0]?.status).toBe("completed");
+    expect(doc?.items[0]?.turnId).toBe(turnId);
+  });
 });

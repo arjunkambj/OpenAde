@@ -231,9 +231,13 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
       // lets a client that only ever sees the snapshot group the timeline by
       // turn. A row the connector already stamped wins over the envelope.
       const upserted = payload.item as ItemSnapshot;
-      const turnId = upserted.turnId ?? (payload.turnId as TurnId | undefined);
+      const index = doc.items.findIndex((existing) => existing.itemId === upserted.itemId);
+      // The row the turn already grouped keeps its turn: an envelope written
+      // after the turn's scope closed carries no `turnId`, and taking that as
+      // "no turn" would ungroup a row a later update merely touched.
+      const turnId =
+        upserted.turnId ?? (payload.turnId as TurnId | undefined) ?? doc.items[index]?.turnId;
       const item: ItemSnapshot = turnId === undefined ? upserted : { ...upserted, turnId };
-      const index = doc.items.findIndex((existing) => existing.itemId === item.itemId);
       const items =
         index === -1
           ? [...doc.items, item]
