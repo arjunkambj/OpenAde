@@ -83,7 +83,21 @@ export const applyThreadEvent = (
         updatedAt: event.occurredAt,
       };
     case "thread.session.lost":
-      return { ...doc, session: null, status: "idle", updatedAt: event.occurredAt };
+      // The server's fold settles the thread here — no session, no turn, and
+      // none of the open questions the dead process asked, because answering
+      // one can never reach anybody. This has to do the same or a connected
+      // client keeps an unanswerable approval card up until it resnapshots,
+      // which is the very wedge the server-side fold was changed to clear.
+      // The queue deliberately survives on both sides.
+      return {
+        ...doc,
+        session: null,
+        currentTurnId: null,
+        pendingApproval: null,
+        pendingUserInput: null,
+        status: "error",
+        updatedAt: event.occurredAt,
+      };
     case "thread.turn.requested":
       return { ...doc, status: "running", updatedAt: event.occurredAt };
     case "thread.turn.started":

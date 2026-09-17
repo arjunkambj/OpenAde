@@ -184,6 +184,38 @@ describe("clientState fold", () => {
     expect(cold?.restoring ?? null).toBeNull();
   });
 
+  it("settles the open questions when the session is lost", () => {
+    // The process that asked is gone, so the cards cannot be answered. The
+    // server's fold drops them; a client that kept them would show an
+    // unanswerable approval until something forced a resnapshot.
+    const turnId = makeTurnId();
+    let doc = applyThreadEvent(snapshot(), event("thread.turn.started", { turnId }));
+    doc = applyThreadEvent(
+      doc,
+      event("thread.approval.opened", {
+        request: { requestId: "r1", kind: "file_write", summary: "write" },
+      }),
+    );
+    doc = applyThreadEvent(
+      doc,
+      event("thread.userInput.requested", { requestId: "q1", questions: [] }),
+    );
+    doc = applyThreadEvent(
+      doc,
+      event("thread.message.queued", { message: { queuedMessageId: "m1" } }),
+    );
+    expect(doc.pendingApproval).not.toBeNull();
+
+    doc = applyThreadEvent(doc, event("thread.session.lost", { reason: "exited" }));
+    expect(doc.session).toBeNull();
+    expect(doc.pendingApproval).toBeNull();
+    expect(doc.pendingUserInput).toBeNull();
+    expect(doc.currentTurnId).toBeNull();
+    expect(doc.status).toBe("error");
+    // The queue survives the loss on both sides — the next turn drains it.
+    expect(doc.queue).toHaveLength(1);
+  });
+
   it("clears the thread list when the server asks for a resnapshot", () => {
     const threads = applyThreadListItem([], {
       kind: "snapshot",
