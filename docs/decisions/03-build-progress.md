@@ -113,6 +113,13 @@ the same gate on Linux and macOS (`.github/workflows/ci.yml`).
     `devConnectionPath()` in `@OpenAde/shared/paths`, so `OPENADE_HOME` moves it.
 15. Two guardrail tests are assigned, not written: transfer budget → W3, migration
     lineage → W1 (02 · last section).
+16. The browser pane (W6 mode A) is opt-in, because it makes Chromium open a
+    loopback remote-debugging port. The shell reads `browserPane: boolean` from
+    `<config dir>/desktop.json` (`OPENADE_HOME`-aware, default off) before
+    `app.whenReady`; `OPENADE_BROWSER_PANE=1` and `OPENADE_CDP_PORT=<port>`
+    override it, `OPENADE_REMOTE_DEBUG=0` vetoes it. With no port the server's
+    `OPENADE_CDP_PORT` is empty, `cdpAvailable` is false and every thread runs
+    mode B (owned Chromium), so anything exercising mode A must turn it on.
 
 ## Next session starts here
 

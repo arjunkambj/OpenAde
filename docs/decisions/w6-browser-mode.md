@@ -10,7 +10,8 @@ mode were verified live, not from the README alone.
 **Mode A — CDP attach to the in-app `<webview>` — is the primary mode.**
 Mode B — agent-browser's own Chromium plus its `stream` WebSocket — is the
 fallback the server picks automatically when mode A cannot run: no CDP port
-(the renderer is a plain web client or `OPENADE_REMOTE_DEBUG=0`), or no
+(the renderer is a plain web client, or the desktop shell was never asked to
+open one — see "How mode A finds the right webview"), or no
 webview target shows up inside the attach grace window. `BrowserState.mode`
 already carries both literals and `frame` is nullable for exactly this split.
 
@@ -55,7 +56,14 @@ binds the first `webview`/`page` target whose URL starts with the marker
 prefix; with exactly one candidate target it binds that regardless of URL
 (the marker has already been navigated away from on a re-bind). Desktop main
 enables `remote-debugging` on a random loopback port and hands it to the
-server as `OPENADE_CDP_PORT`.
+server as `OPENADE_CDP_PORT` — but **only when the browser pane is explicitly
+enabled**. The port is an attach surface (anything else running as this user
+can drive the renderer and read the `persist:thread-*` partitions), so it is
+off unless `browserPane: true` is set in `<config dir>/desktop.json`, or one
+of the `OPENADE_BROWSER_PANE` / `OPENADE_CDP_PORT` / `OPENADE_REMOTE_DEBUG`
+overrides asks for it. With no port the server sees an empty
+`OPENADE_CDP_PORT`, reports `cdpAvailable: false` and runs mode B, so a
+default install never opens one.
 
 ## Human control and `interrupted_by_human`
 
