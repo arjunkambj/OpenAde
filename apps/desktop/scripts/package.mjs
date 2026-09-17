@@ -16,7 +16,8 @@ if (!["stable", "canary"].includes(channel)) {
   throw new Error(`Unknown channel "${channel}". Use "stable" or "canary".`);
 }
 
-await build();
+// The bundle carries the channel too: the runtime names itself from it.
+await build({ channel });
 
 const require = createRequire(import.meta.url);
 const builderBin = require.resolve("electron-builder/cli.js");

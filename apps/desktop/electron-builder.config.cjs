@@ -3,8 +3,10 @@ const isCanary = channel === "canary";
 
 /** @type {import("electron-builder").Configuration} */
 module.exports = {
-  // Must stay equal to the id `src/platform` passes to `setAppUserModelId`,
-  // or Windows splits taskbar grouping and notifications from the install.
+  // `src/platform/channel.ts` derives `setAppUserModelId` and `setName` from
+  // the same channel (bundled in by scripts/build.mjs) and a test asserts both
+  // sides agree — Windows would otherwise split taskbar grouping and
+  // notifications from the install, and the two channels would share userData.
   appId: isCanary ? "dev.openade.OpenAde.desktop.canary" : "dev.openade.OpenAde.desktop",
   productName: isCanary ? "OpenAde Canary" : "OpenAde",
   copyright: `Copyright © ${new Date().getFullYear()} OpenAde`,

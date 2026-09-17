@@ -10,16 +10,22 @@
 import { app } from "electron";
 
 import { randomCdpPort, resolveCdpPort } from "./cdp";
+import { appUserModelId, productName, resolveChannel } from "./channel";
 import { readDesktopPreferences } from "./preferences";
 
 /** The remote-debugging port Chromium bound, or `null` when it opened none. */
 export let cdpPort: number | null = null;
 
-/** Keeps userData/cache tied to the product rather than the package name. */
+/**
+ * Keeps userData/cache tied to the product rather than the package name, and
+ * keeps both identities on the channel this build was packaged as — canary and
+ * stable must not share a userData directory or a taskbar group.
+ */
 export function applyPlatformDefaults() {
-  app.setName("OpenAde");
+  const channel = resolveChannel(process.env.OPENADE_CHANNEL);
+  app.setName(productName(channel));
   if (process.platform === "win32") {
-    app.setAppUserModelId("dev.openade.OpenAde.desktop");
+    app.setAppUserModelId(appUserModelId(channel));
   }
 
   const preferences = readDesktopPreferences();
