@@ -24,6 +24,7 @@ import * as Context from "effect/Context";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Ref from "effect/Ref";
 import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 
@@ -176,12 +177,29 @@ export const CheckpointReactor: Layer.Layer<
             );
       });
 
+    /** Work orders this process has already acted on — see `runRestore`. */
+    const handled = yield* Ref.make<ReadonlySet<string>>(new Set());
+
+    /**
+     * One run per work order, whichever path reaches it first. The replay list
+     * is read before the live loop starts, so the two cannot claim the same
+     * order — this is the backstop that makes that true by construction rather
+     * than by the ordering of two fibers.
+     */
     const runRestore = (
       threadId: ThreadId,
       checkpoint: CheckpointSummary,
       causedBy: string,
     ): Effect.Effect<void, EngineError> =>
-      restoreMutex.withPermits(1)(restoreOnce(threadId, checkpoint, causedBy));
+      restoreMutex.withPermits(1)(
+        Effect.gen(function* () {
+          if ((yield* Ref.get(handled)).has(causedBy)) {
+            return;
+          }
+          yield* Ref.update(handled, (seen) => new Set(seen).add(causedBy));
+          yield* restoreOnce(threadId, checkpoint, causedBy);
+        }),
+      );
 
     // A finished turn is a checkpoint point.
     const eventMailbox = yield* engine.subscribeEvents;
@@ -189,9 +207,14 @@ export const CheckpointReactor: Layer.Layer<
     /**
      * A restore accepted before the last shutdown: the work order is in the
      * log with no `restored`/`restore.failed` after it, so nothing has touched
-     * the worktree yet. Replayed on a forked fiber — git must not hold up the
-     * layer build, and the thread stays `restoring` (and so unusable for
-     * turns) until this finishes.
+     * the worktree yet.
+     *
+     * The list is read here, during the layer build, and only the git work is
+     * forked: a work order accepted after this read cannot be in it, so the
+     * live subscription below owns that one alone. Reading it on the forked
+     * fiber instead would let an order published in the meantime be both
+     * queued in the mailbox and still outcome-less in the log — two `git
+     * restore`/`git clean -fd` runs and two outcomes for one order.
      */
     const pendingRestores = Effect.gen(function* () {
       const events = yield* store.threadEventsAfter(0);
@@ -211,15 +234,23 @@ export const CheckpointReactor: Layer.Layer<
       return [...pending.values()];
     });
 
-    yield* Effect.gen(function* () {
-      for (const entry of yield* pendingRestores) {
-        yield* runRestore(
-          entry.streamId as ThreadId,
-          (entry.payload as { readonly checkpoint: CheckpointSummary }).checkpoint,
-          entry.eventId,
-        );
-      }
-    }).pipe(
+    const pending = yield* pendingRestores.pipe(
+      Effect.catch((error) =>
+        Effect.logWarning("checkpoint restore replay could not read the log", error).pipe(
+          Effect.as([] as ReadonlyArray<OrchestrationEvent>),
+        ),
+      ),
+    );
+    // Only the git work is forked: it must not hold up the layer build, and
+    // each thread stays `restoring` (and so unusable for turns) until its own
+    // replay finishes.
+    yield* Effect.forEach(pending, (entry) =>
+      runRestore(
+        entry.streamId as ThreadId,
+        (entry.payload as { readonly checkpoint: CheckpointSummary }).checkpoint,
+        entry.eventId,
+      ),
+    ).pipe(
       Effect.catch((error) => Effect.logWarning("checkpoint restore replay failed", error)),
       Effect.forkScoped,
     );
