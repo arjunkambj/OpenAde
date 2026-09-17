@@ -60,10 +60,12 @@ const IMPORT_ALLOWLIST = new Map([
  *
  * `@OpenAde/testkit` is the fakes and the receipt helpers; the server drives
  * them from its tests and must never ship them, because apps/server is bundled
- * to `out/main.cjs` for packaging (D1). Keeping it out of the production list
- * is what makes an accidental import in `src/main.ts` fail the gate.
+ * to `out/main.cjs` for packaging (D1). `@OpenAde/client-runtime` joins in
+ * tests for W3's transport suite, which exercises the real client against the
+ * real server over a WebSocket. Keeping both out of the production list is
+ * what makes an accidental import in `src/main.ts` fail the gate.
  */
-const TEST_ONLY_ALLOWLIST = new Map([["apps/server", ["testkit"]]]);
+const TEST_ONLY_ALLOWLIST = new Map([["apps/server", ["testkit", "client-runtime"]]]);
 
 const isTestFile = (file) => /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(file);
 
