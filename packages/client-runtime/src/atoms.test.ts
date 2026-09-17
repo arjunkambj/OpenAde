@@ -4,7 +4,7 @@
  * and the `serverInstanceId` reset.
  */
 
-import { PROTOCOL_VERSION } from "@OpenAde/contracts/rpc";
+import { OpenAdeRpcError, PROTOCOL_VERSION } from "@OpenAde/contracts/rpc";
 import { describe, expect, it } from "@effect/vitest";
 import type { ThreadId } from "@OpenAde/contracts/ids";
 import { makeEventId, makeItemId, makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
@@ -17,8 +17,10 @@ import type {
 } from "@OpenAde/contracts/orchestration";
 import type { Settings } from "@OpenAde/contracts/settings";
 import { defaultSettings } from "@OpenAde/contracts/settings";
+import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Queue from "effect/Queue";
 import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
@@ -98,6 +100,8 @@ interface ListChannel {
 interface StubData {
   readonly list?: ListChannel;
   readonly projects?: Ref.Ref<ReadonlyArray<ProjectSummary>>;
+  /** Answers `projects.list` itself — how a test makes the read model fail. */
+  readonly projectsRequest?: () => Effect.Effect<ReadonlyArray<ProjectSummary>, OpenAdeRpcError>;
   readonly settings?: () => Queue.Queue<Settings, unknown>;
   /** What `server.hello` claims to speak; defaults to this build's version. */
   readonly protocolVersion?: number;
@@ -138,6 +142,10 @@ const fakeClient = (
           list.calls.push(payload);
           return Stream.suspend(() => Stream.fromQueue(list.queue()));
         };
+      }
+      if (key === "projects.list" && data.projectsRequest !== undefined) {
+        const request = data.projectsRequest;
+        return () => request();
       }
       if (key === "projects.list" && data.projects !== undefined) {
         const projects = data.projects;
@@ -203,6 +211,25 @@ const awaitValue = <A, E>(
     };
     const unmount = registry.subscribe(atom, check);
     // `subscribe` only fires on change — replay the current value explicitly.
+    check(registry.get(atom));
+  });
+
+/** The mirror of `awaitValue` for the error channel — also timer-free. */
+const awaitFailure = <A, E>(
+  registry: AtomRegistry.AtomRegistry,
+  atom: Atom.Atom<AsyncResult.AsyncResult<A, E>>,
+): Promise<E> =>
+  new Promise((resolve) => {
+    const check = (result: AsyncResult.AsyncResult<A, E>) => {
+      if (AsyncResult.isFailure(result)) {
+        const error = Option.getOrUndefined(Cause.findErrorOption(result.cause));
+        if (error !== undefined) {
+          unmount();
+          resolve(error);
+        }
+      }
+    };
+    const unmount = registry.subscribe(atom, check);
     check(registry.get(atom));
   });
 
@@ -432,6 +459,34 @@ describe("atoms", () => {
           awaitValue(registry, projectsAtom, (value) => value.length === 2),
         );
         expect(list.map((p) => p.name)).toEqual(["one", "two"]);
+      }),
+    ),
+  );
+
+  it.live("a read model that the server refuses surfaces instead of looping", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const instance = yield* Ref.make(INSTANCE);
+        let calls = 0;
+        const { registry, projectsAtom } = yield* runtimeWith(
+          fakeClient(new Map(), instance, {
+            projectsRequest: () => {
+              calls += 1;
+              return Effect.fail(
+                new OpenAdeRpcError({ code: "internal", message: "bad row in the read model" }),
+              );
+            },
+          }),
+          { status: "connected", serverInstanceId: INSTANCE },
+        );
+
+        // A domain error is the server's answer, not a hiccup. Retrying it
+        // hammered the server every two seconds forever while the page showed
+        // the empty initial value, indistinguishable from "no projects".
+        registry.mount(projectsAtom);
+        const failure = yield* Effect.promise(() => awaitFailure(registry, projectsAtom));
+        expect(failure).toBeInstanceOf(OpenAdeRpcError);
+        expect(calls).toBe(1);
       }),
     ),
   );

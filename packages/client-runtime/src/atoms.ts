@@ -33,6 +33,7 @@ import type { Keybinding, Settings } from "@OpenAde/contracts/settings";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Duration from "effect/Duration";
+import * as Predicate from "effect/Predicate";
 import * as Ref from "effect/Ref";
 import * as Schedule from "effect/Schedule";
 import * as Scope from "effect/Scope";
@@ -61,6 +62,25 @@ const resubscribeSchedule = Schedule.exponential("100 millis").pipe(
   Schedule.jittered,
   Schedule.modifyDelay((meta) => Effect.succeed(Duration.min(meta.duration, Duration.seconds(2)))),
 );
+
+/**
+ * The same schedule, but only for failures worth retrying.
+ *
+ * A dropped socket is a hiccup: the next attempt lands on the fresh one. An
+ * `OpenAdeRpcError` is the server's considered answer — a bad row in a read
+ * model, a half-applied migration — and retrying it forever only hammers a
+ * server that has already said no, while the atom sits on its `initialValue`
+ * with nothing to tell the page apart from "there is nothing here". Failing
+ * the schedule with that same error stops the loop and hands the error to the
+ * atom, where it renders as an `AsyncResult` failure.
+ */
+const transportOnly = <E>(): Schedule.Schedule<Duration.Duration, E, E> =>
+  resubscribeSchedule.pipe(
+    Schedule.setInputType<E>(),
+    Schedule.tap((meta) =>
+      Predicate.isTagged(meta.input, "OpenAdeRpcError") ? Effect.fail(meta.input) : Effect.void,
+    ),
+  );
 
 /**
  * `hello → subscribe` as one resumable loop. The hello doubles as the
@@ -101,7 +121,7 @@ const threadStream = (
       yield* markConnected(hello.serverInstanceId);
       return client["threads.subscribe"]({ threadId, afterSequence });
     }),
-  ).pipe(Stream.retry(resubscribeSchedule), Stream.repeat(resubscribeSchedule));
+  ).pipe(Stream.retry(transportOnly()), Stream.repeat(resubscribeSchedule));
 
 /**
  * The sidebar list's equivalent loop. Only the `snapshot` frame carries a
@@ -142,7 +162,7 @@ const threadListStream = (
         ...(afterSequence === undefined ? {} : { afterSequence }),
       });
     }),
-  ).pipe(Stream.retry(resubscribeSchedule), Stream.repeat(resubscribeSchedule));
+  ).pipe(Stream.retry(transportOnly()), Stream.repeat(resubscribeSchedule));
 
 /**
  * A read model that has to be refetched after a reconnect. The socket carries
@@ -167,16 +187,13 @@ const perConnection = <A, E>(
         Stream.mapEffect(() => request),
       );
     }),
-  ).pipe(Stream.retry(resubscribeSchedule));
+  ).pipe(Stream.retry(transportOnly()));
 
 /** The same treatment for a server-pushed stream: retry a drop, repeat a close. */
 const perConnectionStream = <A, E>(
   subscribe: Effect.Effect<Stream.Stream<A, E>, E, Connection>,
 ): Stream.Stream<A, E, Connection | ConnectionStateRef> =>
-  Stream.unwrap(subscribe).pipe(
-    Stream.retry(resubscribeSchedule),
-    Stream.repeat(resubscribeSchedule),
-  );
+  Stream.unwrap(subscribe).pipe(Stream.retry(transportOnly()), Stream.repeat(resubscribeSchedule));
 
 export const makeRuntime = (connectionLayer: ConnectionLayer) => {
   // Build the connection inside the runtime's own scope so the supervisor's
@@ -347,7 +364,7 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
       Effect.gen(function* () {
         const client = yield* (yield* Connection).client;
         return client["browser.subscribe"]({ threadId });
-      }).pipe(Stream.unwrap, Stream.retry(resubscribeSchedule)),
+      }).pipe(Stream.unwrap, Stream.retry(transportOnly())),
       { initialValue: null as BrowserState | null },
     ),
   );
