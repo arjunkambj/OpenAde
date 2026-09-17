@@ -31,6 +31,7 @@ import type {
   ThreadSettingsPatch,
 } from "@OpenAde/contracts/orchestration";
 import type { UserQuestionAnswer } from "@OpenAde/contracts/runtime";
+import type { TurnInput } from "@OpenAde/connector-sdk/definition";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";
@@ -73,15 +74,15 @@ export const ProviderCommandReactor = Layer.effectDiscard(
         ...patch,
       });
 
-    const dispatchTurn = (threadId: ThreadId, input: { readonly text: string }) =>
+    const dispatchTurn = (threadId: ThreadId, input: TurnInput) =>
       engine.dispatch({
         commandId: makeCommandId(),
         createdAt: new Date().toISOString(),
         type: "thread.turn.start",
         threadId,
         text: input.text,
-        attachments: [],
-        mentions: [],
+        attachments: input.attachments,
+        mentions: input.mentions,
         queued: false,
       });
 
@@ -221,11 +222,17 @@ export const ProviderCommandReactor = Layer.effectDiscard(
                   ? { interactionMode: "default", runtimeMode: "auto-accept-edits" }
                   : { interactionMode: "default" },
               );
-              yield* dispatchTurn(threadId, { text: "Implement the approved plan." });
+              yield* dispatchTurn(threadId, {
+                text: "Implement the approved plan.",
+                attachments: [],
+                mentions: [],
+              });
             } else if (action === "revise") {
               yield* dispatchSettings(threadId, { interactionMode: "plan" });
               yield* dispatchTurn(threadId, {
                 text: (payload.feedback as string | undefined) ?? "Revise the plan",
+                attachments: [],
+                mentions: [],
               });
             }
             return;
@@ -261,7 +268,10 @@ export const ProviderCommandReactor = Layer.effectDiscard(
                 event.eventId,
               ),
             ]);
-            yield* dispatchTurn(threadId, { text: next.text });
+            // The queued message carries the composer's whole input —
+            // redispatching just the text would silently drop its
+            // attachments and mentions.
+            yield* dispatchTurn(threadId, next);
             return;
           }
 

@@ -341,7 +341,11 @@ const makeFakeSession = (input: FakeSessionInput): Effect.Effect<FakeSession, ne
       events: queue.events,
       send: (turn) =>
         Effect.gen(function* () {
-          yield* record("send", { text: turn.text });
+          yield* record("send", {
+            text: turn.text,
+            attachments: turn.attachments,
+            mentions: turn.mentions,
+          });
           yield* refuseWhenClosed;
           const active = yield* Ref.get(activeTurn);
           if (active !== null && !input.capabilities.steering) {
