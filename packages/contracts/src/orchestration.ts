@@ -469,13 +469,30 @@ const ThreadCheckpointCreatedEvent = orchestrationEvent(
 );
 
 /**
- * The durable record that a restore was accepted — the CheckpointReactor
- * treats this event as the work order, so a crash between command receipt
- * and the git work can never silently drop the request.
+ * The durable work order: an accepted `thread.checkpoint.restore`, recorded
+ * before any git runs. The CheckpointReactor acts on this event, and replays
+ * any that has no `restored`/`restore.failed` successor at boot, so a crash
+ * between command receipt and the git work cannot silently drop the request.
  */
+const ThreadCheckpointRestoreRequestedEvent = orchestrationEvent(
+  "thread.checkpoint.restore.requested",
+  Schema.Struct({ checkpoint: CheckpointSummary }),
+);
+
+/** The worktree really moved — emitted only after the git work succeeded. */
 const ThreadCheckpointRestoredEvent = orchestrationEvent(
   "thread.checkpoint.restored",
   Schema.Struct({ checkpoint: CheckpointSummary }),
+);
+
+/**
+ * The restore did not happen: a locked directory, a garbage-collected ref, a
+ * dirty submodule. Carries the checkpoint it was for, so a client can put the
+ * failure on the right row instead of showing a stray error line.
+ */
+const ThreadCheckpointRestoreFailedEvent = orchestrationEvent(
+  "thread.checkpoint.restore.failed",
+  Schema.Struct({ checkpointId: CheckpointId, message: NonEmptyString }),
 );
 
 const ThreadErrorEvent = orchestrationEvent(
@@ -509,7 +526,9 @@ export const OrchestrationEvent = Schema.Union([
   ThreadUsageUpdatedEvent,
   ThreadContextUpdatedEvent,
   ThreadCheckpointCreatedEvent,
+  ThreadCheckpointRestoreRequestedEvent,
   ThreadCheckpointRestoredEvent,
+  ThreadCheckpointRestoreFailedEvent,
   ThreadErrorEvent,
 ]);
 export type OrchestrationEvent = typeof OrchestrationEvent.Type;
@@ -544,7 +563,9 @@ export const OrchestrationEventType = Schema.Literals([
   "thread.usage.updated",
   "thread.context.updated",
   "thread.checkpoint.created",
+  "thread.checkpoint.restore.requested",
   "thread.checkpoint.restored",
+  "thread.checkpoint.restore.failed",
   "thread.error",
 ]);
 export type OrchestrationEventType = typeof OrchestrationEventType.Type;

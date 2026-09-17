@@ -1,14 +1,13 @@
 {
-  "sequence": 27,
-  "eventId": "0199c0de-0006-7000-8000-000000000127",
+  "sequence": 26,
+  "eventId": "0199c0de-0006-7000-8000-000000000126",
   "streamKind": "thread",
   "streamId": "0199c0de-0002-7000-8000-000000000001",
-  "streamVersion": 25,
-  "occurredAt": "2026-09-15T12:00:27.000Z",
-  "causationEventId": "0199c0de-0006-7000-8000-000000000126",
-  "correlationId": "0199c0de-0006-7000-8000-000000000126",
-  "actor": "system",
-  "type": "thread.checkpoint.restored",
+  "streamVersion": 24,
+  "occurredAt": "2026-09-15T12:00:26.000Z",
+  "commandId": "0199c0de-0008-7000-8000-000000000002",
+  "actor": "user",
+  "type": "thread.checkpoint.restore.requested",
   "payload": {
     "checkpoint": {
       "checkpointId": "0199c0de-0009-7000-8000-000000000001",

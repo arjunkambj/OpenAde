@@ -1,0 +1,16 @@
+{
+  "sequence": 28,
+  "eventId": "0199c0de-0006-7000-8000-000000000128",
+  "streamKind": "thread",
+  "streamId": "0199c0de-0002-7000-8000-000000000001",
+  "streamVersion": 26,
+  "occurredAt": "2026-09-15T12:00:28.000Z",
+  "causationEventId": "0199c0de-0006-7000-8000-000000000126",
+  "correlationId": "0199c0de-0006-7000-8000-000000000126",
+  "actor": "system",
+  "type": "thread.checkpoint.restore.failed",
+  "payload": {
+    "checkpointId": "0199c0de-0009-7000-8000-000000000001",
+    "message": "the worktree has a lock file: .git/index.lock"
+  }
+}
