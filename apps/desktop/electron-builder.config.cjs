@@ -12,6 +12,8 @@ module.exports = {
   },
   files: ["out/**/*", "package.json"],
   asar: true,
+  // The server child process cannot spawn from inside the asar archive.
+  asarUnpack: ["out/server/**"],
   npmRebuild: false,
   mac: {
     icon: "assets/AppIcon.icns",

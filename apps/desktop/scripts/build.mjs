@@ -15,6 +15,8 @@ export function bundleOptions({ watch = false } = {}) {
   return [
     { entry: "src/main/index.ts", outfile: "out/main/index.cjs" },
     { entry: "src/preload/index.ts", outfile: "out/preload/index.cjs" },
+    // The server ships inside the app; spawned under ELECTRON_RUN_AS_NODE.
+    { entry: "../server/src/main.ts", outfile: "out/server/main.cjs" },
   ].map(({ entry, outfile }) => ({
     entryPoints: [join(root, entry)],
     outfile: join(root, outfile),
