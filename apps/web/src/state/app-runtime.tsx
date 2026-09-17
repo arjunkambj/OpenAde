@@ -69,9 +69,14 @@ export const getResolvedConnection = (): ResolvedConnection | null => resolvedCo
  * The server's http(s) origin, derived from the socket url. Loopback routes
  * that are not RPC live on it — the browser pane's attach marker, which the
  * desktop `<webview>` loads so the CDP driver can recognise that guest.
+ *
+ * `null` when no connection resolved: a relative marker url would resolve
+ * against the renderer's own origin and load the app's SPA into the guest,
+ * so callers must skip the webview rather than build one out of "".
  */
-export const getHttpBase = (): string => {
-  const url = resolvedConnection?.url ?? "";
+export const getHttpBase = (): string | null => {
+  const url = resolvedConnection?.url;
+  if (url === undefined || url === "") return null;
   return (url.startsWith("ws") ? `http${url.slice(2)}` : url).replace(/\/ws\/?$/, "");
 };
 

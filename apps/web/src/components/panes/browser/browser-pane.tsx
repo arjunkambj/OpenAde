@@ -79,8 +79,16 @@ export function BrowserPane({ threadId }: BrowserPaneProps) {
   // Mode A renders the webview even before the driver attaches — the guest
   // shows the attach marker, then whatever the agent navigates to. Owned
   // Chromium falls back to the frame stream.
+  //
+  // Without a resolved connection there is no marker url to load: a relative
+  // one would pull the app's own SPA into the guest and break the driver's
+  // target matching, so we wait for the socket instead.
+  const httpBase = getHttpBase();
   const useWebview =
-    !missing && bridge !== undefined && (state === null || state.mode !== "owned-chromium");
+    !missing &&
+    bridge !== undefined &&
+    httpBase !== null &&
+    (state === null || state.mode !== "owned-chromium");
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -90,14 +98,16 @@ export function BrowserPane({ threadId }: BrowserPaneProps) {
       ) : useWebview ? (
         <WebviewSurface
           threadId={threadId}
-          attachUrl={`${getHttpBase()}/browser/attach/${threadId}`}
+          attachUrl={`${httpBase}/browser/attach/${threadId}`}
           onLocation={onLocation}
         />
       ) : state !== null ? (
         <FrameSurface state={state} onGesture={dispatch} />
       ) : (
         <div className="text-muted-foreground flex flex-1 items-center justify-center text-sm">
-          browser is stopped — it starts on the first agent call
+          {httpBase === null
+            ? "connecting to the server…"
+            : "browser is stopped — it starts on the first agent call"}
         </div>
       )}
     </div>
