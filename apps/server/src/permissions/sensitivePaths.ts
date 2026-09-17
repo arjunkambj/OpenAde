@@ -20,7 +20,7 @@ const SENSITIVE_BASENAMES = new Set([
 
 const SENSITIVE_EXTENSIONS = [".pem", ".key", ".p12", ".pfx"];
 
-const SENSITIVE_SEGMENTS = new Set([".ssh", ".aws", ".gnupg"]);
+const SENSITIVE_SEGMENTS = new Set([".ssh", ".aws", ".gnupg", ".git", ".commandcode"]);
 
 const normalize = (path: string): string =>
   path
@@ -35,7 +35,9 @@ export const isSensitivePath = (path: string): boolean => {
   if (basename === "" || basename === "." || basename === "..") {
     return false;
   }
-  if (SENSITIVE_BASENAMES.has(basename) || basename.startsWith(".env.")) {
+  // `.env*` per spec section 8 — the prefix match also covers `.envrc`,
+  // which the exact/extension forms miss.
+  if (SENSITIVE_BASENAMES.has(basename) || basename.startsWith(".env")) {
     return true;
   }
   if (SENSITIVE_EXTENSIONS.some((extension) => basename.endsWith(extension))) {

@@ -82,6 +82,8 @@ describe("sensitive paths", () => {
     ".env",
     ".env.local",
     "project/.env.production",
+    ".envrc",
+    "project/.envrc",
     "/home/user/.ssh/id_ed25519",
     ".aws/credentials",
     "creds/server.pem",
@@ -91,6 +93,12 @@ describe("sensitive paths", () => {
     ".pgpass",
     ".gnupg/secring.gpg",
     ".config/gh/hosts.yml",
+    ".git/HEAD",
+    ".git/config",
+    "project/.git/hooks/pre-commit",
+    ".commandcode/settings.json",
+    ".commandcode/settings.local.json",
+    "project/.commandcode/settings.json",
   ])("flags %s", (path) => {
     expect(isSensitivePath(path)).toBe(true);
   });
@@ -103,6 +111,7 @@ describe("sensitive paths", () => {
     "keys.txt",
     "public/id_rsa_backup.txt",
     ".gitignore",
+    ".gitmodules",
     "config/settings.json",
   ])("allows %s", (path) => {
     expect(isSensitivePath(path)).toBe(false);
