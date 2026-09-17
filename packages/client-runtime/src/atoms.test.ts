@@ -212,6 +212,47 @@ describe("atoms", () => {
     ),
   );
 
+  it.live("a subscription that ends after resnapshot-required resubscribes", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const threadId = makeThreadId();
+        const queue = yield* Queue.unbounded<ThreadStreamItem, unknown>();
+        const instance = yield* Ref.make(INSTANCE);
+        const streams = new Map<string, Queue.Queue<ThreadStreamItem, unknown>>([
+          [threadId, queue],
+        ]);
+        const { registry, threadDetailAtom } = yield* runtimeWith(fakeClient(streams, instance), {
+          status: "connecting",
+          serverInstanceId: null,
+        });
+
+        const atom = threadDetailAtom(threadId);
+        registry.mount(atom);
+        yield* Queue.offer(queue, {
+          kind: "snapshot",
+          snapshot: snapshot(threadId),
+        });
+        yield* Queue.offer(queue, upsert(threadId, 2, "old item"));
+        yield* Effect.promise(() => awaitValue(registry, atom, (doc) => doc.items.length === 1));
+
+        // The server ends the stream cleanly after resnapshot-required —
+        // `Stream.retry` alone never fires on a clean end, so the atom must
+        // resubscribe itself. The swapped-in queue stands in for the fresh
+        // subscription the repeat opens.
+        yield* Queue.offer(queue, { kind: "resnapshot-required", reason: "budget" });
+        yield* Queue.end(queue);
+
+        const queue2 = yield* Queue.unbounded<ThreadStreamItem, unknown>();
+        streams.set(threadId, queue2);
+        yield* Queue.offer(queue2, {
+          kind: "snapshot",
+          snapshot: snapshot(threadId, []),
+        });
+        yield* Effect.promise(() => awaitValue(registry, atom, (doc) => doc.items.length === 0));
+      }),
+    ),
+  );
+
   it.live("a changed serverInstanceId discards the cached snapshot", () =>
     Effect.scoped(
       Effect.gen(function* () {

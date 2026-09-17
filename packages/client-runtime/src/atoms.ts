@@ -59,6 +59,10 @@ const resubscribeSchedule = Schedule.exponential("100 millis").pipe(
  * `hello → subscribe` as one resumable loop. The hello doubles as the
  * instance-id check; a changed id resets `afterSequence` and clears the atom's
  * snapshot so stale projections can't survive a server restart.
+ *
+ * `retry` covers failures (socket down, RPC error); `repeat` covers the clean
+ * end the server sends after `resnapshot-required` — `retry` alone would leave
+ * the atom silent until remount.
  */
 const threadStream = (
   threadId: ThreadId,
@@ -86,7 +90,7 @@ const threadStream = (
       yield* markConnected(hello.serverInstanceId);
       return client["threads.subscribe"]({ threadId, afterSequence });
     }),
-  ).pipe(Stream.retry(resubscribeSchedule));
+  ).pipe(Stream.retry(resubscribeSchedule), Stream.repeat(resubscribeSchedule));
 
 export const makeRuntime = (connectionLayer: ConnectionLayer) => {
   // Build the connection inside the runtime's own scope so the supervisor's
