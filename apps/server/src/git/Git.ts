@@ -10,13 +10,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import type { ProjectId } from "@OpenAde/contracts/ids";
-import type {
-  FileSearchResult,
-  GitDiff,
-  GitDiffFile,
-  GitFileChange,
-  GitStatus,
-} from "@OpenAde/contracts/rpc";
+import type { GitDiff, GitDiffFile, GitFileChange, GitStatus } from "@OpenAde/contracts/rpc";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
@@ -325,5 +319,3 @@ export const layer = Layer.effect(
     });
   }),
 );
-
-export type { FileSearchResult };
