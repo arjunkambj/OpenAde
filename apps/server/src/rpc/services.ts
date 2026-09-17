@@ -20,7 +20,7 @@ import type {
 } from "@OpenAde/contracts/rpc";
 import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
 import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
-import { Settings } from "@OpenAde/contracts/settings";
+import { defaultSettings, Settings } from "@OpenAde/contracts/settings";
 import type { SettingsPatch } from "@OpenAde/contracts/settings";
 import type { ConnectorInstanceId, ProjectId, ThreadId } from "@OpenAde/contracts/ids";
 import * as Context from "effect/Context";
@@ -258,13 +258,22 @@ export class SettingsStore extends Context.Service<
 
 const SETTINGS_ROW_KEY = "settings";
 
-const DEFAULT_SETTINGS: Settings = {
-  connectors: [],
-  defaults: { model: null, effort: "medium", runtimeMode: "approval-required" },
-  theme: "system",
-  keybindings: [],
-  permissions: [],
-};
+/**
+ * The server has no defaults of its own: the contracts' document is what the
+ * keybindings page diffs a user's overrides against, so a second copy here
+ * would silently drift (it did — it shipped an empty keybinding table, which
+ * disabled every shortcut in the app).
+ */
+
+/**
+ * Repairs a document written by the build whose defaults had no keybindings.
+ * The editor cannot add a binding back, so an empty table is not a state a
+ * user can have chosen or escape from — it only ever means that bug.
+ */
+const healed = (settings: Settings): Settings =>
+  settings.keybindings.length === 0
+    ? { ...settings, keybindings: defaultSettings().keybindings }
+    : settings;
 
 const load = (sql: SqlClient.SqlClient) =>
   Effect.gen(function* () {
@@ -272,10 +281,10 @@ const load = (sql: SqlClient.SqlClient) =>
       SELECT value_json FROM settings WHERE key = ${SETTINGS_ROW_KEY}
     `;
     if (rows.length === 0) {
-      return { settings: DEFAULT_SETTINGS, freshInstall: true };
+      return { settings: defaultSettings(), freshInstall: true };
     }
     const settings = yield* Schema.decodeEffect(Schema.fromJsonString(Settings))(
       rows[0]!.value_json,
-    ).pipe(Effect.catch(() => Effect.succeed(DEFAULT_SETTINGS)));
-    return { settings, freshInstall: false };
+    ).pipe(Effect.catch(() => Effect.succeed(defaultSettings())));
+    return { settings: healed(settings), freshInstall: false };
   });
