@@ -1,0 +1,46 @@
+/**
+ * The virtualized thread timeline: `ItemSnapshot[]` from the detail atom,
+ * folded by `buildTimeline`, rendered through `LegendList`. Row state that
+ * must survive recycling (disclosure) lives in atoms, not component state.
+ */
+
+import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
+import { LegendList } from "@legendapp/list/react";
+import * as React from "react";
+
+import { buildTimeline } from "@/components/timeline/fold";
+import { TimelineRowView } from "@/components/timeline/timeline-item";
+
+export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
+  const projection = React.useMemo(
+    () =>
+      buildTimeline(snapshot.items, {
+        turnActive: snapshot.currentTurnId !== null || snapshot.status === "running",
+      }),
+    [snapshot],
+  );
+
+  const renderItem = React.useCallback(
+    ({ item }: { item: (typeof projection.rows)[number] }) => (
+      <TimelineRowView row={item} childrenByParent={projection.childrenByParent} />
+    ),
+    [projection],
+  );
+
+  return (
+    <LegendList
+      data={projection.rows}
+      keyExtractor={(row) => row.id}
+      getItemType={(row) => (row.kind === "item" ? row.item.kind : row.kind)}
+      renderItem={renderItem}
+      estimatedItemSize={40}
+      drawDistance={500}
+      recycleItems
+      initialScrollAtEnd
+      maintainScrollAtEnd
+      extraData={projection.childrenByParent}
+      className="min-h-0 flex-1 [scrollbar-width:thin]"
+      contentContainerClassName="mx-auto flex w-full max-w-[760px] flex-col gap-2 px-4 py-6"
+    />
+  );
+}
