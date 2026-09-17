@@ -90,7 +90,7 @@ export function Composer({
   const [activeIndex, setActiveIndex] = React.useState(0);
   const [slashLevel, setSlashLevel] = React.useState<SlashLevel>("root");
   const [error, setError] = React.useState<string | null>(null);
-  const attachments = useAttachments();
+  const attachments = useAttachments(threadId);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
   // `turnInFlight`, not `currentTurnId`: the projection fills the id on
@@ -213,36 +213,43 @@ export function Composer({
     }
   };
 
+  /**
+   * Uploads first, dispatches second: a `File` has no filesystem path, so the
+   * server has to hold the bytes before the command can name them. A failed
+   * upload leaves the draft — and the attachment — exactly where it was.
+   */
   const send = (queue: boolean) => {
     const trimmed = text.trim();
     if (trimmed.length === 0 && attachments.files.length === 0) {
       return;
     }
-    const payload: ReadonlyArray<Attachment> = attachments.files.map((file) => ({
-      path: file.name,
-      mime: file.type === "" ? undefined : file.type,
-    }));
-    void dispatch({
-      commandId: makeCommandId(),
-      createdAt: new Date().toISOString(),
-      type: "thread.turn.start",
-      threadId,
-      text: trimmed,
-      attachments: payload,
-      mentions: [...mentions],
-      queued: queue || running,
-    }).then(
-      (receipt) => {
-        const rejected = receiptError(receipt, "the server rejected the message");
-        if (rejected === null) {
-          setText("");
-          setMentions([]);
-          attachments.clear();
-        }
-        setError(rejected);
-      },
-      () => setError(DISPATCH_UNREACHABLE),
-    );
+    setError(null);
+    void attachments
+      .stage()
+      .then((payload: ReadonlyArray<Attachment>) =>
+        dispatch({
+          commandId: makeCommandId(),
+          createdAt: new Date().toISOString(),
+          type: "thread.turn.start",
+          threadId,
+          text: trimmed,
+          attachments: payload,
+          mentions: [...mentions],
+          queued: queue || running,
+        }).then(
+          (receipt) => {
+            const rejected = receiptError(receipt, "the server rejected the message");
+            if (rejected === null) {
+              setText("");
+              setMentions([]);
+              attachments.clear();
+            }
+            setError(rejected);
+          },
+          () => setError(DISPATCH_UNREACHABLE),
+        ),
+      )
+      .catch(() => setError("the attachment could not be uploaded"));
   };
 
   const focusInput = React.useCallback(() => textareaRef.current?.focus(), []);
@@ -318,6 +325,8 @@ export function Composer({
   };
 
   const canSend = text.trim().length > 0 || attachments.files.length > 0;
+  /** One line under the input: a dispatch error, else what was refused. */
+  const notice = error ?? attachments.rejected;
 
   return (
     <div className={cn("flex w-full min-w-0 max-w-[760px] shrink-0 flex-col gap-2", className)}>
@@ -384,9 +393,9 @@ export function Composer({
           onSend={() => send(running)}
           onInterrupt={interrupt}
         />
-        {error === null ? null : (
+        {notice === null ? null : (
           <p className="text-xs text-destructive" role="alert">
-            {error}
+            {notice}
           </p>
         )}
       </form>

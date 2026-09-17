@@ -193,7 +193,13 @@ export interface FixtureClient {
   onCommand: ((command: Command, receipt: CommandReceipt) => void) | undefined;
 }
 
+/** A 1x1 transparent PNG, for an attachment the fixture never really stored. */
+const FIXTURE_PIXEL =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
 export const makeFixtureClient = (): FixtureClient => {
+  /** What the page staged this session, keyed by the path it was given. */
+  const fixtureAttachments = new Map<string, string>();
   const threadId = makeThreadId();
   const projectId = makeProjectId();
   const connectorInstanceId = makeConnectorInstanceId();
@@ -421,6 +427,28 @@ export const makeFixtureClient = (): FixtureClient => {
               ).slice(0, 20),
             );
         }
+        // Attachments in the fixture never leave the browser: staging echoes a
+        // plausible reference, and reading one back answers the placeholder
+        // pixel, so the composer's upload path can be driven with no server.
+        case "attachments.stage":
+          return ({ threadId, name, base64 }: { threadId: string; name: string; base64: string }) =>
+            Effect.sync(() => {
+              const path = `/fixture/attachments/${threadId}/${name}`;
+              fixtureAttachments.set(path, base64);
+              return {
+                path,
+                name,
+                mime: "image/png",
+                size: Math.floor((base64.length * 3) / 4),
+                sha256: "0".repeat(64),
+              };
+            });
+        case "attachments.read":
+          return ({ path }: { path: string }) =>
+            Effect.sync(() => {
+              const base64 = fixtureAttachments.get(path) ?? FIXTURE_PIXEL;
+              return { mime: "image/png", size: Math.floor((base64.length * 3) / 4), base64 };
+            });
         case "connectors.list":
           return () => Effect.succeed([connector]);
         case "connectors.models":

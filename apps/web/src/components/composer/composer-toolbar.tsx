@@ -11,6 +11,8 @@
 import { Button } from "@OpenAde/ui/components/button";
 import * as React from "react";
 
+import { ATTACHMENT_ACCEPT } from "@/components/composer/attachment-rules";
+
 import { Icon } from "@/lib/icon";
 
 export function ComposerToolbar({
@@ -45,6 +47,7 @@ export function ComposerToolbar({
         type="file"
         hidden
         multiple
+        accept={ATTACHMENT_ACCEPT}
         onChange={(event) => onFilesPicked([...(event.target.files ?? [])])}
       />
       <Button
