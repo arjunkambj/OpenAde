@@ -71,6 +71,14 @@ interface Session {
   } | null>;
 }
 
+/**
+ * The daemon's "the tab I was bound to no longer exists". The cdp driver
+ * retries a rebind before it surfaces this, so seeing it here means the pane's
+ * webview is really gone.
+ */
+const isTabGone = (error: { readonly message: string; readonly code?: string | null }): boolean =>
+  error.code === "tab_gone";
+
 /** Which input epoch-class a human gesture belongs to. */
 const inputClassOf = (input: BrowserHumanInput): InputClass | null => {
   switch (input.kind) {
@@ -295,6 +303,12 @@ export const makeService = (injected: {
     const screenshotPath = () =>
       join(tmpdir(), `openade-shot-${Math.random().toString(16).slice(2)}.png`);
 
+    const execOnce = (driver: BrowserDriver, argv: ReadonlyArray<string>) =>
+      driver.exec(argv).pipe(
+        Effect.map((data) => ({ ok: true as const, data })),
+        Effect.catch((error) => Effect.succeed({ ok: false as const, error })),
+      );
+
     const runCall = (
       session: Session,
       call: PreparedCall,
@@ -317,23 +331,31 @@ export const makeService = (injected: {
                 Effect.catch((outcome) => Effect.succeed({ ok: false as const, outcome })),
               );
               if (!ensured.ok) return ensured.outcome;
-              const driver = ensured.driver;
+              let driver = ensured.driver;
               const argv = call.screenshot
                 ? call.argv.map((part) => (part === "{shot}" ? screenshotPath() : part))
                 : call.argv;
-              const executed = yield* driver.exec(argv).pipe(
-                Effect.map((data) => ({ ok: true as const, data })),
-                Effect.catch((error) =>
-                  Effect.succeed({
-                    ok: false as const,
-                    outcome: {
-                      kind: "error" as const,
-                      message: error.message,
-                    } satisfies BrowserCallOutcome,
-                  }),
-                ),
-              );
-              if (!executed.ok) return executed.outcome;
+              let executed = yield* execOnce(driver, argv);
+              if (!executed.ok && isTabGone(executed.error)) {
+                // The pane's webview is gone for good — the cdp driver already
+                // tried to rebind. Drop the dead driver so the next open can
+                // fall back to owned Chromium, and give this call that chance
+                // rather than erroring every call until the thread is deleted.
+                yield* releaseDriver(session);
+                const reopened = yield* ensureDriver(session).pipe(
+                  Effect.map((next) => ({ ok: true as const, driver: next })),
+                  Effect.catch((outcome) => Effect.succeed({ ok: false as const, outcome })),
+                );
+                if (!reopened.ok) return reopened.outcome;
+                driver = reopened.driver;
+                executed = yield* execOnce(driver, argv);
+              }
+              if (!executed.ok) {
+                return {
+                  kind: "error",
+                  message: executed.error.message,
+                } satisfies BrowserCallOutcome;
+              }
               const data = executed.data;
 
               if (call.mutating) yield* refreshLocation(session, driver);

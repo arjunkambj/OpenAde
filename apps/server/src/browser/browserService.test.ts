@@ -8,6 +8,9 @@
  *   `interrupted_by_human`.
  * - A pointer gesture during an in-flight `browser_click` is the agent's own
  *   echo (the call `expects` pointer input) and does NOT interrupt.
+ * - A `tab_gone` the cdp driver could not rebind drops the dead driver and
+ *   retries the call on a fresh one instead of erroring for the rest of the
+ *   thread.
  * - `teardown` stops the session and is idempotent.
  * - Sessions are per-thread.
  */
@@ -30,6 +33,7 @@ import { ReadModelStore } from "../persistence/ReadModels";
 import { testLayer as sqliteTestLayer } from "../persistence/Sqlite";
 import { PermissionService } from "../permissions/PermissionService";
 import { BrowserService } from "../rpc/services";
+import { AgentBrowserError } from "./agentBrowser";
 import { makeFakeDriver, type FakePage } from "./driver";
 import { makeService, type OpenDriverOptions } from "./BrowserService";
 import type { BrowserDriver } from "./driver";
@@ -218,6 +222,46 @@ describe("BrowserService", () => {
         expect(state?.url).toBe("https://example.com/a");
       }),
     ),
+  );
+
+  it.live("a lost webview guest falls back instead of bricking the thread", () =>
+    Effect.gen(function* () {
+      let opened = 0;
+      const { browser } = yield* buildStack(() =>
+        Effect.sync(() => {
+          opened += 1;
+          const gone = opened === 1;
+          return makeFakeDriver(fakePage(), {
+            mode: gone ? "cdp-attach" : "owned-chromium",
+            onExec: () =>
+              gone
+                ? new AgentBrowserError({
+                    command: "rebind",
+                    message: "the browser pane's webview is gone",
+                    code: "tab_gone",
+                    data: null,
+                  })
+                : Effect.void,
+          });
+        }),
+      );
+
+      const first = yield* browser.callTool(threadId, "browser_open", {
+        url: "https://example.com",
+      });
+      // The dead attachment was dropped and the call retried on a fresh
+      // driver — which, with no pane to attach to, is owned Chromium.
+      expect(first.kind).toBe("ok");
+      expect(opened).toBe(2);
+
+      const state = yield* currentState(browser, threadId);
+      expect(state?.mode).toBe("owned-chromium");
+
+      // And the session keeps working from there.
+      const second = yield* browser.callTool(threadId, "browser_snapshot", {});
+      expect(second.kind).toBe("ok");
+      expect(opened).toBe(2);
+    }).pipe(Effect.scoped),
   );
 
   it.live("teardown stops the session and is idempotent", () =>
