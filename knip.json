@@ -21,10 +21,7 @@
     },
     "apps/server": {
       "ignoreExportsUsedInFile": true,
-      "ignoreDependencies": [
-        "@OpenAde/connector-cmd",
-        "@effect/platform-node"
-      ]
+      "ignoreDependencies": ["@OpenAde/connector-cmd", "@effect/platform-node"]
     },
     "apps/web": {
       "entry": ["src/routes/**/*.tsx"],

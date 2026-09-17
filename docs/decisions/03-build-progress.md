@@ -9,7 +9,7 @@ This file is the hand-off between build sessions. Update the status table and th
 | ------------------------------------------------ | ----------------------- | -------------------- | -------------- |
 | Plan review                                      | `feat/w0-foundation`    | done                 | 2026-09-15     |
 | W0 Foundation, contracts, connector SDK, testkit | `feat/w0-foundation`    | **done, merged**     | 2026-09-15     |
-| W1 Persistence and orchestration engine          | `feat/w1-orchestration` | not started          | –              |
+| W1 Persistence and orchestration engine          | `feat/w1-orchestration` | ready for review     | –              |
 | W2 Command Code connector                        | `feat/w2-connector-cmd` | not started          | –              |
 | W3 Transport and client runtime                  | `feat/w3-transport`     | not started          | –              |
 | W7 Desktop shell and packaging                   | `feat/w7-desktop`       | not started          | –              |
