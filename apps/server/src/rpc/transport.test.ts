@@ -6,7 +6,8 @@
  * - Dispatch + subscribe round-trips a real command through the engine.
  * - A client that drops its socket, reconnects and resubscribes with
  *   `afterSequence` receives exactly the events it missed.
- * - The 200-item thread stays under the wire budget (transfer-budget test).
+ * - A 200-item thread's snapshot stays inside a per-item wire budget, counted
+ *   from the bytes the socket actually delivered (transfer-budget test).
  */
 
 import { createServer } from "node:http";
@@ -57,6 +58,14 @@ import {
 } from "./services";
 
 const TOKEN = "test-token";
+/** Items the transfer-budget thread carries. */
+const ITEMS = 200;
+/**
+ * What one timeline item may cost on the wire. A snapshot item is a short
+ * assistant message plus its envelope; anything that pushes past this is a
+ * payload that does not belong in a snapshot.
+ */
+const MAX_BYTES_PER_ITEM = 512;
 const INSTANCE_ID = "01900000-0000-7000-8000-000000000000";
 
 const services: Effect.Effect<ConnectorServices> = Effect.clockWith((clock) =>
@@ -125,28 +134,51 @@ const testStack = (browserLayer: Layer.Layer<BrowserService> = BrowserService.em
     };
   });
 
+/** Sums the bytes the server actually pushed down the socket. */
+interface WireMeter {
+  bytes: number;
+}
+
+const byteLengthOf = (data: unknown): number => {
+  if (typeof data === "string") return new TextEncoder().encode(data).length;
+  if (data instanceof ArrayBuffer) return data.byteLength;
+  if (ArrayBuffer.isView(data)) return data.byteLength;
+  return 0;
+};
+
 const connect = (
   url: string,
   token: string,
-  sockets?: Array<WebSocket>,
-  resolve?: Effect.Effect<ConnectionCredentials | null>,
-) =>
-  Layer.build(
+  options: {
+    readonly sockets?: Array<WebSocket>;
+    readonly resolve?: Effect.Effect<ConnectionCredentials | null>;
+    readonly meter?: WireMeter;
+  } = {},
+) => {
+  const { sockets, resolve, meter } = options;
+  const instrument = sockets !== undefined || meter !== undefined;
+  return Layer.build(
     makeConnection({
       url,
       token,
       ...(resolve === undefined ? {} : { resolve }),
-      ...(sockets === undefined
-        ? {}
-        : {
+      ...(instrument
+        ? {
             webSocketConstructor: (wsUrl: string) => {
               const ws = new WebSocket(wsUrl);
-              sockets.push(ws);
+              sockets?.push(ws);
+              if (meter !== undefined) {
+                ws.addEventListener("message", (event) => {
+                  meter.bytes += byteLengthOf(event.data);
+                });
+              }
               return ws;
             },
-          }),
+          }
+        : {}),
     }),
   ).pipe(Effect.map((ctx) => Context.get(ctx, Connection)));
+};
 
 const projectId = makeProjectId();
 const threadId = makeThreadId();
@@ -211,7 +243,7 @@ describe("transport", () => {
         // supervisor's replacement server is reachable without a reload.
         const stale = { url: "ws://127.0.0.1:1/ws", token: "dead-token" };
         const live = yield* Ref.make<ConnectionCredentials | null>(null);
-        const connection = yield* connect(stale.url, stale.token, undefined, Ref.get(live));
+        const connection = yield* connect(stale.url, stale.token, { resolve: Ref.get(live) });
 
         // Nothing answers yet: the layer keeps failing over the dead port.
         yield* SubscriptionRef.changes(connection.state).pipe(
@@ -233,7 +265,7 @@ describe("transport", () => {
       Effect.gen(function* () {
         const { url } = yield* testStack();
         const sockets: Array<WebSocket> = [];
-        const connection = yield* connect(url, TOKEN, sockets);
+        const connection = yield* connect(url, TOKEN, { sockets });
         const client = yield* connection.client;
         const hello = yield* client["server.hello"]({});
         // What `markConnected` records once `server.hello` answers.
@@ -326,7 +358,7 @@ describe("transport", () => {
       Effect.gen(function* () {
         const { url, engine } = yield* testStack();
         const sockets: Array<WebSocket> = [];
-        const connection = yield* connect(url, TOKEN, sockets);
+        const connection = yield* connect(url, TOKEN, { sockets });
         const client = yield* connection.client;
         yield* client["orchestration.dispatch"]({ command: createProject });
         yield* client["orchestration.dispatch"]({ command: createThread });
@@ -387,16 +419,17 @@ describe("transport", () => {
     ),
   );
 
-  it.live("a 200-item thread's stream stays under the transfer budget", () =>
+  it.live("a 200-item snapshot stays inside the per-item wire budget", () =>
     Effect.scoped(
       Effect.gen(function* () {
         const { url, engine } = yield* testStack();
-        const connection = yield* connect(url, TOKEN);
+        const meter: WireMeter = { bytes: 0 };
+        const connection = yield* connect(url, TOKEN, { meter });
         const client = yield* connection.client;
         yield* client["orchestration.dispatch"]({ command: createProject });
         yield* client["orchestration.dispatch"]({ command: createThread });
 
-        for (let i = 0; i < 200; i += 1) {
+        for (let i = 0; i < ITEMS; i += 1) {
           yield* engine.appendThreadEvents(threadId, [
             {
               eventId: makeEventId(),
@@ -417,19 +450,22 @@ describe("transport", () => {
           ]);
         }
 
-        // The snapshot carries all 200 items; wire bytes must fit the budget.
+        // Everything the dispatches cost is already on the meter; only what
+        // the subscription adds counts against the per-item budget.
+        const before = meter.bytes;
         const frames = yield* client["threads.subscribe"]({ threadId }).pipe(
           Stream.take(2),
           Stream.runCollect,
           Effect.timeout("5 seconds"),
         );
-        let bytes = 0;
-        for (const frame of frames) {
-          bytes += new TextEncoder().encode(JSON.stringify(frame)).length;
-        }
+        const bytes = meter.bytes - before;
         expect(frames[0]?.kind).toBe("snapshot");
         expect(frames[1]?.kind).toBe("synchronized");
         expect(bytes).toBeLessThan(STREAM_BUDGET_BYTES);
+        // The real guardrail: 8 MiB is four orders of magnitude above what a
+        // 200-item thread costs, so the budget alone can never catch a
+        // snapshot that starts carrying whole file bodies or base64 images.
+        expect(bytes / ITEMS).toBeLessThan(MAX_BYTES_PER_ITEM);
       }),
     ),
   );
