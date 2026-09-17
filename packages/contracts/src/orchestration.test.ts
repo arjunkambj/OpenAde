@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
 import {
+  Attachment,
   Command,
   CommandType,
   OrchestrationEventType,
@@ -67,6 +68,43 @@ describe("ThreadStreamItem", () => {
     Effect.gen(function* () {
       const exit = yield* Effect.sync(() =>
         Schema.decodeUnknownExit(ThreadStreamItem)({ kind: "partial" }),
+      );
+      expect(exit._tag).toBe("Failure");
+    }),
+  );
+});
+
+describe("Attachment", () => {
+  const decode = Schema.decodeUnknownSync(Attachment);
+
+  it.effect("carries a reference to a staged file, never its bytes", () =>
+    Effect.gen(function* () {
+      const reference = {
+        path: "/Users/dev/.openade/attachments/thread/3f8a1c0d9e2b-design.png",
+        mime: "image/png",
+        name: "design.png",
+        size: 20481,
+        sha256: "3f8a1c0d9e2b4a76c5d8e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0",
+      };
+      const decoded = yield* Effect.sync(() => decode(reference));
+      const encoded = yield* Effect.sync(() => Schema.encodeUnknownSync(Attachment)(decoded));
+      expect(encoded).toStrictEqual(reference);
+      expect(Object.keys(reference)).not.toContain("base64");
+    }),
+  );
+
+  it.effect("still accepts the bare path an earlier client would send", () =>
+    Effect.gen(function* () {
+      const decoded = yield* Effect.sync(() => decode({ path: "attachments/design.png" }));
+      expect(decoded.name).toBeUndefined();
+      expect(decoded.sha256).toBeUndefined();
+    }),
+  );
+
+  it.effect("refuses a negative size", () =>
+    Effect.gen(function* () {
+      const exit = yield* Effect.sync(() =>
+        Schema.decodeUnknownExit(Attachment)({ path: "a.png", size: -1 }),
       );
       expect(exit._tag).toBe("Failure");
     }),

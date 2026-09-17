@@ -35,6 +35,7 @@ import {
   ThreadSummary,
 } from "../src/orchestration";
 import {
+  AttachmentBytes,
   BrowserHumanInput,
   BrowserState,
   ConnectorProbe,
@@ -47,6 +48,7 @@ import {
   ModelOption,
   ServerHello,
   SkillSummary,
+  StagedAttachment,
 } from "../src/rpc";
 import { ItemSnapshot, RuntimeEvent, RuntimeEventType } from "../src/runtime";
 import { Settings } from "../src/settings";
@@ -170,6 +172,8 @@ const singles: ReadonlyArray<{ readonly path: string; readonly schema: FixtureSc
   { path: "rpc/connector-summary.json", schema: ConnectorSummary },
   { path: "rpc/file-search-result.json", schema: FileSearchResult },
   { path: "rpc/file-content.json", schema: FileContent },
+  { path: "rpc/staged-attachment.json", schema: StagedAttachment },
+  { path: "rpc/attachment-bytes.json", schema: AttachmentBytes },
   { path: "rpc/git-status.json", schema: GitStatus },
   { path: "rpc/git-status.not-a-repository.json", schema: GitStatus },
   { path: "rpc/git-diff.json", schema: GitDiff },

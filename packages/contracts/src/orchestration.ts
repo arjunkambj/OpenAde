@@ -44,10 +44,21 @@ import {
  * A file the user attached to a turn, already written to the attachments dir.
  * `mime` is the spec's field name (section 7) and is optional because a plain
  * path drop carries no declared type.
+ *
+ * A *reference*, never the bytes: an attachment travels inside
+ * `thread.turn.start` and lands in the event log, which is replayed on every
+ * boot and streamed to every client — an inlined screenshot would be re-sent
+ * forever. The file lives under `<attachments>/<threadId>/` and comes back
+ * through `attachments.read`. `name` is what the user called it before
+ * staging renamed it, `sha256` identifies the content, and both are optional
+ * so a producer that only knows a path stays valid (decision W10).
  */
 export const Attachment = Schema.Struct({
   path: NonEmptyString,
   mime: Schema.optional(NonEmptyString),
+  name: Schema.optional(NonEmptyString),
+  size: Schema.optional(NonNegativeInt),
+  sha256: Schema.optional(NonEmptyString),
 });
 export type Attachment = typeof Attachment.Type;
 

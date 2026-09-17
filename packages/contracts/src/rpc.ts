@@ -156,6 +156,36 @@ export const FileContent = Schema.Struct({
 });
 export type FileContent = typeof FileContent.Type;
 
+/**
+ * One image the composer uploaded, as it now sits under
+ * `<attachments>/<threadId>/`. This is what the composer turns into the
+ * `Attachment` reference it sends with the turn — the bytes stay on disk.
+ *
+ * `mime` is the server's sniff of the file's own magic bytes, not the name or
+ * the type the browser declared (decision W10); the stored file's extension
+ * comes from the same sniff.
+ */
+export const StagedAttachment = Schema.Struct({
+  path: NonEmptyString,
+  name: NonEmptyString,
+  mime: NonEmptyString,
+  size: NonNegativeInt,
+  sha256: NonEmptyString,
+});
+export type StagedAttachment = typeof StagedAttachment.Type;
+
+/**
+ * A staged image handed back for display. `base64` is the raw file, which the
+ * timeline turns into a `data:` URL — the WebSocket is already authenticated,
+ * so an attachment needs no public route and no second token.
+ */
+export const AttachmentBytes = Schema.Struct({
+  mime: NonEmptyString,
+  size: NonNegativeInt,
+  base64: Schema.String,
+});
+export type AttachmentBytes = typeof AttachmentBytes.Type;
+
 /** One path in `git status`, and whether its change is staged. */
 export const GitFileChange = Schema.Struct({
   path: NonEmptyString,
@@ -320,6 +350,8 @@ export const RPC_METHODS = {
   connectorsModels: "connectors.models",
   filesSearch: "files.search",
   filesRead: "files.read",
+  attachmentsStage: "attachments.stage",
+  attachmentsRead: "attachments.read",
   gitStatus: "git.status",
   gitDiff: "git.diff",
   checkpointsList: "checkpoints.list",
@@ -427,6 +459,28 @@ const FilesReadRpc = Rpc.make(RPC_METHODS.filesRead, {
     limit: Schema.optional(NonNegativeInt),
   }),
   success: FileContent,
+  error: OpenAdeRpcError,
+});
+
+/**
+ * Uploads one composer image and writes it under the thread's attachments
+ * directory. The reply is a reference the turn can carry; the bytes are not
+ * echoed back and never enter the event log.
+ */
+const AttachmentsStageRpc = Rpc.make(RPC_METHODS.attachmentsStage, {
+  payload: Schema.Struct({
+    threadId: ThreadId,
+    name: NonEmptyString,
+    base64: Schema.String,
+  }),
+  success: StagedAttachment,
+  error: OpenAdeRpcError,
+});
+
+/** Reads a staged attachment back, for a timeline thumbnail. */
+const AttachmentsReadRpc = Rpc.make(RPC_METHODS.attachmentsRead, {
+  payload: Schema.Struct({ threadId: ThreadId, path: NonEmptyString }),
+  success: AttachmentBytes,
   error: OpenAdeRpcError,
 });
 
@@ -550,6 +604,8 @@ export const OpenAdeRpcGroup = RpcGroup.make(
   ConnectorsModelsRpc,
   FilesSearchRpc,
   FilesReadRpc,
+  AttachmentsStageRpc,
+  AttachmentsReadRpc,
   GitStatusRpc,
   GitDiffRpc,
   CheckpointsListRpc,
