@@ -212,6 +212,9 @@ describe("transport", () => {
         expect(error).toBeInstanceOf(OpenAdeRpcError);
         if (error instanceof OpenAdeRpcError) {
           expect(error.code).toBe("internal");
+          // The internal detail must not leak into the wire message.
+          expect(error.message).toBe("internal error");
+          expect(error.message).not.toContain("cdp");
         }
       }),
     ),

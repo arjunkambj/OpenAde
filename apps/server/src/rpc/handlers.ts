@@ -29,7 +29,9 @@ const toRpcError = (error: unknown): OpenAdeRpcError =>
           code: "conflict",
           message: `stale stream version for ${error.streamId}: ${error.message}`,
         })
-      : new OpenAdeRpcError({ code: "internal", message: String(error) });
+      : // Internal details (SQL, paths) stay server-side; the client only
+        // learns that something failed.
+        new OpenAdeRpcError({ code: "internal", message: "internal error" });
 
 /** The RPC handler layer — every method in the group, one implementation each. */
 export const handlersLayer = OpenAdeRpcGroup.toLayer(
