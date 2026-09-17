@@ -30,6 +30,7 @@ const STATUS_LABEL: Record<ThreadStatus, string> = {
   waiting: "Waiting",
   error: "Error",
   archived: "Archived",
+  deleted: "Deleted",
 };
 
 function StatusPill({ status }: { status: ThreadStatus }) {
@@ -37,7 +38,7 @@ function StatusPill({ status }: { status: ThreadStatus }) {
     <span
       className={cn(
         "inline-flex shrink-0 items-center gap-1.5 rounded-full bg-hover px-2 py-0.5 type-micro",
-        status === "error" && "bg-removed-bg text-removed",
+        (status === "error" || status === "deleted") && "bg-removed-bg text-removed",
         status === "waiting" && "text-permission",
         (status === "idle" || status === "archived") && "text-muted-foreground",
       )}
