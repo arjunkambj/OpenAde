@@ -10,13 +10,12 @@ import * as React from "react";
 
 import { buildTimeline } from "@/components/timeline/fold";
 import { TimelineRowView } from "@/components/timeline/timeline-item";
+import { turnInFlight } from "@/lib/turn";
 
 export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
   const projection = React.useMemo(
     () =>
-      buildTimeline(snapshot.items, {
-        turnActive: snapshot.currentTurnId !== null || snapshot.status === "running",
-      }),
+      buildTimeline(snapshot.items, { turnActive: turnInFlight(snapshot) }),
     [snapshot],
   );
 

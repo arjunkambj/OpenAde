@@ -31,6 +31,7 @@ import { isDockTab, RightDock, type DockTab } from "@/components/dock/right-dock
 import { HeaderControls } from "@/components/header-controls";
 import { Timeline } from "@/components/timeline/timeline";
 import { Icon } from "@/lib/icon";
+import { turnInFlight } from "@/lib/turn";
 import { useGlobalKeybindings } from "@/lib/use-keybindings";
 import { cn } from "@/lib/utils";
 import { useConnectionState, useDispatchCommand, useThreadDetail } from "@/state/hooks";
@@ -228,11 +229,17 @@ export function ThreadView({
   }, [dockTab, navigate, remembered, threadId]);
 
   const snapshot = snapshotOf(result);
-  const running = snapshot !== null && snapshot.currentTurnId !== null;
+  // Interrupting outside a turn is a command the server can only reject, so
+  // the handler checks this itself rather than trusting a `when` clause the
+  // served keybinding table may not carry.
+  const running = snapshot !== null && turnInFlight(snapshot);
 
   useGlobalKeybindings(
     {
       "thread.interrupt": () => {
+        if (!running) {
+          return;
+        }
         void dispatch({
           commandId: makeCommandId(),
           createdAt: new Date().toISOString(),
