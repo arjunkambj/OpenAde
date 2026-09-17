@@ -3,7 +3,9 @@ const isCanary = channel === "canary";
 
 /** @type {import("electron-builder").Configuration} */
 module.exports = {
-  appId: isCanary ? "dev.bettertstack.OpenAde.desktop.canary" : "dev.bettertstack.OpenAde.desktop",
+  // Must stay equal to the id `src/platform` passes to `setAppUserModelId`,
+  // or Windows splits taskbar grouping and notifications from the install.
+  appId: isCanary ? "dev.openade.OpenAde.desktop.canary" : "dev.openade.OpenAde.desktop",
   productName: isCanary ? "OpenAde Canary" : "OpenAde",
   copyright: `Copyright © ${new Date().getFullYear()} OpenAde`,
   directories: {
