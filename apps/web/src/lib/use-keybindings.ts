@@ -12,10 +12,11 @@
  * (`threadRunning`, `planPending`, …). Unknown commands resolve and are then
  * ignored, so a server default with no handler yet is inert, not an error.
  *
- * An empty table falls back to the contract's defaults. A settings row that
- * has never been seeded reads as `[]`, and taking that literally would leave
- * the app with no shortcuts at all — no command palette, no interrupt — which
- * is never what "no keybindings configured" should mean.
+ * Until the settings atom answers, the contract's defaults stand in, so the
+ * shortcuts work during the first paint and across a reconnect. Once a table
+ * has been served it is taken literally, empty included: a user who removes
+ * every row in the keybindings editor has to get an app with no shortcuts,
+ * not one that silently restores all five.
  */
 
 import { useAtomValue } from "@effect/atom-react";
@@ -37,8 +38,7 @@ export function useGlobalKeybindings(
 ): void {
   const { keybindingsAtom } = useClientRuntime();
   const result = useAtomValue(keybindingsAtom);
-  const served = AsyncResult.isSuccess(result) ? result.value : [];
-  const keybindings = served.length > 0 ? served : DEFAULT_KEYBINDINGS;
+  const keybindings = AsyncResult.isSuccess(result) ? result.value : DEFAULT_KEYBINDINGS;
 
   // Refs keep the listener stable across re-renders and flag churn.
   const commandsRef = React.useRef(commands);
