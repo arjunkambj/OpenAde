@@ -202,6 +202,28 @@ describe("w8 git", () => {
     ),
   );
 
+  it.live("diff rejects refs that would land in flag position", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = makeRepo();
+        const { projectId, git: gitService } = yield* stack(root);
+        const marker = nodePath.join(root, "injected.patch");
+
+        // `--output=<path>` as `from` would make git write the diff to disk.
+        const from = yield* gitService
+          .diff(projectId, { from: `--output=${marker}` })
+          .pipe(Effect.exit);
+        expect(from._tag).toBe("Failure");
+        const to = yield* gitService
+          .diff(projectId, { from: "HEAD", to: "--no-ext-diff" })
+          .pipe(Effect.exit);
+        expect(to._tag).toBe("Failure");
+        // Nothing was executed — no file materialized.
+        expect(() => readFileSync(marker)).toThrow();
+      }),
+    ),
+  );
+
   it.live("worktree diff includes untracked files", () =>
     Effect.scoped(
       Effect.gen(function* () {

@@ -193,6 +193,20 @@ const toDiffFiles = (patch: string, numstat: string): Array<GitDiffFile> => {
 
 const notRepo: GitDiff = { from: null, to: null, files: [] };
 
+/**
+ * `from`/`to` land in flag position on the `git diff` argv — a value like
+ * `--output=/path` would write the diff wherever the server user can. A ref
+ * is letters, digits, `.`, `_`, `/`, `-` (branch names, SHAs, hidden refs);
+ * anything else, or a leading `-`, is rejected before git ever sees it.
+ */
+const REF_ARG = /^[A-Za-z0-9._/-]+$/;
+const validRef = (value: string, name: string): Effect.Effect<string, OpenAdeRpcError> =>
+  !value.startsWith("-") && REF_ARG.test(value)
+    ? Effect.succeed(value)
+    : Effect.fail(
+        new OpenAdeRpcError({ code: "invalid", message: `invalid ${name} ref: ${value}` }),
+      );
+
 export const layer = Layer.effect(
   GitService,
   Effect.gen(function* () {
@@ -236,20 +250,26 @@ export const layer = Layer.effect(
 
       diff: (projectId, options) =>
         Effect.gen(function* () {
+          const from = yield* validRef(options.from ?? "HEAD", "from");
+          const to = options.to === undefined ? undefined : yield* validRef(options.to, "to");
           const root = yield* workspaceRoot(projectId);
           if (root === null || !(yield* isRepo(root))) {
             return { ...notRepo, from: options.from ?? null, to: options.to ?? null };
           }
           const { patch, numstat } =
-            options.to === undefined
-              ? yield* worktreeDiff(root, options.from ?? "HEAD", options.path)
-              : yield* refDiff(root, options.from ?? "HEAD", options.to, options.path);
+            to === undefined
+              ? yield* worktreeDiff(root, from, options.path)
+              : yield* refDiff(root, from, to, options.path);
           return {
             from: options.from ?? null,
             to: options.to ?? null,
             files: toDiffFiles(patch, numstat),
           };
-        }).pipe(Effect.mapError(toRpcError)),
+        }).pipe(
+          Effect.mapError((error) =>
+            error instanceof OpenAdeRpcError ? error : toRpcError(error),
+          ),
+        ),
     });
   }),
 );
