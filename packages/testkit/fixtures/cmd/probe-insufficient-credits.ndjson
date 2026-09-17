@@ -1,0 +1,11 @@
+session: 36a3ded1-5c99-4896-bc81-d1c63517d482
+{"type":"event","event":{"type":"notice","level":"info","message":"[update-notice] update available: v1.54.2 (installing in the background — a restart applies it)"}}
+{"type":"event","event":{"type":"run_start","sessionId":"36a3ded1-5c99-4896-bc81-d1c63517d482"}}
+{"type":"event","event":{"type":"turn_start","turnNumber":1}}
+{"type":"event","event":{"type":"message_start"}}
+{"type":"event","event":{"type":"model_request_start","model":"stealth/ox-alpha"}}
+{"type":"event","event":{"type":"model_trace","traceId":"1419b92b06ea467a4b91b2b25029be3a"}}
+{"type":"event","event":{"type":"run_error","error":{"name":"TransportError","message":"POST /alpha/generate → 400 error: You have insufficient credits to make this request. Please purchase more credits to continue using the service."}}}
+{"type":"event","event":{"type":"run_end","result":{"finalText":"","stopReason":"run_error","turnCount":1,"usage":{"inputTokens":0,"outputTokens":0,"cacheReadTokens":0,"cacheWriteTokens":0},"systemPromptTokens":null,"nextState":{"sessionId":"36a3ded1-5c99-4896-bc81-d1c63517d482","messages":[{"role":"user","content":[{"type":"text","text":"Reply with exactly: ok"}],"meta":{"source":"user","createdAt":1789645585627,"messageId":"5f4f203d-d95a-41a0-8920-8ac7ce3f3ec1"}}],"interrupted":false,"modState":{"workspace":{"cwd":"/private/tmp/cmd-probe","platform":"darwin","branch":null,"gitStatus":null,"recentCommits":[],"additionalDirectories":[]}}}}}}
+{"type":"result","subtype":"error","sessionId":"36a3ded1-5c99-4896-bc81-d1c63517d482","usage":{"inputTokens":0,"outputTokens":0,"cacheReadTokens":0,"cacheWriteTokens":0},"durationMs":1313,"finalText":"","error":"Error: You have insufficient credits to make this request. Please purchase more credits to continue using Command Code: https://commandcode.ai/billing"}
+Error: You have insufficient credits to make this request. Please purchase more credits to continue using Command Code: https://commandcode.ai/billing

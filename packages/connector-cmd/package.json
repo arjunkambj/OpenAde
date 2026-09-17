@@ -4,9 +4,41 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./meta": {
-      "types": "./src/meta.ts",
-      "import": "./src/meta.ts"
+    "./definition": {
+      "types": "./src/definition.ts",
+      "import": "./src/definition.ts"
+    },
+    "./session": {
+      "types": "./src/session.ts",
+      "import": "./src/session.ts"
+    },
+    "./spawn": {
+      "types": "./src/spawn.ts",
+      "import": "./src/spawn.ts"
+    },
+    "./ndjson": {
+      "types": "./src/ndjson.ts",
+      "import": "./src/ndjson.ts"
+    },
+    "./transcript": {
+      "types": "./src/transcript.ts",
+      "import": "./src/transcript.ts"
+    },
+    "./translate": {
+      "types": "./src/translate.ts",
+      "import": "./src/translate.ts"
+    },
+    "./hookScript": {
+      "types": "./src/hookScript.ts",
+      "import": "./src/hookScript.ts"
+    },
+    "./config": {
+      "types": "./src/config.ts",
+      "import": "./src/config.ts"
+    },
+    "./probe": {
+      "types": "./src/probe.ts",
+      "import": "./src/probe.ts"
     }
   },
   "scripts": {
