@@ -21,6 +21,7 @@
 
 import { writeFileSync } from "node:fs";
 
+import * as Data from "effect/Data";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -180,21 +181,33 @@ export const openAgentBrowserDriver = (
     return yield* openOwnedDriver(sessionName, agentBrowser, options);
   });
 
+/** The retry sentinel: the list worked, the pane's guest just is not there yet. */
+class TargetNotFound extends Data.TaggedError("TargetNotFound")<Record<string, never>> {}
+
 const resolveTarget = (
   session: AgentBrowserSession,
   attachMarker: string,
   attempts: number,
   delayMs: number,
-): Effect.Effect<Option.Option<CdpTarget>, AgentBrowserError | AgentBrowserUnavailable> =>
+): Effect.Effect<Option.Option<CdpTarget>> =>
   Effect.gen(function* () {
     const data = yield* session.exec(["tab", "list"]);
-    return pickWebviewTarget(readTargets(data), attachMarker);
+    const target = pickWebviewTarget(readTargets(data), attachMarker);
+    if (Option.isNone(target)) {
+      // A successful list with no webview in it is the case the grace window
+      // exists for — the pane's guest has not registered its CDP target yet.
+      // Failing here is what makes the schedule retry; the catch below turns
+      // an exhausted window into "no pane", which falls back to owned mode.
+      return yield* new TargetNotFound({});
+    }
+    return target.value;
   }).pipe(
     Effect.retry(
       Schedule.recurs(Math.max(0, attempts - 1)).pipe(
         Schedule.addDelay(() => Effect.succeed(`${delayMs} millis` as const)),
       ),
     ),
+    Effect.map(Option.some),
     Effect.catch(() => Effect.succeed(Option.none<CdpTarget>())),
   );
 
