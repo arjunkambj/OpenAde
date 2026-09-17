@@ -187,9 +187,10 @@ export const make: CheckpointStoreShape = {
             ".",
           ]);
         }
-        yield* run(workspaceRoot, ["clean", "-fd", "--", "."], {
-          allowNonZeroExit: true,
-        });
+        // A clean that can't remove a path (e.g. an unwritable directory)
+        // must fail the restore — succeeding here would leave files the
+        // checkpoint never tracked behind and still report success.
+        yield* run(workspaceRoot, ["clean", "-fd", "--", "."]);
         // Keep the real index pointing at HEAD rather than the checkpoint.
         if (yield* hasHead(workspaceRoot)) {
           yield* run(workspaceRoot, ["read-tree", "HEAD"]);

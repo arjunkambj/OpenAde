@@ -5,7 +5,14 @@
  */
 import { describe, expect, it } from "@effect/vitest";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import { makeProjectId, makeThreadId, makeTurnId } from "@OpenAde/contracts/ids";
@@ -140,6 +147,41 @@ describe("w8 git", () => {
         // The user's real index/HEAD are untouched — still one commit.
         expect(git(root, "rev-list", "--count", "HEAD").trim()).toBe("1");
         expect(git(root, "status", "--porcelain").trim()).not.toBe("");
+      }),
+    ),
+  );
+
+  it.live("restore fails when git clean cannot remove a path", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = makeRepo();
+        const threadId = makeThreadId();
+        const cp = yield* checkpointStore.capture({
+          threadId,
+          turnId: makeTurnId(),
+          workspaceRoot: root,
+        });
+
+        // chmod 000 cannot block a root-owned clean — the scenario needs a
+        // permission boundary to exist at all.
+        if (typeof process.getuid === "function" && process.getuid() === 0) {
+          return;
+        }
+        // An untracked directory the server user cannot traverse makes
+        // `git clean -fd` exit non-zero — the restore must report failure
+        // rather than leave the file behind and claim success.
+        const locked = nodePath.join(root, "locked");
+        mkdirSync(locked);
+        writeFileSync(nodePath.join(locked, "stuck.txt"), "stuck\n");
+        chmodSync(locked, 0o000);
+        try {
+          const error = yield* checkpointStore
+            .restore({ workspaceRoot: root, checkpoint: cp })
+            .pipe(Effect.flip);
+          expect(error.message.length).toBeGreaterThan(0);
+        } finally {
+          chmodSync(locked, 0o755);
+        }
       }),
     ),
   );
