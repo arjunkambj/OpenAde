@@ -232,6 +232,18 @@ const ThreadQueueRemoveCommand = command("thread.queue.remove", {
   queuedMessageId: ItemId,
 });
 
+/**
+ * Move a queued follow-up to another position. `toIndex` is where the message
+ * ends up once it has been lifted out, so moving the second message to 0 makes
+ * it the next one sent. The decider answers with the whole new order rather
+ * than the move, so a projector never has to replay arithmetic.
+ */
+const ThreadQueueReorderCommand = command("thread.queue.reorder", {
+  threadId: ThreadId,
+  queuedMessageId: ItemId,
+  toIndex: NonNegativeInt,
+});
+
 const ThreadCheckpointRestoreCommand = command("thread.checkpoint.restore", {
   threadId: ThreadId,
   checkpointId: CheckpointId,
@@ -251,6 +263,7 @@ export const Command = Schema.Union([
   ThreadUserInputRespondCommand,
   ThreadPlanRespondCommand,
   ThreadQueueRemoveCommand,
+  ThreadQueueReorderCommand,
   ThreadCheckpointRestoreCommand,
 ]);
 export type Command = typeof Command.Type;
@@ -273,6 +286,7 @@ export const CommandType = Schema.Literals([
   "thread.userInput.respond",
   "thread.plan.respond",
   "thread.queue.remove",
+  "thread.queue.reorder",
   "thread.checkpoint.restore",
 ]);
 export type CommandType = typeof CommandType.Type;
@@ -416,6 +430,17 @@ const ThreadMessageDequeuedEvent = orchestrationEvent(
   Schema.Struct({ queuedMessageId: ItemId, turnId: Schema.optional(TurnId) }),
 );
 
+/**
+ * The queue's new order, as the full list of `queuedMessageId`s. Carrying the
+ * result rather than the move keeps the projection a lookup: an id the doc no
+ * longer holds is skipped, and anything the order does not mention keeps its
+ * place behind what it does.
+ */
+const ThreadQueueReorderedEvent = orchestrationEvent(
+  "thread.queue.reordered",
+  Schema.Struct({ order: Schema.Array(ItemId) }),
+);
+
 const ThreadItemUpsertedEvent = orchestrationEvent(
   "thread.item.upserted",
   Schema.Struct({ item: ItemSnapshot, turnId: Schema.optional(TurnId) }),
@@ -535,6 +560,7 @@ export const OrchestrationEvent = Schema.Union([
   ThreadTurnInterruptedEvent,
   ThreadMessageQueuedEvent,
   ThreadMessageDequeuedEvent,
+  ThreadQueueReorderedEvent,
   ThreadItemUpsertedEvent,
   ThreadApprovalOpenedEvent,
   ThreadApprovalResolvedEvent,
@@ -572,6 +598,7 @@ export const OrchestrationEventType = Schema.Literals([
   "thread.turn.interrupted",
   "thread.message.queued",
   "thread.message.dequeued",
+  "thread.queue.reordered",
   "thread.item.upserted",
   "thread.approval.opened",
   "thread.approval.resolved",
