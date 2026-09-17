@@ -3,6 +3,10 @@
  * `threadListAtom(null)` grouped client-side by `projectId`. Each thread row
  * links to `/t/$threadId` and shows its status dot; `awaitingInput` gets the
  * permission accent since something is waiting on the user.
+ *
+ * A row also carries the unread dot: the open thread stamps its `updatedAt`
+ * into `thread-seen`, and any other thread that has moved past its own stamp
+ * is marked. That is renderer state by design — see `./thread-seen`.
  */
 
 import { Link, useMatchRoute } from "@tanstack/react-router";
@@ -19,32 +23,60 @@ import type { ProjectId } from "@OpenAde/contracts/ids";
 import type { ProjectSummary, ThreadSummary } from "@OpenAde/contracts/orchestration";
 
 import { AddProjectDialog } from "@/components/sidebar/add-project-dialog";
+import { isUnread, useThreadSeen } from "@/components/sidebar/thread-seen";
 import { Icon } from "@/lib/icon";
 import { useCreateThread } from "@/lib/use-create-thread";
 import { cn } from "@/lib/utils";
 import { useConnectionState, useProjects, useThreadList } from "@/state/hooks";
 
+/** The status the row reports, spelled out for the icon's accessible name. */
+const STATUS_TITLE: Record<string, string> = {
+  running: "Running",
+  waiting: "Waiting for you",
+  error: "Error",
+};
+
 function ThreadStatusDot({ thread }: { thread: ThreadSummary }) {
-  if (thread.status === "running") {
-    return (
+  const label = thread.awaitingInput ? STATUS_TITLE.waiting : (STATUS_TITLE[thread.status] ?? null);
+  if (label === null) {
+    return null;
+  }
+  const icon =
+    thread.status === "running"
+      ? "hugeicons:loading-03"
+      : thread.status === "error"
+        ? "hugeicons:alert-circle"
+        : "hugeicons:circle-dot";
+  return (
+    <span title={label} aria-label={label} role="img" className="flex shrink-0 items-center">
       <Icon
-        icon="hugeicons:loading-03"
-        className="size-3.5 shrink-0 animate-spin text-muted-foreground"
+        icon={icon}
+        className={cn(
+          "size-3.5 shrink-0",
+          thread.status === "running" && "animate-spin text-muted-foreground",
+          thread.status === "error" && "text-destructive",
+          thread.status !== "running" && thread.status !== "error" && "text-permission",
+        )}
       />
-    );
-  }
-  if (thread.status === "waiting" || thread.awaitingInput) {
-    return <Icon icon="hugeicons:circle-dot" className="size-3.5 shrink-0 text-permission" />;
-  }
-  if (thread.status === "error") {
-    return <Icon icon="hugeicons:alert-circle" className="size-3.5 shrink-0 text-destructive" />;
-  }
-  return null;
+    </span>
+  );
 }
 
 function ThreadLink({ thread }: { thread: ThreadSummary }) {
   const matchRoute = useMatchRoute();
   const active = Boolean(matchRoute({ to: "/t/$threadId", params: { threadId: thread.threadId } }));
+  const [seen, remember] = useThreadSeen();
+  const { threadId, updatedAt } = thread;
+
+  // The open thread is being read right now, so every event it takes is seen.
+  React.useEffect(() => {
+    if (active) {
+      remember(threadId, updatedAt);
+    }
+  }, [active, threadId, updatedAt, remember]);
+
+  const unread = !active && isUnread(seen, thread);
+
   return (
     <Link
       to="/t/$threadId"
@@ -55,7 +87,17 @@ function ThreadLink({ thread }: { thread: ThreadSummary }) {
         active && "bg-sidebar-accent text-sidebar-accent-foreground",
       )}
     >
-      <span className="min-w-0 flex-1 truncate">{thread.title}</span>
+      <span className={cn("min-w-0 flex-1 truncate", unread && "font-medium text-foreground")}>
+        {thread.title}
+      </span>
+      {unread ? (
+        <span
+          title="Updated since you last opened it"
+          aria-label="Updated since you last opened it"
+          role="img"
+          className="size-1.5 shrink-0 rounded-full bg-primary"
+        />
+      ) : null}
       <ThreadStatusDot thread={thread} />
     </Link>
   );

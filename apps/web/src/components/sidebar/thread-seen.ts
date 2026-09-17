@@ -1,0 +1,117 @@
+/**
+ * The sidebar's unread dot (spec section 11: "projects → threads, status pill,
+ * unread dot").
+ *
+ * There is no `unread` flag on the wire and there should not be one — whether
+ * a user has looked at a thread is this window's business, not the server's.
+ * So the renderer remembers the `updatedAt` it last had each thread open at,
+ * and a thread whose `updatedAt` has moved past that stamp is unread.
+ *
+ * A thread with no stamp is *not* unread. The dot means "changed since you last
+ * had this open", so a fresh install restoring twenty old threads does not
+ * light every one of them up.
+ *
+ * The map lives in localStorage like the dock's width and per-thread tab: it is
+ * presentation state, it never reaches the server, and losing it costs nothing.
+ */
+
+import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import * as Atom from "effect/unstable/reactivity/Atom";
+import * as React from "react";
+
+/** `threadId -> the updatedAt the user last had that thread open at`. */
+export type SeenMap = Readonly<Record<string, string>>;
+
+/** Enough history to cover any realistic sidebar without growing forever. */
+export const SEEN_LIMIT = 200;
+
+const SEEN_KEY = "openade:threads-seen";
+
+/** Absent, unparseable or foreign-shaped storage all mean "no memory yet". */
+export const parseSeen = (raw: string | null | undefined): SeenMap => {
+  if (raw === null || raw === undefined) {
+    return {};
+  }
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return {};
+    }
+    return Object.fromEntries(
+      Object.entries(parsed as Record<string, unknown>).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string",
+      ),
+    );
+  } catch {
+    return {};
+  }
+};
+
+export interface SeenThread {
+  readonly threadId: string;
+  readonly updatedAt: string;
+}
+
+/**
+ * ISO-8601 with a fixed offset sorts lexicographically, and every `updatedAt`
+ * on the wire is `IsoDateTime`, so a string compare is the whole test.
+ */
+export const isUnread = (seen: SeenMap, thread: SeenThread): boolean => {
+  const stamp = seen[thread.threadId];
+  return stamp !== undefined && thread.updatedAt > stamp;
+};
+
+/**
+ * The map after the user has looked at `threadId` as of `updatedAt`. Returns
+ * the *same* object when nothing changed, so a caller can write it from an
+ * effect without re-rendering itself forever.
+ */
+export const markSeen = (seen: SeenMap, threadId: string, updatedAt: string): SeenMap => {
+  if (seen[threadId] === updatedAt) {
+    return seen;
+  }
+  const next: Record<string, string> = { ...seen, [threadId]: updatedAt };
+  const keys = Object.keys(next);
+  if (keys.length <= SEEN_LIMIT) {
+    return next;
+  }
+  // Drop the oldest stamps first; the thread just marked is the newest by
+  // construction, so it always survives.
+  const kept = keys.sort((a, b) => next[b]!.localeCompare(next[a]!)).slice(0, SEEN_LIMIT);
+  return Object.fromEntries(kept.map((key) => [key, next[key]!]));
+};
+
+const readSeen = (): SeenMap => {
+  try {
+    return parseSeen(globalThis.localStorage?.getItem(SEEN_KEY));
+  } catch {
+    // Reading localStorage itself throws when site data is blocked.
+    return {};
+  }
+};
+
+const seenAtom = Atom.make<SeenMap>(readSeen());
+
+/** `[seen, remember]` — read the map, and stamp a thread the user is looking at. */
+export const useThreadSeen = () => {
+  const seen = useAtomValue(seenAtom);
+  const setSeen = useAtomSet(seenAtom);
+  const remember = React.useCallback(
+    (threadId: string, updatedAt: string) => {
+      setSeen((current) => {
+        const next = markSeen(current, threadId, updatedAt);
+        if (next === current) {
+          return current;
+        }
+        try {
+          globalThis.localStorage?.setItem(SEEN_KEY, JSON.stringify(next));
+        } catch {
+          // localStorage can throw (private mode, quota); the atom still updates.
+        }
+        return next;
+      });
+    },
+    [setSeen],
+  );
+  return [seen, remember] as const;
+};
