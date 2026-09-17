@@ -22,6 +22,7 @@
 
 import { useAtomValue } from "@effect/atom-react";
 import { Kbd, KbdGroup } from "@OpenAde/ui/components/kbd";
+import { useSidebar } from "@OpenAde/ui/components/sidebar";
 import { detectModKey, resolveKeybinding } from "@OpenAde/client-runtime/keybindings";
 import type { Keybinding } from "@OpenAde/contracts/settings";
 import * as React from "react";
@@ -118,6 +119,49 @@ export function useKeybindingCommand(command: string, handler: () => void): void
       }
     };
   }, [registry, command]);
+}
+
+/**
+ * Fire a command by id, as if its chord had been pressed. A command no mounted
+ * surface answers is a no-op — the same rule the listener follows — so the
+ * palette can offer an entry without knowing whether this route has the
+ * surface behind it.
+ */
+export function useKeybindingDispatch(): (command: string) => void {
+  const registry = React.useContext(RegistryContext);
+  return React.useCallback(
+    (command: string) => {
+      registry?.commands.get(command)?.();
+    },
+    [registry],
+  );
+}
+
+/**
+ * Whether a mounted surface currently answers `command`.
+ *
+ * The registry is a plain map, not reactive, so this is read at render time
+ * and is only trustworthy for a component that mounts when it needs the
+ * answer — the palette, whose dialog content unmounts on close and is built
+ * fresh on every open. It exists so the palette can leave out an entry whose
+ * surface is not on this route, rather than offer a row that does nothing.
+ */
+export function useKeybindingHandled(command: string): boolean {
+  const registry = React.useContext(RegistryContext);
+  return registry?.commands.has(command) ?? false;
+}
+
+/**
+ * Claims `sidebar.toggle` for the `SidebarProvider` above it, so the chord
+ * acts on the sidebar the user is actually looking at. Mounted by the home
+ * layout, whose sidebar is the collapsible one; the settings pages have a
+ * `collapsible="none"` sidebar, so there the command is deliberately left
+ * unanswered rather than bound to a no-op.
+ */
+export function SidebarToggleShortcut() {
+  const { toggleSidebar } = useSidebar();
+  useKeybindingCommand(SHORTCUT_COMMANDS.toggle, toggleSidebar);
+  return null;
 }
 
 /** Publish a `when`-clause flag while this component is mounted. */

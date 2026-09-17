@@ -13,7 +13,6 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@OpenAde/ui/components/command";
-import { useSidebar } from "@OpenAde/ui/components/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import type { ProjectId } from "@OpenAde/contracts/ids";
 
@@ -22,6 +21,8 @@ import {
   SHORTCUT_COMMANDS,
   ShortcutKbd,
   useKeybindingCommand,
+  useKeybindingDispatch,
+  useKeybindingHandled,
   type ShortcutId,
 } from "@/lib/shortcuts";
 import { useCreateThread } from "@/lib/use-create-thread";
@@ -67,10 +68,17 @@ const searchItems = [
   },
 ] as const;
 
+/**
+ * Mounted once at the app root, not inside a layout: these commands are
+ * route-independent, and while they were claimed inside `HomeLayout` the
+ * palette, New task and Settings chords all did nothing on `/settings/*` and
+ * `/welcome`. `sidebar.toggle` is the exception — it belongs to whichever
+ * sidebar is on screen, so each layout claims it through
+ * `SidebarToggleShortcut` and this file only *fires* it.
+ */
 export function SearchProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = React.useState(false);
   const navigate = useNavigate();
-  const { toggleSidebar } = useSidebar();
   const value = React.useMemo(() => ({ setOpen }), []);
 
   // Handlers only — the chords come from the settings-owned keybinding table
@@ -85,7 +93,6 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
   );
 
   useKeybindingCommand(SHORTCUT_COMMANDS.search, () => setOpen((current) => !current));
-  useKeybindingCommand(SHORTCUT_COMMANDS.toggle, toggleSidebar);
   useKeybindingCommand(SHORTCUT_COMMANDS.newChat, go("/"));
   useKeybindingCommand(SHORTCUT_COMMANDS.skills, go("/settings/skills"));
   useKeybindingCommand(SHORTCUT_COMMANDS.settings, go("/settings"));
@@ -207,7 +214,11 @@ function SearchDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const navigate = useNavigate();
-  const { toggleSidebar } = useSidebar();
+  const fire = useKeybindingDispatch();
+  // Read on mount, and this content mounts on every open: a route whose
+  // layout has no collapsible sidebar gets no row for it, instead of a row
+  // that quietly does nothing.
+  const canToggleSidebar = useKeybindingHandled(SHORTCUT_COMMANDS.toggle);
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange} title="Search">
@@ -231,20 +242,24 @@ function SearchDialog({
               </CommandItem>
             ))}
           </CommandGroup>
-          <CommandSeparator />
-          <CommandGroup heading="View">
-            <CommandItem
-              value="Toggle sidebar"
-              onSelect={() => {
-                onOpenChange(false);
-                toggleSidebar();
-              }}
-            >
-              <Icon icon="hugeicons:layout-left" />
-              Toggle sidebar
-              <ItemShortcut id="toggle" />
-            </CommandItem>
-          </CommandGroup>
+          {canToggleSidebar ? (
+            <>
+              <CommandSeparator />
+              <CommandGroup heading="View">
+                <CommandItem
+                  value="Toggle sidebar"
+                  onSelect={() => {
+                    onOpenChange(false);
+                    fire(SHORTCUT_COMMANDS.toggle);
+                  }}
+                >
+                  <Icon icon="hugeicons:layout-left" />
+                  Toggle sidebar
+                  <ItemShortcut id="toggle" />
+                </CommandItem>
+              </CommandGroup>
+            </>
+          ) : null}
           <LiveGroups onDone={() => onOpenChange(false)} />
         </CommandList>
       </Command>

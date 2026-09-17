@@ -7,6 +7,7 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import * as React from "react";
 
 import { ThemeProvider, useTheme } from "@/components/theme-provider";
+import { SearchProvider } from "@/components/Layout/search-command";
 import { DiffWorkerPoolProvider } from "@/components/timeline/diff-pool";
 import { useAppAtoms } from "@/lib/app-runtime";
 import { ClientRuntimeBridge } from "@/lib/client-runtime";
@@ -111,10 +112,19 @@ function RootComponent() {
             <DropNavigationGuard />
             {/* The only keydown listener in the renderer — see @/lib/shortcuts. */}
             <KeybindingsProvider>
-              <DiffWorkerPoolProvider>
-                <Outlet />
-                <Toaster richColors />
-              </DiffWorkerPoolProvider>
+              {/*
+                Above the routes on purpose: the palette and the commands it
+                owns — open palette, new task, Settings, Skills — are
+                route-independent, and claiming them inside the home layout is
+                what used to leave Cmd+K and Cmd+, dead on /settings and
+                /welcome.
+              */}
+              <SearchProvider>
+                <DiffWorkerPoolProvider>
+                  <Outlet />
+                  <Toaster richColors />
+                </DiffWorkerPoolProvider>
+              </SearchProvider>
             </KeybindingsProvider>
           </ClientRuntimeBridge>
         </AppAtomRegistryProvider>
