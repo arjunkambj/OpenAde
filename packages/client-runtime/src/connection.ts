@@ -10,6 +10,10 @@
  *
  * The token travels on the upgrade query (`ws://host/ws?token=...`) because the
  * browser WebSocket API cannot set headers.
+ *
+ * Credentials are re-read per attempt, not captured once: the server binds an
+ * ephemeral port and mints a new token every boot, so a supervisor restart
+ * would otherwise leave the renderer looping against a dead port forever.
  */
 
 import { OpenAdeRpcGroup } from "@OpenAde/contracts/rpc";
@@ -26,6 +30,8 @@ import * as SubscriptionRef from "effect/SubscriptionRef";
 import * as RpcClient from "effect/unstable/rpc/RpcClient";
 import * as RpcSerialization from "effect/unstable/rpc/RpcSerialization";
 import * as Socket from "effect/unstable/socket/Socket";
+
+import type { ResolvedConnection } from "./resolver";
 
 /** What `connectionStateAtom` and the reconnecting banner show. */
 export type ConnectionStatus = "connecting" | "connected" | "reconnecting" | "disconnected";
@@ -64,6 +70,17 @@ export interface ConnectionOptions {
   readonly url: string;
   readonly token: string;
   /**
+   * Re-reads the credentials before every connect attempt. The server binds an
+   * ephemeral port and mints a fresh token on each boot, so a supervisor that
+   * restarts it leaves `url`/`token` stale; this effect goes back to the
+   * source (preload state → the dev endpoint → the search params) so the next
+   * attempt lands on the new server instead of looping against a dead port.
+   *
+   * It never fails: `null` means "no channel answered", and the last
+   * credentials that did answer are reused.
+   */
+  readonly resolve?: Effect.Effect<ResolvedConnection | null>;
+  /**
    * Overrides the WebSocket implementation — tests substitute a constructor
    * that records instances so they can force a disconnect.
    */
@@ -86,16 +103,27 @@ interface Attempt {
 
 export const makeConnection = (
   options: ConnectionOptions,
-): Layer.Layer<Connection | ConnectionStateRef, never, Scope.Scope> => {
-  const wsUrl = `${toWebSocketUrl(options.url)}?token=${encodeURIComponent(options.token)}`;
-
-  return Layer.unwrap(
+): Layer.Layer<Connection | ConnectionStateRef, never, Scope.Scope> =>
+  Layer.unwrap(
     Effect.gen(function* () {
       const state = yield* SubscriptionRef.make<ConnectionState>({
         status: "connecting",
         serverInstanceId: null,
       });
       const current = yield* Ref.make(yield* Deferred.make<Attempt>());
+      /** The last credentials a channel actually answered with. */
+      const credentials = yield* Ref.make<ResolvedConnection>({
+        url: options.url,
+        token: options.token,
+      });
+
+      /**
+       * Status moves; the boot id does not. Clearing it on every drop would
+       * make each reconnect look like a server restart and force a full
+       * resnapshot — `attempt` clears it only when the id really changed.
+       */
+      const setStatus = (status: ConnectionStatus) =>
+        SubscriptionRef.update(state, (previous) => ({ ...previous, status }));
 
       /**
        * One connect attempt, built in the connection layer's scope — a child
@@ -104,6 +132,21 @@ export const makeConnection = (
        * `disconnected` completes when the socket's `onDisconnect` hook fires.
        */
       const attempt: Effect.Effect<Attempt, never, Scope.Scope> = Effect.gen(function* () {
+        const resolved = options.resolve === undefined ? null : yield* options.resolve;
+        const active = resolved ?? (yield* Ref.get(credentials));
+        yield* Ref.set(credentials, active);
+        // A restarted server is a different server: drop the remembered boot
+        // id so every subscription resnapshots instead of resuming against a
+        // sequence the new instance never issued.
+        if (active.serverInstanceId !== undefined) {
+          yield* SubscriptionRef.update(state, (previous) =>
+            previous.serverInstanceId === null ||
+            previous.serverInstanceId === active.serverInstanceId
+              ? previous
+              : { ...previous, serverInstanceId: null },
+          );
+        }
+        const wsUrl = `${toWebSocketUrl(active.url)}?token=${encodeURIComponent(active.token)}`;
         const disconnected = yield* Deferred.make<void>();
         const socketLayer = Socket.layerWebSocket(wsUrl).pipe(
           Layer.provide(
@@ -142,10 +185,7 @@ export const makeConnection = (
         const step: Effect.Effect<void, never, Scope.Scope> = Effect.gen(function* () {
           const exit = yield* Effect.exit(attempt);
           if (Exit.isFailure(exit)) {
-            yield* SubscriptionRef.set(state, {
-              status: "reconnecting",
-              serverInstanceId: null,
-            });
+            yield* setStatus("reconnecting");
             yield* Effect.sleep(backoff);
             backoff = Duration.min(Duration.times(backoff, 2), MAX_BACKOFF);
             return;
@@ -161,20 +201,14 @@ export const makeConnection = (
           // Callers that grabbed the previous deferred during the reconnect
           // gap are still awaiting it — hand them this epoch's client too.
           yield* Deferred.succeed(previous, epoch);
-          yield* SubscriptionRef.set(state, {
-            status: "connected",
-            serverInstanceId: null,
-          });
+          yield* setStatus("connected");
           yield* Deferred.await(epoch.disconnected);
           // This epoch is dead: put an unresolved deferred back so `.client`
           // calls wait for the next connect. The identity check keeps a late
           // disconnect from clobbering a newer epoch's resolved deferred.
           const pending = yield* Deferred.make<Attempt>();
           yield* Ref.update(current, (installed) => (installed === resolved ? pending : installed));
-          yield* SubscriptionRef.set(state, {
-            status: "reconnecting",
-            serverInstanceId: null,
-          });
+          yield* setStatus("reconnecting");
         });
         return step.pipe(Effect.forever);
       });
@@ -209,7 +243,6 @@ export const makeConnection = (
       );
     }),
   );
-};
 
 /** Records the boot id reported by `server.hello`. */
 export const markConnected = (serverInstanceId: string) =>

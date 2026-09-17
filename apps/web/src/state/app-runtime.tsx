@@ -20,7 +20,7 @@ import {
   makeConnection,
   type ConnectionState,
 } from "@OpenAde/client-runtime/connection";
-import type { ResolvedConnection } from "@OpenAde/client-runtime/resolver";
+import { resolveConnection, type ResolvedConnection } from "@OpenAde/client-runtime/resolver";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as SubscriptionRef from "effect/SubscriptionRef";
@@ -56,9 +56,20 @@ const offlineConnectionLayer = Layer.unwrap(
 let appAtoms: AppAtoms | null = null;
 let resolvedConnection: ResolvedConnection | null = null;
 
+/**
+ * Every reconnect attempt goes back to the channel instead of reusing the
+ * credentials boot resolved: a supervisor-restarted server has a new port and
+ * a new token, and the frozen pair would loop against a dead port forever.
+ */
+const reresolve = Effect.promise(() => resolveConnection().catch(() => null));
+
 export const installAppAtoms = (resolved: ResolvedConnection | null): AppAtoms => {
   resolvedConnection = resolved;
-  appAtoms ??= makeRuntime(resolved === null ? offlineConnectionLayer : makeConnection(resolved));
+  appAtoms ??= makeRuntime(
+    resolved === null
+      ? offlineConnectionLayer
+      : makeConnection({ ...resolved, resolve: reresolve }),
+  );
   return appAtoms;
 };
 

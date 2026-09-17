@@ -22,12 +22,14 @@ import {
 import type { Command } from "@OpenAde/contracts/orchestration";
 import { OpenAdeRpcError, STREAM_BUDGET_BYTES } from "@OpenAde/contracts/rpc";
 import { Connection, makeConnection } from "@OpenAde/client-runtime/connection";
+import type { ResolvedConnection } from "@OpenAde/client-runtime/resolver";
 import { makeFakeConnector } from "@OpenAde/testkit/fakeConnector";
 import type { ConnectorServices } from "@OpenAde/connector-sdk/definition";
 import { describe, expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
 import * as HttpServer from "effect/unstable/http/HttpServer";
@@ -120,11 +122,17 @@ const testStack = (browserLayer: Layer.Layer<BrowserService> = BrowserService.em
     };
   });
 
-const connect = (url: string, token: string, sockets?: Array<WebSocket>) =>
+const connect = (
+  url: string,
+  token: string,
+  sockets?: Array<WebSocket>,
+  resolve?: Effect.Effect<ResolvedConnection | null>,
+) =>
   Layer.build(
     makeConnection({
       url,
       token,
+      ...(resolve === undefined ? {} : { resolve }),
       ...(sockets === undefined
         ? {}
         : {
@@ -190,6 +198,61 @@ describe("transport", () => {
         const again = yield* connection.client.pipe(Effect.timeout("5 seconds"));
         const receipt = yield* again["orchestration.dispatch"]({ command: createThread });
         expect(receipt.status).toBe("accepted");
+      }),
+    ),
+  );
+
+  it.live("a reconnect re-resolves the credentials instead of reusing stale ones", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const { url } = yield* testStack();
+        // Stands in for a server that has restarted since the renderer booted:
+        // the credentials the layer was built with are dead, and only the
+        // channel knows the live ones. Each attempt re-reads them, so the
+        // supervisor's replacement server is reachable without a reload.
+        const stale = { url: "ws://127.0.0.1:1/ws", token: "dead-token" };
+        const live = yield* Ref.make<ResolvedConnection | null>(null);
+        const connection = yield* connect(stale.url, stale.token, undefined, Ref.get(live));
+
+        // Nothing answers yet: the layer keeps failing over the dead port.
+        yield* SubscriptionRef.changes(connection.state).pipe(
+          Stream.filter((state) => state.status === "reconnecting"),
+          Stream.runHead,
+          Effect.timeout("5 seconds"),
+        );
+
+        yield* Ref.set(live, { url, token: TOKEN });
+        const client = yield* connection.client.pipe(Effect.timeout("10 seconds"));
+        const hello = yield* client["server.hello"]({}).pipe(Effect.timeout("10 seconds"));
+        expect(hello.serverInstanceId).toBe(INSTANCE_ID);
+      }),
+    ),
+  );
+
+  it.live("a dropped socket keeps the known boot id so the resume is not discarded", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const { url } = yield* testStack();
+        const sockets: Array<WebSocket> = [];
+        const connection = yield* connect(url, TOKEN, sockets);
+        const client = yield* connection.client;
+        const hello = yield* client["server.hello"]({});
+        // What `markConnected` records once `server.hello` answers.
+        yield* SubscriptionRef.set(connection.state, {
+          status: "connected",
+          serverInstanceId: hello.serverInstanceId,
+        });
+
+        sockets.forEach((ws) => ws.close());
+        const dropped = yield* SubscriptionRef.changes(connection.state).pipe(
+          Stream.filter((state) => state.status === "reconnecting"),
+          Stream.take(1),
+          Stream.runCollect,
+          Effect.timeout("5 seconds"),
+        );
+        // Nulling it here would make every reconnect look like a restart, so
+        // every subscription would resnapshot instead of resuming.
+        expect(dropped[0]?.serverInstanceId).toBe(INSTANCE_ID);
       }),
     ),
   );

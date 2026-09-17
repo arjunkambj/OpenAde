@@ -11,6 +11,13 @@
 export interface ResolvedConnection {
   readonly url: string;
   readonly token: string;
+  /**
+   * The server's boot id, when the channel knows it. The desktop preload does;
+   * the dev endpoint forwards the same handshake line, so it does too. A value
+   * that differs from the one the client last saw means the server restarted
+   * and every cached snapshot is stale.
+   */
+  readonly serverInstanceId?: string;
 }
 
 /** One gesture from inside a pane webview, shaped like `BrowserHumanInput`. */
@@ -62,9 +69,16 @@ const fromDevEndpoint = async (): Promise<ResolvedConnection | null> => {
       return null;
     }
     const body = (await response.json()) as Partial<ResolvedConnection>;
-    return typeof body.url === "string" && typeof body.token === "string"
-      ? { url: body.url, token: body.token }
-      : null;
+    if (typeof body.url !== "string" || typeof body.token !== "string") {
+      return null;
+    }
+    return {
+      url: body.url,
+      token: body.token,
+      ...(typeof body.serverInstanceId === "string"
+        ? { serverInstanceId: body.serverInstanceId }
+        : {}),
+    };
   } catch {
     return null;
   }
