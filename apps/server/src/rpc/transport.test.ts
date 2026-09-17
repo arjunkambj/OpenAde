@@ -98,9 +98,7 @@ const testStack = (browserLayer: Layer.Layer<BrowserService> = BrowserService.em
       FileService.empty,
       GitService.empty,
       browserLayer,
-      McpGateway.layer.pipe(
-        Layer.provide(Layer.mergeAll(browserLayer, engineLayer, managerLayer)),
-      ),
+      McpGateway.layer.pipe(Layer.provide(Layer.mergeAll(browserLayer, engineLayer, managerLayer))),
       CmdConfig.empty,
       SettingsStore.layer.pipe(Layer.provide(sqlite)),
     );
