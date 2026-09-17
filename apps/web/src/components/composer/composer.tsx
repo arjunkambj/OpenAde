@@ -45,6 +45,7 @@ import { useInterrupt } from "@/components/composer/use-interrupt";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { useKeybindingCommand, useKeybindingFlag } from "@/lib/shortcuts";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
+import { turnInFlight } from "@/lib/turn";
 
 const ALL_EFFORTS: ReadonlyArray<Effort> = ["low", "medium", "high", "xhigh", "max"];
 
@@ -92,7 +93,10 @@ export function Composer({
   const attachments = useAttachments();
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
-  const running = doc !== null && doc.currentTurnId !== null;
+  // `turnInFlight`, not `currentTurnId`: the id is only filled on
+  // `thread.turn.started`, and a message sent in the requested→started window
+  // would go out unqueued and be rejected as "a turn is already running".
+  const running = doc !== null && turnInFlight(doc);
   const { interrupting, interrupt } = useInterrupt(threadId, running, setError);
 
   // Debounce via React — the atom family keys per query, so the deferred value
