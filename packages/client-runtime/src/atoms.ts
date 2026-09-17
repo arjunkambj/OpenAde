@@ -136,6 +136,40 @@ const threadListStream = (
     }),
   ).pipe(Stream.retry(resubscribeSchedule), Stream.repeat(resubscribeSchedule));
 
+/**
+ * A read model that has to be refetched after a reconnect. The socket carries
+ * no invalidation, so "the connection came back" is the only signal the client
+ * has that the server may have moved on while it was away.
+ *
+ * `SubscriptionRef.changes` replays the current state, so an atom mounted on a
+ * live connection fetches straight away and one mounted before the first
+ * connect fetches as soon as it lands — in both cases exactly once per
+ * connected epoch.
+ */
+const perConnection = <A, E>(
+  request: Effect.Effect<A, E, Connection>,
+): Stream.Stream<A, E, Connection | ConnectionStateRef> =>
+  Stream.unwrap(
+    Effect.gen(function* () {
+      const connectionState = yield* ConnectionStateRef;
+      return SubscriptionRef.changes(connectionState).pipe(
+        Stream.map((state) => state.status === "connected"),
+        Stream.changes,
+        Stream.filter((connected) => connected),
+        Stream.mapEffect(() => request),
+      );
+    }),
+  ).pipe(Stream.retry(resubscribeSchedule));
+
+/** The same treatment for a server-pushed stream: retry a drop, repeat a close. */
+const perConnectionStream = <A, E>(
+  subscribe: Effect.Effect<Stream.Stream<A, E>, E, Connection>,
+): Stream.Stream<A, E, Connection | ConnectionStateRef> =>
+  Stream.unwrap(subscribe).pipe(
+    Stream.retry(resubscribeSchedule),
+    Stream.repeat(resubscribeSchedule),
+  );
+
 export const makeRuntime = (connectionLayer: ConnectionLayer) => {
   // Build the connection inside the runtime's own scope so the supervisor's
   // fibers live exactly as long as the atoms that depend on them.
@@ -157,26 +191,32 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
   );
 
   const projectsAtom = runtime.atom(
-    Effect.gen(function* () {
-      const client = yield* (yield* Connection).client;
-      return yield* client["projects.list"]({});
-    }),
+    perConnection(
+      Effect.gen(function* () {
+        const client = yield* (yield* Connection).client;
+        return yield* client["projects.list"]({});
+      }),
+    ),
     { initialValue: [] as ReadonlyArray<ProjectSummary> },
   );
 
   const connectorsAtom = runtime.atom(
-    Effect.gen(function* () {
-      const client = yield* (yield* Connection).client;
-      return yield* client["connectors.list"]({});
-    }),
+    perConnection(
+      Effect.gen(function* () {
+        const client = yield* (yield* Connection).client;
+        return yield* client["connectors.list"]({});
+      }),
+    ),
     { initialValue: [] as ReadonlyArray<ConnectorSummary> },
   );
 
   const settingsAtom = runtime.atom(
-    Effect.gen(function* () {
-      const client = yield* (yield* Connection).client;
-      return client["settings.subscribe"]({});
-    }).pipe(Stream.unwrap),
+    perConnectionStream(
+      Effect.gen(function* () {
+        const client = yield* (yield* Connection).client;
+        return client["settings.subscribe"]({});
+      }),
+    ),
     { initialValue: null as Settings | null },
   );
 
@@ -273,10 +313,12 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
 
   /** The server-owned keybinding table the editor and the matcher share. */
   const keybindingsAtom = runtime.atom(
-    Effect.gen(function* () {
-      const client = yield* (yield* Connection).client;
-      return yield* client["keybindings.get"]({});
-    }),
+    perConnection(
+      Effect.gen(function* () {
+        const client = yield* (yield* Connection).client;
+        return yield* client["keybindings.get"]({});
+      }),
+    ),
     { initialValue: [] as ReadonlyArray<Keybinding> },
   );
 

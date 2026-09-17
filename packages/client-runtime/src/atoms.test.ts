@@ -8,11 +8,14 @@ import { describe, expect, it } from "@effect/vitest";
 import type { ThreadId } from "@OpenAde/contracts/ids";
 import { makeEventId, makeItemId, makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
 import type {
+  ProjectSummary,
   ThreadDetailSnapshot,
   ThreadListStreamItem,
   ThreadStreamItem,
   ThreadSummary,
 } from "@OpenAde/contracts/orchestration";
+import type { Settings } from "@OpenAde/contracts/settings";
+import { defaultSettings } from "@OpenAde/contracts/settings";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Queue from "effect/Queue";
@@ -88,16 +91,24 @@ interface ListChannel {
   readonly calls: Array<{ readonly afterSequence?: number }>;
 }
 
+/** The read models a test wants the stub to answer. */
+interface StubData {
+  readonly list?: ListChannel;
+  readonly projects?: Ref.Ref<ReadonlyArray<ProjectSummary>>;
+  readonly settings?: () => Queue.Queue<Settings, unknown>;
+}
+
 /**
  * A client stub: `server.hello` answers the current instance id,
  * `threads.subscribe` drains the per-thread queue (or hangs forever when the
- * thread is unknown), and `threads.listSubscribe` drains whatever queue the
- * channel currently points at, recording each subscribe payload.
+ * thread is unknown), `threads.listSubscribe` drains whatever queue the
+ * channel currently points at (recording each subscribe payload), and the read
+ * models answer from whatever the test last put in front of them.
  */
 const fakeClient = (
   streams: Map<string, Queue.Queue<ThreadStreamItem, unknown>>,
   instanceId: Ref.Ref<string>,
-  list?: ListChannel,
+  data: StubData = {},
 ): OpenAdeRpcClient =>
   new Proxy({} as OpenAdeRpcClient, {
     get: (_target, key) => {
@@ -116,11 +127,20 @@ const fakeClient = (
           return queue === undefined ? Stream.never : Stream.fromQueue(queue);
         };
       }
-      if (key === "threads.listSubscribe" && list !== undefined) {
+      if (key === "threads.listSubscribe" && data.list !== undefined) {
+        const list = data.list;
         return (payload: { afterSequence?: number }) => {
           list.calls.push(payload);
           return Stream.suspend(() => Stream.fromQueue(list.queue()));
         };
+      }
+      if (key === "projects.list" && data.projects !== undefined) {
+        const projects = data.projects;
+        return () => Ref.get(projects);
+      }
+      if (key === "settings.subscribe" && data.settings !== undefined) {
+        const settings = data.settings;
+        return () => Stream.suspend(() => Stream.fromQueue(settings()));
       }
       return () => Effect.die(`unimplemented rpc ${String(key)}`);
     },
@@ -139,6 +159,15 @@ const summary = (threadId: ThreadId, title: string): ThreadSummary => ({
   awaitingInput: false,
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
+});
+
+const project = (name: string): ProjectSummary => ({
+  projectId: makeProjectId(),
+  name,
+  workspaceRoot: `/repo/${name}`,
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-01T00:00:00.000Z",
+  threadCount: 0,
 });
 
 const runtimeWith = (client: OpenAdeRpcClient, state: ConnectionState) =>
@@ -296,7 +325,7 @@ describe("atoms", () => {
         let queue = yield* Queue.unbounded<ThreadListStreamItem, unknown>();
         const list: ListChannel = { queue: () => queue, calls: [] };
         const { registry, threadListAtom } = yield* runtimeWith(
-          fakeClient(new Map(), instance, list),
+          fakeClient(new Map(), instance, { list }),
           { status: "connecting", serverInstanceId: null },
         );
 
@@ -334,7 +363,7 @@ describe("atoms", () => {
         let queue = yield* Queue.unbounded<ThreadListStreamItem, unknown>();
         const list: ListChannel = { queue: () => queue, calls: [] };
         const { registry, threadListAtom } = yield* runtimeWith(
-          fakeClient(new Map(), instance, list),
+          fakeClient(new Map(), instance, { list }),
           { status: "connecting", serverInstanceId: null },
         );
 
@@ -365,6 +394,69 @@ describe("atoms", () => {
         );
         expect(threads.length).toBe(1);
         expect(list.calls.at(-1)?.afterSequence).toBeUndefined();
+      }),
+    ),
+  );
+
+  it.live("a request read model refetches when the connection comes back", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const instance = yield* Ref.make(INSTANCE);
+        const projects = yield* Ref.make<ReadonlyArray<ProjectSummary>>([project("one")]);
+        const { registry, stateRef, projectsAtom } = yield* runtimeWith(
+          fakeClient(new Map(), instance, { projects }),
+          { status: "connecting", serverInstanceId: null },
+        );
+
+        registry.mount(projectsAtom);
+        yield* SubscriptionRef.set(stateRef, { status: "connected", serverInstanceId: INSTANCE });
+        yield* Effect.promise(() =>
+          awaitValue(registry, projectsAtom, (list) => list.length === 1),
+        );
+
+        // The server gained a project while the socket was down. Nothing
+        // pushes projects, so the reconnect is the only cue to refetch.
+        yield* Ref.set(projects, [project("one"), project("two")]);
+        yield* SubscriptionRef.set(stateRef, {
+          status: "reconnecting",
+          serverInstanceId: INSTANCE,
+        });
+        yield* SubscriptionRef.set(stateRef, { status: "connected", serverInstanceId: INSTANCE });
+
+        const list = yield* Effect.promise(() =>
+          awaitValue(registry, projectsAtom, (value) => value.length === 2),
+        );
+        expect(list.map((p) => p.name)).toEqual(["one", "two"]);
+      }),
+    ),
+  );
+
+  it.live("settings recover after the subscription drops", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const instance = yield* Ref.make(INSTANCE);
+        let queue = yield* Queue.unbounded<Settings, unknown>();
+        const { registry, settingsAtom } = yield* runtimeWith(
+          fakeClient(new Map(), instance, { settings: () => queue }),
+          { status: "connected", serverInstanceId: INSTANCE },
+        );
+
+        registry.mount(settingsAtom);
+        yield* Queue.offer(queue, { ...defaultSettings(), theme: "light" });
+        yield* Effect.promise(() =>
+          awaitValue(registry, settingsAtom, (value) => value?.theme === "light"),
+        );
+
+        // Before the fix the atom failed here and stayed failed forever, so
+        // the settings pane was frozen for the rest of the session.
+        const dropped = queue;
+        queue = yield* Queue.unbounded<Settings, unknown>();
+        yield* Queue.offer(queue, { ...defaultSettings(), theme: "dark" });
+        yield* Queue.fail(dropped, new Error("socket dropped"));
+
+        yield* Effect.promise(() =>
+          awaitValue(registry, settingsAtom, (value) => value?.theme === "dark"),
+        );
       }),
     ),
   );
