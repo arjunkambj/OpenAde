@@ -88,9 +88,16 @@ OpenAde/
   the built web app (with SPA fallback so the router keeps working)
 - `src/preload/index.ts`: sandboxed preload that flags the renderer with
   `data-desktop` / `data-desktop-mac`
+- `src/platform/`: everything that branches on OS or build channel, run before
+  `app.whenReady`. It reads `<config dir>/desktop.json` (`~/.openade/desktop.json`,
+  moved by `OPENADE_HOME`): `{ "browserPane": true }` turns on the in-app browser
+  pane, which is what makes Chromium open a loopback remote-debugging port. Off by
+  default — the server then drives its own Chromium instead.
 - `scripts/build.mjs`: bundles main + preload with esbuild and copies `apps/web/dist`
   into `out/renderer`
 - `scripts/dev.mjs`: esbuild watch that restarts Electron and points it at the Vite dev
   server via `ELECTRON_RENDERER_URL`
 - `electron-builder.config.cjs`: packaging config; `BUILD_CHANNEL=canary` switches the
-  app id, product name, and output directory
+  app id, product name, and output directory. The same channel is bundled into the
+  app, so the running canary names itself the way its installer did and keeps its
+  own userData.
