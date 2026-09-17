@@ -11,6 +11,7 @@ import DiffsWorker from "@pierre/diffs/worker/worker.js?worker";
 import * as React from "react";
 
 import { useTheme } from "@/components/theme-provider";
+import { hasHunkHeader } from "@/lib/diff-stats";
 import { cn } from "@/lib/utils";
 
 const DIFF_THEMES = { light: "pierre-light", dark: "pierre-dark" } as const;
@@ -42,6 +43,21 @@ export function InlineDiff({ patch, className }: { patch: string; className?: st
     }),
     [resolvedTheme],
   );
+  // `PatchDiff` renders an empty element for a patch it cannot parse, which
+  // reads exactly like "no changes". Show the text the server actually sent
+  // instead — a malformed or truncated patch is information, not silence.
+  if (!hasHunkHeader(patch)) {
+    return (
+      <pre
+        className={cn(
+          "overflow-x-auto rounded-lg bg-hover p-2 font-mono text-xs whitespace-pre text-muted-foreground",
+          className,
+        )}
+      >
+        {patch}
+      </pre>
+    );
+  }
   return (
     <PatchDiff
       patch={patch}
