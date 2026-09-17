@@ -142,10 +142,6 @@ const connect = (
             webSocketConstructor: (wsUrl: string) => {
               const ws = new WebSocket(wsUrl);
               sockets.push(ws);
-              ws.addEventListener("close", (e) =>
-                console.log("WS-CLOSE", sockets.length - 1, e.code, e.reason),
-              );
-              ws.addEventListener("error", (e) => console.log("WS-ERR", String(e)));
               return ws;
             },
           }),
