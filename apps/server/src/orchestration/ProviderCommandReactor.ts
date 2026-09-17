@@ -213,9 +213,14 @@ export const ProviderCommandReactor = Layer.effectDiscard(
               return;
             }
             if (action === "accept" || action === "accept-auto") {
-              if (action === "accept-auto") {
-                yield* dispatchSettings(threadId, { runtimeMode: "auto-accept-edits" });
-              }
+              // Accepting leaves plan mode: without the reset the next turn
+              // produces another plan instead of implementing this one.
+              yield* dispatchSettings(
+                threadId,
+                action === "accept-auto"
+                  ? { interactionMode: "default", runtimeMode: "auto-accept-edits" }
+                  : { interactionMode: "default" },
+              );
               yield* dispatchTurn(threadId, { text: "Implement the approved plan." });
             } else if (action === "revise") {
               yield* dispatchSettings(threadId, { interactionMode: "plan" });

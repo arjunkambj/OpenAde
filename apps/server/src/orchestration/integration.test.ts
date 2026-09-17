@@ -75,6 +75,15 @@ const createThread: Command = {
   settings: { model: "fake/model" },
 };
 
+const createPlanThread: Command = {
+  commandId: makeCommandId(),
+  createdAt: NOW,
+  type: "thread.create",
+  threadId,
+  projectId,
+  settings: { model: "fake/model", interactionMode: "plan" },
+};
+
 const turnStart = (text: string, queued = false): Command => ({
   commandId: makeCommandId(),
   createdAt: NOW,
@@ -174,6 +183,107 @@ describe("orchestration with a fake connector", () => {
       const calls = yield* session!.calls;
       const respond = calls.find((call) => call.method === "respondToRequest");
       expect(respond?.detail.decision).toBe("allow-once");
+    }),
+  );
+
+  it.effect("plan accept leaves plan mode for the implement turn", () =>
+    Effect.gen(function* () {
+      // A turn that proposes a plan and stops there.
+      const planTurnScript: FakeTurnScript = ({ turnId }) => [
+        {
+          turnId,
+          type: "turn.plan.proposed",
+          payload: { turnId, planMarkdown: "# the plan" },
+        },
+      ];
+      const { fake, instance } = yield* openFake({ script: planTurnScript });
+      yield* Effect.gen(function* () {
+        const engine = yield* OrchestrationEngine;
+        yield* engine.dispatch(createProject);
+        yield* engine.dispatch(createPlanThread);
+
+        const firstCompleted = yield* awaitEvent(engine, isType("thread.turn.completed"));
+        yield* engine.dispatch(turnStart("plan it"));
+        yield* Fiber.join(firstCompleted);
+
+        const detail = yield* engine.threadDetail(threadId);
+        expect(detail?.status).toBe("waiting");
+        expect(detail?.settings.interactionMode).toBe("plan");
+        const planTurnId = detail!.pendingPlan!.turnId;
+
+        const secondCompleted = yield* awaitEvent(engine, isType("thread.turn.completed"));
+        yield* engine.dispatch({
+          commandId: makeCommandId(),
+          createdAt: NOW,
+          type: "thread.plan.respond",
+          threadId,
+          turnId: planTurnId,
+          action: "accept",
+        });
+        yield* Fiber.join(secondCompleted);
+
+        // Accept must leave plan mode — otherwise the implement turn produces
+        // yet another plan forever.
+        const after = yield* engine.threadDetail(threadId);
+        expect(after?.settings.interactionMode).toBe("default");
+      }).pipe(Effect.provide(stackLayer({ instance })));
+
+      const session = yield* fake.session(threadId);
+      const calls = yield* session!.calls;
+      const sends = calls.filter((call) => call.method === "send");
+      expect(sends.map((call) => call.detail.text)).toContain("Implement the approved plan.");
+      const settings = calls.filter((call) => call.method === "updateSettings");
+      expect(settings.map((call) => call.detail.patch)).toContainEqual({
+        interactionMode: "default",
+      });
+    }),
+  );
+
+  it.effect("plan accept-auto leaves plan mode and switches runtime mode", () =>
+    Effect.gen(function* () {
+      const planTurnScript: FakeTurnScript = ({ turnId }) => [
+        {
+          turnId,
+          type: "turn.plan.proposed",
+          payload: { turnId, planMarkdown: "# the plan" },
+        },
+      ];
+      const { fake, instance } = yield* openFake({ script: planTurnScript });
+      yield* Effect.gen(function* () {
+        const engine = yield* OrchestrationEngine;
+        yield* engine.dispatch(createProject);
+        yield* engine.dispatch(createPlanThread);
+
+        const firstCompleted = yield* awaitEvent(engine, isType("thread.turn.completed"));
+        yield* engine.dispatch(turnStart("plan it"));
+        yield* Fiber.join(firstCompleted);
+
+        const detail = yield* engine.threadDetail(threadId);
+        const planTurnId = detail!.pendingPlan!.turnId;
+
+        const secondCompleted = yield* awaitEvent(engine, isType("thread.turn.completed"));
+        yield* engine.dispatch({
+          commandId: makeCommandId(),
+          createdAt: NOW,
+          type: "thread.plan.respond",
+          threadId,
+          turnId: planTurnId,
+          action: "accept-auto",
+        });
+        yield* Fiber.join(secondCompleted);
+
+        const after = yield* engine.threadDetail(threadId);
+        expect(after?.settings.interactionMode).toBe("default");
+        expect(after?.settings.runtimeMode).toBe("auto-accept-edits");
+      }).pipe(Effect.provide(stackLayer({ instance })));
+
+      const session = yield* fake.session(threadId);
+      const calls = yield* session!.calls;
+      const settings = calls.filter((call) => call.method === "updateSettings");
+      expect(settings.map((call) => call.detail.patch)).toContainEqual({
+        interactionMode: "default",
+        runtimeMode: "auto-accept-edits",
+      });
     }),
   );
 
