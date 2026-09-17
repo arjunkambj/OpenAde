@@ -154,6 +154,18 @@ const textOfToolResult = (content: unknown): string => {
   return "";
 };
 
+/**
+ * Tool results land whole in item snapshots — a build log or a minified file
+ * would otherwise inflate the event log and the stream budget. 64KB keeps a
+ * useful head and marks the cut.
+ */
+export const MAX_TOOL_OUTPUT_CHARS = 64 * 1024;
+
+const truncateToolOutput = (text: string): string =>
+  text.length > MAX_TOOL_OUTPUT_CHARS
+    ? `${text.slice(0, MAX_TOOL_OUTPUT_CHARS)}...[truncated]`
+    : text;
+
 const todosOf = (input: Record<string, unknown>): ReadonlyArray<Todo> =>
   (Array.isArray(input.todos) ? input.todos : []).flatMap((todo, index) => {
     const record = asRecord(todo);
@@ -288,7 +300,7 @@ export const makeTranslator = (options: {
 
   /** A tool_result block → item.completed on the row the tool_use opened. */
   const toolCompleted = (block: ToolResultBlock): ReadonlyArray<PendingRuntimeEvent> => {
-    const text = textOfToolResult(block.content);
+    const text = truncateToolOutput(textOfToolResult(block.content));
     const existing = block.tool_use_id === undefined ? undefined : toolItems.get(block.tool_use_id);
     const itemId = existing ?? makeItemId();
     const prior = existing === undefined ? undefined : toolSnapshots.get(block.tool_use_id!);

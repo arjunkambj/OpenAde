@@ -13,7 +13,7 @@ import { describe, expect, it } from "@effect/vitest";
 import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
 
 import { parseFrame, type CmdEventFrame, type CmdFrame, type CmdFrameParseError } from "./ndjson";
-import { makeTranslator, type PendingRuntimeEvent } from "./translate";
+import { makeTranslator, MAX_TOOL_OUTPUT_CHARS, type PendingRuntimeEvent } from "./translate";
 
 const CAPABILITIES: ConnectorCapabilities = {
   modelSwitch: "per-turn",
@@ -399,6 +399,28 @@ describe("tool calls dedupe on tool_use.id across ndjson and transcript", () => 
       ),
     )[0];
     expect(mcp?.type === "item.started" && mcp.payload.item.tool?.server).toBe("openade");
+  });
+
+  it("truncates tool output past 64KB with a marker", () => {
+    const translate = translator();
+    const giant = "y".repeat(MAX_TOOL_OUTPUT_CHARS + 5000);
+    const events = translate.onTranscriptLine(
+      transcriptMessage(
+        "user",
+        [{ type: "tool_result", tool_use_id: "big", content: [{ type: "text", text: giant }] }],
+        "msg-big",
+        "tool",
+      ),
+    );
+    const item = events[0];
+    if (item?.type !== "item.completed") {
+      throw new Error("expected item.completed");
+    }
+    const output = item.payload.item.tool?.output;
+    expect(typeof output).toBe("string");
+    expect(output as string).toHaveLength(MAX_TOOL_OUTPUT_CHARS + "...[truncated]".length);
+    expect((output as string).endsWith("...[truncated]")).toBe(true);
+    expect((output as string).startsWith("yyy")).toBe(true);
   });
 
   it("marks is_error tool results failed", () => {
