@@ -1,8 +1,9 @@
 /**
  * The projects → threads tree: projects from `projectsAtom`, threads from
  * `threadListAtom(null)` grouped client-side by `projectId`. Each thread row
- * links to `/t/$threadId` and shows its status dot; `awaitingInput` gets the
- * permission accent since something is waiting on the user.
+ * links to `/t/$threadId` and shows its status dot; anything waiting on the
+ * user outranks a turn in flight and gets the permission accent, icon and
+ * label together — see `./thread-status`.
  *
  * A row also carries the unread dot: the open thread stamps its `updatedAt`
  * into `thread-seen`, and any other thread that has moved past its own stamp
@@ -24,39 +25,27 @@ import type { ProjectSummary, ThreadSummary } from "@OpenAde/contracts/orchestra
 
 import { AddProjectDialog } from "@/components/sidebar/add-project-dialog";
 import { isUnread, useThreadSeen } from "@/components/sidebar/thread-seen";
+import { threadStatusMark } from "@/components/sidebar/thread-status";
 import { Icon } from "@/lib/icon";
 import { useCreateThread } from "@/lib/use-create-thread";
 import { cn } from "@/lib/utils";
 import { useConnectionState, useProjects, useThreadList } from "@/state/hooks";
 
-/** The status the row reports, spelled out for the icon's accessible name. */
-const STATUS_TITLE: Record<string, string> = {
-  running: "Running",
-  waiting: "Waiting for you",
-  error: "Error",
-};
-
 function ThreadStatusDot({ thread }: { thread: ThreadSummary }) {
-  const label = thread.awaitingInput ? STATUS_TITLE.waiting : (STATUS_TITLE[thread.status] ?? null);
-  if (label === null) {
+  const mark = threadStatusMark(thread);
+  if (mark === null) {
     return null;
   }
-  const icon =
-    thread.status === "running"
-      ? "hugeicons:loading-03"
-      : thread.status === "error"
-        ? "hugeicons:alert-circle"
-        : "hugeicons:circle-dot";
   return (
-    <span title={label} aria-label={label} role="img" className="flex shrink-0 items-center">
+    <span
+      title={mark.label}
+      aria-label={mark.label}
+      role="img"
+      className="flex shrink-0 items-center"
+    >
       <Icon
-        icon={icon}
-        className={cn(
-          "size-3.5 shrink-0",
-          thread.status === "running" && "animate-spin text-muted-foreground",
-          thread.status === "error" && "text-destructive",
-          thread.status !== "running" && thread.status !== "error" && "text-permission",
-        )}
+        icon={mark.icon}
+        className={cn("size-3.5 shrink-0", mark.tone, mark.spin && "animate-spin")}
       />
     </span>
   );
