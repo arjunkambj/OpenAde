@@ -261,21 +261,20 @@ export const spawnProcess = (spec: SpawnSpec): Effect.Effect<CmdProcess, SpawnEr
     child.stdout?.setEncoding("utf8");
     child.stderr?.setEncoding("utf8");
 
-    const exitCode = yield* Effect.cached(
-      Effect.callback<number>((resume) => {
-        const done = (code: number | null) => resume(Effect.succeed(code ?? -1));
-        child.once("exit", done);
-        child.once("error", () => done(-1));
-        child.once("close", (_code, signal) => {
-          // 'exit' normally beats 'close'; if only close fired, signal death
-          // reports as -1 just like a missing code does.
-          done(typeof _code === "number" ? _code : signal === null ? -1 : -1);
-        });
-        return Effect.sync(() => {
-          child.off("exit", done);
-        });
-      }),
-    );
+    // The listeners go on once, at spawn, and settle a plain promise. An
+    // Effect.callback would re-subscribe on every await and drop its listener
+    // when one awaiter is interrupted — which is exactly what the kill ladder
+    // does when the grace period wins the race, and it left `kill` waiting on
+    // an exit that had already fired.
+    const exited = new Promise<number>((resolve) => {
+      const done = (code: number | null) => resolve(code ?? -1);
+      child.once("exit", done);
+      child.once("error", () => done(-1));
+      // 'exit' normally beats 'close'; if only close fired, signal death
+      // reports as -1 just like a missing code does.
+      child.once("close", (code) => done(typeof code === "number" ? code : -1));
+    });
+    const exitCode: Effect.Effect<number> = Effect.promise(() => exited);
 
     const signal = (signal_: "SIGINT" | "SIGTERM" | "SIGKILL"): Effect.Effect<void> =>
       signalGroup(pid, signal_);

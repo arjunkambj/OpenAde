@@ -201,6 +201,36 @@ describe("spawnProcess on a node -e child", () => {
     }),
   );
 
+  it.live(
+    "kill escalates to SIGKILL when the child ignores SIGINT",
+    () =>
+      Effect.gen(function* () {
+        const proc = yield* spawnProcess({
+          binaryPath: NODE,
+          args: [
+            "-e",
+            'process.on("SIGINT", () => {}); process.stdout.write("ready\\n"); setInterval(() => {}, 1000)',
+          ],
+          cwd: NodeOS.tmpdir(),
+          env: envAllowlist(process.env),
+        });
+        // Wait for the handler to be installed: a SIGINT that lands during
+        // node's own startup kills the child before it can ignore anything.
+        yield* Stream.runHead(proc.stdout);
+        const started = Date.now();
+        yield* proc.kill;
+        const elapsed = Date.now() - started;
+        // The SIGINT was ignored, so the grace period had to run out and the
+        // SIGKILL had to land — and `kill` had to come back afterwards, which
+        // it did not while the exit code was re-subscribed per await.
+        expect(elapsed).toBeGreaterThan(4_000);
+        expect(elapsed).toBeLessThan(9_000);
+        expect(yield* proc.exitCode).toBe(-1);
+      }),
+    // A real 5-second grace period, run on the live clock on purpose.
+    30_000,
+  );
+
   it.effect("interrupt via signal resolves the process", () =>
     Effect.gen(function* () {
       const proc = yield* spawnProcess({
