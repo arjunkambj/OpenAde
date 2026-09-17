@@ -13,4 +13,8 @@ export {
   requestPath,
   requestUrl,
 } from "@OpenAde/shared/permissionPattern";
-export type { ParsedPattern, PatternFamily, PatternSubject } from "@OpenAde/shared/permissionPattern";
+export type {
+  ParsedPattern,
+  PatternFamily,
+  PatternSubject,
+} from "@OpenAde/shared/permissionPattern";

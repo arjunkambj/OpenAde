@@ -64,9 +64,9 @@ describe("patternMatches", () => {
 
   it("matches WebFetch/WebSearch against urls and queries", () => {
     const web = (input: unknown) => request("web", input, "web_fetch");
-    expect(patternMatches("WebFetch(https://*.example.com/*)", web({ url: "https://a.example.com/x" }))).toBe(
-      true,
-    );
+    expect(
+      patternMatches("WebFetch(https://*.example.com/*)", web({ url: "https://a.example.com/x" })),
+    ).toBe(true);
     expect(patternMatches("WebFetch(https://a.test/*)", web({ url: "https://b.test/x" }))).toBe(
       false,
     );
