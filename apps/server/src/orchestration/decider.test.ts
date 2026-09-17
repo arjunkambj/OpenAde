@@ -1,0 +1,565 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  makeCommandId,
+  makeEventId,
+  makeItemId,
+  makeProjectId,
+  makeThreadId,
+  makeTurnId,
+} from "@OpenAde/contracts/ids";
+import type { Command } from "@OpenAde/contracts/orchestration";
+
+import { decide, type DeciderContext, type DecideEnv } from "./decider";
+import type { ProjectDoc, ThreadDoc } from "./state";
+
+const NOW = "2026-01-02T03:04:05.000Z";
+
+const env: DecideEnv = {
+  now: NOW,
+  nextEventId: makeEventId,
+  nextTurnId: makeTurnId,
+  nextItemId: makeItemId,
+};
+
+const ctx = (overrides: Partial<DeciderContext> = {}): DeciderContext => ({
+  projectExists: () => true,
+  workspaceRootTaken: () => false,
+  defaultModel: "fake/model",
+  ...overrides,
+});
+
+const baseCommand = { commandId: makeCommandId(), createdAt: NOW };
+
+const threadDoc = (overrides: Partial<ThreadDoc> = {}): ThreadDoc => ({
+  threadId: makeThreadId(),
+  projectId: makeProjectId(),
+  title: "Thread",
+  status: "idle",
+  settings: {
+    model: "fake/model",
+    runtimeMode: "approval-required",
+    interactionMode: "default",
+  },
+  snapshotSequence: 1,
+  items: [],
+  queue: [],
+  checkpoints: [],
+  session: null,
+  currentTurn: null,
+  pendingPlan: null,
+  usage: null,
+  context: null,
+  createdAt: NOW,
+  updatedAt: NOW,
+  approvals: [],
+  userInputs: [],
+  preview: undefined,
+  deleted: false,
+  ...overrides,
+});
+
+const projectDoc = (overrides: Partial<ProjectDoc> = {}): ProjectDoc => ({
+  projectId: makeProjectId(),
+  name: "demo",
+  workspaceRoot: "/repo",
+  createdAt: NOW,
+  updatedAt: NOW,
+  removed: false,
+  ...overrides,
+});
+
+interface Row {
+  readonly name: string;
+  readonly command: Command;
+  readonly thread?: ThreadDoc | null;
+  readonly project?: ProjectDoc | null;
+  readonly context?: DeciderContext;
+  readonly events?: ReadonlyArray<string>;
+  readonly rejects?: string;
+  readonly rule?: { readonly scope: string; readonly pattern: string };
+}
+
+const rows: ReadonlyArray<Row> = [
+  {
+    name: "project.create emits project.created",
+    command: {
+      ...baseCommand,
+      type: "project.create",
+      projectId: makeProjectId(),
+      name: "demo",
+      workspaceRoot: "/repo",
+    } as Command,
+    project: null,
+    events: ["project.created"],
+  },
+  {
+    name: "project.create rejects an existing project",
+    command: {
+      ...baseCommand,
+      type: "project.create",
+      projectId: makeProjectId(),
+      name: "demo",
+      workspaceRoot: "/repo",
+    } as Command,
+    project: projectDoc(),
+    rejects: "already exists",
+  },
+  {
+    name: "project.create rejects a taken workspace root",
+    command: {
+      ...baseCommand,
+      type: "project.create",
+      projectId: makeProjectId(),
+      name: "demo",
+      workspaceRoot: "/repo",
+    } as Command,
+    project: null,
+    context: ctx({ workspaceRootTaken: () => true }),
+    rejects: "already a project",
+  },
+  {
+    name: "project.remove emits project.removed",
+    command: {
+      ...baseCommand,
+      type: "project.remove",
+      projectId: makeProjectId(),
+    } as Command,
+    project: projectDoc(),
+    events: ["project.removed"],
+  },
+  {
+    name: "project.remove rejects a missing project",
+    command: {
+      ...baseCommand,
+      type: "project.remove",
+      projectId: makeProjectId(),
+    } as Command,
+    project: null,
+    rejects: "does not exist",
+  },
+  {
+    name: "thread.create emits thread.created with resolved settings",
+    command: {
+      ...baseCommand,
+      type: "thread.create",
+      threadId: makeThreadId(),
+      projectId: makeProjectId(),
+    } as Command,
+    thread: null,
+    events: ["thread.created"],
+  },
+  {
+    name: "thread.create rejects a missing project",
+    command: {
+      ...baseCommand,
+      type: "thread.create",
+      threadId: makeThreadId(),
+      projectId: makeProjectId(),
+    } as Command,
+    thread: null,
+    context: ctx({ projectExists: () => false }),
+    rejects: "does not exist",
+  },
+  {
+    name: "thread.create rejects when no model resolves",
+    command: {
+      ...baseCommand,
+      type: "thread.create",
+      threadId: makeThreadId(),
+      projectId: makeProjectId(),
+    } as Command,
+    thread: null,
+    context: ctx({ defaultModel: null }),
+    rejects: "no model",
+  },
+  {
+    name: "thread.rename emits thread.renamed",
+    command: {
+      ...baseCommand,
+      type: "thread.rename",
+      threadId: makeThreadId(),
+      title: "New title",
+    } as Command,
+    thread: threadDoc(),
+    events: ["thread.renamed"],
+  },
+  {
+    name: "thread.rename rejects a missing thread",
+    command: {
+      ...baseCommand,
+      type: "thread.rename",
+      threadId: makeThreadId(),
+      title: "New title",
+    } as Command,
+    thread: null,
+    rejects: "does not exist",
+  },
+  {
+    name: "thread.archive emits thread.archived",
+    command: {
+      ...baseCommand,
+      type: "thread.archive",
+      threadId: makeThreadId(),
+    } as Command,
+    thread: threadDoc(),
+    events: ["thread.archived"],
+  },
+  {
+    name: "thread.archive rejects an archived thread",
+    command: {
+      ...baseCommand,
+      type: "thread.archive",
+      threadId: makeThreadId(),
+    } as Command,
+    thread: threadDoc({ status: "archived" }),
+    rejects: "already archived",
+  },
+  {
+    name: "thread.delete emits thread.deleted",
+    command: {
+      ...baseCommand,
+      type: "thread.delete",
+      threadId: makeThreadId(),
+    } as Command,
+    thread: threadDoc(),
+    events: ["thread.deleted"],
+  },
+  {
+    name: "thread.turn.start emits thread.turn.requested",
+    command: {
+      ...baseCommand,
+      type: "thread.turn.start",
+      threadId: makeThreadId(),
+      text: "hello",
+      attachments: [],
+      mentions: [],
+      queued: false,
+    } as Command,
+    thread: threadDoc(),
+    events: ["thread.turn.requested"],
+  },
+  {
+    name: "thread.turn.start rejects during a turn when not queued",
+    command: {
+      ...baseCommand,
+      type: "thread.turn.start",
+      threadId: makeThreadId(),
+      text: "hello",
+      attachments: [],
+      mentions: [],
+      queued: false,
+    } as Command,
+    thread: threadDoc({
+      currentTurn: {
+        turnId: makeTurnId(),
+        input: { text: "in-flight", attachments: [], mentions: [] },
+      },
+      status: "running",
+    }),
+    rejects: "already running",
+  },
+  {
+    name: "thread.turn.start queues during a turn",
+    command: {
+      ...baseCommand,
+      type: "thread.turn.start",
+      threadId: makeThreadId(),
+      text: "queued work",
+      attachments: [],
+      mentions: [],
+      queued: true,
+    } as Command,
+    thread: threadDoc({
+      currentTurn: {
+        turnId: makeTurnId(),
+        input: { text: "in-flight", attachments: [], mentions: [] },
+      },
+      status: "running",
+    }),
+    events: ["thread.message.queued"],
+  },
+  {
+    name: "thread.turn.start rejects on an archived thread",
+    command: {
+      ...baseCommand,
+      type: "thread.turn.start",
+      threadId: makeThreadId(),
+      text: "hello",
+      attachments: [],
+      mentions: [],
+      queued: false,
+    } as Command,
+    thread: threadDoc({ status: "archived" }),
+    rejects: "archived",
+  },
+  {
+    name: "thread.turn.interrupt emits thread.turn.interrupted",
+    command: {
+      ...baseCommand,
+      type: "thread.turn.interrupt",
+      threadId: makeThreadId(),
+    } as Command,
+    thread: threadDoc({
+      currentTurn: {
+        turnId: makeTurnId(),
+        input: { text: "in-flight", attachments: [], mentions: [] },
+      },
+      status: "running",
+    }),
+    events: ["thread.turn.interrupted"],
+  },
+  {
+    name: "thread.turn.interrupt rejects with no running turn",
+    command: {
+      ...baseCommand,
+      type: "thread.turn.interrupt",
+      threadId: makeThreadId(),
+    } as Command,
+    thread: threadDoc(),
+    rejects: "no running turn",
+  },
+  {
+    name: "thread.settings.update emits thread.settings.updated",
+    command: {
+      ...baseCommand,
+      type: "thread.settings.update",
+      threadId: makeThreadId(),
+      runtimeMode: "auto-accept-edits",
+    } as Command,
+    thread: threadDoc(),
+    events: ["thread.settings.updated"],
+  },
+  {
+    name: "thread.approval.respond resolves a pending request",
+    command: {
+      ...baseCommand,
+      type: "thread.approval.respond",
+      threadId: makeThreadId(),
+      requestId: "req-1" as Command extends infer _ ? never : never,
+      decision: "allow-once",
+    } as unknown as Command,
+    thread: threadDoc({
+      approvals: [
+        {
+          requestId: "req-1" as never,
+          kind: "command",
+          toolName: "shell_command",
+          input: { command: "ls" },
+          description: "Run ls",
+        },
+      ],
+      status: "waiting",
+    }),
+    events: ["thread.approval.resolved"],
+  },
+  {
+    name: "thread.approval.respond rejects an unknown request",
+    command: {
+      ...baseCommand,
+      type: "thread.approval.respond",
+      threadId: makeThreadId(),
+      requestId: "req-unknown",
+      decision: "allow-once",
+    } as unknown as Command,
+    thread: threadDoc(),
+    rejects: "no pending approval",
+  },
+  {
+    name: "thread.approval.respond allow-always records a project rule",
+    command: {
+      ...baseCommand,
+      type: "thread.approval.respond",
+      threadId: makeThreadId(),
+      requestId: "req-1",
+      decision: "allow-always",
+      pattern: "Shell(npm run *)",
+    } as unknown as Command,
+    thread: threadDoc({
+      approvals: [
+        {
+          requestId: "req-1" as never,
+          kind: "command",
+          toolName: "shell_command",
+          input: { command: "npm run build" },
+          description: "Run build",
+        },
+      ],
+      status: "waiting",
+    }),
+    events: ["thread.approval.resolved"],
+    rule: { scope: "project", pattern: "Shell(npm run *)" },
+  },
+  {
+    name: "thread.approval.respond allow-session records a session rule",
+    command: {
+      ...baseCommand,
+      type: "thread.approval.respond",
+      threadId: makeThreadId(),
+      requestId: "req-1",
+      decision: "allow-session",
+      pattern: "Shell(ls *)",
+    } as unknown as Command,
+    thread: threadDoc({
+      approvals: [
+        {
+          requestId: "req-1" as never,
+          kind: "command",
+          toolName: "shell_command",
+          input: { command: "ls -la" },
+          description: "List files",
+        },
+      ],
+      status: "waiting",
+    }),
+    events: ["thread.approval.resolved"],
+    rule: { scope: "session", pattern: "Shell(ls *)" },
+  },
+  {
+    name: "thread.userInput.respond resolves a pending request",
+    command: {
+      ...baseCommand,
+      type: "thread.userInput.respond",
+      threadId: makeThreadId(),
+      requestId: "req-in",
+      answers: [],
+    } as unknown as Command,
+    thread: threadDoc({
+      userInputs: [{ requestId: "req-in" as never, questions: [] }],
+      status: "waiting",
+    }),
+    events: ["thread.userInput.resolved"],
+  },
+  {
+    name: "thread.userInput.respond rejects an unknown request",
+    command: {
+      ...baseCommand,
+      type: "thread.userInput.respond",
+      threadId: makeThreadId(),
+      requestId: "req-none",
+      answers: [],
+    } as unknown as Command,
+    thread: threadDoc(),
+    rejects: "no pending user input",
+  },
+  {
+    name: "thread.plan.respond accepts a pending plan",
+    command: {
+      ...baseCommand,
+      type: "thread.plan.respond",
+      threadId: makeThreadId(),
+      turnId: "turn-1",
+      action: "accept",
+    } as unknown as Command,
+    thread: threadDoc({
+      pendingPlan: {
+        turnId: "turn-1" as never,
+        planMarkdown: "# Plan",
+      },
+      status: "waiting",
+    }),
+    events: ["thread.plan.responded"],
+  },
+  {
+    name: "thread.plan.respond rejects a mismatched turn",
+    command: {
+      ...baseCommand,
+      type: "thread.plan.respond",
+      threadId: makeThreadId(),
+      turnId: "turn-2",
+      action: "accept",
+    } as unknown as Command,
+    thread: threadDoc({
+      pendingPlan: { turnId: "turn-1" as never, planMarkdown: "# Plan" },
+      status: "waiting",
+    }),
+    rejects: "no pending plan",
+  },
+  {
+    name: "thread.checkpoint.restore accepts an existing checkpoint",
+    command: {
+      ...baseCommand,
+      type: "thread.checkpoint.restore",
+      threadId: makeThreadId(),
+      checkpointId: "cp-1",
+    } as unknown as Command,
+    thread: threadDoc({
+      checkpoints: [
+        {
+          checkpointId: "cp-1" as never,
+          turnId: makeTurnId(),
+          ref: "refs/ade/checkpoint/cp-1",
+          createdAt: NOW,
+        },
+      ],
+    }),
+    events: [],
+  },
+  {
+    name: "thread.checkpoint.restore rejects an unknown checkpoint",
+    command: {
+      ...baseCommand,
+      type: "thread.checkpoint.restore",
+      threadId: makeThreadId(),
+      checkpointId: "cp-none",
+    } as unknown as Command,
+    thread: threadDoc(),
+    rejects: "no checkpoint",
+  },
+];
+
+describe("decide", () => {
+  for (const row of rows) {
+    it(row.name, () => {
+      const result = decide(
+        row.command,
+        { project: row.project ?? null, thread: row.thread ?? null },
+        row.context ?? ctx(),
+        env,
+      );
+      if (row.rejects !== undefined) {
+        expect(result.accepted).toBe(false);
+        if (!result.accepted) {
+          expect(result.reason).toContain(row.rejects);
+        }
+        return;
+      }
+      expect(result.accepted).toBe(true);
+      if (result.accepted) {
+        expect(result.events.map((event) => event.type)).toEqual(row.events);
+        if (row.rule !== undefined) {
+          expect(result.permissionRule?.scope).toBe(row.rule.scope);
+          expect(result.permissionRule?.pattern).toBe(row.rule.pattern);
+        }
+      }
+    });
+  }
+
+  it("emits thread.created with caller settings over defaults", () => {
+    const command = {
+      commandId: "cmd",
+      createdAt: NOW,
+      type: "thread.create",
+      threadId: makeThreadId(),
+      projectId: makeProjectId(),
+      title: "Titled",
+      settings: {
+        model: "other/model",
+        runtimeMode: "full-access",
+        interactionMode: "plan",
+        effort: "high",
+      },
+    } as unknown as Command;
+    const result = decide(command, { project: null, thread: null }, ctx(), env);
+    expect(result.accepted).toBe(true);
+    if (result.accepted) {
+      const payload = result.events[0]!.payload as { settings: unknown };
+      expect(payload.settings).toEqual({
+        model: "other/model",
+        runtimeMode: "full-access",
+        interactionMode: "plan",
+        effort: "high",
+      });
+    }
+  });
+});
