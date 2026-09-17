@@ -26,9 +26,7 @@
     "apps/web": {
       "entry": ["src/routes/**/*.tsx"],
       "ignoreIssues": {
-        "src/components/header.tsx": ["files"],
         "src/components/mode-toggle.tsx": ["files"],
-        "src/hooks/use-mobile.ts": ["files"],
         "src/lib/icon.tsx": ["exports"],
         "src/lib/shortcuts.tsx": ["exports"]
       },
