@@ -282,6 +282,10 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
         ...next,
         checkpoints: [...doc.checkpoints, payload.checkpoint as CheckpointSummary],
       };
+    case "thread.checkpoint.restored":
+      // The worktree moved back; the document has nothing to rewind — the
+      // checkpoint refs still exist and the event still bumps the sequence.
+      return next;
     case "thread.error":
       return payload.fatal === true ? { ...next, status: "error", currentTurn: null } : next;
     default:

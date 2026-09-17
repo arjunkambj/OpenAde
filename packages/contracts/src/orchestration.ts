@@ -455,6 +455,16 @@ const ThreadCheckpointCreatedEvent = orchestrationEvent(
   Schema.Struct({ checkpoint: CheckpointSummary }),
 );
 
+/**
+ * The durable record that a restore was accepted — the CheckpointReactor
+ * treats this event as the work order, so a crash between command receipt
+ * and the git work can never silently drop the request.
+ */
+const ThreadCheckpointRestoredEvent = orchestrationEvent(
+  "thread.checkpoint.restored",
+  Schema.Struct({ checkpoint: CheckpointSummary }),
+);
+
 const ThreadErrorEvent = orchestrationEvent(
   "thread.error",
   Schema.Struct({ message: NonEmptyString, fatal: Schema.Boolean }),
@@ -486,6 +496,7 @@ export const OrchestrationEvent = Schema.Union([
   ThreadUsageUpdatedEvent,
   ThreadContextUpdatedEvent,
   ThreadCheckpointCreatedEvent,
+  ThreadCheckpointRestoredEvent,
   ThreadErrorEvent,
 ]);
 export type OrchestrationEvent = typeof OrchestrationEvent.Type;
@@ -520,6 +531,7 @@ export const OrchestrationEventType = Schema.Literals([
   "thread.usage.updated",
   "thread.context.updated",
   "thread.checkpoint.created",
+  "thread.checkpoint.restored",
   "thread.error",
 ]);
 export type OrchestrationEventType = typeof OrchestrationEventType.Type;

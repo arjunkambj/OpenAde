@@ -317,15 +317,21 @@ export const decide = (
       if (thread === null || thread.deleted) {
         return rejected(`thread ${command.threadId} does not exist`);
       }
-      const found = thread.checkpoints.some(
-        (checkpoint) => checkpoint.checkpointId === command.checkpointId,
+      // Restore is side-effectful git work — `git restore` + `git clean`
+      // would clobber files a running turn is mid-write on.
+      if (thread.currentTurn !== null) {
+        return rejected(`thread ${command.threadId} has a running turn`);
+      }
+      const checkpoint = thread.checkpoints.find(
+        (entry) => entry.checkpointId === command.checkpointId,
       );
-      if (!found) {
+      if (checkpoint === undefined) {
         return rejected(`no checkpoint ${command.checkpointId}`);
       }
-      // Restore is side-effectful git work: the CheckpointReactor observes the
-      // accepted command and performs it; the intent itself records no event.
-      return accepted([]);
+      // The event is the durable work order: the CheckpointReactor performs
+      // the git work on `thread.checkpoint.restored`, so a crash between
+      // receipt and restore cannot silently drop the request.
+      return accepted([emit("thread.checkpoint.restored", { checkpoint })]);
     }
   }
 };

@@ -140,6 +140,8 @@ export const applyThreadEvent = (
         ],
         updatedAt: event.occurredAt,
       };
+    case "thread.checkpoint.restored":
+      return { ...doc, updatedAt: event.occurredAt };
     case "thread.error":
       return payload.fatal === true
         ? { ...doc, status: "idle", currentTurnId: null, updatedAt: event.occurredAt }

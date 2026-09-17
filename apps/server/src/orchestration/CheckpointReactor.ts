@@ -7,8 +7,8 @@
  * explicit no-op so W1's stack runs without git.
  *
  * `CheckpointReactor` wires it to the log: `turn.completed` → capture →
- * `thread.checkpoint.created`; an accepted `thread.checkpoint.restore`
- * command → restore, with failures recorded as `thread.error`.
+ * `thread.checkpoint.created`; a `thread.checkpoint.restored` event →
+ * restore, with failures recorded as `thread.error`.
  */
 
 import { makeEventId } from "@OpenAde/contracts/ids";
@@ -123,6 +123,31 @@ export const CheckpointReactor: Layer.Layer<never, never, OrchestrationEngine | 
                 ),
               );
           }
+          // The accepted restore command records this event; the git work
+          // order is durable, so the reactor runs off the log, not the
+          // transient command publication.
+          if (event.type === "thread.checkpoint.restored") {
+            const threadId = event.streamId as ThreadId;
+            const doc = yield* engine.threadDoc(threadId);
+            if (doc === null || doc.deleted) {
+              return;
+            }
+            const workspaceRoot = yield* workspaceRootFor(doc);
+            if (workspaceRoot === null) {
+              return;
+            }
+            return yield* hook
+              .restore({ thread: doc, checkpoint: event.payload.checkpoint, workspaceRoot })
+              .pipe(
+                Effect.catch((error) =>
+                  recordError(
+                    threadId,
+                    `checkpoint restore failed: ${error.message}`,
+                    event.eventId,
+                  ),
+                ),
+              );
+          }
           if (event.type !== "thread.turn.completed") {
             return;
           }
@@ -168,44 +193,6 @@ export const CheckpointReactor: Layer.Layer<never, never, OrchestrationEngine | 
           ]);
         }).pipe(
           Effect.catch((error) => Effect.logWarning("checkpoint capture reactor failed", error)),
-        ),
-      ).pipe(Effect.forkScoped);
-
-      // An accepted restore command is the git work order.
-      const commandMailbox = yield* engine.subscribeCommands;
-      yield* Stream.runForEach(Stream.fromSubscription(commandMailbox), ({ command }) =>
-        Effect.gen(function* () {
-          if (command.type !== "thread.checkpoint.restore") {
-            return;
-          }
-          const threadId = command.threadId;
-          const doc = yield* engine.threadDoc(threadId);
-          if (doc === null || doc.deleted) {
-            return;
-          }
-          const checkpoint = doc.checkpoints.find(
-            (entry) => entry.checkpointId === command.checkpointId,
-          );
-          if (checkpoint === undefined) {
-            return;
-          }
-          const workspaceRoot = yield* workspaceRootFor(doc);
-          if (workspaceRoot === null) {
-            return;
-          }
-          yield* hook
-            .restore({ thread: doc, checkpoint, workspaceRoot })
-            .pipe(
-              Effect.catch((error) =>
-                recordError(
-                  threadId,
-                  `checkpoint restore failed: ${error.message}`,
-                  command.commandId,
-                ),
-              ),
-            );
-        }).pipe(
-          Effect.catch((error) => Effect.logWarning("checkpoint restore reactor failed", error)),
         ),
       ).pipe(Effect.forkScoped);
     }),

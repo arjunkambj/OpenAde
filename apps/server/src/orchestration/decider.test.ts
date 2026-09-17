@@ -476,7 +476,7 @@ const rows: ReadonlyArray<Row> = [
     rejects: "no pending plan",
   },
   {
-    name: "thread.checkpoint.restore accepts an existing checkpoint",
+    name: "thread.checkpoint.restore emits thread.checkpoint.restored",
     command: {
       ...baseCommand,
       type: "thread.checkpoint.restore",
@@ -493,7 +493,32 @@ const rows: ReadonlyArray<Row> = [
         },
       ],
     }),
-    events: [],
+    events: ["thread.checkpoint.restored"],
+  },
+  {
+    name: "thread.checkpoint.restore rejects while a turn is running",
+    command: {
+      ...baseCommand,
+      type: "thread.checkpoint.restore",
+      threadId: makeThreadId(),
+      checkpointId: "cp-1",
+    } as unknown as Command,
+    thread: threadDoc({
+      currentTurn: {
+        turnId: makeTurnId(),
+        input: { text: "in-flight", attachments: [], mentions: [] },
+      },
+      status: "running",
+      checkpoints: [
+        {
+          checkpointId: "cp-1" as never,
+          turnId: makeTurnId(),
+          ref: "refs/ade/checkpoint/cp-1",
+          createdAt: NOW,
+        },
+      ],
+    }),
+    rejects: "running turn",
   },
   {
     name: "thread.checkpoint.restore rejects an unknown checkpoint",
