@@ -5,6 +5,11 @@
  * A failing probe offers the link `helpUrlFor` picks — the connector's own
  * `helpUrl` when it named one, the account page otherwise.
  *
+ * The directory field is live, not commit-on-blur: this page is the only way
+ * into a fresh install, "Create project" is gated on the field's value, and a
+ * disabled button cannot be clicked to blur the field that would enable it.
+ * `components/welcome/project-directory` holds that rule and its test.
+ *
  * The page doubles as the connection diagnostic: the details card reports which
  * channel `resolveConnection` found (Electron preload, the dev endpoint, or
  * `?server=&token=` params) and the live connection state, so "am I connected
@@ -14,18 +19,27 @@
 import { useAtomSet } from "@effect/atom-react";
 import { Button } from "@OpenAde/ui/components/button";
 import { Card, CardContent } from "@OpenAde/ui/components/card";
+import { Input } from "@OpenAde/ui/components/input";
 import { makeCommandId, makeProjectId } from "@OpenAde/contracts/ids";
 import type { ConnectorSummary } from "@OpenAde/contracts/rpc";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import * as Exit from "effect/Exit";
 import * as React from "react";
 import { toast } from "sonner";
 
 import { Icon } from "@/lib/icon";
-import { describeExitError, useAppAtoms } from "@/lib/app-runtime";
+import { useAppAtoms } from "@/lib/app-runtime";
+import { isAccepted, rejectionMessage } from "@/lib/dispatch-result";
 import { openExternal, pickDirectory } from "@/lib/desktop";
+import { projectNameFromPath } from "@/lib/workspace-path";
 import { helpUrlFor } from "@/components/Settings/probe-help";
-import { CommitInput } from "@/components/Settings/schema-form";
+import {
+  canCreateProject,
+  directoryPicked,
+  directoryProblem,
+  directoryRejected,
+  directoryTyped,
+  emptyDirectory,
+} from "@/components/welcome/project-directory";
 import { getResolvedConnection } from "@/state/app-runtime";
 import { useConnectionState } from "@/state/hooks";
 
@@ -95,17 +109,27 @@ function WelcomePage() {
   const probeAll = useAtomSet(atoms.probeConnectorsAtom, { mode: "promise" });
   const dispatch = useAtomSet(atoms.dispatchAtom, { mode: "promiseExit" });
 
-  const [directory, setDirectory] = React.useState("");
+  const [directory, setDirectory] = React.useState(emptyDirectory);
   const [connectors, setConnectors] = React.useState<ReadonlyArray<ConnectorSummary> | null>(null);
   const [checking, setChecking] = React.useState(false);
   const [creating, setCreating] = React.useState(false);
+  // `window.openade` only exists under the desktop shell; read it once so the
+  // button is simply absent in a browser tab rather than doing nothing.
+  const [hasPicker] = React.useState(() => window.openade?.pickDirectory !== undefined);
 
   const browse = async () => {
-    const picked = await pickDirectory();
-    if (picked !== null) {
-      setDirectory(picked);
-      setConnectors(null);
+    let picked: string | null;
+    try {
+      picked = await pickDirectory();
+    } catch {
+      toast.error("Could not open the directory picker");
+      return;
     }
+    if (picked === null) {
+      return;
+    }
+    setDirectory(directoryPicked(picked));
+    setConnectors(null);
   };
 
   const verify = async () => {
@@ -122,35 +146,35 @@ function WelcomePage() {
 
   const ready = connectors !== null && connectors.some((c) => c.probe.status === "ready");
 
+  const problem = directoryProblem(directory);
+  const canCreate = canCreateProject(directory, creating);
+
   const create = async () => {
-    const root = directory.trim();
-    if (root === "") {
+    if (!canCreate) {
       return;
     }
-    const name =
-      root
-        .replace(/[\\/]+$/, "")
-        .split(/[\\/]/)
-        .pop() ?? root;
+    const root = directory.path.trim();
+    const name = projectNameFromPath(root);
     setCreating(true);
     const exit = await dispatch({
       commandId: makeCommandId(),
       createdAt: new Date().toISOString(),
       type: "project.create",
       projectId: makeProjectId(),
-      name,
+      name: name === "" ? root : name,
       workspaceRoot: root,
     });
     setCreating(false);
-    if (Exit.isSuccess(exit) && exit.value.status === "accepted") {
+    if (isAccepted(exit)) {
       void navigate({ to: "/" });
       return;
     }
-    toast.error(
-      Exit.isSuccess(exit)
-        ? (exit.value.reason ?? "The server rejected the project")
-        : describeExitError(exit, "Could not create the project"),
-    );
+    // The reason belongs under the field the user has to correct, not only in
+    // a toast that scrolls away: "that directory does not exist" is about the
+    // path, and the path is still on screen.
+    const reason = rejectionMessage(exit, "The server rejected the project");
+    setDirectory((current) => directoryRejected(current, reason));
+    toast.error(reason);
   };
 
   return (
@@ -171,23 +195,38 @@ function WelcomePage() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <div className="flex-1">
-                  <CommitInput
-                    value={directory}
-                    placeholder="/path/to/project"
-                    onCommit={(next) => {
-                      setDirectory(next);
-                      setConnectors(null);
-                    }}
-                  />
-                </div>
-                {window.openade?.pickDirectory === undefined ? null : (
+                {/* Live, not commit-on-blur: "Create project" is gated on this
+                    value and a disabled button cannot be clicked to blur the
+                    field, which left a fresh install with no way forward. */}
+                <Input
+                  id="welcome-directory"
+                  className="flex-1"
+                  value={directory.path}
+                  placeholder="/path/to/project"
+                  autoFocus
+                  aria-invalid={problem !== null}
+                  aria-describedby={problem === null ? undefined : "welcome-directory-problem"}
+                  onChange={(event) => {
+                    setDirectory(directoryTyped(event.target.value));
+                    setConnectors(null);
+                  }}
+                />
+                {hasPicker ? (
                   <Button variant="outline" size="sm" onClick={() => void browse()}>
                     <Icon icon="hugeicons:folder-open" />
                     Browse…
                   </Button>
-                )}
+                ) : null}
               </div>
+              {problem === null ? null : (
+                <p
+                  id="welcome-directory-problem"
+                  role="alert"
+                  className="-mt-2 type-micro text-destructive"
+                >
+                  {problem}
+                </p>
+              )}
 
               <div className="flex items-center gap-2">
                 <Button
@@ -256,7 +295,7 @@ function WelcomePage() {
           <p className="text-xs text-muted-foreground">
             {ready ? "A connector is ready." : "You can continue once a directory is chosen."}
           </p>
-          <Button onClick={() => void create()} disabled={directory.trim() === "" || creating}>
+          <Button onClick={() => void create()} disabled={!canCreate}>
             {creating ? "Creating…" : "Create project"}
           </Button>
         </div>
