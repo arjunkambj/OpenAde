@@ -270,26 +270,26 @@ export class McpGateway extends Context.Service<
         }
       };
 
-      // Dead sessions and closed threads lose their bearers.
-      const reactor = Effect.gen(function* () {
-        const endedSessions = manager.lifecycle.pipe(
-          Stream.filter((entry) => entry.kind === "ended"),
-          Stream.map((entry) => entry.threadId),
-        );
-        const closedThreads = Stream.unwrap(
-          Effect.map(engine.subscribeEvents, (sub) =>
-            Stream.fromSubscription(sub).pipe(
-              Stream.filter(
-                (event) => event.type === "thread.deleted" || event.type === "thread.archived",
-              ),
-              Stream.map((event) => event.streamId as ThreadId),
-            ),
-          ),
-        );
-        yield* Stream.runForEach(Stream.merge(endedSessions, closedThreads), revoke);
-      }).pipe(
-        Effect.catch((error) => Effect.logWarning("mcp gateway revoke reactor ended", error)),
+      // Dead sessions and closed threads lose their bearers. The event
+      // subscription is opened here and not inside the forked fiber: a PubSub
+      // drops what it publishes with nobody listening, and a fork does not run
+      // until this fiber yields — a thread closed in that gap would keep a
+      // live bearer.
+      const threadEvents = yield* engine.subscribeEvents;
+      const endedSessions = manager.lifecycle.pipe(
+        Stream.filter((entry) => entry.kind === "ended"),
+        Stream.map((entry) => entry.threadId),
       );
+      const closedThreads = Stream.fromSubscription(threadEvents).pipe(
+        Stream.filter(
+          (event) => event.type === "thread.deleted" || event.type === "thread.archived",
+        ),
+        Stream.map((event) => event.streamId as ThreadId),
+      );
+      const reactor = Stream.runForEach(
+        Stream.merge(endedSessions, closedThreads),
+        revoke,
+      ).pipe(Effect.catch((error) => Effect.logWarning("mcp gateway revoke reactor ended", error)));
       yield* Effect.forkIn(reactor, scope);
 
       return McpGateway.of({

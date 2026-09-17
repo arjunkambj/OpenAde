@@ -509,16 +509,17 @@ export const makeService = (injected: {
       }).pipe(Effect.ignore);
 
     // Thread close tears the browser down — deleted or archived.
-    const reactor = engine.subscribeEvents.pipe(
-      Effect.flatMap((events) =>
-        Stream.runForEach(Stream.fromSubscription(events), (event) =>
-          event.type === "thread.deleted" || event.type === "thread.archived"
-            ? teardown(event.streamId as ThreadId)
-            : Effect.void,
-        ),
-      ),
-      Effect.catch((error) => Effect.logWarning("browser teardown reactor ended", error)),
-    );
+    //
+    // The subscription is opened here rather than inside the forked fiber: a
+    // PubSub drops what it publishes while nobody is listening, and a forked
+    // fiber does not start until this one yields. Subscribing first means no
+    // thread.deleted can slip through the gap between build and first tick.
+    const events = yield* engine.subscribeEvents;
+    const reactor = Stream.runForEach(Stream.fromSubscription(events), (event) =>
+      event.type === "thread.deleted" || event.type === "thread.archived"
+        ? teardown(event.streamId as ThreadId)
+        : Effect.void,
+    ).pipe(Effect.catch((error) => Effect.logWarning("browser teardown reactor ended", error)));
     yield* Effect.forkIn(reactor, serviceScope);
 
     return BrowserService.of({

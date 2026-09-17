@@ -11,6 +11,8 @@
  * - A `tab_gone` the cdp driver could not rebind drops the dead driver and
  *   retries the call on a fresh one instead of erroring for the rest of the
  *   thread.
+ * - A thread.delete dispatched through the engine reaches the teardown
+ *   reactor and closes the driver.
  * - `teardown` stops the session and is idempotent.
  * - Sessions are per-thread.
  */
@@ -25,7 +27,7 @@ import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
 import * as HttpServer from "effect/unstable/http/HttpServer";
 
-import { makeThreadId } from "@OpenAde/contracts/ids";
+import { makeCommandId, makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
 
 import { OrchestrationEngine } from "../orchestration/Engine";
 import { EventStore } from "../persistence/EventStore";
@@ -39,6 +41,7 @@ import { makeService, type OpenDriverOptions } from "./BrowserService";
 import type { BrowserDriver } from "./driver";
 
 const threadId = makeThreadId();
+const NOW = "2026-01-02T03:04:05.000Z";
 
 const fakePage = (): FakePage => ({
   url: "about:blank",
@@ -83,7 +86,10 @@ const buildStack = (openDriver: OpenDriver) =>
       makeService({ cdpAvailable: false, openDriver }),
     ).pipe(Layer.provide(Layer.mergeAll(engine, permissionsStub, httpStub)));
     const context = yield* Layer.build(Layer.mergeAll(engine, browser));
-    return { browser: Context.get(context, BrowserService) };
+    return {
+      browser: Context.get(context, BrowserService),
+      engine: Context.get(context, OrchestrationEngine),
+    };
   });
 
 const currentState = (browser: BrowserService["Service"], id: typeof threadId) =>
@@ -322,6 +328,58 @@ describe("BrowserService", () => {
 
         yield* browser.teardown(threadId);
         expect(closes).toBe(1);
+      }),
+    ),
+  );
+
+  it.live("deleting the thread closes its browser through the engine's events", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const closed = yield* Deferred.make<void>();
+        const { browser, engine } = yield* buildStack(() =>
+          Effect.succeed(
+            makeFakeDriver(fakePage(), { onClose: () => Deferred.succeed(closed, undefined) }),
+          ),
+        );
+
+        const projectId = makeProjectId();
+        const ownThread = makeThreadId();
+        yield* engine.dispatch({
+          commandId: makeCommandId(),
+          createdAt: NOW,
+          type: "project.create",
+          projectId,
+          name: "demo",
+          workspaceRoot: "/repo",
+        });
+        yield* engine.dispatch({
+          commandId: makeCommandId(),
+          createdAt: NOW,
+          type: "thread.create",
+          threadId: ownThread,
+          projectId,
+          settings: { model: "fake/model" },
+        });
+
+        yield* browser.callTool(ownThread, "browser_open", { url: "https://example.com" });
+
+        // The path the spec's done-when names: the engine emits
+        // thread.deleted and the forked reactor tears the browser down. No
+        // one calls teardown() by hand.
+        yield* engine.dispatch({
+          commandId: makeCommandId(),
+          createdAt: NOW,
+          type: "thread.delete",
+          threadId: ownThread,
+        });
+        yield* Deferred.await(closed);
+
+        // The driver closed; the published state settles a moment later, so
+        // wait for the stopped frame rather than sampling.
+        const state = yield* Stream.runHead(
+          browser.subscribe(ownThread).pipe(Stream.filter((next) => next.status === "stopped")),
+        );
+        expect(Option.isSome(state)).toBe(true);
       }),
     ),
   );
