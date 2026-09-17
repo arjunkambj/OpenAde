@@ -25,7 +25,7 @@ import { isRepository, run } from "./process";
 import { readFileWindow } from "./read";
 import { walkWorkspace } from "./walk";
 
-export class FileServiceError extends Data.TaggedError("FileServiceError")<{
+class FileServiceError extends Data.TaggedError("FileServiceError")<{
   readonly message: string;
 }> {}
 

@@ -20,9 +20,6 @@
       // tsx is resolved through the server package (it is a server devDep).
       "ignoreDependencies": ["@OpenAde/contracts", "tsx"]
     },
-    "apps/server": {
-      "ignoreExportsUsedInFile": true
-    },
     "apps/web": {
       "entry": ["src/routes/**/*.tsx"],
       "ignoreIssues": {

@@ -37,7 +37,7 @@ export const AGENT_BROWSER_MISSING_MESSAGE =
 export const sessionNameFor = (threadId: string): string => `ade-${threadId}`;
 
 /** Every call gets this long before the child is SIGKILLed (spec: 30s ceiling). */
-export const COMMAND_TIMEOUT_MS = 30_000;
+const COMMAND_TIMEOUT_MS = 30_000;
 
 /** A daemon exits this long after its last command if we never close it. */
 export const IDLE_TIMEOUT_MS = 300_000;

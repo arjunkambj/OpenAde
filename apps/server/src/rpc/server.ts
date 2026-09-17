@@ -70,7 +70,7 @@ const wsRoute = Effect.gen(function* () {
  * look it up per request, and its `HttpServer` requirement is the same one
  * `serve` already needs.
  */
-export const routesLayer = Layer.unwrap(
+const routesLayer = Layer.unwrap(
   Effect.gen(function* () {
     const ws = yield* wsRoute;
     return ws.pipe(

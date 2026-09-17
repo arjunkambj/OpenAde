@@ -31,9 +31,9 @@ import * as HttpServer from "effect/unstable/http/HttpServer";
 import * as HttpServerRequest from "effect/unstable/http/HttpServerRequest";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 
-export const HOOK_ROUTE_PATH = "/hooks/pretooluse";
-export const HOOK_TIMEOUT_SECONDS = 590;
-export const HOOK_MAX_BODY_BYTES = 1024 * 1024;
+const HOOK_ROUTE_PATH = "/hooks/pretooluse";
+const HOOK_TIMEOUT_SECONDS = 590;
+const HOOK_MAX_BODY_BYTES = 1024 * 1024;
 
 /** What a session registers: hook payload in, hook response out. */
 export type HookHandler = (body: unknown) => Effect.Effect<unknown>;

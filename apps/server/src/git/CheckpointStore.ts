@@ -17,7 +17,7 @@ import * as Effect from "effect/Effect";
 
 import { isRepository, run } from "./process";
 
-export class CheckpointStoreError extends Data.TaggedError("CheckpointStoreError")<{
+class CheckpointStoreError extends Data.TaggedError("CheckpointStoreError")<{
   readonly message: string;
   /**
    * The workspace is not a git repository. A named field rather than a
