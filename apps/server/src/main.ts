@@ -20,6 +20,7 @@ import * as Layer from "effect/Layer";
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 import * as HttpServer from "effect/unstable/http/HttpServer";
 
+import { AttachmentStore } from "./attachments/AttachmentStore";
 import { AgentBrowser } from "./browser/agentBrowser";
 import { layer as browserServiceLayer } from "./browser/BrowserService";
 import { HookBridge } from "./hooks/HookBridge";
@@ -68,6 +69,7 @@ const main = Effect.gen(function* () {
   const registry = yield* makeRegistry([eraseConnectorDefinition(cmdConnectorDefinition)]);
   const selection = ConnectorSelection.fromRegistry(registry);
   const manager = SessionManager.layer.pipe(Layer.provide(Layer.mergeAll(engine, selection)));
+  const attachments = AttachmentStore.layer;
   const reactors = Layer.mergeAll(
     ProviderCommandReactor,
     CheckpointReactor,
@@ -111,6 +113,7 @@ const main = Effect.gen(function* () {
     sharedSettings,
     fileServiceLayer.pipe(Layer.provide(persistence)),
     gitServiceLayer.pipe(Layer.provide(persistence)),
+    attachments,
     browser,
     mcp,
     sessionServices,

@@ -10,7 +10,10 @@
  *   from the bytes the socket actually delivered (transfer-budget test).
  */
 
+import { mkdtempSync } from "node:fs";
 import { createServer } from "node:http";
+import * as NodeOS from "node:os";
+import * as NodePath from "node:path";
 import { NodeHttpServer } from "@effect/platform-node";
 import {
   makeCommandId,
@@ -38,6 +41,7 @@ import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
 import * as HttpServer from "effect/unstable/http/HttpServer";
 
+import { AttachmentStore } from "../attachments/AttachmentStore";
 import { McpGateway } from "../mcp/McpGateway";
 import { CheckpointHook, CheckpointReactor } from "../orchestration/CheckpointReactor";
 import { OrchestrationEngine } from "../orchestration/Engine";
@@ -114,6 +118,7 @@ const testStack = (browserLayer: Layer.Layer<BrowserService> = BrowserService.em
       browserLayer,
       McpGateway.layer.pipe(Layer.provide(Layer.mergeAll(browserLayer, engineLayer, managerLayer))),
       CmdConfig.empty,
+      AttachmentStore.layerAt(mkdtempSync(NodePath.join(NodeOS.tmpdir(), "openade-transport-"))),
       SettingsStore.layer.pipe(Layer.provide(sqlite)),
     );
     const http = NodeHttpServer.layer(createServer, { port: 0, host: "127.0.0.1" });

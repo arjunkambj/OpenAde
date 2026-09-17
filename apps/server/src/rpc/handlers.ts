@@ -9,6 +9,7 @@ import type { Command } from "@OpenAde/contracts/orchestration";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
 
+import { AttachmentStore } from "../attachments/AttachmentStore";
 import { ConcurrencyConflict } from "../persistence/EventStore";
 import { OrchestrationEngine } from "../orchestration/Engine";
 import {
@@ -44,6 +45,7 @@ export const handlersLayer = OpenAdeRpcGroup.toLayer(
     const browser = yield* BrowserService;
     const settings = yield* SettingsStore;
     const cmdConfig = yield* CmdConfig;
+    const attachments = yield* AttachmentStore;
 
     return {
       "server.hello": () =>
@@ -83,6 +85,10 @@ export const handlersLayer = OpenAdeRpcGroup.toLayer(
       "files.search": ({ projectId, query, limit }) => files.search(projectId, query, limit),
       "files.read": ({ projectId, path, offset, limit }) =>
         files.read(projectId, path, offset, limit),
+
+      "attachments.stage": ({ threadId, name, base64 }) =>
+        attachments.stage({ threadId, name, base64 }),
+      "attachments.read": ({ threadId, path }) => attachments.read(threadId, path),
 
       "git.status": ({ projectId }) => git.status(projectId),
       "git.diff": ({ projectId, from, to, path }) => git.diff(projectId, { from, to, path }),
