@@ -12,7 +12,13 @@ import * as Schema from "effect/Schema";
 
 import { IsoDateTime, NonEmptyString } from "./base";
 import { DEFAULT_RUNTIME_MODE, Effort, RuntimeMode } from "./enums";
-import { ConnectorInstanceId, ConnectorKind, ProjectId, ThreadId } from "./ids";
+import {
+  CMD_CONNECTOR_KIND,
+  ConnectorInstanceId,
+  ConnectorKind,
+  ProjectId,
+  ThreadId,
+} from "./ids";
 
 /** How one settings field is presented. Read by the settings pages, never by the server. */
 export interface SettingsFormField {
@@ -64,6 +70,30 @@ export const CmdConnectorConfig = Schema.Struct({
   ),
 });
 export type CmdConnectorConfig = typeof CmdConnectorConfig.Type;
+
+/**
+ * kind → the connector's config schema and the name to offer it under. The
+ * settings form renders `schema.fields` through their `settingsForm`
+ * annotations, so a connector's page needs zero connector-specific markup —
+ * registering a schema here is all a new connector needs on the render side.
+ * (The server-side definition validates `unknown` config through this schema.)
+ */
+export interface ConnectorConfigSchemaEntry {
+  readonly displayName: string;
+  readonly schema: Schema.Struct<Schema.Struct.Fields>;
+}
+
+export const CONNECTOR_CONFIG_SCHEMAS: Readonly<
+  Record<ConnectorKind, ConnectorConfigSchemaEntry>
+> = {
+  [CMD_CONNECTOR_KIND]: { displayName: "Command Code", schema: CmdConnectorConfig },
+};
+
+/** The config schema for a kind, when this build knows one. */
+export const connectorConfigSchemaFor = (
+  kind: ConnectorKind,
+): Schema.Struct<Schema.Struct.Fields> | undefined =>
+  CONNECTOR_CONFIG_SCHEMAS[kind]?.schema;
 
 /**
  * One configured connector. `config` is the connector's own settings document,

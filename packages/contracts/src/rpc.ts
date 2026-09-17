@@ -101,9 +101,17 @@ export type ModelOption = typeof ModelOption.Type;
  * than folded into a message string.
  */
 export const ConnectorProbe = Schema.Struct({
-  status: Schema.Literals(["ready", "not-installed", "not-authenticated", "error"]),
+  status: Schema.Literals(["ready", "not-installed", "not-authenticated", "error", "probing"]),
   binaryPath: Schema.optional(NonEmptyString),
   version: Schema.optional(NonEmptyString),
+  /** Whether the harness reported usable credentials: present, absent, unknown. */
+  auth: Schema.optional(Schema.Literals(["present", "absent", "unknown"])),
+  /** The account the probe saw, e.g. the login email — for the settings page. */
+  account: Schema.optional(Schema.String),
+  /** How many models the probe reported — the settings page's "N models" line. */
+  modelCount: Schema.optional(NonNegativeInt),
+  /** A link that fixes what the probe found, e.g. the billing page on auth/credit failures. */
+  helpUrl: Schema.optional(NonEmptyString),
   message: Schema.optional(Schema.String),
   probedAt: IsoDateTime,
 });
@@ -341,8 +349,13 @@ const ThreadsListSubscribeRpc = Rpc.make(RPC_METHODS.threadsListSubscribe, {
   stream: true,
 });
 
+/**
+ * `refresh: true` re-runs each configured connector's probe before answering —
+ * the settings page's probe button. The default returns the probes cached by
+ * the last reconcile, so listing stays cheap for the model picker.
+ */
 const ConnectorsListRpc = Rpc.make(RPC_METHODS.connectorsList, {
-  payload: empty,
+  payload: Schema.Struct({ refresh: Schema.optional(Schema.Boolean) }),
   success: Schema.Array(ConnectorSummary),
   error: OpenAdeRpcError,
 });

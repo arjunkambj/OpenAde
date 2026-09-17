@@ -166,6 +166,7 @@ const singles: ReadonlyArray<{ readonly path: string; readonly schema: FixtureSc
   { path: "rpc/server-hello.json", schema: ServerHello },
   { path: "rpc/model-option.json", schema: ModelOption },
   { path: "rpc/connector-probe.json", schema: ConnectorProbe },
+  { path: "rpc/connector-probe.probing.json", schema: ConnectorProbe },
   { path: "rpc/connector-summary.json", schema: ConnectorSummary },
   { path: "rpc/file-search-result.json", schema: FileSearchResult },
   { path: "rpc/file-content.json", schema: FileContent },

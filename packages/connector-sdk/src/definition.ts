@@ -103,15 +103,18 @@ export interface ConnectorProbe extends WireConnectorProbe {
 
 /**
  * Drops the server-only fields, leaving the shape `ConnectorSummary.probe` carries.
- *
- * @public Called by W1's connector registry when it answers `connectors.list`;
- * nothing on this branch has a consumer yet.
+ * `auth`, `account` and the model count cross the wire — the connectors page
+ * renders them; `models` and `warnings` stay server-side.
  */
 export const toWireProbe = (probe: ConnectorProbe): WireConnectorProbe => ({
   status: probe.status,
   probedAt: probe.probedAt,
+  auth: probe.auth,
+  modelCount: probe.models.length,
   ...(probe.binaryPath === undefined ? {} : { binaryPath: probe.binaryPath }),
   ...(probe.version === undefined ? {} : { version: probe.version }),
+  ...(probe.account === undefined ? {} : { account: probe.account }),
+  ...(probe.helpUrl === undefined ? {} : { helpUrl: probe.helpUrl }),
   ...(probe.message === undefined ? {} : { message: probe.message }),
 });
 

@@ -68,3 +68,6 @@ export type CheckpointId = typeof CheckpointId.Type;
  */
 export const ConnectorKind = Schema.String;
 export type ConnectorKind = typeof ConnectorKind.Type;
+
+/** The Command Code connector's kind — what `settings.connectors[].kind` carries for it. */
+export const CMD_CONNECTOR_KIND: ConnectorKind = "cmd";
