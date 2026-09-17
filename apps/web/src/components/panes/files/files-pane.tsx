@@ -72,12 +72,15 @@ function ResultRow({
 function SearchBody({
   query,
   results,
+  stale,
   onOpen,
   onRetry,
   connected,
 }: {
   readonly query: string;
   readonly results: Query;
+  /** These matches are the previous query's, held while the next one loads. */
+  readonly stale: boolean;
   readonly onOpen: (result: FileSearchResult) => void;
   readonly onRetry: () => void;
   readonly connected: boolean;
@@ -115,7 +118,12 @@ function SearchBody({
     return <PaneMessage icon="hugeicons:search-01" text="No files match this search." />;
   }
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto [scrollbar-width:thin]">
+    <div
+      className={cn(
+        "flex min-h-0 flex-1 flex-col overflow-y-auto [scrollbar-width:thin]",
+        stale && "opacity-60",
+      )}
+    >
       <div className="flex flex-col gap-px p-1.5">
         {results.value.map((result) => (
           <ResultRow key={result.path} result={result} onOpen={onOpen} />
@@ -142,9 +150,12 @@ export function FilesPane({
   const [openPath, setOpenPath] = React.useState<string | null>(null);
 
   // The family key is the trimmed query, so leading and trailing spaces do not
-  // each open their own atom. The server caches its listing for a moment, so
-  // typing costs a round trip per keystroke and no new walk of the workspace.
-  const trimmed = query.trim();
+  // each open their own atom — and it is deferred, the way the composer's
+  // @-search already does it, so a burst of keystrokes opens one atom rather
+  // than one per character. Without that every keystroke keys a fresh family
+  // member, which starts in `Initial`: the list would blank to "Searching…"
+  // and redraw on each letter instead of narrowing.
+  const trimmed = React.useDeferredValue(query.trim());
   const searchAtom = atoms.fileSearchAtom({ projectId, query: trimmed, limit: SEARCH_LIMIT });
   const result = useAtomValue(searchAtom);
   const refresh = useAtomRefresh(searchAtom);
@@ -154,6 +165,16 @@ export function FilesPane({
     : AsyncResult.isFailure(result)
       ? "broken"
       : null;
+
+  // Hold the previous query's matches while the next atom is still `Initial`,
+  // so the list narrows instead of blanking to "Searching…" between letters.
+  // The project is part of what is held: another project's matches are not a
+  // stale view of this one.
+  const held = React.useRef<{ projectId: ProjectId; results: Query }>({ projectId, results: null });
+  if (results !== null || held.current.projectId !== projectId) {
+    held.current = { projectId, results };
+  }
+  const shown = results ?? held.current.results;
 
   // A directory is a navigation, not a file: search its own prefix so the list
   // becomes its contents.
@@ -182,7 +203,8 @@ export function FilesPane({
       {openPath === null ? (
         <SearchBody
           query={trimmed}
-          results={results}
+          results={shown}
+          stale={results === null && shown !== null}
           onOpen={open}
           onRetry={refresh}
           connected={connected}
