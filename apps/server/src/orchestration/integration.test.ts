@@ -403,6 +403,44 @@ describe("orchestration with a fake connector", () => {
     }),
   );
 
+  it.effect("archiving a thread stops its session", () =>
+    Effect.gen(function* () {
+      const { fake, instance } = yield* openFake();
+      yield* Effect.gen(function* () {
+        const engine = yield* OrchestrationEngine;
+        const sessions = yield* SessionManager;
+        yield* engine.dispatch(createProject);
+        yield* engine.dispatch(createThread);
+
+        const completed = yield* awaitEvent(engine, isType("thread.turn.completed"));
+        yield* engine.dispatch(turnStart("hello"));
+        yield* Fiber.join(completed);
+
+        const ended = yield* sessions.lifecycle.pipe(
+          Stream.filter((entry) => entry.kind === "ended"),
+          Stream.runHead,
+          Effect.forkChild,
+        );
+        yield* Effect.yieldNow;
+        yield* engine.dispatch({
+          commandId: makeCommandId(),
+          createdAt: NOW,
+          type: "thread.archive",
+          threadId,
+        });
+
+        const entry = yield* Fiber.join(ended);
+        expect(Option.isSome(entry)).toBe(true);
+        if (Option.isSome(entry) && entry.value.kind === "ended") {
+          expect(entry.value.reason).toBe("stopped");
+        }
+      }).pipe(Effect.provide(stackLayer({ instance })));
+
+      // Archiving is not deleting, but the connector process still goes.
+      expect(yield* fake.processGone(threadId)).toBe(true);
+    }),
+  );
+
   it.effect("removing a project deletes its threads and stops their sessions", () =>
     Effect.gen(function* () {
       const { fake, instance } = yield* openFake();

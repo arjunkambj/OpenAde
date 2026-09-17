@@ -16,7 +16,7 @@
  * - `turn.completed` → drain the queue: dequeue the head, dispatch it as a new
  *   turn.
  * - `project.removed` → dispatch `thread.delete` for every thread under it.
- * - `thread.deleted` → close the session.
+ * - `thread.archived` / `thread.deleted` → close the session.
  *
  * A failing side effect records `thread.error` (and a synthetic
  * `turn.completed` when a turn was mid-flight) instead of leaving the thread
@@ -322,6 +322,10 @@ export const ProviderCommandReactor = Layer.effectDiscard(
             return;
           }
 
+          // An archived thread has no UI attached any more; leaving its
+          // connector running keeps a process (and its token budget) alive for
+          // nothing, and the supervisor would resume it after a restart.
+          case "thread.archived":
           case "thread.deleted": {
             yield* sessions.close(threadId);
             return;

@@ -91,9 +91,14 @@ export const makeSessionSupervisor = (
           yield* resumeLoop(threadId, attempt + 1);
         });
 
-      /** Boot scan: running/waiting threads and any with a bound session. */
+      /**
+       * Boot scan: running/waiting threads and any with a bound session. An
+       * archived thread is never one of them — `resumeLoop` bails on it
+       * anyway, so counting it here only made the two disagree.
+       */
       const needsAttention = (doc: ThreadDoc): boolean =>
-        doc.status === "running" || doc.status === "waiting" || doc.session !== null;
+        doc.status !== "archived" &&
+        (doc.status === "running" || doc.status === "waiting" || doc.session !== null);
 
       // The scan runs inline during layer build: at real boot the database is
       // the only state that exists, so `running + no session` genuinely means
