@@ -17,7 +17,6 @@ import { cn } from "@OpenAde/ui/lib/utils";
 import type { Effort } from "@OpenAde/contracts/enums";
 import { makeCommandId } from "@OpenAde/contracts/ids";
 import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
-import type { Attachment } from "@OpenAde/contracts/orchestration";
 import type { FileSearchResult } from "@OpenAde/contracts/rpc";
 import {
   detectComposerTrigger,
@@ -42,6 +41,7 @@ import {
 import { TriggerMenu, type TriggerMenuItem } from "@/components/composer/trigger-menu";
 import { useAttachments } from "@/components/composer/use-attachments";
 import { useInterrupt } from "@/components/composer/use-interrupt";
+import { useSendDraft } from "@/components/composer/use-send-draft";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { turnInFlight } from "@/lib/turn";
 import { useKeybindingCommand, useKeybindingFlag } from "@/lib/shortcuts";
@@ -102,6 +102,10 @@ export function Composer({
   // The header and the timeline already read the shared helper.
   const running = doc !== null && turnInFlight(doc);
   const { interrupting, interrupt } = useInterrupt(threadId, running, setError);
+  const { send: sendDraft } = useSendDraft(threadId, attachments, setError, () => {
+    setText("");
+    setMentions([]);
+  });
 
   // Debounce via React — the atom family keys per query, so the deferred value
   // is what actually reaches files.search.
@@ -213,43 +217,13 @@ export function Composer({
     }
   };
 
-  /**
-   * Uploads first, dispatches second: a `File` has no filesystem path, so the
-   * server has to hold the bytes before the command can name them. A failed
-   * upload leaves the draft — and the attachment — exactly where it was.
-   */
+  /** The draft is the composer's; the upload and the dispatch are the hook's. */
   const send = (queue: boolean) => {
     const trimmed = text.trim();
     if (trimmed.length === 0 && attachments.files.length === 0) {
       return;
     }
-    setError(null);
-    void attachments
-      .stage()
-      .then((payload: ReadonlyArray<Attachment>) =>
-        dispatch({
-          commandId: makeCommandId(),
-          createdAt: new Date().toISOString(),
-          type: "thread.turn.start",
-          threadId,
-          text: trimmed,
-          attachments: payload,
-          mentions: [...mentions],
-          queued: queue || running,
-        }).then(
-          (receipt) => {
-            const rejected = receiptError(receipt, "the server rejected the message");
-            if (rejected === null) {
-              setText("");
-              setMentions([]);
-              attachments.clear();
-            }
-            setError(rejected);
-          },
-          () => setError(DISPATCH_UNREACHABLE),
-        ),
-      )
-      .catch(() => setError("the attachment could not be uploaded"));
+    sendDraft({ text: trimmed, mentions, queued: queue || running });
   };
 
   const focusInput = React.useCallback(() => textareaRef.current?.focus(), []);
