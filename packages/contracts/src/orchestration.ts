@@ -117,8 +117,21 @@ export const ThreadSession = Schema.Struct({
 });
 export type ThreadSession = typeof ThreadSession.Type;
 
-/** What the sidebar pill shows. */
-export const ThreadStatus = Schema.Literals(["idle", "running", "waiting", "error", "archived"]);
+/**
+ * What the sidebar pill shows. `deleted` is produced by the client fold when a
+ * `thread.deleted` event arrives for a thread that is open — the server never
+ * sends it, because a deleted thread leaves the read model entirely. It exists
+ * so an open timeline can say the thread is gone instead of quietly claiming
+ * it was archived.
+ */
+export const ThreadStatus = Schema.Literals([
+  "idle",
+  "running",
+  "waiting",
+  "error",
+  "archived",
+  "deleted",
+]);
 export type ThreadStatus = typeof ThreadStatus.Type;
 
 /** What the user chose on a proposed plan. */
