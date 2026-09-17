@@ -213,6 +213,11 @@ export const BrowserState = Schema.Struct({
   url: Schema.NullOr(NonEmptyString),
   title: Schema.NullOr(Schema.String),
   frame: Schema.NullOr(BrowserFrame),
+  /**
+   * The `browser_*` tool currently executing, if one is — the pane's
+   * "agent is driving" indicator. `null` once the call settles.
+   */
+  activeTool: Schema.optional(Schema.NullOr(NonEmptyString)),
   message: Schema.optional(Schema.String),
 });
 export type BrowserState = typeof BrowserState.Type;
@@ -237,6 +242,20 @@ export const BrowserHumanInput = Schema.Union([
     deltaY: Schema.Number,
   }),
   Schema.Struct({ kind: Schema.Literal("navigate"), url: NonEmptyString }),
+  /** Toolbar back/forward/reload — a human gesture that interrupts the agent. */
+  Schema.Struct({
+    kind: Schema.Literal("history"),
+    direction: Schema.Literals(["back", "forward", "reload"]),
+  }),
+  /**
+   * Passive location sync: the pane observed a navigation (whoever caused it)
+   * and reports where the page actually is. Never marks human control.
+   */
+  Schema.Struct({
+    kind: Schema.Literal("location"),
+    url: NonEmptyString,
+    title: Schema.optional(Schema.String),
+  }),
 ]);
 export type BrowserHumanInput = typeof BrowserHumanInput.Type;
 
