@@ -3,7 +3,8 @@
  *
  * Row disclosure lives in a single override map keyed by itemId so expanding a
  * tool row survives virtualization (the row unmounts, the state does not).
- * Dock width persists through localStorage — durable layout, nothing more.
+ * Dock width and the per-thread dock tab persist through localStorage —
+ * durable layout, nothing more.
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
@@ -70,4 +71,72 @@ export const useDockWidth = () => {
     [setWidth],
   );
   return [width, setPersistedWidth] as const;
+};
+
+const DOCK_TAB_KEY = "openade:dock-tab-by-thread";
+
+/**
+ * Which dock tab each thread was last left on. Spec section 11 asks for
+ * per-thread tab state that survives a reload; `?pane=` alone cannot do it,
+ * because the sidebar links carry no search param and a relaunch starts from
+ * the bare route.
+ *
+ * Values are kept as plain strings: the tab union belongs to the dock, and
+ * importing it here would make `state/ui` depend on the component that depends
+ * on it. The caller narrows what it reads back.
+ */
+/** Absent, unparseable or foreign-shaped storage all mean "no memory yet". */
+export const parseDockTabs = (raw: string | null | undefined): Readonly<Record<string, string>> => {
+  if (raw === null || raw === undefined) {
+    return {};
+  }
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return {};
+    }
+    return Object.fromEntries(
+      Object.entries(parsed as Record<string, unknown>).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string",
+      ),
+    );
+  } catch {
+    return {};
+  }
+};
+
+const readDockTabs = (): Readonly<Record<string, string>> => {
+  try {
+    return parseDockTabs(globalThis.localStorage?.getItem(DOCK_TAB_KEY));
+  } catch {
+    // Reading localStorage itself throws when site data is blocked.
+    return {};
+  }
+};
+
+const dockTabByThreadAtom = Atom.make<Readonly<Record<string, string>>>(readDockTabs());
+
+export const useDockTabMemory = () => {
+  const tabs = useAtomValue(dockTabByThreadAtom);
+  const setTabs = useAtomSet(dockTabByThreadAtom);
+  const remember = React.useCallback(
+    (threadId: string, tab: string | null) => {
+      setTabs((current) => {
+        const next = { ...current };
+        if (tab === null) {
+          delete next[threadId];
+        } else {
+          next[threadId] = tab;
+        }
+        try {
+          globalThis.localStorage?.setItem(DOCK_TAB_KEY, JSON.stringify(next));
+        } catch {
+          // localStorage can throw (private mode, quota); the atom still updates.
+        }
+        return next;
+      });
+    },
+    [setTabs],
+  );
+  return [tabs, remember] as const;
 };

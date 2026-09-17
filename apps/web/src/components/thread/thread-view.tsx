@@ -27,13 +27,14 @@ import type * as OpenAdeRpcError from "@OpenAde/contracts/rpc";
 import type * as RpcClientError from "effect/unstable/rpc/RpcClientError";
 
 import { Composer } from "@/components/composer/composer";
-import { RightDock, type DockTab } from "@/components/dock/right-dock";
+import { isDockTab, RightDock, type DockTab } from "@/components/dock/right-dock";
 import { HeaderControls } from "@/components/header-controls";
 import { Timeline } from "@/components/timeline/timeline";
 import { Icon } from "@/lib/icon";
 import { useGlobalKeybindings } from "@/lib/use-keybindings";
 import { cn } from "@/lib/utils";
 import { useConnectionState, useDispatchCommand, useThreadDetail } from "@/state/hooks";
+import { useDockTabMemory } from "@/state/ui";
 
 const STATUS_LABEL: Record<ThreadStatus, string> = {
   idle: "Idle",
@@ -184,8 +185,11 @@ export function ThreadView({
   const navigate = useNavigate();
   const dispatch = useDispatchCommand();
 
+  const [dockTabs, rememberDockTab] = useDockTabMemory();
+
   const setDockTab = React.useCallback(
     (tab: DockTab | null) => {
+      rememberDockTab(threadId, tab);
       void navigate({
         to: "/t/$threadId",
         params: { threadId },
@@ -193,8 +197,23 @@ export function ThreadView({
         replace: true,
       });
     },
-    [navigate, threadId],
+    [navigate, rememberDockTab, threadId],
   );
+
+  // Arriving with no `?pane=` — a sidebar link, a relaunch — restores the tab
+  // this thread was last left on. Closing the dock forgets it, so this cannot
+  // re-open what the user just closed.
+  const remembered = dockTabs[threadId];
+  React.useEffect(() => {
+    if (dockTab === undefined && isDockTab(remembered)) {
+      void navigate({
+        to: "/t/$threadId",
+        params: { threadId },
+        search: { pane: remembered },
+        replace: true,
+      });
+    }
+  }, [dockTab, navigate, remembered, threadId]);
 
   const snapshot = snapshotOf(result);
   const running = snapshot !== null && snapshot.currentTurnId !== null;
