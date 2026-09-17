@@ -4,6 +4,14 @@
  * build cannot read at all.
  */
 
+import {
+  makeCommandId,
+  makeEventId,
+  makeProjectId,
+  makeRequestId,
+  makeThreadId,
+  type ThreadId,
+} from "@OpenAde/contracts/ids";
 import { DEFAULT_KEYBINDINGS, defaultSettings } from "@OpenAde/contracts/settings";
 import { describe, expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
@@ -15,7 +23,10 @@ import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
+import { EventStore, type PlannedEvent } from "../persistence/EventStore";
 import { runMigrations } from "../persistence/Migrations";
+import { OrchestrationEngine } from "../orchestration/Engine";
+import { ReadModelStore } from "../persistence/ReadModels";
 import { PermissionService } from "../permissions/PermissionService";
 import { testLayer as sqliteTestLayer } from "../persistence/Sqlite";
 import { SettingsStore } from "./services";
@@ -25,6 +36,23 @@ const rowJson = (sql: SqlClient.SqlClient, key: string) =>
   sql<{ readonly value_json: string }>`
     SELECT value_json FROM settings WHERE key = ${key}
   `.pipe(Effect.map((rows) => rows[0]?.value_json ?? null));
+
+const NOW = "2026-01-01T00:00:00.000Z";
+
+const planned = (
+  streamId: ThreadId,
+  type: string,
+  payload: Record<string, unknown>,
+): PlannedEvent =>
+  ({
+    eventId: makeEventId(),
+    streamKind: "thread",
+    streamId,
+    occurredAt: NOW,
+    actor: "connector",
+    type,
+    payload,
+  }) as PlannedEvent;
 
 const fixture = (row?: string) =>
   Effect.gen(function* () {
@@ -39,13 +67,24 @@ const fixture = (row?: string) =>
       `;
     }
     const ctx = yield* Layer.build(
-      Layer.mergeAll(SettingsStore.layer, PermissionService.layer).pipe(Layer.provide(sqlite)),
+      Layer.mergeAll(
+        SettingsStore.layer,
+        PermissionService.layer,
+        OrchestrationEngine.layer.pipe(
+          Layer.provide(
+            Layer.mergeAll(EventStore.layer, ReadModelStore.layer).pipe(Layer.provide(sqlite)),
+          ),
+        ),
+      ).pipe(Layer.provide(sqlite)),
     );
     return {
       store: Context.get(ctx, SettingsStore),
       // Built over the same SQLite layer on purpose: that is what makes the two
       // share one `Reactivity`, which is how a rule written here reaches there.
       permissions: Context.get(ctx, PermissionService),
+      // The other writer of `permission_rules`, and the one the approval card
+      // actually goes through.
+      engine: Context.get(ctx, OrchestrationEngine),
       sql,
     };
   });
@@ -167,6 +206,75 @@ describe("SettingsStore", () => {
           pattern: "Shell(git status)",
           decision: "allow",
         });
+
+        const seen = yield* Fiber.join(collected);
+        expect(seen[0]!.permissions).toEqual([]);
+        expect(seen[1]!.permissions.map((rule) => rule.pattern)).toEqual(["Shell(git status)"]);
+      }),
+    ),
+  );
+
+  it.effect("a rule the approval card answers with reaches an open subscriber", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        // The path a real "allow always" takes: the engine writes the rule
+        // inside the dispatch that resolves the approval, `PermissionService`
+        // is never called, and the stored settings document does not change.
+        // Both writers have to announce themselves, and the announcement has to
+        // come after the transaction — a subscriber told to re-read while it is
+        // still open can see a rule the rest of the dispatch then rolls back.
+        const { store, engine } = yield* fixture();
+        const projectId = makeProjectId();
+        const threadId = makeThreadId();
+        const requestId = makeRequestId();
+
+        yield* engine.dispatch({
+          commandId: makeCommandId(),
+          createdAt: NOW,
+          type: "project.create",
+          projectId,
+          name: "settings",
+          workspaceRoot: "/tmp/openade-settings-rules",
+        });
+        yield* engine.dispatch({
+          commandId: makeCommandId(),
+          createdAt: NOW,
+          type: "thread.create",
+          threadId,
+          projectId,
+          settings: { model: "fake/model" },
+        });
+        yield* engine.appendThreadEvents(threadId, [
+          planned(threadId, "thread.approval.opened", {
+            request: {
+              requestId,
+              kind: "command",
+              toolName: "shell_command",
+              input: { command: "git status" },
+              description: "Run git status",
+            },
+          }),
+        ]);
+
+        const subscribed = yield* Deferred.make<void>();
+        const collected = yield* store.changes.pipe(
+          Stream.tap(() => Deferred.succeed(subscribed, undefined)),
+          Stream.take(2),
+          Stream.runCollect,
+          Effect.forkChild,
+        );
+        yield* Deferred.await(subscribed);
+
+        const receipt = yield* engine.dispatch({
+          commandId: makeCommandId(),
+          createdAt: NOW,
+          type: "thread.approval.respond",
+          threadId,
+          requestId,
+          decision: "allow-always",
+          pattern: "Shell(git status)",
+        });
+        expect(receipt.status).toBe("accepted");
 
         const seen = yield* Fiber.join(collected);
         expect(seen[0]!.permissions).toEqual([]);
