@@ -1,0 +1,241 @@
+import { describe, expect, it } from "@effect/vitest";
+import {
+  makeCommandId,
+  makeEventId,
+  makeProjectId,
+  makeItemId,
+  makeThreadId,
+  makeTurnId,
+} from "@OpenAde/contracts/ids";
+import type { Command } from "@OpenAde/contracts/orchestration";
+import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
+import * as Stream from "effect/Stream";
+
+import { OrchestrationEngine } from "./Engine";
+import { engineLayer } from "../../test/layers";
+
+const NOW = "2026-01-02T03:04:05.000Z";
+
+const projectId = makeProjectId();
+const threadId = makeThreadId();
+
+const createProject: Command = {
+  commandId: makeCommandId(),
+  createdAt: NOW,
+  type: "project.create",
+  projectId,
+  name: "demo",
+  workspaceRoot: "/repo",
+};
+
+const createThread: Command = {
+  commandId: makeCommandId(),
+  createdAt: NOW,
+  type: "thread.create",
+  threadId,
+  projectId,
+  settings: { model: "fake/model" },
+};
+
+const turnStart = (text: string, queued = false): Command => ({
+  commandId: makeCommandId(),
+  createdAt: NOW,
+  type: "thread.turn.start",
+  threadId,
+  text,
+  attachments: [],
+  mentions: [],
+  queued,
+});
+
+const ingested = (
+  type: "thread.turn.started" | "thread.turn.completed",
+  payload: Record<string, unknown>,
+) =>
+  ({
+    eventId: makeEventId(),
+    streamKind: "thread" as const,
+    streamId: threadId,
+    occurredAt: NOW,
+    actor: "connector" as const,
+    type,
+    payload,
+  }) as unknown as import("../persistence/EventStore").PlannedEvent;
+
+describe("OrchestrationEngine", () => {
+  it.effect("dispatches commands, projects them, and receipts idempotently", () =>
+    Effect.gen(function* () {
+      const engine = yield* OrchestrationEngine;
+
+      const receipt = yield* engine.dispatch(createProject);
+      expect(receipt.status).toBe("accepted");
+      expect(receipt.lastSequence).toBe(1);
+
+      // Same commandId → the stored receipt, not a second append.
+      const again = yield* engine.dispatch(createProject);
+      expect(again).toEqual(receipt);
+
+      yield* engine.dispatch(createThread);
+      yield* engine.dispatch(turnStart("hello"));
+
+      const projects = yield* engine.listProjects();
+      expect(projects).toHaveLength(1);
+      expect(projects[0]?.name).toBe("demo");
+      expect(projects[0]?.threadCount).toBe(1);
+
+      const detail = yield* engine.threadDetail(threadId);
+      expect(detail?.status).toBe("running");
+      expect(detail?.currentTurnId).not.toBeNull();
+    }).pipe(Effect.provide(engineLayer())),
+  );
+
+  it.effect("rejects invalid commands and receipts the rejection", () =>
+    Effect.gen(function* () {
+      const engine = yield* OrchestrationEngine;
+      const bad: Command = {
+        commandId: makeCommandId(),
+        createdAt: NOW,
+        type: "thread.create",
+        threadId: makeThreadId(),
+        projectId: makeProjectId(), // never created
+        settings: { model: "fake/model" },
+      };
+      const receipt = yield* engine.dispatch(bad);
+      expect(receipt.status).toBe("rejected");
+      expect(receipt.reason).toContain("does not exist");
+
+      const again = yield* engine.dispatch(bad);
+      expect(again).toEqual(receipt);
+    }).pipe(Effect.provide(engineLayer())),
+  );
+
+  it.effect("streams snapshot → synchronized → live events to subscribers", () =>
+    Effect.gen(function* () {
+      const engine = yield* OrchestrationEngine;
+      yield* engine.dispatch(createProject);
+      yield* engine.dispatch(createThread);
+
+      const stream = yield* engine.subscribeThread(threadId, { coalesceWindow: 0 });
+      const fiber = yield* stream.pipe(Stream.take(4), Stream.runCollect, Effect.forkChild);
+
+      yield* engine.dispatch(turnStart("hello"));
+      yield* engine.appendThreadEvents(threadId, [
+        ingested("thread.turn.completed", {
+          turnId: makeTurnId(),
+          stopReason: "end_turn",
+        }),
+      ]);
+
+      const items = yield* Fiber.join(fiber);
+      expect(items[0]?.kind).toBe("snapshot");
+      expect(items[1]?.kind).toBe("synchronized");
+      expect(items[2]?.kind).toBe("event");
+      expect(items[3]?.kind).toBe("event");
+    }).pipe(Effect.provide(engineLayer())),
+  );
+
+  it.effect("replays from afterSequence for reconnecting subscribers", () =>
+    Effect.gen(function* () {
+      const engine = yield* OrchestrationEngine;
+      yield* engine.dispatch(createProject);
+      yield* engine.dispatch(createThread);
+      const turn = yield* engine.dispatch(turnStart("hello"));
+      const cutoff = turn.lastSequence;
+
+      yield* engine.appendThreadEvents(threadId, [
+        ingested("thread.turn.started", { turnId: makeTurnId() }),
+        ingested("thread.turn.completed", {
+          turnId: makeTurnId(),
+          stopReason: "end_turn",
+        }),
+      ]);
+
+      const stream = yield* engine.subscribeThread(threadId, {
+        afterSequence: cutoff,
+        coalesceWindow: 0,
+      });
+      const list = yield* stream.pipe(Stream.take(3), Stream.runCollect);
+      expect(list[0]?.kind).toBe("event");
+      expect(list[1]?.kind).toBe("event");
+      expect(list[2]?.kind).toBe("synchronized");
+    }).pipe(Effect.provide(engineLayer())),
+  );
+
+  it.effect("fails an over-budget subscription with resnapshot-required", () =>
+    Effect.gen(function* () {
+      const engine = yield* OrchestrationEngine;
+      yield* engine.dispatch(createProject);
+      yield* engine.dispatch(createThread);
+
+      // Tiny budget: 3 retained items max.
+      const stream = yield* engine.subscribeThread(threadId, {
+        coalesceWindow: 0,
+        maxItems: 3,
+      });
+
+      // Produce before consuming: nothing drains the buffer, so the budget
+      // fills deterministically.
+      for (let i = 0; i < 8; i++) {
+        yield* engine.appendThreadEvents(threadId, [
+          {
+            eventId: makeEventId(),
+            streamKind: "thread",
+            streamId: threadId,
+            occurredAt: NOW,
+            actor: "connector",
+            type: "thread.item.upserted",
+            payload: {
+              item: {
+                itemId: makeItemId(),
+                kind: "assistant_message",
+                status: "completed",
+                text: `chunk ${i}`,
+              },
+            },
+          },
+        ]);
+      }
+
+      const collected = yield* stream.pipe(Stream.runCollect);
+      const items = collected;
+      expect(items.at(-1)?.kind).toBe("resnapshot-required");
+
+      // Resubscribing recovers from the last valid position.
+      const replay = yield* engine.subscribeThread(threadId, {
+        afterSequence: 1,
+        coalesceWindow: 0,
+        maxItems: 100,
+      });
+      const list = yield* replay.pipe(
+        Stream.takeWhile((item) => item.kind !== "synchronized"),
+        Stream.runCollect,
+      );
+      expect(list.length).toBeGreaterThan(0);
+      expect(list.every((item) => item.kind === "event")).toBe(true);
+    }).pipe(Effect.provide(engineLayer())),
+  );
+
+  it.effect("projects the thread list and publishes upserts", () =>
+    Effect.gen(function* () {
+      const engine = yield* OrchestrationEngine;
+      yield* engine.dispatch(createProject);
+      yield* engine.dispatch(createThread);
+
+      const stream = yield* engine.subscribeThreadList({ coalesceWindow: 0 });
+      const fiber = yield* stream.pipe(Stream.take(3), Stream.runCollect, Effect.forkChild);
+
+      yield* engine.dispatch(turnStart("hi"));
+
+      const items = yield* Fiber.join(fiber);
+      expect(items[0]?.kind).toBe("snapshot");
+      const first = items[0];
+      if (first?.kind === "snapshot") {
+        expect(first.threads).toHaveLength(1);
+        expect(first.threads[0]?.title).toBe("New thread");
+      }
+      expect(items[1]?.kind).toBe("synchronized");
+      expect(items[2]?.kind).toBe("upserted");
+    }).pipe(Effect.provide(engineLayer())),
+  );
+});
