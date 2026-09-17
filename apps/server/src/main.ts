@@ -101,19 +101,6 @@ const main = Effect.gen(function* () {
     Layer.provide(Layer.mergeAll(mcp, permissions)),
   );
 
-  // W6: browser sessions + the MCP gateway + the connector services bundle.
-  // `browser` is shared by the RPC handlers and the gateway (the layer graph
-  // memoizes it, so both see the one session registry); HttpServer flows in
-  // from the outermost provide for the attach-marker and endpoint URLs.
-  const permissions = PermissionService.layer.pipe(Layer.provide(sqlite));
-  const browser = browserServiceLayer.pipe(
-    Layer.provide(Layer.mergeAll(engine, permissions, AgentBrowser.layer)),
-  );
-  const mcp = McpGateway.layer.pipe(Layer.provide(Layer.mergeAll(browser, engine, manager)));
-  const sessionServices = SessionServices.layer.pipe(
-    Layer.provide(Layer.mergeAll(mcp, permissions)),
-  );
-
   const services = Layer.mergeAll(
     Layer.succeed(ServerIdentity, { serverInstanceId }),
     Layer.succeed(ServerToken, { token }),
