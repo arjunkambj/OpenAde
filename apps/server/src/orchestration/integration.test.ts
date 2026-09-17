@@ -442,6 +442,50 @@ describe("orchestration with a fake connector", () => {
     }),
   );
 
+  it.effect("archiving a thread mid-turn settles the turn nothing can finish", () =>
+    Effect.gen(function* () {
+      const { instance } = yield* openFake({ script: approvalTurnScript });
+      yield* Effect.gen(function* () {
+        const engine = yield* OrchestrationEngine;
+        yield* engine.dispatch(createProject);
+        yield* engine.dispatch(createThread);
+
+        // The script holds its `turn.completed` back until the approval is
+        // answered, so the turn is genuinely in flight.
+        const opened = yield* awaitEvent(engine, isType("thread.approval.opened"));
+        yield* engine.dispatch(turnStart("npm run build"));
+        yield* Fiber.join(opened);
+        expect((yield* engine.threadDoc(threadId))?.currentTurn).not.toBeNull();
+
+        const completed = yield* awaitEvent(engine, isType("thread.turn.completed"));
+        yield* Effect.yieldNow;
+        yield* engine.dispatch({
+          commandId: makeCommandId(),
+          createdAt: NOW,
+          type: "thread.archive",
+          threadId,
+        });
+
+        // Killing the connector leaves nobody to write the completion, so the
+        // thread would keep `currentTurn` for good — and the supervisor does
+        // not resume a session that was stopped on purpose.
+        const entry = yield* Fiber.join(completed).pipe(Effect.timeout("5 seconds"));
+        expect(Option.isSome(entry)).toBe(true);
+        if (Option.isSome(entry)) {
+          expect((entry.value.payload as { readonly stopReason: string }).stopReason).toBe(
+            "interrupted",
+          );
+        }
+
+        const doc = yield* engine.threadDoc(threadId);
+        expect(doc?.currentTurn).toBeNull();
+        expect(doc?.interrupting).toBe(false);
+        // And settling the turn did not put the thread back in the sidebar.
+        expect(doc?.status).toBe("archived");
+      }).pipe(Effect.provide(stackLayer({ instance })));
+    }),
+  );
+
   it.effect("removing a project deletes its threads and stops their sessions", () =>
     Effect.gen(function* () {
       const { fake, instance } = yield* openFake();

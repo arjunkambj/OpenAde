@@ -201,11 +201,13 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
     case "thread.turn.started":
       return { ...next, status: "running" };
     case "thread.turn.completed":
+      // An archived thread stays archived: the settlement of a turn its
+      // connector was stopped mid-answer must not put it back in the sidebar.
       return {
         ...next,
         currentTurn: null,
         interrupting: false,
-        status: waitingOr(doc, "idle"),
+        status: doc.status === "archived" ? "archived" : waitingOr(doc, "idle"),
       };
     case "thread.turn.interrupted":
       // The interrupt is a request, not the end of the turn: the connector
