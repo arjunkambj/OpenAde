@@ -18,12 +18,15 @@ import { AppSidebar } from "@/components/sidebar/app-sidebar";
 import { useGlobalKeybindings } from "@/lib/use-keybindings";
 
 function HomeKeybindings() {
-  const { toggle } = useSearch();
+  const { setOpen, toggle } = useSearch();
   const navigate = useNavigate();
 
   useGlobalKeybindings({
     "commandPalette.toggle": toggle,
+    // The palette is a modal dialog over the route, so navigating without
+    // closing it leaves the user on the start screen behind an overlay.
     "thread.new": () => {
+      setOpen(false);
       void navigate({ to: "/" });
     },
   });
