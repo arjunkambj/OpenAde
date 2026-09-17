@@ -1,0 +1,107 @@
+/**
+ * Window creation, persisted geometry, the `webviewTag` partition guard for
+ * the browser pane, and the external-link policy.
+ */
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+import { BrowserWindow, app, shell } from "electron";
+
+import { APP_URL } from "./protocol";
+import { titleBarStyle } from "./platform";
+
+const MIN_WINDOW_WIDTH = 256;
+const MIN_WINDOW_HEIGHT = 248;
+const DEV_SERVER_URL = process.env.ELECTRON_RENDERER_URL;
+
+interface WindowState {
+  readonly x?: number;
+  readonly y?: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+const statePath = () => join(app.getPath("userData"), "window-state.json");
+
+const loadWindowState = (): WindowState => {
+  try {
+    const parsed = JSON.parse(readFileSync(statePath(), "utf8")) as WindowState;
+    return {
+      ...(typeof parsed.x === "number" ? { x: parsed.x } : {}),
+      ...(typeof parsed.y === "number" ? { y: parsed.y } : {}),
+      width: typeof parsed.width === "number" ? parsed.width : 1280,
+      height: typeof parsed.height === "number" ? parsed.height : 820,
+    };
+  } catch {
+    return { width: 1280, height: 820 };
+  }
+};
+
+const saveWindowState = (win: BrowserWindow) => {
+  if (win.isMinimized() || win.isFullScreen()) return;
+  const bounds = win.getBounds();
+  try {
+    writeFileSync(statePath(), JSON.stringify(bounds));
+  } catch {
+    // best-effort persistence
+  }
+};
+
+/** Only `persist:thread-*` partitions may attach — the browser pane's channel. */
+const guardWebviewAttach = (contents: Electron.WebContents) => {
+  contents.on("will-attach-webview", (event, _preferences, params) => {
+    const partition = params["partition"];
+    if (typeof partition !== "string" || !partition.startsWith("persist:thread-")) {
+      event.preventDefault();
+    }
+  });
+};
+
+const waitForDevServer = async (url: string): Promise<boolean> => {
+  for (let i = 0; i < 120; i++) {
+    try {
+      await fetch(url);
+      return true;
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  }
+  return false;
+};
+
+export async function createWindow(): Promise<BrowserWindow> {
+  const state = loadWindowState();
+  const win = new BrowserWindow({
+    title: "OpenAde",
+    ...state,
+    minWidth: MIN_WINDOW_WIDTH,
+    minHeight: MIN_WINDOW_HEIGHT,
+    show: false,
+    titleBarStyle: titleBarStyle(),
+    webPreferences: {
+      preload: join(__dirname, "..", "preload", "index.cjs"),
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+      webviewTag: true,
+    },
+  });
+
+  win.once("ready-to-show", () => win.show());
+  win.on("close", () => saveWindowState(win));
+
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith("https://") || url.startsWith("http://")) {
+      void shell.openExternal(url);
+    }
+    return { action: "deny" };
+  });
+  guardWebviewAttach(win.webContents);
+
+  const target =
+    DEV_SERVER_URL !== undefined && (await waitForDevServer(DEV_SERVER_URL))
+      ? DEV_SERVER_URL
+      : APP_URL;
+  await win.loadURL(target);
+  return win;
+}
