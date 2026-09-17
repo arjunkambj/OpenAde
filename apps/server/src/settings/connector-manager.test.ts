@@ -16,6 +16,7 @@ import {
   type ConnectorInstanceId,
 } from "@OpenAde/contracts/ids";
 import type { ConnectorSummary } from "@OpenAde/contracts/rpc";
+import { OPENADE_HOME_ENV } from "@OpenAde/shared/paths";
 import type { AnyConnectorDefinition, ConnectorServices } from "@OpenAde/connector-sdk/definition";
 import { eraseConnectorDefinition, ProbeFailed } from "@OpenAde/connector-sdk/definition";
 import { makeRegistry, type ConnectorRegistry } from "@OpenAde/connector-sdk/registry";
@@ -67,6 +68,9 @@ const fixture = (
   wrap: (definition: AnyConnectorDefinition) => AnyConnectorDefinition = (definition) => definition,
 ) =>
   Effect.gen(function* () {
+    // Anything the host writes — the attachments directory `install` creates —
+    // belongs to this test, never to the developer's real `~/.openade`.
+    yield* isolatedHome;
     const sqliteContext = yield* Layer.build(makeSqliteLayer());
     const sqlite = Layer.succeedContext(sqliteContext);
     yield* runMigrations.pipe(Effect.provide(sqlite));
@@ -102,6 +106,23 @@ const fixture = (
       sql: Context.get(sqliteContext, SqlClientTag.SqlClient),
     } satisfies Fixture;
   });
+
+/** `OPENADE_HOME` in a temp directory for the calling scope, then back. */
+const isolatedHome = Effect.acquireRelease(
+  Effect.sync(() => {
+    const previous = process.env[OPENADE_HOME_ENV];
+    process.env[OPENADE_HOME_ENV] = mkdtempSync(nodePath.join(tmpdir(), "openade-host-"));
+    return previous;
+  }),
+  (previous) =>
+    Effect.sync(() => {
+      if (previous === undefined) {
+        delete process.env[OPENADE_HOME_ENV];
+      } else {
+        process.env[OPENADE_HOME_ENV] = previous;
+      }
+    }),
+);
 
 const withFixture = <A, E>(
   run: (fixture: Fixture) => Effect.Effect<A, E>,

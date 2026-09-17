@@ -62,8 +62,14 @@ export class ConnectorHost extends Context.Service<
 
       // Connectors are told to write attachments here; they should not each
       // have to create it, and a connector that cannot is a failed turn.
+      //
+      // Created by `install` rather than here. This layer is built by every
+      // test that wires the manager graph, and `configPath` resolves against
+      // the process's `OPENADE_HOME` — so creating it at build time made a
+      // plain `vitest run` write into the developer's real `~/.openade`.
+      // `install` is the booted app saying it is about to run turns, which is
+      // the first moment a connector can be asked for the directory.
       const attachmentsDir = configPath(["attachments"]);
-      yield* Effect.promise(() => mkdir(attachmentsDir, { recursive: true })).pipe(Effect.ignore);
 
       const services: ConnectorServices = {
         mcpEndpoint: (threadId: ThreadId) =>
@@ -111,7 +117,11 @@ export class ConnectorHost extends Context.Service<
 
       return ConnectorHost.of({
         services,
-        install: (real) => Ref.set(installed, real),
+        install: (real) =>
+          Effect.andThen(
+            Effect.promise(() => mkdir(attachmentsDir, { recursive: true })).pipe(Effect.ignore),
+            Ref.set(installed, real),
+          ),
       });
     }),
   );

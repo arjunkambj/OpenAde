@@ -6,8 +6,13 @@
  * holding the *same* services object sees the real endpoints afterwards.
  */
 
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { makeRequestId, makeThreadId } from "@OpenAde/contracts/ids";
 import type { ApprovalRequest } from "@OpenAde/contracts/runtime";
+import { OPENADE_HOME_ENV } from "@OpenAde/shared/paths";
 import { describe, expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -24,7 +29,30 @@ const request: ApprovalRequest = {
   description: "run something",
 };
 
-const host = Effect.map(Layer.build(ConnectorHost.layer), (ctx) => Context.get(ctx, ConnectorHost));
+/**
+ * `install` creates the attachments directory under `OPENADE_HOME`, so every
+ * host here gets a home of its own — a plain `vitest run` must never write into
+ * the developer's real `~/.openade`.
+ */
+const host = Effect.acquireRelease(
+  Effect.sync(() => {
+    const previous = process.env[OPENADE_HOME_ENV];
+    process.env[OPENADE_HOME_ENV] = mkdtempSync(join(tmpdir(), "openade-host-"));
+    return previous;
+  }),
+  (previous) =>
+    Effect.sync(() => {
+      if (previous === undefined) {
+        delete process.env[OPENADE_HOME_ENV];
+      } else {
+        process.env[OPENADE_HOME_ENV] = previous;
+      }
+    }),
+).pipe(
+  Effect.andThen(
+    Effect.map(Layer.build(ConnectorHost.layer), (ctx) => Context.get(ctx, ConnectorHost)),
+  ),
+);
 
 describe("ConnectorHost", () => {
   it.effect("before install an endpoint is a defect and every decision is prompt", () =>
