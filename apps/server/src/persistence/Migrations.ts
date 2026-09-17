@@ -9,6 +9,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import type { MigrationError } from "effect/unstable/sql/Migrator";
 import * as Migrator from "effect/unstable/sql/Migrator";
 import type * as SqlClient from "effect/unstable/sql/SqlClient";
@@ -36,3 +37,12 @@ export const runMigrations: Effect.Effect<
   loader: Migrator.fromRecord(migrations),
   table: "schema_migrations",
 });
+
+/**
+ * The migrations as a layer. Every layer that reads a table provides this, so
+ * the graph itself says "the schema exists first": building a store over a
+ * client whose tables do not exist used to fail at the first query instead,
+ * and only `OrchestrationEngine.layer` ran the migrations at all.
+ */
+export const layer: Layer.Layer<never, MigrationError | SqlError, SqlClient.SqlClient> =
+  Layer.effectDiscard(runMigrations);

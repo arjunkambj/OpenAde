@@ -29,6 +29,8 @@ import * as Layer from "effect/Layer";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import type { SqlError } from "effect/unstable/sql/SqlError";
 
+import { layer as migrationsLayer } from "../persistence/Migrations";
+
 import { parsePattern, matchPattern, requestCommand, requestPath } from "./patterns";
 import { commandTouchesSensitivePath, isSensitivePath } from "./sensitivePaths";
 
@@ -49,6 +51,15 @@ const touchesSensitivePath = (request: ApprovalRequest): boolean => {
 };
 
 export type PermissionDecision = "allow" | "prompt" | "deny";
+
+interface RuleRow {
+  readonly scope: string;
+  readonly project_id: string;
+  readonly thread_id: string;
+  readonly pattern: string;
+  readonly decision: string;
+  readonly created_at: string;
+}
 
 export interface DecideInput {
   readonly request: ApprovalRequest;
@@ -126,45 +137,45 @@ export class PermissionService extends Context.Service<
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient;
 
+      const toRule = (row: RuleRow): PermissionRule => ({
+        scope: row.scope as PermissionScope,
+        ...(row.project_id === "" ? {} : { projectId: row.project_id as ProjectId }),
+        ...(row.thread_id === "" ? {} : { threadId: row.thread_id as ThreadId }),
+        pattern: row.pattern,
+        decision: row.decision as "allow" | "deny",
+        createdAt: row.created_at,
+      });
+
+      /** The listing API: an argument given is an exact filter. */
       const rules = (scope?: PermissionScope, projectId?: ProjectId, threadId?: ThreadId) =>
-        sql<{
-          readonly scope: string;
-          readonly project_id: string;
-          readonly thread_id: string;
-          readonly pattern: string;
-          readonly decision: string;
-          readonly created_at: string;
-        }>`
+        sql<RuleRow>`
           SELECT scope, project_id, thread_id, pattern, decision, created_at
           FROM permission_rules
+          WHERE (${scope ?? ""} = '' OR scope = ${scope ?? ""})
+            AND (${projectId ?? ""} = '' OR project_id = ${projectId ?? ""})
+            AND (${threadId ?? ""} = '' OR thread_id = ${threadId ?? ""})
           ORDER BY rule_id
-        `.pipe(
-          Effect.map((rows) =>
-            rows
-              .map((row): PermissionRule => ({
-                scope: row.scope as PermissionScope,
-                ...(row.project_id === "" ? {} : { projectId: row.project_id as ProjectId }),
-                ...(row.thread_id === "" ? {} : { threadId: row.thread_id as ThreadId }),
-                pattern: row.pattern,
-                decision: row.decision as "allow" | "deny",
-                createdAt: row.created_at,
-              }))
-              .filter(
-                (rule) =>
-                  (scope === undefined || rule.scope === scope) &&
-                  (projectId === undefined ||
-                    rule.projectId === undefined ||
-                    rule.projectId === projectId) &&
-                  (threadId === undefined ||
-                    rule.threadId === undefined ||
-                    rule.threadId === threadId),
-              ),
-          ),
-        );
+        `.pipe(Effect.map((rows) => rows.map(toRule)));
+
+      /**
+       * The rules whose scope covers one asking thread: global rules, plus the
+       * rules of exactly this project and exactly this thread. A rule that
+       * names a project or a thread the caller did not supply does not apply —
+       * the old predicate kept it, so a decide() without a thread id inherited
+       * every other thread's "allow for this session".
+       */
+      const applicableRules = (projectId?: ProjectId, threadId?: ThreadId) =>
+        sql<RuleRow>`
+          SELECT scope, project_id, thread_id, pattern, decision, created_at
+          FROM permission_rules
+          WHERE (project_id = '' OR project_id = ${projectId ?? ""})
+            AND (thread_id = '' OR thread_id = ${threadId ?? ""})
+          ORDER BY rule_id
+        `.pipe(Effect.map((rows) => rows.map(toRule)));
 
       return PermissionService.of({
         decide: (input) =>
-          Effect.map(rules(undefined, input.projectId, input.threadId), (applicable) =>
+          Effect.map(applicableRules(input.projectId, input.threadId), (applicable) =>
             decidePermission({
               request: input.request,
               runtimeMode: input.runtimeMode,
@@ -187,5 +198,5 @@ export class PermissionService extends Context.Service<
           `.pipe(Effect.asVoid),
       });
     }),
-  );
+  ).pipe(Layer.provide(migrationsLayer));
 }

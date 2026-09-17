@@ -40,7 +40,7 @@ import * as SqlClient from "effect/unstable/sql/SqlClient";
 import type { SqlError } from "effect/unstable/sql/SqlError";
 
 import { EventStore, type ConcurrencyConflict, type PlannedEvent } from "../persistence/EventStore";
-import { runMigrations } from "../persistence/Migrations";
+import { layer as migrationsLayer } from "../persistence/Migrations";
 import { ReadModelStore } from "../persistence/ReadModels";
 import {
   foldProject,
@@ -154,7 +154,6 @@ export class OrchestrationEngine extends Context.Service<
       const sql = yield* SqlClient.SqlClient;
       const store = yield* EventStore;
       const readModels = yield* ReadModelStore;
-      yield* runMigrations;
 
       // One writer: every mutation — command or reactor write — serialises here,
       // and the transaction below makes the mutation itself atomic.
@@ -477,5 +476,5 @@ export class OrchestrationEngine extends Context.Service<
         subscribeCommands: PubSub.subscribe(commandsPubSub),
       });
     }),
-  );
+  ).pipe(Layer.provide(migrationsLayer));
 }

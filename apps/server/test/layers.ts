@@ -26,7 +26,7 @@ import { layer as sqliteFileLayer, testLayer as sqliteTestLayer } from "../src/p
 
 export type PersistenceLayer = Layer.Layer<
   import("effect/unstable/sql/SqlClient").SqlClient | EventStore | ReadModelStore,
-  SqlError
+  SqlError | MigrationError
 >;
 
 /**

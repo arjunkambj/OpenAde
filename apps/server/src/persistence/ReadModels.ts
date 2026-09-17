@@ -15,6 +15,8 @@ import * as Layer from "effect/Layer";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import type { SqlError } from "effect/unstable/sql/SqlError";
 
+import { layer as migrationsLayer } from "./Migrations";
+
 import {
   projectSummaryOf,
   threadSummaryOf,
@@ -201,5 +203,5 @@ export class ReadModelStore extends Context.Service<
         setWatermark,
       });
     }),
-  );
+  ).pipe(Layer.provide(migrationsLayer));
 }

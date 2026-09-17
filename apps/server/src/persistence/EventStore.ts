@@ -22,6 +22,8 @@ import * as Schema from "effect/Schema";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import type { SqlError } from "effect/unstable/sql/SqlError";
 
+import { layer as migrationsLayer } from "./Migrations";
+
 /** `Omit` that distributes over a union, so each variant keeps its payload. */
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
 
@@ -237,5 +239,5 @@ export class EventStore extends Context.Service<
         recordReceipt,
       });
     }),
-  );
+  ).pipe(Layer.provide(migrationsLayer));
 }
