@@ -280,12 +280,7 @@ export class OrchestrationEngine extends Context.Service<
           ON CONFLICT (scope, project_id, thread_id, pattern) DO UPDATE SET
             decision = excluded.decision,
             created_at = excluded.created_at
-        `.pipe(
-          Effect.asVoid,
-          // "Allow always" writes here, behind the settings document's back;
-          // the signal is what lets an open settings page see the new rule.
-          Effect.tap(() => reactivity.invalidate([PERMISSION_RULES_KEY])),
-        );
+        `.pipe(Effect.asVoid);
 
       /** Writes the projections a set of appended events imply. */
       const applyProjection = (
@@ -344,7 +339,7 @@ export class OrchestrationEngine extends Context.Service<
               return existing;
             }
             const env = yield* mintEnv;
-            const { receipt, appended } = yield* sql.withTransaction(
+            const { receipt, appended, wroteRule } = yield* sql.withTransaction(
               Effect.gen(function* () {
                 const { streamKind, streamId } = streamOf(command);
                 const streamEvents = yield* store.loadStream(streamKind, streamId);
@@ -363,7 +358,7 @@ export class OrchestrationEngine extends Context.Service<
                     lastSequence,
                   };
                   yield* store.recordReceipt(rejectedReceipt, env.now);
-                  return { receipt: rejectedReceipt, appended: [] };
+                  return { receipt: rejectedReceipt, appended: [], wroteRule: false };
                 }
                 const { appended, last } = yield* commit(
                   streamKind,
@@ -380,10 +375,22 @@ export class OrchestrationEngine extends Context.Service<
                   lastSequence: last,
                 };
                 yield* store.recordReceipt(acceptedReceipt, env.now);
-                return { receipt: acceptedReceipt, appended };
+                return {
+                  receipt: acceptedReceipt,
+                  appended,
+                  wroteRule: result.permissionRule !== undefined,
+                };
               }),
             );
             yield* PubSub.publishAll(eventsPubSub, appended);
+            // "Allow always" writes a rule behind the settings document's back,
+            // and this is what lets an open settings page re-read it. It fires
+            // after the transaction, like every other announcement here: a
+            // subscriber told to re-read mid-transaction can see a row that the
+            // rest of the dispatch then rolls back, and nothing would correct it.
+            if (wroteRule) {
+              yield* reactivity.invalidate([PERMISSION_RULES_KEY]);
+            }
             if (receipt.status === "accepted") {
               yield* PubSub.publish(commandsPubSub, { command, receipt });
             }
