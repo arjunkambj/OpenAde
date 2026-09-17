@@ -12,7 +12,15 @@
  * Until `install` runs, asking for an endpoint is a defect naming the missing
  * piece — a crash a connector can report — and every permission decision is
  * `prompt`, which is the only safe default.
+ *
+ * This is the *only* `ConnectorServices` the server builds. A second bundle
+ * used to exist beside it, and the two disagreed about which endpoints were
+ * real; the one an instance was handed then depended on which code path opened
+ * it. Everything a connector is lent — endpoints, permissions, the attachments
+ * directory, the logger and the clock — is assembled here and nowhere else.
  */
+
+import { mkdir } from "node:fs/promises";
 
 import type { ThreadId } from "@OpenAde/contracts/ids";
 import type { ConnectorLogLevel, ConnectorServices } from "@OpenAde/connector-sdk/definition";
@@ -52,6 +60,11 @@ export class ConnectorHost extends Context.Service<
       const installed = yield* Ref.make<HostEndpoints | null>(null);
       const endpoints = Ref.get(installed);
 
+      // Connectors are told to write attachments here; they should not each
+      // have to create it, and a connector that cannot is a failed turn.
+      const attachmentsDir = configPath(["attachments"]);
+      yield* Effect.promise(() => mkdir(attachmentsDir, { recursive: true })).pipe(Effect.ignore);
+
       const services: ConnectorServices = {
         mcpEndpoint: (threadId: ThreadId) =>
           Effect.flatMap(endpoints, (real) =>
@@ -82,7 +95,7 @@ export class ConnectorHost extends Context.Service<
               real === null ? Effect.succeed("prompt" as const) : real.permissions.decide(input),
             ),
         },
-        attachmentsDir: configPath(["attachments"]),
+        attachmentsDir,
         logger: {
           log: (level: ConnectorLogLevel, message: string, data) =>
             level === "debug"

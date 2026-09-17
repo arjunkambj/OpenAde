@@ -119,11 +119,6 @@ export class McpGateway extends Context.Service<
   {
     /** Mint a fresh bearer for the thread and hand back the endpoint. */
     readonly endpoint: (threadId: ThreadId) => Effect.Effect<ConnectorEndpoint>;
-    /**
-     * A bearer without the `/mcp` URL — sibling loopback endpoints (the hook
-     * bridge) mint through the same registry so revocation stays one place.
-     */
-    readonly issueBearer: (threadId: ThreadId) => Effect.Effect<string>;
     /** Drop every bearer minted for the thread — dead requests 401. */
     readonly revoke: (threadId: ThreadId) => Effect.Effect<void>;
     /** bearer → threadId for the route layer. */
@@ -300,7 +295,6 @@ export class McpGateway extends Context.Service<
 
       return McpGateway.of({
         endpoint,
-        issueBearer,
         revoke,
         resolve: (token) =>
           Effect.map(Ref.get(tokens), (map) => Option.fromNullishOr(map.get(token))),
