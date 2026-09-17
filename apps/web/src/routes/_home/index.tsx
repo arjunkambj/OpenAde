@@ -13,7 +13,10 @@ function HomePage() {
   const atoms = useAppAtoms();
   const projects = useAtomValue(atoms.projectsAtom);
   // A fresh install has nothing to chat in — the welcome flow creates one.
-  if (AsyncResult.isSuccess(projects) && projects.value.length === 0) {
+  // `projectsAtom` is seeded with `[]`, so it reads as a successful empty list
+  // from the first frame: without the `waiting` check every cold load bounced
+  // to /welcome before `projects.list` had answered, projects or not.
+  if (AsyncResult.isSuccess(projects) && !projects.waiting && projects.value.length === 0) {
     return <Navigate to="/welcome" />;
   }
   return <StartThread />;
