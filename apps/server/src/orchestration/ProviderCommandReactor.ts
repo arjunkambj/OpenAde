@@ -15,6 +15,7 @@
  *   the running session.
  * - `turn.completed` → drain the queue: dequeue the head, dispatch it as a new
  *   turn.
+ * - `project.removed` → dispatch `thread.delete` for every thread under it.
  * - `thread.deleted` → close the session.
  *
  * A failing side effect records `thread.error` (and a synthetic
@@ -23,7 +24,7 @@
  */
 
 import { makeCommandId, makeEventId } from "@OpenAde/contracts/ids";
-import type { RequestId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
+import type { ProjectId, RequestId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
 import type { ApprovalDecision } from "@OpenAde/contracts/enums";
 import type {
   Attachment,
@@ -109,8 +110,30 @@ export const ProviderCommandReactor = Layer.effectDiscard(
         yield* engine.appendThreadEvents(threadId, planned);
       });
 
+    const dispatchDelete = (threadId: ThreadId) =>
+      engine.dispatch({
+        commandId: makeCommandId(),
+        createdAt: new Date().toISOString(),
+        type: "thread.delete",
+        threadId,
+      });
+
     const react = (event: OrchestrationEvent): Effect.Effect<void> =>
       Effect.gen(function* () {
+        // A removed project takes its threads with it, one `thread.delete` at
+        // a time: that is the only path that closes their sessions and prunes
+        // their checkpoints. Deleting the rows wholesale would leave connector
+        // processes running against a project that no longer exists.
+        if (event.streamKind === "project" && event.type === "project.removed") {
+          const projectId = (event.payload as Record<string, unknown>).projectId as ProjectId;
+          const docs = yield* engine.threadDocs;
+          for (const doc of docs) {
+            if (doc.projectId === projectId && !doc.deleted) {
+              yield* dispatchDelete(doc.threadId);
+            }
+          }
+          return;
+        }
         if (event.streamKind !== "thread") {
           return;
         }

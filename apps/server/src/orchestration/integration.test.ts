@@ -398,6 +398,49 @@ describe("orchestration with a fake connector", () => {
     }),
   );
 
+  it.effect("removing a project deletes its threads and stops their sessions", () =>
+    Effect.gen(function* () {
+      const { fake, instance } = yield* openFake();
+      yield* Effect.gen(function* () {
+        const engine = yield* OrchestrationEngine;
+        const sessions = yield* SessionManager;
+        yield* engine.dispatch(createProject);
+        yield* engine.dispatch(createThread);
+
+        const bound = yield* awaitEvent(engine, isType("thread.session.bound"));
+        yield* engine.dispatch(turnStart("hello"));
+        yield* Fiber.join(bound);
+
+        const ended = yield* sessions.lifecycle.pipe(
+          Stream.filter((entry) => entry.kind === "ended"),
+          Stream.runHead,
+          Effect.forkChild,
+        );
+        const deleted = yield* awaitEvent(engine, isType("thread.deleted"));
+        yield* Effect.yieldNow;
+        yield* engine.dispatch({
+          commandId: makeCommandId(),
+          createdAt: NOW,
+          type: "project.remove",
+          projectId,
+        });
+
+        // The thread stream gets its own `thread.deleted` — without it the
+        // connector keeps running with nothing attached, and every event it
+        // still produces is dropped for want of a projection row.
+        expect(Option.isSome(yield* Fiber.join(deleted))).toBe(true);
+        const entry = yield* Fiber.join(ended);
+        expect(Option.isSome(entry)).toBe(true);
+        if (Option.isSome(entry) && entry.value.kind === "ended") {
+          expect(entry.value.reason).toBe("stopped");
+        }
+        expect(yield* engine.threadDoc(threadId)).toBeNull();
+      }).pipe(Effect.provide(stackLayer({ instance })));
+
+      expect(yield* fake.processGone(threadId)).toBe(true);
+    }),
+  );
+
   it.effect("resumes a crashed session and re-runs the in-flight turn", () =>
     Effect.gen(function* () {
       // No turn.completed in the script body — the turn stays in flight until

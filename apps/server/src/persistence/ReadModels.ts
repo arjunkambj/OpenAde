@@ -55,7 +55,7 @@ export class ReadModelStore extends Context.Service<
   ReadModelStore,
   {
     readonly putProject: (doc: ProjectDoc) => Effect.Effect<void, SqlError>;
-    /** Removes the project row and every thread row under it. */
+    /** Removes the project row; its threads are deleted one by one. */
     readonly removeProject: (projectId: ProjectId) => Effect.Effect<void, SqlError>;
     readonly putThread: (doc: ThreadDoc) => Effect.Effect<void, SqlError>;
     readonly removeThread: (threadId: ThreadId) => Effect.Effect<void, SqlError>;
@@ -95,11 +95,12 @@ export class ReadModelStore extends Context.Service<
             updated_at = excluded.updated_at
         `.pipe(Effect.asVoid);
 
+      // Only the project row: its threads go through their own
+      // `thread.deleted`, which is what closes their sessions and prunes their
+      // checkpoints. Deleting the rows here would strand running connectors
+      // with no projection left to append their output to.
       const removeProject = (projectId: ProjectId) =>
-        Effect.all([
-          sql`DELETE FROM threads WHERE project_id = ${projectId}`,
-          sql`DELETE FROM projects WHERE project_id = ${projectId}`,
-        ]).pipe(Effect.asVoid);
+        sql`DELETE FROM projects WHERE project_id = ${projectId}`.pipe(Effect.asVoid);
 
       const putThread = (doc: ThreadDoc) =>
         sql`
