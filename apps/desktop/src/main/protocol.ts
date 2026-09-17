@@ -7,11 +7,12 @@
  * CSP is written against, and `app://` is one every other Electron app on the
  * machine may also claim.
  */
-import { existsSync, statSync } from "node:fs";
-import { join, normalize, sep } from "node:path";
+import { join, normalize } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { net, protocol } from "electron";
+
+import { resolveRendererRequest } from "./rendererRequest";
 
 export const APP_SCHEME = "openade";
 export const APP_URL = `${APP_SCHEME}://app/`;
@@ -21,15 +22,10 @@ const rendererRoot = normalize(join(__dirname, "..", "renderer"));
 export function registerAppProtocol() {
   protocol.handle(APP_SCHEME, (request) => {
     const { pathname } = new URL(request.url);
-    const relative = decodeURIComponent(pathname).replace(/^\/+/, "");
-    const candidate = normalize(join(rendererRoot, relative));
-    const file =
-      candidate !== rendererRoot &&
-      candidate.startsWith(rendererRoot + sep) &&
-      existsSync(candidate) &&
-      statSync(candidate).isFile()
-        ? candidate
-        : join(rendererRoot, "index.html");
-    return net.fetch(pathToFileURL(file).toString());
+    const resolved = resolveRendererRequest(rendererRoot, pathname, request.headers.get("accept"));
+    if (resolved.kind === "notFound") {
+      return new Response(null, { status: 404 });
+    }
+    return net.fetch(pathToFileURL(resolved.path).toString());
   });
 }
