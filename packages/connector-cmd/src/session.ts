@@ -49,6 +49,7 @@ import {
   type InstalledFile,
 } from "./config";
 import { approvalKindFor, patternSuggestionFor } from "./approvals";
+import { stageTurnAttachments } from "./attachments";
 import { ensureHookScript } from "./hookScript";
 import { makeLineSplitter, parseFrame } from "./ndjson";
 import { readPlanProposal } from "./plans";
@@ -63,7 +64,9 @@ export const CMD_CAPABILITIES: ConnectorCapabilities = {
   steering: false,
   planMode: true,
   subagents: true,
-  images: false,
+  // Print mode has no image flag; the connector stages the files and names
+  // their paths in the prompt instead (decision W10).
+  images: true,
   resume: true,
   fork: true,
 };
@@ -638,8 +641,20 @@ export const makeCmdSession = (
             const prior = yield* Ref.get(sessionRef);
             const hook = yield* options.services.hookEndpoint(options.threadId);
             const mentioned = turn.mentions.map((m) => `@${m}`);
-            const attached = turn.attachments.map((a) => `Attachment: ${a.path}`);
-            const prompt = [turn.text, ...mentioned, ...attached]
+            // Print mode has no image flag: the files go under
+            // `<attachmentsDir>/<threadId>/`, that directory joins the run's
+            // scope, and the prompt names the absolute paths (decision W10).
+            const attached = yield* Effect.promise(() =>
+              stageTurnAttachments({
+                attachmentsDir: options.services.attachmentsDir,
+                threadId: options.threadId,
+                attachments: turn.attachments,
+              }),
+            );
+            for (const message of attached.warnings) {
+              yield* warn(message);
+            }
+            const prompt = [turn.text, ...mentioned, ...attached.promptLines]
               .filter((part) => part.length > 0)
               .join("\n\n");
             const plan = settings.interactionMode === "plan";
@@ -650,6 +665,7 @@ export const makeCmdSession = (
               ...(prior === null ? {} : { sessionId: prior.sessionId }),
               yolo: !plan, // plan mode replaces --yolo (spec section 8)
               ...(plan ? { permissionMode: "plan" as const } : {}),
+              ...(attached.addDirs.length === 0 ? {} : { addDir: attached.addDirs }),
             });
             const proc = yield* spawnProcess({
               binaryPath: options.binaryPath ?? "cmd",
