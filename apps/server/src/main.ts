@@ -17,7 +17,6 @@ import { makeRegistry } from "@OpenAde/connector-sdk/registry";
 import { makeConnectorInstanceId } from "@OpenAde/contracts/ids";
 import type { ConnectorInstanceConfig } from "@OpenAde/contracts/settings";
 import { uuidV7 } from "@OpenAde/shared/ids";
-import { configPath } from "@OpenAde/shared/paths";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -139,17 +138,19 @@ const main = Effect.gen(function* () {
 
   // ── Connectors: the services bag + one instance per settings entry ──
   //
-  // The hook endpoint is this same HTTP server's /hooks/pretooluse route; the
-  // bearer is per thread, minted by the bridge. There is no MCP endpoint yet
-  // (W6) — an empty url tells the connector to skip .mcp.json.
+  // `SessionServices` already carries the gateway's per-thread MCP endpoint,
+  // the attachments directory, the logger and the clock. Two fields only the
+  // running app can supply are layered on top: the hook bridge's own endpoint
+  // and handler registry, and a permission ladder that resolves the thread's
+  // project before it decides.
   const bridge = Context.get(appContext, HookBridge);
   const engineService = Context.get(appContext, OrchestrationEngine);
   const permissionService = Context.get(servicesContext, PermissionService);
   const settingsStore = Context.get(servicesContext, SettingsStore);
-  const clock = yield* Effect.clockWith(Effect.succeed);
+  const sessionBundle = Context.get(servicesContext, SessionServices);
 
   const connectorServices: ConnectorServices = {
-    mcpEndpoint: () => Effect.succeed({ url: "", bearer: "" }),
+    ...sessionBundle,
     hookEndpoint: (threadId) => bridge.endpointFor(threadId),
     registerHookHandler: (threadId, handler) => bridge.register(threadId, handler),
     unregisterHookHandler: (threadId) => bridge.unregister(threadId),
@@ -173,18 +174,6 @@ const main = Effect.gen(function* () {
           ),
         ),
     },
-    attachmentsDir: configPath(["attachments"]),
-    logger: {
-      log: (level, message, data) =>
-        level === "error"
-          ? Effect.logError(message, data)
-          : level === "warn"
-            ? Effect.logWarning(message, data)
-            : level === "debug"
-              ? Effect.logDebug(message, data)
-              : Effect.logInfo(message, data),
-    },
-    clock,
   };
 
   // A fresh install has no connectors configured: open one "cmd" instance and
