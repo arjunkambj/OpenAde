@@ -393,6 +393,27 @@ describe("w8 git", () => {
     ),
   );
 
+  it.live("files.search answers with directories as well as files", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = makeRepo();
+        mkdirSync(nodePath.join(root, "widgets"), { recursive: true });
+        mkdirSync(nodePath.join(root, "widgets", "nested"), { recursive: true });
+        writeFileSync(nodePath.join(root, "widgets", "nested", "widgets.ts"), "export {}\n");
+        git(root, "add", "-A");
+        git(root, "commit", "-qm", "add widgets");
+
+        const { projectId, files } = yield* stack(root);
+        const hits = yield* files.search(projectId, "widgets");
+        const byPath = new Map(hits.map((h) => [h.path, h.isDirectory]));
+        expect(byPath.get("widgets")).toBe(true);
+        expect(byPath.get("widgets/nested/widgets.ts")).toBe(false);
+        // A file outranks the directory that merely contains it.
+        expect(hits[0]?.path).toBe("widgets/nested/widgets.ts");
+      }),
+    ),
+  );
+
   it.live("a workspace that is not a repository is named, not guessed at", () =>
     Effect.scoped(
       Effect.gen(function* () {

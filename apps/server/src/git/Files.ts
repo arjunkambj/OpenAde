@@ -67,15 +67,33 @@ const entryFor = (path: string, isDirectory: boolean): ListingEntry => ({
   isDirectory,
 });
 
+/**
+ * `git ls-files` yields blobs only, so the directories a user can also mention
+ * are read back off the paths: every prefix of every listed file is a
+ * directory that exists. Without this `isDirectory` would be structurally
+ * false on every row and the files tab would have nothing to navigate.
+ */
+const withDirectories = (paths: ReadonlyArray<string>): ReadonlyArray<ListingEntry> => {
+  const directories = new Set<string>();
+  for (const path of paths) {
+    let cut = path.lastIndexOf("/");
+    while (cut > 0) {
+      const directory = path.slice(0, cut);
+      if (directories.has(directory)) break;
+      directories.add(directory);
+      cut = directory.lastIndexOf("/");
+    }
+  }
+  return [
+    ...paths.map((path) => entryFor(path, false)),
+    ...[...directories].map((path) => entryFor(path, true)),
+  ];
+};
+
 /** The fast path: everything git tracks or would track under `root`. */
 const trackedEntries = (root: string) =>
   run(root, ["ls-files", "--cached", "--others", "--exclude-standard", "-z"]).pipe(
-    Effect.map((result) =>
-      result.stdout
-        .split("\0")
-        .filter(Boolean)
-        .map((path) => entryFor(path, false)),
-    ),
+    Effect.map((result) => withDirectories(result.stdout.split("\0").filter(Boolean))),
     Effect.mapError(
       (error) => new FileServiceError({ message: `git ls-files failed: ${error.message}` }),
     ),
@@ -142,7 +160,14 @@ export const layer = Layer.effect(
             const score = matches(entry, query);
             if (score !== null) scored.push({ entry, score });
           }
-          scored.sort((a, b) => a.score - b.score || a.entry.path.localeCompare(b.entry.path));
+          // Equal-scoring files come before directories: `@` usually means a
+          // file, and the containing directory would otherwise outrank it.
+          scored.sort(
+            (a, b) =>
+              a.score - b.score ||
+              Number(a.entry.isDirectory) - Number(b.entry.isDirectory) ||
+              a.entry.path.localeCompare(b.entry.path),
+          );
           const cap = Math.min(Math.max(limit, 1), MAX_SEARCH_LIMIT);
           return scored.slice(0, cap).map(({ entry }): FileSearchResult => ({
             path: entry.path,
