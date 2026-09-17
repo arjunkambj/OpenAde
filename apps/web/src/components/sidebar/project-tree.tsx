@@ -5,10 +5,8 @@
  * permission accent since something is waiting on the user.
  */
 
-import { Link, useMatchRoute, useNavigate } from "@tanstack/react-router";
-import * as Exit from "effect/Exit";
+import { Link, useMatchRoute } from "@tanstack/react-router";
 import * as React from "react";
-import { toast } from "sonner";
 
 import { Button } from "@OpenAde/ui/components/button";
 import {
@@ -17,13 +15,14 @@ import {
   SidebarGroupLabel,
 } from "@OpenAde/ui/components/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import { makeCommandId, makeThreadId, type ProjectId } from "@OpenAde/contracts/ids";
+import type { ProjectId } from "@OpenAde/contracts/ids";
 import type { ProjectSummary, ThreadSummary } from "@OpenAde/contracts/orchestration";
 
 import { AddProjectDialog } from "@/components/sidebar/add-project-dialog";
 import { Icon } from "@/lib/icon";
+import { useCreateThread } from "@/lib/use-create-thread";
 import { cn } from "@/lib/utils";
-import { useConnectionState, useDispatchCommand, useProjects, useThreadList } from "@/state/hooks";
+import { useConnectionState, useProjects, useThreadList } from "@/state/hooks";
 
 function ThreadStatusDot({ thread }: { thread: ThreadSummary }) {
   if (thread.status === "running") {
@@ -63,32 +62,8 @@ function ThreadLink({ thread }: { thread: ThreadSummary }) {
 }
 
 function NewThreadButton({ projectId }: { projectId: ProjectId }) {
-  const dispatch = useDispatchCommand();
-  const navigate = useNavigate();
   const connection = useConnectionState();
-  const [pending, setPending] = React.useState(false);
-
-  const create = async () => {
-    const threadId = makeThreadId();
-    setPending(true);
-    const exit = await dispatch({
-      commandId: makeCommandId(),
-      createdAt: new Date().toISOString(),
-      type: "thread.create",
-      threadId,
-      projectId,
-    });
-    setPending(false);
-    if (Exit.isSuccess(exit) && exit.value.status === "accepted") {
-      void navigate({ to: "/t/$threadId", params: { threadId } });
-      return;
-    }
-    toast.error(
-      Exit.isSuccess(exit)
-        ? (exit.value.reason ?? "Thread was rejected")
-        : "Could not reach the server",
-    );
-  };
+  const { create, pending } = useCreateThread();
 
   return (
     <Tooltip>
@@ -100,7 +75,7 @@ function NewThreadButton({ projectId }: { projectId: ProjectId }) {
             size="icon-sm"
             aria-label="New thread"
             disabled={pending || connection.status !== "connected"}
-            onClick={() => void create()}
+            onClick={() => void create(projectId)}
           />
         }
       >

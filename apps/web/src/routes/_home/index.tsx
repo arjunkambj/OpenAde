@@ -2,7 +2,7 @@ import { useAtomValue } from "@effect/atom-react";
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { AsyncResult } from "effect/unstable/reactivity";
 
-import { ChatWorkspace } from "@/components/Chat/chat-workspace";
+import { StartThread } from "@/components/thread/start-thread";
 import { useAppAtoms } from "@/lib/app-runtime";
 
 export const Route = createFileRoute("/_home/")({
@@ -16,5 +16,5 @@ function HomePage() {
   if (AsyncResult.isSuccess(projects) && projects.value.length === 0) {
     return <Navigate to="/welcome" />;
   }
-  return <ChatWorkspace />;
+  return <StartThread />;
 }
