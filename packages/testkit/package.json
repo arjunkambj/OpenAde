@@ -2,6 +2,9 @@
   "name": "@OpenAde/testkit",
   "version": "0.0.0",
   "private": true,
+  "bin": {
+    "openade-fake-cmd": "./bin/fake-cmd.mjs"
+  },
   "type": "module",
   "exports": {
     "./fakeCmdProcess": {

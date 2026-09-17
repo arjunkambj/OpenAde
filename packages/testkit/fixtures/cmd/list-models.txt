@@ -1,0 +1,20 @@
+Anthropic
+  anthropic/claude-sonnet-4.8         Claude Sonnet 4.8 [low,medium,high]
+  anthropic/claude-opus-4.6           Claude Opus 4.6 [low,medium,high,xhigh,max]
+
+DeepSeek:
+  deepseek/deepseek-v4-flash          DeepSeek V4 Flash (default) FREE
+  deepseek/deepseek-v4                DeepSeek V4
+
+Moonshot AI
+  moonshotai/kimi-k3                  Kimi K3
+  moonshotai/kimi-k3-turbo            Kimi K3 Turbo FREE [low,medium]
+
+Z.ai
+  zai-org/glm-5.3                     GLM 5.3
+
+Qwen
+  qwen/qwen3.8-max                    Qwen3.8 Max [medium,high,xhigh]
+
+Stealth
+  stealth/ox-alpha                    Ox Alpha
