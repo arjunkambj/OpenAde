@@ -12,12 +12,21 @@ export interface ServerConnection {
   readonly serverInstanceId: string;
 }
 
+/**
+ * `connection` is non-null exactly while the status is `ready`, and it is a
+ * *fresh* connection after a restart: the new server binds a new port and
+ * mints a new token and instance id, so a client that reconnects with its
+ * boot-time values would dial a dead port forever.
+ */
 export interface ServerState {
   readonly status: "starting" | "ready" | "restarting" | "failed";
+  readonly connection: ServerConnection | null;
 }
 
 const openade = {
   getConnection: (): Promise<ServerConnection | null> => ipcRenderer.invoke("openade:connection"),
+  /** The current state, for a renderer that mounted after the last transition. */
+  getServerState: (): Promise<ServerState> => ipcRenderer.invoke("openade:server-state:get"),
   onServerState: (callback: (state: ServerState) => void): (() => void) => {
     const listener = (_event: Electron.IpcRendererEvent, state: ServerState) => callback(state);
     ipcRenderer.on("openade:server-state", listener);
