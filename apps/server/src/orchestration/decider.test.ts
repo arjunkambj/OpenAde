@@ -48,6 +48,7 @@ const threadDoc = (overrides: Partial<ThreadDoc> = {}): ThreadDoc => ({
   session: null,
   currentTurn: null,
   interrupting: false,
+  restoring: false,
   pendingPlan: null,
   usage: null,
   context: null,
@@ -515,7 +516,7 @@ const rows: ReadonlyArray<Row> = [
     rejects: "no pending plan",
   },
   {
-    name: "thread.checkpoint.restore emits thread.checkpoint.restored",
+    name: "thread.checkpoint.restore emits the durable work order",
     command: {
       ...baseCommand,
       type: "thread.checkpoint.restore",
@@ -532,7 +533,7 @@ const rows: ReadonlyArray<Row> = [
         },
       ],
     }),
-    events: ["thread.checkpoint.restored"],
+    events: ["thread.checkpoint.restore.requested"],
   },
   {
     name: "thread.checkpoint.restore rejects while a turn is running",
@@ -558,6 +559,31 @@ const rows: ReadonlyArray<Row> = [
       ],
     }),
     rejects: "running turn",
+  },
+  {
+    name: "thread.turn.start rejects while a checkpoint restore is in flight",
+    command: {
+      ...baseCommand,
+      type: "thread.turn.start",
+      threadId: makeThreadId(),
+      text: "hello",
+      attachments: [],
+      mentions: [],
+      queued: false,
+    } as Command,
+    thread: threadDoc({ restoring: true }),
+    rejects: "restoring a checkpoint",
+  },
+  {
+    name: "thread.checkpoint.restore rejects a second restore while one is in flight",
+    command: {
+      ...baseCommand,
+      type: "thread.checkpoint.restore",
+      threadId: makeThreadId(),
+      checkpointId: "cp-1",
+    } as unknown as Command,
+    thread: threadDoc({ restoring: true }),
+    rejects: "already restoring",
   },
   {
     name: "thread.checkpoint.restore rejects an unknown checkpoint",

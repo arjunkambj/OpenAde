@@ -193,16 +193,14 @@ export const ProviderCommandReactor = Layer.effectDiscard(
             // emits once it has stopped; if there is no live session, or the
             // interrupt itself fails, nothing else ever will — so settle it
             // here rather than leave the thread stuck in `running`.
-            const settled = yield* (
-              handle === null
-                ? Effect.succeed(false)
-                : handle.interrupt(turnId).pipe(
-                    Effect.as(true),
-                    Effect.catch((error) =>
-                      Effect.logWarning("interrupt failed", error).pipe(Effect.as(false)),
-                    ),
-                  )
-            );
+            const settled = yield* handle === null
+              ? Effect.succeed(false)
+              : handle.interrupt(turnId).pipe(
+                  Effect.as(true),
+                  Effect.catch((error) =>
+                    Effect.logWarning("interrupt failed", error).pipe(Effect.as(false)),
+                  ),
+                );
             if (!settled) {
               yield* engine
                 .appendThreadEvents(threadId, [

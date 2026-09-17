@@ -8,13 +8,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  makeCheckpointId,
   makeEventId,
   makeItemId,
   makeProjectId,
   makeThreadId,
   makeTurnId,
 } from "@OpenAde/contracts/ids";
-import type { OrchestrationEvent } from "@OpenAde/contracts/orchestration";
+import type { CheckpointSummary, OrchestrationEvent } from "@OpenAde/contracts/orchestration";
 
 import { foldThread } from "./state";
 
@@ -57,6 +58,13 @@ const created = () =>
 
 const turnRequested = (turnId = makeTurnId()) =>
   event("thread.turn.requested", { turnId, text: "hello", attachments: [], mentions: [] });
+
+const checkpoint: CheckpointSummary = {
+  checkpointId: makeCheckpointId(),
+  turnId: makeTurnId(),
+  ref: "refs/openade/checkpoints/thread/turn",
+  createdAt: NOW,
+};
 
 describe("the thread fold", () => {
   it("clears the in-flight turn when the session is lost", () => {
@@ -119,5 +127,33 @@ describe("the thread fold", () => {
     expect(doc?.currentTurn).toBeNull();
     expect(doc?.interrupting).toBe(false);
     expect(doc?.status).toBe("idle");
+  });
+
+  it("marks a thread as restoring between the work order and its outcome", () => {
+    const requested = foldThread([
+      created(),
+      event("thread.checkpoint.created", { checkpoint }),
+      event("thread.checkpoint.restore.requested", { checkpoint }),
+    ]);
+    expect(requested?.restoring).toBe(true);
+
+    const done = foldThread([
+      created(),
+      event("thread.checkpoint.created", { checkpoint }),
+      event("thread.checkpoint.restore.requested", { checkpoint }),
+      event("thread.checkpoint.restored", { checkpoint }),
+    ]);
+    expect(done?.restoring).toBe(false);
+
+    const failed = foldThread([
+      created(),
+      event("thread.checkpoint.created", { checkpoint }),
+      event("thread.checkpoint.restore.requested", { checkpoint }),
+      event("thread.checkpoint.restore.failed", {
+        checkpointId: checkpoint.checkpointId,
+        message: "the worktree is locked",
+      }),
+    ]);
+    expect(failed?.restoring).toBe(false);
   });
 });

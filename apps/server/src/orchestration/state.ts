@@ -76,6 +76,12 @@ export interface ThreadDoc {
    * "busy" by the turn-scoped handle — so the decider queues instead.
    */
   readonly interrupting: boolean;
+  /**
+   * True between `thread.checkpoint.restore.requested` and the reactor's
+   * `restored`/`restore.failed`. `git restore` and `git clean -fd` are running
+   * over the worktree, so no turn may start and no second restore may begin.
+   */
+  readonly restoring: boolean;
   readonly pendingPlan: PendingPlan | null;
   readonly usage: TurnUsage | null;
   readonly context: ContextWindowUsage | null;
@@ -132,6 +138,7 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
       session: null,
       currentTurn: null,
       interrupting: false,
+      restoring: false,
       pendingPlan: null,
       usage: null,
       context: null,
@@ -308,10 +315,14 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
         ...next,
         checkpoints: [...doc.checkpoints, payload.checkpoint as CheckpointSummary],
       };
+    case "thread.checkpoint.restore.requested":
+      return { ...next, restoring: true };
     case "thread.checkpoint.restored":
-      // The worktree moved back; the document has nothing to rewind — the
-      // checkpoint refs still exist and the event still bumps the sequence.
-      return next;
+    case "thread.checkpoint.restore.failed":
+      // The worktree moved back (or did not); the document has nothing to
+      // rewind — the checkpoint refs still exist and the event only settles
+      // the in-flight restore.
+      return { ...next, restoring: false };
     case "thread.error":
       return payload.fatal === true
         ? { ...next, status: "error", currentTurn: null, interrupting: false }

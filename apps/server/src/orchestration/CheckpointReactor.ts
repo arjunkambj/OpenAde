@@ -7,16 +7,19 @@
  * explicit no-op so W1's stack runs without git.
  *
  * `CheckpointReactor` wires it to the log: `turn.completed` → capture →
- * `thread.checkpoint.created`; a `thread.checkpoint.restored` event →
- * restore, with failures recorded as `thread.error`. Thread deletion and
- * project removal each prune the hidden refs under the thread's prefix —
+ * `thread.checkpoint.created`; a `thread.checkpoint.restore.requested` work
+ * order → the git work → `thread.checkpoint.restored` or
+ * `thread.checkpoint.restore.failed`, never before. Work orders with no
+ * outcome recorded are replayed at layer build, so a crash between the
+ * accepted command and the git work cannot drop the restore. Thread deletion
+ * and project removal each prune the hidden refs under the thread's prefix —
  * the project case enumerates the thread streams, because the removal's
  * transaction has already deleted the read-model rows.
  */
 
 import { makeEventId } from "@OpenAde/contracts/ids";
 import type { ThreadId, TurnId } from "@OpenAde/contracts/ids";
-import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
+import type { CheckpointSummary, OrchestrationEvent } from "@OpenAde/contracts/orchestration";
 import * as Context from "effect/Context";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
@@ -25,7 +28,7 @@ import * as Stream from "effect/Stream";
 
 import type { PlannedEvent } from "../persistence/EventStore";
 import { EventStore } from "../persistence/EventStore";
-import { OrchestrationEngine } from "./Engine";
+import { OrchestrationEngine, type EngineError } from "./Engine";
 import { foldProject, type ThreadDoc } from "./state";
 
 export class CheckpointHookError extends Data.TaggedError("CheckpointHookError")<{
@@ -105,8 +108,105 @@ export const CheckpointReactor: Layer.Layer<
         .projectDoc(doc.projectId)
         .pipe(Effect.map((project) => project?.workspaceRoot ?? null));
 
+    const settle = (
+      threadId: ThreadId,
+      type: "thread.checkpoint.restored" | "thread.checkpoint.restore.failed",
+      payload: OrchestrationEvent["payload"],
+      causedBy: string,
+    ) =>
+      engine.appendThreadEvents(threadId, [
+        {
+          eventId: makeEventId(),
+          streamKind: "thread",
+          streamId: threadId,
+          occurredAt: new Date().toISOString(),
+          causationEventId: causedBy as never,
+          correlationId: causedBy,
+          actor: "system",
+          type,
+          payload,
+        } as PlannedEvent,
+      ]);
+
+    /**
+     * The git work for one accepted restore, and the durable record of how it
+     * went. `restored` is written only after git succeeded — a client that
+     * folded the work order sees the thread leave `restoring` either way.
+     */
+    const runRestore = (
+      threadId: ThreadId,
+      checkpoint: CheckpointSummary,
+      causedBy: string,
+    ): Effect.Effect<void, EngineError> =>
+      Effect.gen(function* () {
+        const doc = yield* engine.threadDoc(threadId);
+        if (doc === null || doc.deleted) {
+          return;
+        }
+        const workspaceRoot = yield* workspaceRootFor(doc);
+        if (workspaceRoot === null) {
+          yield* settle(
+            threadId,
+            "thread.checkpoint.restore.failed",
+            { checkpointId: checkpoint.checkpointId, message: "the project no longer exists" },
+            causedBy,
+          );
+          return;
+        }
+        const failure = yield* hook.restore({ thread: doc, checkpoint, workspaceRoot }).pipe(
+          Effect.as(null),
+          Effect.catch((error) => Effect.succeed(error.message)),
+        );
+        yield* failure === null
+          ? settle(threadId, "thread.checkpoint.restored", { checkpoint }, causedBy)
+          : settle(
+              threadId,
+              "thread.checkpoint.restore.failed",
+              { checkpointId: checkpoint.checkpointId, message: failure },
+              causedBy,
+            );
+      });
+
     // A finished turn is a checkpoint point.
     const eventMailbox = yield* engine.subscribeEvents;
+
+    /**
+     * A restore accepted before the last shutdown: the work order is in the
+     * log with no `restored`/`restore.failed` after it, so nothing has touched
+     * the worktree yet. Replayed on a forked fiber — git must not hold up the
+     * layer build, and the thread stays `restoring` (and so unusable for
+     * turns) until this finishes.
+     */
+    const pendingRestores = Effect.gen(function* () {
+      const events = yield* store.threadEventsAfter(0);
+      const pending = new Map<ThreadId, OrchestrationEvent>();
+      for (const entry of events) {
+        const threadId = entry.streamId as ThreadId;
+        if (entry.type === "thread.checkpoint.restore.requested") {
+          pending.set(threadId, entry);
+        } else if (
+          entry.type === "thread.checkpoint.restored" ||
+          entry.type === "thread.checkpoint.restore.failed" ||
+          entry.type === "thread.deleted"
+        ) {
+          pending.delete(threadId);
+        }
+      }
+      return [...pending.values()];
+    });
+
+    yield* Effect.gen(function* () {
+      for (const entry of yield* pendingRestores) {
+        yield* runRestore(
+          entry.streamId as ThreadId,
+          (entry.payload as { readonly checkpoint: CheckpointSummary }).checkpoint,
+          entry.eventId,
+        );
+      }
+    }).pipe(
+      Effect.catch((error) => Effect.logWarning("checkpoint restore replay failed", error)),
+      Effect.forkScoped,
+    );
     yield* Stream.runForEach(Stream.fromSubscription(eventMailbox), (event) =>
       Effect.gen(function* () {
         // Project removed → every thread's checkpoint prefix goes. The
@@ -158,26 +258,15 @@ export const CheckpointReactor: Layer.Layer<
               ),
             );
         }
-        // The accepted restore command records this event; the git work
-        // order is durable, so the reactor runs off the log, not the
-        // transient command publication.
-        if (event.type === "thread.checkpoint.restored") {
-          const threadId = event.streamId as ThreadId;
-          const doc = yield* engine.threadDoc(threadId);
-          if (doc === null || doc.deleted) {
-            return;
-          }
-          const workspaceRoot = yield* workspaceRootFor(doc);
-          if (workspaceRoot === null) {
-            return;
-          }
-          return yield* hook
-            .restore({ thread: doc, checkpoint: event.payload.checkpoint, workspaceRoot })
-            .pipe(
-              Effect.catch((error) =>
-                recordError(threadId, `checkpoint restore failed: ${error.message}`, event.eventId),
-              ),
-            );
+        // The accepted restore command records the work order; the reactor
+        // runs off the log, not the transient command publication, so a crash
+        // before this point is replayed at the next boot instead of lost.
+        if (event.type === "thread.checkpoint.restore.requested") {
+          return yield* runRestore(
+            event.streamId as ThreadId,
+            event.payload.checkpoint,
+            event.eventId,
+          );
         }
         if (event.type !== "thread.turn.completed") {
           return;

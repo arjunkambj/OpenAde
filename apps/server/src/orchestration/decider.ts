@@ -191,6 +191,11 @@ export const decide = (
       if (thread.status === "archived") {
         return rejected(`thread ${command.threadId} is archived`);
       }
+      // A restore is rewriting the worktree right now: `git clean -fd` would
+      // delete whatever the turn wrote while it ran.
+      if (thread.restoring) {
+        return rejected(`thread ${command.threadId} is restoring a checkpoint`);
+      }
       if (thread.currentTurn !== null) {
         // An interrupt that has not settled yet always queues, whatever the
         // caller asked for: the connector is still stopping, so a turn sent
@@ -329,16 +334,20 @@ export const decide = (
       if (thread.currentTurn !== null) {
         return rejected(`thread ${command.threadId} has a running turn`);
       }
+      if (thread.restoring) {
+        return rejected(`thread ${command.threadId} is already restoring a checkpoint`);
+      }
       const checkpoint = thread.checkpoints.find(
         (entry) => entry.checkpointId === command.checkpointId,
       );
       if (checkpoint === undefined) {
         return rejected(`no checkpoint ${command.checkpointId}`);
       }
-      // The event is the durable work order: the CheckpointReactor performs
-      // the git work on `thread.checkpoint.restored`, so a crash between
-      // receipt and restore cannot silently drop the request.
-      return accepted([emit("thread.checkpoint.restored", { checkpoint })]);
+      // The event is the durable work order and nothing more: the
+      // CheckpointReactor does the git work off it and records the outcome as
+      // `thread.checkpoint.restored` or `thread.checkpoint.restore.failed`. A
+      // crash between receipt and restore is replayed at the next boot.
+      return accepted([emit("thread.checkpoint.restore.requested", { checkpoint })]);
     }
   }
 };
