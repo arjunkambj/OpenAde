@@ -6,7 +6,7 @@
  * this file contains no connector-kind-specific markup.
  */
 
-import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react";
+import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { Button } from "@OpenAde/ui/components/button";
 import { Card, CardContent } from "@OpenAde/ui/components/card";
 import { Separator } from "@OpenAde/ui/components/separator";
@@ -168,7 +168,6 @@ export function ConnectorsPanel() {
   const atoms = useAppAtoms();
   const settingsResult = useAtomValue(atoms.settingsAtom);
   const connectorsResult = useAtomValue(atoms.connectorsAtom);
-  const refreshConnectors = useAtomRefresh(atoms.connectorsAtom);
   const updateSettings = useAtomSet(atoms.settingsUpdateAtom, { mode: "promiseExit" });
   const probeAll = useAtomSet(atoms.probeConnectorsAtom, { mode: "promise" });
   const [probing, setProbing] = React.useState(false);
@@ -177,11 +176,26 @@ export function ConnectorsPanel() {
   const summaries = AsyncResult.isSuccess(connectorsResult) ? connectorsResult.value : [];
   const byInstanceId = new Map(summaries.map((s) => [s.connectorInstanceId, s]));
 
+  const runProbe = async () => {
+    setProbing(true);
+    try {
+      await probeAll();
+    } finally {
+      setProbing(false);
+    }
+  };
+
   const write = async (connectors: ReadonlyArray<ConnectorInstanceConfig>) => {
     const exit = await updateSettings({ connectors: [...connectors] });
     if (!Exit.isSuccess(exit)) {
       toast.error("Could not save connectors");
+      return;
     }
+    // The server reconciles the edit on its own schedule, so the summaries this
+    // page holds describe the connectors as they were. Re-probe the way the
+    // button does rather than leave a new or toggled instance reading
+    // "Probing…" until the user presses it themselves.
+    await runProbe();
   };
 
   const addInstance = async (kind: string, displayName: string) => {
@@ -199,16 +213,6 @@ export function ConnectorsPanel() {
       config: {},
     };
     await write([...settings.connectors, entry]);
-    refreshConnectors();
-  };
-
-  const runProbe = async () => {
-    setProbing(true);
-    try {
-      await probeAll();
-    } finally {
-      setProbing(false);
-    }
   };
 
   if (settings === null) {
