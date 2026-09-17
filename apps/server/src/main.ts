@@ -184,6 +184,12 @@ const main = Effect.gen(function* () {
     },
   });
 
+  // The manager's first pass registers every enabled instance before it probes,
+  // and this waits for it: `ConnectorSelection` reads the live registry, so a
+  // client admitted before that pass lands would fail its first turn with
+  // `NoConnector`. Probes keep running behind the handshake.
+  yield* Context.get(servicesContext, ConnectorManager).ready;
+
   yield* writeHandshake(
     { url: `ws://127.0.0.1:${port}/ws`, token, serverInstanceId },
     { dev: DEV },

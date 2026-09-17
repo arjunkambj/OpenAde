@@ -18,6 +18,7 @@ import { makeRegistry, type ConnectorRegistry } from "@OpenAde/connector-sdk/reg
 import { makeFakeConnector } from "@OpenAde/testkit/fakeConnector";
 import { describe, expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -112,6 +113,38 @@ describe("ConnectorManager", () => {
         expect(yield* registry.instances).toHaveLength(1);
       }),
     ),
+  );
+
+  it.effect("`ready` waits for the open instance, not for its probe", () =>
+    Effect.gen(function* () {
+      // The entrypoint writes the handshake once `ready` completes. A probe can
+      // burn its full timeout, so what must be true by then is registration:
+      // `ConnectorSelection` answers `NoConnector` off an empty registry.
+      const release = yield* Deferred.make<void>();
+      yield* withFixture(
+        ({ manager, registry }) =>
+          Effect.gen(function* () {
+            yield* manager.ready;
+            expect(yield* registry.instances).toHaveLength(1);
+            // Still inside the first probe: the summary has nothing to report.
+            const pending = yield* manager.list();
+            expect(pending[0]!.probe.status).toBe("probing");
+
+            yield* Deferred.succeed(release, undefined);
+            const probed = yield* awaitSummaries(
+              manager,
+              (all) => all.length === 1 && all[0]!.probe.status === "ready",
+            );
+            expect(probed[0]!.probe.modelCount).toBe(1);
+          }),
+        undefined,
+        (definition) => ({
+          ...definition,
+          probe: (config: unknown) =>
+            Effect.andThen(Deferred.await(release), definition.probe(config)),
+        }),
+      );
+    }),
   );
 
   it.effect("disabling closes the instance and re-enabling reopens it", () =>

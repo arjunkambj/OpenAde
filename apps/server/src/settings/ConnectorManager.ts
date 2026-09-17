@@ -17,6 +17,12 @@
  * `connectors.list` answers from the last reconcile's probes; `refresh: true`
  * re-runs every probe first, which is what the settings page's probe button
  * triggers.
+ *
+ * A reconcile registers before it probes, and `ready` completes once the first
+ * pass has registered everything the settings document asks for. The
+ * entrypoint waits on it before the handshake, so no client is admitted while
+ * `ConnectorSelection` would still answer `NoConnector` — a probe that takes
+ * its full timeout must not decide whether the first turn of a boot can run.
  */
 
 import type { ConnectorInstanceId } from "@OpenAde/contracts/ids";
@@ -29,6 +35,7 @@ import type { ConnectorRegistry } from "@OpenAde/connector-sdk/registry";
 import type { ConnectorInstanceConfig, Settings } from "@OpenAde/contracts/settings";
 import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
+import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -75,6 +82,13 @@ export class ConnectorManager extends Context.Service<
   {
     readonly list: (refresh?: boolean) => Effect.Effect<ReadonlyArray<ConnectorSummary>>;
     readonly models: (instanceId: ConnectorInstanceId) => Effect.Effect<ReadonlyArray<ModelOption>>;
+    /**
+     * Completes when the first reconcile has opened every enabled instance the
+     * settings document asks for — probes may still be running. The entrypoint
+     * waits on this before the handshake so the first turn of a boot has a
+     * registered instance to route to.
+     */
+    readonly ready: Effect.Effect<void>;
     /** Emits the summary list after every reconcile — tests and a future subscribe RPC. */
     readonly changes: Stream.Stream<ReadonlyArray<ConnectorSummary>>;
   }
@@ -94,6 +108,8 @@ export class ConnectorManager extends Context.Service<
       /** Serialises reconcile passes and explicit re-probes. */
       const mutex = yield* Semaphore.make(1);
       const seeded = yield* Ref.make(false);
+      /** Completed by the first reconcile, once it has registered instances. */
+      const registered = yield* Deferred.make<void>();
 
       const now = Effect.map(
         Effect.clockWith((clock) => clock.currentTimeMillis),
@@ -178,10 +194,15 @@ export class ConnectorManager extends Context.Service<
           }));
         });
 
-      /** Brings open instances and probe results in line with one settings document. */
+      /**
+       * Brings open instances and probe results in line with one settings
+       * document. Registration comes first and probing second: a probe may
+       * take `PROBE_TIMEOUT`, and nothing that routes a turn should wait on it.
+       */
       const reconcile = (settings: Settings): Effect.Effect<void> =>
         Effect.gen(function* () {
           const seen = new Set<string>();
+          const changed: Array<ConnectorInstanceConfig> = [];
           for (const conn of settings.connectors) {
             const id = conn.connectorInstanceId;
             seen.add(id);
@@ -197,10 +218,9 @@ export class ConnectorManager extends Context.Service<
             if (existing !== undefined) {
               yield* closeEntry(id, existing);
             }
-            const probe = yield* probeOf(conn);
-            yield* Ref.update(probes, (all) => new Map(all).set(id, probe));
             const scope = conn.enabled ? yield* openInstance(conn) : null;
             yield* Ref.update(entries, (all) => new Map(all).set(id, { signature, scope }));
+            changed.push(conn);
           }
           const current = yield* Ref.get(entries);
           for (const [id, entry] of current) {
@@ -213,8 +233,19 @@ export class ConnectorManager extends Context.Service<
               });
             }
           }
+          // The registry now matches the document; clients may be admitted.
+          yield* Deferred.succeed(registered, undefined);
+          for (const conn of changed) {
+            const probe = yield* probeOf(conn);
+            yield* Ref.update(probes, (all) => new Map(all).set(conn.connectorInstanceId, probe));
+          }
           yield* SubscriptionRef.set(summariesRef, yield* summariesFor(settings));
-        }).pipe(Effect.catchCause((cause) => Effect.logWarning("reconcile failed", cause)));
+        }).pipe(
+          Effect.catchCause((cause) => Effect.logWarning("reconcile failed", cause)),
+          // A pass that died or was interrupted must not strand the entrypoint;
+          // the registry is then as close to the document as it will get.
+          Effect.ensuring(Effect.asVoid(Deferred.succeed(registered, undefined))),
+        );
 
       /**
        * First run only: an empty connectors list with no settings row behind it
@@ -234,7 +265,7 @@ export class ConnectorManager extends Context.Service<
           ) {
             return false;
           }
-          yield* store
+          const written = yield* store
             .update({
               connectors: registry.definitions.map((definition) => ({
                 connectorInstanceId: makeConnectorInstanceId(),
@@ -244,7 +275,14 @@ export class ConnectorManager extends Context.Service<
                 config: definition.defaultConfig(),
               })),
             })
-            .pipe(Effect.catchCause((cause) => Effect.logWarning("seed failed", cause)));
+            .pipe(Effect.exit);
+          if (Exit.isFailure(written)) {
+            // No new settings value was emitted, so no reconcile is coming for
+            // it. Report "did not seed" and let this pass reconcile instead —
+            // `ready` hangs otherwise, and with it the entrypoint.
+            yield* Effect.logWarning("seed failed", written.cause);
+            return false;
+          }
           return true;
         });
 
@@ -292,6 +330,7 @@ export class ConnectorManager extends Context.Service<
       return ConnectorManager.of({
         list,
         models,
+        ready: Deferred.await(registered),
         changes: SubscriptionRef.changes(summariesRef),
       });
     }),
