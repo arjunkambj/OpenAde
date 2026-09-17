@@ -293,6 +293,31 @@ describe("w8 git", () => {
     ),
   );
 
+  it.live("worktree diff includes files the user has staged", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = makeRepo();
+        const { projectId, git: gitService } = yield* stack(root);
+        // Staged, never committed: absent from HEAD and from the throwaway
+        // index the diff builds, so it has to arrive as an intent-to-add.
+        writeFileSync(nodePath.join(root, "staged.txt"), "staged\n");
+        git(root, "add", "staged.txt");
+        // A staged rename is the same problem wearing a different hat.
+        git(root, "mv", "a.txt", "b.txt");
+        writeFileSync(nodePath.join(root, "b.txt"), "one\ntwo\n");
+
+        const diff = yield* gitService.diff(projectId, {});
+        const byPath = new Map(diff.files.map((f) => [f.path, f]));
+        expect(byPath.get("staged.txt")?.kind).toBe("create");
+        expect(byPath.get("staged.txt")?.diff).toContain("staged");
+        const renamed = byPath.get("b.txt");
+        expect(renamed?.oldPath).toBe("a.txt");
+        expect(renamed?.additions).toBe(1);
+        expect(byPath.has("a.txt")).toBe(false);
+      }),
+    ),
+  );
+
   it.live("worktree diff removes its temporary index directory", () =>
     Effect.scoped(
       Effect.gen(function* () {

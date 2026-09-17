@@ -161,7 +161,14 @@ const worktreeDiff = (cwd: string, base: string, path?: string) =>
       yield* run(cwd, ["read-tree", base], { env }).pipe(
         Effect.catch(() => Effect.void), // unborn HEAD: empty temp index is fine
       );
-      const untracked = yield* run(cwd, ["ls-files", "--others", "--exclude-standard", "-z"]);
+      // "Untracked" has to mean untracked *by the temporary index*, not by
+      // the user's: a path the user has staged but not committed is absent
+      // from the temp index too, so reading the real index here dropped every
+      // staged-but-uncommitted file — and the new half of a staged rename —
+      // out of the diff entirely.
+      const untracked = yield* run(cwd, ["ls-files", "--others", "--exclude-standard", "-z"], {
+        env,
+      });
       const paths = untracked.stdout.split("\0").filter(Boolean);
       if (paths.length > 0) {
         yield* run(
