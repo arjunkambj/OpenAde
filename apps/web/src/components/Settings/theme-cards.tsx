@@ -1,8 +1,10 @@
+import { useAtomSet } from "@effect/atom-react";
 import { useEffect, useState } from "react";
 
 import { cn } from "@OpenAde/ui/lib/utils";
 
 import { useTheme } from "@/components/theme-provider";
+import { useAppAtoms } from "@/lib/app-runtime";
 
 const themes = [
   { value: "system", label: "System" },
@@ -76,7 +78,14 @@ function ThemePreview({ value }: { value: ThemeValue }) {
 
 export function ThemeCards() {
   const { theme, setTheme } = useTheme();
+  const atoms = useAppAtoms();
+  const updateSettings = useAtomSet(atoms.settingsUpdateAtom, { mode: "value" });
   const [mounted, setMounted] = useState(false);
+
+  const pick = (value: ThemeValue) => {
+    setTheme(value);
+    updateSettings({ theme: value });
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -99,7 +108,7 @@ export function ThemeCards() {
                 type="button"
                 role="radio"
                 aria-checked={isSelected}
-                onClick={() => setTheme(item.value)}
+                onClick={() => pick(item.value)}
                 className="flex flex-col items-center gap-2 rounded-xl outline-none"
               >
                 <div

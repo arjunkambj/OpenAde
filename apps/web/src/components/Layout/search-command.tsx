@@ -51,15 +51,9 @@ const searchItems = [
     label: "Skill & Plugins",
     shortcut: "skills",
   },
+  { to: "/settings/connectors", icon: "hugeicons:plug-01", label: "Connectors" },
   {
-    to: "/settings/$section",
-    params: { section: "uses" },
-    icon: "hugeicons:flash",
-    label: "Uses",
-  },
-  {
-    to: "/settings/$section",
-    params: { section: "general" },
+    to: "/settings",
     icon: "hugeicons:settings-01",
     label: "Settings",
     shortcut: "settings",
@@ -173,10 +167,7 @@ function SearchDialog({
                 value={item.label}
                 onSelect={() => {
                   onOpenChange(false);
-                  void navigate({
-                    to: item.to,
-                    params: "params" in item ? item.params : {},
-                  });
+                  void navigate({ to: item.to });
                 }}
               >
                 <Icon icon={item.icon} />

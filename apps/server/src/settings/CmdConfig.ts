@@ -15,11 +15,7 @@ import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import * as NodePath from "node:path";
 import type { ProjectId } from "@OpenAde/contracts/ids";
-import type {
-  McpServerConfig,
-  McpServerScope,
-  SkillSummary,
-} from "@OpenAde/contracts/rpc";
+import type { McpServerConfig, McpServerScope, SkillSummary } from "@OpenAde/contracts/rpc";
 import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -100,7 +96,11 @@ const readMcpFile = (path: string): Effect.Effect<McpFile> =>
 
 const isManaged = (entry: Json): boolean => isJson(entry[MARKER]);
 
-const entryToConfig = (name: string, scope: McpServerScope, entry: Json): McpServerConfig | null => {
+const entryToConfig = (
+  name: string,
+  scope: McpServerScope,
+  entry: Json,
+): McpServerConfig | null => {
   const type = isString(entry.type) ? entry.type : null;
   const command = isString(entry.command) ? entry.command : null;
   const url = isString(entry.url) ? entry.url : null;
@@ -123,6 +123,7 @@ const entryToConfig = (name: string, scope: McpServerScope, entry: Json): McpSer
     name,
     scope,
     enabled: marker.enabled !== false,
+    managed: isManaged(entry),
     transport,
   };
   if (transport === "stdio") {
@@ -255,9 +256,7 @@ const readSkillsRoot = (root: string): Effect.Effect<ReadonlyArray<SkillSummary>
       out.push({
         name: frontmatter.name ?? name,
         path: filePath,
-        ...(frontmatter.description === undefined
-          ? {}
-          : { description: frontmatter.description }),
+        ...(frontmatter.description === undefined ? {} : { description: frontmatter.description }),
         enabled: true,
       });
     }
@@ -305,8 +304,7 @@ export const layer = (options: CmdConfigOptions = {}) =>
             );
 
       const projectMcpPath = (root: string) => NodePath.join(root, ".mcp.json");
-      const projectSkillsRoot = (root: string) =>
-        NodePath.join(root, ".commandcode", "skills");
+      const projectSkillsRoot = (root: string) => NodePath.join(root, ".commandcode", "skills");
 
       const fileForScope = (scope: McpServerScope, root: string | null) =>
         scope === "user" ? userMcpPath : root === null ? null : projectMcpPath(root);

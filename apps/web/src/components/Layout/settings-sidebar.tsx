@@ -15,9 +15,13 @@ import {
 
 import { SettingsWindowChrome } from "@/components/Layout/window-chrome";
 
-const sections = [
-  { section: "general", icon: "hugeicons:sliders-horizontal", label: "General" },
-  { section: "uses", icon: "hugeicons:flash", label: "Uses" },
+const ITEMS = [
+  { to: "/settings", label: "General", icon: "hugeicons:sliders-horizontal" },
+  { to: "/settings/connectors", label: "Connectors", icon: "hugeicons:plug-01" },
+  { to: "/settings/mcp", label: "MCP servers", icon: "hugeicons:server-stack-01" },
+  { to: "/settings/skills", label: "Skills", icon: "hugeicons:magic-wand-01" },
+  { to: "/settings/keybindings", label: "Keybindings", icon: "hugeicons:keyboard" },
+  { to: "/settings/appearance", label: "Appearance", icon: "hugeicons:colors" },
 ] as const;
 
 export function SettingsSidebar() {
@@ -47,16 +51,11 @@ export function SettingsSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {sections.map((item) => (
-                <SidebarMenuItem key={item.section}>
+              {ITEMS.map((item) => (
+                <SidebarMenuItem key={item.to}>
                   <SidebarMenuButton
-                    render={<Link to="/settings/$section" params={{ section: item.section }} />}
-                    isActive={Boolean(
-                      matchRoute({
-                        to: "/settings/$section",
-                        params: { section: item.section },
-                      }),
-                    )}
+                    render={<Link to={item.to} />}
+                    isActive={Boolean(matchRoute({ to: item.to, fuzzy: false }))}
                   >
                     <Icon icon={item.icon} />
                     {item.label}

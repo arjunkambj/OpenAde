@@ -15,8 +15,17 @@ export interface ResolvedConnection {
 
 declare global {
   interface Window {
+    /**
+     * The desktop preload bridge (apps/desktop/src/preload). Every member is
+     * optional — a browser tab has none of them, and older builds may lack the
+     * newer ones.
+     */
     readonly openade?: {
       readonly getConnection?: () => Promise<ResolvedConnection | null> | ResolvedConnection | null;
+      /** Native directory picker; resolves `null` when the user cancels. */
+      readonly pickDirectory?: () => Promise<string | null>;
+      /** Opens `url` in the system browser — the only sanctioned way out. */
+      readonly openExternal?: (url: string) => Promise<void>;
     };
   }
 }

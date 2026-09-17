@@ -117,6 +117,13 @@ export const ConnectorProbe = Schema.Struct({
 });
 export type ConnectorProbe = typeof ConnectorProbe.Type;
 
+/**
+ * Where an auth-or-credits probe failure is resolved. A connector's probe can
+ * point `helpUrl` somewhere more specific; the renderer falls back here, which
+ * is also what keeps the connector's own domain name out of `apps/web`.
+ */
+export const ACCOUNT_HELP_URL = "https://commandcode.ai/billing";
+
 /** A configured connector as the settings page and the model picker see it. */
 export const ConnectorSummary = Schema.Struct({
   connectorInstanceId: ConnectorInstanceId,
@@ -246,6 +253,12 @@ export const McpServerConfig = Schema.Struct({
   name: NonEmptyString,
   scope: McpServerScope,
   enabled: Schema.Boolean,
+  /**
+   * Read-side hint: `true` when the entry carries our `_openade` marker, so
+   * the editor knows upsert/remove will be accepted. The server ignores it on
+   * write — ownership is decided by the marker on disk, not by the payload.
+   */
+  managed: Schema.optional(Schema.Boolean),
   transport: Schema.Literals(["http", "stdio"]),
   url: Schema.optional(NonEmptyString),
   headers: Schema.optional(Schema.Record(Schema.String, Schema.String)),
