@@ -30,6 +30,8 @@ import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
+import type { BrowserCallOutcome } from "../browser/tools";
+
 // ── Server identity ────────────────────────────────────────────
 
 /** Minted once at boot; a changed value tells clients to resnapshot. */
@@ -116,6 +118,12 @@ export class GitService extends Context.Service<
 
 // ── Browser (W6) ───────────────────────────────────────────────
 
+/**
+ * The browser pane's session service. `subscribe`/`humanInput` are the wire
+ * surface; `callTool` is the MCP layer's entry into the same per-thread
+ * serialized queue (tool failures and human interruption come back inside the
+ * outcome); `teardown` is the thread-close hook.
+ */
 export class BrowserService extends Context.Service<
   BrowserService,
   {
@@ -125,6 +133,12 @@ export class BrowserService extends Context.Service<
       threadId: ThreadId,
       input: BrowserHumanInput,
     ) => Effect.Effect<void, unknown>;
+    readonly callTool: (
+      threadId: ThreadId,
+      name: string,
+      args: unknown,
+    ) => Effect.Effect<BrowserCallOutcome>;
+    readonly teardown: (threadId: ThreadId) => Effect.Effect<void>;
   }
 >()("server/rpc/BrowserService") {
   static readonly empty = Layer.succeed(
@@ -140,6 +154,8 @@ export class BrowserService extends Context.Service<
           frame: null,
         }),
       humanInput: () => Effect.void,
+      callTool: () => Effect.succeed({ kind: "error", message: "browser service unavailable" }),
+      teardown: () => Effect.void,
     }),
   );
 }

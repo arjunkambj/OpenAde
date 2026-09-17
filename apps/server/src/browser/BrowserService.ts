@@ -1,0 +1,516 @@
+/**
+ * The real `BrowserService` behind the RPC tag in `../rpc/services` —
+ * session registry, the serialized per-thread command queue, the
+ * human-control epoch and the teardown reactor.
+ *
+ * A session is a lazy record: `browser.subscribe` creates the state ref but
+ * not the browser. The driver (see `./driver`) is opened on the first tool
+ * call or human navigation, so opening the pane never launches Chrome.
+ *
+ * The interrupt rule (spec §12): every session carries an epoch that human
+ * input bumps — except input classes an in-flight `browser_*` call is
+ * expected to synthesize itself (a `browser_click` produces pointer events
+ * over CDP). A call that settles under a different epoch than it started
+ * returns `interrupted_by_human`; the harness sees that string in the tool
+ * result.
+ *
+ * Teardown runs on `thread.deleted`/`thread.archived` — the only writer of
+ * durable thread state is the engine, so this service listens for its events
+ * rather than being called by the session manager. Closing the owned
+ * Chromium (or releasing the CDP attachment) plus publishing a final
+ * `stopped` state is all it does; token revocation is the MCP gateway's job.
+ */
+
+import { readFile, unlink } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import * as Ref from "effect/Ref";
+import * as Scope from "effect/Scope";
+import * as Semaphore from "effect/Semaphore";
+import * as Stream from "effect/Stream";
+import * as SubscriptionRef from "effect/SubscriptionRef";
+import * as HttpServer from "effect/unstable/http/HttpServer";
+
+import type { ThreadId } from "@OpenAde/contracts/ids";
+import { makeRequestId } from "@OpenAde/contracts/ids";
+import type { BrowserFrame, BrowserHumanInput, BrowserState } from "@OpenAde/contracts/rpc";
+
+import { OrchestrationEngine } from "../orchestration/Engine";
+import { PermissionService } from "../permissions/PermissionService";
+import { BrowserService } from "../rpc/services";
+import { AgentBrowser } from "./agentBrowser";
+import { openAgentBrowserDriver, type BrowserDriver, type DriverEvents } from "./driver";
+import {
+  findBrowserTool,
+  type BrowserCallOutcome,
+  type InputClass,
+  type PreparedCall,
+} from "./tools";
+
+const STOPPED_STATUS = "stopped" as const;
+
+interface Session {
+  readonly threadId: ThreadId;
+  readonly state: SubscriptionRef.SubscriptionRef<BrowserState>;
+  readonly epoch: Ref.Ref<number>;
+  /** The in-flight tool's expected self-caused input classes, or none. */
+  readonly inFlight: Ref.Ref<{
+    readonly tool: string;
+    readonly expects: ReadonlySet<InputClass>;
+  } | null>;
+  readonly queue: Semaphore.Semaphore;
+  /** The open driver plus the scope its stream/fibers live under. */
+  readonly driver: Ref.Ref<{
+    readonly driver: BrowserDriver;
+    readonly scope: Scope.Closeable;
+  } | null>;
+}
+
+/** Which input epoch-class a human gesture belongs to. */
+const inputClassOf = (input: BrowserHumanInput): InputClass | null => {
+  switch (input.kind) {
+    case "click":
+      return "pointer";
+    case "key":
+    case "text":
+      return "key";
+    case "scroll":
+      return "wheel";
+    default:
+      return null;
+  }
+};
+
+const defaultMode = (cdpConfigured: boolean): BrowserState["mode"] =>
+  cdpConfigured ? "cdp-attach" : "owned-chromium";
+
+const initialState = (threadId: ThreadId, mode: BrowserState["mode"]): BrowserState => ({
+  threadId,
+  status: STOPPED_STATUS,
+  mode,
+  url: null,
+  title: null,
+  frame: null,
+});
+
+/** What the driver seam needs at open time (one per thread). */
+export interface OpenDriverOptions {
+  readonly threadId: ThreadId;
+  readonly attachMarker: string;
+  readonly events: DriverEvents;
+}
+
+/**
+ * The service body, with the driver opener injected so tests can run the
+ * whole queue/epoch/teardown path against `fakeBrowserDriver` without
+ * touching a real `agent-browser` binary. `cdpAvailable` only seeds the
+ * initial `BrowserState.mode` — the driver reports the real mode on open.
+ */
+export const makeService = (injected: {
+  readonly cdpAvailable: boolean;
+  readonly openDriver: (
+    options: OpenDriverOptions,
+  ) => Effect.Effect<BrowserDriver, { readonly message: string }, Scope.Scope>;
+}): Effect.Effect<
+  BrowserService["Service"],
+  never,
+  OrchestrationEngine | PermissionService | HttpServer.HttpServer | Scope.Scope
+> =>
+  Effect.gen(function* () {
+    const engine = yield* OrchestrationEngine;
+    const permissions = yield* PermissionService;
+    const httpServer = yield* HttpServer.HttpServer;
+    const serviceScope = yield* Effect.scope;
+
+    const sessions = yield* Ref.make(new Map<ThreadId, Session>());
+    // Serializes session-record creation across threads of the map.
+    const registryLock = yield* Semaphore.make(1);
+
+    const attachMarkerFor = (threadId: ThreadId): string => {
+      const address = httpServer.address;
+      if (typeof address === "object" && address !== null && "port" in address) {
+        return `http://127.0.0.1:${address.port}/browser/attach/${threadId}`;
+      }
+      return "";
+    };
+
+    const getSession = (threadId: ThreadId): Effect.Effect<Session> =>
+      registryLock.withPermits(1)(
+        Effect.gen(function* () {
+          const existing = (yield* Ref.get(sessions)).get(threadId);
+          if (existing !== undefined) return existing;
+          const session: Session = {
+            threadId,
+            state: yield* SubscriptionRef.make(
+              initialState(threadId, defaultMode(injected.cdpAvailable)),
+            ),
+            epoch: yield* Ref.make(0),
+            inFlight: yield* Ref.make<{
+              readonly tool: string;
+              readonly expects: ReadonlySet<InputClass>;
+            } | null>(null),
+            queue: yield* Semaphore.make(1),
+            driver: yield* Ref.make<{
+              readonly driver: BrowserDriver;
+              readonly scope: Scope.Closeable;
+            } | null>(null),
+          };
+          yield* Ref.update(sessions, (map) => new Map(map).set(threadId, session));
+          return session;
+        }),
+      );
+
+    const eventsFor = (session: Session): DriverEvents => ({
+      onFrame: (frame: BrowserFrame) =>
+        SubscriptionRef.update(session.state, (state) => ({ ...state, frame })),
+      onUrl: (url: string) => SubscriptionRef.update(session.state, (state) => ({ ...state, url })),
+      // The stream ended — daemon restart or crash. exec() resurrects the
+      // daemon on the next call; frames just pause until then.
+      onEnded: () =>
+        SubscriptionRef.update(session.state, (state) => ({
+          ...state,
+          frame: null,
+        })),
+    });
+
+    const ensureDriver = (session: Session): Effect.Effect<BrowserDriver, BrowserCallOutcome> =>
+      Effect.gen(function* () {
+        const current = yield* Ref.get(session.driver);
+        if (current !== null) return current.driver;
+
+        yield* SubscriptionRef.update(session.state, (state) => ({
+          ...state,
+          status: "starting" as const,
+          message: undefined,
+        }));
+
+        const scope = yield* Scope.make();
+        const opened = yield* Scope.use(scope)(
+          injected.openDriver({
+            threadId: session.threadId,
+            attachMarker: attachMarkerFor(session.threadId),
+            events: eventsFor(session),
+          }),
+        ).pipe(
+          Effect.catch((error) =>
+            Effect.gen(function* () {
+              yield* Scope.close(scope, Exit.void);
+              yield* SubscriptionRef.update(session.state, (state) => ({
+                ...state,
+                status: "error" as const,
+                message: error.message,
+              }));
+              return yield* Effect.fail<BrowserCallOutcome>({
+                kind: "error",
+                message: error.message,
+              });
+            }),
+          ),
+        );
+
+        yield* Ref.set(session.driver, { driver: opened, scope });
+        yield* SubscriptionRef.update(session.state, (state) => ({
+          ...state,
+          status: "ready" as const,
+          mode: opened.mode,
+        }));
+        return opened;
+      });
+
+    const releaseDriver = (session: Session): Effect.Effect<void> =>
+      Effect.gen(function* () {
+        const current = yield* Ref.getAndSet(session.driver, null);
+        if (current !== null) {
+          yield* current.driver.close;
+          yield* Scope.close(current.scope, Exit.void);
+        }
+      });
+
+    /** Re-read url/title after calls that can move the page. */
+    const refreshLocation = (session: Session, driver: BrowserDriver): Effect.Effect<void> =>
+      driver.location.pipe(
+        Effect.flatMap(({ url, title }) =>
+          SubscriptionRef.update(session.state, (state) => ({
+            ...state,
+            url: url ?? state.url,
+            title: title ?? state.title,
+          })),
+        ),
+        Effect.ignore,
+      );
+
+    /** `browser_eval` carries the `web` approval kind — denied in plan mode. */
+    const gateEval = (
+      threadId: ThreadId,
+      args: unknown,
+    ): Effect.Effect<BrowserCallOutcome | null> =>
+      Effect.gen(function* () {
+        const doc = yield* engine.threadDoc(threadId).pipe(Effect.orElseSucceed(() => null));
+        const decision = yield* permissions
+          .decide({
+            request: {
+              requestId: makeRequestId(),
+              kind: "web",
+              toolName: "mcp__openade__browser_eval",
+              input: typeof args === "object" && args !== null ? args : {},
+              description: "evaluate JavaScript in the thread's browser",
+            },
+            runtimeMode: doc?.settings.runtimeMode ?? "approval-required",
+            interactionMode: doc?.settings.interactionMode ?? "default",
+            threadId,
+          })
+          .pipe(Effect.orElseSucceed((): "prompt" => "prompt"));
+        if (decision === "deny") {
+          return {
+            kind: "error",
+            message: "browser_eval is denied by the thread's current permission mode",
+          };
+        }
+        // "prompt" reaches us after the harness-side PreToolUse approval, and
+        // "allow" is a rule the user set — either way the call may run.
+        return null;
+      });
+
+    const screenshotPath = () =>
+      join(tmpdir(), `openade-shot-${Math.random().toString(16).slice(2)}.png`);
+
+    const runCall = (
+      session: Session,
+      call: PreparedCall,
+    ): Effect.Effect<BrowserCallOutcome, never, never> =>
+      session.queue.withPermits(1)(
+        Effect.acquireUseRelease(
+          Effect.gen(function* () {
+            const epoch = yield* Ref.get(session.epoch);
+            yield* Ref.set(session.inFlight, { tool: call.name, expects: call.expects });
+            yield* SubscriptionRef.update(session.state, (state) => ({
+              ...state,
+              activeTool: call.name,
+            }));
+            return epoch;
+          }),
+          (epoch) =>
+            Effect.gen(function* () {
+              const ensured = yield* ensureDriver(session).pipe(
+                Effect.map((driver) => ({ ok: true as const, driver })),
+                Effect.catch((outcome) => Effect.succeed({ ok: false as const, outcome })),
+              );
+              if (!ensured.ok) return ensured.outcome;
+              const driver = ensured.driver;
+              const argv = call.screenshot
+                ? call.argv.map((part) => (part === "{shot}" ? screenshotPath() : part))
+                : call.argv;
+              const executed = yield* driver.exec(argv).pipe(
+                Effect.map((data) => ({ ok: true as const, data })),
+                Effect.catch((error) =>
+                  Effect.succeed({
+                    ok: false as const,
+                    outcome: {
+                      kind: "error" as const,
+                      message: error.message,
+                    } satisfies BrowserCallOutcome,
+                  }),
+                ),
+              );
+              if (!executed.ok) return executed.outcome;
+              const data = executed.data;
+
+              if (call.mutating) yield* refreshLocation(session, driver);
+
+              const epochAfter = yield* Ref.get(session.epoch);
+              if (epochAfter !== epoch) {
+                return { kind: "interrupted", status: "interrupted_by_human" } as const;
+              }
+
+              let image: { data: string; mediaType: string } | undefined;
+              if (call.screenshot && typeof data.path === "string") {
+                const bytes = yield* Effect.promise(() => readFile(String(data.path))).pipe(
+                  Effect.option,
+                );
+                if (Option.isSome(bytes)) {
+                  image = { data: bytes.value.toString("base64"), mediaType: "image/png" };
+                  yield* Effect.promise(() => unlink(String(data.path))).pipe(Effect.ignore);
+                }
+              }
+              return { kind: "ok", data, ...(image === undefined ? {} : { image }) } as const;
+            }),
+          () =>
+            Effect.andThen(
+              Ref.set(session.inFlight, null),
+              SubscriptionRef.update(session.state, (state) => ({ ...state, activeTool: null })),
+            ),
+        ),
+      );
+
+    const callTool = (
+      threadId: ThreadId,
+      name: string,
+      args: unknown,
+    ): Effect.Effect<BrowserCallOutcome> =>
+      Effect.gen(function* () {
+        const spec = findBrowserTool(name);
+        if (spec === undefined) {
+          return {
+            kind: "error",
+            message: `unknown browser tool: ${name}`,
+          } satisfies BrowserCallOutcome;
+        }
+        const prepared = spec.prepare(args);
+        if (!prepared.ok) {
+          return { kind: "error", message: prepared.error } satisfies BrowserCallOutcome;
+        }
+        if (name === "browser_eval") {
+          const denied = yield* gateEval(threadId, args);
+          if (denied !== null) return denied;
+        }
+        const session = yield* getSession(threadId);
+        return yield* runCall(session, prepared.call);
+      });
+
+    const humanInput = (threadId: ThreadId, input: BrowserHumanInput): Effect.Effect<void> =>
+      Effect.gen(function* () {
+        const session = yield* getSession(threadId);
+
+        if (input.kind === "location") {
+          yield* SubscriptionRef.update(session.state, (state) => ({
+            ...state,
+            url: input.url,
+            title: input.title ?? state.title,
+          }));
+          return;
+        }
+
+        // Human control: bump the epoch unless an in-flight call expected to
+        // synthesize exactly this class of input itself.
+        const inFlight = yield* Ref.get(session.inFlight);
+        const inputClass = inputClassOf(input);
+        const expected =
+          inFlight !== null && inputClass !== null && inFlight.expects.has(inputClass);
+        if (!expected) {
+          yield* Ref.update(session.epoch, (epoch) => epoch + 1);
+        }
+
+        const current = yield* Ref.get(session.driver);
+        if (current === null) {
+          // No browser yet — a navigate input is enough reason to start one.
+          if (input.kind === "navigate") {
+            yield* session.queue.withPermits(1)(
+              Effect.gen(function* () {
+                const ensured = yield* Effect.option(ensureDriver(session));
+                if (Option.isSome(ensured) && ensured.value.mode === "owned-chromium") {
+                  yield* ensured.value.exec(["open", input.url]).pipe(Effect.ignore);
+                }
+              }),
+            );
+          }
+          return;
+        }
+        const driver = current.driver;
+
+        if (driver.mode === "cdp-attach") {
+          // The guest owns the input; navigation/history were already applied
+          // by the pane's webview. Still mirror the url so the state stream
+          // stays truthful.
+          if (input.kind === "navigate") {
+            yield* SubscriptionRef.update(session.state, (state) => ({
+              ...state,
+              url: input.url,
+            }));
+          }
+          return;
+        }
+
+        switch (input.kind) {
+          case "click":
+          case "key":
+          case "text":
+          case "scroll":
+            yield* driver.sendInput(input).pipe(Effect.ignore);
+            return;
+          case "navigate":
+            yield* SubscriptionRef.update(session.state, (state) => ({
+              ...state,
+              url: input.url,
+            }));
+            yield* session.queue.withPermits(1)(
+              driver.exec(["open", input.url]).pipe(Effect.ignore),
+            );
+            return;
+          case "history":
+            yield* session.queue.withPermits(1)(
+              driver
+                .exec(
+                  input.direction === "back"
+                    ? ["back"]
+                    : input.direction === "forward"
+                      ? ["forward"]
+                      : ["reload"],
+                )
+                .pipe(Effect.ignore),
+            );
+            return;
+          default:
+            return;
+        }
+      });
+
+    const teardown = (threadId: ThreadId): Effect.Effect<void> =>
+      Effect.gen(function* () {
+        const session = (yield* Ref.get(sessions)).get(threadId);
+        if (session === undefined) return;
+        yield* releaseDriver(session);
+        yield* SubscriptionRef.set(session.state, {
+          ...initialState(session.threadId, defaultMode(injected.cdpAvailable)),
+          status: STOPPED_STATUS,
+        });
+        yield* Ref.update(sessions, (map) => {
+          const next = new Map(map);
+          next.delete(threadId);
+          return next;
+        });
+      }).pipe(Effect.ignore);
+
+    // Thread close tears the browser down — deleted or archived.
+    const reactor = engine.subscribeEvents.pipe(
+      Effect.flatMap((events) =>
+        Stream.runForEach(Stream.fromSubscription(events), (event) =>
+          event.type === "thread.deleted" || event.type === "thread.archived"
+            ? teardown(event.streamId as ThreadId)
+            : Effect.void,
+        ),
+      ),
+      Effect.catch((error) => Effect.logWarning("browser teardown reactor ended", error)),
+    );
+    yield* Effect.forkIn(reactor, serviceScope);
+
+    return BrowserService.of({
+      subscribe: (threadId) =>
+        Stream.unwrap(
+          Effect.map(getSession(threadId), (session) => SubscriptionRef.changes(session.state)),
+        ),
+      humanInput,
+      callTool,
+      teardown,
+    });
+  });
+
+export const layer: Layer.Layer<
+  BrowserService,
+  never,
+  OrchestrationEngine | PermissionService | AgentBrowser | HttpServer.HttpServer
+> = Layer.effect(
+  BrowserService,
+  Effect.gen(function* () {
+    const agentBrowser = yield* AgentBrowser;
+    return yield* makeService({
+      cdpAvailable: agentBrowser.cdpPort !== null,
+      openDriver: (options) =>
+        openAgentBrowserDriver(options).pipe(Effect.provideService(AgentBrowser, agentBrowser)),
+    });
+  }),
+);
