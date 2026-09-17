@@ -61,7 +61,7 @@ other two fixture routes use; a rebuild confirms no fixture id appears in
 | Behaviour under 768px                      | fixed here | `components/dock/right-dock.tsx`                                  |
 | Window chrome back / forward               | fixed here | `components/Layout/window-chrome.tsx`                             |
 | Connection banner                          | real       | `components/Layout/connection-banner.tsx`                         |
-| Toasts for failed dispatches               | real       | `lib/dispatch-result.ts` callers + `__root.tsx` `Toaster`         |
+| Toasts for failed dispatches               | real       | `lib/dispatch-outcome.ts` callers + `__root.tsx` `Toaster`        |
 | Command palette                            | real       | `components/Layout/search-command.tsx`                            |
 
 There is no `unread` flag on the wire and there should not be one — whether this

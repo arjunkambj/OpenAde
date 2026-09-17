@@ -28,7 +28,7 @@ import { toast } from "sonner";
 
 import { Icon } from "@/lib/icon";
 import { useAppAtoms } from "@/lib/app-runtime";
-import { isAccepted, rejectionMessage } from "@/lib/dispatch-result";
+import { isAccepted, rejectionMessage } from "@/lib/dispatch-outcome";
 import { openExternal, pickDirectory } from "@/lib/desktop";
 import { projectNameFromPath } from "@/lib/workspace-path";
 import { helpUrlFor } from "@/components/Settings/probe-help";
