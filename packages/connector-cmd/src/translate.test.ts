@@ -297,8 +297,34 @@ describe("exit-code mapping", () => {
     }
   });
 
+  it("gives every exit code spec 5.1 names a message of its own", () => {
+    for (const code of [1, 3, 4, 5, 6, 7, 8, 9, 10]) {
+      const events = translator().onExit(code);
+      const error = events[0];
+      expect(error?.type, `exit ${code}`).toBe("runtime.error");
+      const message = error?.type === "runtime.error" ? error.payload.message : "";
+      // Not the "cmd exited with code N" fallback, which is not a message a
+      // user can act on.
+      expect(message, `exit ${code}`).not.toContain(`code ${code}`);
+      expect(message.length, `exit ${code}`).toBeGreaterThan(10);
+    }
+  });
+
+  it("leaves the session alive for the three retryable failures", () => {
+    const fatalFor = (code: number): boolean | undefined => {
+      const error = translator().onExit(code)[0];
+      return error?.type === "runtime.error" ? error.payload.fatal : undefined;
+    };
+    // Rate limit, network, api 5xx, and the turn limit: worth another go, so
+    // the supervisor backs off instead of killing the thread.
+    expect([5, 6, 7, 8].map(fatalFor)).toEqual([false, false, false, false]);
+    expect([1, 3, 4, 9, 10].map(fatalFor)).toEqual([true, true, true, true, true]);
+  });
+
   it("says nothing when the process exits cleanly with no open turn", () => {
     expect(translator().onExit(0)).toEqual([]);
+    // An interrupt is not a failure — the stop reason already says so.
+    expect(translator().onExit(130)).toEqual([]);
   });
 });
 

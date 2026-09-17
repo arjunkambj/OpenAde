@@ -122,7 +122,6 @@ export interface CmdSessionOptions {
   readonly workspaceRoot: string;
   readonly binaryPath?: string;
   readonly extraEnv?: Record<string, string>;
-  readonly defaultModel?: string;
   readonly services: ConnectorServices;
   readonly settings: ThreadSettings;
   readonly sessionRef?: CmdSessionRef;
@@ -681,7 +680,7 @@ export const makeCmdSession = (
             const plan = settings.interactionMode === "plan";
             const args = buildArgs({
               prompt,
-              model: settings.model === "" ? options.defaultModel : settings.model,
+              model: settings.model,
               ...(settings.effort === undefined ? {} : { effort: settings.effort }),
               ...(prior === null ? {} : { sessionId: prior.sessionId }),
               yolo: !plan, // plan mode replaces --yolo (spec section 8)

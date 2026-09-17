@@ -54,7 +54,11 @@ export const cmdConnectorDefinition: ConnectorDefinition<CmdConnectorConfig> = {
         workspaceRoot: input.workspaceRoot,
         ...(config.binaryPath === undefined ? {} : { binaryPath: config.binaryPath }),
         ...(config.extraEnv === undefined ? {} : { extraEnv: config.extraEnv }),
-        ...(config.defaultModel === undefined ? {} : { defaultModel: config.defaultModel }),
+        // The child resolves `~/.commandcode` against its own HOME (spec 5.1),
+        // and extraEnv is what sets that HOME. Without this the tailer watches
+        // the server's home instead and the timeline loses every streaming
+        // item until the run_end reconcile.
+        ...(config.extraEnv?.HOME === undefined ? {} : { home: config.extraEnv.HOME }),
         services,
         settings: input.settings,
         ...(sessionRef === undefined ? {} : { sessionRef }),
