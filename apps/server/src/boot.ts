@@ -164,22 +164,30 @@ export const boot = (options: BootOptions) =>
     );
 
     const http = NodeHttpServer.layer(createServer, { port, host: "127.0.0.1" });
-    // One build of the http layer: the same server object serves the routes and
-    // reports the bound port for the handshake.
-    const httpContext = yield* Layer.build(http);
-    // The MCP gateway reads the bound address to build its loopback endpoint
-    // URLs, so `services` is built against the http context.
-    const servicesContext = yield* Layer.build(
-      services.pipe(Layer.provide(Layer.succeedContext(httpContext))),
-    );
+
+    // ── One build, one instance of everything ──
+    //
+    // The whole graph is built by a single `Layer.build`, and every piece the
+    // entrypoint needs afterwards comes back in that one context. This is not a
+    // tidiness preference: `Layer.build` memoizes per call, so a layer handed to
+    // two separate builds is *constructed twice*. `engine` and `manager` are
+    // reachable from both the services (through the browser service and the MCP
+    // gateway) and the server (through the RPC handlers and the reactors), and
+    // splitting the build gave the process two `OrchestrationEngine`s and two
+    // `SessionManager`s. They shared the database, so reads agreed and nothing
+    // looked wrong — but their PubSubs did not: the gateway's bearer-revoke
+    // reactor and the browser teardown reactor listened to the copy no command
+    // was ever dispatched through, so closing a thread revoked nothing and tore
+    // nothing down. Nesting the provides keeps the construction order the same
+    // (the HTTP server is listening before the gateway reads its address).
     const app = serverLayer.pipe(
-      Layer.provide(Layer.succeedContext(servicesContext)),
+      Layer.provideMerge(services),
       Layer.provideMerge(Layer.mergeAll(engine, manager, reactors)),
-      Layer.provide(Layer.succeedContext(httpContext)),
+      Layer.provideMerge(http),
     );
 
     const appContext = yield* Layer.build(app);
-    const server = Context.get(httpContext, HttpServer.HttpServer);
+    const server = Context.get(appContext, HttpServer.HttpServer);
     const address = server.address;
     const boundPort =
       typeof address === "object" && address !== null && "port" in address ? address.port : port;
@@ -196,9 +204,9 @@ export const boot = (options: BootOptions) =>
     // handshake, so no client can start a session against a half-wired host.
     const bridge = Context.get(appContext, HookBridge);
     const engineService = Context.get(appContext, OrchestrationEngine);
-    const permissionService = Context.get(servicesContext, PermissionService);
-    const gateway = Context.get(servicesContext, McpGateway);
-    const connectorHost = Context.get(servicesContext, ConnectorHost);
+    const permissionService = Context.get(appContext, PermissionService);
+    const gateway = Context.get(appContext, McpGateway);
+    const connectorHost = Context.get(appContext, ConnectorHost);
 
     yield* connectorHost.install({
       mcpEndpoint: gateway.endpoint,
@@ -231,7 +239,7 @@ export const boot = (options: BootOptions) =>
     // and this waits for it: `ConnectorSelection` reads the live registry, so a
     // client admitted before that pass lands would fail its first turn with
     // `NoConnector`. Probes keep running behind the handshake.
-    yield* Context.get(servicesContext, ConnectorManager).ready;
+    yield* Context.get(appContext, ConnectorManager).ready;
 
     const handshake: BootedServer = {
       url: `ws://127.0.0.1:${boundPort}/ws`,

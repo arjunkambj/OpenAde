@@ -32,6 +32,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Queue from "effect/Queue";
 import * as Stream from "effect/Stream";
 
 import { boot, type BootedServer } from "./boot";
@@ -192,6 +193,73 @@ describe("boot", () => {
       // same database the first one left behind.
       expect(yield* connectorsAfterBoot).toEqual([]);
     }),
+  );
+
+  it.live("dispatches into the same engine the reactors listen to", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        // The graph used to be assembled with three separate `Layer.build`
+        // calls, and `Layer.build` memoizes per call — so `engine` and
+        // `manager`, which both the services and the server reach, were each
+        // constructed twice. The database was shared, so every read agreed and
+        // nothing looked wrong; the PubSubs were not, so the reactors that hang
+        // off `engine.subscribeEvents` were listening to an engine no command
+        // was ever dispatched through.
+        //
+        // The browser teardown reactor is that wiring, seen from outside: it
+        // subscribes inside the services and fires on `thread.deleted`, which
+        // only ever arrives through the RPC handlers' engine. A second element
+        // on the session's state stream means the two are one.
+        const home = makeHome();
+        yield* seedSettings(home, []);
+        const server = yield* booted(home);
+        const rpc = yield* client(server);
+
+        const projectId = makeProjectId();
+        const threadId = makeThreadId();
+        const dispatch = (command: Command) => rpc["orchestration.dispatch"]({ command });
+        yield* dispatch({
+          commandId: makeCommandId(),
+          createdAt: new Date().toISOString(),
+          type: "project.create",
+          projectId,
+          name: "boot",
+          workspaceRoot: home.workspace,
+        });
+        yield* dispatch({
+          commandId: makeCommandId(),
+          createdAt: new Date().toISOString(),
+          type: "thread.create",
+          threadId,
+          projectId,
+          settings: { model: MODEL },
+        });
+
+        // Opening the subscription is what creates the session record the
+        // reactor later tears down; no browser is launched until a tool call.
+        const states = yield* Queue.unbounded<unknown>();
+        yield* Stream.runForEach(rpc["browser.subscribe"]({ threadId }), (state) =>
+          Queue.offer(states, state),
+        ).pipe(Effect.forkChild);
+        // The session's own initial state, taken before the delete is
+        // dispatched: the subscription is attached by the time it arrives, so
+        // the assertion below cannot pass on a replay of what was already there.
+        yield* Queue.take(states).pipe(Effect.timeout("30 seconds"));
+
+        yield* dispatch({
+          commandId: makeCommandId(),
+          createdAt: new Date().toISOString(),
+          type: "thread.delete",
+          threadId,
+        });
+
+        // The teardown's own write. With two engines nothing ever publishes it.
+        expect(yield* Queue.take(states).pipe(Effect.timeout("30 seconds"))).toMatchObject({
+          threadId,
+          status: "stopped",
+        });
+      }),
+    ),
   );
 
   it.live("opens a connector added after boot against the running app", () =>
