@@ -296,14 +296,7 @@ export class SettingsStore extends Context.Service<
         update: (patch) =>
           writeMutex.withPermits(1)(
             Effect.gen(function* () {
-              const archive = yield* Ref.getAndSet(unreadable, null);
-              if (archive !== null) {
-                yield* sql`
-                INSERT INTO settings (key, value_json, updated_at)
-                VALUES (${SETTINGS_UNREADABLE_ROW_KEY}, ${archive}, ${new Date().toISOString()})
-                ON CONFLICT (key) DO NOTHING
-              `;
-              }
+              const archive = yield* Ref.get(unreadable);
               const current = yield* Ref.get(ref);
               const next: Settings = {
                 ...current,
@@ -316,8 +309,22 @@ export class SettingsStore extends Context.Service<
               // replaces the whole table, so a failure between the two halves
               // would leave the user's rules gone and their preferences
               // unwritten — with nothing to tell them which half took.
+              //
+              // The archive is the same edit for the same reason: this write is
+              // what destroys the undecodable row, so the copy has to become
+              // durable exactly when the row that replaces it does.
               yield* sql.withTransaction(
                 Effect.gen(function* () {
+                  if (archive !== null) {
+                    yield* sql`
+                      INSERT INTO settings (key, value_json, updated_at)
+                      VALUES (
+                        ${SETTINGS_UNREADABLE_ROW_KEY}, ${archive},
+                        ${new Date().toISOString()}
+                      )
+                      ON CONFLICT (key) DO NOTHING
+                    `;
+                  }
                   if (patch.permissions !== undefined) {
                     yield* writeRules(sql, patch.permissions);
                   }
@@ -332,6 +339,9 @@ export class SettingsStore extends Context.Service<
                   `;
                 }),
               );
+              // Only now: a rolled-back transaction has to leave the raw text
+              // still in hand for the next attempt.
+              yield* Ref.set(unreadable, null);
               yield* Ref.set(ref, stored);
               yield* PubSub.publish(feed, stored);
               return yield* withRules(stored);
