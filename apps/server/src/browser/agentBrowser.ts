@@ -40,7 +40,7 @@ export const sessionNameFor = (threadId: string): string => `ade-${threadId}`;
 export const COMMAND_TIMEOUT_MS = 30_000;
 
 /** A daemon exits this long after its last command if we never close it. */
-const IDLE_TIMEOUT_MS = "300000";
+export const IDLE_TIMEOUT_MS = 300_000;
 
 /**
  * The env one session's invocations run with.
@@ -56,7 +56,7 @@ const IDLE_TIMEOUT_MS = "300000";
 export const sessionEnvFor = (
   extra?: Readonly<Record<string, string>>,
 ): Readonly<Record<string, string>> => ({
-  AGENT_BROWSER_IDLE_TIMEOUT_MS: IDLE_TIMEOUT_MS,
+  AGENT_BROWSER_IDLE_TIMEOUT_MS: String(IDLE_TIMEOUT_MS),
   ...extra,
 });
 

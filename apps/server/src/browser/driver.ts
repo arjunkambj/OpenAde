@@ -8,8 +8,10 @@
  *   with remote debugging on a random loopback port), the driver lists CDP
  *   targets through `agent-browser --cdp <port> tab --json` and binds the
  *   pane's webview guest (`--pin-tab`, so a destroyed pane reports `tab_gone`
- *   instead of silently driving another target). Human input lands in the
- *   guest directly, so `sendInput` is a no-op in this mode.
+ *   instead of silently driving another target). The pin lives in the daemon,
+ *   which reaps itself when idle, so the driver re-issues it after a gap that
+ *   long. Human input lands in the guest directly, so `sendInput` is a no-op
+ *   in this mode.
  * - **owned-chromium** — no CDP endpoint, or no webview target inside the
  *   attach window: agent-browser runs its own (headless) Chrome. The driver
  *   connects the session's `stream` WebSocket for live frames and forwards
@@ -36,6 +38,7 @@ import {
   AgentBrowser,
   AgentBrowserError,
   AgentBrowserUnavailable,
+  IDLE_TIMEOUT_MS,
   sessionNameFor,
   type AgentBrowserSession,
 } from "./agentBrowser";
@@ -116,13 +119,14 @@ const pickWebviewTarget = (
   return webviews.length === 1 ? Option.some(webviews[0]!) : Option.none();
 };
 
-const locationOf = (session: AgentBrowserSession): Effect.Effect<DriverLocation> =>
+/** Takes the driver's own `exec` so a cdp read goes through the pin check. */
+const locationOf = (exec: BrowserDriver["exec"]): Effect.Effect<DriverLocation> =>
   Effect.gen(function* () {
-    const url = yield* session.exec(["get", "url"]).pipe(
+    const url = yield* exec(["get", "url"]).pipe(
       Effect.map((data) => (typeof data.url === "string" ? data.url : null)),
       Effect.option,
     );
-    const title = yield* session.exec(["get", "title"]).pipe(
+    const title = yield* exec(["get", "title"]).pipe(
       Effect.map((data) => (typeof data.title === "string" ? data.title : null)),
       Effect.option,
     );
@@ -143,6 +147,12 @@ export interface OpenDriverOptions {
   /** Target-discovery attempts before falling back to owned mode. */
   readonly attachAttempts?: number;
   readonly attachDelayMs?: number;
+  /**
+   * How long a gap between commands means the daemon may have been reaped,
+   * so the cdp driver re-pins its target before the next one. Defaults to the
+   * idle timeout `sessionEnvFor` gives the daemon.
+   */
+  readonly rebindAfterIdleMs?: number;
 }
 
 export const openAgentBrowserDriver = (
@@ -233,11 +243,31 @@ const makeCdpDriver = (
   const isTabGone = (error: AgentBrowserError | AgentBrowserUnavailable): boolean =>
     error._tag === "AgentBrowserError" && error.code === "tab_gone";
 
+  // The pin is daemon state, and the daemon reaps itself after an idle spell
+  // (`sessionEnvFor` gives cdp sessions the same timeout as owned ones). The
+  // next exec would silently resurrect an *unpinned* daemon, which picks its
+  // own target on a CDP port that also carries the app's own window — so
+  // after a gap that long, re-issue the pin before the command. A pin the
+  // target no longer answers fails as `tab_gone`, which the catch below turns
+  // into a full rebind.
+  const idleMs = options.rebindAfterIdleMs ?? IDLE_TIMEOUT_MS;
+  const lastExecAt = { current: null as number | null };
+  const now = Effect.clockWith((clock) => clock.currentTimeMillis);
+
+  const repinIfIdle = Effect.gen(function* () {
+    const at = yield* now;
+    if (lastExecAt.current !== null && at - lastExecAt.current >= idleMs) {
+      yield* session.exec(["--pin-tab", "tab", boundTarget.current]).pipe(Effect.ignore);
+    }
+  });
+
   const exec: BrowserDriver["exec"] = (argv, execOptions) =>
-    session.exec(argv, execOptions).pipe(
+    repinIfIdle.pipe(
+      Effect.andThen(session.exec(argv, execOptions)),
       // The pane unmounted mid-call (or the guest crashed): re-resolve the
       // webview target once and retry, rather than failing the tool call.
       Effect.catchIf(isTabGone, () => Effect.andThen(rebind, session.exec(argv, execOptions))),
+      Effect.tap(() => Effect.flatMap(now, (at) => Effect.sync(() => (lastExecAt.current = at)))),
     );
 
   return {
@@ -245,7 +275,7 @@ const makeCdpDriver = (
     exec,
     // The guest received the input before we did — nothing to forward.
     sendInput: () => Effect.void,
-    location: locationOf(session),
+    location: locationOf(exec),
     // The webview belongs to the pane; "closing" the browser is the pane
     // unmounting, and `close` here would destroy a tab the desktop owns. The
     // attachment is released by the daemon's idle timeout instead, which
@@ -369,7 +399,7 @@ const openOwnedDriver = (
       mode: "owned-chromium",
       exec: (argv, execOptions) => session.exec(argv, execOptions),
       sendInput,
-      location: locationOf(session),
+      location: locationOf(session.exec),
       close: session.exec(["close"]).pipe(Effect.ignore),
     };
   });

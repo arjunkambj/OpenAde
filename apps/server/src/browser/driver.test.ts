@@ -6,6 +6,10 @@
  * comes back with no webview in it. Losing that race silently downgrades the
  * thread to owned Chromium — the pane unmounts the live view and switches to
  * the JPEG stream — so the window is worth a test.
+ *
+ * The pin that binds the session to that guest is daemon state, and the
+ * daemon reaps itself when idle, so the re-pin after a long gap is tested
+ * here too: without it a resurrected daemon drives a target of its choosing.
  */
 
 import { describe, expect, it } from "@effect/vitest";
@@ -51,7 +55,7 @@ const fakeCli = (emptyLists: number | null) => {
   return { calls, layer, lists: () => lists };
 };
 
-const open = (cli: ReturnType<typeof fakeCli>) =>
+const open = (cli: ReturnType<typeof fakeCli>, rebindAfterIdleMs?: number) =>
   Effect.scoped(
     openAgentBrowserDriver({
       threadId: "thread-1",
@@ -59,6 +63,7 @@ const open = (cli: ReturnType<typeof fakeCli>) =>
       events: { onFrame: () => Effect.void, onUrl: () => Effect.void, onEnded: () => Effect.void },
       attachAttempts: 5,
       attachDelayMs: 1,
+      ...(rebindAfterIdleMs === undefined ? {} : { rebindAfterIdleMs }),
     }),
   ).pipe(Effect.provide(cli.layer));
 
@@ -82,6 +87,27 @@ describe("openAgentBrowserDriver", () => {
       // Every attempt was spent before giving up on the pane.
       expect(cli.lists()).toBe(5);
       expect(cli.calls).toContainEqual(["open"]);
+    }),
+  );
+
+  it.live("re-pins its target after an idle gap the daemon could not survive", () =>
+    Effect.gen(function* () {
+      const cli = fakeCli(0);
+      // Any gap counts as long enough, so the second exec has to re-pin.
+      const driver = yield* open(cli, 0);
+      expect(driver.mode).toBe("cdp-attach");
+
+      yield* driver.exec(["snapshot"]);
+      yield* driver.exec(["snapshot"]);
+
+      const pins = cli.calls.filter((argv) => argv[0] === "--pin-tab");
+      // Once at open, once before the second command — same target both times.
+      expect(pins).toEqual([
+        ["--pin-tab", "tab", "guest-1"],
+        ["--pin-tab", "tab", "guest-1"],
+      ]);
+      // The re-pin went out before the command it protects.
+      expect(cli.calls.at(-1)).toEqual(["snapshot"]);
     }),
   );
 
