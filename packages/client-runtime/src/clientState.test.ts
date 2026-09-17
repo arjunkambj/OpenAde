@@ -157,7 +157,11 @@ describe("clientState fold", () => {
     expect(restored.restoreFailure).toBeNull();
   });
 
-  it("carries a running restore across a re-subscribe but not across a resnapshot", () => {
+  it("forgets a running restore when it takes a fresh snapshot", () => {
+    // The flags are folded from events, not read off the wire, so a snapshot
+    // is the point where the client stops knowing. Pinned so the day
+    // `ThreadDetailSnapshot` grows a `restoring` field this test is what has
+    // to change.
     const checkpoint = {
       checkpointId: makeCheckpointId(),
       turnId: makeTurnId(),
@@ -168,17 +172,14 @@ describe("clientState fold", () => {
       snapshot(),
       event("thread.checkpoint.restore.requested", { checkpoint }),
     );
+    expect(restoring.restoring).toEqual(checkpoint);
 
-    // The stream repeats after a clean close; the server's snapshot says
-    // nothing about the restore, so re-reading it must not blank the spinner.
-    const resubscribed = applyThreadStreamItem(restoring, {
+    const resnapshotted = applyThreadStreamItem(restoring, {
       kind: "snapshot",
       snapshot: snapshot(),
     });
-    expect(resubscribed?.restoring).toEqual(checkpoint);
+    expect(resnapshotted?.restoring ?? null).toBeNull();
 
-    // `resnapshot-required` drops the doc first, and a client with no history
-    // genuinely does not know whether the restore is still running.
     const cold = applyThreadStreamItem(null, { kind: "snapshot", snapshot: snapshot() });
     expect(cold?.restoring ?? null).toBeNull();
   });

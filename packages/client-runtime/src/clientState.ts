@@ -35,6 +35,16 @@ export interface ThreadRestoreFailure {
  * type. That keeps the view from having to be plumbed through every component
  * between the atom and the pane: the object the atom emits carries the fields,
  * and only the reader that wants them has to say so.
+ *
+ * Known limit, because they are folded from events and not read off a
+ * snapshot: they last exactly as long as the subscription that saw the
+ * `restore.requested`. Reload the window, restart the server, or leave the
+ * thread and come back while git is still working, and the client takes a
+ * fresh snapshot and forgets — the spinner drops and Restore goes live again,
+ * where the server rejects it with "is already restoring a checkpoint". The
+ * fix is a `restoring` field on `ThreadDetailSnapshot`, filled from the
+ * server's own `ThreadDoc.restoring`; that is an additive contracts change and
+ * is not part of this wave.
  */
 export interface ThreadDetailView extends ThreadDetailSnapshot {
   /** The checkpoint whose restore is running right now, if any. */
@@ -237,17 +247,13 @@ export const applyThreadStreamItem = (
 ): ThreadDetailView | null => {
   switch (item.kind) {
     case "snapshot":
-      // The server does not put the restore flags on the wire, so a plain
-      // re-subscribe (the stream's `repeat`) would blank a restore that is
-      // still running. `resnapshot-required` clears `doc` first, which is the
-      // one case where the client genuinely no longer knows.
-      return doc === null
-        ? item.snapshot
-        : {
-            ...item.snapshot,
-            restoring: doc.restoring ?? null,
-            restoreFailure: doc.restoreFailure ?? null,
-          };
+      // A snapshot replaces the doc wholesale, restore flags included. Every
+      // path that produces one has already thrown the old doc away: the atom
+      // clears it on `resnapshot-required`, and the subscribe loop clears it
+      // whenever it asks without `afterSequence` — which is the only ask the
+      // server answers with a snapshot at all. See the type's docblock for
+      // what that costs.
+      return item.snapshot;
     case "event":
       return doc === null || item.event.sequence <= doc.snapshotSequence
         ? doc
