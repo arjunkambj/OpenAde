@@ -116,16 +116,32 @@ const splitPatch = (patch: string): Array<{ path: string; oldPath?: string; chun
   return chunks;
 };
 
-/** `diff --numstat` rows: `added\tdeleted\tpath`. Binary rows are `-\t-`. */
+/**
+ * `diff --numstat -z` records: `added\tdeleted\tpath` NUL for an ordinary
+ * change, and `added\tdeleted\t` NUL `old` NUL `new` NUL for a rename or copy.
+ * The NUL form is what makes the rename case usable — the plain output writes
+ * it as the single field `old => new`, which matches no path the patch split
+ * ever produces, so renamed files came back as +0/-0. Binary rows are `-\t-`.
+ */
 const parseNumstat = (stdout: string): Map<string, { added: number; deleted: number }> => {
   const map = new Map<string, { added: number; deleted: number }>();
-  for (const line of stdout.split("\n")) {
-    const match = /^(\d+|-)\t(\d+|-)\t(.*)$/.exec(line);
+  const records = stdout.split(NUL);
+  for (let index = 0; index < records.length; index += 1) {
+    const match = /^(\d+|-)\t(\d+|-)\t(.*)$/.exec(records[index]!);
     if (match === null) continue;
-    map.set(match[3]!, {
+    const counts = {
       added: match[1] === "-" ? 0 : Number.parseInt(match[1]!, 10),
       deleted: match[2] === "-" ? 0 : Number.parseInt(match[2]!, 10),
-    });
+    };
+    if (match[3]!.length > 0) {
+      map.set(match[3]!, counts);
+      continue;
+    }
+    // An empty path field means the next two records are `old` then `new`;
+    // the patch split keys its entry on the new path.
+    const newPath = records[index + 2];
+    if (newPath !== undefined) map.set(newPath, counts);
+    index += 2;
   }
   return map;
 };
@@ -165,7 +181,11 @@ const worktreeDiff = (cwd: string, base: string, path?: string) =>
         ["diff", "--patch", "--no-color", "--no-ext-diff", "--find-renames", base, ...pathspec],
         { env },
       );
-      const numstat = yield* run(cwd, ["diff", "--numstat", base, ...pathspec], { env });
+      const numstat = yield* run(
+        cwd,
+        ["diff", "--numstat", "-z", "--find-renames", base, ...pathspec],
+        { env },
+      );
       return { patch: patch.stdout, numstat: numstat.stdout };
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
@@ -185,7 +205,14 @@ const refDiff = (cwd: string, from: string, to: string | undefined, path?: strin
       ...range,
       ...pathspec,
     ]);
-    const numstat = yield* run(cwd, ["diff", "--numstat", ...range, ...pathspec]);
+    const numstat = yield* run(cwd, [
+      "diff",
+      "--numstat",
+      "-z",
+      "--find-renames",
+      ...range,
+      ...pathspec,
+    ]);
     return { patch: patch.stdout, numstat: numstat.stdout };
   });
 

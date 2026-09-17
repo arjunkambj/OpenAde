@@ -270,6 +270,29 @@ describe("w8 git", () => {
     ),
   );
 
+  it.live("a renamed file carries its real addition and deletion counts", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = makeRepo();
+        const { projectId, git: gitService } = yield* stack(root);
+        git(root, "mv", "a.txt", "b.txt");
+        writeFileSync(nodePath.join(root, "b.txt"), "one\ntwo\n");
+        git(root, "add", "-A");
+        git(root, "commit", "-qm", "rename and edit");
+
+        // `--numstat` writes a rename as the single field `old => new`, which
+        // matches no path the patch split produces — the counts used to come
+        // back as +0/-0 while the patch plainly had a hunk.
+        const before = git(root, "rev-parse", "HEAD^").trim();
+        const between = yield* gitService.diff(projectId, { from: before, to: "HEAD" });
+        const renamed = between.files.find((f) => f.path === "b.txt");
+        expect(renamed?.oldPath).toBe("a.txt");
+        expect(renamed?.additions).toBe(1);
+        expect(renamed?.deletions).toBe(0);
+      }),
+    ),
+  );
+
   it.live("worktree diff removes its temporary index directory", () =>
     Effect.scoped(
       Effect.gen(function* () {
