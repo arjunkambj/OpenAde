@@ -43,9 +43,40 @@ Consequences worth knowing:
 - An empty server table falls back to `DEFAULT_KEYBINDINGS`. A renderer with no
   bindings has no shortcuts at all, which is indistinguishable from a bug. Once
   the table has any row it is authoritative — a binding the user removed stays
-  removed.
+  removed. The settings editor shows that same effective table, not the raw
+  one: showing the empty list would let a user add one row, save, and silently
+  unbind everything else.
+- `packages/ui`'s `SidebarProvider` used to run its own hard-coded Cmd/Ctrl+B
+  listener. It is gone. A vendored component that listens for keys is a second
+  mechanism by another name: the old chord kept working after a rebind, and
+  with no `defaultPrevented` guard the result depended on which listener
+  registered first. `sidebar.toggle` is registered by `SearchProvider` like
+  every other shell command.
 - `ShortcutKbd` and the composer's hint strip read the same table, so a
   rebound chord relabels its own hint.
+
+## The queue strip owns nothing
+
+Both halves of spec section 11's "reorder and remove" go through the decider:
+`thread.queue.remove` emits `thread.message.dequeued`, `thread.queue.reorder`
+emits `thread.queue.reordered`. The strip never mutates its own list — a row
+moves or disappears when the event lands, so it cannot disagree with the server
+about what is still going to be sent.
+
+Two shapes worth keeping:
+
+- The reorder event carries the **whole resulting order**, not the move. Both
+  folds (`apps/server/src/orchestration/state.ts` and the client runtime's)
+  apply it as a rank lookup, so an id the queue no longer holds simply places
+  nothing and a message the order does not mention keeps its place behind the
+  ones it does. Replaying a from/to pair against a queue that has since drained
+  would not survive that.
+- The drain is decided **inside the write transaction**. On
+  `thread.turn.completed` the reactor hands `appendThreadEvents` a planner
+  rather than a list, and that planner picks `doc.queue[0]` from the doc the
+  transaction holds. Reading the queue outside and appending afterwards left a
+  window where a `thread.queue.remove` was accepted — the row left the strip,
+  the user saw success — and the retracted message was sent anyway.
 
 ## The dev fixture pages do not ship
 
