@@ -15,11 +15,20 @@ import type { ThreadId, TurnId } from "@OpenAde/contracts/ids";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 
-import { run } from "./process";
+import { isRepository, run } from "./process";
 
 export class CheckpointStoreError extends Data.TaggedError("CheckpointStoreError")<{
   readonly message: string;
+  /**
+   * The workspace is not a git repository. A named field rather than a
+   * substring of `message`: callers decide what to do about it (capture has
+   * nothing to snapshot, restore has nothing to restore from) and git's
+   * wording is not part of any contract.
+   */
+  readonly notARepository: boolean;
 }> {}
+
+const NOT_A_REPOSITORY = "the project folder is not a git repository";
 
 const REF_PREFIX = "refs/openade/checkpoints";
 const refFor = (threadId: ThreadId, turnId: TurnId) => `${REF_PREFIX}/${threadId}/${turnId}`;
@@ -52,7 +61,23 @@ const wrap = <A>(
     Effect.mapError((error) =>
       error._tag === "CheckpointStoreError"
         ? error
-        : new CheckpointStoreError({ message: error.message }),
+        : new CheckpointStoreError({ message: error.message, notARepository: false }),
+    ),
+  );
+
+/**
+ * Fails with the named `notARepository` error unless `cwd` is a work tree, so
+ * every entry point reports a plain folder the same way instead of surfacing
+ * whatever git happened to print first.
+ */
+const requireRepository = (cwd: string) =>
+  isRepository(cwd).pipe(
+    Effect.flatMap((repo) =>
+      repo
+        ? Effect.void
+        : Effect.fail(
+            new CheckpointStoreError({ message: NOT_A_REPOSITORY, notARepository: true }),
+          ),
     ),
   );
 
@@ -100,6 +125,7 @@ export const make: CheckpointStoreShape = {
   capture: ({ threadId, turnId, workspaceRoot }) =>
     wrap(
       Effect.gen(function* () {
+        yield* requireRepository(workspaceRoot);
         const tempDir = mkdtempSync(nodePath.join(tmpdir(), "openade-checkpoint-"));
         const tempIndex = nodePath.join(tempDir, "index");
         const env = { ...gitEnv, GIT_INDEX_FILE: tempIndex };
@@ -133,6 +159,7 @@ export const make: CheckpointStoreShape = {
   list: ({ threadId, workspaceRoot }) =>
     wrap(
       Effect.gen(function* () {
+        yield* requireRepository(workspaceRoot);
         const result = yield* run(workspaceRoot, [
           "for-each-ref",
           "--format=%(refname)%00%(objectname)%00%(creatordate:iso-strict)",
@@ -162,10 +189,12 @@ export const make: CheckpointStoreShape = {
   restore: ({ workspaceRoot, checkpoint }) =>
     wrap(
       Effect.gen(function* () {
+        yield* requireRepository(workspaceRoot);
         const commit = yield* resolveCommit(workspaceRoot, checkpoint.ref);
         if (commit === null) {
           return yield* new CheckpointStoreError({
             message: `checkpoint ref ${checkpoint.ref} does not resolve`,
+            notARepository: false,
           });
         }
         const tracked = yield* run(workspaceRoot, [
@@ -198,10 +227,16 @@ export const make: CheckpointStoreShape = {
       }),
     ),
 
-  /** Thread deleted → every checkpoint ref under its prefix goes. */
+  /**
+   * Thread deleted → every checkpoint ref under its prefix goes. A workspace
+   * that is not a repository holds no refs, so there is nothing to fail over.
+   */
   prune: ({ threadId, workspaceRoot }) =>
     wrap(
       Effect.gen(function* () {
+        if (!(yield* isRepository(workspaceRoot))) {
+          return;
+        }
         const refs = yield* run(workspaceRoot, [
           "for-each-ref",
           "--format=%(refname)",

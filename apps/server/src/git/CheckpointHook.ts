@@ -17,11 +17,10 @@ export const layer = Layer.succeed(
   CheckpointHook.of({
     capture: ({ thread, turnId, workspaceRoot }) =>
       makeStore.capture({ threadId: thread.threadId, turnId, workspaceRoot }).pipe(
-        // A non-repo workspace simply has nothing to snapshot.
+        // A non-repo workspace simply has nothing to snapshot — the store
+        // says so in a field, so this never depends on git's wording.
         Effect.catch((error) =>
-          error.message.includes("not a git repository")
-            ? Effect.succeed(null)
-            : Effect.fail(toHookError(error)),
+          error.notARepository ? Effect.succeed(null) : Effect.fail(toHookError(error)),
         ),
       ),
     restore: ({ checkpoint, workspaceRoot }) =>

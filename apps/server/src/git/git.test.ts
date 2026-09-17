@@ -312,6 +312,40 @@ describe("w8 git", () => {
     ),
   );
 
+  it.live("a workspace that is not a repository is named, not guessed at", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const plain = mkdtempSync(nodePath.join(tmpdir(), "openade-plain-"));
+        const { projectId, git: gitService } = yield* stack(plain);
+
+        // Empty results, but the pane can tell this apart from a clean repo.
+        const status = yield* gitService.status(projectId);
+        expect(status.isRepository).toBe(false);
+        expect(status.files).toEqual([]);
+        const diff = yield* gitService.diff(projectId, {});
+        expect(diff.isRepository).toBe(false);
+
+        // Checkpoints report it as a field rather than as git's wording.
+        const threadId = makeThreadId();
+        const captureError = yield* checkpointStore
+          .capture({ threadId, turnId: makeTurnId(), workspaceRoot: plain })
+          .pipe(Effect.flip);
+        expect(captureError.notARepository).toBe(true);
+        const listError = yield* checkpointStore
+          .list({ threadId, workspaceRoot: plain })
+          .pipe(Effect.flip);
+        expect(listError.notARepository).toBe(true);
+        // Nothing to prune is not a failure.
+        yield* checkpointStore.prune({ threadId, workspaceRoot: plain });
+
+        // A real repository says so too.
+        const { projectId: repoProject, git: repoGit } = yield* stack(makeRepo());
+        expect((yield* repoGit.status(repoProject)).isRepository).toBe(true);
+        expect((yield* repoGit.diff(repoProject, {})).isRepository).toBe(true);
+      }),
+    ),
+  );
+
   it.live("files.search and files.read work in a workspace that is not a repository", () =>
     Effect.scoped(
       Effect.gen(function* () {

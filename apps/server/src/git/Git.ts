@@ -2,8 +2,9 @@
  * The real `GitService` behind the `git.status`/`git.diff` RPCs: argv-form git
  * over `process.ts`, porcelain-v2 parsing for status, and unified patches split
  * per file for the changes pane. A missing `projectId` or a non-repository
- * root answers with empty results rather than an RPC error — the pane renders
- * "not a git repo" the same way.
+ * root answers `isRepository: false` with empty results rather than an RPC
+ * error, so the pane can say "not a git repository" instead of showing what
+ * looks like a clean tree.
  */
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -23,7 +24,7 @@ import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
 
 import { ReadModelStore } from "../persistence/ReadModels";
 import { GitService } from "../rpc/services";
-import { GitError, run } from "./process";
+import { GitError, isRepository, run } from "./process";
 
 const toRpcError = (error: GitError) =>
   new OpenAdeRpcError({ code: "internal", message: error.message });
@@ -203,7 +204,7 @@ const toDiffFiles = (patch: string, numstat: string): Array<GitDiffFile> => {
   });
 };
 
-const notRepo: GitDiff = { from: null, to: null, files: [] };
+const notRepo: GitDiff = { from: null, to: null, isRepository: false, files: [] };
 
 /**
  * `from`/`to` land in flag position on the `git diff` argv — a value like
@@ -238,17 +239,21 @@ export const layer = Layer.effect(
         ),
       );
 
-    const isRepo = (cwd: string) =>
-      run(cwd, ["rev-parse", "--is-inside-work-tree"], { allowNonZeroExit: true }).pipe(
-        Effect.map((result) => result.exitCode === 0 && result.stdout.trim() === "true"),
-      );
-
     return GitService.of({
       status: (projectId) =>
         Effect.gen(function* () {
           const root = yield* workspaceRoot(projectId);
-          if (root === null || !(yield* isRepo(root))) {
-            return { branch: null, upstream: null, ahead: 0, behind: 0, files: [] };
+          if (root === null || !(yield* isRepository(root))) {
+            // Named, not guessed: an empty `files` list with `isRepository`
+            // false is what the pane renders as "not a git repository".
+            return {
+              branch: null,
+              upstream: null,
+              ahead: 0,
+              behind: 0,
+              isRepository: false,
+              files: [],
+            };
           }
           const result = yield* run(root, [
             "status",
@@ -257,7 +262,7 @@ export const layer = Layer.effect(
             "-z",
             "--untracked-files=normal",
           ]);
-          return parseStatus(result.stdout);
+          return { ...parseStatus(result.stdout), isRepository: true };
         }).pipe(Effect.mapError(toRpcError)),
 
       diff: (projectId, options) =>
@@ -265,7 +270,7 @@ export const layer = Layer.effect(
           const from = yield* validRef(options.from ?? "HEAD", "from");
           const to = options.to === undefined ? undefined : yield* validRef(options.to, "to");
           const root = yield* workspaceRoot(projectId);
-          if (root === null || !(yield* isRepo(root))) {
+          if (root === null || !(yield* isRepository(root))) {
             return { ...notRepo, from: options.from ?? null, to: options.to ?? null };
           }
           const { patch, numstat } =
@@ -275,6 +280,7 @@ export const layer = Layer.effect(
           return {
             from: options.from ?? null,
             to: options.to ?? null,
+            isRepository: true,
             files: toDiffFiles(patch, numstat),
           };
         }).pipe(
