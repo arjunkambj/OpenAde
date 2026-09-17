@@ -67,7 +67,14 @@ export const makeSessionSupervisor = (
           }
           const resumed = yield* sessions.ensure(doc, project.workspaceRoot).pipe(
             Effect.as(true),
-            Effect.catch(() => Effect.succeed(false)),
+            // The thread gets `session.lost` when attempts run out — the log
+            // is where it finds out why, so every failed attempt is recorded.
+            Effect.catch((error) =>
+              Effect.logWarning(
+                `session resume attempt ${attempt + 1} of ${maxAttempts} failed for thread ${threadId}`,
+                error,
+              ).pipe(Effect.as(false)),
+            ),
           );
           if (resumed) {
             return;

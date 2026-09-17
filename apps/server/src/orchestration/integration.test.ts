@@ -8,6 +8,7 @@ import {
 } from "@OpenAde/contracts/ids";
 import type { Command, OrchestrationEvent } from "@OpenAde/contracts/orchestration";
 import type { ConnectorInstance, ConnectorServices } from "@OpenAde/connector-sdk/definition";
+import { SpawnFailed } from "@OpenAde/connector-sdk/definition";
 import {
   approvalTurnScript,
   makeFakeConnector,
@@ -18,6 +19,7 @@ import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
+import * as TestConsole from "effect/testing/TestConsole";
 
 import type { PlannedEvent } from "../persistence/EventStore";
 import { EngineEnv, OrchestrationEngine } from "./Engine";
@@ -386,6 +388,55 @@ describe("orchestration with a fake connector", () => {
           }),
         ),
       );
+    }),
+  );
+
+  it.effect("logs every failed resume attempt before declaring the session lost", () =>
+    Effect.gen(function* () {
+      const { fake, instance } = yield* openFake();
+      // Same instance, but resume always fails — the crash below forces the
+      // supervisor through its whole retry budget.
+      const brokenResume: ConnectorInstance = {
+        ...instance,
+        resumeSession: () =>
+          Effect.fail(
+            new SpawnFailed({
+              kind: instance.kind,
+              instanceId: instance.instanceId,
+              message: "process image is gone",
+            }),
+          ),
+      };
+      yield* Effect.gen(function* () {
+        const engine = yield* OrchestrationEngine;
+        yield* engine.dispatch(createProject);
+        yield* engine.dispatch(createThread);
+
+        const bound = yield* awaitEvent(engine, isType("thread.session.bound"));
+        const completed = yield* awaitEvent(engine, isType("thread.turn.completed"));
+        const lost = yield* awaitEvent(engine, isType("thread.session.lost"));
+        yield* engine.dispatch(turnStart("hello"));
+        yield* Fiber.join(bound);
+        yield* Fiber.join(completed);
+
+        const session = yield* fake.session(threadId);
+        yield* session!.crash();
+        yield* Fiber.join(lost);
+      }).pipe(
+        Effect.provide(
+          stackLayer({
+            instance: brokenResume,
+            supervisor: { baseDelayMillis: 0, maxAttempts: 3 },
+          }),
+        ),
+      );
+
+      const lines = yield* TestConsole.logLines;
+      const attempts = lines.filter(
+        (line) => typeof line === "string" && line.includes("resume attempt"),
+      );
+      expect(attempts).toHaveLength(3);
+      expect(attempts[0]).toContain("resume attempt 1 of 3");
     }),
   );
 });
