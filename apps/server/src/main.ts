@@ -120,7 +120,11 @@ const main = Effect.gen(function* () {
   // One build of the http layer: the same server object serves the routes and
   // reports the bound port for the handshake.
   const httpContext = yield* Layer.build(http);
-  const servicesContext = yield* Layer.build(services);
+  // The session-services bundle reads the bound address to build its loopback
+  // MCP and hook URLs, so `services` is built against the http context.
+  const servicesContext = yield* Layer.build(
+    services.pipe(Layer.provide(Layer.succeedContext(httpContext))),
+  );
   const app = serverLayer.pipe(
     Layer.provide(Layer.succeedContext(servicesContext)),
     Layer.provideMerge(Layer.mergeAll(engine, manager, reactors)),
