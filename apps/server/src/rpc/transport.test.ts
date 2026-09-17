@@ -204,6 +204,8 @@ describe("transport", () => {
           BrowserService.of({
             subscribe: () => Stream.never,
             humanInput: () => Effect.fail(new Error("cdp connect refused")),
+            callTool: () => Effect.succeed({ kind: "error", message: "cdp connect refused" }),
+            teardown: () => Effect.void,
           }),
         );
         const { url } = yield* testStack(failingBrowser);
