@@ -449,7 +449,12 @@ export const makeService = (injected: {
         if (current === null) {
           // No browser yet. A navigate is enough reason to start one, and so
           // is a reload — that is the pane's "try again" after a failed open.
-          if (input.kind === "navigate" || input.kind === "history") {
+          // Back and forward are not: there is no history to move through, and
+          // starting a browser for them would pop a window and do nothing.
+          if (
+            input.kind === "navigate" ||
+            (input.kind === "history" && input.direction === "reload")
+          ) {
             yield* session.queue.withPermits(1)(
               Effect.gen(function* () {
                 const ensured = yield* Effect.option(ensureDriver(session));
