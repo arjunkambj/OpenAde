@@ -29,17 +29,16 @@ import { useProjects, useThreadList } from "@/state/hooks";
 
 type SearchContextValue = {
   setOpen: (open: boolean) => void;
-  toggle: () => void;
 };
 
 const SearchContext = React.createContext<SearchContextValue | null>(null);
 
 /**
- * The palette handle. The home layout uses it to bind the server-owned
- * `commandPalette.toggle` keybinding — the palette itself listens for no
- * shortcut it shares with that table, so the key is handled exactly once.
+ * The palette handle. Deliberately not exported: `SearchProvider` claims
+ * `commandPalette.toggle` itself, so no surface outside this file needs to
+ * reach in and open the palette.
  */
-export function useSearch() {
+function useSearch() {
   const context = React.useContext(SearchContext);
   if (!context) {
     throw new Error("useSearch must be used within a SearchProvider.");
@@ -72,10 +71,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = React.useState(false);
   const navigate = useNavigate();
   const { toggleSidebar } = useSidebar();
-  const value = React.useMemo(
-    () => ({ setOpen, toggle: () => setOpen((current) => !current) }),
-    [],
-  );
+  const value = React.useMemo(() => ({ setOpen }), []);
 
   // Handlers only — the chords come from the settings-owned keybinding table
   // and the one listener above the routes (@/lib/shortcuts). The palette is a
