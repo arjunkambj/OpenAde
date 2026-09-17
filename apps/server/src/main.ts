@@ -18,7 +18,7 @@ import * as Layer from "effect/Layer";
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 import * as HttpServer from "effect/unstable/http/HttpServer";
 
-import { CheckpointHook, CheckpointReactor } from "./orchestration/CheckpointReactor";
+import { CheckpointReactor } from "./orchestration/CheckpointReactor";
 import { OrchestrationEngine } from "./orchestration/Engine";
 import { ProviderCommandReactor } from "./orchestration/ProviderCommandReactor";
 import { ConnectorSelection, SessionManager } from "./orchestration/SessionManager";
@@ -26,14 +26,15 @@ import { makeSessionSupervisor } from "./orchestration/SessionSupervisor";
 import { EventStore } from "./persistence/EventStore";
 import { ReadModelStore } from "./persistence/ReadModels";
 import { defaultLayer as sqliteLayer } from "./persistence/Sqlite";
+import { layer as gitCheckpointHookLayer } from "./git/CheckpointHook";
+import { layer as fileServiceLayer } from "./git/Files";
+import { layer as gitServiceLayer } from "./git/Git";
 import { writeHandshake } from "./rpc/bootstrap";
 import { serverLayer, ServerToken } from "./rpc/server";
 import {
   BrowserService,
   CmdConfig,
   ConnectorCatalog,
-  FileService,
-  GitService,
   ServerIdentity,
   SettingsStore,
 } from "./rpc/services";
@@ -58,14 +59,14 @@ const main = Effect.gen(function* () {
     ProviderCommandReactor,
     CheckpointReactor,
     makeSessionSupervisor({}),
-  ).pipe(Layer.provide(Layer.mergeAll(engine, manager, CheckpointHook.noop)));
+  ).pipe(Layer.provide(Layer.mergeAll(engine, manager, gitCheckpointHookLayer)));
 
   const services = Layer.mergeAll(
     Layer.succeed(ServerIdentity, { serverInstanceId }),
     Layer.succeed(ServerToken, { token }),
     ConnectorCatalog.empty,
-    FileService.empty,
-    GitService.empty,
+    fileServiceLayer.pipe(Layer.provide(persistence)),
+    gitServiceLayer.pipe(Layer.provide(persistence)),
     BrowserService.empty,
     CmdConfig.empty,
     SettingsStore.layer.pipe(Layer.provide(sqlite)),
