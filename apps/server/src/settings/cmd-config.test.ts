@@ -250,6 +250,39 @@ describe("CmdConfig", () => {
     ),
   );
 
+  it.effect("entries the reader cannot make sense of survive an unrelated edit", () =>
+    withFixture((f) =>
+      Effect.gen(function* () {
+        mkdirSync(f.home, { recursive: true });
+        writeFileSync(
+          userMcpPath(f.home),
+          `${JSON.stringify({
+            mcpServers: { broken: null, odd: "not-an-object" },
+            // Parked by hand, without our marker: ours to leave alone.
+            _openadeDisabled: { handParked: { type: "stdio", command: "hand" } },
+          })}\n`,
+        );
+
+        yield* f.service.mcpUpsert(undefined, httpServer());
+        const afterUpsert = readDoc(userMcpPath(f.home));
+        expect(afterUpsert.mcpServers.broken).toBeNull();
+        expect(afterUpsert.mcpServers.odd).toBe("not-an-object");
+        expect(afterUpsert._openadeDisabled).toEqual({
+          handParked: { type: "stdio", command: "hand" },
+        });
+
+        yield* f.service.mcpRemove(undefined, "user", "docs");
+        const afterRemove = readDoc(userMcpPath(f.home));
+        expect(afterRemove.mcpServers.broken).toBeNull();
+        expect(afterRemove.mcpServers.odd).toBe("not-an-object");
+        // The park still holds a hand-written entry, so the key stays.
+        expect(afterRemove._openadeDisabled).toEqual({
+          handParked: { type: "stdio", command: "hand" },
+        });
+      }),
+    ),
+  );
+
   it.effect("skills come from user and project roots, project winning name collisions", () =>
     withFixture((f) =>
       Effect.gen(function* () {

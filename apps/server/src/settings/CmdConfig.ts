@@ -8,7 +8,9 @@
  * to touch an entry that lacks it. Everything else in the file — hand-authored
  * servers, unrelated top-level keys, formatting outside `mcpServers` — is
  * preserved verbatim on rewrite, so a hand edit outside our marker survives a
- * round-trip through the UI.
+ * round-trip through the UI. A rewrite carries over the entries this module
+ * cannot even read, too: it edits the maps the file holds rather than replacing
+ * them with the filtered views listing uses.
  *
  * A file that exists but cannot be parsed is never rewritten: listing reports
  * no servers for it, and upsert/remove fail with a `conflict` naming the file,
@@ -132,6 +134,14 @@ interface McpFile {
   readonly servers: Record<string, Json>;
   /** Managed definitions parked under `_openadeDisabled`. */
   readonly disabled: Record<string, Json>;
+  /**
+   * The same two maps as the file holds them, including the values the views
+   * above filter out. A rewrite is built from these and touches only the one
+   * key it changes, so an entry we cannot read — a `null`, a string, a park
+   * without our marker — survives an edit to a different server.
+   */
+  readonly rawServers: Record<string, unknown>;
+  readonly rawDisabled: Record<string, unknown>;
   /** Set when the file exists but could not be understood; writes must refuse. */
   readonly unreadable: string | null;
 }
@@ -143,10 +153,20 @@ const jsonMap = (value: unknown): Record<string, Json> =>
       )
     : {};
 
+const rawMap = (value: unknown): Record<string, unknown> =>
+  isJson(value) ? { ...(value as Record<string, unknown>) } : {};
+
 const readMcpFile = (path: string): Effect.Effect<McpFile> =>
   Effect.map(readJsonFile(path), (file): McpFile => {
     if (file._tag === "unreadable") {
-      return { doc: {}, servers: {}, disabled: {}, unreadable: file.reason };
+      return {
+        doc: {},
+        servers: {},
+        disabled: {},
+        rawServers: {},
+        rawDisabled: {},
+        unreadable: file.reason,
+      };
     }
     const doc = file._tag === "missing" ? {} : file.doc;
     return {
@@ -157,6 +177,8 @@ const readMcpFile = (path: string): Effect.Effect<McpFile> =>
       disabled: Object.fromEntries(
         Object.entries(jsonMap(doc[DISABLED_KEY])).filter(([, entry]) => isManaged(entry)),
       ),
+      rawServers: rawMap(doc.mcpServers),
+      rawDisabled: rawMap(doc[DISABLED_KEY]),
       unreadable: null,
     };
   });
@@ -233,8 +255,11 @@ const configToEntry = (server: McpServerConfig): Json => {
   return entry;
 };
 
-/** Writes the park back, dropping the key entirely once nothing is parked. */
-const writeDisabled = (doc: Json, disabled: Record<string, Json>): void => {
+/**
+ * Writes the park back, dropping the key entirely once nothing is parked at
+ * all — `disabled` is the raw map, so a hand-written entry there keeps the key.
+ */
+const writeDisabled = (doc: Json, disabled: Record<string, unknown>): void => {
   if (Object.keys(disabled).length === 0) {
     delete doc[DISABLED_KEY];
     return;
@@ -448,9 +473,11 @@ export const layer = (options: CmdConfigOptions = {}) =>
                 `"${server.name}" exists in ${path} without the ${MARKER} marker; edit it by hand or rename`,
               );
             }
+            // Built from the raw maps: every key but this server's is written
+            // back exactly as it was read, whatever its value looks like.
             const doc: Json = { ...file.doc };
-            const servers: Record<string, Json> = { ...file.servers };
-            const disabled: Record<string, Json> = { ...file.disabled };
+            const servers = { ...file.rawServers };
+            const disabled = { ...file.rawDisabled };
             const entry = configToEntry(server);
             // Enabled means "in the map the harness launches"; disabled means
             // "parked in our own key". A flag alone would not stop the server.
@@ -492,8 +519,8 @@ export const layer = (options: CmdConfigOptions = {}) =>
               );
             }
             const doc: Json = { ...file.doc };
-            const servers: Record<string, Json> = { ...file.servers };
-            const disabled: Record<string, Json> = { ...file.disabled };
+            const servers = { ...file.rawServers };
+            const disabled = { ...file.rawDisabled };
             delete servers[name];
             delete disabled[name];
             doc.mcpServers = servers;
