@@ -27,6 +27,7 @@ import { useAppAtoms } from "@/lib/app-runtime";
 import { openExternal } from "@/lib/desktop";
 import { Icon } from "@/lib/icon";
 
+import { helpUrlFor } from "./probe-help";
 import { SchemaForm, type SelectOption } from "./schema-form";
 
 const PROBE_LABEL: Record<ConnectorProbe["status"], string> = {
@@ -59,7 +60,7 @@ function ProbeLine({ probe }: { readonly probe: ConnectorProbe }) {
         ? "signed in"
         : "signed out",
   ].filter((part): part is string => part !== undefined);
-  const helpUrl = probe.helpUrl;
+  const helpUrl = helpUrlFor(probe);
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
@@ -70,7 +71,7 @@ function ProbeLine({ probe }: { readonly probe: ConnectorProbe }) {
         </span>
       ))}
       {probe.message === undefined ? null : <span className="text-removed">{probe.message}</span>}
-      {helpUrl === undefined ? null : (
+      {helpUrl === null ? null : (
         <button
           type="button"
           className="text-primary underline underline-offset-2"

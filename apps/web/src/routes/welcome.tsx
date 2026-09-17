@@ -2,8 +2,8 @@
  * First-run flow: pick a project directory (the desktop's native picker, or a
  * typed path in the browser), let the server probe its connectors — installed,
  * signed in, reachable — and only then create the project and land in chat.
- * Auth and credit failures carry a `helpUrl`; the billing link is the fallback
- * the probe points at.
+ * A failing probe offers the link `helpUrlFor` picks — the connector's own
+ * `helpUrl` when it named one, the account page otherwise.
  *
  * The page doubles as the connection diagnostic: the details card reports which
  * channel `resolveConnection` found (Electron preload, the dev endpoint, or
@@ -15,7 +15,7 @@ import { useAtomSet } from "@effect/atom-react";
 import { Button } from "@OpenAde/ui/components/button";
 import { Card, CardContent } from "@OpenAde/ui/components/card";
 import { makeCommandId, makeProjectId } from "@OpenAde/contracts/ids";
-import { ACCOUNT_HELP_URL, type ConnectorSummary } from "@OpenAde/contracts/rpc";
+import type { ConnectorSummary } from "@OpenAde/contracts/rpc";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import * as Exit from "effect/Exit";
 import * as React from "react";
@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { Icon } from "@/lib/icon";
 import { describeExitError, useAppAtoms } from "@/lib/app-runtime";
 import { openExternal, pickDirectory } from "@/lib/desktop";
+import { helpUrlFor } from "@/components/Settings/probe-help";
 import { CommitInput } from "@/components/Settings/schema-form";
 import { getResolvedConnection } from "@/state/app-runtime";
 import { useConnectionState } from "@/state/hooks";
@@ -86,21 +87,6 @@ const probeSummary = (probe: ConnectorSummary["probe"]): string => {
     default:
       return probe.message ?? "error";
   }
-};
-
-/**
- * The link a failing probe offers: its own `helpUrl`, and for auth or credit
- * problems — a connector that can report them should say so — the account
- * billing page.
- */
-const helpFor = (probe: ConnectorSummary["probe"]): string | null => {
-  if (probe.status === "ready") {
-    return null;
-  }
-  if (probe.helpUrl !== undefined) {
-    return probe.helpUrl;
-  }
-  return probe.status === "not-authenticated" || probe.auth === "absent" ? ACCOUNT_HELP_URL : null;
 };
 
 function WelcomePage() {
@@ -226,7 +212,7 @@ function WelcomePage() {
               {connectors === null ? null : (
                 <div className="flex flex-col gap-2">
                   {connectors.map((connector) => {
-                    const help = helpFor(connector.probe);
+                    const help = helpUrlFor(connector.probe);
                     return (
                       <div
                         key={connector.connectorInstanceId}
