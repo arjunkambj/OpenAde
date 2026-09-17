@@ -137,10 +137,8 @@ const parseNumstat = (stdout: string): Map<string, { added: number; deleted: num
 const worktreeDiff = (cwd: string, base: string, path?: string) =>
   Effect.gen(function* () {
     const pathspec = path === undefined ? [] : ["--", path];
-    const tempIndex = nodePath.join(
-      mkdtempSync(nodePath.join(tmpdir(), "openade-index-")),
-      "index",
-    );
+    const tempDir = mkdtempSync(nodePath.join(tmpdir(), "openade-index-"));
+    const tempIndex = nodePath.join(tempDir, "index");
     const env = { GIT_INDEX_FILE: tempIndex };
     try {
       yield* run(cwd, ["read-tree", base], { env }).pipe(
@@ -169,7 +167,7 @@ const worktreeDiff = (cwd: string, base: string, path?: string) =>
       const numstat = yield* run(cwd, ["diff", "--numstat", base, ...pathspec], { env });
       return { patch: patch.stdout, numstat: numstat.stdout };
     } finally {
-      rmSync(tempIndex, { force: true });
+      rmSync(tempDir, { recursive: true, force: true });
     }
   });
 

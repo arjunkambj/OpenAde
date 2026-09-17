@@ -9,6 +9,7 @@ import {
   chmodSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   unlinkSync,
   writeFileSync,
@@ -264,6 +265,22 @@ describe("w8 git", () => {
         const fresh = diff.files.find((f) => f.path === "fresh.txt");
         expect(fresh?.kind).toBe("create");
         expect(fresh?.diff).toContain("brand new");
+      }),
+    ),
+  );
+
+  it.live("worktree diff removes its temporary index directory", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = makeRepo();
+        const { projectId, git: gitService } = yield* stack(root);
+        writeFileSync(nodePath.join(root, "fresh.txt"), "brand new\n");
+        const tempIndexes = () =>
+          readdirSync(tmpdir()).filter((name) => name.startsWith("openade-index-"));
+        const before = new Set(tempIndexes());
+        yield* gitService.diff(projectId, {});
+        const leaked = tempIndexes().filter((name) => !before.has(name));
+        expect(leaked).toEqual([]);
       }),
     ),
   );
