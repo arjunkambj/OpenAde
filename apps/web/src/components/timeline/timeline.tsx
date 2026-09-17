@@ -14,8 +14,7 @@ import { turnInFlight } from "@/lib/turn";
 
 export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
   const projection = React.useMemo(
-    () =>
-      buildTimeline(snapshot.items, { turnActive: turnInFlight(snapshot) }),
+    () => buildTimeline(snapshot.items, { turnActive: turnInFlight(snapshot) }),
     [snapshot],
   );
 
