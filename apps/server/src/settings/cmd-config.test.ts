@@ -50,9 +50,7 @@ const fixture = Effect.gen(function* () {
     removed: false,
   });
   const ctx = yield* Layer.build(
-    cmdConfigLayer({ commandCodeHome: home }).pipe(
-      Layer.provide(Layer.succeedContext(rmContext)),
-    ),
+    cmdConfigLayer({ commandCodeHome: home }).pipe(Layer.provide(Layer.succeedContext(rmContext))),
   );
   return { home, root, projectId, service: Context.get(ctx, CmdConfig) } satisfies Fixture;
 });

@@ -74,9 +74,7 @@ export class ConnectorManager extends Context.Service<
   ConnectorManager,
   {
     readonly list: (refresh?: boolean) => Effect.Effect<ReadonlyArray<ConnectorSummary>>;
-    readonly models: (
-      instanceId: ConnectorInstanceId,
-    ) => Effect.Effect<ReadonlyArray<ModelOption>>;
+    readonly models: (instanceId: ConnectorInstanceId) => Effect.Effect<ReadonlyArray<ModelOption>>;
     /** Emits the summary list after every reconcile — tests and a future subscribe RPC. */
     readonly changes: Stream.Stream<ReadonlyArray<ConnectorSummary>>;
   }
@@ -90,17 +88,16 @@ export class ConnectorManager extends Context.Service<
 
       const entries = yield* Ref.make<ReadonlyMap<string, Entry>>(new Map());
       const probes = yield* Ref.make<ReadonlyMap<string, ConnectorProbe>>(new Map());
-      const capabilities = yield* Ref.make<ReadonlyMap<string, ConnectorCapabilities>>(
-        new Map(),
-      );
+      const capabilities = yield* Ref.make<ReadonlyMap<string, ConnectorCapabilities>>(new Map());
       /** Latest summary list — replays to new subscribers, so none miss a reconcile. */
       const summariesRef = yield* SubscriptionRef.make<ReadonlyArray<ConnectorSummary>>([]);
       /** Serialises reconcile passes and explicit re-probes. */
       const mutex = yield* Semaphore.make(1);
       const seeded = yield* Ref.make(false);
 
-      const now = Effect.map(Effect.clockWith((clock) => clock.currentTimeMillis), (ms) =>
-        new Date(ms).toISOString(),
+      const now = Effect.map(
+        Effect.clockWith((clock) => clock.currentTimeMillis),
+        (ms) => new Date(ms).toISOString(),
       );
 
       /** One probe of one configured entry; never fails — failures are data. */
@@ -109,21 +106,15 @@ export class ConnectorManager extends Context.Service<
           const probedAt = yield* now;
           const definition = yield* registry.definitionFor(conn.kind).pipe(Effect.option);
           if (Option.isNone(definition)) {
-            return failedProbe(
-              `this build has no connector for kind "${conn.kind}"`,
-              probedAt,
-            );
+            return failedProbe(`this build has no connector for kind "${conn.kind}"`, probedAt);
           }
-          const outcome = yield* definition.value.probe(conn.config).pipe(
-            Effect.timeoutOption(PROBE_TIMEOUT),
-            Effect.exit,
-          );
+          const outcome = yield* definition.value
+            .probe(conn.config)
+            .pipe(Effect.timeoutOption(PROBE_TIMEOUT), Effect.exit);
           if (Exit.isFailure(outcome)) {
             return failedProbe(Cause.pretty(outcome.cause), probedAt);
           }
-          return Option.getOrElse(outcome.value, () =>
-            failedProbe("probe timed out", probedAt),
-          );
+          return Option.getOrElse(outcome.value, () => failedProbe("probe timed out", probedAt));
         });
 
       const openInstance = (conn: ConnectorInstanceConfig): Effect.Effect<Entry["scope"]> =>
@@ -174,19 +165,17 @@ export class ConnectorManager extends Context.Service<
           const probedAt = yield* now;
           const probeMap = yield* Ref.get(probes);
           const caps = yield* Ref.get(capabilities);
-          return settings.connectors.map(
-            (conn): ConnectorSummary => ({
-              connectorInstanceId: conn.connectorInstanceId,
-              kind: conn.kind,
-              displayName: conn.displayName,
-              enabled: conn.enabled,
-              capabilities: caps.get(conn.connectorInstanceId) ?? null,
-              probe:
-                (probeMap.get(conn.connectorInstanceId) !== undefined
-                  ? toWireProbe(probeMap.get(conn.connectorInstanceId)!)
-                  : probingProbe(probedAt)),
-            }),
-          );
+          return settings.connectors.map((conn): ConnectorSummary => ({
+            connectorInstanceId: conn.connectorInstanceId,
+            kind: conn.kind,
+            displayName: conn.displayName,
+            enabled: conn.enabled,
+            capabilities: caps.get(conn.connectorInstanceId) ?? null,
+            probe:
+              probeMap.get(conn.connectorInstanceId) !== undefined
+                ? toWireProbe(probeMap.get(conn.connectorInstanceId)!)
+                : probingProbe(probedAt),
+          }));
         });
 
       /** Brings open instances and probe results in line with one settings document. */

@@ -39,11 +39,7 @@ import { layer as fileServiceLayer } from "./git/Files";
 import { layer as gitServiceLayer } from "./git/Git";
 import { writeHandshake } from "./rpc/bootstrap";
 import { serverLayer, ServerToken } from "./rpc/server";
-import {
-  BrowserService,
-  ServerIdentity,
-  SettingsStore,
-} from "./rpc/services";
+import { BrowserService, ServerIdentity, SettingsStore } from "./rpc/services";
 import { layer as cmdConfigLayer } from "./settings/CmdConfig";
 import { ConnectorHost } from "./settings/ConnectorHost";
 import { ConnectorManager, ConnectorRegistryService } from "./settings/ConnectorManager";

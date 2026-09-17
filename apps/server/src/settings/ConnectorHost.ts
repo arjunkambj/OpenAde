@@ -5,10 +5,7 @@
  * crash it can report rather than a URL that silently goes nowhere.
  */
 
-import type {
-  ConnectorLogLevel,
-  ConnectorServices,
-} from "@OpenAde/connector-sdk/definition";
+import type { ConnectorLogLevel, ConnectorServices } from "@OpenAde/connector-sdk/definition";
 import { configPath } from "@OpenAde/shared/paths";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -37,13 +34,13 @@ export class ConnectorHost extends Context.Service<
             attachmentsDir: configPath(["attachments"]),
             logger: {
               log: (level: ConnectorLogLevel, message: string, data) =>
-                (level === "debug"
+                level === "debug"
                   ? Effect.logDebug(message, data)
                   : level === "info"
                     ? Effect.logInfo(message, data)
                     : level === "warn"
                       ? Effect.logWarning(message, data)
-                      : Effect.logError(message, data)),
+                      : Effect.logError(message, data),
             },
             clock,
           },

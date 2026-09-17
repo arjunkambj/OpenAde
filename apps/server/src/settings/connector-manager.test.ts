@@ -90,12 +90,7 @@ const withFixture = <A, E>(
 const awaitSummaries = (
   manager: ConnectorManager["Service"],
   pred: (summaries: ReadonlyArray<ConnectorSummary>) => boolean,
-) =>
-  manager.changes.pipe(
-    Stream.filter(pred),
-    Stream.runHead,
-    Effect.map(Option.getOrThrow),
-  );
+) => manager.changes.pipe(Stream.filter(pred), Stream.runHead, Effect.map(Option.getOrThrow));
 
 describe("ConnectorManager", () => {
   it.effect("a fresh install seeds one enabled, probed, open instance per definition", () =>
@@ -132,10 +127,7 @@ describe("ConnectorManager", () => {
         expect(yield* registry.instances).toHaveLength(0);
 
         yield* store.update({ connectors: [{ ...conn, enabled: true }] });
-        yield* awaitSummaries(
-          manager,
-          (all) => all.length === 1 && all[0]!.capabilities !== null,
-        );
+        yield* awaitSummaries(manager, (all) => all.length === 1 && all[0]!.capabilities !== null);
         expect(yield* registry.instances).toHaveLength(1);
       }),
     ),
@@ -160,9 +152,7 @@ describe("ConnectorManager", () => {
         const list = yield* manager.list(true);
         expect(yield* Ref.get(probes)).toBe(afterReconcile + 1);
         expect(list[0]!.probe.status).toBe("ready");
-        const models = yield* manager.models(
-          seeded[0]!.connectorInstanceId as ConnectorInstanceId,
-        );
+        const models = yield* manager.models(seeded[0]!.connectorInstanceId as ConnectorInstanceId);
         expect(models.map((model) => model.id)).toEqual(["fake/model"]);
       }),
     ),
