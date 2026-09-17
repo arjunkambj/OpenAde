@@ -21,8 +21,7 @@
       "ignoreDependencies": ["@OpenAde/contracts", "@OpenAde/shared", "tsx"]
     },
     "apps/server": {
-      "ignoreExportsUsedInFile": true,
-      "ignoreDependencies": ["@OpenAde/connector-cmd"]
+      "ignoreExportsUsedInFile": true
     },
     "apps/web": {
       "entry": ["src/routes/**/*.tsx"],
@@ -60,7 +59,8 @@
     "packages/connector-cmd": {
       "includeEntryExports": true,
       "ignoreExportsUsedInFile": true,
-      "ignoreDependencies": ["@OpenAde/connector-sdk", "@OpenAde/contracts", "@OpenAde/shared"]
+      // Spawned via execFileSync — a system tool, not an npm dependency.
+      "ignoreBinaries": ["pgrep"]
     },
     "packages/connector-sdk": {
       "includeEntryExports": true,
