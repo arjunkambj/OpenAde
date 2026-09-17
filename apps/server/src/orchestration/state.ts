@@ -69,6 +69,13 @@ export interface ThreadDoc {
       readonly mentions: ReadonlyArray<Mention>;
     };
   } | null;
+  /**
+   * True between `thread.turn.interrupted` and the connector's own
+   * `thread.turn.completed`. The connector is still winding the turn down
+   * (SIGINT, then SIGKILL), and a turn sent inside that window is answered
+   * "busy" by the turn-scoped handle — so the decider queues instead.
+   */
+  readonly interrupting: boolean;
   readonly pendingPlan: PendingPlan | null;
   readonly usage: TurnUsage | null;
   readonly context: ContextWindowUsage | null;
@@ -124,6 +131,7 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
       checkpoints: [],
       session: null,
       currentTurn: null,
+      interrupting: false,
       pendingPlan: null,
       usage: null,
       context: null,
@@ -163,7 +171,13 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
       // completed it is gone. Leaving it set makes the decider reject every
       // later `thread.turn.start` ("a turn is already running") and leaves the
       // queue with no drain — the thread would be wedged for good.
-      return { ...next, session: null, currentTurn: null, status: "error" };
+      return {
+        ...next,
+        session: null,
+        currentTurn: null,
+        interrupting: false,
+        status: "error",
+      };
     case "thread.turn.requested":
       return {
         ...next,
@@ -180,12 +194,19 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
     case "thread.turn.started":
       return { ...next, status: "running" };
     case "thread.turn.completed":
-    case "thread.turn.interrupted":
       return {
         ...next,
         currentTurn: null,
+        interrupting: false,
         status: waitingOr(doc, "idle"),
       };
+    case "thread.turn.interrupted":
+      // The interrupt is a request, not the end of the turn: the connector
+      // still has to stop, and it settles the turn with its own
+      // `turn.completed`. Clearing `currentTurn` here would let the next
+      // message start a turn the connector answers "busy" to, which the
+      // reactor turns into a fatal thread error.
+      return { ...next, interrupting: true, status: "running" };
     case "thread.message.queued":
       return {
         ...next,
@@ -292,7 +313,9 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
       // checkpoint refs still exist and the event still bumps the sequence.
       return next;
     case "thread.error":
-      return payload.fatal === true ? { ...next, status: "error", currentTurn: null } : next;
+      return payload.fatal === true
+        ? { ...next, status: "error", currentTurn: null, interrupting: false }
+        : next;
     default:
       return next;
   }

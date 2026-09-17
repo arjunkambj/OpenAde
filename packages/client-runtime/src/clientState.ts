@@ -52,8 +52,13 @@ export const applyThreadEvent = (
         currentTurnId: payload.turnId as ThreadDetailSnapshot["currentTurnId"],
         updatedAt: event.occurredAt,
       };
-    case "thread.turn.completed":
     case "thread.turn.interrupted":
+      // An interrupt is a request, not the end of the turn: the connector
+      // still has to stop and settles the turn with its own `turn.completed`.
+      // The server's fold keeps `currentTurnId` here for the same reason, and
+      // the two folds have to agree or a resnapshot contradicts the live view.
+      return { ...doc, updatedAt: event.occurredAt };
+    case "thread.turn.completed":
       // `pendingPlan` survives the turn's end: the server proposes plans late
       // in the turn and the user answers after it finishes — the plan card
       // must stay up until `thread.plan.responded` clears it.

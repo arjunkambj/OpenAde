@@ -192,7 +192,11 @@ export const decide = (
         return rejected(`thread ${command.threadId} is archived`);
       }
       if (thread.currentTurn !== null) {
-        if (!command.queued) {
+        // An interrupt that has not settled yet always queues, whatever the
+        // caller asked for: the connector is still stopping, so a turn sent
+        // now comes back "busy". The queue drains on `turn.completed`, which
+        // is exactly when the connector is free again.
+        if (!command.queued && !thread.interrupting) {
           return rejected("a turn is already running; send with queued: true to queue it");
         }
         return accepted([
@@ -223,6 +227,9 @@ export const decide = (
       }
       if (thread.currentTurn === null) {
         return rejected(`thread ${command.threadId} has no running turn`);
+      }
+      if (thread.interrupting) {
+        return rejected(`thread ${command.threadId} is already stopping`);
       }
       return accepted([emit("thread.turn.interrupted", { turnId: thread.currentTurn.turnId })]);
     }

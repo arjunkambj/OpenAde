@@ -47,6 +47,7 @@ const threadDoc = (overrides: Partial<ThreadDoc> = {}): ThreadDoc => ({
   checkpoints: [],
   session: null,
   currentTurn: null,
+  interrupting: false,
   pendingPlan: null,
   usage: null,
   context: null,
@@ -280,6 +281,27 @@ const rows: ReadonlyArray<Row> = [
     events: ["thread.message.queued"],
   },
   {
+    name: "thread.turn.start queues rather than rejecting while an interrupt settles",
+    command: {
+      ...baseCommand,
+      type: "thread.turn.start",
+      threadId: makeThreadId(),
+      text: "typed right after stop",
+      attachments: [],
+      mentions: [],
+      queued: false,
+    } as Command,
+    thread: threadDoc({
+      currentTurn: {
+        turnId: makeTurnId(),
+        input: { text: "in-flight", attachments: [], mentions: [] },
+      },
+      interrupting: true,
+      status: "running",
+    }),
+    events: ["thread.message.queued"],
+  },
+  {
     name: "thread.turn.start rejects on an archived thread",
     command: {
       ...baseCommand,
@@ -318,6 +340,23 @@ const rows: ReadonlyArray<Row> = [
     } as Command,
     thread: threadDoc(),
     rejects: "no running turn",
+  },
+  {
+    name: "thread.turn.interrupt rejects a second stop while the first settles",
+    command: {
+      ...baseCommand,
+      type: "thread.turn.interrupt",
+      threadId: makeThreadId(),
+    } as Command,
+    thread: threadDoc({
+      currentTurn: {
+        turnId: makeTurnId(),
+        input: { text: "in-flight", attachments: [], mentions: [] },
+      },
+      interrupting: true,
+      status: "running",
+    }),
+    rejects: "already stopping",
   },
   {
     name: "thread.settings.update emits thread.settings.updated",

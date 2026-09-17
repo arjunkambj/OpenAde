@@ -5,7 +5,9 @@
  * already decided; this fiber performs the side effect the event calls for:
  *
  * - `turn.requested` → ensure the session, `handle.send(turnId, turn)`.
- * - `turn.interrupted` → `handle.interrupt(turnId)`.
+ * - `turn.interrupted` → `handle.interrupt(turnId)`; the turn stays in flight
+ *   until the connector settles it, and this fiber settles it itself when
+ *   there is no live session left to do so.
  * - `approval.resolved` / `userInput.resolved` / `plan.responded` → the
  *   matching `respond*` on the live handle, plus the plan follow-up commands
  *   spec section 8 prescribes.
@@ -161,11 +163,35 @@ export const ProviderCommandReactor = Layer.effectDiscard(
           }
 
           case "thread.turn.interrupted": {
+            const turnId = payload.turnId as TurnId;
             const handle = yield* sessions.handleFor(threadId);
-            if (handle !== null) {
-              yield* handle
-                .interrupt(payload.turnId as TurnId)
-                .pipe(Effect.catch((error) => Effect.logWarning("interrupt failed", error)));
+            // The turn stays in flight until something settles it. Normally
+            // that is the connector's own `turn.completed`, which the handle
+            // emits once it has stopped; if there is no live session, or the
+            // interrupt itself fails, nothing else ever will — so settle it
+            // here rather than leave the thread stuck in `running`.
+            const settled = yield* (
+              handle === null
+                ? Effect.succeed(false)
+                : handle.interrupt(turnId).pipe(
+                    Effect.as(true),
+                    Effect.catch((error) =>
+                      Effect.logWarning("interrupt failed", error).pipe(Effect.as(false)),
+                    ),
+                  )
+            );
+            if (!settled) {
+              yield* engine
+                .appendThreadEvents(threadId, [
+                  systemEvent(
+                    threadId,
+                    "thread.turn.completed",
+                    { turnId, stopReason: "interrupted" },
+                    new Date().toISOString(),
+                    event.eventId,
+                  ),
+                ])
+                .pipe(Effect.catch((error) => Effect.logWarning("interrupt settle failed", error)));
             }
             return;
           }

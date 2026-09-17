@@ -91,4 +91,33 @@ describe("the thread fold", () => {
 
     expect(doc?.queue).toHaveLength(1);
   });
+
+  it("keeps the in-flight turn while an interrupt settles", () => {
+    const turnId = makeTurnId();
+    const doc = foldThread([
+      created(),
+      turnRequested(turnId),
+      event("thread.turn.interrupted", { turnId }),
+    ]);
+
+    // The connector has not stopped yet: the turn-scoped handle answers
+    // "busy" to anything sent before it emits this turn's `turn.completed`.
+    expect(doc?.currentTurn?.turnId).toBe(turnId);
+    expect(doc?.interrupting).toBe(true);
+    expect(doc?.status).toBe("running");
+  });
+
+  it("settles the interrupt on the connector's turn.completed", () => {
+    const turnId = makeTurnId();
+    const doc = foldThread([
+      created(),
+      turnRequested(turnId),
+      event("thread.turn.interrupted", { turnId }),
+      event("thread.turn.completed", { turnId, stopReason: "interrupted" }),
+    ]);
+
+    expect(doc?.currentTurn).toBeNull();
+    expect(doc?.interrupting).toBe(false);
+    expect(doc?.status).toBe("idle");
+  });
 });
