@@ -14,6 +14,15 @@
  * that somehow reaches this point still runs sandboxed, context-isolated and
  * without Node or a preload script.
  *
+ * Which object to write to matters. Electron's guest-view manager derives the
+ * `webPreferences` it will build the guest from *before* it emits
+ * `will-attach-webview` — `plugins: params.plugins`,
+ * `disablePopups: !params.allowpopups`, `webSecurity: !params.disablewebsecurity`
+ * — and then creates the guest from that object, not from `params`. Rewriting an
+ * attribute back to its unset value therefore changes nothing the guest sees, so
+ * every capability the policy denies is pinned on `preferences`; the `params`
+ * reset stays as defence in depth for anything that reads them later.
+ *
  * Kept free of `electron` imports so the whole policy is unit-testable.
  */
 
@@ -30,6 +39,14 @@ export interface GuestPreferences {
   experimentalFeatures?: boolean;
   webviewTag?: boolean;
   enableBlinkFeatures?: string;
+  /** Pepper plugins. Electron derives this straight from the `plugins` attribute. */
+  plugins?: boolean;
+  /**
+   * Electron's internal inverse of `allowpopups`: `true` blocks `window.open`
+   * from the guest. No `setWindowOpenHandler` is installed on a guest, so this
+   * is the only thing standing between an injected tag and a popup.
+   */
+  disablePopups?: boolean;
 }
 
 /** Only the browser pane's own per-thread partitions may attach. */
@@ -44,6 +61,7 @@ const ESCALATION_ATTRIBUTES = {
   webpreferences: "",
   nodeintegration: false,
   allowpopups: false,
+  plugins: false,
 } as const;
 
 const isUnset = (value: unknown): boolean =>
@@ -77,6 +95,10 @@ export const applyWebviewAttachPolicy = (
   preferences.experimentalFeatures = false;
   // A guest may not nest another webview.
   preferences.webviewTag = false;
+  // Already derived from `params.plugins` / `params.allowpopups` by the time
+  // this handler runs, so resetting the attributes below would come too late.
+  preferences.plugins = false;
+  preferences.disablePopups = true;
 
   // Reset the escalation attributes to the values Electron sends when the tag
   // never set them, so nothing downstream reads a renderer-supplied one.
