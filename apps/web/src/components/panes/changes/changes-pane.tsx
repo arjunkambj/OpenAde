@@ -114,10 +114,25 @@ function BranchLine({ status, onRefresh }: { status: GitStatus | null; onRefresh
   );
 }
 
-/** The unwrapped value of a git atom, or `null` while it has not answered. */
+/**
+ * What the pane renders from one git atom.
+ *
+ * `GitQuery` covers the RPC's own outcomes, which the atom turns into values so
+ * a bad ref does not kill the stream. `broken` is the case above that: the
+ * atom's error channel, which is inhabited by defects the stream cannot catch
+ * (a client that dies on every `git.*` call, for one). There is no value to
+ * show and no reconnect will produce one, so it has to read as an error with a
+ * retry rather than as a load that never finishes.
+ */
+type PaneQuery<A> = GitQuery<A> | { readonly _tag: "broken" };
+
+const BROKEN = { _tag: "broken" } as const;
+
+/** The state of a git atom, or `null` while it has not answered yet. */
 const queryValue = <A,>(
   result: AsyncResult.AsyncResult<GitQuery<A>, unknown>,
-): GitQuery<A> | null => (AsyncResult.isSuccess(result) ? result.value : null);
+): PaneQuery<A> | null =>
+  AsyncResult.isSuccess(result) ? result.value : AsyncResult.isFailure(result) ? BROKEN : null;
 
 export function ChangesPane({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
   const atoms = useGitAtoms();
@@ -235,8 +250,8 @@ function ChangesBody({
   rangeKey,
   onRetry,
 }: {
-  diff: GitQuery<GitDiff> | null;
-  status: GitQuery<GitStatus> | null;
+  diff: PaneQuery<GitDiff> | null;
+  status: PaneQuery<GitStatus> | null;
   connected: boolean;
   rangeKey: string;
   onRetry: () => void;
@@ -257,6 +272,15 @@ function ChangesBody({
   }
   if (diff._tag === "error") {
     return <PaneMessage icon="hugeicons:alert-02" text={diff.message} action={retry} />;
+  }
+  if (diff._tag === "broken") {
+    return (
+      <PaneMessage
+        icon="hugeicons:alert-02"
+        text="Could not read the changes for this comparison."
+        action={retry}
+      />
+    );
   }
   if (status?._tag === "ok" && isRepoless(status.value)) {
     return (
