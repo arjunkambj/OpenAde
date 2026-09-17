@@ -122,6 +122,24 @@ interface Attempt {
   readonly disconnected: Deferred.Deferred<void>;
 }
 
+/**
+ * The one place a status moves, so the `incompatible` state is absorbing
+ * everywhere. The subscribers that saw the mismatched hello are parked on
+ * `Stream.never` and nothing re-runs them, so letting the supervisor's
+ * ordinary `reconnecting → connected` cycle overwrite it would only make the
+ * banner claim the app is live over a UI whose streams are all silent. Only
+ * reloading the window — with the updated build — clears it.
+ *
+ * @public The supervisor and `markConnected` both go through this.
+ */
+export const setConnectionStatus = (
+  state: SubscriptionRef.SubscriptionRef<ConnectionState>,
+  status: ConnectionStatus,
+) =>
+  SubscriptionRef.update(state, (previous) =>
+    previous.status === "incompatible" ? previous : { ...previous, status },
+  );
+
 export const makeConnection = (
   options: ConnectionOptions,
 ): Layer.Layer<Connection | ConnectionStateRef, never, Scope.Scope> =>
@@ -143,8 +161,7 @@ export const makeConnection = (
        * make each reconnect look like a server restart and force a full
        * resnapshot — `attempt` clears it only when the id really changed.
        */
-      const setStatus = (status: ConnectionStatus) =>
-        SubscriptionRef.update(state, (previous) => ({ ...previous, status }));
+      const setStatus = (status: ConnectionStatus) => setConnectionStatus(state, status);
 
       /**
        * One connect attempt, built in the connection layer's scope — a child
@@ -265,16 +282,28 @@ export const makeConnection = (
     }),
   );
 
-/** Records the boot id reported by `server.hello`. */
+/**
+ * Records the boot id reported by `server.hello`. A build that already parked
+ * on a protocol mismatch keeps that status: the parked subscribers never
+ * un-park, so reporting `connected` would only hide the banner.
+ */
 export const markConnected = (serverInstanceId: string) =>
   ConnectionStateRef.use((state) =>
-    SubscriptionRef.set(state, { status: "connected", serverInstanceId }),
+    SubscriptionRef.update(state, (previous) =>
+      previous.status === "incompatible"
+        ? previous
+        : { status: "connected" as const, serverInstanceId },
+    ),
   );
 
 /**
  * The server answered `server.hello` with a protocol version this build does
  * not speak. Subscribing anyway would fail with opaque decode errors, so the
  * subscribers park and the banner asks for an update instead.
+ *
+ * Terminal by construction: `setStatus` and `markConnected` both refuse to
+ * move off it, so an ordinary socket drop after the mismatch cannot put the
+ * banner back to "connected" over a UI whose streams are all parked.
  */
 export const markIncompatible = ConnectionStateRef.use((state) =>
   SubscriptionRef.update(state, (previous) => ({ ...previous, status: "incompatible" as const })),

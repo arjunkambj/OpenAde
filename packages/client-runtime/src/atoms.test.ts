@@ -30,6 +30,8 @@ import { makeRuntime } from "./atoms";
 import {
   Connection,
   ConnectionStateRef,
+  markConnected,
+  setConnectionStatus,
   type ConnectionState,
   type OpenAdeRpcClient,
 } from "./connection";
@@ -541,6 +543,42 @@ describe("atoms", () => {
         yield* Queue.offer(queue, { kind: "snapshot", snapshot: snapshot(threadId) });
         const result = registry.get(threadDetailAtom(threadId));
         expect(AsyncResult.isSuccess(result)).toBe(false);
+      }),
+    ),
+  );
+
+  it.live("a parked protocol mismatch survives a later reconnect", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const threadId = makeThreadId();
+        const queue = yield* Queue.unbounded<ThreadStreamItem, unknown>();
+        const instance = yield* Ref.make(INSTANCE);
+        const { registry, stateRef, threadDetailAtom } = yield* runtimeWith(
+          fakeClient(new Map([[threadId, queue]]), instance, {
+            protocolVersion: PROTOCOL_VERSION + 1,
+          }),
+          { status: "connecting", serverInstanceId: null },
+        );
+
+        registry.mount(threadDetailAtom(threadId));
+        yield* SubscriptionRef.changes(stateRef).pipe(
+          Stream.filter((state) => state.status === "incompatible"),
+          Stream.take(1),
+          Stream.runCollect,
+          Effect.timeout("5 seconds"),
+        );
+
+        // The socket drops for an ordinary reason and the supervisor
+        // reconnects. Nothing re-runs the parked subscribers, so a status that
+        // moved back to `connected` here would hide the "update to continue"
+        // banner over a permanently silent UI.
+        yield* setConnectionStatus(stateRef, "reconnecting");
+        yield* setConnectionStatus(stateRef, "connected");
+        expect((yield* SubscriptionRef.get(stateRef)).status).toBe("incompatible");
+
+        // `server.hello` answering again must not move it either.
+        yield* markConnected(INSTANCE).pipe(Effect.provideService(ConnectionStateRef, stateRef));
+        expect((yield* SubscriptionRef.get(stateRef)).status).toBe("incompatible");
       }),
     ),
   );
