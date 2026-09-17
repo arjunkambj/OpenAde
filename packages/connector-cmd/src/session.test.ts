@@ -68,6 +68,24 @@ fs.appendFileSync(
   transcript,
   JSON.stringify({ type: "message", id: "l1", parentId: null, timestamp: "t", message: assistantMessage, model: "fake/model" }) + "\\n",
 );
+if (process.env.OPENADE_FAKE_PLAN === "1") {
+  // What --permission-mode plan leaves behind (spec 5.6): a markdown file
+  // plus a plans-index.json entry keyed by file name and matched by sessionId.
+  const plansDir = path.join(home, ".commandcode", "plans");
+  fs.mkdirSync(plansDir, { recursive: true });
+  const planFile = "openade-plan.md";
+  fs.writeFileSync(path.join(plansDir, planFile), "# The plan\\n\\n1. do the thing\\n");
+  fs.writeFileSync(
+    path.join(plansDir, "plans-index.json"),
+    JSON.stringify({
+      version: 1,
+      plans: {
+        "someone-elses.md": { title: "other", sessionId: "other-session", cwd, status: "done", createdAt: 1, updatedAt: 9 },
+        [planFile]: { title: "The plan", sessionId, cwd, status: "done", createdAt: 2, updatedAt: 2 },
+      },
+    }) + "\\n",
+  );
+}
 if (process.env.OPENADE_FAKE_SLEEP === "1") {
   setInterval(() => {}, 1000);
 } else {
@@ -346,6 +364,58 @@ describe("makeCmdSession against a real spawned process", () => {
       };
       expect(questionResponse.hookSpecificOutput.permissionDecision).toBe("deny");
       expect(questionResponse.hookSpecificOutput.permissionDecisionReason).toContain('"q1"');
+
+      yield* handle.close();
+    }),
+  );
+
+  it.effect("a plan-mode turn proposes the plan file before completing", () =>
+    Effect.gen(function* () {
+      const f = yield* fixture();
+      withOpenadeHome(f);
+      const handle = yield* makeCmdSession({
+        instanceId: makeConnectorInstanceId(),
+        threadId: makeThreadId(),
+        workspaceRoot: NodePath.join(f.root, "workspace"),
+        binaryPath: f.binary,
+        extraEnv: {
+          HOME: f.home,
+          OPENADE_FAKE_SESSION_ID: SESSION_ID,
+          OPENADE_FAKE_PLAN: "1",
+        },
+        home: f.home,
+        services: yield* services("allow"),
+        settings: {
+          model: "fake/model",
+          runtimeMode: "approval-required",
+          interactionMode: "plan",
+        },
+      });
+      const collector = yield* makeStreamCollector(handle.events);
+
+      yield* handle.send({ text: "plan it", attachments: [], mentions: [] });
+      const proposed = yield* collector.awaitItem(isType("turn.plan.proposed"));
+      expect(proposed.type === "turn.plan.proposed" && proposed.payload.planMarkdown).toContain(
+        "# The plan",
+      );
+      // Matched by sessionId: the other session's index entry is ignored, and
+      // the path lands under the fake's own ~/.commandcode/plans.
+      expect(proposed.type === "turn.plan.proposed" && proposed.payload.planPath).toBe(
+        NodePath.join(f.home, ".commandcode", "plans", "openade-plan.md"),
+      );
+
+      // The proposal precedes turn.completed, and a second turn in the same
+      // mode does not re-propose the same file.
+      const completed = yield* collector.awaitItem(isType("turn.completed"));
+      const first = yield* collector.collected;
+      expect(first.indexOf(proposed)).toBeLessThan(first.indexOf(completed));
+
+      yield* handle.send({ text: "replan", attachments: [], mentions: [] });
+      yield* collector.awaitItem(
+        (event) => event.type === "turn.completed" && event.eventId !== completed.eventId,
+      );
+      const all = yield* collector.collected;
+      expect(all.filter(isType("turn.plan.proposed"))).toHaveLength(1);
 
       yield* handle.close();
     }),

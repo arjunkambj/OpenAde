@@ -24,6 +24,10 @@
       "types": "./src/transcript.ts",
       "import": "./src/transcript.ts"
     },
+    "./plans": {
+      "types": "./src/plans.ts",
+      "import": "./src/plans.ts"
+    },
     "./translate": {
       "types": "./src/translate.ts",
       "import": "./src/translate.ts"

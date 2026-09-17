@@ -38,11 +38,12 @@ import type {
 } from "@OpenAde/connector-sdk/definition";
 import { SessionClosed, SpawnFailed, TurnInProgress } from "@OpenAde/connector-sdk/definition";
 import { makeBoundedEventQueue, type SessionHandle } from "@OpenAde/connector-sdk/sessionHandle";
-import { makeEventId, makeRequestId } from "@OpenAde/contracts/ids";
+import { makeEventId, makeRequestId, makeTurnId } from "@OpenAde/contracts/ids";
 
 import { installProjectHooks, upsertMcpEntry } from "./config";
 import { ensureHookScript } from "./hookScript";
 import { makeLineSplitter, parseFrame } from "./ndjson";
+import { readPlanProposal } from "./plans";
 import { buildArgs, envAllowlist, spawnProcess, type CmdProcess } from "./spawn";
 import { tailTranscript, transcriptPathFor } from "./transcript";
 import { makeTranslator, type PendingRuntimeEvent } from "./translate";
@@ -85,6 +86,8 @@ interface ActiveProcess {
   readonly proc: CmdProcess;
   readonly turnDone: Deferred.Deferred<void>;
   readonly settled: Deferred.Deferred<void>;
+  /** Spawned with `--permission-mode plan` — its run may leave a plan file behind. */
+  readonly plan: boolean;
 }
 
 export interface CmdSessionOptions {
@@ -125,6 +128,8 @@ export const makeCmdSession = (
     const sessionRef = yield* Ref.make<CmdSessionRef | null>(options.sessionRef ?? null);
     const pendingApprovals = yield* Ref.make(new Map<RequestId, PendingApproval>());
     const pendingUserInputs = yield* Ref.make(new Map<RequestId, PendingUserInput>());
+    /** Plan files already proposed this session — a settled plan turn must not re-propose. */
+    const proposedPlans = yield* Ref.make(new Set<string>());
     const closedRef = yield* Ref.make(false);
     const scope = yield* Effect.scope;
 
@@ -188,6 +193,45 @@ export const makeCmdSession = (
 
     const emitAll = (pendings: ReadonlyArray<PendingRuntimeEvent>): Effect.Effect<void> =>
       Effect.forEach(pendings, (pending) => emit(enrich(pending)), { discard: true });
+
+    /**
+     * A plan-mode turn that just ended may have left a plan file behind:
+     * `plans-index.json` matches it to this session by `sessionId`, and the
+     * newest matching entry is read and proposed. Emitted while the turn is
+     * still open — after `turn.completed` the engine no longer tags events
+     * with its turnId — and each plan file is proposed once per session.
+     */
+    const emitPlanProposal = (active: ActiveProcess): Effect.Effect<void> =>
+      Effect.gen(function* () {
+        if (!active.plan) {
+          return;
+        }
+        const sessionId = translator.sessionId;
+        if (sessionId === null) {
+          return;
+        }
+        const proposal = yield* Effect.sync(() => readPlanProposal(sessionId, options.home));
+        if (proposal === null) {
+          return;
+        }
+        // path + revision: an unchanged index entry is not proposed twice,
+        // while a revised plan file is.
+        const key = `${proposal.planPath}#${proposal.updatedAt}`;
+        const fresh = yield* Ref.modify(proposedPlans, (seen): readonly [boolean, Set<string>] =>
+          seen.has(key) ? [false, seen] : [true, new Set(seen).add(key)],
+        );
+        if (!fresh) {
+          return;
+        }
+        yield* emit({
+          type: "turn.plan.proposed",
+          payload: {
+            turnId: makeTurnId(),
+            planMarkdown: proposal.markdown,
+            planPath: proposal.planPath,
+          },
+        });
+      });
 
     /**
      * A dead process leaves hook posts parked — every outstanding approval is
@@ -395,6 +439,29 @@ export const makeCmdSession = (
         Effect.forkIn(scope),
       );
 
+      /**
+       * Emits one translated event with the bookkeeping that hangs off it: a
+       * plan proposal must go out before its turn.completed (once the turn
+       * settles, the engine stops tagging events with its turnId), and
+       * turnDone flips before the completion event so a consumer that sees it
+       * and immediately sends cannot slip between the two steps.
+       */
+      const emitPrepared = (pending: PendingRuntimeEvent): Effect.Effect<void> =>
+        Effect.gen(function* () {
+          const prepared = enrich(pending);
+          if (prepared.type === "turn.completed") {
+            yield* emitPlanProposal(active);
+            yield* Deferred.succeed(active.turnDone, undefined);
+          }
+          yield* emit(prepared);
+          if (prepared.type === "session.started") {
+            const ref = prepared.payload.sessionRef as { sessionId?: string };
+            if (typeof ref.sessionId === "string") {
+              yield* startTailer(ref.sessionId);
+            }
+          }
+        });
+
       const stdoutFiber = yield* Stream.runForEach(proc.stdout, (chunk) =>
         Effect.forEach(
           splitter
@@ -411,22 +478,7 @@ export const makeCmdSession = (
                   ]
                 : translator.onFrame(frame),
             ),
-          (pending) =>
-            Effect.gen(function* () {
-              const prepared = enrich(pending);
-              // Flip before the emit: a consumer that sees turn.completed and
-              // immediately sends must not slip between the two steps.
-              if (prepared.type === "turn.completed") {
-                yield* Deferred.succeed(active.turnDone, undefined);
-              }
-              yield* emit(prepared);
-              if (prepared.type === "session.started") {
-                const ref = prepared.payload.sessionRef as { sessionId?: string };
-                if (typeof ref.sessionId === "string") {
-                  yield* startTailer(ref.sessionId);
-                }
-              }
-            }),
+          emitPrepared,
           { discard: true },
         ),
       ).pipe(
@@ -444,10 +496,10 @@ export const makeCmdSession = (
       }
       yield* releasePending;
       // Whatever onExit emits, no turn can still be in progress under a dead
-      // process — flip before emitAll so a consumer that sees the completion
-      // and immediately sends cannot slip between them.
+      // process — flip before the emits so a consumer that sees the
+      // completion and immediately sends cannot slip between them.
       yield* Deferred.succeed(active.turnDone, undefined);
-      yield* emitAll(translator.onExit(exitCode));
+      yield* Effect.forEach(translator.onExit(exitCode), emitPrepared, { discard: true });
       yield* Ref.set(processRef, null);
       yield* Fiber.interrupt(stdoutFiber);
       yield* Fiber.interrupt(stderrFiber);
@@ -509,6 +561,7 @@ export const makeCmdSession = (
           proc,
           turnDone: yield* Deferred.make<void>(),
           settled: yield* Deferred.make<void>(),
+          plan,
         };
         yield* Ref.set(processRef, active);
         yield* pump(active).pipe(Effect.forkIn(scope));
