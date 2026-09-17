@@ -10,6 +10,8 @@
  * - `projectsAtom`, `connectorsAtom`, `settingsAtom` — read models.
  * - `connectionStateAtom` — the reconnecting banner's source.
  * - `dispatchAtom` — sends a `Command` and resolves with its receipt.
+ * - `stageAttachmentAtom` / `attachmentAtom` — upload a composer image, and
+ *   read a staged one back for a thumbnail. The bytes never ride a command.
  */
 
 import type { ConnectorInstanceId, ProjectId, ThreadId } from "@OpenAde/contracts/ids";
@@ -21,6 +23,7 @@ import type {
   ThreadStreamItem,
 } from "@OpenAde/contracts/orchestration";
 import type {
+  AttachmentBytes,
   BrowserHumanInput,
   BrowserState,
   ConnectorSummary,
@@ -368,6 +371,35 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
     ),
   );
 
+  /**
+   * Uploads one composer image and resolves with the reference the turn will
+   * carry. The bytes go up once; only the reference enters the command.
+   */
+  const stageAttachmentAtom = runtime.fn(
+    (args: { readonly threadId: ThreadId; readonly name: string; readonly base64: string }) =>
+      Effect.gen(function* () {
+        const client = yield* (yield* Connection).client;
+        return yield* client["attachments.stage"](args);
+      }),
+  );
+
+  /**
+   * A staged image, for a timeline thumbnail. Keyed per path, so a row that
+   * rerenders does not re-fetch and two rows showing the same file share one
+   * request. `null` until the server answers — the row shows a placeholder.
+   */
+  const attachmentAtom = Atom.family((threadId: ThreadId) =>
+    Atom.family((path: string) =>
+      runtime.atom(
+        Effect.gen(function* () {
+          const client = yield* (yield* Connection).client;
+          return yield* client["attachments.read"]({ threadId, path });
+        }),
+        { initialValue: null as AttachmentBytes | null },
+      ),
+    ),
+  );
+
   const sendBrowserInput = runtime.fn(
     (args: { readonly threadId: ThreadId; readonly input: BrowserHumanInput }) =>
       Effect.gen(function* () {
@@ -395,5 +427,7 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
     keybindingsUpdateAtom,
     browserStateAtom,
     sendBrowserInput,
+    stageAttachmentAtom,
+    attachmentAtom,
   };
 };
