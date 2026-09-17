@@ -99,6 +99,43 @@ const threadStream = (
     }),
   ).pipe(Stream.retry(resubscribeSchedule), Stream.repeat(resubscribeSchedule));
 
+/**
+ * The sidebar list's equivalent loop. Only the `snapshot` frame carries a
+ * sequence, so that is the resume point a reconnect asks from; the catch-up
+ * frames the server replays are absolute (`upserted` replaces, `removed`
+ * filters), which makes replaying the same span twice harmless. A span that
+ * has grown past the server's budget comes back as `resnapshot-required`,
+ * which drops the resume point and takes a fresh snapshot.
+ */
+const threadListStream = (
+  projectId: ProjectId | null,
+  sequence: Ref.Ref<number | null>,
+): Stream.Stream<
+  ThreadListStreamItem,
+  OpenAdeRpcError | RpcClientError.RpcClientError,
+  Connection | ConnectionStateRef
+> =>
+  Stream.unwrap(
+    Effect.gen(function* () {
+      const connection = yield* Connection;
+      const client = yield* connection.client;
+      const connectionState = yield* ConnectionStateRef;
+      const hello = yield* client["server.hello"]({});
+      const known = yield* SubscriptionRef.get(connectionState);
+      const last = yield* Ref.get(sequence);
+      const afterSequence =
+        last === null || known.serverInstanceId !== hello.serverInstanceId ? undefined : last;
+      if (afterSequence === undefined) {
+        yield* Ref.set(sequence, null);
+      }
+      yield* markConnected(hello.serverInstanceId);
+      return client["threads.listSubscribe"]({
+        ...(projectId === null ? {} : { projectId }),
+        ...(afterSequence === undefined ? {} : { afterSequence }),
+      });
+    }),
+  ).pipe(Stream.retry(resubscribeSchedule), Stream.repeat(resubscribeSchedule));
+
 export const makeRuntime = (connectionLayer: ConnectionLayer) => {
   // Build the connection inside the runtime's own scope so the supervisor's
   // fibers live exactly as long as the atoms that depend on them.
@@ -165,15 +202,20 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
   const threadListAtom = Atom.family((projectId: ProjectId | null) =>
     runtime.atom(
       Effect.gen(function* () {
-        const connection = yield* Connection;
-        const client = yield* connection.client;
         const state = yield* Ref.make<ReadonlyArray<ThreadSummary>>([]);
-        return Stream.suspend(() =>
-          client["threads.listSubscribe"](projectId === null ? {} : { projectId }),
-        ).pipe(
-          Stream.retry(resubscribeSchedule),
+        const sequence = yield* Ref.make<number | null>(null);
+        return threadListStream(projectId, sequence).pipe(
           Stream.mapEffect((item: ThreadListStreamItem) =>
-            Ref.updateAndGet(state, (threads) => applyThreadListItem(threads, item)),
+            Effect.gen(function* () {
+              if (item.kind === "snapshot") {
+                yield* Ref.set(sequence, item.snapshotSequence);
+              } else if (item.kind === "resnapshot-required") {
+                yield* Ref.set(sequence, null);
+              }
+              return yield* Ref.updateAndGet(state, (threads) =>
+                applyThreadListItem(threads, item),
+              );
+            }),
           ),
         );
       }).pipe(Stream.unwrap),

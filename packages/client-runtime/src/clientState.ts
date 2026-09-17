@@ -187,6 +187,11 @@ export const applyThreadListItem = (
     }
     case "removed":
       return threads.filter((t) => t.threadId !== item.threadId);
+    case "resnapshot-required":
+      // The server can no longer replay from where this client stands, so
+      // everything held is suspect — drop it and wait for the fresh snapshot
+      // rather than showing a list that quietly stopped updating.
+      return [];
     default:
       return threads;
   }

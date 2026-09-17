@@ -7,7 +7,12 @@
 import { describe, expect, it } from "@effect/vitest";
 import type { ThreadId } from "@OpenAde/contracts/ids";
 import { makeEventId, makeItemId, makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
-import type { ThreadDetailSnapshot, ThreadStreamItem } from "@OpenAde/contracts/orchestration";
+import type {
+  ThreadDetailSnapshot,
+  ThreadListStreamItem,
+  ThreadStreamItem,
+  ThreadSummary,
+} from "@OpenAde/contracts/orchestration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Queue from "effect/Queue";
@@ -77,14 +82,22 @@ const upsert = (threadId: ThreadId, sequence: number, text: string): ThreadStrea
   },
 });
 
+/** How a test feeds `threads.listSubscribe` and reads back what it was asked. */
+interface ListChannel {
+  readonly queue: () => Queue.Queue<ThreadListStreamItem, unknown>;
+  readonly calls: Array<{ readonly afterSequence?: number }>;
+}
+
 /**
- * A client stub: `server.hello` answers the current instance id, and
+ * A client stub: `server.hello` answers the current instance id,
  * `threads.subscribe` drains the per-thread queue (or hangs forever when the
- * thread is unknown).
+ * thread is unknown), and `threads.listSubscribe` drains whatever queue the
+ * channel currently points at, recording each subscribe payload.
  */
 const fakeClient = (
   streams: Map<string, Queue.Queue<ThreadStreamItem, unknown>>,
   instanceId: Ref.Ref<string>,
+  list?: ListChannel,
 ): OpenAdeRpcClient =>
   new Proxy({} as OpenAdeRpcClient, {
     get: (_target, key) => {
@@ -103,9 +116,30 @@ const fakeClient = (
           return queue === undefined ? Stream.never : Stream.fromQueue(queue);
         };
       }
+      if (key === "threads.listSubscribe" && list !== undefined) {
+        return (payload: { afterSequence?: number }) => {
+          list.calls.push(payload);
+          return Stream.suspend(() => Stream.fromQueue(list.queue()));
+        };
+      }
       return () => Effect.die(`unimplemented rpc ${String(key)}`);
     },
   });
+
+const summary = (threadId: ThreadId, title: string): ThreadSummary => ({
+  threadId,
+  projectId: makeProjectId(),
+  title,
+  status: "idle",
+  settings: {
+    model: "fake/model",
+    runtimeMode: "auto-accept-edits",
+    interactionMode: "default",
+  },
+  awaitingInput: false,
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-01T00:00:00.000Z",
+});
 
 const runtimeWith = (client: OpenAdeRpcClient, state: ConnectionState) =>
   Effect.gen(function* () {
@@ -249,6 +283,88 @@ describe("atoms", () => {
           snapshot: snapshot(threadId, []),
         });
         yield* Effect.promise(() => awaitValue(registry, atom, (doc) => doc.items.length === 0));
+      }),
+    ),
+  );
+
+  it.live("the thread list survives a dropped subscription and resumes from its snapshot", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const threadA = makeThreadId();
+        const threadB = makeThreadId();
+        const instance = yield* Ref.make(INSTANCE);
+        let queue = yield* Queue.unbounded<ThreadListStreamItem, unknown>();
+        const list: ListChannel = { queue: () => queue, calls: [] };
+        const { registry, threadListAtom } = yield* runtimeWith(
+          fakeClient(new Map(), instance, list),
+          { status: "connecting", serverInstanceId: null },
+        );
+
+        const atom = threadListAtom(null);
+        registry.mount(atom);
+        yield* Queue.offer(queue, {
+          kind: "snapshot",
+          snapshotSequence: 7,
+          threads: [summary(threadA, "first")],
+        });
+        yield* Effect.promise(() => awaitValue(registry, atom, (threads) => threads.length === 1));
+
+        // The socket drops mid-subscription. Before the fix the atom held a
+        // dead client and retried against it forever, so the sidebar froze.
+        const dropped = queue;
+        queue = yield* Queue.unbounded<ThreadListStreamItem, unknown>();
+        yield* Queue.offer(queue, { kind: "upserted", thread: summary(threadB, "second") });
+        yield* Queue.fail(dropped, new Error("socket dropped"));
+
+        const threads = yield* Effect.promise(() =>
+          awaitValue(registry, atom, (value) => value.length === 2),
+        );
+        expect(threads.map((t) => t.title)).toEqual(["first", "second"]);
+        // The resubscribe asked for catch-up from the snapshot it holds.
+        expect(list.calls.at(-1)?.afterSequence).toBe(7);
+      }),
+    ),
+  );
+
+  it.live("resnapshot-required clears the thread list and drops the resume point", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const threadA = makeThreadId();
+        const instance = yield* Ref.make(INSTANCE);
+        let queue = yield* Queue.unbounded<ThreadListStreamItem, unknown>();
+        const list: ListChannel = { queue: () => queue, calls: [] };
+        const { registry, threadListAtom } = yield* runtimeWith(
+          fakeClient(new Map(), instance, list),
+          { status: "connecting", serverInstanceId: null },
+        );
+
+        const atom = threadListAtom(null);
+        registry.mount(atom);
+        yield* Queue.offer(queue, {
+          kind: "snapshot",
+          snapshotSequence: 7,
+          threads: [summary(threadA, "first")],
+        });
+        yield* Effect.promise(() => awaitValue(registry, atom, (threads) => threads.length === 1));
+
+        // The server gives up on replay and ends the stream cleanly — only the
+        // `repeat` reopens it, and the next subscribe must not resume from 7.
+        yield* Queue.offer(queue, { kind: "resnapshot-required", reason: "budget" });
+        yield* Effect.promise(() => awaitValue(registry, atom, (threads) => threads.length === 0));
+        const ended = queue;
+        queue = yield* Queue.unbounded<ThreadListStreamItem, unknown>();
+        yield* Queue.offer(queue, {
+          kind: "snapshot",
+          snapshotSequence: 11,
+          threads: [summary(threadA, "rebuilt")],
+        });
+        yield* Queue.end(ended);
+
+        const threads = yield* Effect.promise(() =>
+          awaitValue(registry, atom, (value) => value.some((t) => t.title === "rebuilt")),
+        );
+        expect(threads.length).toBe(1);
+        expect(list.calls.at(-1)?.afterSequence).toBeUndefined();
       }),
     ),
   );
