@@ -20,6 +20,7 @@ import * as Layer from "effect/Layer";
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 import * as HttpServer from "effect/unstable/http/HttpServer";
 
+import { AttachmentReactor } from "./attachments/AttachmentReactor";
 import { AttachmentStore } from "./attachments/AttachmentStore";
 import { AgentBrowser } from "./browser/agentBrowser";
 import { layer as browserServiceLayer } from "./browser/BrowserService";
@@ -73,8 +74,13 @@ const main = Effect.gen(function* () {
   const reactors = Layer.mergeAll(
     ProviderCommandReactor,
     CheckpointReactor,
+    AttachmentReactor,
     makeSessionSupervisor({}),
-  ).pipe(Layer.provide(Layer.mergeAll(engine, manager, gitCheckpointHookLayer, persistence)));
+  ).pipe(
+    Layer.provide(
+      Layer.mergeAll(engine, manager, gitCheckpointHookLayer, persistence, attachments),
+    ),
+  );
 
   // The settings store and the connector manager share one graph: the manager
   // watches the same store instance the RPC handlers mutate, and the catalog
