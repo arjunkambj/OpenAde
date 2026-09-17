@@ -2,6 +2,11 @@
  * The interaction-card slot above the composer input. One card at a time —
  * a pending approval outranks a question, which outranks a plan — and each
  * card stays mounted until its resolved event clears the field on the doc.
+ *
+ * Each card is keyed by its request: consecutive requests must not share a
+ * component instance, or request #2 inherits #1's edited permission pattern,
+ * option selections and open/closed toggles — and "Always allow" would then
+ * persist a rule the user never saw.
  */
 
 import type { ThreadId } from "@OpenAde/contracts/ids";
@@ -22,11 +27,18 @@ export function PendingCard({
     return null;
   }
   if (doc.pendingApproval !== null) {
-    return <ApprovalCard threadId={threadId} request={doc.pendingApproval} />;
+    return (
+      <ApprovalCard
+        key={doc.pendingApproval.requestId}
+        threadId={threadId}
+        request={doc.pendingApproval}
+      />
+    );
   }
   if (doc.pendingUserInput !== null) {
     return (
       <QuestionCard
+        key={doc.pendingUserInput.requestId}
         threadId={threadId}
         requestId={doc.pendingUserInput.requestId}
         questions={doc.pendingUserInput.questions}
@@ -34,7 +46,7 @@ export function PendingCard({
     );
   }
   if (doc.pendingPlan !== null) {
-    return <PlanCard threadId={threadId} plan={doc.pendingPlan} />;
+    return <PlanCard key={doc.pendingPlan.turnId} threadId={threadId} plan={doc.pendingPlan} />;
   }
   return null;
 }
