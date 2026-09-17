@@ -51,6 +51,8 @@ describe("frameFallback", () => {
 
   it("does not tell a stopped browser it is starting", () => {
     // The chip beside this said "stopped" while the surface said "starting…".
+    // `browser-pane.tsx` renders this branch itself for a stopped session, so
+    // there is one copy of the sentence rather than an inline second one.
     expect(frameFallback(state({ status: "stopped" }))).toBe(
       "not running — it starts on the first agent call",
     );

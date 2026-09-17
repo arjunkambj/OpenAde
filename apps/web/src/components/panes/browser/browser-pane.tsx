@@ -30,6 +30,7 @@ import { AddressBar } from "./address-bar";
 import { FrameSurface } from "./frame-surface";
 import { isAgentBrowserMissing } from "./install";
 import { InstallPrompt } from "./install-prompt";
+import { frameFallback } from "./status";
 import { WebviewSurface } from "./webview-surface";
 
 export interface BrowserPaneProps {
@@ -107,10 +108,10 @@ export function BrowserPane({ threadId }: BrowserPaneProps) {
         // A stopped session has no frame and nothing to forward input to, so
         // it gets this block rather than the frame surface's placeholder —
         // which used to read "starting…" while the chip above said "stopped".
+        // The wording still comes from `frameFallback`, so the surface and the
+        // frame stream cannot describe the same state differently.
         <div className="flex flex-1 items-center justify-center px-6 text-center text-sm text-muted-foreground">
-          {httpBase === null
-            ? "connecting to the server…"
-            : "browser is stopped — it starts on the first agent call"}
+          {state === null ? "connecting to the server…" : frameFallback(state)}
         </div>
       )}
     </div>
