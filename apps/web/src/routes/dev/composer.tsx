@@ -8,13 +8,15 @@
  *
  * Scenario buttons emit the events a connector/session would produce mid-turn.
  * Keyboard path: Enter sends, Cmd+Enter queues, 1/2/3 answer cards, 3 opens
- * the plan revision field, Escape interrupts a running turn through the
- * server-owned `thread.interrupt` binding.
+ * the plan revision field, Escape interrupts a running turn. Every chord is
+ * resolved by the one dispatcher in `@/lib/shortcuts` against the fixture's
+ * own keybinding table — the editor at the bottom of the page rebinds them
+ * live.
  */
 
-import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import { useAtomValue } from "@effect/atom-react";
 import { Button } from "@OpenAde/ui/components/button";
-import { makeCommandId, makeItemId, makeRequestId } from "@OpenAde/contracts/ids";
+import { makeItemId, makeRequestId } from "@OpenAde/contracts/ids";
 import type { CommandReceipt } from "@OpenAde/contracts/orchestration";
 import { createFileRoute } from "@tanstack/react-router";
 import * as React from "react";
@@ -25,7 +27,7 @@ import { HeaderControls } from "@/components/header-controls";
 import { KeybindingsEditor } from "@/components/keybindings/keybindings-editor";
 import { ClientRuntimeProvider, useClientRuntime } from "@/lib/client-runtime";
 import { makeFixtureClient, type FixtureClient } from "@/lib/fixture-client";
-import { useGlobalKeybindings } from "@/lib/use-keybindings";
+import { KeybindingsProvider, useKeybindingCommand, useKeybindingFlag } from "@/lib/shortcuts";
 
 export const Route = createFileRoute("/dev/composer")({ component: DevComposerPage });
 
@@ -40,7 +42,12 @@ function DevComposerPage() {
   const [fixture] = React.useState(() => makeFixtureClient());
   return (
     <ClientRuntimeProvider layer={fixture.layer}>
-      <DevComposerInner fixture={fixture} />
+      {/* Nested on purpose: this one resolves against the fixture's own
+          keybinding table, so the editor at the bottom of the page changes
+          what the chords do. */}
+      <KeybindingsProvider>
+        <DevComposerInner fixture={fixture} />
+      </KeybindingsProvider>
     </ClientRuntimeProvider>
   );
 }
@@ -60,10 +67,9 @@ function ScenarioButton({
 }
 
 function DevComposerInner({ fixture }: { readonly fixture: FixtureClient }) {
-  const { threadDetailAtom, dispatchAtom } = useClientRuntime();
+  const { threadDetailAtom } = useClientRuntime();
   const docResult = useAtomValue(threadDetailAtom(fixture.threadId));
   const doc = AsyncResult.isSuccess(docResult) ? docResult.value : null;
-  const dispatch = useAtomSet(dispatchAtom, { mode: "promise" });
   const [log, setLog] = React.useState<ReadonlyArray<LogEntry>>([]);
   const nextLogId = React.useRef(0);
 
@@ -81,25 +87,13 @@ function DevComposerInner({ fixture }: { readonly fixture: FixtureClient }) {
 
   const running = doc !== null && doc.currentTurnId !== null;
 
-  const focusComposer = React.useCallback(() => {
-    document.querySelector<HTMLElement>('[data-context="composer"]')?.focus();
-  }, []);
-
-  useGlobalKeybindings(
-    {
-      "thread.interrupt": () =>
-        void dispatch({
-          commandId: makeCommandId(),
-          createdAt: new Date().toISOString(),
-          type: "thread.turn.interrupt",
-          threadId: fixture.threadId,
-        }),
-      "composer.queue": focusComposer,
-      "commandPalette.toggle": () => pushLog({ label: "commandPalette.toggle", status: "fired" }),
-      "thread.new": () => pushLog({ label: "thread.new", status: "fired" }),
-      "browserPane.toggle": () => pushLog({ label: "browserPane.toggle", status: "fired" }),
-    },
-    { threadRunning: running },
+  useKeybindingFlag("threadRunning", running);
+  useKeybindingCommand("commandPalette.toggle", () =>
+    pushLog({ label: "commandPalette.toggle", status: "fired" }),
+  );
+  useKeybindingCommand("thread.new", () => pushLog({ label: "thread.new", status: "fired" }));
+  useKeybindingCommand("browserPane.toggle", () =>
+    pushLog({ label: "browserPane.toggle", status: "fired" }),
   );
 
   const openApproval = (kind: "command" | "file_write" | "mcp_tool") => {

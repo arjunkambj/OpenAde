@@ -32,7 +32,7 @@ import { HeaderControls } from "@/components/header-controls";
 import { Timeline } from "@/components/timeline/timeline";
 import { Icon } from "@/lib/icon";
 import { turnInFlight } from "@/lib/turn";
-import { useGlobalKeybindings } from "@/lib/use-keybindings";
+import { useKeybindingCommand, useKeybindingFlag } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import { useConnectionState, useDispatchCommand, useThreadDetail } from "@/state/hooks";
 import { useDockTabMemory } from "@/state/ui";
@@ -234,27 +234,25 @@ export function ThreadView({
   // served keybinding table may not carry.
   const running = snapshot !== null && turnInFlight(snapshot);
 
-  useGlobalKeybindings(
-    {
-      "thread.interrupt": () => {
-        if (!running) {
-          return;
-        }
-        void dispatch({
-          commandId: makeCommandId(),
-          createdAt: new Date().toISOString(),
-          type: "thread.turn.interrupt",
-          threadId,
-        });
-      },
-      // The composer owns Cmd+Enter while focused; from anywhere else the
-      // binding means "take me to the input I am about to queue into".
-      "composer.queue": () => {
-        document.querySelector<HTMLElement>('[data-context="composer"]')?.focus();
-      },
-      "browserPane.toggle": () => setDockTab(dockTab === "browser" ? null : "browser"),
-    },
-    { threadRunning: running },
+  useKeybindingFlag("threadRunning", running);
+  useKeybindingCommand("thread.interrupt", () => {
+    if (!running) {
+      return;
+    }
+    void dispatch({
+      commandId: makeCommandId(),
+      createdAt: new Date().toISOString(),
+      type: "thread.turn.interrupt",
+      threadId,
+    });
+  });
+  // The composer owns Cmd+Enter while focused; from anywhere else the binding
+  // means "take me to the input I am about to queue into".
+  useKeybindingCommand("composer.queue", () => {
+    document.querySelector<HTMLElement>('[data-context="composer"]')?.focus();
+  });
+  useKeybindingCommand("browserPane.toggle", () =>
+    setDockTab(dockTab === "browser" ? null : "browser"),
   );
 
   return (

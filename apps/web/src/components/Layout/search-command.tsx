@@ -18,7 +18,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/
 import type { ProjectId } from "@OpenAde/contracts/ids";
 
 import { Icon } from "@/lib/icon";
-import { matchShortcut, ShortcutKbd, type ShortcutId } from "@/lib/shortcuts";
+import {
+  SHORTCUT_COMMANDS,
+  ShortcutKbd,
+  useKeybindingCommand,
+  type ShortcutId,
+} from "@/lib/shortcuts";
 import { useCreateThread } from "@/lib/use-create-thread";
 import { useProjects, useThreadList } from "@/state/hooks";
 
@@ -66,26 +71,28 @@ const searchItems = [
 export function SearchProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = React.useState(false);
   const navigate = useNavigate();
+  const { toggleSidebar } = useSidebar();
   const value = React.useMemo(
     () => ({ setOpen, toggle: () => setOpen((current) => !current) }),
     [],
   );
 
-  // Only the shortcuts the server-owned keybinding table does not carry live
-  // here; `commandPalette.toggle` and `thread.new` are bound in the layout
-  // through `useGlobalKeybindings`, so nothing handles them twice.
-  React.useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (matchShortcut("settings", event)) {
-        event.preventDefault();
-        setOpen(false);
-        void navigate({ to: "/settings" });
-      }
-    }
+  // Handlers only — the chords come from the settings-owned keybinding table
+  // and the one listener above the routes (@/lib/shortcuts). The palette is a
+  // modal dialog over the route, so every navigating handler closes it first.
+  const go = React.useCallback(
+    (to: "/" | "/settings/skills" | "/settings") => () => {
+      setOpen(false);
+      void navigate({ to });
+    },
+    [navigate],
+  );
 
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [navigate]);
+  useKeybindingCommand(SHORTCUT_COMMANDS.search, () => setOpen((current) => !current));
+  useKeybindingCommand(SHORTCUT_COMMANDS.toggle, toggleSidebar);
+  useKeybindingCommand(SHORTCUT_COMMANDS.newChat, go("/"));
+  useKeybindingCommand(SHORTCUT_COMMANDS.skills, go("/settings/skills"));
+  useKeybindingCommand(SHORTCUT_COMMANDS.settings, go("/settings"));
 
   return (
     <SearchContext.Provider value={value}>

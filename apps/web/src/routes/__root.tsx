@@ -11,6 +11,7 @@ import { DiffWorkerPoolProvider } from "@/components/timeline/diff-pool";
 import { useAppAtoms } from "@/lib/app-runtime";
 import { ClientRuntimeBridge } from "@/lib/client-runtime";
 import { Icon } from "@/lib/icon";
+import { KeybindingsProvider } from "@/lib/shortcuts";
 import { AppAtomRegistryProvider, getAppAtoms } from "@/state/app-runtime";
 
 import "../index.css";
@@ -81,10 +82,13 @@ function RootComponent() {
         <AppAtomRegistryProvider>
           <ClientRuntimeBridge runtime={getAppAtoms()}>
             <SettingsThemeSync />
-            <DiffWorkerPoolProvider>
-              <Outlet />
-              <Toaster richColors />
-            </DiffWorkerPoolProvider>
+            {/* The only keydown listener in the renderer — see @/lib/shortcuts. */}
+            <KeybindingsProvider>
+              <DiffWorkerPoolProvider>
+                <Outlet />
+                <Toaster richColors />
+              </DiffWorkerPoolProvider>
+            </KeybindingsProvider>
           </ClientRuntimeBridge>
         </AppAtomRegistryProvider>
       </ThemeProvider>
