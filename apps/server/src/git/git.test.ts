@@ -512,6 +512,29 @@ describe("w8 git", () => {
     ),
   );
 
+  it.live("a leading **/ in .gitignore matches at every depth, root included", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        // `**/node_modules` is the idiom half of the ecosystem writes, and git
+        // treats the leading `**/` as "the bare pattern, at any depth" — the
+        // root copy has to be ignored just as the nested one is.
+        const root = mkdtempSync(nodePath.join(tmpdir(), "openade-plain-"));
+        mkdirSync(nodePath.join(root, "node_modules"));
+        mkdirSync(nodePath.join(root, "src"));
+        mkdirSync(nodePath.join(root, "src", "node_modules"));
+        writeFileSync(nodePath.join(root, ".gitignore"), "**/node_modules\n**/*.tmp\n");
+        writeFileSync(nodePath.join(root, "node_modules", "keep-me.ts"), "vendored\n");
+        writeFileSync(nodePath.join(root, "src", "node_modules", "keep-me.ts"), "vendored\n");
+        writeFileSync(nodePath.join(root, "keep-me.tmp"), "scratch\n");
+        writeFileSync(nodePath.join(root, "src", "keep-me.ts"), "export const a = 1\n");
+
+        const { projectId, files } = yield* stack(root);
+        const hits = yield* files.search(projectId, "keep-me");
+        expect(hits.map((h) => h.path)).toEqual(["src/keep-me.ts"]);
+      }),
+    ),
+  );
+
   it.live("files.read refuses a symlink that escapes the workspace", () =>
     Effect.scoped(
       Effect.gen(function* () {

@@ -8,7 +8,8 @@
  *
  * The supported pattern subset is the one real ignore files use: comments,
  * `!` negation, a trailing `/` for directory-only, a leading or interior `/`
- * for anchoring, `?`, `*` within one segment and `**` across segments.
+ * for anchoring, a leading double-star segment for "at any depth", `?`, `*`
+ * within one segment and `**` across segments.
  */
 import { readdir, readFile } from "node:fs/promises";
 import * as nodePath from "node:path";
@@ -53,8 +54,14 @@ const parseIgnoreFile = (content: string, base: string): ReadonlyArray<IgnoreRul
     let pattern = negated ? line.slice(1) : line;
     const directoryOnly = pattern.endsWith("/");
     if (directoryOnly) pattern = pattern.slice(0, -1);
+    // A leading `**/` means "at any depth", which is what the bare pattern
+    // already does here — strip it so the interior `/` it carries does not
+    // then pin `**/node_modules` to a subdirectory.
+    const leadingDoubleStar = pattern.startsWith("**/");
+    if (leadingDoubleStar) pattern = pattern.slice(3);
     // A leading `/`, or any interior one, pins the pattern to `base`.
-    const anchored = pattern.startsWith("/") || pattern.slice(0, -1).includes("/");
+    const anchored =
+      !leadingDoubleStar && (pattern.startsWith("/") || pattern.slice(0, -1).includes("/"));
     if (pattern.startsWith("/")) pattern = pattern.slice(1);
     if (pattern.length === 0) continue;
     rules.push({ test: toRegExp(pattern, anchored), negated, directoryOnly, base });
