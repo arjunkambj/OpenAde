@@ -1,3 +1,4 @@
+import { useCanGoBack, useRouter } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 import { Button } from "@OpenAde/ui/components/button";
@@ -51,17 +52,45 @@ function ChromeSidebarTrigger() {
   );
 }
 
-function ChromeHistoryButton({
-  label,
-  icon,
-}: {
-  label: string;
-  icon: "hugeicons:arrow-left-01" | "hugeicons:arrow-right-01";
-}) {
+/**
+ * Back and forward over the router's own history. These used to be rendered
+ * permanently `disabled` — two greyed-out controls in the window chrome of
+ * every build that could never do anything. Back knows whether there is
+ * anywhere to go; forward cannot be asked, so it stays live and no-ops at the
+ * end of the stack, the way a browser's does.
+ */
+function ChromeHistoryButtons() {
+  const router = useRouter();
+  const canGoBack = useCanGoBack();
+
   return (
-    <Button type="button" variant="ghost" tone="subtle" size="icon-sm" aria-label={label} disabled>
-      <Icon icon={icon} className="scale-90" />
-    </Button>
+    <>
+      <NoDrag>
+        <Button
+          type="button"
+          variant="ghost"
+          tone="subtle"
+          size="icon-sm"
+          aria-label="Go back"
+          disabled={!canGoBack}
+          onClick={() => router.history.back()}
+        >
+          <Icon icon="hugeicons:arrow-left-01" className="scale-90" />
+        </Button>
+      </NoDrag>
+      <NoDrag>
+        <Button
+          type="button"
+          variant="ghost"
+          tone="subtle"
+          size="icon-sm"
+          aria-label="Go forward"
+          onClick={() => router.history.forward()}
+        >
+          <Icon icon="hugeicons:arrow-right-01" className="scale-90" />
+        </Button>
+      </NoDrag>
+    </>
   );
 }
 
@@ -74,12 +103,7 @@ function ChromeActions({ className }: { className?: string }) {
       <NoDrag className="ml-auto">
         <SearchTrigger />
       </NoDrag>
-      <NoDrag>
-        <ChromeHistoryButton label="Go back" icon="hugeicons:arrow-left-01" />
-      </NoDrag>
-      <NoDrag>
-        <ChromeHistoryButton label="Go forward" icon="hugeicons:arrow-right-01" />
-      </NoDrag>
+      <ChromeHistoryButtons />
     </div>
   );
 }
