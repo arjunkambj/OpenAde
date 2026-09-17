@@ -14,7 +14,6 @@
 
 import type { ConnectorInstanceId, ProjectId, ThreadId } from "@OpenAde/contracts/ids";
 import type {
-  ThreadDetailSnapshot,
   ThreadSummary,
   Command,
   ProjectSummary,
@@ -44,7 +43,7 @@ import type * as RpcClientError from "effect/unstable/rpc/RpcClientError";
 import { PROTOCOL_VERSION, type OpenAdeRpcError } from "@OpenAde/contracts/rpc";
 
 import { Connection, ConnectionStateRef, markConnected, markIncompatible } from "./connection";
-import { applyThreadListItem, applyThreadStreamItem } from "./clientState";
+import { applyThreadListItem, applyThreadStreamItem, type ThreadDetailView } from "./clientState";
 
 export interface ConnectionLayer extends Layer.Layer<
   Connection | ConnectionStateRef,
@@ -93,7 +92,7 @@ const transportOnly = <E>(): Schedule.Schedule<Duration.Duration, E, E> =>
  */
 const threadStream = (
   threadId: ThreadId,
-  state: Ref.Ref<ThreadDetailSnapshot | null>,
+  state: Ref.Ref<ThreadDetailView | null>,
 ): Stream.Stream<
   ThreadStreamItem,
   OpenAdeRpcError | RpcClientError.RpcClientError,
@@ -248,7 +247,7 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
   const threadDetailAtom = Atom.family((threadId: ThreadId) =>
     runtime.atom(
       Effect.gen(function* () {
-        const state = yield* Ref.make<ThreadDetailSnapshot | null>(null);
+        const state = yield* Ref.make<ThreadDetailView | null>(null);
         return threadStream(threadId, state).pipe(
           Stream.mapEffect((item) =>
             Effect.gen(function* () {
@@ -258,7 +257,7 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
               return yield* Ref.updateAndGet(state, (doc) => applyThreadStreamItem(doc, item));
             }),
           ),
-          Stream.filter((doc): doc is ThreadDetailSnapshot => doc !== null),
+          Stream.filter((doc): doc is ThreadDetailView => doc !== null),
         );
       }).pipe(Stream.unwrap),
     ),

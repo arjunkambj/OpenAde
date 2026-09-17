@@ -5,6 +5,7 @@
  */
 
 import type {
+  CheckpointSummary,
   OrchestrationEvent,
   ThreadDetailSnapshot,
   ThreadListStreamItem,
@@ -12,14 +13,44 @@ import type {
   ThreadSummary,
 } from "@OpenAde/contracts/orchestration";
 
+/** A restore git refused, kept until the next restore is ordered. */
+export interface ThreadRestoreFailure {
+  readonly checkpointId: string;
+  readonly message: string;
+}
+
+/**
+ * The snapshot plus the little the client has to track for itself.
+ *
+ * A checkpoint restore is a durable work order: the server accepts it
+ * (`thread.checkpoint.restore.requested`), the reactor runs git, and only then
+ * does `thread.checkpoint.restored` or `thread.checkpoint.restore.failed`
+ * arrive. `ThreadDoc.restoring` is the server's own internal flag and is
+ * deliberately not on the wire, so the client has to fold those three events
+ * itself or the Changes pane cannot say that a restore is running, let alone
+ * that git refused one.
+ *
+ * Both fields are *optional* so a plain `ThreadDetailSnapshot` — the dev
+ * fixtures, a component prop typed against the contract — still satisfies this
+ * type. That keeps the view from having to be plumbed through every component
+ * between the atom and the pane: the object the atom emits carries the fields,
+ * and only the reader that wants them has to say so.
+ */
+export interface ThreadDetailView extends ThreadDetailSnapshot {
+  /** The checkpoint whose restore is running right now, if any. */
+  readonly restoring?: CheckpointSummary | null;
+  /** Why the last restore failed, until another one is ordered. */
+  readonly restoreFailure?: ThreadRestoreFailure | null;
+}
+
 /**
  * Merges one orchestration event into the snapshot. Payload fields map
  * straight onto the document — the server's fold already validated them.
  */
 export const applyThreadEvent = (
-  doc: ThreadDetailSnapshot,
+  doc: ThreadDetailView,
   event: OrchestrationEvent,
-): ThreadDetailSnapshot => {
+): ThreadDetailView => {
   const payload = event.payload as Record<string, unknown>;
   switch (event.type) {
     case "thread.renamed":
@@ -163,8 +194,30 @@ export const applyThreadEvent = (
         ],
         updatedAt: event.occurredAt,
       };
+    case "thread.checkpoint.restore.requested":
+      // The order is accepted and durable; the git work has not run yet. A
+      // previous failure is cleared here rather than when the new one lands,
+      // so the pane stops showing a stale error the moment the user retries.
+      return {
+        ...doc,
+        restoring: payload.checkpoint as CheckpointSummary,
+        restoreFailure: null,
+        updatedAt: event.occurredAt,
+      };
     case "thread.checkpoint.restored":
-      return { ...doc, updatedAt: event.occurredAt };
+      return { ...doc, restoring: null, restoreFailure: null, updatedAt: event.occurredAt };
+    case "thread.checkpoint.restore.failed":
+      // git refused — a dirty worktree, a missing ref, a dirty submodule. The
+      // message is the only thing that says which, so it outlives the event.
+      return {
+        ...doc,
+        restoring: null,
+        restoreFailure: {
+          checkpointId: payload.checkpointId as string,
+          message: payload.message as string,
+        },
+        updatedAt: event.occurredAt,
+      };
     case "thread.error":
       return payload.fatal === true
         ? { ...doc, status: "idle", currentTurnId: null, updatedAt: event.occurredAt }
@@ -179,12 +232,22 @@ export const applyThreadEvent = (
  * flip its own "caught up" flag.
  */
 export const applyThreadStreamItem = (
-  doc: ThreadDetailSnapshot | null,
+  doc: ThreadDetailView | null,
   item: ThreadStreamItem,
-): ThreadDetailSnapshot | null => {
+): ThreadDetailView | null => {
   switch (item.kind) {
     case "snapshot":
-      return item.snapshot;
+      // The server does not put the restore flags on the wire, so a plain
+      // re-subscribe (the stream's `repeat`) would blank a restore that is
+      // still running. `resnapshot-required` clears `doc` first, which is the
+      // one case where the client genuinely no longer knows.
+      return doc === null
+        ? item.snapshot
+        : {
+            ...item.snapshot,
+            restoring: doc.restoring ?? null,
+            restoreFailure: doc.restoreFailure ?? null,
+          };
     case "event":
       return doc === null || item.event.sequence <= doc.snapshotSequence
         ? doc

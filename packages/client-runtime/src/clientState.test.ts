@@ -4,10 +4,16 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
-import { makeEventId, makeProjectId, makeThreadId, makeTurnId } from "@OpenAde/contracts/ids";
+import {
+  makeCheckpointId,
+  makeEventId,
+  makeProjectId,
+  makeThreadId,
+  makeTurnId,
+} from "@OpenAde/contracts/ids";
 import type { OrchestrationEvent, ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
 
-import { applyThreadEvent, applyThreadListItem } from "./clientState";
+import { applyThreadEvent, applyThreadListItem, applyThreadStreamItem } from "./clientState";
 
 const threadId = makeThreadId();
 
@@ -104,6 +110,77 @@ describe("clientState fold", () => {
     const deleted = applyThreadEvent(snapshot(), event("thread.deleted", {}));
     expect(deleted.status).toBe("deleted");
     expect(deleted.currentTurnId).toBeNull();
+  });
+
+  it("tracks a checkpoint restore from order to outcome", () => {
+    // The server's own `restoring` flag is not on the wire, so these three
+    // events are the only way the pane can tell "queued" from "running" from
+    // "git refused it".
+    const checkpoint = {
+      checkpointId: makeCheckpointId(),
+      turnId: makeTurnId(),
+      ref: "refs/openade/checkpoints/1",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    };
+    const ordered = applyThreadEvent(
+      snapshot(),
+      event("thread.checkpoint.restore.requested", { checkpoint }),
+    );
+    expect(ordered.restoring).toEqual(checkpoint);
+    expect(ordered.restoreFailure).toBeNull();
+
+    const failed = applyThreadEvent(
+      ordered,
+      event("thread.checkpoint.restore.failed", {
+        checkpointId: checkpoint.checkpointId,
+        message: "worktree has uncommitted changes",
+      }),
+    );
+    // No longer running, and the reason git gave outlives the event — it is
+    // the only place the user can ever read it.
+    expect(failed.restoring).toBeNull();
+    expect(failed.restoreFailure).toEqual({
+      checkpointId: checkpoint.checkpointId,
+      message: "worktree has uncommitted changes",
+    });
+
+    // Retrying clears the stale error the moment the new order is accepted,
+    // rather than leaving it up beside a running restore.
+    const retried = applyThreadEvent(
+      failed,
+      event("thread.checkpoint.restore.requested", { checkpoint }),
+    );
+    expect(retried.restoreFailure).toBeNull();
+
+    const restored = applyThreadEvent(retried, event("thread.checkpoint.restored", { checkpoint }));
+    expect(restored.restoring).toBeNull();
+    expect(restored.restoreFailure).toBeNull();
+  });
+
+  it("carries a running restore across a re-subscribe but not across a resnapshot", () => {
+    const checkpoint = {
+      checkpointId: makeCheckpointId(),
+      turnId: makeTurnId(),
+      ref: "refs/openade/checkpoints/1",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    };
+    const restoring = applyThreadEvent(
+      snapshot(),
+      event("thread.checkpoint.restore.requested", { checkpoint }),
+    );
+
+    // The stream repeats after a clean close; the server's snapshot says
+    // nothing about the restore, so re-reading it must not blank the spinner.
+    const resubscribed = applyThreadStreamItem(restoring, {
+      kind: "snapshot",
+      snapshot: snapshot(),
+    });
+    expect(resubscribed?.restoring).toEqual(checkpoint);
+
+    // `resnapshot-required` drops the doc first, and a client with no history
+    // genuinely does not know whether the restore is still running.
+    const cold = applyThreadStreamItem(null, { kind: "snapshot", snapshot: snapshot() });
+    expect(cold?.restoring ?? null).toBeNull();
   });
 
   it("clears the thread list when the server asks for a resnapshot", () => {

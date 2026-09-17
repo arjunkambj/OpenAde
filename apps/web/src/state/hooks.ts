@@ -8,13 +8,10 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import type { ConnectionState } from "@OpenAde/client-runtime/connection";
 import { desktopServerStateAtom } from "@OpenAde/client-runtime/desktop";
+import type { ThreadDetailView } from "@OpenAde/client-runtime/clientState";
 import type { DesktopServerState } from "@OpenAde/client-runtime/resolver";
 import type { ThreadId } from "@OpenAde/contracts/ids";
-import type {
-  ProjectSummary,
-  ThreadDetailSnapshot,
-  ThreadSummary,
-} from "@OpenAde/contracts/orchestration";
+import type { ProjectSummary, ThreadSummary } from "@OpenAde/contracts/orchestration";
 import type * as OpenAdeRpcError from "@OpenAde/contracts/rpc";
 import type * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/unstable/reactivity";
@@ -49,7 +46,7 @@ export const useThreadList = (): ReadonlyArray<ThreadSummary> =>
   AsyncResult.getOrElse(useAtomValue(getAppAtoms().threadListAtom(null)), () => []);
 
 type ThreadDetailResult = AsyncResult.AsyncResult<
-  ThreadDetailSnapshot,
+  ThreadDetailView,
   OpenAdeRpcError.OpenAdeRpcError | RpcClientError.RpcClientError | Cause.NoSuchElementError
 >;
 

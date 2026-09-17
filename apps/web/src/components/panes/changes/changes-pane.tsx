@@ -28,8 +28,9 @@
 import * as React from "react";
 
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
+import type { ThreadDetailView } from "@OpenAde/client-runtime/clientState";
 import { isRepoless, type GitQuery } from "@OpenAde/client-runtime/gitAtoms";
-import type { CheckpointSummary, ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
+import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
 import type { GitDiff, GitDiffFile, GitStatus } from "@OpenAde/contracts/rpc";
 import { Button } from "@OpenAde/ui/components/button";
 import { AsyncResult } from "effect/unstable/reactivity";
@@ -143,7 +144,39 @@ const queryValue = <A,>(
 ): PaneQuery<A> | null =>
   AsyncResult.isSuccess(result) ? result.value : AsyncResult.isFailure(result) ? BROKEN : null;
 
-export function ChangesPane({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
+/**
+ * The tail of a restore: running, or the reason git refused the last one. The
+ * failure line stays up until another restore is ordered — it is the only
+ * place that message is ever shown, and it arrives long after the dialog that
+ * started the restore has closed.
+ */
+function RestoreProgress({
+  restoring,
+  failure,
+}: {
+  restoring: CheckpointSummary | null;
+  failure: { readonly message: string } | null;
+}) {
+  if (restoring !== null) {
+    return (
+      <div role="status" className="flex items-center gap-2 type-micro text-muted-foreground">
+        <Icon icon="hugeicons:loading-03" className="size-3.5 animate-spin" />
+        <span className="min-w-0 truncate">Restoring the worktree…</span>
+      </div>
+    );
+  }
+  if (failure !== null) {
+    return (
+      <div role="alert" className="flex items-start gap-2 type-micro text-removed">
+        <Icon icon="hugeicons:alert-02" className="mt-px size-3.5 shrink-0" />
+        <span className="min-w-0">Restore failed: {failure.message}</span>
+      </div>
+    );
+  }
+  return null;
+}
+
+export function ChangesPane({ snapshot }: { snapshot: ThreadDetailView }) {
   const atoms = useGitAtoms();
   const connection = useConnectionState();
   const checkpoints = snapshot.checkpoints;
@@ -198,16 +231,26 @@ export function ChangesPane({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
   // Offline the dispatch never resolves (the offline layer's client is
   // `Effect.never`), so the button would sit on "Restoring…" forever. Say why
   // instead.
+  // Folded from `thread.checkpoint.restore.requested` / `restored` /
+  // `restore.failed` by the client projection: the server's own `restoring`
+  // flag is not on the wire, so without this the pane could only say a restore
+  // had been *accepted*, never that it was still running or that git refused
+  // it — the failure went nowhere at all.
+  const restoring = snapshot.restoring ?? null;
+  const restoreFailure = snapshot.restoreFailure ?? null;
+
   const restoreDisabledReason =
     connection.status !== "connected"
       ? "Not connected to the server."
-      : checkpoints.length === 0
-        ? "This thread has no checkpoints yet."
-        : baseCheckpoint === null
-          ? "Pick a turn under From to restore it."
-          : currentTurnId !== null
-            ? "A turn is running — stop it before restoring."
-            : null;
+      : restoring !== null
+        ? "A restore is already running."
+        : checkpoints.length === 0
+          ? "This thread has no checkpoints yet."
+          : baseCheckpoint === null
+            ? "Pick a turn under From to restore it."
+            : currentTurnId !== null
+              ? "A turn is running — stop it before restoring."
+              : null;
 
   // `h-full` so the file list scrolls inside the pane and the selector stays
   // put; the dock's own scroller then never has anything to scroll.
@@ -238,6 +281,7 @@ export function ChangesPane({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
             onAccepted={() => setRestoreAcceptedAt(sequence)}
           />
         </div>
+        <RestoreProgress restoring={restoring} failure={restoreFailure} />
       </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto [scrollbar-width:thin]">
         <ChangesBody
