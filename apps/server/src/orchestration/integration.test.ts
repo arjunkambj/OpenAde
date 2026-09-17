@@ -22,6 +22,7 @@ import {
 } from "@OpenAde/testkit/fakeConnector";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
 import * as TestConsole from "effect/testing/TestConsole";
@@ -547,6 +548,38 @@ describe("orchestration with a fake connector", () => {
         ),
       );
     }),
+  );
+
+  it.effect("sweeps up threads a half-finished project removal left behind", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const { instance } = yield* openFake();
+        const persistence = Layer.succeedContext(yield* Layer.build(persistenceLayer()));
+
+        // The state a crash between `project.removed` and the thread deletes
+        // leaves: a thread row whose project is gone.
+        yield* Effect.gen(function* () {
+          const engine = yield* OrchestrationEngine;
+          yield* engine.dispatch(createProject);
+          yield* engine.dispatch(createThread);
+          yield* engine.dispatch({
+            commandId: makeCommandId(),
+            createdAt: NOW,
+            type: "project.remove",
+            projectId,
+          });
+          expect(yield* engine.threadDoc(threadId)).not.toBeNull();
+        }).pipe(Effect.provide(engineLayer(persistence)));
+
+        yield* Effect.gen(function* () {
+          const engine = yield* OrchestrationEngine;
+          yield* Stream.runHead(engine.events.pipe(Stream.filter(isType("thread.deleted")))).pipe(
+            Effect.timeout("5 seconds"),
+          );
+          expect(yield* engine.threadDoc(threadId)).toBeNull();
+        }).pipe(Effect.provide(stackLayer({ instance, persistence, supervisor: false })));
+      }),
+    ),
   );
 
   it.effect("resumes a mid-turn thread from a database a previous process left", () =>

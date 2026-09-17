@@ -339,5 +339,22 @@ export const ProviderCommandReactor = Layer.effectDiscard(
     // so an event published immediately after `provide` is still delivered.
     const mailbox = yield* engine.subscribeEvents;
     yield* Stream.runForEach(Stream.fromSubscription(mailbox), react).pipe(Effect.forkScoped);
+
+    // Threads a previous process left stranded: `project.removed` deletes them
+    // one at a time off the event above, so a crash in the middle of that would
+    // otherwise leave them in the sidebar for good, pointing at no project.
+    yield* Effect.gen(function* () {
+      for (const doc of yield* engine.threadDocs) {
+        if (doc.deleted) {
+          continue;
+        }
+        if ((yield* engine.projectDoc(doc.projectId)) === null) {
+          yield* dispatchDelete(doc.threadId);
+        }
+      }
+    }).pipe(
+      Effect.catch((error) => Effect.logWarning("orphan thread sweep failed", error)),
+      Effect.forkScoped,
+    );
   }),
 );
