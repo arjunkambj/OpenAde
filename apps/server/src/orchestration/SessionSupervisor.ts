@@ -39,6 +39,22 @@ const sessionLost = (threadId: ThreadId, reason: string): PlannedEvent => ({
   payload: { reason },
 });
 
+/**
+ * A crash the user can see. Without it the answer just stops mid-sentence and
+ * the thread goes back to idle with nothing in the timeline to explain why:
+ * `session.ended` maps to no event, and a stream that merely ends produces
+ * only a synthesized `turn.completed`.
+ */
+const crashNotice = (threadId: ThreadId): PlannedEvent => ({
+  eventId: makeEventId(),
+  streamKind: "thread",
+  streamId: threadId,
+  occurredAt: new Date().toISOString(),
+  actor: "system",
+  type: "thread.error",
+  payload: { message: "the agent process exited unexpectedly; reconnecting", fatal: false },
+});
+
 export const makeSessionSupervisor = (
   options: SupervisorOptions = {},
 ): Layer.Layer<never, never, OrchestrationEngine | SessionManager> => {
@@ -125,7 +141,9 @@ export const makeSessionSupervisor = (
 
       yield* Stream.runForEach(sessions.lifecycle, (entry) =>
         entry.kind === "ended" && entry.reason === "crashed"
-          ? resumeLoop(entry.threadId, 0)
+          ? engine
+              .appendThreadEvents(entry.threadId, [crashNotice(entry.threadId)])
+              .pipe(Effect.andThen(resumeLoop(entry.threadId, 0)))
           : Effect.void,
       ).pipe(Effect.forkScoped);
     }),

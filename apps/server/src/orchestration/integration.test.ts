@@ -514,11 +514,22 @@ describe("orchestration with a fake connector", () => {
 
         const secondBound = yield* awaitEvent(engine, isType("thread.session.bound"));
         const completed = yield* awaitEvent(engine, isType("thread.turn.completed"));
+        // The crash has to be visible: `session.ended` maps to no event, so
+        // without this notice the answer just stops mid-sentence.
+        const notice = yield* awaitEvent(engine, isType("thread.error"));
 
         const session = yield* fake.session(threadId);
         expect(session).not.toBeUndefined();
         yield* session!.pause;
         yield* session!.crash({ exitCode: 137 });
+
+        const recorded = yield* Fiber.join(notice);
+        expect(Option.isSome(recorded)).toBe(true);
+        if (Option.isSome(recorded)) {
+          const payload = recorded.value.payload as { message: string; fatal: boolean };
+          expect(payload.fatal).toBe(false);
+          expect(payload.message).toContain("exited unexpectedly");
+        }
 
         yield* Fiber.join(secondBound);
         yield* Fiber.join(completed);
