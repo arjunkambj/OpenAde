@@ -7,7 +7,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { makeEventId, makeProjectId, makeThreadId, makeTurnId } from "@OpenAde/contracts/ids";
 import type { OrchestrationEvent, ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
 
-import { applyThreadEvent } from "./clientState";
+import { applyThreadEvent, applyThreadListItem } from "./clientState";
 
 const threadId = makeThreadId();
 
@@ -93,5 +93,45 @@ describe("clientState fold", () => {
       event("thread.plan.responded", { turnId: makeTurnId(), action: "accept" }),
     );
     expect(doc.pendingPlan?.turnId).toBe(turnId);
+  });
+
+  it("distinguishes a deleted thread from an archived one", () => {
+    const archived = applyThreadEvent(snapshot(), event("thread.archived", {}));
+    expect(archived.status).toBe("archived");
+
+    // A thread deleted from another window must not look merely filed away:
+    // the route reads this status to leave the timeline.
+    const deleted = applyThreadEvent(snapshot(), event("thread.deleted", {}));
+    expect(deleted.status).toBe("deleted");
+    expect(deleted.currentTurnId).toBeNull();
+  });
+
+  it("clears the thread list when the server asks for a resnapshot", () => {
+    const threads = applyThreadListItem([], {
+      kind: "snapshot",
+      snapshotSequence: 3,
+      threads: [
+        {
+          threadId,
+          projectId: makeProjectId(),
+          title: "one",
+          status: "idle",
+          settings: {
+            model: "fake/model",
+            runtimeMode: "auto-accept-edits",
+            interactionMode: "default",
+          },
+          awaitingInput: false,
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+    });
+    expect(threads.length).toBe(1);
+
+    // Keeping the old rows would leave a list that silently stopped updating.
+    expect(applyThreadListItem(threads, { kind: "resnapshot-required", reason: "budget" })).toEqual(
+      [],
+    );
   });
 });

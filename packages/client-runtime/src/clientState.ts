@@ -27,7 +27,10 @@ export const applyThreadEvent = (
     case "thread.archived":
       return { ...doc, status: "archived", updatedAt: event.occurredAt };
     case "thread.deleted":
-      return { ...doc, status: "archived", updatedAt: event.occurredAt };
+      // Not the same as archived: the thread is gone from the server, so an
+      // open timeline has to say so (and the route can redirect) instead of
+      // sitting there looking merely filed away.
+      return { ...doc, status: "deleted", currentTurnId: null, updatedAt: event.occurredAt };
     case "thread.session.bound":
       return {
         ...doc,
