@@ -14,6 +14,7 @@
  *   at launch (spec 5.6), so the per-session token never touches disk.
  */
 
+import * as NodeCrypto from "node:crypto";
 import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
 import * as Effect from "effect/Effect";
@@ -41,7 +42,11 @@ const readJsonObject = (path: string): JsonObject => {
 
 const writeJsonObject = (path: string, value: JsonObject): void => {
   NodeFS.mkdirSync(NodePath.dirname(path), { recursive: true });
-  NodeFS.writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  // temp file + rename: a crash mid-write must not leave a truncated
+  // settings.local.json or .mcp.json in the user's project.
+  const tmp = `${path}.${process.pid}.${NodeCrypto.randomUUID()}.tmp`;
+  NodeFS.writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  NodeFS.renameSync(tmp, path);
 };
 
 const settingsLocalPath = (projectRoot: string): string =>

@@ -132,7 +132,10 @@ export const ensureHookScript = (
     }
     if (current !== wanted) {
       NodeFS.mkdirSync(NodePath.dirname(path), { recursive: true });
-      NodeFS.writeFileSync(path, source, { encoding: "utf8", mode: 0o700 });
+      // temp + rename: a running `cmd` must never read a half-written script.
+      const tmp = `${path}.${process.pid}.${NodeCrypto.randomUUID()}.tmp`;
+      NodeFS.writeFileSync(tmp, source, { encoding: "utf8", mode: 0o700 });
+      NodeFS.renameSync(tmp, path);
     }
     NodeFS.chmodSync(path, 0o700);
     return path;

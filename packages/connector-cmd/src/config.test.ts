@@ -51,6 +51,11 @@ describe("installProjectHooks", () => {
         command: "/home/u/.openade/bin/cmd-hook.mjs",
         timeout: 590,
       });
+
+      // The write is temp-file + rename: no scratch file survives.
+      expect(
+        NodeFS.readdirSync(NodePath.dirname(path)).filter((name) => name.endsWith(".tmp")),
+      ).toEqual([]);
     }),
   );
 
@@ -182,6 +187,9 @@ describe("ensureHookScript", () => {
       NodeFS.writeFileSync(path, "// tampered\n");
       yield* ensureHookScript(env);
       expect(NodeFS.readFileSync(path, "utf8")).toBe(hookScriptSource());
+
+      // Temp-file + rename leaves no scratch files behind.
+      expect(NodeFS.readdirSync(NodePath.dirname(path))).toEqual(["cmd-hook.mjs"]);
     }),
   );
 });
