@@ -119,7 +119,11 @@ export class BrowserService extends Context.Service<
   BrowserService,
   {
     readonly subscribe: (threadId: ThreadId) => Stream.Stream<BrowserState>;
-    readonly humanInput: (threadId: ThreadId, input: BrowserHumanInput) => Effect.Effect<void>;
+    /** `unknown` error: the RPC handler maps whatever an implementation fails with. */
+    readonly humanInput: (
+      threadId: ThreadId,
+      input: BrowserHumanInput,
+    ) => Effect.Effect<void, unknown>;
   }
 >()("server/rpc/BrowserService") {
   static readonly empty = Layer.succeed(

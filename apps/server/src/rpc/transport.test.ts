@@ -20,7 +20,7 @@ import {
   makeEventId,
 } from "@OpenAde/contracts/ids";
 import type { Command } from "@OpenAde/contracts/orchestration";
-import { STREAM_BUDGET_BYTES } from "@OpenAde/contracts/rpc";
+import { OpenAdeRpcError, STREAM_BUDGET_BYTES } from "@OpenAde/contracts/rpc";
 import { Connection, makeConnection } from "@OpenAde/client-runtime/connection";
 import { makeFakeConnector } from "@OpenAde/testkit/fakeConnector";
 import type { ConnectorServices } from "@OpenAde/connector-sdk/definition";
@@ -65,7 +65,7 @@ const services: Effect.Effect<ConnectorServices> = Effect.clockWith((clock) =>
 );
 
 /** Real sqlite + engine + reactors + WS transport on an ephemeral port. */
-const testStack = () =>
+const testStack = (browserLayer: Layer.Layer<BrowserService> = BrowserService.empty) =>
   Effect.gen(function* () {
     // One sqlite instance feeds persistence, the engine and the settings
     // service — built once so every consumer shares the same connection.
@@ -96,7 +96,7 @@ const testStack = () =>
       ConnectorCatalog.empty,
       FileService.empty,
       GitService.empty,
-      BrowserService.empty,
+      browserLayer,
       CmdConfig.empty,
       SettingsStore.layer.pipe(Layer.provide(sqlite)),
     );
@@ -188,6 +188,31 @@ describe("transport", () => {
         const again = yield* connection.client.pipe(Effect.timeout("5 seconds"));
         const receipt = yield* again["orchestration.dispatch"]({ command: createThread });
         expect(receipt.status).toBe("accepted");
+      }),
+    ),
+  );
+
+  it.live("browser.humanInput failures reach the client as RPC errors", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const failingBrowser = Layer.succeed(
+          BrowserService,
+          BrowserService.of({
+            subscribe: () => Stream.never,
+            humanInput: () => Effect.fail(new Error("cdp connect refused")),
+          }),
+        );
+        const { url } = yield* testStack(failingBrowser);
+        const connection = yield* connect(url, TOKEN);
+        const client = yield* connection.client;
+        const error = yield* client["browser.humanInput"]({
+          threadId,
+          input: { kind: "text", text: "hi" },
+        }).pipe(Effect.flip);
+        expect(error).toBeInstanceOf(OpenAdeRpcError);
+        if (error instanceof OpenAdeRpcError) {
+          expect(error.code).toBe("internal");
+        }
       }),
     ),
   );
