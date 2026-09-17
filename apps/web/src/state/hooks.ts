@@ -7,6 +7,8 @@
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import type { ConnectionState } from "@OpenAde/client-runtime/connection";
+import { desktopServerStateAtom } from "@OpenAde/client-runtime/desktop";
+import type { DesktopServerState } from "@OpenAde/client-runtime/resolver";
 import type { ThreadId } from "@OpenAde/contracts/ids";
 import type {
   ProjectSummary,
@@ -26,6 +28,14 @@ const CONNECTING: ConnectionState = { status: "connecting", serverInstanceId: nu
 /** `connectionStateAtom` — drives the reconnecting/offline banner. */
 export const useConnectionState = (): ConnectionState =>
   AsyncResult.getOrElse(useAtomValue(getAppAtoms().connectionStateAtom), () => CONNECTING);
+
+/**
+ * What the desktop supervisor is doing with the server *process* — starting
+ * it, restarting it, or giving up. `null` in a plain browser tab, where the
+ * socket state is the whole story.
+ */
+export const useDesktopServerState = (): DesktopServerState | null =>
+  useAtomValue(desktopServerStateAtom);
 
 /** `projectsAtom` — the sidebar's project list. Empty until connected. */
 export const useProjects = (): ReadonlyArray<ProjectSummary> =>

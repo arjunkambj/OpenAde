@@ -41,6 +41,17 @@ export interface BrowserPaneGuestInput {
 export interface DesktopServerState {
   readonly status: "starting" | "ready" | "restarting" | "failed";
   readonly connection?: ResolvedConnection | null;
+  /**
+   * Which restart is running, while `restarting`. Optional for the same
+   * reason as `connection` — an older preload omits it — and read as
+   * `attempt ?? null`.
+   */
+  readonly attempt?: number | null;
+  /**
+   * Why the supervisor stopped retrying, while `failed`. The banner says this
+   * instead of promising a retry that is not coming.
+   */
+  readonly reason?: string | null;
 }
 
 declare global {

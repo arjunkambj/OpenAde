@@ -140,6 +140,27 @@ export const setConnectionStatus = (
     previous.status === "incompatible" ? previous : { ...previous, status },
   );
 
+/**
+ * The boot id to keep after a connect attempt resolved `resolved`.
+ *
+ * Status moves on every socket drop; the boot id must not. Clearing it on a
+ * plain reconnect would make each one look like a server restart and force a
+ * full resnapshot of every subscription, so it is dropped only when the
+ * channel actually reported a *different* id — a restarted server, whose
+ * sequence numbers the client's cached snapshots do not belong to.
+ *
+ * `undefined` means the channel does not know the id (the `?server=` params
+ * do not carry it), which is not evidence of a restart either.
+ *
+ * @public `makeConnection`'s attempt loop is the only caller; exported for the
+ * unit test, since forcing a restart through a live socket needs a server.
+ */
+export const retainedInstanceId = (
+  previous: string | null,
+  resolved: string | undefined,
+): string | null =>
+  resolved === undefined || previous === null || previous === resolved ? previous : null;
+
 export const makeConnection = (
   options: ConnectionOptions,
 ): Layer.Layer<Connection | ConnectionStateRef, never, Scope.Scope> =>
@@ -176,14 +197,12 @@ export const makeConnection = (
         // A restarted server is a different server: drop the remembered boot
         // id so every subscription resnapshots instead of resuming against a
         // sequence the new instance never issued.
-        if (active.serverInstanceId !== undefined) {
-          yield* SubscriptionRef.update(state, (previous) =>
-            previous.serverInstanceId === null ||
-            previous.serverInstanceId === active.serverInstanceId
-              ? previous
-              : { ...previous, serverInstanceId: null },
-          );
-        }
+        yield* SubscriptionRef.update(state, (previous) => {
+          const retained = retainedInstanceId(previous.serverInstanceId, active.serverInstanceId);
+          return retained === previous.serverInstanceId
+            ? previous
+            : { ...previous, serverInstanceId: retained };
+        });
         const wsUrl = `${toWebSocketUrl(active.url)}?token=${encodeURIComponent(active.token)}`;
         const disconnected = yield* Deferred.make<void>();
         const socketLayer = Socket.layerWebSocket(wsUrl).pipe(
