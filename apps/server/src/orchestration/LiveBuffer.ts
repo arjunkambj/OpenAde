@@ -174,7 +174,18 @@ export const makeLiveBuffer = <A>(
           if ((yield* Ref.get(timerRef)) === null) {
             const fiber = yield* Effect.forkIn(
               Effect.sleep(Duration.millis(windowMillis)).pipe(
-                Effect.andThen(mutex.withPermits(1)(flushPending)),
+                Effect.andThen(
+                  mutex.withPermits(1)(
+                    Effect.gen(function* () {
+                      // Clear the slot before flushing: a fired timer is no
+                      // longer armed, so the next offer must see `null` and
+                      // fork a fresh window — otherwise every later mergeable
+                      // item would sit in `pendingRef` forever.
+                      yield* Ref.set(timerRef, null);
+                      yield* flushPending;
+                    }),
+                  ),
+                ),
               ),
               bufferScope,
             );
