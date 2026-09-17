@@ -1,26 +1,33 @@
-# 03 · Build progress and how to resume (updated 2026-09-15)
+# 03 · Build progress and how to resume (updated 2026-09-18)
 
 This file is the hand-off between build sessions. Update the status table and the
 "next session starts here" section every time a workstream lands on `main`.
 
 ## Status
 
-| Workstream                                       | Branch                  | Status               | Landed on main |
-| ------------------------------------------------ | ----------------------- | -------------------- | -------------- |
-| Plan review                                      | `feat/w0-foundation`    | done                 | 2026-09-15     |
-| W0 Foundation, contracts, connector SDK, testkit | `feat/w0-foundation`    | **done, merged**     | 2026-09-15     |
-| W1 Persistence and orchestration engine          | `feat/w1-orchestration` | ready for review     | –              |
-| W2 Command Code connector                        | `feat/w2-connector-cmd` | ready for review     | –              |
-| W3 Transport and client runtime                  | `feat/w3-transport`     | ready for review     | –              |
-| W7 Desktop shell and packaging                   | `feat/w7-desktop`       | ready for review     | –              |
-| W8 Git, checkpoints, files                       | `feat/w8-git`           | ready for review     | –              |
-| W4 Renderer shell and timeline                   | `feat/w4-renderer`      | ready for review     | –              |
-| W5 Composer and interaction cards                | `feat/w5-composer`      | ready for review     | –              |
-| W6 Browser, MCP server, preview pane             | `feat/w6-browser`       | ready for review     | –              |
-| W9 Settings, connectors, MCP and skills editor   | `feat/w9-settings`      | ready for review     | –              |
-| W10 Integration                                  | `feat/w10-integration`  | not started (wave 3) | –              |
+| Workstream                                       | Branch                  | Status           | Landed on main |
+| ------------------------------------------------ | ----------------------- | ---------------- | -------------- |
+| Plan review                                      | `feat/w0-foundation`    | done             | 2026-09-15     |
+| W0 Foundation, contracts, connector SDK, testkit | `feat/w0-foundation`    | **done, merged** | 2026-09-15     |
+| W1 Persistence and orchestration engine          | `feat/w1-orchestration` | **done, merged** | 2026-09-18     |
+| W2 Command Code connector                        | `feat/w2-connector-cmd` | **done, merged** | 2026-09-18     |
+| W3 Transport and client runtime                  | `feat/w3-transport`     | **done, merged** | 2026-09-18     |
+| W7 Desktop shell and packaging                   | `feat/w7-desktop`       | **done, merged** | 2026-09-18     |
+| W8 Git, checkpoints, files                       | `feat/w8-git`           | **done, merged** | 2026-09-18     |
+| W4 Renderer shell and timeline                   | `feat/w4-renderer`      | **done, merged** | 2026-09-18     |
+| W5 Composer and interaction cards                | `feat/w5-composer`      | **done, merged** | 2026-09-18     |
+| W6 Browser, MCP server, preview pane             | `feat/w6-browser`       | **done, merged** | 2026-09-18     |
+| W9 Settings, connectors, MCP and skills editor   | `feat/w9-settings`      | **done, merged** | 2026-09-18     |
+| W10 Integration                                  | `feat/w10-integration`  | **done, merged** | 2026-09-18     |
 
-Milestone M0 (workspace builds, gate green, contracts and fakes published) is reached.
+Milestone M0 (workspace builds, gate green, contracts and fakes published) is
+reached. So is M1: every wave-1 and wave-2 workstream is integrated on one
+branch, `pnpm check` is green across 10 packages and 143 tests, `pnpm build`
+produces the server bundle, the web assets and a launchable `OpenAde.app`, and
+the built server boots, migrates and answers on its loopback routes.
+
+The landing site (`feat/w11-launch`, `apps/site`) is deliberately out of this
+integration and still sits on its own branch.
 
 ## What W0 landed
 
@@ -101,32 +108,84 @@ the same gate on Linux and macOS (`.github/workflows/ci.yml`).
 13. `apps/desktop` lists contracts and shared as devDependencies (esbuild bundles
     them; electron-builder packs only `dependencies`).
 14. W3 landed decision D3: `apps/web` no longer reads `VITE_SERVER_URL`; the dev
-    server writes `~/.openade/dev/connection.json` and the web Vite plugin serves
-    it at `/__openade/connection`. `.claude/launch.json` still points `dev` at
-    port 3000; W7 fixes it (D9).
+    server writes the dev connection file and the web Vite plugin serves it at
+    `/__openade/connection`. Both sides resolve that path through
+    `devConnectionPath()` in `@OpenAde/shared/paths`, so `OPENADE_HOME` moves it.
 15. Two guardrail tests are assigned, not written: transfer budget → W3, migration
     lineage → W1 (02 · last section).
 
 ## Next session starts here
 
-Wave 1 runs W1, W2, W3, W7 and W8 in parallel, each in its own worktree and
-branch, each committing feature by feature, each reviewed before merge
-(01 · D8). Suggested mechanics:
+Waves 1 and 2 are integrated. `feat/w10-integration` was cut from the W7 tip
+(which carried the 27-commit shared base) and the other eight branches were
+cherry-picked onto it oldest first: W1, W3, W8, W2, then W4, W5, W9, W6. Every
+original commit kept its message and author; the integration's own fixes are
+separate commits on top. History stays linear and nothing has been pushed to
+`origin`.
+
+The nine feature worktrees under `.claude/worktrees/` and their branches are
+still on disk. They are fully contained in `main` now — delete them when you no
+longer want them for reference:
 
 ```bash
 cd /Volumes/main/Code/OpenAde
-for w in w1-orchestration w2-connector-cmd w3-transport w7-desktop w8-git; do
-  git worktree add ".claude/worktrees/${w%%-*}" -b "feat/$w" main
-done
+for w in w1 w2 w3 w4 w5 w6 w7 w8 w9 w10; do git worktree remove ".claude/worktrees/$w"; done
+git branch -d feat/w1-orchestration feat/w2-connector-cmd feat/w3-transport \
+  feat/w4-renderer feat/w5-composer feat/w6-browser feat/w7-desktop \
+  feat/w8-git feat/w9-settings feat/w10-integration
 ```
 
-Then `pnpm install` inside each worktree. When a branch passes `pnpm check` and
-review, rebase it onto `main` and fast-forward merge; run `pnpm install
---frozen-lockfile && pnpm check` on `main` afterwards. Delete the worktree and
-update the table above.
+### Seams the integration reconciled
 
-The W0 worktree and the `feat/w0-foundation` branch were removed after the merge;
-main carries every W0 commit. Nothing has been pushed to `origin` yet.
+Read these before changing the code around them — they are decisions, not
+mechanical merges.
+
+1. **One renderer atom runtime.** `apps/web/src/state/app-runtime.tsx` (W4) owns
+   the single `makeRuntime` instance, the shared registry provider and the
+   offline layer that keeps every atom mountable without a server.
+   `apps/web/src/lib/app-runtime.ts` (W9) no longer builds its own runtime: it
+   adds the settings-only atoms on top of that instance and publishes them
+   through `useAppAtoms()`. Atoms the shared client runtime already carries
+   (`skillsAtom`, `connectorModelsAtom`, `keybindingsAtom`,
+   `keybindingsUpdateAtom`) are not redefined.
+2. **Settings routes.** W9's concrete pages (`/settings`, `/settings/connectors`,
+   `/settings/mcp`, `/settings/skills`, `/settings/keybindings`,
+   `/settings/appearance`) replaced W4's placeholder `/settings/$section`, which
+   is gone along with its unimplemented "Uses" section. The sidebar, the search
+   palette and the sidebar-footer link all point at the concrete routes.
+3. **`/welcome`.** W9's first-run flow (directory picker, connector probe,
+   project create) is the page; W4's connection-details card lives on inside it,
+   so "which channel resolved the server, and is the socket up" is still one
+   glance when the probe cannot reach the server at all.
+4. **One ConnectorServices bundle.** `SessionServices` (W6) supplies the
+   gateway's per-thread MCP url and bearer, the attachments directory, the
+   logger and the clock. The entrypoint overrides only what needs the running
+   app: the hook bridge's endpoint and handler registry (W2) and the
+   project-aware permission decision (W1).
+5. **`POST /hooks/pretooluse` has one owner** — the hook bridge. W6's 501
+   placeholder for the same path is gone; two declarations made the router
+   refuse to build.
+6. **Boot order.** The entrypoint builds one sqlite client and runs the
+   migrations itself before any layer is constructed. The service layer — and
+   with it the connector manager's first reconcile against `settings.connectors`
+   — is built before the engine, whose `runMigrations` used to be the first one
+   to touch the schema.
+7. **`ServerSupervisor` stays Electron-free.** W6's `OPENADE_CDP_PORT` went into
+   `serverDeps.ts`, where W7's injectable spawn spec is built, not into the
+   supervisor class.
+8. **The dev handshake file** resolves through `@OpenAde/shared/paths`
+   (`devConnectionPath()`) in both the server bootstrap and the web Vite plugin,
+   so `OPENADE_HOME` moves it for both.
+
+### Known gaps
+
+- No automated test boots the real entrypoint. The migration-order and
+  duplicate-route bugs above were both found by hand, by running the built
+  bundle; the suites passed throughout. A boot smoke test is the obvious next
+  guardrail.
+- `apps/server/src/browser/live.test.ts` is skipped by default (it wants a real
+  browser), as is the live `cmd` smoke behind `OPENADE_LIVE_CMD=1`.
+- Nothing has been run against a real Command Code install in this session.
 
 ### Wave 1 briefs
 
