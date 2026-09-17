@@ -31,6 +31,7 @@ import type {
   Mention,
   OrchestrationEvent,
   PlanResponseAction,
+  QueuedMessage,
   ThreadSettingsPatch,
 } from "@OpenAde/contracts/orchestration";
 import type { UserQuestionAnswer } from "@OpenAde/contracts/runtime";
@@ -303,25 +304,33 @@ export const ProviderCommandReactor = Layer.effectDiscard(
           }
 
           case "thread.turn.completed": {
-            const doc = yield* engine.threadDoc(threadId);
-            if (doc === null || doc.deleted || doc.status === "archived") {
-              return;
-            }
-            const next = doc.queue[0];
+            // Choosing the message inside the append transaction is what makes
+            // this safe against `thread.queue.remove`: reading the queue out
+            // here and appending afterwards let a removal decided in between be
+            // accepted — the row left the strip and the message was sent anyway.
+            const taken: Array<QueuedMessage> = [];
+            // Dequeue first, then dispatch — the request event lands after the
+            // queue mutation so a projector replaying the stream sees the same order.
+            yield* engine.appendThreadEvents(threadId, (doc) => {
+              const next = doc.status === "archived" ? undefined : doc.queue[0];
+              if (next === undefined) {
+                return [];
+              }
+              taken.push(next);
+              return [
+                systemEvent(
+                  threadId,
+                  "thread.message.dequeued",
+                  { queuedMessageId: next.queuedMessageId },
+                  new Date().toISOString(),
+                  event.eventId,
+                ),
+              ];
+            });
+            const next = taken[0];
             if (next === undefined) {
               return;
             }
-            // Dequeue first, then dispatch — the request event lands after the
-            // queue mutation so a projector replaying the stream sees the same order.
-            yield* engine.appendThreadEvents(threadId, [
-              systemEvent(
-                threadId,
-                "thread.message.dequeued",
-                { queuedMessageId: next.queuedMessageId },
-                new Date().toISOString(),
-                event.eventId,
-              ),
-            ]);
             // The queued message carries the composer's whole input —
             // redispatching just the text would silently drop its
             // attachments and mentions.

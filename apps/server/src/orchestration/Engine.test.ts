@@ -113,6 +113,40 @@ describe("OrchestrationEngine", () => {
     }).pipe(Effect.provide(engineLayer())),
   );
 
+  it.effect("plans an append from the thread doc as it is at append time", () =>
+    Effect.gen(function* () {
+      const engine = yield* OrchestrationEngine;
+      yield* engine.dispatch(createProject);
+      yield* engine.dispatch(createThread);
+      yield* engine.dispatch(turnStart("first"));
+      yield* engine.dispatch(turnStart("second", true));
+
+      const queued = (yield* engine.threadDoc(threadId))?.queue ?? [];
+      expect(queued).toHaveLength(1);
+      const removed = yield* engine.dispatch({
+        commandId: makeCommandId(),
+        createdAt: NOW,
+        type: "thread.queue.remove",
+        threadId,
+        queuedMessageId: queued[0]!.queuedMessageId,
+      });
+      expect(removed.status).toBe("accepted");
+
+      // This is what keeps the queue drain honest: the reactor decides what to
+      // dequeue from the doc the transaction holds, so a removal accepted in
+      // the meantime is already visible and nothing is redispatched.
+      const seen: Array<number> = [];
+      const last = yield* engine.appendThreadEvents(threadId, (doc) => {
+        seen.push(doc.queue.length);
+        return doc.queue.length === 0
+          ? []
+          : [ingested("thread.turn.completed", { turnId: makeTurnId(), stopReason: "end_turn" })];
+      });
+      expect(seen).toEqual([0]);
+      expect(last).toBe(removed.lastSequence);
+    }).pipe(Effect.provide(engineLayer())),
+  );
+
   it.effect("streams snapshot → synchronized → live events to subscribers", () =>
     Effect.gen(function* () {
       const engine = yield* OrchestrationEngine;

@@ -114,10 +114,17 @@ export class OrchestrationEngine extends Context.Service<
     /**
      * Appends connector/system events to a thread stream, projecting and
      * publishing exactly like `dispatch`. Resolves to the log position.
+     *
+     * `planned` may be a function of the thread doc instead of a fixed list.
+     * The function runs inside the write transaction, on the doc as it is at
+     * append time, so a caller whose events depend on current state — "send
+     * the head of the queue" — cannot be overtaken by a command decided
+     * between its own read and this append. Returning an empty list appends
+     * nothing.
      */
     readonly appendThreadEvents: (
       threadId: ThreadId,
-      planned: ReadonlyArray<PlannedEvent>,
+      planned: ReadonlyArray<PlannedEvent> | ((doc: ThreadDoc) => ReadonlyArray<PlannedEvent>),
     ) => Effect.Effect<number, EngineError>;
     readonly subscribeThread: (
       threadId: ThreadId,
@@ -380,7 +387,7 @@ export class OrchestrationEngine extends Context.Service<
 
       const appendThreadEvents = (
         threadId: ThreadId,
-        planned: ReadonlyArray<PlannedEvent>,
+        planned: ReadonlyArray<PlannedEvent> | ((doc: ThreadDoc) => ReadonlyArray<PlannedEvent>),
       ): Effect.Effect<number, EngineError> =>
         writeMutex.withPermits(1)(
           Effect.gen(function* () {
@@ -390,7 +397,8 @@ export class OrchestrationEngine extends Context.Service<
                 if (doc === null || doc.deleted) {
                   return { appended: [] as ReadonlyArray<OrchestrationEvent>, last: 0 };
                 }
-                return yield* commit("thread", threadId, { project: null, thread: doc }, planned);
+                const events = typeof planned === "function" ? planned(doc) : planned;
+                return yield* commit("thread", threadId, { project: null, thread: doc }, events);
               }),
             );
             if (appended.length > 0) {
