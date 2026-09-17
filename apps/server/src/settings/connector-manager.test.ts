@@ -217,6 +217,38 @@ describe("ConnectorManager", () => {
     ),
   );
 
+  it.effect("a refresh straight after a write answers from the reconciled document", () =>
+    withFixture(({ manager, store, registry }) =>
+      Effect.gen(function* () {
+        yield* awaitSummaries(
+          manager,
+          (all) => all.length === 1 && all[0]!.probe.status === "ready",
+        );
+        const existing = (yield* store.get).connectors[0]!;
+        const added = {
+          connectorInstanceId: makeConnectorInstanceId(),
+          kind: "fake",
+          displayName: "Second",
+          enabled: true,
+          config: {},
+        };
+        yield* store.update({ connectors: [existing, added] });
+
+        // What the connectors panel does the moment a save lands. The refresh
+        // and the reconcile the write woke both want the reconcile mutex, so
+        // the refresh reconciles the document itself: whichever gets there
+        // first, the panel is handed an opened, probed instance.
+        const listed = yield* manager.list(true);
+        const fresh = listed.find(
+          (summary) => summary.connectorInstanceId === added.connectorInstanceId,
+        )!;
+        expect(fresh.probe.status).toBe("ready");
+        expect(fresh.capabilities).not.toBeNull();
+        expect(yield* registry.instances).toHaveLength(2);
+      }),
+    ),
+  );
+
   it.effect("the model fallback is asked once, and again after the next probe", () =>
     Effect.gen(function* () {
       // `listModels()` is a re-probe for a real connector — two child processes

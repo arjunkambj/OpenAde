@@ -15,8 +15,10 @@
  * so the seed never resurrects deleted instances.
  *
  * `connectors.list` answers from the last reconcile's probes; `refresh: true`
- * re-runs every probe first, which is what the settings page's probe button
- * triggers.
+ * reconciles the current document and then re-runs every probe, which is what
+ * the settings page's probe button — and every save, which refreshes right
+ * after it writes — triggers. Reconciling there rather than waiting for the
+ * subscription's own pass is what keeps the two from racing for the mutex.
  *
  * A reconcile registers before it probes, and `ready` completes once the first
  * pass has registered everything the settings document asks for. The
@@ -215,7 +217,11 @@ export class ConnectorManager extends Context.Service<
        * document. Registration comes first and probing second: a probe may
        * take `PROBE_TIMEOUT`, and nothing that routes a turn should wait on it.
        */
-      const reconcile = (settings: Settings): Effect.Effect<void> =>
+      const reconcile = (
+        settings: Settings,
+        /** `false` when the caller probes every entry itself right afterwards. */
+        probeChanged = true,
+      ): Effect.Effect<void> =>
         Effect.gen(function* () {
           const seen = new Set<string>();
           const changed: Array<ConnectorInstanceConfig> = [];
@@ -251,7 +257,7 @@ export class ConnectorManager extends Context.Service<
           }
           // The registry now matches the document; clients may be admitted.
           yield* Deferred.succeed(registered, undefined);
-          for (const conn of changed) {
+          for (const conn of probeChanged ? changed : []) {
             const probe = yield* probeOf(conn);
             yield* recordProbe(conn.connectorInstanceId, probe);
           }
@@ -309,21 +315,27 @@ export class ConnectorManager extends Context.Service<
       ).pipe(Effect.forkScoped);
 
       const list = (refresh = false): Effect.Effect<ReadonlyArray<ConnectorSummary>> =>
-        Effect.gen(function* () {
-          const settings = yield* store.get;
-          if (refresh) {
-            yield* mutex.withPermits(1)(
+        refresh
+          ? mutex.withPermits(1)(
               Effect.gen(function* () {
+                // The settings page refreshes right after it writes, so the
+                // reconcile for that write may not have run yet. Running it
+                // here — it is a no-op once signatures match — is what stops
+                // the two racing for the mutex: a reconcile that lands after
+                // the refresh would drop these probes and leave the card
+                // reading "Probing…" until the user pressed the button again.
+                const settings = yield* store.get;
+                yield* reconcile(settings, false);
                 for (const conn of settings.connectors) {
                   const probe = yield* probeOf(conn);
                   yield* recordProbe(conn.connectorInstanceId, probe);
                 }
-                yield* SubscriptionRef.set(summariesRef, yield* summariesFor(settings));
+                const summaries = yield* summariesFor(settings);
+                yield* SubscriptionRef.set(summariesRef, summaries);
+                return summaries;
               }),
-            );
-          }
-          return yield* summariesFor(settings);
-        });
+            )
+          : Effect.flatMap(store.get, summariesFor);
 
       const models = (instanceId: ConnectorInstanceId) =>
         Effect.gen(function* () {
