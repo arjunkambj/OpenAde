@@ -14,6 +14,11 @@
  * no servers for it, and upsert/remove fail with a `conflict` naming the file,
  * because a rewrite would be built from an empty base and would delete every
  * server the user hand-authored.
+ *
+ * Disabling is a move, not a flag. Command Code launches everything under
+ * `mcpServers` and ignores keys it does not recognise, so a disabled server's
+ * definition is parked verbatim under `_openadeDisabled` and taken out of
+ * `mcpServers`; re-enabling moves it back unchanged.
  */
 
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
@@ -32,6 +37,15 @@ import { CmdConfig } from "../rpc/services";
 
 /** Marker key on entries OpenAde manages. Presence means "ours". */
 const MARKER = "_openade";
+
+/**
+ * Where a disabled server's definition is parked. Command Code launches every
+ * entry under `mcpServers` and ignores keys it does not know, so "disabled"
+ * has to mean "not in `mcpServers`" — a flag inside the entry would leave the
+ * server running. The definition is kept verbatim here so re-enabling restores
+ * it unchanged.
+ */
+const DISABLED_KEY = "_openadeDisabled";
 
 type Json = Record<string, unknown>;
 
@@ -114,7 +128,10 @@ const writeJsonFile = (path: string, doc: Json): Effect.Effect<void, OpenAdeRpcE
 
 interface McpFile {
   readonly doc: Json;
+  /** The live `mcpServers` map — everything the harness will launch. */
   readonly servers: Record<string, Json>;
+  /** Managed definitions parked under `_openadeDisabled`. */
+  readonly disabled: Record<string, Json>;
   /** Set when the file exists but could not be understood; writes must refuse. */
   readonly unreadable: string | null;
 }
@@ -129,10 +146,19 @@ const jsonMap = (value: unknown): Record<string, Json> =>
 const readMcpFile = (path: string): Effect.Effect<McpFile> =>
   Effect.map(readJsonFile(path), (file): McpFile => {
     if (file._tag === "unreadable") {
-      return { doc: {}, servers: {}, unreadable: file.reason };
+      return { doc: {}, servers: {}, disabled: {}, unreadable: file.reason };
     }
     const doc = file._tag === "missing" ? {} : file.doc;
-    return { doc, servers: jsonMap(doc.mcpServers), unreadable: null };
+    return {
+      doc,
+      servers: jsonMap(doc.mcpServers),
+      // Only our own entries are honoured there; anything else in that key is
+      // left alone and reported by nothing.
+      disabled: Object.fromEntries(
+        Object.entries(jsonMap(doc[DISABLED_KEY])).filter(([, entry]) => isManaged(entry)),
+      ),
+      unreadable: null,
+    };
   });
 
 const isManaged = (entry: Json): boolean => isJson(entry[MARKER]);
@@ -141,6 +167,8 @@ const entryToConfig = (
   name: string,
   scope: McpServerScope,
   entry: Json,
+  /** `false` for an entry parked outside `mcpServers`, whatever its marker says. */
+  live = true,
 ): McpServerConfig | null => {
   const type = isString(entry.type) ? entry.type : null;
   const command = isString(entry.command) ? entry.command : null;
@@ -163,7 +191,7 @@ const entryToConfig = (
   const base = {
     name,
     scope,
-    enabled: marker.enabled !== false,
+    enabled: live && marker.enabled !== false,
     managed: isManaged(entry),
     transport,
   };
@@ -203,6 +231,15 @@ const configToEntry = (server: McpServerConfig): Json => {
   }
   entry[MARKER] = { enabled: server.enabled };
   return entry;
+};
+
+/** Writes the park back, dropping the key entirely once nothing is parked. */
+const writeDisabled = (doc: Json, disabled: Record<string, Json>): void => {
+  if (Object.keys(disabled).length === 0) {
+    delete doc[DISABLED_KEY];
+    return;
+  }
+  doc[DISABLED_KEY] = disabled;
 };
 
 // ── Skills ─────────────────────────────────────────────────────
@@ -368,9 +405,21 @@ export const layer = (options: CmdConfigOptions = {}) =>
           }
           const out: Array<McpServerConfig> = [];
           for (const file of files) {
-            const { servers } = yield* readMcpFile(file.path);
+            const { servers, disabled } = yield* readMcpFile(file.path);
             for (const [name, entry] of Object.entries(servers)) {
               const config = entryToConfig(name, file.scope, entry);
+              if (config !== null) {
+                out.push(config);
+              }
+            }
+            // Parked definitions are still ours to show and edit; they just do
+            // not run. A name in both maps is a hand edit re-adding it — the
+            // live one wins, since that is what the harness will launch.
+            for (const [name, entry] of Object.entries(disabled)) {
+              if (servers[name] !== undefined) {
+                continue;
+              }
+              const config = entryToConfig(name, file.scope, entry, false);
               if (config !== null) {
                 out.push(config);
               }
@@ -401,8 +450,19 @@ export const layer = (options: CmdConfigOptions = {}) =>
             }
             const doc: Json = { ...file.doc };
             const servers: Record<string, Json> = { ...file.servers };
-            servers[server.name] = configToEntry(server);
+            const disabled: Record<string, Json> = { ...file.disabled };
+            const entry = configToEntry(server);
+            // Enabled means "in the map the harness launches"; disabled means
+            // "parked in our own key". A flag alone would not stop the server.
+            if (server.enabled) {
+              servers[server.name] = entry;
+              delete disabled[server.name];
+            } else {
+              disabled[server.name] = entry;
+              delete servers[server.name];
+            }
             doc.mcpServers = servers;
+            writeDisabled(doc, disabled);
             yield* writeJsonFile(path, doc);
             return yield* mcpList(projectId);
           }),
@@ -422,7 +482,7 @@ export const layer = (options: CmdConfigOptions = {}) =>
             if (file.unreadable !== null) {
               return yield* unreadableConflict(path, file.unreadable);
             }
-            const existing = file.servers[name];
+            const existing = file.servers[name] ?? file.disabled[name];
             if (existing === undefined) {
               return yield* notFound(`no server "${name}" in ${path}`);
             }
@@ -433,8 +493,11 @@ export const layer = (options: CmdConfigOptions = {}) =>
             }
             const doc: Json = { ...file.doc };
             const servers: Record<string, Json> = { ...file.servers };
+            const disabled: Record<string, Json> = { ...file.disabled };
             delete servers[name];
+            delete disabled[name];
             doc.mcpServers = servers;
+            writeDisabled(doc, disabled);
             yield* writeJsonFile(path, doc);
             return yield* mcpList(projectId);
           }),

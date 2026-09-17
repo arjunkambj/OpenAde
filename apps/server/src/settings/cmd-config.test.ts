@@ -215,12 +215,37 @@ describe("CmdConfig", () => {
     ),
   );
 
-  it.effect("disabled servers round-trip through the marker", () =>
+  it.effect("disabling takes the server out of the map the harness launches", () =>
+    withFixture((f) =>
+      Effect.gen(function* () {
+        yield* f.service.mcpUpsert(undefined, httpServer());
+        expect(readDoc(userMcpPath(f.home)).mcpServers.docs).toBeDefined();
+
+        const disabled = yield* f.service.mcpUpsert(undefined, httpServer({ enabled: false }));
+        expect(disabled[0]).toMatchObject({ name: "docs", enabled: false, managed: true });
+        const parked = readDoc(userMcpPath(f.home));
+        // The definition survives verbatim, but not where Command Code looks.
+        expect(parked.mcpServers.docs).toBeUndefined();
+        expect(parked._openadeDisabled).toMatchObject({
+          docs: { type: "http", url: "https://example.com/mcp", _openade: { enabled: false } },
+        });
+
+        const reEnabled = yield* f.service.mcpUpsert(undefined, httpServer());
+        expect(reEnabled[0]?.enabled).toBe(true);
+        const live = readDoc(userMcpPath(f.home));
+        expect(live.mcpServers.docs).toMatchObject({ type: "http", _openade: { enabled: true } });
+        expect(live._openadeDisabled).toBeUndefined();
+      }),
+    ),
+  );
+
+  it.effect("a disabled server can be removed from the park", () =>
     withFixture((f) =>
       Effect.gen(function* () {
         yield* f.service.mcpUpsert(undefined, httpServer({ enabled: false }));
-        const list = yield* f.service.mcpList();
-        expect(list[0]?.enabled).toBe(false);
+        const after = yield* f.service.mcpRemove(undefined, "user", "docs");
+        expect(after).toEqual([]);
+        expect(readDoc(userMcpPath(f.home))._openadeDisabled).toBeUndefined();
       }),
     ),
   );
