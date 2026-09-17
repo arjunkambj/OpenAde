@@ -73,11 +73,18 @@ function ThreadHeader({
   onDockToggle: () => void;
 }) {
   return (
-    <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-4">
-      <h1 className="min-w-0 max-w-64 flex-1 truncate text-sm font-medium text-foreground">
+    <header className="flex min-h-11 shrink-0 items-center gap-2 border-b border-border px-4 py-1.5">
+      <h1 className="min-w-0 max-w-56 shrink truncate text-sm font-medium text-foreground">
         {snapshot.title}
       </h1>
-      <HeaderControls threadId={snapshot.threadId} className="min-w-0 flex-1 justify-end" />
+      {/* The pickers carry their own "applies next turn" hints, so the row can
+          be wider than the header — especially with the dock open. Scroll it
+          instead of letting the pickers wrap into the title or squeeze their
+          labels to nothing. */}
+      <HeaderControls
+        threadId={snapshot.threadId}
+        className="min-w-0 flex-1 flex-nowrap overflow-x-auto [scrollbar-width:none] [&>*]:shrink-0"
+      />
       <StatusPill status={snapshot.status} />
       {/* The dock itself is `md:flex`, so below that breakpoint there is
           nothing for this control to open — and a pressed toggle next to no
