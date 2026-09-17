@@ -25,6 +25,7 @@ import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
+import * as Schedule from "effect/Schedule";
 import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 
@@ -110,25 +111,38 @@ export const CheckpointReactor: Layer.Layer<
         .projectDoc(doc.projectId)
         .pipe(Effect.map((project) => project?.workspaceRoot ?? null));
 
+    /**
+     * The outcome write is what takes a thread out of `restoring`, and a
+     * thread that never leaves it can neither start a turn nor restore again.
+     * A transient `SqlError` here must not be what pins it, so the append is
+     * retried a few times before the caller's handler gives up; a run that
+     * never records an outcome is picked up again by the replay at next boot.
+     */
     const settle = (
       threadId: ThreadId,
       type: "thread.checkpoint.restored" | "thread.checkpoint.restore.failed",
       payload: OrchestrationEvent["payload"],
       causedBy: string,
     ) =>
-      engine.appendThreadEvents(threadId, [
-        {
-          eventId: makeEventId(),
-          streamKind: "thread",
-          streamId: threadId,
-          occurredAt: new Date().toISOString(),
-          causationEventId: causedBy as never,
-          correlationId: causedBy,
-          actor: "system",
-          type,
-          payload,
-        } as PlannedEvent,
-      ]);
+      engine
+        .appendThreadEvents(threadId, [
+          {
+            eventId: makeEventId(),
+            streamKind: "thread",
+            streamId: threadId,
+            occurredAt: new Date().toISOString(),
+            causationEventId: causedBy as never,
+            correlationId: causedBy,
+            actor: "system",
+            type,
+            payload,
+          } as PlannedEvent,
+        ])
+        .pipe(
+          Effect.retry(
+            Schedule.recurs(3).pipe(Schedule.addDelay(() => Effect.succeed("50 millis" as const))),
+          ),
+        );
 
     /**
      * One restore at a time, whatever fiber asks for it. The decider already

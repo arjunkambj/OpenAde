@@ -79,7 +79,13 @@ export interface ThreadDoc {
   /**
    * True between `thread.checkpoint.restore.requested` and the reactor's
    * `restored`/`restore.failed`. `git restore` and `git clean -fd` are running
-   * over the worktree, so no turn may start and no second restore may begin.
+   * over the worktree, so no turn may start and no second restore may begin —
+   * in this thread or, via the decider's project-wide guard, in any sibling.
+   *
+   * Only those two outcomes clear it, deliberately: nothing else in the
+   * thread's life knows whether git is still writing to the worktree. A work
+   * order whose outcome never reached the log is re-run by the reactor's
+   * replay at the next boot, which settles it either way.
    */
   readonly restoring: boolean;
   readonly pendingPlan: PendingPlan | null;
