@@ -184,11 +184,24 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
       // completed it is gone. Leaving it set makes the decider reject every
       // later `thread.turn.start` ("a turn is already running") and leaves the
       // queue with no drain — the thread would be wedged for good.
+      //
+      // The open approvals and questions go with it, and for the same reason:
+      // they are a dead process asking, so answering one can never reach
+      // anybody. The card would sit in the timeline and `awaitingInput` would
+      // stay true, which is the same wedge one field along.
+      //
+      // The queue deliberately survives. Draining it here would send the
+      // messages into the loss that just happened — and re-entering
+      // `sessions.ensure` when the binary is gone loops. They stay where the
+      // user put them, visible in the strip, and the drain the *next* turn's
+      // completion runs picks them up.
       return {
         ...next,
         session: null,
         currentTurn: null,
         interrupting: false,
+        approvals: [],
+        userInputs: [],
         status: "error",
       };
     case "thread.turn.requested":

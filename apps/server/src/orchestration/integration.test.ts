@@ -751,6 +751,69 @@ describe("orchestration with a fake connector", () => {
       expect(attempts[0]).toContain("resume attempt 1 of 3");
     }),
   );
+
+  it.effect("a lost session keeps the queue for the user's next turn to drain", () =>
+    Effect.gen(function* () {
+      const directory = yield* Effect.acquireRelease(
+        Effect.sync(() => NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "openade-queue-"))),
+        (path) => Effect.sync(() => NodeFS.rmSync(path, { recursive: true, force: true })),
+      );
+      const persistence = persistenceLayer(NodePath.join(directory, "state.sqlite"));
+      const { instance } = yield* openFake();
+
+      // What a killed process leaves on disk: a turn in flight, a message the
+      // user queued behind it, and no session anywhere — so nothing will ever
+      // produce the `turn.completed` that drains a queue.
+      yield* Effect.gen(function* () {
+        const engine = yield* OrchestrationEngine;
+        yield* engine.dispatch(createProject);
+        yield* engine.dispatch(createThread);
+        yield* engine.dispatch(turnStart("interrupted work"));
+        yield* engine.dispatch(turnStart("queued behind it", true));
+        const doc = yield* engine.threadDoc(threadId);
+        expect(doc?.currentTurn).not.toBeNull();
+        expect(doc?.queue).toHaveLength(1);
+      }).pipe(Effect.provide(engineLayer(persistence)));
+
+      yield* Effect.gen(function* () {
+        const engine = yield* OrchestrationEngine;
+        // The boot scan runs inline while this layer is built — a running
+        // thread with no session is declared lost before any client could
+        // connect — so it has already happened by the time we get here.
+
+        // The turn and the dead process's open questions go; what the user
+        // typed stays. Sending it here would post it into the loss, and
+        // re-entering `ensure` with a missing binary loops — so it waits in
+        // the strip where they put it.
+        const afterLoss = yield* engine.threadDetail(threadId);
+        expect(afterLoss?.queue.map((message) => message.text)).toEqual(["queued behind it"]);
+        expect(afterLoss?.currentTurnId).toBeNull();
+        expect(afterLoss?.pendingApproval).toBeNull();
+        expect(afterLoss?.pendingUserInput).toBeNull();
+        expect(afterLoss?.status).toBe("error");
+
+        // The next thing the user does is what starts it moving: the turn is
+        // accepted — no "a turn is already running" — and its completion runs
+        // the drain every other completion runs.
+        const drained = yield* awaitEvent(
+          engine,
+          (event) =>
+            event.type === "thread.turn.requested" &&
+            (event.payload as { readonly text: string }).text === "queued behind it",
+        );
+        const receipt = yield* engine.dispatch(turnStart("carry on"));
+        expect(receipt.status).toBe("accepted");
+        // The dequeue is appended before the request it redispatches, so the
+        // request arriving is proof the strip is empty.
+        expect(Option.isSome(yield* Fiber.join(drained))).toBe(true);
+        expect((yield* engine.threadDetail(threadId))?.queue).toEqual([]);
+      }).pipe(
+        Effect.provide(
+          stackLayer({ instance, persistence, supervisor: { baseDelayMillis: 0, maxAttempts: 2 } }),
+        ),
+      );
+    }).pipe(Effect.scoped),
+  );
 });
 
 // ── Deterministic projections ────────────────────────────────

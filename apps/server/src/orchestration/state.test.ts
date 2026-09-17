@@ -12,6 +12,7 @@ import {
   makeEventId,
   makeItemId,
   makeProjectId,
+  makeRequestId,
   makeThreadId,
   makeTurnId,
 } from "@OpenAde/contracts/ids";
@@ -98,6 +99,30 @@ describe("the thread fold", () => {
     ]);
 
     expect(doc?.queue).toHaveLength(1);
+  });
+
+  it("drops the questions a lost session left open", () => {
+    const requestId = makeRequestId();
+    const doc = foldThread([
+      created(),
+      turnRequested(),
+      event("thread.approval.opened", {
+        request: {
+          requestId,
+          kind: "command",
+          toolName: "shell_command",
+          input: { command: "npm run build" },
+          description: "Run npm run build",
+        },
+      }),
+      event("thread.session.lost", { reason: "connector binary is missing" }),
+    ]);
+
+    // The process that asked is gone, so the answer has nowhere to go. Leaving
+    // the card up would keep the thread reading "waiting for you" with nothing
+    // the user can do about it — the same wedge `currentTurn` is cleared for.
+    expect(doc?.approvals).toEqual([]);
+    expect(doc?.userInputs).toEqual([]);
   });
 
   it("keeps the in-flight turn while an interrupt settles", () => {
