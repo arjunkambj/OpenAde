@@ -222,6 +222,16 @@ const ThreadPlanRespondCommand = command("thread.plan.respond", {
   feedback: Schema.optional(Schema.String),
 });
 
+/**
+ * Take a queued follow-up back out of the queue. Emits
+ * `thread.message.dequeued`, the same event the reactor emits when the next
+ * turn consumes one, so the read model needs nothing new.
+ */
+const ThreadQueueRemoveCommand = command("thread.queue.remove", {
+  threadId: ThreadId,
+  queuedMessageId: ItemId,
+});
+
 const ThreadCheckpointRestoreCommand = command("thread.checkpoint.restore", {
   threadId: ThreadId,
   checkpointId: CheckpointId,
@@ -240,6 +250,7 @@ export const Command = Schema.Union([
   ThreadApprovalRespondCommand,
   ThreadUserInputRespondCommand,
   ThreadPlanRespondCommand,
+  ThreadQueueRemoveCommand,
   ThreadCheckpointRestoreCommand,
 ]);
 export type Command = typeof Command.Type;
@@ -261,6 +272,7 @@ export const CommandType = Schema.Literals([
   "thread.approval.respond",
   "thread.userInput.respond",
   "thread.plan.respond",
+  "thread.queue.remove",
   "thread.checkpoint.restore",
 ]);
 export type CommandType = typeof CommandType.Type;
