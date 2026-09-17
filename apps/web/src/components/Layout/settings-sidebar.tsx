@@ -15,11 +15,14 @@ import {
 
 import { SettingsWindowChrome } from "@/components/Layout/window-chrome";
 
+const sections = [
+  { section: "general", icon: "hugeicons:sliders-horizontal", label: "General" },
+  { section: "uses", icon: "hugeicons:flash", label: "Uses" },
+] as const;
+
 export function SettingsSidebar() {
   const navigate = useNavigate();
   const matchRoute = useMatchRoute();
-  const isGeneral = Boolean(matchRoute({ to: "/settings", fuzzy: false }));
-  const isUses = Boolean(matchRoute({ to: "/settings/uses", fuzzy: false }));
 
   return (
     <Sidebar collapsible="none" variant="bordered" className="h-svh">
@@ -44,18 +47,22 @@ export function SettingsSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton render={<Link to="/settings" />} isActive={isGeneral}>
-                  <Icon icon="hugeicons:sliders-horizontal" />
-                  General
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton render={<Link to="/settings/uses" />} isActive={isUses}>
-                  <Icon icon="hugeicons:flash" />
-                  Uses
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              {sections.map((item) => (
+                <SidebarMenuItem key={item.section}>
+                  <SidebarMenuButton
+                    render={<Link to="/settings/$section" params={{ section: item.section }} />}
+                    isActive={Boolean(
+                      matchRoute({
+                        to: "/settings/$section",
+                        params: { section: item.section },
+                      }),
+                    )}
+                  >
+                    <Icon icon={item.icon} />
+                    {item.label}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

@@ -51,9 +51,15 @@ const searchItems = [
     label: "Skill & Plugins",
     shortcut: "skills",
   },
-  { to: "/settings/uses", icon: "hugeicons:flash", label: "Uses" },
   {
-    to: "/settings",
+    to: "/settings/$section",
+    params: { section: "uses" },
+    icon: "hugeicons:flash",
+    label: "Uses",
+  },
+  {
+    to: "/settings/$section",
+    params: { section: "general" },
     icon: "hugeicons:settings-01",
     label: "Settings",
     shortcut: "settings",
@@ -163,11 +169,14 @@ function SearchDialog({
           <CommandGroup heading="Navigation">
             {searchItems.map((item) => (
               <CommandItem
-                key={item.to}
+                key={item.label}
                 value={item.label}
                 onSelect={() => {
                   onOpenChange(false);
-                  void navigate({ to: item.to });
+                  void navigate({
+                    to: item.to,
+                    params: "params" in item ? item.params : {},
+                  });
                 }}
               >
                 <Icon icon={item.icon} />

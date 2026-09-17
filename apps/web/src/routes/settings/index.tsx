@@ -1,15 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
-
-import { ThemeCards } from "@/components/Settings/theme-cards";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/settings/")({
-  component: GeneralPage,
+  beforeLoad: () => {
+    throw redirect({
+      to: "/settings/$section",
+      params: { section: "general" },
+      replace: true,
+    });
+  },
 });
-
-function GeneralPage() {
-  return (
-    <div className="flex flex-1 flex-col px-8 py-10">
-      <ThemeCards />
-    </div>
-  );
-}
