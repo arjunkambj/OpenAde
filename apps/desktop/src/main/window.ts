@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { BrowserWindow, app, screen, shell } from "electron";
 
 import { APP_URL } from "./protocol";
-import { titleBarStyle } from "./platform";
+import { titleBarStyle } from "../platform";
 import { applyWebviewAttachPolicy } from "./webview";
 
 const MIN_WINDOW_WIDTH = 256;

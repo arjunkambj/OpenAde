@@ -1,14 +1,14 @@
 /**
  * App lifecycle glue: single instance, protocol privileges, the server
  * supervisor, and window creation. Everything else lives in the modules
- * alongside (`protocol`, `window`, `platform`, `ipc`, `updater`).
+ * alongside (`protocol`, `window`, `ipc`, `updater`, and `../platform`).
  */
 import { BrowserWindow, app, protocol } from "electron";
 
 import { ServerSupervisor } from "../backend/ServerSupervisor";
 import { serverSpawnSpec, showServerCrashDialog } from "../backend/serverDeps";
 import { registerIpc } from "./ipc";
-import { applyPlatformDefaults } from "./platform";
+import { applyPlatformDefaults } from "../platform";
 import { APP_SCHEME, registerAppProtocol } from "./protocol";
 import { checkForUpdates } from "./updater";
 import { createWindow } from "./window";

@@ -6,6 +6,8 @@
  */
 import { contextBridge, ipcRenderer } from "electron";
 
+import { desktopAttributes } from "../platform/attributes";
+
 export interface ServerConnection {
   readonly url: string;
   readonly token: string;
@@ -62,9 +64,8 @@ contextBridge.exposeInMainWorld("openade", openade);
 function markDesktop(): boolean {
   const root = document.documentElement;
   if (!root) return false;
-  root.setAttribute("data-desktop", "");
-  if (process.platform === "darwin") {
-    root.setAttribute("data-desktop-mac", "");
+  for (const attribute of desktopAttributes(process.platform)) {
+    root.setAttribute(attribute, "");
   }
   return true;
 }

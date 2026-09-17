@@ -5,7 +5,7 @@
  */
 import { app, dialog } from "electron";
 
-import { cdpPort } from "../main/platform";
+import { cdpPort } from "../platform";
 import { devServerEntry, packagedServerEntry } from "./serverArgs";
 import type { SpawnSpec } from "./ServerSupervisor";
 
