@@ -15,6 +15,7 @@ import * as RpcSerialization from "effect/unstable/rpc/RpcSerialization";
 import * as RpcServer from "effect/unstable/rpc/RpcServer";
 
 import { HookBridge } from "../hooks/HookBridge";
+import { mcpRoutesLayer } from "../mcp/httpRoute";
 import { handlersLayer } from "./handlers";
 
 /** The token every /ws upgrade must present, generated at boot. */
@@ -58,6 +59,7 @@ export const routesLayer = Layer.unwrap(
   Effect.gen(function* () {
     const ws = yield* wsRoute;
     return ws.pipe(
+      Layer.provideMerge(mcpRoutesLayer),
       Layer.provideMerge(HttpRouter.add("GET", "/healthz", HttpServerResponse.text("ok"))),
       Layer.provideMerge(HookBridge.route),
       Layer.provideMerge(HookBridge.layer),

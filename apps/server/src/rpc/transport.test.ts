@@ -32,6 +32,7 @@ import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
 import * as HttpServer from "effect/unstable/http/HttpServer";
 
+import { McpGateway } from "../mcp/McpGateway";
 import { CheckpointHook, CheckpointReactor } from "../orchestration/CheckpointReactor";
 import { OrchestrationEngine } from "../orchestration/Engine";
 import { ProviderCommandReactor } from "../orchestration/ProviderCommandReactor";
@@ -97,6 +98,9 @@ const testStack = (browserLayer: Layer.Layer<BrowserService> = BrowserService.em
       FileService.empty,
       GitService.empty,
       browserLayer,
+      McpGateway.layer.pipe(
+        Layer.provide(Layer.mergeAll(browserLayer, engineLayer, managerLayer)),
+      ),
       CmdConfig.empty,
       SettingsStore.layer.pipe(Layer.provide(sqlite)),
     );

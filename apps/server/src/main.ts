@@ -24,7 +24,11 @@ import * as Layer from "effect/Layer";
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 import * as HttpServer from "effect/unstable/http/HttpServer";
 
+import { AgentBrowser } from "./browser/agentBrowser";
+import { layer as browserServiceLayer } from "./browser/BrowserService";
 import { HookBridge } from "./hooks/HookBridge";
+import { McpGateway } from "./mcp/McpGateway";
+import { SessionServices } from "./mcp/sessionServices";
 import { CheckpointReactor } from "./orchestration/CheckpointReactor";
 import { OrchestrationEngine } from "./orchestration/Engine";
 import { ProviderCommandReactor } from "./orchestration/ProviderCommandReactor";
@@ -39,7 +43,7 @@ import { layer as fileServiceLayer } from "./git/Files";
 import { layer as gitServiceLayer } from "./git/Git";
 import { writeHandshake } from "./rpc/bootstrap";
 import { serverLayer, ServerToken } from "./rpc/server";
-import { BrowserService, ServerIdentity, SettingsStore } from "./rpc/services";
+import { ServerIdentity, SettingsStore } from "./rpc/services";
 import { layer as cmdConfigLayer } from "./settings/CmdConfig";
 import { ConnectorHost } from "./settings/ConnectorHost";
 import { ConnectorManager, ConnectorRegistryService } from "./settings/ConnectorManager";
@@ -84,17 +88,45 @@ const main = Effect.gen(function* () {
     Layer.provide(sqlite),
   );
 
+  // W6: browser sessions + the MCP gateway + the connector services bundle.
+  // `browser` is shared by the RPC handlers and the gateway (the layer graph
+  // memoizes it, so both see the one session registry); HttpServer flows in
+  // from the outermost provide for the attach-marker and endpoint URLs.
+  const permissions = PermissionService.layer.pipe(Layer.provide(sqlite));
+  const browser = browserServiceLayer.pipe(
+    Layer.provide(Layer.mergeAll(engine, permissions, AgentBrowser.layer)),
+  );
+  const mcp = McpGateway.layer.pipe(Layer.provide(Layer.mergeAll(browser, engine, manager)));
+  const sessionServices = SessionServices.layer.pipe(
+    Layer.provide(Layer.mergeAll(mcp, permissions)),
+  );
+
+  // W6: browser sessions + the MCP gateway + the connector services bundle.
+  // `browser` is shared by the RPC handlers and the gateway (the layer graph
+  // memoizes it, so both see the one session registry); HttpServer flows in
+  // from the outermost provide for the attach-marker and endpoint URLs.
+  const permissions = PermissionService.layer.pipe(Layer.provide(sqlite));
+  const browser = browserServiceLayer.pipe(
+    Layer.provide(Layer.mergeAll(engine, permissions, AgentBrowser.layer)),
+  );
+  const mcp = McpGateway.layer.pipe(Layer.provide(Layer.mergeAll(browser, engine, manager)));
+  const sessionServices = SessionServices.layer.pipe(
+    Layer.provide(Layer.mergeAll(mcp, permissions)),
+  );
+
   const services = Layer.mergeAll(
     Layer.succeed(ServerIdentity, { serverInstanceId }),
     Layer.succeed(ServerToken, { token }),
     sharedSettings,
     fileServiceLayer.pipe(Layer.provide(persistence)),
     gitServiceLayer.pipe(Layer.provide(persistence)),
-    BrowserService.empty,
+    browser,
+    mcp,
+    sessionServices,
     cmdConfigLayer().pipe(Layer.provide(persistence)),
     // SettingsStore is not listed here: `sharedSettings` already merges the one
     // instance the manager watches and the RPC handlers mutate.
-    PermissionService.layer.pipe(Layer.provide(sqlite)),
+    permissions,
   );
 
   const http = NodeHttpServer.layer(createServer, { port: PORT, host: "127.0.0.1" });
