@@ -34,6 +34,7 @@ import { ProviderCommandReactor } from "./orchestration/ProviderCommandReactor";
 import { ConnectorSelection, SessionManager } from "./orchestration/SessionManager";
 import { makeSessionSupervisor } from "./orchestration/SessionSupervisor";
 import { EventStore } from "./persistence/EventStore";
+import { runMigrations } from "./persistence/Migrations";
 import { ReadModelStore } from "./persistence/ReadModels";
 import { defaultLayer as sqliteLayer } from "./persistence/Sqlite";
 import { PermissionService } from "./permissions/PermissionService";
@@ -54,7 +55,14 @@ const main = Effect.gen(function* () {
   const token = uuidV7();
   const serverInstanceId = uuidV7();
 
-  const sqlite = sqliteLayer();
+  // One sqlite client for the whole process, migrated before anything reads
+  // it. `services` is built before the engine, and the connector manager
+  // reconciles against the settings table as it is constructed — the engine's
+  // own `runMigrations` would arrive too late for that read.
+  const sqliteContext = yield* Layer.build(sqliteLayer());
+  const sqlite = Layer.succeedContext(sqliteContext);
+  yield* runMigrations.pipe(Effect.provide(sqlite));
+
   const persistence = Layer.mergeAll(
     sqlite,
     Layer.mergeAll(EventStore.layer, ReadModelStore.layer).pipe(Layer.provide(sqlite)),
