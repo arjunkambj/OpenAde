@@ -675,3 +675,119 @@ describe("unmapped", () => {
     expect("line" in bad).toBe(true);
   });
 });
+
+describe("streaming deltas", () => {
+  const delta = (event: Record<string, unknown>) => frame(event);
+
+  it("streams a named delta onto the row its transcript block finishes", () => {
+    const translate = translator();
+    translate.onFrame(runStart());
+    translate.onFrame(turnStart());
+
+    const started = translate.onFrame(
+      delta({ type: "text_delta", messageId: "m-1", index: 0, delta: { text: "Hel" } }),
+    );
+    expect(types(started)).toEqual(["item.started", "content.delta"]);
+    const itemId = started[0]?.itemId;
+    expect(started[1]?.type === "content.delta" && started[1].payload.kind).toBe("text");
+    expect(started[1]?.type === "content.delta" && started[1].payload.delta).toBe("Hel");
+
+    const more = translate.onFrame(
+      delta({ type: "text_delta", messageId: "m-1", index: 0, delta: { text: "lo" } }),
+    );
+    // The row already exists — only the delta goes out, on the same item.
+    expect(types(more)).toEqual(["content.delta"]);
+    expect(more[0]?.itemId).toBe(itemId);
+
+    // The transcript's finished block lands on that same row, not a new one.
+    const completed = translate.onTranscriptLine(
+      transcriptMessage("assistant", [{ type: "text", text: "Hello" }], "m-1"),
+    );
+    expect(types(completed)).toEqual(["item.completed"]);
+    expect(completed[0]?.itemId).toBe(itemId);
+  });
+
+  it("recognizes an anonymous stream by the text it built up", () => {
+    const translate = translator();
+    translate.onFrame(runStart());
+    translate.onFrame(turnStart());
+    const first = translate.onFrame(delta({ type: "message_delta", delta: { text: "one " } }));
+    translate.onFrame(delta({ type: "message_delta", delta: { text: "two" } }));
+
+    const completed = translate.onTranscriptLine(
+      transcriptMessage("assistant", [{ type: "text", text: "one two" }], "m-9"),
+    );
+    expect(completed[0]?.itemId).toBe(first[0]?.itemId);
+  });
+
+  it("reads thinking and tool-input deltas as their own kinds", () => {
+    const translate = translator();
+    translate.onFrame(runStart());
+    const thinking = translate.onFrame(
+      delta({ type: "thinking_delta", messageId: "m-2", delta: { thinking: "hmm" } }),
+    );
+    expect(thinking[1]?.type === "content.delta" && thinking[1].payload.kind).toBe("reasoning");
+    expect(thinking[0]?.type === "item.started" && thinking[0].payload.item.kind).toBe("reasoning");
+
+    const toolInput = translate.onFrame(
+      delta({ type: "input_json_delta", messageId: "m-3", delta: { partial_json: '{"a":' } }),
+    );
+    expect(toolInput[1]?.type === "content.delta" && toolInput[1].payload.kind).toBe("tool_input");
+  });
+
+  it("still reports a delta-shaped frame it cannot read as unmapped", () => {
+    const translate = translator();
+    expect(types(translate.onFrame(delta({ type: "mystery_delta", delta: {} })))).toEqual([
+      "event.unmapped",
+    ]);
+  });
+});
+
+describe("cost", () => {
+  it("sums the transcript's per-assistant costUsd into the turn's usage", () => {
+    const translate = translator();
+    translate.onFrame(runStart());
+    translate.onFrame(turnStart());
+    translate.onTranscriptLine({
+      ...transcriptMessage("assistant", [{ type: "text", text: "one" }], "m-1"),
+      usage: { inputTokens: 1, outputTokens: 2, costUsd: 0.002 },
+    });
+    translate.onTranscriptLine({
+      ...transcriptMessage("assistant", [{ type: "text", text: "two" }], "m-2"),
+      usage: { inputTokens: 1, outputTokens: 2, costUsd: 0.003 },
+    });
+
+    const events = translate.onFrame(runEnd());
+    const usage = events.find((event) => event.type === "usage.updated");
+    expect(usage?.type === "usage.updated" && usage.payload.costUsd).toBeCloseTo(0.005, 10);
+  });
+
+  it("leaves costUsd out when the transcript never priced the turn", () => {
+    const translate = translator();
+    translate.onFrame(runStart());
+    translate.onFrame(turnStart());
+    const events = translate.onFrame(runEnd());
+    const usage = events.find((event) => event.type === "usage.updated");
+    expect(usage?.type === "usage.updated" && usage.payload.costUsd).toBeUndefined();
+  });
+
+  it("charges each line once and starts the next turn at zero", () => {
+    const translate = translator();
+    translate.onFrame(runStart());
+    translate.onFrame(turnStart());
+    const line = {
+      ...transcriptMessage("assistant", [{ type: "text", text: "one" }], "m-1"),
+      usage: { costUsd: 0.5 },
+    };
+    translate.onTranscriptLine(line);
+    translate.onTranscriptLine(line); // a resumed tailer re-reading its file
+    const first = translate.onFrame(runEnd());
+    const firstUsage = first.find((event) => event.type === "usage.updated");
+    expect(firstUsage?.type === "usage.updated" && firstUsage.payload.costUsd).toBe(0.5);
+
+    translate.onFrame(turnStart());
+    const second = translate.onFrame(runEnd());
+    const secondUsage = second.find((event) => event.type === "usage.updated");
+    expect(secondUsage?.type === "usage.updated" && secondUsage.payload.costUsd).toBeUndefined();
+  });
+});

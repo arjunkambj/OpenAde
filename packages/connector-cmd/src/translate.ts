@@ -25,6 +25,7 @@ import type { ItemId } from "@OpenAde/contracts/ids";
 import { makeItemId, makeTurnId } from "@OpenAde/contracts/ids";
 import type {
   ConnectorCapabilities,
+  ContentDeltaKind,
   ItemSnapshot,
   RuntimeEvent,
   Todo,
@@ -245,6 +246,19 @@ export const makeTranslator = (options: {
   const toolSnapshots = new Map<string, ItemSnapshot>();
   /** `${messageId}:${blockIndex}` → itemId, so a replayed block hits its row. */
   const blockItems = new Map<string, ItemId>();
+  /**
+   * Streaming text, for the delta path: the text accumulated so far on each
+   * streamed row, and the reverse index the transcript uses to recognize its
+   * own finished block. A delta frame that names its message keys the same way
+   * the transcript does and needs neither; an anonymous one is matched on the
+   * text it built up, which is the only handle the two sources share.
+   */
+  const streamedText = new Map<string, string>();
+  const streamedItemForText = new Map<string, ItemId>();
+  let deltaRun = 0;
+  /** Cost the transcript reported for this turn's assistant messages. */
+  let turnCostUsd = 0;
+  const costedLines = new Set<string>();
 
   const unmapped = (source: string, payload: unknown): PendingRuntimeEvent => ({
     type: "event.unmapped",
@@ -416,7 +430,9 @@ export const makeTranslator = (options: {
           if (text === "") {
             return;
           }
-          const itemId = itemIdFor(key);
+          // A row already streamed this exact text — finish it rather than
+          // open a second one next to it.
+          const itemId = streamedItemForText.get(text) ?? itemIdFor(key);
           out.push({
             itemId,
             type: "item.completed",
@@ -436,7 +452,7 @@ export const makeTranslator = (options: {
           if (thinking === "") {
             return;
           }
-          const itemId = itemIdFor(key);
+          const itemId = streamedItemForText.get(thinking) ?? itemIdFor(key);
           out.push({
             itemId,
             type: "item.completed",
@@ -477,16 +493,27 @@ export const makeTranslator = (options: {
     return out;
   };
 
-  const usageUpdated = (usage: CmdUsage | undefined): PendingRuntimeEvent => ({
-    type: "usage.updated",
-    payload: {
-      turnId: makeTurnId(),
-      input: usage?.inputTokens ?? 0,
-      output: usage?.outputTokens ?? 0,
-      cacheRead: usage?.cacheReadTokens ?? 0,
-      cacheWrite: usage?.cacheWriteTokens ?? 0,
-    },
-  });
+  /**
+   * `run_end.result.usage` has no cost field (spec 5.2) — the only place a
+   * price appears is the transcript's per-assistant `usage.costUsd` (5.3), so
+   * the turn's cost is the sum of the lines it wrote. Zero stays absent rather
+   * than being reported as a free turn.
+   */
+  const usageUpdated = (usage: CmdUsage | undefined): PendingRuntimeEvent => {
+    const costUsd = turnCostUsd;
+    turnCostUsd = 0;
+    return {
+      type: "usage.updated",
+      payload: {
+        turnId: makeTurnId(),
+        input: usage?.inputTokens ?? 0,
+        output: usage?.outputTokens ?? 0,
+        cacheRead: usage?.cacheReadTokens ?? 0,
+        cacheWrite: usage?.cacheWriteTokens ?? 0,
+        ...(costUsd > 0 ? { costUsd } : {}),
+      },
+    };
+  };
 
   const stopReasonFor = (reason: string | undefined): TurnStopReason => {
     switch (reason) {
@@ -534,6 +561,74 @@ export const makeTranslator = (options: {
     ];
   };
 
+  /**
+   * A streaming frame → `content.delta` on the row its message will finish on.
+   *
+   * Spec 5.2 says to design for delta frames without having captured one —
+   * whether print mode streams text at all is §5.7 question 1 — so this reads
+   * every spelling the family uses (`delta.text`, `delta.thinking`,
+   * `delta.partial_json`, a bare `text`) off any `*_delta` event, and returns
+   * null for anything it cannot read so the frame still surfaces as
+   * `event.unmapped` rather than disappearing.
+   *
+   * Keying is what keeps the later full block from opening a second row. A
+   * frame that names its message uses `${messageId}:${index}` — exactly the
+   * key `processMessage` mints — and an anonymous one is recognized by the
+   * text it accumulated, which `processMessage` looks up before minting.
+   */
+  const onDelta = (event: {
+    readonly type: string;
+    readonly [key: string]: unknown;
+  }): ReadonlyArray<PendingRuntimeEvent> | null => {
+    if (!event.type.endsWith("_delta")) {
+      return null;
+    }
+    const delta = asRecord(event.delta);
+    const thinking = asString(delta.thinking);
+    const partialJson = asString(delta.partial_json) ?? asString(delta.partialJson);
+    const text =
+      asString(delta.text) ??
+      thinking ??
+      partialJson ??
+      asString(event.text) ??
+      asString(event.delta);
+    if (text === undefined || text === "") {
+      return null;
+    }
+    const kind: ContentDeltaKind =
+      thinking !== undefined || event.type.includes("thinking")
+        ? "reasoning"
+        : partialJson !== undefined || event.type.includes("input_json")
+          ? "tool_input"
+          : "text";
+    const messageId =
+      asString(event.messageId) ?? asString(event.message_id) ?? asRecord(event.message).id;
+    const index = typeof event.index === "number" ? event.index : 0;
+    const key =
+      typeof messageId === "string" ? `${messageId}:${index}` : `delta:${deltaRun}:${index}`;
+    const known = streamedText.get(key);
+    const itemId = itemIdFor(key);
+    const out: Array<PendingRuntimeEvent> = [];
+    if (known === undefined) {
+      out.push({
+        itemId,
+        type: "item.started",
+        payload: {
+          item: {
+            itemId,
+            kind: kind === "reasoning" ? "reasoning" : "assistant_message",
+            status: "in_progress",
+          },
+        },
+      });
+    }
+    const full = (known ?? "") + text;
+    streamedText.set(key, full);
+    streamedItemForText.set(full, itemId);
+    out.push({ itemId, type: "content.delta", payload: { itemId, kind, delta: text } });
+    return out;
+  };
+
   const onFrame = (frame: CmdFrame): ReadonlyArray<PendingRuntimeEvent> => {
     if (frame.type === "result") {
       const out: Array<PendingRuntimeEvent> = [];
@@ -564,6 +659,7 @@ export const makeTranslator = (options: {
       }
       case "turn_start": {
         turnOpen = true;
+        deltaRun += 1;
         return [{ type: "turn.started", payload: { turnId: makeTurnId() } }];
       }
       case "message_start":
@@ -629,7 +725,8 @@ export const makeTranslator = (options: {
         return out;
       }
       default: {
-        return [unmapped("cmd.ndjson", frame)];
+        const streamed = onDelta(event);
+        return streamed ?? [unmapped("cmd.ndjson", frame)];
       }
     }
   };
@@ -648,6 +745,16 @@ export const makeTranslator = (options: {
     if (record.type === "message" && record.message !== undefined) {
       if (typeof record.model === "string") {
         model = record.model;
+      }
+      const cost = record.usage?.costUsd;
+      const costKey = record.message.meta?.messageId ?? record.id;
+      if (typeof cost === "number" && cost > 0 && costKey !== undefined) {
+        // A resumed tailer can re-read a line it already costed; the id keeps
+        // the turn's total honest.
+        if (!costedLines.has(costKey)) {
+          costedLines.add(costKey);
+          turnCostUsd += cost;
+        }
       }
       // The newest message seen is the resume marker: meta.messageId when the
       // harness names it, else the transcript line's own id.
