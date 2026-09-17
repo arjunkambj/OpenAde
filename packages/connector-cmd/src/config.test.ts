@@ -44,7 +44,7 @@ describe("installProjectHooks", () => {
       const hooks = settings.hooks as Record<string, unknown>;
       const preToolUse = hooks.PreToolUse as Array<Record<string, unknown>>;
       expect(preToolUse).toHaveLength(1);
-      expect(preToolUse[0]?.matcher).toBe("");
+      expect(preToolUse[0]?.matcher).toBe(".*");
       const commands = preToolUse[0]?.hooks as Array<Record<string, unknown>>;
       expect(commands[0]).toEqual({
         type: "command",

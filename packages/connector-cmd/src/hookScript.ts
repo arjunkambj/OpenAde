@@ -9,6 +9,14 @@
  * garbage response — prints a `deny`: a hook that cannot reach the bridge must
  * never accidentally let a mutation through.
  *
+ * One exception: the hook block we install into a project's
+ * `.commandcode/settings.local.json` outlives the session that wrote it, so an
+ * interactive `cmd` run in that project invokes the script without
+ * `OPENADE_HOOK_URL`/`OPENADE_HOOK_TOKEN`. That run belongs to the user, not to
+ * us — the script exits cleanly with NO output rather than deny every tool call
+ * forever, and the harness falls back to its own prompt flow. Our spawned
+ * sessions always carry the env, so deny-on-unreachable still applies to them.
+ *
  * The script is regenerated only when its content hash differs, so a session
  * start does not churn the file (and a running `cmd` never reads a half-written
  * script).
@@ -57,10 +65,14 @@ const readStdin = () =>
 const main = async () => {
   const url = process.env.OPENADE_HOOK_URL;
   const token = process.env.OPENADE_HOOK_TOKEN;
-  const input = await readStdin();
   if (url === undefined || url === "" || token === undefined || token === "") {
-    return deny("openade hook bridge is not configured");
+    // No OpenAde session owns this run — an interactive cmd in a project
+    // whose settings still carry our hook block. Emit NO decision: a clean
+    // exit with empty stdout hands the call back to the harness's own
+    // prompt flow instead of denying it.
+    return;
   }
+  const input = await readStdin();
   let text;
   try {
     const response = await fetch(url, {

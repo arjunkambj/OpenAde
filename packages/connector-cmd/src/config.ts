@@ -4,7 +4,7 @@
  * Two files, both inside the workspace the session runs in:
  *
  * - `<root>/.commandcode/settings.local.json` gets our PreToolUse hook block:
- *   `{ "matcher": "", "hooks": [{ "type": "command", "command": <hookPath>,
+ *   `{ "matcher": ".*", "hooks": [{ "type": "command", "command": <hookPath>,
  *   "timeout": 590 }] }`. The merge preserves every other key and every other
  *   hook entry — ours is identified by its `command` pointing at the generated
  *   hook script, which is also what `uninstallProjectHooks` removes and nothing
@@ -79,8 +79,11 @@ const isOurs = (entry: unknown, hookPath: string): boolean => {
   });
 };
 
+// ".*" is the matcher the spec documents (section 8): a matcher is a regex
+// over the tool name, and an empty one risks matching nothing — which would
+// leave every tool ungated under --yolo.
 const ourEntry = (hookPath: string): JsonObject => ({
-  matcher: "",
+  matcher: ".*",
   hooks: [{ type: "command", command: hookPath, timeout: HOOK_TIMEOUT_SECONDS }],
 });
 
