@@ -21,6 +21,7 @@ import * as Stream from "effect/Stream";
 
 import type { PlannedEvent } from "../persistence/EventStore";
 import { EngineEnv, OrchestrationEngine } from "./Engine";
+import { SessionManager } from "./SessionManager";
 import { engineLayer, stackLayer } from "../../test/layers";
 
 const NOW = "2026-01-02T03:04:05.000Z";
@@ -284,6 +285,53 @@ describe("orchestration with a fake connector", () => {
         interactionMode: "default",
         runtimeMode: "auto-accept-edits",
       });
+    }),
+  );
+
+  it.effect("deleting a thread stops the session instead of reporting a crash", () =>
+    Effect.gen(function* () {
+      const { fake, instance } = yield* openFake();
+      yield* Effect.gen(function* () {
+        const engine = yield* OrchestrationEngine;
+        const sessions = yield* SessionManager;
+        yield* engine.dispatch(createProject);
+        yield* engine.dispatch(createThread);
+
+        const bound = yield* awaitEvent(engine, isType("thread.session.bound"));
+        yield* engine.dispatch(turnStart("hello"));
+        yield* Fiber.join(bound);
+
+        // Subscribe before deleting: a PubSub subscription only sees what
+        // lands after it exists.
+        const ended = yield* sessions.lifecycle.pipe(
+          Stream.filter((entry) => entry.kind === "ended"),
+          Stream.runHead,
+          Effect.forkChild,
+        );
+        yield* Effect.yieldNow;
+        yield* engine.dispatch({
+          commandId: makeCommandId(),
+          createdAt: NOW,
+          type: "thread.delete",
+          threadId,
+        });
+        const entry = yield* Fiber.join(ended);
+        // `stopped`, not `crashed` — a deliberate close must not look like a
+        // loss, or the supervisor would try to resurrect it.
+        expect(Option.isSome(entry)).toBe(true);
+        if (Option.isSome(entry) && entry.value.kind === "ended") {
+          expect(entry.value.reason).toBe("stopped");
+        }
+      }).pipe(
+        Effect.provide(
+          stackLayer({ instance, supervisor: { baseDelayMillis: 0, maxAttempts: 3 } }),
+        ),
+      );
+
+      // The handle's close() actually ran — the imaginary process is gone.
+      expect(yield* fake.processGone(threadId)).toBe(true);
+      // And nothing resurrected a session for the deleted thread.
+      expect((yield* fake.sessions).length).toBe(1);
     }),
   );
 

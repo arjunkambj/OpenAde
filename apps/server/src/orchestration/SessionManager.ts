@@ -24,7 +24,9 @@ import {
 } from "@OpenAde/connector-sdk/turnScopedHandle";
 import * as Context from "effect/Context";
 import * as Data from "effect/Data";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as PubSub from "effect/PubSub";
 import * as Ref from "effect/Ref";
@@ -91,6 +93,8 @@ interface SessionDriver {
    * session by a scheduling step, and a dead handle must not be handed out.
    */
   readonly alive: Ref.Ref<boolean>;
+  /** The fiber draining `handle.events` into the log; `close` awaits it. */
+  readonly fiber: Fiber.Fiber<void, unknown>;
 }
 
 export class SessionManager extends Context.Service<
@@ -206,10 +210,10 @@ export class SessionManager extends Context.Service<
                 }),
               ),
             );
-            yield* Effect.forkIn(ingest, driverScope);
+            const fiber = yield* Effect.forkIn(ingest, driverScope);
 
             yield* Ref.update(drivers, (all) =>
-              new Map(all).set(doc.threadId, { handle, scope: driverScope, alive }),
+              new Map(all).set(doc.threadId, { handle, scope: driverScope, alive, fiber }),
             );
             yield* report({
               kind: "started",
@@ -231,20 +235,41 @@ export class SessionManager extends Context.Service<
           }),
         ensure: (doc, projectWorkspaceRoot) => attach(doc, projectWorkspaceRoot),
         close: (threadId) =>
-          Effect.gen(function* () {
-            const all = yield* Ref.get(drivers);
-            const driver = all.get(threadId);
-            if (driver === undefined) {
-              return;
-            }
-            yield* Ref.set(driver.alive, false);
-            yield* Ref.update(drivers, (map) => {
-              const next = new Map(map);
-              next.delete(threadId);
-              return next;
-            });
-            yield* Scope.close(driver.scope, Exit.succeed(undefined));
-          }),
+          Effect.uninterruptible(
+            Effect.gen(function* () {
+              const all = yield* Ref.get(drivers);
+              const driver = all.get(threadId);
+              if (driver === undefined) {
+                return;
+              }
+              yield* Ref.set(driver.alive, false);
+              yield* Ref.update(drivers, (map) => {
+                const next = new Map(map);
+                next.delete(threadId);
+                return next;
+              });
+              // Close the handle first so the connector emits `session.ended`,
+              // then wait for the ingestion fiber to drain it — its `ensuring`
+              // reports the real reason. Closing the scope first would
+              // interrupt the drain mid-flight and report `crashed`, and the
+              // supervisor would resurrect a session we deliberately stopped.
+              yield* driver.handle
+                .close()
+                .pipe(Effect.catch((error) => Effect.logWarning("session close failed", error)));
+              yield* Fiber.await(driver.fiber).pipe(
+                Effect.timeoutOrElse({
+                  // A connector that keeps its event stream open after close
+                  // must not wedge the caller — the scope close below cuts the
+                  // drain off and reports `crashed`, which is what an undead
+                  // stream genuinely means.
+                  duration: Duration.seconds(5),
+                  orElse: () =>
+                    Effect.logWarning("session event stream outlived close; interrupting it"),
+                }),
+              );
+              yield* Scope.close(driver.scope, Exit.succeed(undefined));
+            }),
+          ),
         lifecycle: Stream.fromPubSub(lifecycle),
       });
     }),
