@@ -61,6 +61,13 @@ export interface TailOptions {
    * which is what a test against a pre-seeded fixture wants.
    */
   readonly fromStart?: boolean;
+  /**
+   * Resume marker from the persisted sessionRef: a transcript line `id` or a
+   * message's `meta.messageId`. When set and found, the tailer starts right
+   * after that line — catching up whatever a dead server missed without
+   * replaying what was already emitted. Unset or unfound → start at EOF.
+   */
+  readonly afterMessageId?: string;
   readonly pollMs?: number;
 }
 
@@ -95,6 +102,39 @@ const readFrom = (path: string, offset: number): ReadResult | null => {
 };
 
 /**
+ * The byte offset just after the line carrying `marker` — matched against the
+ * transcript line's `id` and its nested `meta.messageId` — or null when the
+ * file is unreadable or the marker is absent (a truncated/recreated file).
+ */
+const offsetAfterMarker = (path: string, marker: string): number | null => {
+  let data: string;
+  try {
+    data = NodeFS.readFileSync(path, "utf8");
+  } catch {
+    return null;
+  }
+  let offset = 0;
+  for (const line of data.split("\n")) {
+    const next = offset + Buffer.byteLength(line, "utf8") + 1;
+    if (line.length > 0) {
+      try {
+        const record = JSON.parse(line) as {
+          readonly id?: unknown;
+          readonly message?: { readonly meta?: { readonly messageId?: unknown } };
+        };
+        if (record.id === marker || record.message?.meta?.messageId === marker) {
+          return next;
+        }
+      } catch {
+        // An unparseable line can't carry the marker — keep scanning.
+      }
+    }
+    offset = next;
+  }
+  return null;
+};
+
+/**
  * Tails `path` by byte offset. Bound to the surrounding scope: closing the
  * scope, or calling `stop`, ends the reader and the stream together.
  */
@@ -117,12 +157,20 @@ export const tailTranscript = (
     const pollMs = options.pollMs ?? TAIL_POLL_MS;
 
     // "Current byte offset" is decided once, at start: an existing file is
-    // skipped to end (unless `fromStart`), a not-yet-created file starts at
-    // byte zero when it appears — nothing was written before we began.
+    // skipped to end (unless `fromStart`), or to just after the resume marker
+    // when one is given and found — the lines between it and EOF are what a
+    // dead server never saw. A not-yet-created file starts at byte zero when
+    // it appears — nothing was written before we began.
     let offset =
       options.fromStart === true
         ? 0
         : yield* Effect.sync(() => {
+            if (options.afterMessageId !== undefined) {
+              const marked = offsetAfterMarker(path, options.afterMessageId);
+              if (marked !== null) {
+                return marked;
+              }
+            }
             const initial = readFrom(path, 0);
             return initial === null ? 0 : initial.size;
           });

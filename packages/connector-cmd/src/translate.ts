@@ -52,6 +52,13 @@ export interface CmdTranslator {
   readonly onExit: (code: number) => ReadonlyArray<PendingRuntimeEvent>;
   /** The session id learned from `run_start` (or the transcript header). */
   readonly sessionId: string | null;
+  /**
+   * The id of the newest transcript message folded into items —
+   * `meta.messageId`, or the transcript line's own `id` when the message is
+   * anonymous. Persisted in the sessionRef so a resumed runtime can dedupe
+   * against what a previous process already emitted.
+   */
+  readonly lastMessageId: string | null;
 }
 
 // ── transcript shapes (spec 5.3, only what we read) ────────────
@@ -188,11 +195,20 @@ const todosOf = (input: Record<string, unknown>): ReadonlyArray<Todo> =>
 export const makeTranslator = (options: {
   readonly connectorInstanceId: unknown;
   readonly capabilities: ConnectorCapabilities;
+  /**
+   * The persisted ref's marker on a resumed session. The tailer repositions
+   * the file after it; a `nextState` replay that contains it has its
+   * already-emitted prefix skipped (a fresh `seenMessages` would otherwise
+   * duplicate every message the previous runtime folded).
+   */
+  readonly resumeAfterMessageId?: string | null;
 }): CmdTranslator => {
   let sessionId: string | null = null;
   let announced = false;
   let model: string | null = null;
   let turnOpen = false;
+  let lastMessageId: string | null = options.resumeAfterMessageId ?? null;
+  let resumeMarker = options.resumeAfterMessageId ?? null;
   /** meta.messageId — or content-hash key — of every message already folded. */
   const seenMessages = new Set<string>();
   /** tool_use.id → minted itemId (the dedupe key across ndjson + transcript). */
@@ -561,7 +577,20 @@ export const makeTranslator = (options: {
         const nextMessages = (result.nextState as { messages?: ReadonlyArray<TranscriptMessage> })
           ?.messages;
         if (Array.isArray(nextMessages)) {
-          for (const message of nextMessages) {
+          // On a resumed session the replay can carry the whole history.
+          // Everything up to and including the resume marker was already
+          // emitted by the previous runtime — skip it rather than dupe.
+          let start = 0;
+          if (resumeMarker !== null) {
+            const index = nextMessages.findIndex(
+              (message) => message.meta?.messageId === resumeMarker,
+            );
+            resumeMarker = null; // authoritative state — the marker won't appear later
+            if (index !== -1) {
+              start = index + 1;
+            }
+          }
+          for (const message of nextMessages.slice(start)) {
             out.push(...processMessage(message));
           }
         }
@@ -592,6 +621,9 @@ export const makeTranslator = (options: {
       if (typeof record.model === "string") {
         model = record.model;
       }
+      // The newest message seen is the resume marker: meta.messageId when the
+      // harness names it, else the transcript line's own id.
+      lastMessageId = record.message.meta?.messageId ?? record.id ?? lastMessageId;
       return [...processMessage(record.message)];
     }
     return [unmapped("cmd.transcript", line)];
@@ -641,6 +673,9 @@ export const makeTranslator = (options: {
     onExit,
     get sessionId() {
       return sessionId;
+    },
+    get lastMessageId() {
+      return lastMessageId;
     },
   };
 };

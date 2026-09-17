@@ -17,12 +17,27 @@ export const CMD_KIND = "cmd";
 
 const asSessionRef = (ref: unknown): CmdSessionRef | undefined => {
   if (typeof ref !== "object" || ref === null) return undefined;
-  const record = ref as { sessionId?: unknown; transcriptPath?: unknown; cwd?: unknown };
-  return typeof record.sessionId === "string" &&
-    typeof record.transcriptPath === "string" &&
-    typeof record.cwd === "string"
-    ? { sessionId: record.sessionId, transcriptPath: record.transcriptPath, cwd: record.cwd }
-    : undefined;
+  const record = ref as {
+    sessionId?: unknown;
+    transcriptPath?: unknown;
+    cwd?: unknown;
+    lastMessageId?: unknown;
+  };
+  if (
+    typeof record.sessionId !== "string" ||
+    typeof record.transcriptPath !== "string" ||
+    typeof record.cwd !== "string"
+  ) {
+    return undefined;
+  }
+  // Older persisted refs predate the marker — missing is the same as null.
+  const lastMessageId = typeof record.lastMessageId === "string" ? record.lastMessageId : null;
+  return {
+    sessionId: record.sessionId,
+    transcriptPath: record.transcriptPath,
+    cwd: record.cwd,
+    lastMessageId,
+  };
 };
 
 export const cmdConnectorDefinition: ConnectorDefinition<CmdConnectorConfig> = {

@@ -46,10 +46,14 @@ fs.mkdirSync(dir, { recursive: true });
 const transcript = path.join(dir, sessionId + ".jsonl");
 const emit = (event) =>
   process.stdout.write(JSON.stringify({ type: "event", event }) + "\\n");
-fs.writeFileSync(
-  transcript,
-  JSON.stringify({ type: "session", version: 3, id: sessionId, timestamp: "2026-01-01T00:00:00.000Z", cwd }) + "\\n",
-);
+if (process.env.OPENADE_FAKE_APPEND === "1") {
+  // A resumed session's transcript already exists — only this run appends.
+} else {
+  fs.writeFileSync(
+    transcript,
+    JSON.stringify({ type: "session", version: 3, id: sessionId, timestamp: "2026-01-01T00:00:00.000Z", cwd }) + "\\n",
+  );
+}
 process.on("SIGINT", () => process.exit(130));
 emit({ type: "run_start", sessionId });
 emit({ type: "turn_start", turnNumber: 1 });
@@ -62,12 +66,12 @@ const userMessage = {
 };
 const assistantMessage = {
   role: "assistant",
-  content: [{ type: "text", text: "hello from fake cmd" }],
-  meta: { source: "model", createdAt: 2, messageId: "a-1" },
+  content: [{ type: "text", text: process.env.OPENADE_FAKE_TEXT ?? "hello from fake cmd" }],
+  meta: { source: "model", createdAt: 2, messageId: process.env.OPENADE_FAKE_MSG_ID ?? "a-1" },
 };
 fs.appendFileSync(
   transcript,
-  JSON.stringify({ type: "message", id: "l1", parentId: null, timestamp: "t", message: assistantMessage, model: "fake/model" }) + "\\n",
+  JSON.stringify({ type: "message", id: process.env.OPENADE_FAKE_LINE_ID ?? "l1", parentId: null, timestamp: "t", message: assistantMessage, model: "fake/model" }) + "\\n",
 );
 if (process.env.OPENADE_FAKE_PLAN === "1") {
   // What --permission-mode plan leaves behind (spec 5.6): a markdown file
@@ -406,6 +410,105 @@ describe("makeCmdSession against a real spawned process", () => {
       };
       expect(questionResponse.hookSpecificOutput.permissionDecision).toBe("deny");
       expect(questionResponse.hookSpecificOutput.permissionDecisionReason).toContain('"q1"');
+
+      yield* handle.close();
+    }),
+  );
+
+  it.effect("resume tails the transcript from lastMessageId, deduping what a dead server saw", () =>
+    Effect.gen(function* () {
+      const f = yield* fixture();
+      withOpenadeHome(f);
+      const root = NodePath.join(f.root, "workspace");
+      // The transcript a previous runtime left behind: the session header, the
+      // message already emitted (l1/a-1), and one written while the server was
+      // down (l2/a-2) — the line only a marker-positioned resume can deliver.
+      const transcriptPath = transcriptPathFor(NodeFS.realpathSync(root), SESSION_ID, f.home);
+      NodeFS.mkdirSync(NodePath.dirname(transcriptPath), { recursive: true });
+      const transcriptLine = (id: string, messageId: string, text: string): string =>
+        JSON.stringify({
+          type: "message",
+          id,
+          parentId: null,
+          timestamp: "t",
+          message: {
+            role: "assistant",
+            content: [{ type: "text", text }],
+            meta: { source: "model", createdAt: 1, messageId },
+          },
+          model: "fake/model",
+        });
+      NodeFS.writeFileSync(
+        transcriptPath,
+        [
+          JSON.stringify({
+            type: "session",
+            version: 3,
+            id: SESSION_ID,
+            timestamp: "t",
+            cwd: root,
+          }),
+          transcriptLine("l1", "a-1", "already emitted"),
+          transcriptLine("l2", "a-2", "written while the server was down"),
+        ].join("\n") + "\n",
+      );
+
+      const handle = yield* makeCmdSession({
+        instanceId: makeConnectorInstanceId(),
+        threadId: makeThreadId(),
+        workspaceRoot: root,
+        binaryPath: f.binary,
+        extraEnv: {
+          HOME: f.home,
+          OPENADE_FAKE_SESSION_ID: SESSION_ID,
+          OPENADE_FAKE_APPEND: "1",
+          // The sleeping fake keeps the process (and its tailer) alive long
+          // enough for the catch-up lines to land.
+          OPENADE_FAKE_SLEEP: "1",
+          OPENADE_FAKE_MSG_ID: "a-3",
+          OPENADE_FAKE_LINE_ID: "l3",
+          OPENADE_FAKE_TEXT: "fresh reply",
+        },
+        home: f.home,
+        services: yield* services("allow"),
+        settings: {
+          model: "fake/model",
+          runtimeMode: "approval-required",
+          interactionMode: "default",
+        },
+        sessionRef: {
+          sessionId: SESSION_ID,
+          transcriptPath,
+          cwd: root,
+          lastMessageId: "a-1",
+        },
+      });
+      const collector = yield* makeStreamCollector(handle.events);
+
+      yield* handle.send({ text: "again", attachments: [], mentions: [] });
+      // The session-start payload carries the marker the resume used.
+      const started = yield* collector.awaitItem(isType("session.started"));
+      const payloadRef =
+        started.type === "session.started" ? (started.payload.sessionRef as CmdSessionRef) : null;
+      expect(payloadRef?.lastMessageId).toBe("a-1");
+
+      // Past the marker: the downtime line and this turn's reply.
+      const itemText = (event: { type: string; payload?: unknown }): string | null =>
+        event.type === "item.completed" &&
+        (event.payload as { item: { kind: string; text?: string } }).item.kind ===
+          "assistant_message"
+          ? ((event.payload as { item: { text?: string } }).item.text ?? null)
+          : null;
+      yield* collector.awaitItem(
+        (event) => itemText(event) === "written while the server was down",
+      );
+      yield* collector.awaitItem((event) => itemText(event) === "fresh reply");
+      const texts = (yield* collector.collected).flatMap((event) => {
+        const text = itemText(event);
+        return text === null ? [] : [text];
+      });
+      // At-or-before the marker: never re-emitted.
+      expect(texts).not.toContain("already emitted");
 
       yield* handle.close();
     }),

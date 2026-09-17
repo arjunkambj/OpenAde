@@ -301,6 +301,44 @@ describe("tailTranscript", () => {
     }),
   );
 
+  it.effect("afterMessageId resumes right after the marker line", () =>
+    Effect.gen(function* () {
+      const dir = yield* tempDir();
+      const path = NodePath.join(dir, "session.jsonl");
+      const msg = (id: string, messageId: string): string =>
+        JSON.stringify({
+          type: "message",
+          id,
+          message: { role: "assistant", content: [], meta: { messageId } },
+        });
+      // l1 + l2 were already emitted by a dead runtime; l3 came after.
+      NodeFS.writeFileSync(path, `${msg("l1", "a-1")}\n${msg("l2", "a-2")}\n${msg("l3", "a-3")}\n`);
+
+      const tailer = yield* tailTranscript(path, { pollMs: 5, afterMessageId: "a-2" });
+      const collected = yield* Stream.runCollect(Stream.take(tailer.lines, 1)).pipe(
+        Effect.forkChild,
+      );
+      expect([...(yield* Fiber.join(collected))]).toEqual([msg("l3", "a-3")]);
+      yield* tailer.stop;
+    }),
+  );
+
+  it.effect("an absent marker falls back to tailing from EOF", () =>
+    Effect.gen(function* () {
+      const dir = yield* tempDir();
+      const path = NodePath.join(dir, "session.jsonl");
+      NodeFS.writeFileSync(path, "old-line\n");
+
+      const tailer = yield* tailTranscript(path, { pollMs: 5, afterMessageId: "not-there" });
+      const collected = yield* Stream.runCollect(Stream.take(tailer.lines, 1)).pipe(
+        Effect.forkChild,
+      );
+      NodeFS.appendFileSync(path, "new-line\n");
+      expect([...(yield* Fiber.join(collected))]).toEqual(["new-line"]);
+      yield* tailer.stop;
+    }),
+  );
+
   it.effect("stop flushes the unterminated tail instead of dropping it", () =>
     Effect.gen(function* () {
       const dir = yield* tempDir();

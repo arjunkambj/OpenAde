@@ -65,6 +65,12 @@ export interface CmdSessionRef {
   readonly sessionId: string;
   readonly transcriptPath: string;
   readonly cwd: string;
+  /**
+   * Newest transcript message already emitted — `meta.messageId` or the line
+   * id. On resume the tailer picks up right after it: lines written while the
+   * server was down get emitted, earlier ones don't repeat.
+   */
+  readonly lastMessageId: string | null;
 }
 
 interface PendingApproval {
@@ -202,6 +208,7 @@ export const makeCmdSession = (
     const translator = makeTranslator({
       connectorInstanceId: options.instanceId,
       capabilities: CMD_CAPABILITIES,
+      resumeAfterMessageId: options.sessionRef?.lastMessageId ?? null,
     });
 
     const emit = (pending: PendingRuntimeEvent): Effect.Effect<void> =>
@@ -238,6 +245,7 @@ export const makeCmdSession = (
             sessionId,
             transcriptPath: transcriptPathFor(transcriptRoot, sessionId, options.home),
             cwd: options.workspaceRoot,
+            lastMessageId: translator.lastMessageId,
           } satisfies CmdSessionRef,
         },
       };
@@ -456,7 +464,12 @@ export const makeCmdSession = (
         Effect.gen(function* () {
           if ((yield* Ref.get(transcriptFiber)) !== null) return;
           const path = transcriptPathFor(transcriptRoot, sessionId, options.home);
-          const fiber = yield* tailTranscript(path).pipe(
+          const fiber = yield* tailTranscript(path, {
+            // A resumed session's marker: start right after the last message
+            // a previous runtime emitted — lines written while the server was
+            // down still arrive, earlier ones don't repeat.
+            afterMessageId: options.sessionRef?.lastMessageId ?? undefined,
+          }).pipe(
             Effect.provideService(Scope.Scope, scope),
             Effect.flatMap((tailer) =>
               Stream.runForEach(tailer.lines, (line) =>
@@ -518,6 +531,7 @@ export const makeCmdSession = (
                 sessionId: ref.sessionId,
                 transcriptPath: transcriptPathFor(transcriptRoot, ref.sessionId, options.home),
                 cwd: options.workspaceRoot,
+                lastMessageId: translator.lastMessageId,
               });
               yield* startTailer(ref.sessionId);
             }
@@ -576,6 +590,7 @@ export const makeCmdSession = (
           sessionId: translator.sessionId,
           transcriptPath: transcriptPathFor(transcriptRoot, translator.sessionId, options.home),
           cwd: options.workspaceRoot,
+          lastMessageId: translator.lastMessageId,
         });
       }
       yield* releasePending;

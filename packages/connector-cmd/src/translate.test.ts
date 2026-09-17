@@ -32,6 +32,13 @@ const translator = () =>
     capabilities: CAPABILITIES,
   });
 
+const translatorWith = (options: { readonly resumeAfterMessageId?: string | null }) =>
+  makeTranslator({
+    connectorInstanceId: "00000000-0000-7000-8000-000000000099",
+    capabilities: CAPABILITIES,
+    ...options,
+  });
+
 /** The session's stdout path: a line either parses to a frame or surfaces as unmapped. */
 const feedLine = (
   translate: ReturnType<typeof translator>,
@@ -509,6 +516,74 @@ describe("anonymous messages key by content hash, not block index", () => {
         ]),
       ),
     ).toEqual([]);
+  });
+});
+
+describe("resume markers", () => {
+  it("lastMessageId tracks the newest transcript message", () => {
+    const translate = translator();
+    expect(translate.lastMessageId).toBeNull();
+    translate.onTranscriptLine(
+      transcriptMessage("assistant", [{ type: "text", text: "one" }], "m-1"),
+    );
+    expect(translate.lastMessageId).toBe("m-1");
+    // Anonymous messages fall back to the transcript line id.
+    translate.onTranscriptLine({
+      type: "message",
+      id: "line-anon-7",
+      parentId: null,
+      timestamp: "t",
+      message: { role: "assistant", content: [{ type: "text", text: "two" }] },
+    });
+    expect(translate.lastMessageId).toBe("line-anon-7");
+  });
+
+  it("a resumed translator skips nextState history at or before the marker", () => {
+    const translate = translatorWith({ resumeAfterMessageId: "m-2" });
+    translate.onFrame(runStart());
+    translate.onFrame(turnStart());
+    const end = translate.onFrame(
+      runEnd("end_turn", [
+        {
+          role: "assistant",
+          content: [{ type: "text", text: "old-1" }],
+          meta: { messageId: "m-1", source: "model", createdAt: 1 },
+        },
+        {
+          role: "assistant",
+          content: [{ type: "text", text: "old-2" }],
+          meta: { messageId: "m-2", source: "model", createdAt: 2 },
+        },
+        {
+          role: "assistant",
+          content: [{ type: "text", text: "new-3" }],
+          meta: { messageId: "m-3", source: "model", createdAt: 3 },
+        },
+      ]),
+    );
+    const texts = end.flatMap((event) =>
+      event.type === "item.completed" ? [event.payload.item.text] : [],
+    );
+    expect(texts).toEqual(["new-3"]);
+  });
+
+  it("a marker absent from nextState leaves the replay alone", () => {
+    const translate = translatorWith({ resumeAfterMessageId: "not-in-history" });
+    translate.onFrame(runStart());
+    translate.onFrame(turnStart());
+    const end = translate.onFrame(
+      runEnd("end_turn", [
+        {
+          role: "assistant",
+          content: [{ type: "text", text: "still-new" }],
+          meta: { messageId: "m-9", source: "model", createdAt: 1 },
+        },
+      ]),
+    );
+    const texts = end.flatMap((event) =>
+      event.type === "item.completed" ? [event.payload.item.text] : [],
+    );
+    expect(texts).toEqual(["still-new"]);
   });
 });
 
