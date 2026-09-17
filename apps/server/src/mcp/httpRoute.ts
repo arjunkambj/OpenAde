@@ -3,7 +3,8 @@
  *
  * - `POST /mcp` — the per-session JSON-RPC endpoint the harness calls
  *   (`mcp__openade__browser_*`). Bearer auth resolves to a thread, the body is
- *   bounded, notifications answer 202.
+ *   bounded, notifications answer 202. `GET /mcp` answers 405: this transport
+ *   has no server-initiated stream.
  * - `GET /browser/attach/:threadId` — the marker page the desktop pane loads
  *   into its webview. Its URL is how the CDP driver identifies the guest
  *   target, so it stays unauthenticated (the webview cannot send headers) and
@@ -26,7 +27,31 @@ import { McpGateway, type JsonRpcRequest } from "./McpGateway";
 const BODY_CAP = FileSystem.Size(1024 * 1024);
 
 const unauthorized = () =>
-  HttpServerResponse.jsonUnsafe({ error: "unauthorized" }, { status: 401 });
+  HttpServerResponse.jsonUnsafe(
+    { error: "unauthorized" },
+    {
+      status: 401,
+      // Without this an MCP client cannot tell "wrong credential" from
+      // "this endpoint does not want one".
+      headers: { "www-authenticate": 'Bearer realm="openade"' },
+    },
+  );
+
+/**
+ * The endpoint is loopback-only and bearer-gated, but a page in any browser
+ * can still reach 127.0.0.1. A request that carries a non-loopback `Origin`
+ * is a website talking to us, never the harness (a CLI client sends none), so
+ * it is refused before the token is even looked at.
+ */
+const isAllowedOrigin = (origin: string | undefined): boolean => {
+  if (origin === undefined || origin === "" || origin === "null") return true;
+  try {
+    const host = new URL(origin).hostname;
+    return host === "127.0.0.1" || host === "localhost" || host === "::1" || host === "[::1]";
+  } catch {
+    return false;
+  }
+};
 
 const bearerOf = (request: HttpServerRequest.HttpServerRequest): string | null => {
   const header = request.headers.authorization;
@@ -39,6 +64,9 @@ const mcpRoute = Effect.gen(function* () {
   const gateway = yield* McpGateway;
   const request = yield* HttpServerRequest.HttpServerRequest;
 
+  if (!isAllowedOrigin(request.headers.origin)) {
+    return HttpServerResponse.jsonUnsafe({ error: "forbidden origin" }, { status: 403 });
+  }
   const token = bearerOf(request);
   const threadId = token === null ? Option.none() : yield* gateway.resolve(token);
   if (Option.isNone(threadId)) return unauthorized();
@@ -74,6 +102,23 @@ const mcpRoute = Effect.gen(function* () {
     ? HttpServerResponse.empty({ status: 202 })
     : HttpServerResponse.jsonUnsafe(response);
 });
+
+/**
+ * This transport is JSON-RPC over POST only — there is no SSE stream to open.
+ * A client that probes `GET /mcp` gets a plain answer instead of the router's
+ * generic 404, which reads as "wrong url" and sends people looking for a
+ * misconfiguration that is not there.
+ */
+const mcpGetRoute = Effect.succeed(
+  HttpServerResponse.jsonUnsafe(
+    {
+      error: "method not allowed",
+      detail:
+        "the openade MCP endpoint speaks JSON-RPC over POST; it has no GET event stream",
+    },
+    { status: 405, headers: { allow: "POST" } },
+  ),
+);
 
 const attachPageRoute = Effect.gen(function* () {
   const params = yield* HttpRouter.params;
@@ -112,5 +157,6 @@ const escapeHtml = (text: string): string =>
 /** The extra HTTP routes W6 adds to the server's router. */
 export const mcpRoutesLayer = Layer.mergeAll(
   HttpRouter.add("POST", "/mcp", mcpRoute),
+  HttpRouter.add("GET", "/mcp", mcpGetRoute),
   HttpRouter.add("GET", "/browser/attach/:threadId", attachPageRoute),
 );

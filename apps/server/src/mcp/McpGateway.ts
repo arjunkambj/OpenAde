@@ -34,6 +34,19 @@ import { SessionManager } from "../orchestration/SessionManager";
 import { BrowserService } from "../rpc/services";
 
 const PROTOCOL_VERSION = "2025-06-18";
+
+/**
+ * Versions this gateway can speak. `initialize` echoes the client's own
+ * version when it is one of these and otherwise answers with ours, which is
+ * what the MCP handshake asks for — a client that gets a version it did not
+ * ask for and cannot speak is supposed to disconnect, and one that gets a
+ * hard-coded string it does not recognise disconnects when it need not have.
+ */
+const SUPPORTED_PROTOCOL_VERSIONS: ReadonlySet<string> = new Set([
+  "2025-06-18",
+  "2025-03-26",
+  "2024-11-05",
+]);
 const RESULT_CAP_BYTES = 64 * 1024;
 
 export interface JsonRpcRequest {
@@ -45,6 +58,15 @@ export interface JsonRpcRequest {
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+
+const negotiateVersion = (params: unknown): string => {
+  if (isRecord(params) && typeof params.protocolVersion === "string") {
+    return SUPPORTED_PROTOCOL_VERSIONS.has(params.protocolVersion)
+      ? params.protocolVersion
+      : PROTOCOL_VERSION;
+  }
+  return PROTOCOL_VERSION;
+};
 
 const jsonRpcResult = (id: unknown, result: unknown) => ({
   jsonrpc: "2.0" as const,
@@ -214,7 +236,7 @@ export class McpGateway extends Context.Service<
           case "initialize":
             return Effect.succeed(
               jsonRpcResult(message.id, {
-                protocolVersion: PROTOCOL_VERSION,
+                protocolVersion: negotiateVersion(message.params),
                 capabilities: { tools: { listChanged: false } },
                 serverInfo: { name: "openade", version: "1" },
               }),

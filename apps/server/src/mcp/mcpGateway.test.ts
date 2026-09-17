@@ -2,7 +2,10 @@
  * The MCP surface over a real loopback server:
  *
  * - `POST /mcp` without a bearer → 401; a minted bearer → JSON-RPC works.
- * - `initialize` / `tools/list` answer the protocol handshake.
+ * - `initialize` / `tools/list` answer the protocol handshake, echoing a
+ *   protocol version the client asked for when we speak it.
+ * - A non-loopback `Origin` is refused, and `GET /mcp` says 405 rather than
+ *   looking like the wrong url.
  * - `tools/call browser_open` drives the fake driver through the session's
  *   serialized queue — the same path `mcp__openade__browser_open` takes.
  * - `revoke` kills the bearer — dead requests 401.
@@ -97,6 +100,7 @@ const buildStack = (
 
 interface JsonRpcResult {
   readonly status: number;
+  readonly headers: Record<string, string>;
   readonly body: {
     readonly result?: {
       readonly tools?: ReadonlyArray<{ readonly name: string }>;
@@ -113,18 +117,25 @@ const post = async (
   url: string,
   bearer: string | null,
   message: unknown,
+  extraHeaders: Record<string, string> = {},
 ): Promise<JsonRpcResult> => {
   const response = await fetch(url, {
     method: "POST",
     headers: {
       "content-type": "application/json",
       ...(bearer === null ? {} : { authorization: `Bearer ${bearer}` }),
+      ...extraHeaders,
     },
     body: JSON.stringify(message),
   });
+  return read(response);
+};
+
+const read = async (response: Response): Promise<JsonRpcResult> => {
   const text = await response.text();
   return {
     status: response.status,
+    headers: Object.fromEntries(response.headers.entries()),
     body: text === "" ? null : (JSON.parse(text) as JsonRpcResult["body"]),
   };
 };
@@ -143,6 +154,7 @@ describe("McpGateway", () => {
           post(url, null, { jsonrpc: "2.0", id: 1, method: "initialize" }),
         );
         expect(anonymous.status).toBe(401);
+        expect(anonymous.headers["www-authenticate"]).toContain("Bearer");
         const wrong = yield* Effect.promise(() =>
           post(url, "not-a-token", { jsonrpc: "2.0", id: 1, method: "initialize" }),
         );
@@ -156,6 +168,27 @@ describe("McpGateway", () => {
           post(url, bearer, { jsonrpc: "2.0", id: 1, method: "initialize" }),
         );
         expect(init.body?.result?.protocolVersion).toBe("2025-06-18");
+
+        // A client that asks for a version we speak gets that version back,
+        // not our own; one we don't speak gets ours.
+        const older = yield* Effect.promise(() =>
+          post(url, bearer, {
+            jsonrpc: "2.0",
+            id: 11,
+            method: "initialize",
+            params: { protocolVersion: "2024-11-05" },
+          }),
+        );
+        expect(older.body?.result?.protocolVersion).toBe("2024-11-05");
+        const unknown = yield* Effect.promise(() =>
+          post(url, bearer, {
+            jsonrpc: "2.0",
+            id: 12,
+            method: "initialize",
+            params: { protocolVersion: "1999-01-01" },
+          }),
+        );
+        expect(unknown.body?.result?.protocolVersion).toBe("2025-06-18");
 
         const list = yield* Effect.promise(() =>
           post(url, bearer, { jsonrpc: "2.0", id: 2, method: "tools/list" }),
@@ -188,6 +221,19 @@ describe("McpGateway", () => {
           }),
         );
         expect(badTool.body?.error?.code).toBe(-32602);
+
+        // A website reaching loopback is refused before the token matters.
+        const crossOrigin = yield* Effect.promise(() =>
+          post(url, bearer, { jsonrpc: "2.0", id: 6, method: "ping" }, {
+            origin: "https://evil.example",
+          }),
+        );
+        expect(crossOrigin.status).toBe(403);
+
+        // There is no GET stream on this transport — say so instead of 404.
+        const stream = yield* Effect.promise(() => fetch(url).then(read));
+        expect(stream.status).toBe(405);
+        expect(stream.headers.allow).toBe("POST");
 
         // Revoked bearers die — dead requests never reach a session.
         yield* gateway.revoke(threadId);
