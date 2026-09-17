@@ -9,6 +9,7 @@ import { ServerSupervisor } from "../backend/ServerSupervisor";
 import { serverSpawnSpec, showServerCrashDialog } from "../backend/serverDeps";
 import { registerIpc } from "./ipc";
 import { applyPlatformDefaults } from "../platform";
+import { quitsWhenAllWindowsClosed } from "../platform/lifecycle";
 import { APP_SCHEME, registerAppProtocol } from "./protocol";
 import { checkForUpdates } from "./updater";
 import { createWindow } from "./window";
@@ -60,5 +61,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.on("before-quit", () => supervisor.stop());
-  app.on("window-all-closed", () => app.quit());
+  app.on("window-all-closed", () => {
+    if (quitsWhenAllWindowsClosed(process.platform)) app.quit();
+  });
 }
