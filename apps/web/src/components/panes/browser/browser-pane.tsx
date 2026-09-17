@@ -28,6 +28,8 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { getAppAtoms, getHttpBase } from "@/state/app-runtime";
 import { AddressBar } from "./address-bar";
 import { FrameSurface } from "./frame-surface";
+import { isAgentBrowserMissing } from "./install";
+import { InstallPrompt } from "./install-prompt";
 import { WebviewSurface } from "./webview-surface";
 
 export interface BrowserPaneProps {
@@ -69,15 +71,23 @@ export function BrowserPane({ threadId }: BrowserPaneProps) {
     [dispatch],
   );
 
+  // A missing agent-browser is the one failure the pane can talk the user
+  // through, so it takes the whole surface instead of a truncated chip.
+  const missing =
+    state !== null && state.status === "error" && isAgentBrowserMissing(state.message);
+
   // Mode A renders the webview even before the driver attaches — the guest
   // shows the attach marker, then whatever the agent navigates to. Owned
   // Chromium falls back to the frame stream.
-  const useWebview = bridge !== undefined && (state === null || state.mode !== "owned-chromium");
+  const useWebview =
+    !missing && bridge !== undefined && (state === null || state.mode !== "owned-chromium");
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <AddressBar state={state} onAction={dispatch} />
-      {useWebview ? (
+      {missing ? (
+        <InstallPrompt onRetry={() => dispatch({ kind: "history", direction: "reload" })} />
+      ) : useWebview ? (
         <WebviewSurface
           threadId={threadId}
           attachUrl={`${getHttpBase()}/browser/attach/${threadId}`}

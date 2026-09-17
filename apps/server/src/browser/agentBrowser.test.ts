@@ -5,9 +5,17 @@
 
 import { describe, expect, it } from "vitest";
 
-import { sessionEnvFor, sessionNameFor } from "./agentBrowser";
+import { AGENT_BROWSER_MISSING_MESSAGE, sessionEnvFor, sessionNameFor } from "./agentBrowser";
 
 describe("agentBrowser", () => {
+  it("tells the user exactly what to run when the binary is missing", () => {
+    // The pane keys its install prompt off this opening clause and prints the
+    // same two commands.
+    expect(AGENT_BROWSER_MISSING_MESSAGE.startsWith("agent-browser is not installed")).toBe(true);
+    expect(AGENT_BROWSER_MISSING_MESSAGE).toContain("npm install -g agent-browser");
+    expect(AGENT_BROWSER_MISSING_MESSAGE).toContain("agent-browser install");
+  });
+
   it("names a thread's daemon session", () => {
     expect(sessionNameFor("t-1")).toBe("ade-t-1");
   });

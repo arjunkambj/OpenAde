@@ -32,6 +32,7 @@ import * as Stream from "effect/Stream";
 import type { BrowserFrame, BrowserHumanInput } from "@OpenAde/contracts/rpc";
 
 import {
+  AGENT_BROWSER_MISSING_MESSAGE,
   AgentBrowser,
   AgentBrowserError,
   AgentBrowserUnavailable,
@@ -154,10 +155,7 @@ export const openAgentBrowserDriver = (
   Effect.gen(function* () {
     const agentBrowser = yield* AgentBrowser;
     if (agentBrowser.binary === null) {
-      return yield* new AgentBrowserUnavailable({
-        message:
-          "agent-browser is not installed. Install with `npm install -g agent-browser` and run `agent-browser install`.",
-      });
+      return yield* new AgentBrowserUnavailable({ message: AGENT_BROWSER_MISSING_MESSAGE });
     }
     const sessionName = sessionNameFor(options.threadId);
 

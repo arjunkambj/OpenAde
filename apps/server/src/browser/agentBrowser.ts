@@ -23,6 +23,16 @@ import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 
+/**
+ * What the pane reads when the binary is missing. The renderer keys its
+ * install prompt off this exact opening clause (see
+ * `apps/web/src/components/panes/browser/install.ts`), so it is one constant
+ * here rather than a sentence written twice.
+ */
+export const AGENT_BROWSER_MISSING_MESSAGE =
+  "agent-browser is not installed. Install it with `npm install -g agent-browser`, " +
+  "then run `agent-browser install`.";
+
 /** The daemon session name for a thread — `ade-<threadId>` per spec §12. */
 export const sessionNameFor = (threadId: string): string => `ade-${threadId}`;
 
@@ -140,10 +150,7 @@ export class AgentBrowser extends Context.Service<
       ): Effect.Effect<Record<string, unknown>, AgentBrowserError | AgentBrowserUnavailable> => {
         const bin = binary;
         if (bin === null) {
-          return new AgentBrowserUnavailable({
-            message:
-              "agent-browser is not installed. Install it with `npm install -g agent-browser` then run `agent-browser install`.",
-          });
+          return new AgentBrowserUnavailable({ message: AGENT_BROWSER_MISSING_MESSAGE });
         }
         const argv$ = [
           "--session",
