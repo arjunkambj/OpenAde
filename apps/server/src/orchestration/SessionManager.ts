@@ -57,16 +57,36 @@ export class ConnectorSelection extends Context.Service<
     ) => Effect.Effect<ConnectorInstance, ConnectorNotFound>;
   }
 >()("server/orchestration/ConnectorSelection") {
-  /** Over the live registry: first registered instance for new threads. */
-  static readonly fromRegistry = (registry: ConnectorRegistry): Layer.Layer<ConnectorSelection> =>
+  /**
+   * Over the live registry. A new thread goes to the first instance in
+   * `preference` that is open, and to the registry's own first entry when
+   * none of them is.
+   *
+   * `preference` is what keeps routing off an insertion accident: the registry
+   * lists instances in the order `open` was called, and the connector manager
+   * only reopens entries whose signature changed, so disabling and re-enabling
+   * a connector moves it to the end. The entrypoint passes the enabled
+   * connectors in settings-document order — the same reading the engine seeds a
+   * new thread's model from, so the two cannot name different instances. Tests
+   * that wire a single connector pass nothing and get the registry's order.
+   */
+  static readonly fromRegistry = (
+    registry: ConnectorRegistry,
+    preference: Effect.Effect<ReadonlyArray<ConnectorInstanceId>> = Effect.succeed([]),
+  ): Layer.Layer<ConnectorSelection> =>
     Layer.succeed(ConnectorSelection, {
       instanceFor: (doc) =>
-        registry.instances.pipe(
-          Effect.flatMap((instances) => {
-            const first = instances[0];
-            return first === undefined
+        Effect.flatMap(registry.instances, (instances) =>
+          Effect.flatMap(preference, (preferred) => {
+            const chosen =
+              preferred
+                .map((instanceId) =>
+                  instances.find((instance) => instance.instanceId === instanceId),
+                )
+                .find((instance) => instance !== undefined) ?? instances[0];
+            return chosen === undefined
               ? Effect.fail(new NoConnector({ threadId: doc.threadId }))
-              : Effect.succeed(first);
+              : Effect.succeed(chosen);
           }),
         ),
       instanceById: (instanceId) => registry.instance(instanceId),

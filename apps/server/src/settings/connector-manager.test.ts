@@ -29,14 +29,18 @@ import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 import type * as Reactivity from "effect/unstable/reactivity/Reactivity";
+import * as SqlClientTag from "effect/unstable/sql/SqlClient";
 import type * as SqlClient from "effect/unstable/sql/SqlClient";
 import type * as SqlError from "effect/unstable/sql/SqlError";
 
+import { ConnectorSelection } from "../orchestration/SessionManager";
+import type { ThreadDoc } from "../orchestration/state";
 import { runMigrations } from "../persistence/Migrations";
 import { layer as sqliteLayer, testLayer as sqliteTestLayer } from "../persistence/Sqlite";
 import { SettingsStore } from "../rpc/services";
 import { ConnectorHost } from "./ConnectorHost";
 import { ConnectorManager, ConnectorRegistryService } from "./ConnectorManager";
+import { readConnectorRouting, routingPreference } from "./connectorRouting";
 
 interface Fixture {
   readonly manager: ConnectorManager["Service"];
@@ -46,6 +50,8 @@ interface Fixture {
   readonly probes: Ref.Ref<number>;
   /** The façade every instance is opened against; the entrypoint fills it in. */
   readonly host: ConnectorHost["Service"];
+  /** The same connection the store writes through — what routing reads. */
+  readonly sql: SqlClient.SqlClient;
 }
 
 /**
@@ -93,6 +99,7 @@ const fixture = (
       registry,
       probes,
       host: Context.get(ctx, ConnectorHost),
+      sql: Context.get(sqliteContext, SqlClientTag.SqlClient),
     } satisfies Fixture;
   });
 
@@ -350,6 +357,62 @@ describe("ConnectorManager", () => {
         }),
       );
     }),
+  );
+
+  it.effect("routes to the connector the document lists first, however it was opened", () =>
+    withFixture(({ manager, store, registry, sql }) =>
+      Effect.gen(function* () {
+        yield* awaitSummaries(manager, (all) => all.length === 1);
+        const first = {
+          ...(yield* store.get).connectors[0]!,
+          config: { defaultModel: "acme/first" },
+        };
+        const second = {
+          connectorInstanceId: makeConnectorInstanceId(),
+          kind: "fake",
+          displayName: "Second",
+          enabled: true,
+          config: { defaultModel: "acme/second" },
+        };
+        const bothOpen = (all: ReadonlyArray<ConnectorSummary>) =>
+          all.length === 2 && all.every((summary) => summary.capabilities !== null);
+
+        yield* store.update({ connectors: [first, second] });
+        yield* awaitSummaries(manager, bothOpen);
+
+        // Disabling and re-enabling the *first* entry is all it takes: only a
+        // changed signature is reopened, so it goes to the back of the
+        // registry's insertion order while the document still lists it first.
+        yield* store.update({ connectors: [{ ...first, enabled: false }, second] });
+        yield* awaitSummaries(manager, (all) => all[0]!.capabilities === null);
+        yield* store.update({ connectors: [first, second] });
+        yield* awaitSummaries(manager, bothOpen);
+
+        const instances = yield* registry.instances;
+        expect(instances.map((instance) => instance.instanceId)).toEqual([
+          second.connectorInstanceId,
+          first.connectorInstanceId,
+        ]);
+
+        // `fromRegistry` holds no resources of its own, so a scope just for
+        // the lookup is enough.
+        const selection = yield* Effect.scoped(
+          Effect.map(
+            Layer.build(ConnectorSelection.fromRegistry(registry, routingPreference(sql))),
+            (built) => Context.get(built, ConnectorSelection),
+          ),
+        );
+        const routed = yield* selection.instanceFor({ threadId } as ThreadDoc);
+        expect(routed.instanceId).toBe(first.connectorInstanceId);
+
+        // And the model a new thread is seeded with is that same instance's —
+        // the engine reads this, so a thread can never start on a model its
+        // connector was never asked about.
+        const routing = yield* readConnectorRouting(sql);
+        expect(routing.enabled[0]!.connectorInstanceId).toBe(routed.instanceId);
+        expect(routing.enabled[0]!.defaultModel).toBe("acme/first");
+      }),
+    ),
   );
 
   it.effect("an unknown kind reports an error probe and opens nothing", () =>

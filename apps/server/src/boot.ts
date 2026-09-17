@@ -24,6 +24,7 @@ import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as HttpServer from "effect/unstable/http/HttpServer";
+import * as SqlClient from "effect/unstable/sql/SqlClient";
 
 import { AttachmentReactor } from "./attachments/AttachmentReactor";
 import { AttachmentStore } from "./attachments/AttachmentStore";
@@ -49,6 +50,7 @@ import { ServerIdentity, SettingsStore } from "./rpc/services";
 import { layer as cmdConfigLayer } from "./settings/CmdConfig";
 import { ConnectorHost } from "./settings/ConnectorHost";
 import { ConnectorManager, ConnectorRegistryService } from "./settings/ConnectorManager";
+import { routingPreference } from "./settings/connectorRouting";
 
 /** @public The composition root's options; `main.ts` fills them from argv. */
 export interface BootOptions {
@@ -106,7 +108,13 @@ export const boot = (options: BootOptions) =>
     );
     const engine = OrchestrationEngine.layer.pipe(Layer.provide(persistence));
     const registry = yield* makeRegistry([eraseConnectorDefinition(cmdConnectorDefinition)]);
-    const selection = ConnectorSelection.fromRegistry(registry);
+    // Routing follows the connectors page's own order, not the order instances
+    // happened to be opened in — the same reading the engine seeds a new
+    // thread's model from, so the two always name one instance.
+    const selection = ConnectorSelection.fromRegistry(
+      registry,
+      routingPreference(Context.get(sqliteContext, SqlClient.SqlClient)),
+    );
     const manager = SessionManager.layer.pipe(Layer.provide(Layer.mergeAll(engine, selection)));
     const attachments = AttachmentStore.layer;
     const reactors = Layer.mergeAll(

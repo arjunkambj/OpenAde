@@ -43,6 +43,7 @@ import type { SqlError } from "effect/unstable/sql/SqlError";
 import { EventStore, type ConcurrencyConflict, type PlannedEvent } from "../persistence/EventStore";
 import { layer as migrationsLayer } from "../persistence/Migrations";
 import { PERMISSION_RULES_KEY } from "../permissions/PermissionService";
+import { readConnectorRouting } from "../settings/connectorRouting";
 import { ReadModelStore } from "../persistence/ReadModels";
 import {
   foldProject,
@@ -98,7 +99,6 @@ export interface SubscribeOptions {
   readonly maxBytes?: number;
 }
 
-const SETTINGS_KEY = "settings";
 const PROJECTOR = "orchestration";
 
 /**
@@ -233,41 +233,17 @@ export class OrchestrationEngine extends Context.Service<
       /**
        * The model a `thread.create` without one starts on.
        *
-       * The app-wide default first, and then the connector's own: a new thread
-       * runs on the first enabled instance — the order `ConnectorSelection`
-       * registers and picks from — so that instance's `defaultModel` is what
-       * "new threads on this instance" means. It was inert before, an input on
-       * the connectors page that changed nothing.
-       *
-       * Read straight from the stored row rather than through `SettingsStore`:
-       * this runs inside the dispatch transaction, and the store is not in the
-       * engine's layer graph.
+       * The app-wide default first, and then the connector's own, so that a
+       * `defaultModel` on the connectors page means "new threads on this
+       * connector" rather than nothing at all. Which connector that is comes
+       * from `readConnectorRouting` — the same reading `ConnectorSelection`
+       * routes by, so the seeded model belongs to the instance the thread's
+       * first turn will actually run on.
        */
-      const defaultModel = Effect.gen(function* () {
-        const rows = yield* sql<{ readonly value_json: string }>`
-          SELECT value_json FROM settings WHERE key = ${SETTINGS_KEY}
-        `;
-        if (rows.length === 0) {
-          return null;
-        }
-        try {
-          const doc = JSON.parse(rows[0]!.value_json) as {
-            defaults?: { model?: string | null };
-            connectors?: ReadonlyArray<{
-              enabled?: boolean;
-              config?: { defaultModel?: string | null };
-            }>;
-          };
-          const shared = doc.defaults?.model ?? null;
-          if (shared !== null) {
-            return shared;
-          }
-          const instance = doc.connectors?.find((connector) => connector.enabled === true);
-          return instance?.config?.defaultModel ?? null;
-        } catch {
-          return null;
-        }
-      });
+      const defaultModel = Effect.map(
+        readConnectorRouting(sql),
+        (routing) => routing.sharedModel ?? routing.enabled[0]?.defaultModel ?? null,
+      );
 
       /** Cross-aggregate facts the decider may check, gathered inside the txn. */
       const buildContext = (command: Command): Effect.Effect<DeciderContext, SqlError> =>

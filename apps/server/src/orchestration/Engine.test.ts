@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import {
   makeCommandId,
+  makeConnectorInstanceId,
   makeEventId,
   makeProjectId,
   makeItemId,
@@ -318,8 +319,21 @@ describe("OrchestrationEngine", () => {
               ${JSON.stringify({
                 defaults: { model: null },
                 connectors: [
-                  { enabled: false, config: { defaultModel: "acme/disabled" } },
-                  { enabled: true, config: { defaultModel: "acme/preferred" } },
+                  {
+                    connectorInstanceId: makeConnectorInstanceId(),
+                    enabled: false,
+                    config: { defaultModel: "acme/disabled" },
+                  },
+                  {
+                    connectorInstanceId: makeConnectorInstanceId(),
+                    enabled: true,
+                    config: { defaultModel: "acme/preferred" },
+                  },
+                  {
+                    connectorInstanceId: makeConnectorInstanceId(),
+                    enabled: true,
+                    config: { defaultModel: "acme/second" },
+                  },
                 ],
               })},
               ${NOW}
@@ -335,8 +349,9 @@ describe("OrchestrationEngine", () => {
             projectId,
             settings: {},
           });
-          // The first *enabled* instance, which is the one the thread will run
-          // on — a disabled connector's model must not win.
+          // The first *enabled* entry of the document, which is the one
+          // `ConnectorSelection` routes to — a disabled connector's model must
+          // not win, and neither must a later enabled one's.
           expect((yield* engine.threadDoc(threadId))?.settings.model).toBe("acme/preferred");
         }).pipe(Effect.provide(OrchestrationEngine.layer.pipe(Layer.provideMerge(persistence))));
       }),
