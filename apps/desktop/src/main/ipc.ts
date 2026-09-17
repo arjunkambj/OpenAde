@@ -14,8 +14,9 @@
 import { app, BrowserWindow, dialog, ipcMain, session, shell, webContents } from "electron";
 import type { WebContents } from "electron";
 
-import { toPublicServerState } from "../backend/publicServerState";
-import type { ServerSupervisor, ServerState } from "../backend/ServerSupervisor";
+import type { ServerSupervisor } from "../backend/ServerSupervisor";
+
+import { registerServerStateBridge } from "./serverStateBridge";
 
 /** One gesture from inside a pane webview, already contract-shaped. */
 export type GuestInput =
@@ -30,10 +31,15 @@ export type GuestInput =
 const THREAD_ID = /^[A-Za-z0-9_-]+$/;
 
 export function registerIpc(supervisor: ServerSupervisor) {
-  ipcMain.handle("openade:connection", () => supervisor.connection);
-  // A window that mounts after the first starting→ready transition has no
-  // event to wait for, so it asks instead.
-  ipcMain.handle("openade:server-state:get", () => toPublicServerState(supervisor.current));
+  // `openade:connection`, `openade:server-state:get` and the push channel —
+  // the seam the renderer reconnects against, in its own testable module.
+  registerServerStateBridge(
+    {
+      handle: (channel, handler) => ipcMain.handle(channel, handler),
+      senders: () => BrowserWindow.getAllWindows().map((win) => win.webContents),
+    },
+    supervisor,
+  );
   ipcMain.handle("openade:open-external", (_event, url: unknown) => {
     if (typeof url === "string" && /^https?:\/\//.test(url)) {
       return shell.openExternal(url);
@@ -143,12 +149,5 @@ export function registerIpc(supervisor: ServerSupervisor) {
     // The guest keeps its listeners but the host pointer is dropped, so a
     // remount can't double-report; listeners die with the guest.
     attached.delete(threadId);
-  });
-
-  supervisor.on("state", (state: ServerState) => {
-    const published = toPublicServerState(state);
-    for (const win of BrowserWindow.getAllWindows()) {
-      win.webContents.send("openade:server-state", published);
-    }
   });
 }
