@@ -334,6 +334,14 @@ export const makeFixtureClient = (): FixtureClient => {
                 }),
             };
       }
+      case "thread.queue.remove": {
+        return doc.queue.some((message) => message.queuedMessageId === command.queuedMessageId)
+          ? {
+              events: () =>
+                next("thread.message.dequeued", { queuedMessageId: command.queuedMessageId }),
+            }
+          : { events: () => {}, reason: "no such queued message" };
+      }
       case "thread.settings.update": {
         return {
           events: () => next("thread.settings.updated", settingsPatch(command)),
