@@ -25,6 +25,7 @@ import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 import * as HttpServer from "effect/unstable/http/HttpServer";
 
@@ -71,7 +72,7 @@ const httpStub = Layer.succeed(
 
 type OpenDriver = (
   options: OpenDriverOptions,
-) => Effect.Effect<BrowserDriver, { readonly message: string }, never>;
+) => Effect.Effect<BrowserDriver, { readonly message: string }, Scope.Scope>;
 
 const buildStack = (openDriver: OpenDriver) =>
   Effect.gen(function* () {
@@ -336,6 +337,33 @@ describe("BrowserService", () => {
       expect(second.kind).toBe("ok");
       expect(opened).toBe(2);
     }).pipe(Effect.scoped),
+  );
+
+  it.live("the driver's scope outlives the call that opened it", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        // Stands in for the owned driver's frame-stream fiber: it is forked
+        // into the open scope, so closing that scope at the end of the open
+        // would kill the stream before a single frame arrived.
+        let released = false;
+        const { browser } = yield* buildStack(() =>
+          Effect.gen(function* () {
+            yield* Effect.addFinalizer(() =>
+              Effect.sync(() => {
+                released = true;
+              }),
+            );
+            return makeFakeDriver(fakePage());
+          }),
+        );
+
+        yield* browser.callTool(threadId, "browser_open", { url: "https://example.com/a" });
+        expect(released).toBe(false);
+
+        yield* browser.teardown(threadId);
+        expect(released).toBe(true);
+      }),
+    ),
   );
 
   it.live("teardown stops the session and is idempotent", () =>

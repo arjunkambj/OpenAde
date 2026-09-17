@@ -198,8 +198,12 @@ export const makeService = (injected: {
           message: undefined,
         }));
 
+        // `provide`, not `use`: the driver outlives its open. `use` closes the
+        // scope as soon as the effect settles, which would interrupt the frame
+        // stream fiber the owned driver forks into it — releaseDriver is what
+        // closes this scope, when the session is really done with the driver.
         const scope = yield* Scope.make();
-        const opened = yield* Scope.use(scope)(
+        const opened = yield* Scope.provide(scope)(
           injected.openDriver({
             threadId: session.threadId,
             attachMarker: attachMarkerFor(session.threadId),
