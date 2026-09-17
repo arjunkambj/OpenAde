@@ -3,6 +3,7 @@
   "upstream": "origin/feat/w0-foundation",
   "ahead": 2,
   "behind": 0,
+  "isRepository": true,
   "files": [
     {
       "path": "apps/server/src/http/health.ts",

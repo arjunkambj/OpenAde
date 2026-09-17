@@ -1,6 +1,7 @@
 {
   "from": "HEAD",
   "to": null,
+  "isRepository": true,
   "files": [
     {
       "path": "apps/server/src/http/health.ts",

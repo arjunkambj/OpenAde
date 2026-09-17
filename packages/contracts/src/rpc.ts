@@ -164,11 +164,18 @@ export const GitFileChange = Schema.Struct({
 });
 export type GitFileChange = typeof GitFileChange.Type;
 
+/**
+ * `isRepository: false` is the answer for a workspace git does not track: the
+ * empty `files` list then means "there is nothing to show", not "everything is
+ * committed", and the changes pane can say so instead of rendering a clean
+ * repo. It is optional so a producer that predates the field still decodes.
+ */
 export const GitStatus = Schema.Struct({
   branch: Schema.NullOr(NonEmptyString),
   upstream: Schema.NullOr(NonEmptyString),
   ahead: NonNegativeInt,
   behind: NonNegativeInt,
+  isRepository: Schema.optional(Schema.Boolean),
   files: Schema.Array(GitFileChange),
 });
 export type GitStatus = typeof GitStatus.Type;
@@ -184,9 +191,11 @@ export const GitDiffFile = Schema.Struct({
 });
 export type GitDiffFile = typeof GitDiffFile.Type;
 
+/** `isRepository` carries the same meaning it does on `GitStatus`. */
 export const GitDiff = Schema.Struct({
   from: Schema.NullOr(NonEmptyString),
   to: Schema.NullOr(NonEmptyString),
+  isRepository: Schema.optional(Schema.Boolean),
   files: Schema.Array(GitDiffFile),
 });
 export type GitDiff = typeof GitDiff.Type;
