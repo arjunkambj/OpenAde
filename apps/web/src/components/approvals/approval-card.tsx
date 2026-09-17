@@ -1,0 +1,216 @@
+/**
+ * The pending-approval card. Renders the request subject, offers the four
+ * decisions from `ApprovalDecision`, and dispatches `thread.approval.respond`
+ * through `dispatchAtom`. The card is unmounted by the doc when the
+ * `thread.approval.resolved` event lands — a rejected receipt is shown inline
+ * instead, so nothing here pretends a decision stuck before the server says so.
+ *
+ * Keys while the card is up: `1` allow once, `2` allow for session,
+ * `3` always allow (persists the pattern), `d`/`Escape` deny. The listener
+ * runs in capture phase and stops propagation, so Escape denies the card
+ * rather than falling through to the global interrupt binding.
+ */
+
+import { useAtomSet } from "@effect/atom-react";
+import { Button } from "@OpenAde/ui/components/button";
+import { Kbd } from "@OpenAde/ui/components/kbd";
+import type { ApprovalDecision } from "@OpenAde/contracts/enums";
+import type { ThreadId } from "@OpenAde/contracts/ids";
+import { makeCommandId } from "@OpenAde/contracts/ids";
+import type { ApprovalRequest } from "@OpenAde/contracts/runtime";
+import { parsePattern } from "@OpenAde/shared/permissionPattern";
+import * as React from "react";
+
+import { CardShell } from "@/components/approvals/card-shell";
+import { PatternEditor } from "@/components/approvals/pattern-editor";
+import { useClientRuntime } from "@/lib/client-runtime";
+import { Icon } from "@/lib/icon";
+
+const isEditableTarget = (target: EventTarget | null): boolean =>
+  target instanceof HTMLElement &&
+  (target.tagName === "INPUT" ||
+    target.tagName === "TEXTAREA" ||
+    target.tagName === "SELECT" ||
+    target.isContentEditable);
+
+/** One-line summary of `request.input`, by approval kind. */
+const subjectSummary = (request: ApprovalRequest): string | null => {
+  const input = request.input;
+  if (typeof input !== "object" || input === null) {
+    return null;
+  }
+  const record = input as Record<string, unknown>;
+  for (const key of ["command", "path", "file_path", "filePath", "url", "query"]) {
+    const value = record[key];
+    if (typeof value === "string" && value.length > 0) {
+      return value;
+    }
+  }
+  return null;
+};
+
+const KIND_LABEL: Readonly<Record<string, string>> = {
+  command: "Command",
+  file_write: "File write",
+  file_read: "File read",
+  mcp_tool: "MCP tool",
+  web: "Web access",
+  other: "Permission",
+};
+
+export function ApprovalCard({
+  threadId,
+  request,
+}: {
+  readonly threadId: ThreadId;
+  readonly request: ApprovalRequest;
+}) {
+  const { dispatchAtom } = useClientRuntime();
+  const dispatch = useAtomSet(dispatchAtom, { mode: "promise" });
+  const [pattern, setPattern] = React.useState(request.patternSuggestion ?? request.toolName);
+  const [editing, setEditing] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [pending, setPending] = React.useState<ApprovalDecision | null>(null);
+
+  const summary = subjectSummary(request);
+  const patternValid = parsePattern(pattern) !== null;
+
+  const respond = React.useCallback(
+    (decision: ApprovalDecision) => {
+      const withPattern = decision === "allow-always" || decision === "allow-session";
+      if (withPattern && !patternValid) {
+        return;
+      }
+      setPending(decision);
+      setError(null);
+      void dispatch({
+        commandId: makeCommandId(),
+        createdAt: new Date().toISOString(),
+        type: "thread.approval.respond",
+        threadId,
+        requestId: request.requestId,
+        decision,
+        ...(withPattern ? { pattern } : {}),
+      }).then((receipt) => {
+        setPending(null);
+        if (receipt.status === "rejected") {
+          setError(receipt.reason ?? "the server rejected the response");
+        }
+      });
+    },
+    [dispatch, pattern, patternValid, request.requestId, threadId],
+  );
+
+  // Capture-phase listener so Escape resolves the card instead of reaching the
+  // global interrupt binding; editable targets swallow it to blur instead.
+  React.useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) {
+        return;
+      }
+      if (isEditableTarget(event.target)) {
+        if (event.key === "Escape") {
+          (event.target as HTMLElement).blur();
+          event.stopPropagation();
+        }
+        return;
+      }
+      const key = event.key.toLowerCase();
+      const decision =
+        key === "1"
+          ? "allow-once"
+          : key === "2"
+            ? "allow-session"
+            : key === "3"
+              ? "allow-always"
+              : key === "d" || event.key === "Escape"
+                ? "deny"
+                : null;
+      if (decision === null) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      respond(decision);
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [respond]);
+
+  return (
+    <CardShell
+      icon="hugeicons:shield-01"
+      title={request.description.length > 0 ? request.description : "Approval requested"}
+      hint={
+        <span className="inline-flex items-center gap-1.5">
+          <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono">{request.toolName}</span>
+          <span>{KIND_LABEL[request.kind] ?? request.kind}</span>
+        </span>
+      }
+      actions={
+        <>
+          <Button size="sm" disabled={pending !== null} onClick={() => respond("allow-once")}>
+            Allow once <Kbd>1</Kbd>
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={pending !== null || !patternValid}
+            onClick={() => respond("allow-session")}
+          >
+            Allow for session <Kbd>2</Kbd>
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={pending !== null || !patternValid}
+            onClick={() => respond("allow-always")}
+          >
+            Always allow <Kbd>3</Kbd>
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            tone="muted"
+            disabled={pending !== null}
+            onClick={() => respond("deny")}
+          >
+            Deny <Kbd>D</Kbd>
+          </Button>
+        </>
+      }
+    >
+      {summary === null ? null : (
+        <pre className="max-h-32 overflow-auto rounded-lg bg-muted px-3 py-2 font-mono text-xs whitespace-pre-wrap">
+          {summary}
+        </pre>
+      )}
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <button
+          type="button"
+          className="inline-flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          onClick={() => setEditing((open) => !open)}
+          aria-expanded={editing}
+        >
+          <Icon
+            icon={editing ? "hugeicons:arrow-down-01" : "hugeicons:arrow-up-01"}
+            className="size-3"
+          />
+          Rule saved by “Allow for session” / “Always allow”
+        </button>
+        {editing ? (
+          <PatternEditor value={pattern} onChange={setPattern} subject={request} autoFocus />
+        ) : (
+          <code className="w-fit max-w-full truncate rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs">
+            {pattern}
+          </code>
+        )}
+      </div>
+      {error === null ? null : (
+        <p className="text-xs text-destructive" role="alert">
+          {error}
+        </p>
+      )}
+    </CardShell>
+  );
+}
