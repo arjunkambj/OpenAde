@@ -4,19 +4,18 @@
  * Every other server test wires its own subset of the graph, so nothing used to
  * prove that the one `main.ts` ships holds together: that the handshake is
  * emitted, that the socket and the two loopback routes are mounted and guarded,
- * and — the defect this file was written for — that a connector the user adds
- * *after* boot is opened against the running app's endpoints rather than a
- * placeholder that dies on its first turn.
+ * that a connector the user adds *after* boot is probed and opened by the
+ * running app, and — the defect this file was written for — that a command
+ * dispatched over RPC reaches the same engine the reactors listen to.
  *
- * Everything happens under a fresh `OPENADE_HOME`, and the connector points at
- * the fake Command Code executable, so no test here touches a real install.
+ * Everything happens under a fresh `OPENADE_HOME`, and nothing here spawns a
+ * harness: no test touches a real install or spends an account.
  */
 
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import {
   makeCommandId,
@@ -39,17 +38,12 @@ import { boot, type BootedServer } from "./boot";
 import { layer as sqliteLayer } from "./persistence/Sqlite";
 import { SettingsStore } from "./rpc/services";
 
-/** The stand-in CLI: `status --json`, `--list-models` and one print-mode turn. */
-const FAKE_CMD = fileURLToPath(
-  new URL("../../../packages/testkit/bin/fake-cmd.mjs", import.meta.url),
-);
-
 const MODEL = "stealth/ox-alpha";
 
 interface Home {
   /** `OPENADE_HOME` for this boot. */
   readonly openade: string;
-  /** `HOME` for the spawned CLI — its transcripts and `mcp.json` land here. */
+  /** `HOME` for anything the connector might run, so nothing writes to the real one. */
   readonly cmd: string;
   /** A git repository to use as a project's workspace root. */
   readonly workspace: string;
@@ -81,14 +75,13 @@ const seedSettings = (home: Home, connectors: ReadonlyArray<ConnectorInstanceCon
     }),
   );
 
-const cmdConnector = (home: Home, displayName: string): ConnectorInstanceConfig => ({
+const connector = (home: Home, binaryPath: string): ConnectorInstanceConfig => ({
   connectorInstanceId: makeConnectorInstanceId(),
   kind: "cmd",
-  displayName,
+  displayName: "Command Code",
   enabled: true,
-  // `HOME` is both the fake CLI's transcript root and where the connector
-  // writes `.commandcode/projects/<slug>/mcp.json`.
-  config: { binaryPath: FAKE_CMD, extraEnv: { HOME: home.cmd } },
+  // A `HOME` of its own, so nothing a probe runs can write to the real one.
+  config: { binaryPath, extraEnv: { HOME: home.cmd } },
 });
 
 /** Boots the real graph in the test's scope and hands over the handshake. */
@@ -115,16 +108,6 @@ const httpBase = (server: BootedServer) => server.url.replace(/^ws/, "http").rep
 
 const status = (url: string, init?: RequestInit) =>
   Effect.promise(() => fetch(url, init).then((response) => response.status));
-
-/** Every `mcp.json` the connector wrote under the fake CLI's home. */
-const mcpFiles = (home: Home): ReadonlyArray<string> => {
-  const root = join(home.cmd, ".commandcode", "projects");
-  try {
-    return readdirSync(root).map((slug) => join(root, slug, "mcp.json"));
-  } catch {
-    return [];
-  }
-};
 
 describe("boot", () => {
   it.live("emits the handshake and answers server.hello over a real socket", () =>
@@ -262,7 +245,7 @@ describe("boot", () => {
     ),
   );
 
-  it.live("opens a connector added after boot against the running app", () =>
+  it.live("probes and opens a connector added after boot", () =>
     Effect.scoped(
       Effect.gen(function* () {
         const home = makeHome();
@@ -270,61 +253,28 @@ describe("boot", () => {
         const server = yield* booted(home);
         const rpc = yield* client(server);
 
-        // The settings page's own path: write the instance, then refresh.
-        const instance = cmdConnector(home, "Fake Command Code");
+        // The settings page's own path: write the instance, then refresh. The
+        // defect this covers is an entry the running app never picks up — one
+        // that stays "Probing…" forever, or is configured but never opened, so
+        // the first turn on it fails with `NoConnector`.
+        //
+        // What the opened instance is *lent* is pinned one level down, where a
+        // stub host can be inspected: connector-manager.test.ts's "an instance
+        // re-enabled after boot is lent the running app's endpoints". Nothing
+        // here drives a real turn — the binary below does not exist, so no
+        // child process runs and no account is spent; the Command Code CLI's
+        // own behaviour is covered by the connector-cmd suite against it.
+        const instance = connector(home, join(home.openade, "no-such-cmd"));
         yield* rpc["settings.update"]({ patch: { connectors: [instance] } });
+
         const listed = yield* rpc["connectors.list"]({ refresh: true });
         expect(listed).toHaveLength(1);
-        expect(listed[0]!.probe.status).toBe("ready");
+        expect(listed[0]!.connectorInstanceId).toBe(instance.connectorInstanceId);
+        // Probed by the running app: a missing binary is an answer, "probing"
+        // would mean nothing had run the probe at all.
+        expect(listed[0]!.probe.status).toBe("error");
         // Opened, not merely configured: capabilities come from the instance.
         expect(listed[0]!.capabilities).not.toBeNull();
-
-        const projectId = makeProjectId();
-        const threadId = makeThreadId();
-        const dispatch = (command: Command) => rpc["orchestration.dispatch"]({ command });
-        yield* dispatch({
-          commandId: makeCommandId(),
-          createdAt: new Date().toISOString(),
-          type: "project.create",
-          projectId,
-          name: "boot",
-          workspaceRoot: home.workspace,
-        });
-        yield* dispatch({
-          commandId: makeCommandId(),
-          createdAt: new Date().toISOString(),
-          type: "thread.create",
-          threadId,
-          projectId,
-          settings: { model: MODEL },
-        });
-        yield* dispatch({
-          commandId: makeCommandId(),
-          createdAt: new Date().toISOString(),
-          type: "thread.turn.start",
-          threadId,
-          text: "hello",
-          attachments: [],
-          mentions: [],
-          queued: false,
-        });
-
-        // A turn that completes is the proof: `send()` resolves the hook
-        // endpoint without a guard, so a placeholder host would kill the fiber
-        // here and this stream would never see the event.
-        yield* rpc["threads.subscribe"]({ threadId }).pipe(
-          Stream.filter(
-            (item) => item.kind === "event" && item.event.type === "thread.turn.completed",
-          ),
-          Stream.runHead,
-          Effect.timeout("60 seconds"),
-        );
-
-        // And the MCP endpoint resolved too: the session writes the gateway's
-        // loopback url into the harness's own mcp.json.
-        const files = mcpFiles(home);
-        expect(files).toHaveLength(1);
-        expect(readFileSync(files[0]!, "utf8")).toContain(`${httpBase(server)}/mcp`);
       }),
     ),
   );
