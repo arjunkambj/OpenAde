@@ -103,6 +103,15 @@ export class ConnectorManager extends Context.Service<
       const entries = yield* Ref.make<ReadonlyMap<string, Entry>>(new Map());
       const probes = yield* Ref.make<ReadonlyMap<string, ConnectorProbe>>(new Map());
       const capabilities = yield* Ref.make<ReadonlyMap<string, ConnectorCapabilities>>(new Map());
+      /**
+       * What `listModels()` last answered for an instance whose probe found no
+       * models. Asking is a re-probe for some connectors — two child processes
+       * for the cmd one — and the model pickers ask on every mount, so the
+       * answer is kept until the next probe replaces it.
+       */
+      const fallbackModels = yield* Ref.make<ReadonlyMap<string, ReadonlyArray<ModelOption>>>(
+        new Map(),
+      );
       /** Latest summary list — replays to new subscribers, so none miss a reconcile. */
       const summariesRef = yield* SubscriptionRef.make<ReadonlyArray<ConnectorSummary>>([]);
       /** Serialises reconcile passes and explicit re-probes. */
@@ -159,21 +168,28 @@ export class ConnectorManager extends Context.Service<
           return scope;
         });
 
+      const forget = <A>(ref: Ref.Ref<ReadonlyMap<string, A>>, id: string): Effect.Effect<void> =>
+        Ref.update(ref, (all) => {
+          const next = new Map(all);
+          next.delete(id);
+          return next;
+        });
+
+      /** Records a fresh probe, which retires whatever the fallback memoized. */
+      const recordProbe = (id: string, probe: ConnectorProbe): Effect.Effect<void> =>
+        Effect.andThen(
+          Ref.update(probes, (all) => new Map(all).set(id, probe)),
+          forget(fallbackModels, id),
+        );
+
       const closeEntry = (id: string, entry: Entry): Effect.Effect<void> =>
         Effect.gen(function* () {
           if (entry.scope !== null) {
             yield* Scope.close(entry.scope, Exit.void);
           }
-          yield* Ref.update(probes, (all) => {
-            const next = new Map(all);
-            next.delete(id);
-            return next;
-          });
-          yield* Ref.update(capabilities, (all) => {
-            const next = new Map(all);
-            next.delete(id);
-            return next;
-          });
+          yield* forget(probes, id);
+          yield* forget(capabilities, id);
+          yield* forget(fallbackModels, id);
         });
 
       const summariesFor = (settings: Settings): Effect.Effect<ReadonlyArray<ConnectorSummary>> =>
@@ -237,7 +253,7 @@ export class ConnectorManager extends Context.Service<
           yield* Deferred.succeed(registered, undefined);
           for (const conn of changed) {
             const probe = yield* probeOf(conn);
-            yield* Ref.update(probes, (all) => new Map(all).set(conn.connectorInstanceId, probe));
+            yield* recordProbe(conn.connectorInstanceId, probe);
           }
           yield* SubscriptionRef.set(summariesRef, yield* summariesFor(settings));
         }).pipe(
@@ -300,9 +316,7 @@ export class ConnectorManager extends Context.Service<
               Effect.gen(function* () {
                 for (const conn of settings.connectors) {
                   const probe = yield* probeOf(conn);
-                  yield* Ref.update(probes, (all) =>
-                    new Map(all).set(conn.connectorInstanceId, probe),
-                  );
+                  yield* recordProbe(conn.connectorInstanceId, probe);
                 }
                 yield* SubscriptionRef.set(summariesRef, yield* summariesFor(settings));
               }),
@@ -321,10 +335,21 @@ export class ConnectorManager extends Context.Service<
           if (cached !== undefined && cached.models.length > 0) {
             return cached.models;
           }
-          return yield* registry.instance(instanceId).pipe(
+          const memoized = (yield* Ref.get(fallbackModels)).get(instanceId);
+          if (memoized !== undefined) {
+            return memoized;
+          }
+          // `listModels()` is a full re-probe for some connectors, so it gets
+          // the same bound as a probe, and the answer is memoized until the
+          // next probe: the pickers ask once per mount, per instance.
+          const found = yield* registry.instance(instanceId).pipe(
             Effect.flatMap((instance) => instance.listModels()),
+            Effect.timeoutOption(PROBE_TIMEOUT),
+            Effect.map(Option.getOrElse(() => [] as ReadonlyArray<ModelOption>)),
             Effect.catch(() => Effect.succeed([] as ReadonlyArray<ModelOption>)),
           );
+          yield* Ref.update(fallbackModels, (all) => new Map(all).set(instanceId, found));
+          return found;
         });
 
       return ConnectorManager.of({

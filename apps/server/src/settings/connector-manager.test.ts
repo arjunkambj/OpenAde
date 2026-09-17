@@ -217,6 +217,49 @@ describe("ConnectorManager", () => {
     ),
   );
 
+  it.effect("the model fallback is asked once, and again after the next probe", () =>
+    Effect.gen(function* () {
+      // `listModels()` is a re-probe for a real connector — two child processes
+      // for the cmd one — and every model picker asks on mount, so the answer
+      // has to be held until something replaces it.
+      const listed = yield* Ref.make(0);
+      yield* withFixture(
+        ({ manager }) =>
+          Effect.gen(function* () {
+            const summaries = yield* awaitSummaries(
+              manager,
+              (all) => all.length === 1 && all[0]!.probe.status === "error",
+            );
+            const instanceId = summaries[0]!.connectorInstanceId as ConnectorInstanceId;
+            yield* manager.models(instanceId);
+            yield* manager.models(instanceId);
+            expect(yield* Ref.get(listed)).toBe(1);
+
+            // A fresh probe retires the memo — a connector that got its binary
+            // back must not keep answering from the empty list.
+            yield* manager.list(true);
+            yield* manager.models(instanceId);
+            expect(yield* Ref.get(listed)).toBe(2);
+          }),
+        undefined,
+        (definition) => ({
+          ...definition,
+          probe: () =>
+            Effect.fail(new ProbeFailed({ kind: definition.kind, message: "no binary" })),
+          createInstance: (input) =>
+            Effect.map(definition.createInstance(input), (instance) => ({
+              ...instance,
+              listModels: () =>
+                Effect.andThen(
+                  Ref.update(listed, (count) => count + 1),
+                  instance.listModels(),
+                ),
+            })),
+        }),
+      );
+    }),
+  );
+
   it.effect("an unknown kind reports an error probe and opens nothing", () =>
     withFixture(({ manager, store, registry }) =>
       Effect.gen(function* () {
