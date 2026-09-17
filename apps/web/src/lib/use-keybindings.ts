@@ -11,10 +11,16 @@
  * active element's `data-context`, everything else comes from the caller
  * (`threadRunning`, `planPending`, …). Unknown commands resolve and are then
  * ignored, so a server default with no handler yet is inert, not an error.
+ *
+ * An empty table falls back to the contract's defaults. A settings row that
+ * has never been seeded reads as `[]`, and taking that literally would leave
+ * the app with no shortcuts at all — no command palette, no interrupt — which
+ * is never what "no keybindings configured" should mean.
  */
 
 import { useAtomValue } from "@effect/atom-react";
 import { detectModKey, resolveKeybinding } from "@OpenAde/client-runtime/keybindings";
+import { DEFAULT_KEYBINDINGS } from "@OpenAde/contracts/settings";
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 
@@ -31,7 +37,8 @@ export function useGlobalKeybindings(
 ): void {
   const { keybindingsAtom } = useClientRuntime();
   const result = useAtomValue(keybindingsAtom);
-  const keybindings = AsyncResult.isSuccess(result) ? result.value : [];
+  const served = AsyncResult.isSuccess(result) ? result.value : [];
+  const keybindings = served.length > 0 ? served : DEFAULT_KEYBINDINGS;
 
   // Refs keep the listener stable across re-renders and flag churn.
   const commandsRef = React.useRef(commands);
