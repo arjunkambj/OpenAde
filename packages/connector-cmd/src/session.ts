@@ -401,12 +401,20 @@ export const makeCmdSession = (
     const installedHooks = yield* Ref.make<InstalledFile | null>(null);
     const installedMcp = yield* Ref.make<InstalledFile | null>(null);
     if (hookPath !== null) {
+      // `null` is the install standing down on a file it cannot parse;
+      // `undefined` is the write itself failing. Both run the session without
+      // the hook, and both say so — the approval gate is off either way.
       const written = yield* installProjectHooks(options.workspaceRoot, hookPath).pipe(
         Effect.catch((error) =>
-          warn(`could not install project hooks: ${String(error)}`).pipe(Effect.as(null)),
+          warn(`could not install project hooks: ${String(error)}`).pipe(Effect.as(undefined)),
         ),
       );
-      yield* Ref.set(installedHooks, written);
+      if (written === null) {
+        yield* warn(
+          ".commandcode/settings.local.json is not valid JSON — left it untouched, so tool calls are not gated by OpenAde",
+        );
+      }
+      yield* Ref.set(installedHooks, written ?? null);
     }
     const mcp = yield* options.services
       .mcpEndpoint(options.threadId)
@@ -416,10 +424,15 @@ export const makeCmdSession = (
     if (mcp !== null && mcp.url !== "") {
       const written = yield* upsertMcpEntry(transcriptRoot, { url: mcp.url }, options.home).pipe(
         Effect.catch((error) =>
-          warn(`could not write mcp.json: ${String(error)}`).pipe(Effect.as(null)),
+          warn(`could not write mcp.json: ${String(error)}`).pipe(Effect.as(undefined)),
         ),
       );
-      yield* Ref.set(installedMcp, written);
+      if (written === null) {
+        yield* warn(
+          "the project's mcp.json is not valid JSON — left it untouched, so OpenAde's MCP tools are unavailable this session",
+        );
+      }
+      yield* Ref.set(installedMcp, written ?? null);
     }
     if (options.services.registerHookHandler !== undefined) {
       yield* options.services.registerHookHandler(options.threadId, onHookPost);

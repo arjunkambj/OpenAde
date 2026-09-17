@@ -50,15 +50,46 @@ export interface InstalledFile {
   readonly created: boolean;
 }
 
-const readJsonObject = (path: string): JsonObject => {
+/**
+ * What a read of one of these files found. The third state is the one the
+ * installs turn on: a file that exists but is not strict JSON — a comment, a
+ * trailing comma, an array — is a file we cannot merge into, and merging onto
+ * the `{}` a failed parse would otherwise yield replaces everything in it.
+ */
+type JsonState =
+  | { readonly kind: "absent" }
+  | { readonly kind: "object"; readonly value: JsonObject }
+  | { readonly kind: "unreadable" };
+
+const readJsonState = (path: string): JsonState => {
+  let raw: string;
   try {
-    const parsed: unknown = JSON.parse(NodeFS.readFileSync(path, "utf8"));
-    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
-      ? (parsed as JsonObject)
-      : {};
+    raw = NodeFS.readFileSync(path, "utf8");
   } catch {
-    return {};
+    return { kind: "absent" };
   }
+  // An empty file has nothing in it to lose, so it merges like an absent one.
+  if (raw.trim() === "") {
+    return { kind: "object", value: {} };
+  }
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+      ? { kind: "object", value: parsed as JsonObject }
+      : { kind: "unreadable" };
+  } catch {
+    return { kind: "unreadable" };
+  }
+};
+
+/**
+ * The object the file holds, or `{}` when it is absent or unreadable. Only the
+ * removal paths use this: they either write nothing (nothing of ours is in a
+ * file we cannot read) or are hash-guarded against the bytes we wrote.
+ */
+const readJsonObject = (path: string): JsonObject => {
+  const state = readJsonState(path);
+  return state.kind === "object" ? state.value : {};
 };
 
 const hashOf = (content: string): string =>
@@ -227,15 +258,23 @@ const revert = (installed: InstalledFile, next: JsonObject): void => {
 /**
  * Ensures `settings.local.json` contains our PreToolUse hook block. Idempotent:
  * our previous commands are replaced, the user's are preserved.
+ *
+ * `null` means the file was left untouched because it does not parse — the
+ * caller warns and runs without the hook rather than overwrite a settings file
+ * whose permissions lists we cannot read back.
  */
 export const installProjectHooks = (
   projectRoot: string,
   hookPath: string = hookScriptPath(),
-): Effect.Effect<InstalledFile> =>
+): Effect.Effect<InstalledFile | null> =>
   Effect.sync(() => {
     const path = settingsLocalPath(projectRoot);
-    const fresh = currentHash(path) === null;
-    const settings = readJsonObject(path);
+    const state = readJsonState(path);
+    if (state.kind === "unreadable") {
+      return null;
+    }
+    const fresh = state.kind === "absent";
+    const settings = state.kind === "object" ? state.value : {};
     const hooks = { ...(settings.hooks as JsonObject | undefined) };
     const existing = hooks.PreToolUse;
     const kept = stripOurs(Array.isArray(existing) ? existing : [], hookPath);
@@ -292,16 +331,23 @@ export const uninstallProjectHooks = (
  * Upserts the `openade` server in the project's local `mcp.json`, preserving
  * every other server and every other key. The bearer is written as the
  * `${OPENADE_MCP_TOKEN}` env reference the harness resolves at launch.
+ *
+ * `null` when the file does not parse — the user's other servers are not ours
+ * to drop, so nothing is written and the caller warns instead.
  */
 export const upsertMcpEntry = (
   projectRoot: string,
   endpoint: { readonly url: string },
   home?: string,
-): Effect.Effect<InstalledFile> =>
+): Effect.Effect<InstalledFile | null> =>
   Effect.sync(() => {
     const path = mcpPath(projectRoot, home);
-    const fresh = currentHash(path) === null;
-    const config = readJsonObject(path);
+    const state = readJsonState(path);
+    if (state.kind === "unreadable") {
+      return null;
+    }
+    const fresh = state.kind === "absent";
+    const config = state.kind === "object" ? state.value : {};
     const servers = { ...(config.mcpServers as JsonObject | undefined) };
     servers[OPENADE_MCP_NAME] = {
       transport: "http",
