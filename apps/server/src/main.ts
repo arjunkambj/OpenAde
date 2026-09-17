@@ -11,11 +11,8 @@
 import { createServer } from "node:http";
 import { NodeHttpServer } from "@effect/platform-node";
 import { cmdConnectorDefinition } from "@OpenAde/connector-cmd/definition";
-import type { ConnectorServices } from "@OpenAde/connector-sdk/definition";
 import { eraseConnectorDefinition } from "@OpenAde/connector-sdk/definition";
 import { makeRegistry } from "@OpenAde/connector-sdk/registry";
-import { makeConnectorInstanceId } from "@OpenAde/contracts/ids";
-import type { ConnectorInstanceConfig } from "@OpenAde/contracts/settings";
 import { uuidV7 } from "@OpenAde/shared/ids";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -144,21 +141,24 @@ const main = Effect.gen(function* () {
   const port =
     typeof address === "object" && address !== null && "port" in address ? address.port : PORT;
 
-  // ── Connectors: the services bag + one instance per settings entry ──
+  // ── Connectors: the endpoints only the running app can supply ──
   //
-  // `SessionServices` already carries the gateway's per-thread MCP endpoint,
-  // the attachments directory, the logger and the clock. Two fields only the
-  // running app can supply are layered on top: the hook bridge's own endpoint
-  // and handler registry, and a permission ladder that resolves the thread's
-  // project before it decides.
+  // `ConnectorManager` owns the connector lifecycle — seeding a fresh install,
+  // probing, and opening one instance per enabled settings entry — and it does
+  // that while the layer graph is built, before the pieces below exist. So the
+  // services object it already handed those instances is `ConnectorHost`'s
+  // façade, and this fills it in: the gateway's per-thread MCP endpoint, the
+  // hook bridge's endpoint and handler registry, and a permission ladder that
+  // resolves the thread's project before it decides. It runs before the
+  // handshake, so no client can start a session against a half-wired host.
   const bridge = Context.get(appContext, HookBridge);
   const engineService = Context.get(appContext, OrchestrationEngine);
   const permissionService = Context.get(servicesContext, PermissionService);
-  const settingsStore = Context.get(servicesContext, SettingsStore);
   const sessionBundle = Context.get(servicesContext, SessionServices);
+  const connectorHost = Context.get(servicesContext, ConnectorHost);
 
-  const connectorServices: ConnectorServices = {
-    ...sessionBundle,
+  yield* connectorHost.install({
+    mcpEndpoint: sessionBundle.mcpEndpoint,
     hookEndpoint: (threadId) => bridge.endpointFor(threadId),
     registerHookHandler: (threadId, handler) => bridge.register(threadId, handler),
     unregisterHookHandler: (threadId) => bridge.unregister(threadId),
@@ -182,46 +182,7 @@ const main = Effect.gen(function* () {
           ),
         ),
     },
-  };
-
-  // A fresh install has no connectors configured: open one "cmd" instance and
-  // persist it, so threads keep routing to the same instance id across restarts.
-  const settings = yield* settingsStore.get;
-  let entries = settings.connectors.filter((entry) => entry.enabled);
-  if (settings.connectors.length === 0) {
-    const entry: ConnectorInstanceConfig = {
-      connectorInstanceId: makeConnectorInstanceId(),
-      kind: "cmd",
-      displayName: "Command Code",
-      enabled: true,
-      config: {},
-    };
-    yield* settingsStore
-      .update({ connectors: [entry] })
-      .pipe(
-        Effect.catch((error) =>
-          Effect.logWarning("could not persist the default connector instance", error),
-        ),
-      );
-    entries = [entry];
-  }
-  for (const entry of entries) {
-    yield* registry
-      .open({
-        instanceId: entry.connectorInstanceId,
-        kind: entry.kind,
-        config: entry.config ?? {},
-        services: connectorServices,
-      })
-      .pipe(
-        Effect.catch((error) =>
-          Effect.logWarning(
-            `connector instance ${entry.connectorInstanceId} failed to open`,
-            error,
-          ),
-        ),
-      );
-  }
+  });
 
   yield* writeHandshake(
     { url: `ws://127.0.0.1:${port}/ws`, token, serverInstanceId },
