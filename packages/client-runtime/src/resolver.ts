@@ -31,10 +31,16 @@ export interface BrowserPaneGuestInput {
  * is null until the server is up and whenever it is being replaced, and it
  * carries the new port, token and boot id once a restart lands — which is how
  * the renderer reconnects without reloading the window.
+ *
+ * It is optional because the shipping preload does not send it yet: a build
+ * that pushes `{ status }` alone would otherwise arrive here as an object
+ * whose declared-non-null `connection` is `undefined`, and a reader doing
+ * `connection === null` would take a server with no connection for one that
+ * has it. Read it as `connection ?? null`.
  */
 export interface DesktopServerState {
   readonly status: "starting" | "ready" | "restarting" | "failed";
-  readonly connection: ResolvedConnection | null;
+  readonly connection?: ResolvedConnection | null;
 }
 
 declare global {
@@ -84,8 +90,9 @@ const fromPreload = async (): Promise<ResolvedConnection | null> => {
   const bridge = window.openade;
   if (bridge?.getServerState !== undefined) {
     const state = await bridge.getServerState();
-    if (state.connection !== null) {
-      return state.connection;
+    const connection = state.connection ?? null;
+    if (connection !== null) {
+      return connection;
     }
   }
   if (bridge?.getConnection === undefined) {

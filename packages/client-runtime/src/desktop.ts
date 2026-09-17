@@ -28,12 +28,22 @@ export const desktopServerStateAtom = Atom.make<DesktopServerState | null>((get)
   if (openade?.onServerState === undefined) {
     return null;
   }
-  get.addFinalizer(openade.onServerState((state) => get.setSelf(state)));
+  let mounted = true;
+  const unsubscribe = openade.onServerState((state) => get.setSelf(state));
+  get.addFinalizer(() => {
+    mounted = false;
+    unsubscribe();
+  });
   if (openade.getServerState !== undefined) {
     // The subscription only pushes transitions, so the current value has to be
-    // asked for. A preload that throws here just leaves the atom at null.
+    // asked for. A preload that throws here just leaves the atom at null, and
+    // an unmount that wins the race must not write into a dead node.
     void Promise.resolve(openade.getServerState())
-      .then((state) => get.setSelf(state))
+      .then((state) => {
+        if (mounted) {
+          get.setSelf(state);
+        }
+      })
       .catch(() => undefined);
   }
   return null;
