@@ -152,7 +152,18 @@ export const makeSqlite = (
     const compiler = Statement.makeCompilerSqlite();
     const semaphore = yield* Semaphore.make(1);
     const connection = yield* makeConnection(config);
-    const acquirer = semaphore.withPermits(1)(Effect.succeed(connection));
+    // Scoped, so the permit is held for as long as the statement the connection
+    // was handed to runs — `SqlClient` resolves a non-transactional statement's
+    // connection through this acquirer and executes inside that scope.
+    // `withPermits(1)(Effect.succeed(connection))` released it immediately,
+    // which left a gap between the waiting fiber being resumed and its
+    // `statement.all(...)` actually running: another fiber could take the freed
+    // permit and BEGIN in it, and the waiting statement then executed inside
+    // someone else's open transaction — reading its uncommitted writes, or
+    // having its own write rolled back with it.
+    const acquirer = Effect.acquireRelease(Effect.as(semaphore.take(1), connection), () =>
+      semaphore.release(1),
+    );
     const transactionAcquirer = Effect.uninterruptibleMask((restore) =>
       Effect.as(
         Effect.andThen(
