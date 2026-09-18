@@ -18,7 +18,6 @@ import type { ConnectorInstanceId, ProjectId, ThreadId } from "@OpenAde/contract
 import type {
   ThreadSummary,
   Command,
-  ProjectSummary,
   ThreadListStreamItem,
   ThreadStreamItem,
 } from "@OpenAde/contracts/orchestration";
@@ -217,6 +216,16 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
     { initialValue: { status: "connecting" as const, serverInstanceId: null } },
   );
 
+  /**
+   * Deliberately unseeded. An atom over a stream is `waiting` for as long as
+   * the stream is open, which for a connection-scoped read model is forever —
+   * so `waiting` cannot tell "has not answered" from "answered, and still
+   * listening". With an `initialValue` of `[]` the atom reads as a *successful
+   * empty list* from the first frame, and the first-run redirect on `/` could
+   * not tell that apart from an install with no projects. Without one,
+   * `Initial` means exactly "the server has not answered yet". Every reader
+   * already falls back to `[]` for a non-success.
+   */
   const projectsAtom = runtime.atom(
     perConnection(
       Effect.gen(function* () {
@@ -224,7 +233,6 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
         return yield* client["projects.list"]({});
       }),
     ),
-    { initialValue: [] as ReadonlyArray<ProjectSummary> },
   );
 
   const connectorsAtom = runtime.atom(

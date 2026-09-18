@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect/atom-react";
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { AsyncResult } from "effect/unstable/reactivity";
 
+import { shouldOfferFirstRun } from "@/components/welcome/first-run";
 import { StartThread } from "@/components/thread/start-thread";
 import { useAppAtoms } from "@/lib/app-runtime";
 
@@ -13,10 +13,8 @@ function HomePage() {
   const atoms = useAppAtoms();
   const projects = useAtomValue(atoms.projectsAtom);
   // A fresh install has nothing to chat in — the welcome flow creates one.
-  // `projectsAtom` is seeded with `[]`, so it reads as a successful empty list
-  // from the first frame: without the `waiting` check every cold load bounced
-  // to /welcome before `projects.list` had answered, projects or not.
-  if (AsyncResult.isSuccess(projects) && !projects.waiting && projects.value.length === 0) {
+  // `shouldOfferFirstRun` carries the rule and why it is not `waiting`.
+  if (shouldOfferFirstRun(projects)) {
     return <Navigate to="/welcome" />;
   }
   return <StartThread />;

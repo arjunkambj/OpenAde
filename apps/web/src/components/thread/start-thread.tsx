@@ -4,9 +4,14 @@
  * There is no such thing as a thread without a project, so the screen is a
  * project pick — one click per project, dispatching the same `thread.create`
  * the sidebar button does and landing on the new thread. With no server it
- * says so and points at /welcome, which is the connection diagnostic; with a
- * server and no projects the route redirects to /welcome instead of rendering
- * this at all.
+ * says so and points at /welcome, which is the connection diagnostic.
+ *
+ * With a server and no projects the route redirects to /welcome, but this
+ * screen still carries its own empty state: that redirect was dead code for a
+ * whole wave, and what a fresh install got instead was this page with a
+ * heading, a subtitle about picking a project, and nothing to pick — no link,
+ * no add action, no way forward at all. The empty state below is what makes
+ * that a recoverable screen rather than a dead end.
  */
 
 import { Link } from "@tanstack/react-router";
@@ -61,19 +66,39 @@ export function StartThread() {
   const threadCount = (project: ProjectSummary): number =>
     threads.filter((thread) => thread.projectId === project.projectId).length;
 
+  const empty = connected && projects.length === 0;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-10">
       <div className="flex w-full max-w-lg flex-col gap-5">
         <div className="flex flex-col gap-1.5 text-center">
-          <h1 className="text-base font-medium text-foreground">Start a thread</h1>
+          <h1 className="text-base font-medium text-foreground">
+            {empty ? "No projects yet" : "Start a thread"}
+          </h1>
           <p className="type-body text-muted-foreground">
-            {connected
-              ? "Pick the project to work in. Everything the thread does happens in its workspace root."
-              : "No server is connected, so there is nothing to start a thread on yet."}
+            {!connected
+              ? "No server is connected, so there is nothing to start a thread on yet."
+              : empty
+                ? "A thread belongs to a project — a directory on this machine the agent works in. Add one to start."
+                : "Pick the project to work in. Everything the thread does happens in its workspace root."}
           </p>
         </div>
 
-        {connected ? (
+        {!connected ? (
+          <div className="flex justify-center">
+            <Button type="button" variant="outline" render={<Link to="/welcome" />}>
+              <Icon icon="hugeicons:wifi-off-01" className="size-4" />
+              Connection details
+            </Button>
+          </div>
+        ) : empty ? (
+          <div className="flex justify-center">
+            <Button type="button" render={<Link to="/welcome" />}>
+              <Icon icon="hugeicons:folder-add" className="size-4" />
+              Add a project
+            </Button>
+          </div>
+        ) : (
           <div className="flex flex-col gap-1.5">
             {projects.map((project) => (
               <ProjectRow
@@ -84,13 +109,6 @@ export function StartThread() {
                 onPick={() => void create(project.projectId)}
               />
             ))}
-          </div>
-        ) : (
-          <div className="flex justify-center">
-            <Button type="button" variant="outline" render={<Link to="/welcome" />}>
-              <Icon icon="hugeicons:wifi-off-01" className="size-4" />
-              Connection details
-            </Button>
           </div>
         )}
       </div>
