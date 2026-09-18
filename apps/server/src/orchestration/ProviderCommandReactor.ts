@@ -104,7 +104,7 @@ export const ProviderCommandReactor = Layer.effectDiscard(
         ...patch,
       });
 
-    const dispatchTurn = (threadId: ThreadId, input: TurnInput) =>
+    const dispatchTurn = (threadId: ThreadId, input: TurnInput, queued = false) =>
       engine.dispatch({
         commandId: makeCommandId(),
         createdAt: new Date().toISOString(),
@@ -113,7 +113,7 @@ export const ProviderCommandReactor = Layer.effectDiscard(
         text: input.text,
         attachments: input.attachments,
         mentions: input.mentions,
-        queued: false,
+        queued,
       });
 
     /** Records a hard failure and, mid-turn, settles the turn. */
@@ -364,7 +364,31 @@ export const ProviderCommandReactor = Layer.effectDiscard(
             // The queued message carries the composer's whole input —
             // redispatching just the text would silently drop its
             // attachments and mentions.
-            yield* dispatchTurn(threadId, next);
+            //
+            // `queued: true`, and the receipt is read. The dequeue above has
+            // already committed, so anything that makes the decider refuse this
+            // command in the gap — a sibling thread starting a checkpoint
+            // restore, the user archiving the thread, a send of their own that
+            // wins the write mutex — destroyed the message: out of the strip,
+            // never sent, nowhere to recover the text from. Queueing instead of
+            // refusing covers the "a turn is already running" case outright,
+            // and a refusal for any other reason puts the message back where
+            // the user can still see and resend it.
+            const receipt = yield* dispatchTurn(threadId, next, true);
+            if (receipt.status === "rejected") {
+              yield* engine.appendThreadEvents(threadId, [
+                systemEvent(
+                  threadId,
+                  "thread.message.queued",
+                  { message: next },
+                  new Date().toISOString(),
+                  event.eventId,
+                ),
+              ]);
+              yield* Effect.logWarning(
+                `queue drain re-queued a message for ${threadId}: ${receipt.reason ?? "rejected"}`,
+              );
+            }
             return;
           }
 

@@ -4,12 +4,14 @@ import * as NodePath from "node:path";
 
 import { describe, expect, it } from "@effect/vitest";
 import {
+  makeCheckpointId,
   makeCommandId,
   makeEventId,
   makeConnectorInstanceId,
   makeItemId,
   makeProjectId,
   makeThreadId,
+  makeTurnId,
 } from "@OpenAde/contracts/ids";
 import type { Command, OrchestrationEvent } from "@OpenAde/contracts/orchestration";
 import type { ConnectorInstance, ConnectorServices } from "@OpenAde/connector-sdk/definition";
@@ -438,6 +440,64 @@ describe("orchestration with a fake connector", () => {
       const drained = sends.find((call) => call.detail.text === "second");
       expect(drained?.detail.attachments).toEqual(attachments);
       expect(drained?.detail.mentions).toEqual(mentions);
+    }),
+  );
+
+  it.effect("a drained message the decider refuses goes back into the queue", () =>
+    Effect.gen(function* () {
+      // The dequeue commits in its own transaction and the turn is dispatched
+      // in a second one. Anything that makes the decider refuse that command in
+      // the gap used to destroy the message outright: gone from the strip,
+      // never sent, and nothing anywhere holding the text the user typed. A
+      // `restoring` thread is the deterministic version of that window.
+      const { instance } = yield* openFake({ script: approvalTurnScript });
+      yield* Effect.gen(function* () {
+        const engine = yield* OrchestrationEngine;
+        yield* engine.dispatch(createProject);
+        yield* engine.dispatch(createThread);
+
+        const opened = yield* awaitEvent(engine, isType("thread.approval.opened"));
+        yield* engine.dispatch(turnStart("first"));
+        yield* Fiber.join(opened);
+
+        yield* engine.dispatch(turnStart("second", true));
+        expect((yield* engine.threadDetail(threadId))?.queue).toHaveLength(1);
+
+        // Straight onto the log, because the decider refuses a restore while a
+        // turn runs — which is the point: the flag flips under the drain.
+        yield* engine.appendThreadEvents(threadId, [
+          {
+            eventId: makeEventId(),
+            streamKind: "thread",
+            streamId: threadId,
+            occurredAt: NOW,
+            actor: "system",
+            type: "thread.checkpoint.restore.requested",
+            payload: {
+              checkpoint: {
+                checkpointId: makeCheckpointId(),
+                turnId: makeTurnId(),
+                ref: "refs/openade/checkpoints/one",
+                createdAt: NOW,
+              },
+            },
+          } as PlannedEvent,
+        ]);
+
+        const requeued = yield* awaitEvent(engine, isType("thread.message.queued"));
+        yield* engine.dispatch({
+          commandId: makeCommandId(),
+          createdAt: NOW,
+          type: "thread.approval.respond",
+          threadId,
+          requestId: (yield* engine.threadDetail(threadId))!.pendingApproval!.requestId,
+          decision: "allow-once",
+        });
+        yield* Fiber.join(requeued);
+
+        const after = yield* engine.threadDetail(threadId);
+        expect(after?.queue.map((message) => message.text)).toEqual(["second"]);
+      }).pipe(Effect.provide(stackLayer({ instance, checkpoints: false, supervisor: false })));
     }),
   );
 

@@ -62,6 +62,12 @@ export interface StackOptions {
   readonly instance: ConnectorInstance;
   /** `false` skips the supervisor; otherwise its options (defaults: no backoff sleep). */
   readonly supervisor?: SupervisorOptions | false;
+  /**
+   * `false` leaves the checkpoint reactor out — for a test that appends a
+   * `thread.checkpoint.restore.requested` itself, to put a thread in the
+   * `restoring` state, and does not want git work racing it.
+   */
+  readonly checkpoints?: boolean;
   /** Where the log lives. Defaults to a fresh in-memory database. */
   readonly persistence?: PersistenceLayer;
 }
@@ -82,7 +88,7 @@ export const stackLayer = (
   const manager = SessionManager.layer.pipe(Layer.provide(Layer.mergeAll(engine, selection)));
   const reactors = Layer.mergeAll(
     ProviderCommandReactor,
-    CheckpointReactor,
+    options.checkpoints === false ? Layer.empty : CheckpointReactor,
     options.supervisor === false
       ? Layer.empty
       : makeSessionSupervisor(options.supervisor ?? { baseDelayMillis: 0 }),
