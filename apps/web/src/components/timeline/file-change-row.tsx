@@ -6,6 +6,7 @@
 import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
 
 import { InlineDiff } from "@/components/timeline/diff-pool";
+import { fileChangeFallbackLabel } from "@/components/timeline/file-change";
 import { DisclosureRow } from "@/components/timeline/row-shell";
 import { diffStats } from "@/lib/diff-stats";
 import { cn } from "@/lib/utils";
@@ -31,8 +32,19 @@ function DiffCount({ diff }: { diff: string }) {
 
 export function FileChangeRow({ item }: { item: ItemSnapshot }) {
   const fileChange = item.fileChange;
+  // `fileChange` is optional on the contract, so a connector can emit the item
+  // with nothing but its text. Returning null there dropped the row out of the
+  // transcript while the enclosing work group still counted it as a tool call
+  // — every other row kind falls back to `item.text`, and so does this one.
   if (fileChange === undefined) {
-    return null;
+    return (
+      <DisclosureRow
+        rowId={item.itemId}
+        icon="hugeicons:file-edit"
+        label={<span className="font-mono text-xs">{fileChangeFallbackLabel(item.text)}</span>}
+        status={item.status}
+      />
+    );
   }
   const diff = fileChange.diff;
   return (
