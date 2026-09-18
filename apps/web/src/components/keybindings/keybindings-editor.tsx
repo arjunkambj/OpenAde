@@ -109,8 +109,10 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
   return (
     <TooltipProvider>
       <section className={cn("flex min-w-0 flex-col gap-2", className)} aria-label="Keybindings">
+        {/* No heading of its own: the page above it names the section, and the
+            `aria-label` on the section covers the dev fixture that mounts it
+            without one. */}
         <div className="flex items-center gap-2">
-          <h2 className="text-sm font-medium">Keybindings</h2>
           <span className="ml-auto flex items-center gap-2">
             {dirty ? <span className="text-xs text-muted-foreground">unsaved</span> : null}
             <Button

@@ -191,7 +191,7 @@ export function KeyValueInput({
  * the point of use. Escape alone records `Escape` (it is a real binding);
  * Backspace clears.
  */
-export function ShortcutInput({
+function ShortcutInput({
   value,
   onChange,
 }: {

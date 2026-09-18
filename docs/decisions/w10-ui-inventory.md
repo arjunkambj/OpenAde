@@ -180,7 +180,7 @@ section 11, not an oversight.
 | Connectors: schema-driven form + probe details      | real       | `components/Settings/connectors-panel.tsx`, `schema-form.tsx` |
 | MCP servers                                         | real       | `components/Settings/mcp-panel.tsx`, `mcp-server-dialog.tsx`  |
 | Skills                                              | real       | `components/Settings/skills-panel.tsx`                        |
-| Keybindings                                         | real       | `components/keybindings/*`                                    |
+| Keybindings                                         | real       | `routes/settings/keybindings.tsx` → `components/keybindings/*` |
 | Appearance: system / light / dark                   | real       | `components/Settings/theme-cards.tsx`                         |
 | Closed `<Select>` shows its label                   | fixed here | `components/Settings/select-label.ts`                         |
 | Shell shortcuts on settings routes                  | fixed here | `components/Layout/settings-layout.tsx`                       |
@@ -195,7 +195,15 @@ exists only because a select item cannot hold `null`.
 
 `SearchProvider` claims the thread-independent half of the keybinding table, and
 it was mounted only inside `HomeLayout`, so Cmd+K, Cmd+N and Cmd+, did nothing
-on any `/settings/*` route.
+on any `/settings/*` route. It is now mounted once, above the routes: the
+settings shell mounted a second copy for a while, and two providers claiming
+one command id between them left those chords dead everywhere after the first
+visit to Settings.
+
+The Keybindings row means the editor under `components/keybindings/` — the one
+with conflict flagging, per-row reset and a Save/Revert draft. `/settings/keybindings`
+mounted a smaller panel for a while, and the reviewed editor was reachable only
+from the DEV-only composer fixture, which the packaged app does not carry.
 
 ## Guardrails
 
