@@ -354,8 +354,8 @@ the timeout keeps that from wedging the pump.
 
 ### The stdout line cap
 
-`makeLineSplitter` holds at most `MAX_LINE_CHARS` = 32 MiB of unterminated
-line. Most frames are a couple of kilobytes, but `run_end` is not: it carries
+`makeLineSplitter` holds at most `MAX_LINE_CHARS` = 33,554,432 characters of
+unterminated line. Most frames are a couple of kilobytes, but `run_end` is not: it carries
 `result.nextState.messages`, the whole conversation with its content blocks,
 and `packages/testkit/fixtures/cmd/image/` shows those include a base64 image
 block. Every later turn of a session replays that history, so once a screenshot

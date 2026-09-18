@@ -195,7 +195,7 @@ The renderer. TanStack Router routes under `apps/web/src/routes`, state through
 | --------------------------------- | ---------------------------------------------------------- |
 | `_home/index`                     | start a thread, pick a project                             |
 | `_home/t/$threadId`               | the thread view; `?pane=` carries the dock tab             |
-| `settings` + 5 pages              | general, connectors, mcp, skills, keybindings, appearance  |
+| `settings`, six pages             | general, connectors, MCP, skills, keybindings, appearance  |
 | `welcome`                         | first run: folder, connector probe, project create         |
 | `browser.$threadId`               | the marker page the browser pane's `<webview>` guest loads |
 | `dev/{timeline,composer,changes}` | fixture pages, DEV only                                    |

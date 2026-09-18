@@ -179,9 +179,9 @@ outside the engine writes durable state.
 
 `apps/server/src/permissions/PermissionService.ts` is one ladder, evaluated in
 order: a `deny` rule, then plan mode (read-only), then a sensitive path, then an
-`allow` rule, then reads, then the thread's runtime mode. The six steps and what
-each answers are in
-[architecture.md](architecture.md#permissions); two of them are the principle.
+`allow` rule, then reads, then the thread's runtime mode. What each step answers
+is in [architecture.md](architecture.md#permissions). One rung is the whole
+principle.
 
 **Ask outranks allow.** The sensitive-path check sits _above_ every remembered
 `allow` and above `full-access`, because full access means everything except
