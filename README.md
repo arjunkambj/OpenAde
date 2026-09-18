@@ -1,103 +1,77 @@
 # OpenAde
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines React, TanStack Router, and more.
+OpenAde is a desktop application that drives an agentic coding CLI and gives it
+a real interface. It does not contain an agent: it spawns the Command Code CLI
+(`cmd`) that you already have installed, watches everything that run does, and
+turns it into a sidebar of projects and threads, a streaming timeline, approval
+cards you answer before a tool runs, a diff pane, a browser the agent can drive
+and you can take over, and settings that edit real files. Nothing above the
+connector boundary knows which CLI is running, so a second harness is a package
+rather than a rewrite.
 
-## Features
+## Requirements
 
-- **TypeScript** - For type safety and improved developer experience
-- **TanStack Router** - File-based routing with full type safety
-- **TailwindCSS** - Utility-first CSS for rapid UI development
-- **Shared UI package** - shadcn/ui primitives live in `packages/ui`
-- **Turborepo** - Optimized monorepo build system
-- **Oxlint** - Oxlint + Oxfmt (linting & formatting)
-- **Electron** - Cross-platform desktop shell for the web frontend
+| Thing            | Version                     |
+| ---------------- | --------------------------- |
+| Node             | `>=22.16`                   |
+| pnpm             | `11.21.0`, via `corepack`   |
+| Command Code CLI | whatever you have installed |
+| git              | any, for checkpoints        |
 
-## Getting Started
+`agent-browser` is optional: without it the browser pane shows an install
+prompt and everything else works.
 
-First, install the dependencies:
+## Install and run
 
-```bash
+```sh
+corepack enable
 pnpm install
-```
-
-Then, run the development server:
-
-```bash
 pnpm dev
 ```
 
-Open [http://localhost:3001](http://localhost:3001) in your browser to see the web application.
+`pnpm dev` starts the Vite dev server, bundles the Electron main and preload
+processes in watch mode, and opens the desktop app; the app spawns and
+supervises the server itself. Log in to the CLI once with `cmd login` — the
+first screen probes it and says so if it cannot.
 
-## UI Customization
+To run the renderer in a browser tab instead, start the server on its own with
+`pnpm -F server dev` and the web app with `pnpm dev:web`.
 
-React web apps in this stack share shadcn/ui primitives through `packages/ui`.
+## The gate
 
-- Change design tokens and global styles in `packages/ui/src/styles/globals.css`
-- Update shared primitives in `packages/ui/src/components/*`
-- Adjust shadcn aliases or style config in `packages/ui/components.json` and `apps/web/components.json`
-
-### Add more shared components
-
-Run this from the project root to add more primitives to the shared UI package:
-
-```bash
-npx shadcn@latest add accordion dialog popover sheet table -c packages/ui
+```sh
+pnpm check
 ```
 
-Import shared components like this:
+Lint, format, types, tests, package boundaries, file sizes and dead code, in
+that order — the same command CI runs on Linux and macOS. `pnpm build` produces
+the server bundle, the web assets and a packaged desktop app.
 
-```tsx
-import { Button } from "@OpenAde/ui/components/button";
-```
+## A tour
 
-### Add app-specific blocks
+- **Sidebar** — projects, their threads, status and an unread dot.
+- **Timeline** — the answer as it streams, with a row per tool call: commands,
+  file changes with inline diffs, searches, skills, subagent tasks. Finished
+  work folds into one "Worked for Ns · N tools" line.
+- **Composer** — `/` for model, effort, mode, plan and the project's skills,
+  `@` to attach a file, images by paste or drop, `Cmd+Enter` to queue a message
+  while a turn is running.
+- **Cards** — an approval card before a gated tool call (allow once, for the
+  session, always with an editable pattern, or deny), a question card when the
+  model asks something, a plan card to accept or revise.
+- **Right dock** — changes (diffs per turn, with checkpoint restore), browser
+  (the page the agent is driving, which you can take over mid-call), files.
+- **Settings** — connectors, MCP servers, skills, keybindings, appearance,
+  written to the CLI's own config files with our entries marked as ours.
 
-If you want to add app-specific blocks instead of shared primitives, run the shadcn CLI from `apps/web`.
+## Documentation
 
-## Git Hooks and Formatting
+| Document                                                         | What it answers                                          |
+| ---------------------------------------------------------------- | -------------------------------------------------------- |
+| [docs/architecture.md](docs/architecture.md)                     | What the pieces are and how they connect                 |
+| [docs/how-it-works.md](docs/how-it-works.md)                     | What happens at runtime, from boot to shutdown           |
+| [docs/philosophy.md](docs/philosophy.md)                         | The rules the code keeps, and where each one is enforced |
+| [docs/development.md](docs/development.md)                       | Running, testing, checking and packaging it              |
+| [docs/command-code-connector.md](docs/command-code-connector.md) | What the `cmd` CLI actually does, as recorded            |
 
-- Run checks: `pnpm check`
-
-## Project Structure
-
-```
-OpenAde/
-├── apps/
-│   ├── web/         # Frontend application (React + TanStack Router)
-│   ├── desktop/     # Electron shell (main + preload, packages the web build)
-├── packages/
-│   ├── ui/          # Shared shadcn/ui components and styles
-```
-
-## Available Scripts
-
-- `pnpm dev`: Start the desktop app with the web dev server (HMR)
-- `pnpm build`: Build all applications
-- `pnpm dev:web`: Start only the web application
-- `pnpm check-types`: Check TypeScript types across all apps
-- `pnpm check`: Run Oxlint and Oxfmt
-- `pnpm dev:desktop`: Start the Electron desktop app with HMR
-- `pnpm build:desktop`: Package the stable Electron desktop app
-- `pnpm build:desktop:canary`: Package the canary Electron desktop app
-
-## Desktop App
-
-`apps/desktop` is an Electron shell around the `apps/web` build.
-
-- `src/main/index.ts`: main process — window, custom `openade://app/` scheme that serves
-  the built web app (with SPA fallback so the router keeps working)
-- `src/preload/index.ts`: sandboxed preload that flags the renderer with
-  `data-desktop` / `data-desktop-mac`
-- `src/platform/`: everything that branches on OS or build channel, run before
-  `app.whenReady`. It reads `<config dir>/desktop.json` (`~/.openade/desktop.json`,
-  moved by `OPENADE_HOME`): `{ "browserPane": true }` turns on the in-app browser
-  pane, which is what makes Chromium open a loopback remote-debugging port. Off by
-  default — the server then drives its own Chromium instead.
-- `scripts/build.mjs`: bundles main + preload with esbuild and copies `apps/web/dist`
-  into `out/renderer`
-- `scripts/dev.mjs`: esbuild watch that restarts Electron and points it at the Vite dev
-  server via `ELECTRON_RENDERER_URL`
-- `electron-builder.config.cjs`: packaging config; `BUILD_CHANNEL=canary` switches the
-  app id, product name, and output directory. The same channel is bundled into the
-  app, so the running canary names itself the way its installer did and keeps its
-  own userData.
+[docs/README.md](docs/README.md) is the same index, one line per document.
