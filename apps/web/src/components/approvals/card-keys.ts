@@ -92,7 +92,7 @@ export const planCardKey = (context: CardKeyContext): PlanResponseAction | null 
 };
 
 /** A target where `1`, `2`, `3` and `d` are text the user is typing. */
-export const isEditableTarget = (target: EventTarget | null): boolean =>
+const isEditableTarget = (target: EventTarget | null): boolean =>
   target instanceof HTMLElement &&
   (target.tagName === "INPUT" ||
     target.tagName === "TEXTAREA" ||
