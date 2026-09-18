@@ -244,6 +244,64 @@ export class SessionManager extends Context.Service<
           }),
         );
 
+      /** Stops one session: the handle first, then its drain, then its scope. */
+      const closeSession = (threadId: ThreadId): Effect.Effect<void> =>
+        Effect.uninterruptible(
+          Effect.gen(function* () {
+            const all = yield* Ref.get(drivers);
+            const driver = all.get(threadId);
+            if (driver === undefined) {
+              return;
+            }
+            yield* Ref.set(driver.alive, false);
+            yield* Ref.update(drivers, (map) => {
+              const next = new Map(map);
+              next.delete(threadId);
+              return next;
+            });
+            // Close the handle first so the connector emits `session.ended`,
+            // then wait for the ingestion fiber to drain it — its `ensuring`
+            // reports the real reason. Closing the scope first would
+            // interrupt the drain mid-flight and report `crashed`, and the
+            // supervisor would resurrect a session we deliberately stopped.
+            yield* driver.handle
+              .close()
+              .pipe(Effect.catch((error) => Effect.logWarning("session close failed", error)));
+            yield* Fiber.await(driver.fiber).pipe(
+              Effect.timeoutOrElse({
+                // A connector that keeps its event stream open after close
+                // must not wedge the caller — the scope close below cuts the
+                // drain off and reports `crashed`, which is what an undead
+                // stream genuinely means.
+                duration: Duration.seconds(5),
+                orElse: () =>
+                  Effect.logWarning("session event stream outlived close; interrupting it"),
+              }),
+            );
+            yield* Scope.close(driver.scope, Exit.succeed(undefined));
+          }),
+        );
+
+      /**
+       * Every open session goes down with the manager.
+       *
+       * A session's driver scope is free-standing — `Scope.make()`, not a
+       * child of this layer's — because a session outlives the command that
+       * started it and is closed by `close(threadId)`. Nothing closed the ones
+       * still open when the server itself stopped, so their finalizers never
+       * ran: the child process was left behind, and so were the two files the
+       * connector puts in the user's Command Code config. An `openade` MCP
+       * entry naming a port nothing is listening on is worse than none, and it
+       * accumulated one per session, forever.
+       */
+      yield* Effect.addFinalizer(() =>
+        Ref.get(drivers).pipe(
+          Effect.flatMap((all) =>
+            Effect.forEach(all.keys(), (threadId) => closeSession(threadId), { discard: true }),
+          ),
+        ),
+      );
+
       return SessionManager.of({
         handleFor: (threadId) =>
           Effect.gen(function* () {
@@ -254,42 +312,7 @@ export class SessionManager extends Context.Service<
             return driver.handle;
           }),
         ensure: (doc, projectWorkspaceRoot) => attach(doc, projectWorkspaceRoot),
-        close: (threadId) =>
-          Effect.uninterruptible(
-            Effect.gen(function* () {
-              const all = yield* Ref.get(drivers);
-              const driver = all.get(threadId);
-              if (driver === undefined) {
-                return;
-              }
-              yield* Ref.set(driver.alive, false);
-              yield* Ref.update(drivers, (map) => {
-                const next = new Map(map);
-                next.delete(threadId);
-                return next;
-              });
-              // Close the handle first so the connector emits `session.ended`,
-              // then wait for the ingestion fiber to drain it — its `ensuring`
-              // reports the real reason. Closing the scope first would
-              // interrupt the drain mid-flight and report `crashed`, and the
-              // supervisor would resurrect a session we deliberately stopped.
-              yield* driver.handle
-                .close()
-                .pipe(Effect.catch((error) => Effect.logWarning("session close failed", error)));
-              yield* Fiber.await(driver.fiber).pipe(
-                Effect.timeoutOrElse({
-                  // A connector that keeps its event stream open after close
-                  // must not wedge the caller — the scope close below cuts the
-                  // drain off and reports `crashed`, which is what an undead
-                  // stream genuinely means.
-                  duration: Duration.seconds(5),
-                  orElse: () =>
-                    Effect.logWarning("session event stream outlived close; interrupting it"),
-                }),
-              );
-              yield* Scope.close(driver.scope, Exit.succeed(undefined));
-            }),
-          ),
+        close: closeSession,
         lifecycle: Stream.fromPubSub(lifecycle),
       });
     }),
