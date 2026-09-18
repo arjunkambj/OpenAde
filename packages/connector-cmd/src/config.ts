@@ -345,20 +345,52 @@ export interface McpRegistration {
   readonly prefixArgs?: ReadonlyArray<string>;
   readonly projectRoot: string;
   readonly env: Readonly<Record<string, string>>;
+  /** How long the call gets. Defaults to `MCP_TIMEOUT_MS`; a test shortens it. */
+  readonly timeoutMs?: number;
 }
+
+/**
+ * How long a `cmd mcp` call gets before it is killed and reported as a refusal.
+ *
+ * It used to get forever, and synchronously: `spawnSync` blocks the Node event
+ * loop, not just one fiber. This runs on the first turn of every thread
+ * (`upsertMcpEntry`) and on every session close including the manager's
+ * shutdown finalizer, so for the whole duration of the child the WebSocket did
+ * not drain, `POST /hooks/pretooluse` was not read — another thread's approval
+ * card simply hung — no timer fired and the Stop button did nothing. A `cmd
+ * mcp` that blocked on a config lock or a slow filesystem wedged the server
+ * with no bound and no way out but killing the process, since even the SIGINT
+ * handler could not run until it returned.
+ */
+const MCP_TIMEOUT_MS = 10_000;
 
 /** Runs one `cmd mcp …` subcommand for its exit code. Never throws. */
 const runCmdMcp = (
   registration: McpRegistration,
   args: ReadonlyArray<string>,
 ): Effect.Effect<boolean> =>
-  Effect.sync(() => {
-    const result = NodeChildProcess.spawnSync(
+  Effect.callback<boolean>((resume) => {
+    const child = NodeChildProcess.execFile(
       registration.binaryPath,
       [...(registration.prefixArgs ?? []), "mcp", ...args, "--no-auto-update"],
-      { cwd: registration.projectRoot, env: { ...registration.env }, encoding: "utf8" },
+      {
+        cwd: registration.projectRoot,
+        env: { ...registration.env },
+        encoding: "utf8",
+        timeout: registration.timeoutMs ?? MCP_TIMEOUT_MS,
+        killSignal: "SIGKILL",
+        maxBuffer: 4 * 1024 * 1024,
+      },
+      (error) => {
+        // Non-zero exit, a binary that is not there and the timeout kill all
+        // arrive here as an error — and all three mean the same thing to the
+        // caller: the harness did not take the entry.
+        resume(Effect.succeed(error === null));
+      },
     );
-    return result.status === 0;
+    return Effect.sync(() => {
+      child.kill("SIGKILL");
+    });
   });
 
 /**

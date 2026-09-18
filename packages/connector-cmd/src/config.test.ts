@@ -395,6 +395,74 @@ describe("mcp entry", () => {
     }),
   );
 
+  /**
+   * `cmd mcp` used to run through `spawnSync`, with no timeout and no kill
+   * signal — which blocks the Node event loop, not just one fiber. It is on
+   * two hot paths (the first turn of every thread, and every session close
+   * including the manager's shutdown finalizer), so while it ran the WebSocket
+   * did not drain, `POST /hooks/pretooluse` was not read and no timer fired.
+   *
+   * The stub here waits for a file that only another fiber can write, so the
+   * assertion is exactly that: the loop kept turning while the child ran. A
+   * blocking implementation never lets the gate be written and hangs until the
+   * timeout — which is the second half of the fix, and is what the short
+   * `timeoutMs` keeps bounded.
+   */
+  it.effect("lets the rest of the server run while the CLI works", () =>
+    Effect.gen(function* () {
+      const root = yield* tempDir();
+      const gate = NodePath.join(root, "gate");
+      const binary = NodePath.join(root, "gated-cmd.mjs");
+      NodeFS.writeFileSync(
+        binary,
+        [
+          "#!/usr/bin/env node",
+          'import * as fs from "node:fs";',
+          `const gate = ${JSON.stringify(gate)};`,
+          "const wait = () => (fs.existsSync(gate) ? process.exit(0) : setTimeout(wait, 5));",
+          "wait();",
+        ].join("\n"),
+        { mode: 0o755 },
+      );
+      const registration = {
+        binaryPath: binary,
+        projectRoot: root,
+        env: stubEnv,
+        timeoutMs: 2_000,
+      };
+
+      const [registered] = yield* Effect.all(
+        [
+          upsertMcpEntry(registration, { url: "http://127.0.0.1:4321/mcp" }),
+          Effect.sync(() => NodeFS.writeFileSync(gate, "go")),
+        ],
+        { concurrency: "unbounded" },
+      );
+      expect(registered).toBe(true);
+      yield* removeMcpEntry(registration);
+    }),
+  );
+
+  it.effect("gives up on a cmd mcp that never returns", () =>
+    Effect.gen(function* () {
+      const root = yield* tempDir();
+      const binary = NodePath.join(root, "hanging-cmd.mjs");
+      // A wrapper that blocks — a config lock, a slow filesystem, a build
+      // waiting on stdin. Without a bound the server never recovers.
+      NodeFS.writeFileSync(
+        binary,
+        ["#!/usr/bin/env node", "setInterval(() => {}, 1000);"].join("\n"),
+        { mode: 0o755 },
+      );
+      expect(
+        yield* upsertMcpEntry(
+          { binaryPath: binary, projectRoot: root, env: stubEnv, timeoutMs: 250 },
+          { url: "http://127.0.0.1:4321/mcp" },
+        ),
+      ).toBe(false);
+    }),
+  );
+
   it.effect("reports a refusal instead of assuming the tools are there", () =>
     Effect.gen(function* () {
       // A harness that would not take the entry — an unparseable config of the

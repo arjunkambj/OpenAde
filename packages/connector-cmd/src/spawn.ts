@@ -15,7 +15,7 @@
  * `ANTHROPIC_` or `OPENAI_` reaches the child by any of the three routes.
  */
 
-import { execFileSync, spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Scope from "effect/Scope";
@@ -248,28 +248,43 @@ const signalGroup = (pid: number, signal: "SIGINT" | "SIGTERM" | "SIGKILL"): Eff
     }
   });
 
+/** A `pgrep` that hangs must not hang the server with it. */
+const PGREP_TIMEOUT_MS = 5_000;
+
 /**
  * Best-effort sweep: anything still in the process group after the leader
  * died gets a direct SIGKILL. `pgrep -g` lists group members on both Linux
  * and macOS; where it does not exist the sweep quietly does nothing.
+ *
+ * Asynchronous, because this runs on every interrupt and every session close:
+ * `execFileSync` blocks the Node event loop, so for its whole duration the
+ * WebSocket, the hook bridge and every timer in the server stopped.
  */
 const sweepGroup = (pid: number): Effect.Effect<void> =>
-  Effect.sync(() => {
-    try {
-      const out = execFileSync("pgrep", ["-g", String(pid)], { encoding: "utf8" });
-      for (const line of out.split("\n")) {
-        const member = Number.parseInt(line.trim(), 10);
-        if (Number.isFinite(member) && member > 0) {
-          try {
-            process.kill(member, "SIGKILL");
-          } catch {
-            // raced us to exit
+  Effect.callback<void>((resume) => {
+    const child = execFile(
+      "pgrep",
+      ["-g", String(pid)],
+      { encoding: "utf8", timeout: PGREP_TIMEOUT_MS, killSignal: "SIGKILL" },
+      (_error, stdout) => {
+        // pgrep exits 1 when the group is already empty and ENOENT when it is
+        // not installed; both leave stdout empty and neither is worth saying.
+        for (const line of String(stdout).split("\n")) {
+          const member = Number.parseInt(line.trim(), 10);
+          if (Number.isFinite(member) && member > 0) {
+            try {
+              process.kill(member, "SIGKILL");
+            } catch {
+              // raced us to exit
+            }
           }
         }
-      }
-    } catch {
-      // pgrep absent, or the group is already empty (pgrep exits 1)
-    }
+        resume(Effect.void);
+      },
+    );
+    return Effect.sync(() => {
+      child.kill("SIGKILL");
+    });
   });
 
 /**
