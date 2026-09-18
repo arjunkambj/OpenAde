@@ -49,7 +49,8 @@ import { resolveForSession, type ResolvedBinary } from "./binary";
 import { ensureHookScript, hookTicketPath, removeHookTicket, writeHookTicket } from "./hookScript";
 import { makeHookAnswerer } from "./hookAnswers";
 import { makeLineSplitter, parseFrame } from "./ndjson";
-import { planFileNameIn, planProposalEvents, readPlanProposal, releasePlanClaims } from "./plans";
+import { contextWindowFor } from "./probe";
+import { planFileNameIn, planProposalFor, releasePlanClaims } from "./plans";
 import { buildArgs, envAllowlist, spawnProcess, TOOLS_ENABLED, type CmdProcess } from "./spawn";
 import { makeSessionRefLocator, type CmdSessionRef } from "./sessionRef";
 import { findTranscriptPath, tailTranscript } from "./transcript";
@@ -110,6 +111,11 @@ export interface CmdSessionOptions {
    * args. Omitted, the session resolves it itself the same way.
    */
   readonly binary?: ResolvedBinary;
+  /**
+   * Tokens the model can hold. Defaults to what the last probe of this binary
+   * reported; a test passes it outright.
+   */
+  readonly contextLimit?: number | null;
   readonly extraEnv?: Record<string, string>;
   readonly services: ConnectorServices;
   readonly settings: ThreadSettings;
@@ -177,6 +183,9 @@ export const makeCmdSession = (
       connectorInstanceId: options.instanceId,
       capabilities: CMD_CAPABILITIES,
       resumeAfterMessageId: options.sessionRef?.lastMessageId ?? null,
+      // What the last probe of this binary read out of `status --json`. Null
+      // until one has run, and then `context.updated` is simply not emitted.
+      contextLimit: options.contextLimit ?? contextWindowFor(binary.display),
     });
 
     const emit = (pending: PendingRuntimeEvent): Effect.Effect<void> =>
@@ -288,41 +297,26 @@ export const makeCmdSession = (
     });
 
     /**
-     * A plan-mode turn that just ended may have left a plan file behind:
-     * `plans-index.json` matches it to this session by `sessionId`, and
-     * failing that the turn's own `write_file` frames name the file it wrote.
+     * A plan-mode turn that just ended may have left a plan file behind.
      * Emitted while the turn is still open — after `turn.completed` the engine
-     * no longer tags events with its turnId — and each plan file is proposed
-     * once per session.
+     * no longer tags events with its turnId.
      */
     const emitPlanProposal = (active: ActiveProcess): Effect.Effect<void> =>
       Effect.gen(function* () {
-        if (!active.plan) {
-          return;
-        }
-        const sessionId = translator.sessionId;
-        if (sessionId === null) {
-          return;
-        }
         const wrote = yield* Ref.get(active.planWrites);
-        const proposal = yield* Effect.sync(() =>
-          readPlanProposal(sessionId, options.home, active.startedAt, wrote),
+        const seen = yield* Ref.get(proposedPlans);
+        const events = yield* Effect.sync(() =>
+          planProposalFor({
+            plan: active.plan,
+            sessionId: translator.sessionId,
+            home: options.home,
+            startedAt: active.startedAt,
+            wrote,
+            seen,
+            ids: () => ({ itemId: makeItemId(), turnId: makeTurnId() }),
+          }),
         );
-        if (proposal === null) {
-          return;
-        }
-        // path + revision: an unchanged index entry is not proposed twice,
-        // while a revised plan file is.
-        const key = `${proposal.planPath}#${proposal.updatedAt}`;
-        const fresh = yield* Ref.modify(proposedPlans, (seen): readonly [boolean, Set<string>] =>
-          seen.has(key) ? [false, seen] : [true, new Set(seen).add(key)],
-        );
-        if (!fresh) {
-          return;
-        }
-        yield* emitAll(
-          planProposalEvents(proposal, { itemId: makeItemId(), turnId: makeTurnId() }),
-        );
+        yield* emitAll(events);
       });
 
     /** Everything the PreToolUse bridge needs, kept out of this file. */

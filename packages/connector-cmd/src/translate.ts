@@ -43,6 +43,7 @@ import type { ConnectorCapabilities, TurnStopReason } from "@OpenAde/contracts/r
 import { EXIT_MESSAGES } from "./exitCodes";
 import {
   anonymousKey,
+  asCompactionTokens,
   asOptionalString,
   asRecord,
   asString,
@@ -92,6 +93,13 @@ export const makeTranslator = (options: {
    * duplicate every message the previous runtime folded).
    */
   readonly resumeAfterMessageId?: string | null;
+  /**
+   * Tokens the model can hold, from `status --json`'s `context_window`. Every
+   * `run_end` reports the tokens the conversation now occupies; without the
+   * ceiling there is no percentage to report, so `context.updated` is simply
+   * not emitted.
+   */
+  readonly contextLimit?: number | null;
 }): CmdTranslator => {
   let sessionId: string | null = null;
   let announced = false;
@@ -593,6 +601,15 @@ export const makeTranslator = (options: {
       case "run_end": {
         const result = event.result ?? {};
         const out: Array<PendingRuntimeEvent> = [];
+        // How full the context is now. The spec'd event (5.2 → the composer
+        // toolbar's "Context window used") had a complete pipeline and no
+        // producer: `run_end` has carried the number in every one of the 24
+        // recordings and it was read by nobody.
+        const used = asCompactionTokens(result.nextState);
+        const limit = options.contextLimit ?? null;
+        if (used !== null && limit !== null && limit > 0) {
+          out.push({ type: "context.updated", payload: { used: Math.min(used, limit), limit } });
+        }
         // nextState is authoritative (spec 5.2): replay any messages the
         // streaming sources missed — dedupe makes it a no-op otherwise.
         const nextMessages = (result.nextState as { messages?: ReadonlyArray<TranscriptMessage> })

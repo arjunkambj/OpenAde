@@ -268,6 +268,26 @@ describe("a text-only turn", () => {
     expect(answers.at(-1)?.text).toBe("ok");
   });
 
+  it("reports how full the context is, once the probe has said how big it is", () => {
+    // The composer toolbar's "Context window used" percentage needs both
+    // halves. `run_end` has carried the used tokens in all 24 recordings; the
+    // ceiling comes from `status --json`'s `context_window`, which the probe
+    // caches (1048576 on the recorded capture).
+    const withLimit = makeTranslator({
+      connectorInstanceId: "instance",
+      capabilities: CMD_CAPABILITIES,
+      contextLimit: 1_048_576,
+    });
+    const turn = manifestOf("text").turns[0]!;
+    const informed = framesOf("text", turn).flatMap((frame) => withLimit.onFrame(frame));
+    const context = informed.filter((event) => event.type === "context.updated");
+    expect(context).toHaveLength(1);
+    expect(context[0]?.payload).toEqual({ used: 20133, limit: 1_048_576 });
+
+    // Without a limit there is no percentage to report, so nothing is said.
+    expect(events.filter((event) => event.type === "context.updated")).toEqual([]);
+  });
+
   it("reports the run's tokens and the transcript's dollars", () => {
     const usage = events.filter((event) => event.type === "usage.updated");
     // One per agent step while it works, one at run_end carrying the cost the

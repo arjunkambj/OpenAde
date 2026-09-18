@@ -120,6 +120,17 @@ export const anonymousKey = (message: TranscriptMessage): string =>
 export const asString = (value: unknown): string | undefined =>
   typeof value === "string" ? value : undefined;
 
+/**
+ * `nextState.modState.compaction.tokens` — how many tokens the conversation
+ * occupies after this run. The only place the harness reports it.
+ */
+export const asCompactionTokens = (nextState: unknown): number | null => {
+  const tokens = asRecord(asRecord(asRecord(nextState).modState).compaction).tokens;
+  return typeof tokens === "number" && Number.isFinite(tokens) && tokens >= 0
+    ? Math.trunc(tokens)
+    : null;
+};
+
 /** `mcp__<server>__<tool>` → server; undefined for ordinary tools. */
 export const mcpServerOf = (name: string): string | undefined => {
   if (!name.startsWith("mcp__")) {

@@ -91,7 +91,26 @@ interface StatusJson {
   readonly user?: string;
   readonly provider?: string;
   readonly model?: string;
+  /** Tokens the account's current model can hold — 1048576 on the 1.55.1 capture. */
+  readonly context_window?: number;
 }
+
+/**
+ * The context window `status --json` last reported, per resolved binary.
+ *
+ * `run_end` carries the tokens a turn used (`nextState.modState.compaction`)
+ * and nothing carries the ceiling, so the composer's "Context window used"
+ * percentage had no denominator and never rendered. The probe is the one place
+ * that asks, it runs at startup before any session and again whenever the
+ * connectors page reconciles, so the answer is kept here for the sessions that
+ * come after it. Unknown means no `context.updated` is emitted at all, which is
+ * exactly what happened before.
+ */
+const contextWindows = new Map<string, number>();
+
+/** What the last probe of this binary said the context window is. */
+export const contextWindowFor = (binaryDisplay: string): number | null =>
+  contextWindows.get(binaryDisplay) ?? null;
 
 /** `1.55.1` → [1,55,1]; unparseable → null. */
 const parseVersion = (raw: string): Array<number> | null => {
@@ -200,6 +219,24 @@ export const parseModelList = (output: string): ReadonlyArray<ModelOption> => {
   return models;
 };
 
+/**
+ * `status --json` names one model and its context window; `--list-models`
+ * prints neither. So the window is carried onto that one row rather than onto
+ * every row, which would claim a ceiling for 69 models nobody measured.
+ */
+const withContextWindow = (
+  models: ReadonlyArray<ModelOption>,
+  status: StatusJson,
+): ReadonlyArray<ModelOption> => {
+  const window_ = status.context_window;
+  if (status.model === undefined || typeof window_ !== "number" || !Number.isFinite(window_)) {
+    return models;
+  }
+  return models.map((model) =>
+    model.id === status.model ? { ...model, contextWindow: Math.trunc(window_) } : model,
+  );
+};
+
 // ── the probe ──────────────────────────────────────────────────
 
 /** Spec 5.1: the account is fine, it has simply run out of credit. */
@@ -269,6 +306,10 @@ export const probe = (config: CmdConnectorConfig): Effect.Effect<ConnectorProbe,
       // A non-JSON status is still a running binary — keep probing.
     }
 
+    if (typeof parsed.context_window === "number" && Number.isFinite(parsed.context_window)) {
+      contextWindows.set(binary.display, Math.max(0, Math.trunc(parsed.context_window)));
+    }
+
     const warnings: Array<string> = [];
     if (parsed.version !== undefined && isBelowOldestTested(parsed.version)) {
       warnings.push(
@@ -280,7 +321,9 @@ export const probe = (config: CmdConnectorConfig): Effect.Effect<ConnectorProbe,
       timeoutMs: 60_000,
       env,
     }).pipe(
-      Effect.map((result) => (result.code === 0 ? parseModelList(result.stdout) : [])),
+      Effect.map((result) =>
+        result.code === 0 ? withContextWindow(parseModelList(result.stdout), parsed) : [],
+      ),
       Effect.catch((error) => {
         warnings.push(`--list-models failed: ${error.message}`);
         return Effect.succeed([] as ReadonlyArray<ModelOption>);

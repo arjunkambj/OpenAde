@@ -283,6 +283,38 @@ export const planProposalEvents = (
   },
 ];
 
+/**
+ * The events a settled plan turn owes the timeline, or none.
+ *
+ * `seen` is the session's own set of `<path>#<revision>` keys, mutated here: a
+ * plan already proposed is not proposed again, while a revised plan file is.
+ * Keeping this beside the reading of the plan is what lets the session stay a
+ * description of process mechanics.
+ */
+export const planProposalFor = (input: {
+  readonly plan: boolean;
+  readonly sessionId: string | null;
+  readonly home?: string | undefined;
+  readonly startedAt: number;
+  readonly wrote: ReadonlyArray<string>;
+  readonly seen: Set<string>;
+  readonly ids: () => { readonly itemId: ItemId; readonly turnId: TurnId };
+}): ReadonlyArray<ReturnType<typeof planProposalEvents>[number]> => {
+  if (!input.plan || input.sessionId === null) {
+    return [];
+  }
+  const proposal = readPlanProposal(input.sessionId, input.home, input.startedAt, input.wrote);
+  if (proposal === null) {
+    return [];
+  }
+  const key = `${proposal.planPath}#${proposal.updatedAt}`;
+  if (input.seen.has(key)) {
+    return [];
+  }
+  input.seen.add(key);
+  return planProposalEvents(proposal, input.ids());
+};
+
 export const readPlanProposal = (
   sessionId: string,
   home?: string,
