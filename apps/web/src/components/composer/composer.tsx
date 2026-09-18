@@ -44,6 +44,7 @@ import { routedConnectorInstanceId } from "@/lib/connector-routing";
 import { turnInFlight } from "@/lib/turn";
 import { useKeybindingCommand, useKeybindingFlag } from "@/lib/shortcuts";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
+import { useComposerDraft } from "@/state/ui";
 
 const ALL_EFFORTS: ReadonlyArray<Effort> = ["low", "medium", "high", "xhigh", "max"];
 
@@ -93,10 +94,13 @@ export function Composer({
   const skillsResult = useAtomValue(skillsAtom(projectId));
   const skills = AsyncResult.isSuccess(skillsResult) ? skillsResult.value : [];
 
-  const [text, setText] = React.useState("");
-  const [mentions, setMentions] = React.useState<ReadonlyArray<string>>([]);
+  // The draft lives in a per-thread renderer atom, not in this component: the
+  // composer unmounts on every thread switch (the next thread's detail atom
+  // starts at `Initial`), and with it went the text, the mentions and any
+  // pasted image — unsent, unsaved and unwarned. See `@/state/ui`.
+  const { text, mentions, files, setText, setMentions, setFiles } = useComposerDraft(threadId);
   const [error, setError] = React.useState<string | null>(null);
-  const attachments = useAttachments(threadId);
+  const attachments = useAttachments(threadId, files, setFiles);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const {
     trigger,

@@ -58,20 +58,32 @@ export interface Attachments {
   };
 }
 
-export function useAttachments(threadId: ThreadId): Attachments {
+/**
+ * `files` and `setFiles` are the caller's, not this hook's: staged files are
+ * part of the per-thread draft (`@/state/ui`), so that a thread switch — which
+ * unmounts the composer — does not throw a pasted screenshot away. Everything
+ * about *this* round of picking, dropping and refusing stays local.
+ */
+export function useAttachments(
+  threadId: ThreadId,
+  files: ReadonlyArray<File>,
+  setFiles: React.Dispatch<React.SetStateAction<ReadonlyArray<File>>>,
+): Attachments {
   const { stageAttachmentAtom } = useClientRuntime();
   const stageOne = useAtomSet(stageAttachmentAtom, { mode: "promise" });
-  const [files, setFiles] = React.useState<ReadonlyArray<File>>([]);
   const [rejected, setRejected] = React.useState<string | null>(null);
   const [dragging, setDragging] = React.useState(false);
 
-  const add = React.useCallback((added: ReadonlyArray<File>) => {
-    const triage = triageAttachments(added);
-    setRejected(rejectionMessage(triage.rejected));
-    if (triage.accepted.length > 0) {
-      setFiles((current) => [...current, ...triage.accepted]);
-    }
-  }, []);
+  const add = React.useCallback(
+    (added: ReadonlyArray<File>) => {
+      const triage = triageAttachments(added);
+      setRejected(rejectionMessage(triage.rejected));
+      if (triage.accepted.length > 0) {
+        setFiles((current) => [...current, ...triage.accepted]);
+      }
+    },
+    [setFiles],
+  );
 
   const stage = React.useCallback(async (): Promise<StagedAttachments> => {
     const uploading = files;
@@ -98,16 +110,19 @@ export function useAttachments(threadId: ThreadId): Attachments {
     stage,
     removeAt: React.useCallback(
       (index: number) => setFiles((current) => current.filter((_, i) => i !== index)),
-      [],
+      [setFiles],
     ),
     clear: React.useCallback(() => {
       setFiles([]);
       setRejected(null);
-    }, []),
-    clearStaged: React.useCallback((uploaded: ReadonlyArray<File>) => {
-      setFiles((current) => current.filter((file) => !uploaded.includes(file)));
-      setRejected(null);
-    }, []),
+    }, [setFiles]),
+    clearStaged: React.useCallback(
+      (uploaded: ReadonlyArray<File>) => {
+        setFiles((current) => current.filter((file) => !uploaded.includes(file)));
+        setRejected(null);
+      },
+      [setFiles],
+    ),
     onPaste: React.useCallback(
       (event: React.ClipboardEvent) => {
         const pasted = [...event.clipboardData.files];

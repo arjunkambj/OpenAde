@@ -73,6 +73,98 @@ export const useDockWidth = () => {
   return [width, setPersistedWidth] as const;
 };
 
+/**
+ * What is typed into a thread's composer but not sent yet: the text, the `@`
+ * mentions it names, and the files staged against it.
+ *
+ * It used to be plain component state. The thread route is not remounted on a
+ * param change, but the composer is rendered only while a snapshot exists, and
+ * the next thread's `threadDetailAtom` starts at `Initial` — so clicking
+ * another thread in the sidebar unmounted the composer and threw the draft
+ * away. A long message, or a pasted screenshot, with no warning and nothing
+ * sent or saved.
+ *
+ * Keyed by threadId, the way `useDockTabMemory` and `useRowDisclosure` are, and
+ * in memory only: a `File` cannot be serialized, and a draft is not something
+ * to resurrect across a relaunch without the attachments it named.
+ */
+export interface ComposerDraft {
+  readonly text: string;
+  readonly mentions: ReadonlyArray<string>;
+  readonly files: ReadonlyArray<File>;
+}
+
+export const emptyComposerDraft: ComposerDraft = { text: "", mentions: [], files: [] };
+
+const isEmptyDraft = (draft: ComposerDraft): boolean =>
+  draft.text === "" && draft.mentions.length === 0 && draft.files.length === 0;
+
+/**
+ * The map with one thread's draft replaced. An emptied draft drops its key
+ * rather than leaving `{ text: "", … }` behind for every thread ever opened.
+ */
+export const withComposerDraft = (
+  drafts: Readonly<Record<string, ComposerDraft>>,
+  threadId: string,
+  draft: ComposerDraft,
+): Readonly<Record<string, ComposerDraft>> => {
+  if (isEmptyDraft(draft)) {
+    if (!(threadId in drafts)) {
+      return drafts;
+    }
+    const next = { ...drafts };
+    delete next[threadId];
+    return next;
+  }
+  return { ...drafts, [threadId]: draft };
+};
+
+const composerDraftAtom = Atom.make<Readonly<Record<string, ComposerDraft>>>({});
+
+export interface ComposerDraftHandle extends ComposerDraft {
+  readonly setText: React.Dispatch<React.SetStateAction<string>>;
+  readonly setMentions: React.Dispatch<React.SetStateAction<ReadonlyArray<string>>>;
+  readonly setFiles: React.Dispatch<React.SetStateAction<ReadonlyArray<File>>>;
+}
+
+const applyUpdate = <A>(update: React.SetStateAction<A>, current: A): A =>
+  typeof update === "function" ? (update as (value: A) => A)(current) : update;
+
+/** One thread's draft, with `useState`-shaped setters for each of its parts. */
+export const useComposerDraft = (threadId: string): ComposerDraftHandle => {
+  const draft = useAtomValue(
+    composerDraftAtom,
+    React.useCallback(
+      (drafts: Readonly<Record<string, ComposerDraft>>) => drafts[threadId] ?? emptyComposerDraft,
+      [threadId],
+    ),
+  );
+  const setDrafts = useAtomSet(composerDraftAtom);
+  const patch = React.useCallback(
+    (change: (current: ComposerDraft) => ComposerDraft) =>
+      setDrafts((drafts) =>
+        withComposerDraft(drafts, threadId, change(drafts[threadId] ?? emptyComposerDraft)),
+      ),
+    [setDrafts, threadId],
+  );
+  return {
+    ...draft,
+    setText: React.useCallback(
+      (update) => patch((current) => ({ ...current, text: applyUpdate(update, current.text) })),
+      [patch],
+    ),
+    setMentions: React.useCallback(
+      (update) =>
+        patch((current) => ({ ...current, mentions: applyUpdate(update, current.mentions) })),
+      [patch],
+    ),
+    setFiles: React.useCallback(
+      (update) => patch((current) => ({ ...current, files: applyUpdate(update, current.files) })),
+      [patch],
+    ),
+  };
+};
+
 const DOCK_TAB_KEY = "openade:dock-tab-by-thread";
 
 /**
