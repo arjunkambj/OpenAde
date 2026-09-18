@@ -67,7 +67,18 @@ const IMPORT_ALLOWLIST = new Map([
  */
 const TEST_ONLY_ALLOWLIST = new Map([["apps/server", ["testkit", "client-runtime"]]]);
 
-const isTestFile = (file) => /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(file);
+/**
+ * A `*.test.ts` file, or anything under a workspace's `test/` directory.
+ *
+ * The second half is for suites too big to live in one file: the end-to-end
+ * scenarios under `apps/server/test/e2e/` share a harness that dials the
+ * server with the real client runtime, and a harness is not a `.test.ts`. The
+ * directory is the statement of intent — nothing under it is bundled, because
+ * `apps/server`'s esbuild entry is `src/main.ts` — so it carries the same
+ * allowance the test files themselves do.
+ */
+const isTestFile = (file) =>
+  /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(file) || file.split("/").includes("test");
 
 /** Decision D4: the exact patterns, and the one directory they do not apply to. */
 const RENDERER_FORBIDDEN = [
