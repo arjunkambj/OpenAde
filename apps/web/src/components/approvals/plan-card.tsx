@@ -51,8 +51,14 @@ const markdownComponents = {
   pre: (props: React.HTMLAttributes<HTMLPreElement>) => (
     <pre className="my-1 overflow-auto rounded-lg bg-muted p-2 font-mono text-xs" {...props} />
   ),
+  /**
+   * A plan is model output, so its links are whatever the agent read. They
+   * leave through the window-open handler — never in this window — exactly as
+   * the timeline's markdown does; `target` and `rel` are pinned after the
+   * spread so the markdown cannot unset them.
+   */
   a: (props: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
-    <a className="text-primary underline" {...props} />
+    <a className="text-primary underline" {...props} target="_blank" rel="noreferrer" />
   ),
 };
 
