@@ -20,6 +20,7 @@ import * as React from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { cardKeyContext, planCardKey } from "@/components/approvals/card-keys";
 import { CardShell } from "@/components/approvals/card-shell";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
@@ -61,13 +62,6 @@ const markdownComponents = {
     <a className="text-primary underline" {...props} target="_blank" rel="noreferrer" />
   ),
 };
-
-const isEditableTarget = (target: EventTarget | null): boolean =>
-  target instanceof HTMLElement &&
-  (target.tagName === "INPUT" ||
-    target.tagName === "TEXTAREA" ||
-    target.tagName === "SELECT" ||
-    target.isContentEditable);
 
 export function PlanCard({
   threadId,
@@ -114,28 +108,22 @@ export function PlanCard({
     [dispatch, plan.turnId, threadId],
   );
 
+  // Same shape as the approval card's listener, and `./card-keys` carries the
+  // reasoning: capture so the card answers before the window-level keybinding
+  // listener, but claiming nothing while a field, a dialog or a trigger menu
+  // is in front.
   React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) {
+      const action = planCardKey(cardKeyContext(event));
+      if (action === null) {
         return;
       }
-      if (isEditableTarget(event.target)) {
-        if (event.key === "Escape") {
-          (event.target as HTMLElement).blur();
-          event.stopPropagation();
-        }
-        return;
-      }
-      if (event.key === "1") {
-        event.preventDefault();
-        respond("accept");
-      } else if (event.key === "2") {
-        event.preventDefault();
-        respond("accept-auto");
-      } else if (event.key === "3") {
-        event.preventDefault();
+      event.preventDefault();
+      if (action === "revise") {
         setRevising(true);
+        return;
       }
+      respond(action);
     };
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);

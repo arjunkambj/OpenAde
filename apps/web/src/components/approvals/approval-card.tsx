@@ -6,9 +6,8 @@
  * instead, so nothing here pretends a decision stuck before the server says so.
  *
  * Keys while the card is up: `1` allow once, `2` allow for session,
- * `3` always allow (persists the pattern), `d`/`Escape` deny. The listener
- * runs in capture phase and stops propagation, so Escape denies the card
- * rather than falling through to the global interrupt binding.
+ * `3` always allow (persists the pattern), `d`/`Escape` deny. The card only
+ * claims them while nothing nearer the user wants them — see `./card-keys`.
  */
 
 import { useAtomSet } from "@effect/atom-react";
@@ -21,18 +20,12 @@ import type { ApprovalRequest } from "@OpenAde/contracts/runtime";
 import { parsePattern } from "@OpenAde/shared/permissionPattern";
 import * as React from "react";
 
+import { approvalCardKey, cardKeyContext } from "@/components/approvals/card-keys";
 import { CardShell } from "@/components/approvals/card-shell";
 import { PatternEditor } from "@/components/approvals/pattern-editor";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
 import { Icon } from "@/lib/icon";
-
-const isEditableTarget = (target: EventTarget | null): boolean =>
-  target instanceof HTMLElement &&
-  (target.tagName === "INPUT" ||
-    target.tagName === "TEXTAREA" ||
-    target.tagName === "SELECT" ||
-    target.isContentEditable);
 
 /** One-line summary of `request.input`, by approval kind. */
 const subjectSummary = (request: ApprovalRequest): string | null => {
@@ -106,36 +99,19 @@ export function ApprovalCard({
     [dispatch, pattern, patternValid, request.requestId, threadId],
   );
 
-  // Capture-phase listener so Escape resolves the card instead of reaching the
-  // global interrupt binding; editable targets swallow it to blur instead.
+  // Capture, because `Escape` is bound to `thread.interrupt` on the same
+  // window and the card has to answer first. What it no longer does is claim
+  // the key whatever else is on screen: `approvalCardKey` stands down for a
+  // focused field, a dialog and the composer's trigger menu, and the branch
+  // that blurred the target and swallowed the event is gone. `preventDefault`
+  // alone marks a claimed key, which the keybinding listener honours.
   React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) {
-        return;
-      }
-      if (isEditableTarget(event.target)) {
-        if (event.key === "Escape") {
-          (event.target as HTMLElement).blur();
-          event.stopPropagation();
-        }
-        return;
-      }
-      const key = event.key.toLowerCase();
-      const decision =
-        key === "1"
-          ? "allow-once"
-          : key === "2"
-            ? "allow-session"
-            : key === "3"
-              ? "allow-always"
-              : key === "d" || event.key === "Escape"
-                ? "deny"
-                : null;
+      const decision = approvalCardKey(cardKeyContext(event));
       if (decision === null) {
         return;
       }
       event.preventDefault();
-      event.stopPropagation();
       respond(decision);
     };
     window.addEventListener("keydown", onKeyDown, true);
