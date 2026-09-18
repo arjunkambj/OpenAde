@@ -29,6 +29,7 @@ import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 
 import { useClientRuntime } from "@/lib/client-runtime";
+import { makeCommandRegistry, type CommandRegistry } from "@/lib/command-registry";
 import { effectiveKeybindings, keycapsFor, shortcutFor } from "@/lib/keybindings";
 
 /**
@@ -46,12 +47,7 @@ export const SHORTCUT_COMMANDS = {
 
 export type ShortcutId = keyof typeof SHORTCUT_COMMANDS;
 
-interface Registry {
-  readonly commands: Map<string, () => void>;
-  readonly flags: Map<string, boolean | string>;
-}
-
-const RegistryContext = React.createContext<Registry | null>(null);
+const RegistryContext = React.createContext<CommandRegistry | null>(null);
 
 const focusedContext = (target: EventTarget | null): string | undefined =>
   target instanceof HTMLElement
@@ -68,7 +64,7 @@ export function useKeybindings(): ReadonlyArray<Keybinding> {
 
 /** Mounted once, above the routes. Owns the window listener and the registry. */
 export function KeybindingsProvider({ children }: { readonly children: React.ReactNode }) {
-  const registry = React.useMemo<Registry>(() => ({ commands: new Map(), flags: new Map() }), []);
+  const registry = React.useMemo<CommandRegistry>(() => makeCommandRegistry(), []);
   const keybindings = useKeybindings();
   const keybindingsRef = React.useRef(keybindings);
   keybindingsRef.current = keybindings;
@@ -80,11 +76,9 @@ export function KeybindingsProvider({ children }: { readonly children: React.Rea
         return;
       }
       const context = (name: string): boolean | string | undefined =>
-        name === "composerFocus"
-          ? focusedContext(event.target) === "composer"
-          : registry.flags.get(name);
+        name === "composerFocus" ? focusedContext(event.target) === "composer" : registry.flag(name);
       const binding = resolveKeybinding(keybindingsRef.current, event, context, modKey);
-      const handler = binding === null ? undefined : registry.commands.get(binding.command);
+      const handler = binding === null ? undefined : registry.resolve(binding.command);
       if (handler === undefined) {
         return;
       }
@@ -99,9 +93,9 @@ export function KeybindingsProvider({ children }: { readonly children: React.Rea
 }
 
 /**
- * Answer `command` for as long as this component is mounted. Registering the
- * same id twice is last-one-wins; unmounting only clears the entry that is
- * still the caller's, so a remount during a transition cannot blank it.
+ * Answer `command` for as long as this component is mounted. Two surfaces may
+ * claim one id: the newest answers, and unmounting hands it back to whoever
+ * held it before rather than leaving it unanswered — see `@/lib/command-registry`.
  */
 export function useKeybindingCommand(command: string, handler: () => void): void {
   const registry = React.useContext(RegistryContext);
@@ -111,13 +105,7 @@ export function useKeybindingCommand(command: string, handler: () => void): void
     if (registry === null) {
       return;
     }
-    const entry = () => handlerRef.current();
-    registry.commands.set(command, entry);
-    return () => {
-      if (registry.commands.get(command) === entry) {
-        registry.commands.delete(command);
-      }
-    };
+    return registry.register(command, () => handlerRef.current());
   }, [registry, command]);
 }
 
@@ -131,7 +119,7 @@ export function useKeybindingDispatch(): (command: string) => void {
   const registry = React.useContext(RegistryContext);
   return React.useCallback(
     (command: string) => {
-      registry?.commands.get(command)?.();
+      registry?.resolve(command)?.();
     },
     [registry],
   );
@@ -148,7 +136,7 @@ export function useKeybindingDispatch(): (command: string) => void {
  */
 export function useKeybindingHandled(command: string): boolean {
   const registry = React.useContext(RegistryContext);
-  return registry?.commands.has(command) ?? false;
+  return registry?.has(command) ?? false;
 }
 
 /**
@@ -164,18 +152,22 @@ export function SidebarToggleShortcut() {
   return null;
 }
 
-/** Publish a `when`-clause flag while this component is mounted. */
+/**
+ * Publish a `when`-clause flag while this component is mounted. The value is
+ * read through a ref rather than re-registered on every change, so a publisher
+ * keeps its place in the stack; a second publisher of the same flag wins while
+ * it is mounted and hands the flag back when it goes.
+ */
 export function useKeybindingFlag(name: string, value: boolean | string): void {
   const registry = React.useContext(RegistryContext);
+  const valueRef = React.useRef(value);
+  valueRef.current = value;
   React.useEffect(() => {
     if (registry === null) {
       return;
     }
-    registry.flags.set(name, value);
-    return () => {
-      registry.flags.delete(name);
-    };
-  }, [registry, name, value]);
+    return registry.publish(name, () => valueRef.current);
+  }, [registry, name]);
 }
 
 /** The chord bound to one of the shell's commands, in keycaps. */
