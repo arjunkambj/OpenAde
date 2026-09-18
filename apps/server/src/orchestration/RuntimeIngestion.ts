@@ -330,8 +330,30 @@ export type SessionLifecycle =
     };
 
 /**
+ * How long one item's streamed text may be held back before it is written.
+ *
+ * Every `content.delta` used to become its own `thread.item.upserted` carrying
+ * the *whole* accumulated snapshot, and every append rewrote the thread's whole
+ * `doc_json`: an answer of N delta frames wrote O(N²) bytes of payload plus N
+ * full-document rewrites whose cost grew with everything else in the thread.
+ * The read side already coalesces on the same window (`LiveBuffer`), so holding
+ * a delta this long costs the renderer nothing it was ever shown — and the next
+ * frame supersedes the one held, because the snapshot is cumulative.
+ */
+const DELTA_WINDOW_MS = 50;
+
+/** The item a `content.delta` belongs to, or `null` for anything else. */
+const deltaItemIdOf = (event: RuntimeEvent): string | null =>
+  event.type === "content.delta" ? (event.payload.itemId as string) : null;
+
+/**
  * Drains one session's events into the log. Resolves when the stream ends;
  * reports `ended` on the lifecycle channel as it goes.
+ *
+ * Streamed text is coalesced on the way in (see `DELTA_WINDOW_MS`). Nothing
+ * else is: a held delta is flushed before any other event of the session, so
+ * the log's order is still the connector's order, and the last one is flushed
+ * by the `item.completed` / `turn.completed` that always follows it.
  */
 export const ingestSession = (
   handle: TurnScopedSessionHandle,
@@ -347,10 +369,29 @@ export const ingestSession = (
       events: ReadonlyArray<PlannedEvent>,
     ) => Effect.Effect<unknown, unknown>;
     readonly report: (lifecycle: SessionLifecycle) => Effect.Effect<unknown>;
+    /** Tests pin this to 0 to get an append per delta, as before. */
+    readonly deltaWindowMillis?: number;
   },
 ): Effect.Effect<void, unknown> =>
   Effect.gen(function* () {
     const state = makeIngestState();
+    const window = deps.deltaWindowMillis ?? DELTA_WINDOW_MS;
+    const now = Effect.clockWith((clock) => clock.currentTimeMillis);
+
+    /** The newest snapshot of one item, not yet written. */
+    let held: { readonly itemId: string; readonly events: ReadonlyArray<PlannedEvent> } | null =
+      null;
+    let lastDeltaAppendAt: number | null = null;
+
+    const flushHeld = Effect.suspend(() => {
+      if (held === null) {
+        return Effect.void;
+      }
+      const events = held.events;
+      held = null;
+      return Effect.asVoid(deps.append(ctx.threadId, events));
+    });
+
     yield* Stream.runForEach(handle.events, (event) =>
       Effect.gen(function* () {
         if (event.type === "session.ended") {
@@ -367,9 +408,29 @@ export const ingestSession = (
           state,
           nextEventId: deps.nextEventId,
         });
-        if (planned.length > 0) {
-          yield* deps.append(ctx.threadId, planned);
+        const deltaItemId = deltaItemIdOf(event);
+        // A held delta of another item — or anything that is not a delta at
+        // all — has to reach the log first, or the stream's order changes.
+        if (held !== null && held.itemId !== deltaItemId) {
+          yield* flushHeld;
         }
+        if (planned.length === 0) {
+          return;
+        }
+        if (deltaItemId === null) {
+          yield* deps.append(ctx.threadId, planned);
+          return;
+        }
+        const at = yield* now;
+        if (lastDeltaAppendAt === null || at - lastDeltaAppendAt >= window) {
+          held = null;
+          lastDeltaAppendAt = at;
+          yield* deps.append(ctx.threadId, planned);
+          return;
+        }
+        // Inside the window: hold the newest snapshot, which already contains
+        // every character the one it replaces did.
+        held = { itemId: deltaItemId, events: planned };
       }),
-    );
+    ).pipe(Effect.ensuring(Effect.ignore(flushHeld)));
   });
