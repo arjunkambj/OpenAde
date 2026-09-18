@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  MCP_SCOPE_OPTIONS,
   scopeLabel,
   selectedOptionLabel,
   USER_SCOPE,
@@ -28,6 +29,20 @@ describe("selectedOptionLabel", () => {
     expect(selectedOptionLabel(models, undefined)).toBeNull();
     expect(selectedOptionLabel(models, "")).toBeNull();
     expect(selectedOptionLabel(models, 7)).toBeNull();
+  });
+});
+
+describe("MCP_SCOPE_OPTIONS", () => {
+  it("labels every scope the dialog can hold, so the closed trigger never reads the value", () => {
+    // The regression: the Scope trigger read `user` / `project` verbatim.
+    for (const option of MCP_SCOPE_OPTIONS) {
+      expect(selectedOptionLabel(MCP_SCOPE_OPTIONS, option.value)).toBe(option.label);
+      expect(option.label).not.toBe(option.value);
+    }
+  });
+
+  it("covers both wire values", () => {
+    expect(MCP_SCOPE_OPTIONS.map((option) => option.value)).toEqual(["user", "project"]);
   });
 });
 

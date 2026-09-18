@@ -35,6 +35,17 @@ export const selectedOptionLabel = (
 };
 
 /**
+ * Where an MCP server's entry is written. The options live here rather than
+ * inline in the dialog so the items and the closed trigger read from one list:
+ * the trigger was showing the bare `user` / `project` value while the items
+ * said "User" and "Project".
+ */
+export const MCP_SCOPE_OPTIONS: ReadonlyArray<LabelledOption> = [
+  { value: "user", label: "User" },
+  { value: "project", label: "Project" },
+];
+
+/**
  * The stand-in a scope `<Select>` uses for "user scope", because the real value
  * there is `null` and a select item cannot hold one.
  */

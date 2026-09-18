@@ -32,6 +32,7 @@ import * as React from "react";
 import { describeExitError, useAppAtoms } from "@/lib/app-runtime";
 
 import { CommitInput, KeyValueInput, SettingsRow } from "./schema-form";
+import { MCP_SCOPE_OPTIONS, selectedOptionLabel } from "./select-label";
 
 interface Draft {
   name: string;
@@ -177,13 +178,23 @@ export function McpServerDialog({
               onValueChange={(next) => set("scope", next === "project" ? "project" : "user")}
             >
               <SelectTrigger className="w-full">
-                <SelectValue />
+                {/* base-ui prints the raw value unless it is handed a
+                    formatter — the items are portalled away while the popup is
+                    closed, so the trigger read `user` rather than "User". */}
+                <SelectValue>
+                  {(value) => selectedOptionLabel(MCP_SCOPE_OPTIONS, value) ?? "User"}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="user">User</SelectItem>
-                <SelectItem value="project" disabled={!canUseProjectScope}>
-                  Project
-                </SelectItem>
+                {MCP_SCOPE_OPTIONS.map((option) => (
+                  <SelectItem
+                    key={option.value}
+                    value={option.value}
+                    disabled={option.value === "project" && !canUseProjectScope}
+                  >
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </SettingsRow>
