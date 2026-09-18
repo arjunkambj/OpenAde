@@ -319,3 +319,32 @@ export const tailTranscript = (
 
     return { lines: Stream.fromQueue(queue), stop };
   });
+
+/**
+ * Every non-blank line of a session's transcript, or none when there is no
+ * file to read.
+ *
+ * Two callers want the whole file rather than a tail: the seed a resumed
+ * session runs before its first turn, and the drain that runs before a turn is
+ * allowed to settle. The path is looked up by session id — the harness's
+ * project-directory slug is not the one `slugFor` guesses — and `fallback` is
+ * the path a persisted ref remembers, for the case where the lookup misses.
+ */
+export const readTranscriptLines = (
+  root: string,
+  sessionId: string,
+  home?: string,
+  fallback?: string,
+): ReadonlyArray<string> => {
+  const path = findTranscriptPath(root, sessionId, home) ?? fallback;
+  if (path === undefined) {
+    return [];
+  }
+  try {
+    return NodeFS.readFileSync(path, "utf8")
+      .split("\n")
+      .filter((line) => line.trim().length > 0);
+  } catch {
+    return [];
+  }
+};

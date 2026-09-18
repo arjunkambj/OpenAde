@@ -45,61 +45,20 @@ import {
 } from "./config";
 import { stageTurnAttachments } from "./attachments";
 import { CMD_CAPABILITIES } from "./capabilities";
+import { SIGNAL_DEATHS, type ActiveProcess } from "./activeProcess";
 import { resolveForSession, type ResolvedBinary } from "./binary";
 import { ensureHookScript, hookTicketPath, removeHookTicket, writeHookTicket } from "./hookScript";
 import { makeHookAnswerer } from "./hookAnswers";
 import { makeLineSplitter, parseFrame } from "./ndjson";
 import { contextWindowFor } from "./probe";
 import { planFileNameIn, planProposalFor, releasePlanClaims } from "./plans";
-import { buildArgs, envAllowlist, spawnProcess, TOOLS_ENABLED, type CmdProcess } from "./spawn";
+import { buildArgs, envAllowlist, spawnProcess, TOOLS_ENABLED } from "./spawn";
 import { makeSessionRefLocator, type CmdSessionRef } from "./sessionRef";
 import { findTranscriptPath, tailTranscript } from "./transcript";
 import { makeTranslator, type PendingRuntimeEvent } from "./translate";
 
 /** Re-exported so consumers keep importing the session's own vocabulary from it. */
 export type { CmdSessionRef };
-
-/**
- * The live process plus two latches: `turnDone` flips when the turn's
- * completion event has been emitted — turn.completed lands on run_end while
- * the child is still a few milliseconds from reaping — and `settled` flips
- * when every post-exit side effect (onExit events, the sessionRef persist,
- * fiber teardown) has landed. A send arriving between them waits the pump
- * out instead of reporting a turn that no longer exists.
- */
-interface ActiveProcess {
-  readonly proc: CmdProcess;
-  readonly turnDone: Deferred.Deferred<void>;
-  readonly settled: Deferred.Deferred<void>;
-  /** Spawned with `--permission-mode plan` — its run may leave a plan file behind. */
-  readonly plan: boolean;
-  /**
-   * When the process was spawned. Print mode does not record its plan in
-   * `plans-index.json`, so a file's mtime against this is how a plan written by
-   * *this* turn is told from one sitting in the directory since last month.
-   */
-  readonly startedAt: number;
-  /**
-   * Plan files this turn's own `write_file` frames named, in arrival order.
-   * The plans directory is shared by every thread and by the user's own
-   * interactive runs, so this — not the newest mtime — is what says which file
-   * the turn wrote.
-   */
-  readonly planWrites: Ref.Ref<ReadonlyArray<string>>;
-  /**
-   * The user asked for this one to stop. It decides how the exit reads: a
-   * child we killed ourselves settles the turn `interrupted`, the same signal
-   * death unasked-for is a crash the supervisor resumes from.
-   */
-  readonly interrupted: Ref.Ref<boolean>;
-}
-
-/**
- * Exit codes that mean "the process died on a signal": `spawnProcess` reports
- * `-1` when node hands it a null code, and 128+n is what a shell would have
- * reported for SIGKILL and SIGTERM.
- */
-const SIGNAL_DEATHS = new Set([-1, 137, 143]);
 
 export interface CmdSessionOptions {
   readonly instanceId: ConnectorInstanceId;
