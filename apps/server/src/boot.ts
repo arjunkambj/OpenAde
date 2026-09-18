@@ -193,7 +193,32 @@ export const boot = (options: BootOptions) =>
       permissions,
     );
 
-    const http = NodeHttpServer.layer(createServer, { port, host: "127.0.0.1" });
+    // ── Shutting down with clients attached ──
+    //
+    // `http.Server.close()` stops accepting and then waits for every open
+    // connection to end by itself. A WebSocket never does — that is what it is
+    // for — so a server with a renderer attached simply never finished closing,
+    // and the scope that owned it hung forever. Nothing noticed while the only
+    // shutdown in the product was the supervisor killing the process, but
+    // `boot`'s contract is that closing its scope shuts the server down, and
+    // the dev loop and the end-to-end suite both take it at its word.
+    //
+    // So the sockets are hung up first. They are tracked from `connection`
+    // rather than through `closeAllConnections()`, because a socket that has
+    // been upgraded no longer belongs to the server that accepted it — which
+    // is exactly the socket in the way.
+    const sockets = new Set<import("node:net").Socket>();
+    const http = NodeHttpServer.layer(
+      () => {
+        const server = createServer();
+        server.on("connection", (socket) => {
+          sockets.add(socket);
+          socket.once("close", () => sockets.delete(socket));
+        });
+        return server;
+      },
+      { port, host: "127.0.0.1" },
+    );
 
     // ── One build, one instance of everything ──
     //
@@ -217,6 +242,16 @@ export const boot = (options: BootOptions) =>
     );
 
     const appContext = yield* Layer.build(app);
+    // Added after the build, so it runs *before* the layer finalizers that
+    // close the server: finalizers run in reverse order of acquisition.
+    yield* Effect.addFinalizer(() =>
+      Effect.sync(() => {
+        for (const socket of sockets) {
+          socket.destroy();
+        }
+        sockets.clear();
+      }),
+    );
     const server = Context.get(appContext, HttpServer.HttpServer);
     const address = server.address;
     const boundPort =

@@ -32,6 +32,7 @@ import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Queue from "effect/Queue";
+import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 
 import { boot, type BootedServer } from "./boot";
@@ -241,6 +242,44 @@ describe("boot", () => {
           threadId,
           status: "stopped",
         });
+      }),
+    ),
+  );
+
+  it.live("shuts down while a client is still connected", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        // `http.Server.close()` waits for every open connection to end by
+        // itself, and a WebSocket never does. With a renderer attached the
+        // server therefore never finished closing and the scope that owned it
+        // hung — which nothing noticed while the only shutdown in the product
+        // was the supervisor killing the process, but `boot`'s contract is
+        // that closing its scope shuts the server down.
+        //
+        // The client is built in the *outer* scope on purpose. Built inside,
+        // it is torn down first and hangs up the socket on its way out, which
+        // is the one arrangement that always worked.
+        const home = makeHome();
+        yield* seedSettings(home, []);
+        const outer = yield* Effect.scope;
+        const first = yield* Effect.scoped(
+          Effect.gen(function* () {
+            const server = yield* booted(home);
+            // The connection is built in the *outer* scope, so its socket is
+            // still open when the server's scope closes. Built inside, it is
+            // torn down first and hangs up on its way out — the one
+            // arrangement that always worked.
+            const rpc = yield* client(server).pipe(Scope.provide(outer));
+            const hello = yield* rpc["server.hello"]({});
+            expect(hello.serverInstanceId).toBe(server.serverInstanceId);
+            return server;
+          }),
+        );
+        // Reaching here at all is the assertion: a server that cannot close
+        // never returns from the line above. That the port is free again is
+        // what the second boot on the same home shows.
+        const second = yield* booted(home);
+        expect(second.serverInstanceId).not.toBe(first.serverInstanceId);
       }),
     ),
   );
