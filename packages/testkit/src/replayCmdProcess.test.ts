@@ -85,6 +85,31 @@ describe("loadRecording", () => {
   it("refuses a directory that is not a recording", () => {
     expect(() => loadRecording("not-a-scenario")).toThrow();
   });
+
+  /**
+   * `fixtures/cmd/README.md` promises that each manifest names the model its own
+   * frames name, so a recording made on a different model says so instead of
+   * inheriting the table. A placeholder like "the CLI's configured default" — what
+   * the recorder wrote before it learned to read the frames — breaks that promise
+   * and hides which model a fixture's wording came from.
+   */
+  it("names the model each recording's own frames name", () => {
+    for (const name of recordingNames()) {
+      const recording = loadRecording(name);
+      const fromFrames = new Set(
+        recording.turns
+          .flatMap((turn) => turn.frames)
+          .flatMap((frame) => {
+            const event = (frame as { event?: { type?: string; model?: string } }).event;
+            return event?.type === "model_request_start" && event.model !== undefined
+              ? [event.model]
+              : [];
+          }),
+      );
+      expect(fromFrames.size, `${name}: no model_request_start frame to check against`).toBe(1);
+      expect(recording.model, `${name}: manifest model`).toBe([...fromFrames][0]);
+    }
+  });
 });
 
 describe("the recorded non-model surfaces", () => {

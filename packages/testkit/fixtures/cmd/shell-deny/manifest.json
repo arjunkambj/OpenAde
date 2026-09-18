@@ -4,7 +4,7 @@
   "cli": "/opt/homebrew/bin/cmd",
   "cliVersion": "1.55.1",
   "recordedOn": "2026-09-18",
-  "model": "the CLI's configured default",
+  "model": "meta/muse-spark-1.3-contributor",
   "real": true,
   "turns": [
     {
