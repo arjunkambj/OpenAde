@@ -276,7 +276,17 @@ export const bootServer = (home: E2EHome, options: { readonly dev?: boolean } = 
         }
       }),
   ).pipe(
-    Effect.andThen(boot({ home: home.openade, dev: options.dev ?? false, port: 0 })),
+    Effect.andThen(
+      boot({
+        home: home.openade,
+        dev: options.dev ?? false,
+        port: 0,
+        // The harness's own config, redirected for both drivers. `OPENADE_HOME`
+        // cannot move it — it is the user's `~/.commandcode` — so without this
+        // the settings scenario would edit the operator's real one.
+        commandCodeHome: NodePath.join(home.cmdHome, ".commandcode"),
+      }),
+    ),
     Effect.orDie,
   );
 
@@ -678,9 +688,19 @@ export const itemsOfKind = (
 ): ReadonlyArray<ThreadDetailView["items"][number]> =>
   view.items.filter((item) => item.kind === kind);
 
-/** True once the thread has no turn running and nothing waiting on the user. */
+/**
+ * True once the thread is free — the moment the composer re-enables.
+ *
+ * `currentTurnId` alone is not enough. A turn is *requested* before it is
+ * *started*, and in that gap the thread carries no turn id while its status is
+ * already `running`: a wait on the id alone is answered in the middle of a
+ * turn that has not begun, and every assertion after it reads a half-built
+ * timeline.
+ */
 export const isSettled = (view: ThreadDetailView): boolean =>
   view.currentTurnId === null &&
+  view.status !== "running" &&
+  view.status !== "waiting" &&
   view.pendingApproval === null &&
   view.pendingUserInput === null &&
   view.pendingPlan === null;

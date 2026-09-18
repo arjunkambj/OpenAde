@@ -1,0 +1,5 @@
+{"type":"event","event":{"type":"run_start","sessionId":"f67c0ccb-f994-47ed-89b3-e2e5bb09540a"}}
+{"type":"event","event":{"type":"turn_start","turnNumber":1}}
+{"type":"event","event":{"type":"message_start"}}
+{"type":"event","event":{"type":"model_request_start","model":"meta/muse-spark-1.3-contributor"}}
+{"type":"event","event":{"type":"model_trace","traceId":"a1097bfdb67be3f49b986b19dcfa47e2"}}

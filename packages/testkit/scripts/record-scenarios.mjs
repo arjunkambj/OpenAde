@@ -306,6 +306,21 @@ export const SCENARIOS = {
     ],
   },
 
+  "interrupt-continue": {
+    description:
+      "the same interrupt, then the next message started the way the connector now starts it — in a NEW session, because the interrupted run wrote no transcript for --session to resume (see interrupt-resume for what happens when it tries)",
+    seed: { "note.txt": "hello\n" },
+    turns: [
+      {
+        prompt: "Count slowly from 1 to 200, one number per line, with a short comment on each.",
+        maxTurns: 2,
+        sigintAfterMs: 9000,
+      },
+      // Deliberately no `sessionId`: that is the whole difference.
+      { prompt: "Never mind. Reply with exactly: ok", maxTurns: 1 },
+    ],
+  },
+
   subagent: {
     description:
       "a delegated subagent call — does PreToolUse fire for the subagent's own tool calls? (5.7 q7, the half the mcp recording leaves open)",
