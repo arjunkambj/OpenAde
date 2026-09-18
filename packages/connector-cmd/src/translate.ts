@@ -36,14 +36,12 @@
  * the same work lands on the same timeline row.
  */
 
-import type { ItemId } from "@OpenAde/contracts/ids";
 import { makeTurnId } from "@OpenAde/contracts/ids";
 import type { Effort } from "@OpenAde/contracts/enums";
 import type { ConnectorCapabilities, TurnStopReason } from "@OpenAde/contracts/runtime";
 
 import { EXIT_MESSAGES } from "./exitCodes";
 import {
-  anonymousKey,
   ASK_USER_QUESTION,
   asCompactionTokens,
   asOptionalString,
@@ -53,14 +51,13 @@ import {
   textOfToolResult,
   truncateToolOutput,
   type PendingRuntimeEvent,
-  type ToolResultBlock,
-  type ToolUseBlock,
   type TranscriptLine,
   type TranscriptMessage,
 } from "./items";
 import type { CmdFrame, CmdUsage } from "./ndjson";
 import { deltaEvents } from "./deltas";
 import { subagentProgress } from "./subagents";
+import { makeMessageFolder } from "./messages";
 import { makeTextRows } from "./textRows";
 
 export type { PendingRuntimeEvent } from "./items";
@@ -119,8 +116,6 @@ export const makeTranslator = (options: {
   let turnOpen = false;
   let lastMessageId: string | null = options.resumeAfterMessageId ?? null;
   let resumeMarker = options.resumeAfterMessageId ?? null;
-  /** meta.messageId — or content-hash key — of every message already folded. */
-  const seenMessages = new Set<string>();
   /** A tool call's row, however many frames and transcript lines describe it. */
   const toolRows = makeToolRows();
   /** Which row a piece of assistant text belongs on, across all three sources. */
@@ -179,170 +174,7 @@ export const makeTranslator = (options: {
     raw: { source, payload },
   });
 
-  /** The snapshot a tool call announces — what `tool_running` knows, or full `input`. */
-  /**
-   * One transcript/nextState message → its items. `messageId` dedupe is what
-   * makes the run_end reconcile free to repeat what the tailer already saw.
-   */
-  const processMessage = (message: TranscriptMessage): ReadonlyArray<PendingRuntimeEvent> => {
-    const meta = message.meta ?? {};
-    const messageId = meta.messageId;
-    // meta.messageId, or the content hash for a message without one.
-    const dedupeKey = messageId ?? anonymousKey(message);
-    if (seenMessages.has(dedupeKey)) {
-      return [];
-    }
-    seenMessages.add(dedupeKey);
-    const out: Array<PendingRuntimeEvent> = [];
-    const content = Array.isArray(message.content) ? message.content : [];
-    /** Rows this message has already settled — one block may not take two. */
-    const claimed = new Set<ItemId>();
-
-    if (message.role === "user") {
-      const results = content.filter(
-        (block): block is ToolResultBlock => asRecord(block).type === "tool_result",
-      );
-      if (meta.source === "tool" || results.length > 0) {
-        for (const block of results) {
-          out.push(...toolRows.completed(block));
-        }
-      }
-      // A user *text* message emits nothing: the engine's turn.requested fold
-      // already mints the user_message row — a second one here would show
-      // every prompt twice.
-      return out;
-    }
-
-    if (message.role !== "assistant") {
-      return out;
-    }
-
-    content.forEach((block, index) => {
-      const record = asRecord(block);
-      const key = `${dedupeKey}:${index}`;
-      switch (record.type) {
-        case "text": {
-          const text = asString(record.text) ?? "";
-          if (text === "") {
-            return;
-          }
-          // A row already streamed this exact text — finish it rather than
-          // open a second one next to it. A row this same message already
-          // settled is not that row, though: take the next one instead.
-          const itemId = textRows.replayed(text, key, claimed);
-          textRows.settle(itemId);
-          out.push({
-            itemId,
-            type: "item.completed",
-            payload: {
-              item: {
-                itemId,
-                kind: "assistant_message",
-                status: "completed",
-                text,
-              },
-            },
-          });
-          return;
-        }
-        case "thinking": {
-          const thinking = asString(record.thinking) ?? "";
-          if (thinking === "") {
-            return;
-          }
-          const itemId = textRows.replayed(thinking, key, claimed);
-          textRows.settle(itemId);
-          out.push({
-            itemId,
-            type: "item.completed",
-            payload: {
-              item: {
-                itemId,
-                kind: "reasoning",
-                status: "completed",
-                text: thinking,
-              },
-            },
-          });
-          return;
-        }
-        case "tool_use": {
-          const toolUse = record as unknown as ToolUseBlock;
-          out.push(
-            ...toolRows.started(
-              toolUse.id,
-              toolUse.name ?? "unknown",
-              toolUse.input,
-              undefined,
-              `tool:${key}`,
-            ),
-          );
-          return;
-        }
-        case "tool_result": {
-          out.push(...toolRows.completed(record as unknown as ToolResultBlock));
-          return;
-        }
-        default: {
-          out.push(unmapped("cmd.transcript", { block }));
-          return;
-        }
-      }
-    });
-    return out;
-  };
-
-  /**
-   * The content blocks of a `message_end` frame → the events that settle them.
-   *
-   * This is `processMessage`'s job done from the live side, and it shares every
-   * dedupe key with it: text and thinking find the row they streamed on through
-   * `streamedItemForText`, tool calls key on `toolCallId`. The transcript
-   * replaying the same message later therefore lands on the same rows instead of
-   * opening a second set beside them.
-   */
-  const onMessageContent = (content: unknown): ReadonlyArray<PendingRuntimeEvent> => {
-    if (!Array.isArray(content)) {
-      return [];
-    }
-    const out: Array<PendingRuntimeEvent> = [];
-    const message = textRows.nextMessage();
-    /** Rows this frame has already settled — one block may not take two. */
-    const claimed = new Set<ItemId>();
-    content.forEach((block, index) => {
-      const record = asRecord(block);
-      switch (record.type) {
-        case "text":
-        case "thinking": {
-          const text = asOptionalString(record.type === "text" ? record.text : record.thinking);
-          if (text === undefined) {
-            return;
-          }
-          const kind =
-            record.type === "text" ? ("assistant_message" as const) : ("reasoning" as const);
-          // A model that streams no deltas still gets a row: `ended` mints one
-          // and queues it so the transcript recognizes it as already emitted.
-          const itemId = textRows.ended(text, message, index, claimed);
-          textRows.settle(itemId);
-          out.push({
-            itemId,
-            type: "item.completed",
-            payload: { item: { itemId, kind, status: "completed", text } },
-          });
-          return;
-        }
-        case "tool_use": {
-          const toolUse = record as unknown as ToolUseBlock;
-          out.push(...toolRows.started(toolUse.id, toolUse.name ?? "unknown", toolUse.input));
-          return;
-        }
-        default: {
-          return;
-        }
-      }
-    });
-    return out;
-  };
+  const { processMessage, onMessageContent } = makeMessageFolder({ toolRows, textRows, unmapped });
 
   /**
    * `run_end.result.usage` has no cost field (spec 5.2) — the only place a
