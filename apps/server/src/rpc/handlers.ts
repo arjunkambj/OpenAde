@@ -16,6 +16,7 @@ import {
   BrowserService,
   CmdConfig,
   ConnectorCatalog,
+  DirectoryBrowser,
   FileService,
   GitService,
   ServerIdentity,
@@ -41,6 +42,7 @@ export const handlersLayer = OpenAdeRpcGroup.toLayer(
     const identity = yield* ServerIdentity;
     const connectors = yield* ConnectorCatalog;
     const files = yield* FileService;
+    const directories = yield* DirectoryBrowser;
     const git = yield* GitService;
     const browser = yield* BrowserService;
     const settings = yield* SettingsStore;
@@ -85,6 +87,8 @@ export const handlersLayer = OpenAdeRpcGroup.toLayer(
       "files.search": ({ projectId, query, limit }) => files.search(projectId, query, limit),
       "files.read": ({ projectId, path, offset, limit }) =>
         files.read(projectId, path, offset, limit),
+
+      "fs.browse": ({ path, showHidden }) => directories.browse({ path, showHidden }),
 
       "attachments.stage": ({ threadId, name, base64 }) =>
         attachments.stage({ threadId, name, base64 }),

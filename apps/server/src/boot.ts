@@ -41,6 +41,7 @@ import { EventStore } from "./persistence/EventStore";
 import { ReadModelStore } from "./persistence/ReadModels";
 import { defaultLayer as sqliteLayer } from "./persistence/Sqlite";
 import { PermissionService } from "./permissions/PermissionService";
+import { layer as directoryBrowserLayer } from "./fs/Directories";
 import { layer as gitCheckpointHookLayer } from "./git/CheckpointHook";
 import { layer as fileServiceLayer } from "./git/Files";
 import { layer as gitServiceLayer } from "./git/Git";
@@ -169,6 +170,7 @@ export const boot = (options: BootOptions) =>
       Layer.succeed(ServerToken, { token }),
       sharedSettings,
       fileServiceLayer.pipe(Layer.provide(persistence)),
+      directoryBrowserLayer,
       gitServiceLayer.pipe(Layer.provide(persistence)),
       attachments,
       browser,

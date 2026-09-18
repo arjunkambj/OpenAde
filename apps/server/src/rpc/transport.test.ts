@@ -43,6 +43,7 @@ import * as SubscriptionRef from "effect/SubscriptionRef";
 import * as HttpServer from "effect/unstable/http/HttpServer";
 
 import { AttachmentStore } from "../attachments/AttachmentStore";
+import { layer as directoryBrowserLayer } from "../fs/Directories";
 import { McpGateway } from "../mcp/McpGateway";
 import { CheckpointHook, CheckpointReactor } from "../orchestration/CheckpointReactor";
 import { OrchestrationEngine } from "../orchestration/Engine";
@@ -119,6 +120,7 @@ const testStack = (browserLayer: Layer.Layer<BrowserService> = BrowserService.em
       Layer.succeed(ServerToken, { token: TOKEN }),
       ConnectorCatalog.empty,
       FileService.empty,
+      directoryBrowserLayer,
       GitService.empty,
       browserLayer,
       McpGateway.layer.pipe(Layer.provide(Layer.mergeAll(browserLayer, engineLayer, managerLayer))),

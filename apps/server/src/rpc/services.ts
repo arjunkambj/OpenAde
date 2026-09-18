@@ -11,6 +11,7 @@ import type {
   ConnectorSummary,
   FileContent,
   FileSearchResult,
+  FsListing,
   GitDiff,
   GitStatus,
   McpServerConfig,
@@ -18,7 +19,7 @@ import type {
   ModelOption,
   SkillSummary,
 } from "@OpenAde/contracts/rpc";
-import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
+import { FsBrowseError, OpenAdeRpcError } from "@OpenAde/contracts/rpc";
 import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
 import { defaultSettings, Settings } from "@OpenAde/contracts/settings";
 import type { SettingsPatch } from "@OpenAde/contracts/settings";
@@ -94,6 +95,25 @@ export class FileService extends Context.Service<
     }),
   );
 }
+
+// ── Directory browsing (the folder picker) ─────────────────────
+
+/**
+ * `fs.browse` behind a Tag like everything else, though it has only ever had
+ * one implementation: the picker's listing is a filesystem read that a test
+ * (and, later, a host that is not this machine) has every reason to replace
+ * without the handler knowing.
+ */
+export class DirectoryBrowser extends Context.Service<
+  DirectoryBrowser,
+  {
+    readonly browse: (input: {
+      /** Absolute. Omitted means the server user's home directory. */
+      readonly path?: string | undefined;
+      readonly showHidden?: boolean | undefined;
+    }) => Effect.Effect<FsListing, FsBrowseError>;
+  }
+>()("server/rpc/DirectoryBrowser") {}
 
 // ── Git (W8) ───────────────────────────────────────────────────
 
