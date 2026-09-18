@@ -378,6 +378,53 @@ const drain = async () => {
   }
 };
 
+// ── the files the run left behind ──────────────────────────────
+
+/**
+ * Plan markdown and workspace edits, put back where the run put them.
+ *
+ * These are side effects of the recorded run exactly as the transcript is, and
+ * the recorder captured their bytes; replaying the frames without them
+ * describes a turn whose tool calls all succeeded and yet changed nothing. Two
+ * things then cannot be tested at all: a plan turn, because the connector
+ * proposes the plan by reading the file the run wrote, and a checkpoint,
+ * because two snapshots of an untouched worktree have no diff between them.
+ *
+ * They land *during* the run rather than before it, for the same reason the
+ * transcript does: the connector only accepts a plan file whose mtime is later
+ * than the spawn, which is how a plan this turn wrote is told from one sitting
+ * in the shared directory since last month.
+ */
+const writeRecordedFiles = () => {
+  for (const plan of turn.plans ?? []) {
+    if (plan.content === null || plan.content === undefined) {
+      continue;
+    }
+    const directory = path.join(home, ".commandcode", "plans");
+    fs.mkdirSync(directory, { recursive: true });
+    fs.writeFileSync(path.join(directory, plan.name), unscrub(plan.content), "utf8");
+  }
+  for (const touched of turn.touchedFiles ?? []) {
+    const target = path.join(cwd, touched.name);
+    if (touched.content === null || touched.content === undefined) {
+      fs.rmSync(target, { force: true });
+      continue;
+    }
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, unscrub(touched.content), "utf8");
+  }
+};
+
+/** Written once, at the first tool result — the earliest the run could have. */
+let filesWritten = false;
+const writeRecordedFilesOnce = () => {
+  if (filesWritten) {
+    return;
+  }
+  filesWritten = true;
+  writeRecordedFiles();
+};
+
 /**
  * Walks the recorded stdout line by line, doing at each frame what the harness
  * did: call the hook before a gated tool call, and hand the line to the chunked
@@ -403,6 +450,12 @@ const replay = async () => {
       if (recorded !== null) {
         askHook(recorded);
       }
+    }
+    // A completed tool call is the moment the run's own writes had landed.
+    // A plan turn takes no tool calls the hook sees, so `message_end` stands
+    // in for it there.
+    if (event?.type === "tool_completed" || event?.type === "message_end") {
+      writeRecordedFilesOnce();
     }
     buffered += `${line}\n`;
     await drain();
@@ -431,6 +484,11 @@ if (awaitingInterrupt) {
     }
   }, 10);
 } else {
+  // A run that produced no tool call and no message still wrote whatever the
+  // recorder found; an interrupted one is left as the SIGINT left it.
+  if (!interrupted) {
+    writeRecordedFilesOnce();
+  }
   flushTranscript(transcriptLines.length);
   process.exit(interrupted ? 130 : (turn.exitCode ?? 0));
 }
