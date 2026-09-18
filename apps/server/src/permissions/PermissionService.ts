@@ -34,12 +34,33 @@ import type { SqlError } from "effect/unstable/sql/SqlError";
 
 import { layer as migrationsLayer } from "../persistence/Migrations";
 
-import { parsePattern, matchPattern, requestCommand, requestPath } from "./patterns";
+import { parsePattern, matchPattern, requestCommand, requestPath, requestUrl } from "./patterns";
 import { commandTouchesSensitivePath, isSensitivePath } from "./sensitivePaths";
 
 /**
+ * The local path a `file:` URL names, or `null` for anything else. A tool that
+ * takes a URL can read a file just as surely as one that takes a path.
+ */
+const localPathOf = (url: string): string | null => {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "file:" ? decodeURIComponent(parsed.pathname) : null;
+  } catch {
+    return null;
+  }
+};
+
+/**
  * Whether the request touches credentials or key material — a file path for
- * the file kinds, any argument of the command line for `command`.
+ * the file kinds, any argument of the command line for `command`, and the
+ * path or `file:` URL of anything else that names one.
+ *
+ * The last clause is what makes the contract's own words about `full-access`
+ * true: "allows everything except sensitive paths and deny rules". Every
+ * OpenAde MCP tool is classified `mcp_tool`, so the check used to skip them
+ * entirely and the ladder fell through to `allow` — `browser_open` with a
+ * `file:` URL followed by `browser_get text body` read `~/.ssh/id_ed25519`
+ * with no card ever shown, where `read_file` on the same path prompts.
  */
 const touchesSensitivePath = (request: ApprovalRequest): boolean => {
   if (request.kind === "file_read" || request.kind === "file_write") {
@@ -50,7 +71,13 @@ const touchesSensitivePath = (request: ApprovalRequest): boolean => {
     const command = requestCommand(request);
     return command !== null && commandTouchesSensitivePath(command);
   }
-  return false;
+  const url = requestUrl(request);
+  const fromUrl = url === null ? null : localPathOf(url);
+  if (fromUrl !== null && isSensitivePath(fromUrl)) {
+    return true;
+  }
+  const path = requestPath(request);
+  return path !== null && isSensitivePath(path);
 };
 
 export type PermissionDecision = "allow" | "prompt" | "deny";

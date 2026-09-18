@@ -164,14 +164,41 @@ const optionalNumber = (
 const isError = (value: unknown): value is { error: string } =>
   typeof value === "object" && value !== null && "error" in value;
 
+/**
+ * The agent may only send the browser to the web.
+ *
+ * `browser_open` took any string, so `file:///Users/…/.ssh/id_ed25519` followed
+ * by `browser_get text body` read key material the ladder prompts about when
+ * `read_file` asks for it — and, unlike `browser_eval`, nothing gated it. The
+ * pane's own attach policy already requires `^https?://` of a human-mounted
+ * page (apps/desktop/src/main/webview.ts); the agent-driven path must not be
+ * the looser of the two. `about:`, `data:`, `chrome:` and `devtools:` are out
+ * for the same reason.
+ */
+const WEB_URL = /^https?:\/\//i;
+
+const webUrl = (args: Record<string, unknown>, key: string): string | { error: string } => {
+  const url = requiredString(args, key);
+  if (isError(url)) {
+    return url;
+  }
+  return WEB_URL.test(url.trim())
+    ? url.trim()
+    : { error: `${key} must be an http:// or https:// address` };
+};
+
 /** The catalogue, in tools/list order. */
 export const BROWSER_TOOLS: ReadonlyArray<BrowserToolSpec> = [
   makeTool("browser_open", {
-    description: "Open a URL in the thread's browser session, creating it on first use.",
-    inputSchema: objectSchema({ url: { ...string, description: "URL to navigate to" } }, ["url"]),
+    description:
+      "Open an http:// or https:// URL in the thread's browser session, creating it on first use.",
+    inputSchema: objectSchema(
+      { url: { ...string, description: "http:// or https:// address to navigate to" } },
+      ["url"],
+    ),
     mutating: true,
     toArgv: (args) => {
-      const url = requiredString(args, "url");
+      const url = webUrl(args, "url");
       return isError(url) ? url : ["open", url];
     },
   }),
@@ -344,7 +371,7 @@ export const BROWSER_TOOLS: ReadonlyArray<BrowserToolSpec> = [
     inputSchema: objectSchema(
       {
         action: { type: "string", enum: ["list", "new", "switch", "close"] },
-        url: { ...string, description: "For action=new" },
+        url: { ...string, description: "http:// or https:// address, for action=new" },
         tab: { ...string, description: "Tab id (t1), label, or targetId — for switch/close" },
       },
       ["action"],
@@ -354,8 +381,13 @@ export const BROWSER_TOOLS: ReadonlyArray<BrowserToolSpec> = [
       switch (args.action) {
         case "list":
           return ["tab", "list"];
-        case "new":
-          return ["tab", "new", ...(typeof args.url === "string" ? [args.url] : [])];
+        case "new": {
+          if (args.url === undefined) {
+            return ["tab", "new"];
+          }
+          const url = webUrl(args, "url");
+          return isError(url) ? url : ["tab", "new", url];
+        }
         case "switch": {
           const tab = requiredString(args, "tab");
           return isError(tab) ? tab : ["tab", tab];

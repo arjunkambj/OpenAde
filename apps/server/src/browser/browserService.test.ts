@@ -262,6 +262,51 @@ describe("BrowserService", () => {
     ),
   );
 
+  it.live("sends the agent's browser only to http and https", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        // `browser_open` took any string, so `file://` plus `browser_get text
+        // body` read key material that `read_file` on the same path prompts
+        // about — and nothing gated it the way `browser_eval` is gated.
+        const argvs: Array<ReadonlyArray<string>> = [];
+        const { browser } = yield* buildStack(() =>
+          Effect.succeed(
+            makeFakeDriver(fakePage(), {
+              onExec: (argv) =>
+                Effect.sync(() => {
+                  argvs.push(argv);
+                }),
+            }),
+          ),
+        );
+
+        for (const url of [
+          "file:///Users/someone/.ssh/id_ed25519",
+          "about:blank",
+          "data:text/html,<script>fetch('/')</script>",
+          "devtools://devtools/bundled/inspector.html",
+        ]) {
+          const refused = yield* browser.callTool(threadId, "browser_open", { url });
+          expect(refused.kind).toBe("error");
+          expect(refused.kind === "error" ? refused.message : "").toContain("http://");
+        }
+        const refusedTab = yield* browser.callTool(threadId, "browser_tabs", {
+          action: "new",
+          url: "file:///etc/passwd",
+        });
+        expect(refusedTab.kind).toBe("error");
+
+        // Refused before anything ran, and the web still works.
+        expect(argvs).toEqual([]);
+        const opened = yield* browser.callTool(threadId, "browser_open", {
+          url: "https://example.com/docs",
+        });
+        expect(opened.kind).toBe("ok");
+        expect(argvs).toContainEqual(["open", "https://example.com/docs"]);
+      }),
+    ),
+  );
+
   it.live("in cdp-attach mode the pane's webview is the only tab there is", () =>
     Effect.scoped(
       Effect.gen(function* () {

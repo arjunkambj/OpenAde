@@ -253,6 +253,41 @@ const rows: ReadonlyArray<Row> = [
     want: "prompt",
   },
 
+  // A tool that names a path in a `file:` URL reads it just as surely as
+  // `read_file` does, and the contract's promise about full-access — "allows
+  // everything except sensitive paths and deny rules" — has to hold there too.
+  // The ladder used to skip the check for every kind but the file and command
+  // ones, so `browser_open file:///…/.ssh/id_ed25519` never showed a card.
+  {
+    kind: "mcp_tool",
+    toolName: "mcp__openade__browser_open",
+    input: { url: "file:///Users/someone/.ssh/id_ed25519" },
+    mode: "full-access",
+    want: "prompt",
+  },
+  {
+    kind: "mcp_tool",
+    toolName: "mcp__openade__browser_open",
+    input: { url: "file:///Users/someone/project/.env" },
+    mode: "full-access",
+    rules: [{ pattern: "mcp__openade__browser_*", decision: "allow" }],
+    want: "prompt",
+  },
+  {
+    kind: "mcp_tool",
+    toolName: "mcp__openade__browser_open",
+    input: { url: "https://example.com/.env" },
+    mode: "full-access",
+    want: "allow",
+  },
+  {
+    kind: "other",
+    toolName: "some_reader",
+    input: { path: "/home/user/.aws/credentials" },
+    mode: "full-access",
+    want: "prompt",
+  },
+
   // Deny rules beat everything, including full-access and allow rules.
   {
     kind: "command",

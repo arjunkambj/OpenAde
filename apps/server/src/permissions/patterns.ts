@@ -11,6 +11,7 @@ export {
   patternMatches,
   requestCommand,
   requestPath,
+  requestUrl,
 } from "@OpenAde/shared/permissionPattern";
 export type {
   ParsedPattern,
