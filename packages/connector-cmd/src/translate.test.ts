@@ -1,9 +1,13 @@
 /**
  * The translator's contract: NDJSON frames, transcript lines and process exit
  * all describe the same work, and every overlapping source has to land on one
- * timeline row. These tests replay the real captured run (the
- * insufficient-credits probe from w2-cmd-frames.md) and drive the dedupe paths
- * by hand, because the live CLI needs credits this account does not have.
+ * timeline row.
+ *
+ * These tests drive the dedupe and lifecycle paths by hand, with frames shaped
+ * the way the recordings shaped them — a resume marker found and not found, a
+ * transcript line re-read, a turn that dies without `run_end`. The recordings
+ * themselves are replayed in `recordedFrames.test.ts`, which is the file that
+ * says what the harness emits; this one says what the translator does with it.
  */
 
 import * as NodeFS from "node:fs";
