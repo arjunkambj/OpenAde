@@ -133,6 +133,26 @@ const PASS_PREFIXES = ["LC_", "OPENADE_"];
  */
 const DROP_PREFIXES = ["OPENADE_SERVER_", "ANTHROPIC_", "OPENAI_"];
 
+/**
+ * Names only the session gets to set.
+ *
+ * `OPENADE_HOOK_URL`, `OPENADE_HOOK_TICKET_FILE` and `OPENADE_MCP_TOKEN` are
+ * the approval gate's control plane, and `extraEnv` is not a local-only file:
+ * it is part of the connector config and is written through the `settings`
+ * RPC from the connectors page. Pointing `OPENADE_HOOK_TICKET_FILE` at a path
+ * that does not exist makes the hook script read no bearer, take its "no
+ * OpenAde session owns this run" path and exit silently — and under `--yolo`
+ * that is every tool call running unapproved while the header still says
+ * `approval-required`. So an operator-supplied value of one of these names is
+ * dropped the way `OPENADE_SERVER_` is, and the session's own value is
+ * applied last besides.
+ */
+const RESERVED_PREFIXES = ["OPENADE_HOOK_", "OPENADE_MCP_"];
+const RESERVED_NAMES = new Set(["OPENADE_THREAD_ID"]);
+
+const isReserved = (name: string): boolean =>
+  RESERVED_NAMES.has(name) || RESERVED_PREFIXES.some((prefix) => name.startsWith(prefix));
+
 const isDropped = (name: string): boolean =>
   DROP_PREFIXES.some((prefix) => name.startsWith(prefix));
 
@@ -143,13 +163,17 @@ const isAllowed = (name: string): boolean =>
     PASS_PREFIXES.some((prefix) => name.startsWith(prefix)));
 
 /**
- * The spawn environment: allowlisted inherited variables plus `extra` (the
- * connector's own `OPENADE_*` and the connector config's `extraEnv`), with the
- * deny prefixes applied last so nothing leaks through an override.
+ * The spawn environment: allowlisted inherited variables, then the operator's
+ * `extraEnv`, then the session's own control plane — in that order, so
+ * OpenAde's keys always win. `extraEnv` used to be spread *after* them, which
+ * made one setting on the connectors page enough to switch the approval gate
+ * off.
  */
 export const envAllowlist = (
   env: Readonly<Record<string, string | undefined>>,
   extra: Readonly<Record<string, string>> = {},
+  /** The session's own `OPENADE_*` variables. Applied last and never filtered. */
+  control: Readonly<Record<string, string>> = {},
 ): Record<string, string> => {
   const out: Record<string, string> = {};
   for (const [name, value] of Object.entries(env)) {
@@ -158,7 +182,12 @@ export const envAllowlist = (
     }
   }
   for (const [name, value] of Object.entries(extra)) {
-    if (isAllowed(name)) {
+    if (isAllowed(name) && !isReserved(name)) {
+      out[name] = value;
+    }
+  }
+  for (const [name, value] of Object.entries(control)) {
+    if (!isDropped(name)) {
       out[name] = value;
     }
   }

@@ -664,14 +664,17 @@ export const makeCmdSession = (
               binaryPath: binary.command,
               args: [...binary.prefixArgs, ...args],
               cwd: options.workspaceRoot,
-              env: envAllowlist(process.env, {
-                OPENADE_HOOK_URL: hook.url,
-                // A path, not a secret — see the ticket comment above.
-                OPENADE_HOOK_TICKET_FILE: ticket,
-                OPENADE_THREAD_ID: options.threadId,
-                ...(mcp === null ? {} : { OPENADE_MCP_TOKEN: mcp.bearer }),
-                ...options.extraEnv,
-              }),
+              env: envAllowlist(
+                process.env,
+                { ...options.extraEnv },
+                {
+                  OPENADE_HOOK_URL: hook.url,
+                  // A path, not a secret — see the ticket comment above.
+                  OPENADE_HOOK_TICKET_FILE: ticket,
+                  OPENADE_THREAD_ID: options.threadId,
+                  ...(mcp === null ? {} : { OPENADE_MCP_TOKEN: mcp.bearer }),
+                },
+              ),
             }).pipe(Effect.provideService(Scope.Scope, scope));
             const active: ActiveProcess = {
               proc,

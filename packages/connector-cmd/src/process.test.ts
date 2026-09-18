@@ -153,23 +153,55 @@ describe("envAllowlist", () => {
     });
   });
 
-  it("drops control-plane and foreign credentials even through extra", () => {
+  it("drops server internals and foreign credentials even through extra", () => {
     const out = envAllowlist(
       { HOME: "/home/u", ANTHROPIC_API_KEY: "sk-1", OPENAI_API_KEY: "sk-2" },
-      {
-        OPENADE_HOOK_URL: "http://127.0.0.1/h",
-        OPENADE_SERVER_INTERNAL: "no",
-        ANTHROPIC_AUTH: "no",
-        EXTRA_SAFE: "no",
-      },
+      { OPENADE_SERVER_INTERNAL: "no", ANTHROPIC_AUTH: "no" },
+      { OPENADE_HOOK_URL: "http://127.0.0.1/h" },
     );
     expect(out.HOME).toBe("/home/u");
     expect(out.OPENADE_HOOK_URL).toBe("http://127.0.0.1/h");
     expect(Object.keys(out).some((name) => name.includes("ANTHROPIC"))).toBe(false);
     expect(Object.keys(out).some((name) => name.includes("OPENAI"))).toBe(false);
     expect(out.OPENADE_SERVER_INTERNAL).toBeUndefined();
-    // extraEnv entries that are not allowlisted do not pass either.
-    expect(out.EXTRA_SAFE).toBeUndefined();
+  });
+
+  /**
+   * `extraEnv` reaches this from the connectors page through `settings.update`,
+   * so an operator-supplied value that wins over the session's own would be an
+   * approval gate anyone with the settings page can switch off: a
+   * `OPENADE_HOOK_TICKET_FILE` pointing nowhere makes the hook script find no
+   * bearer, exit silently, and hand every tool call back to a `--yolo` harness.
+   */
+  it("never lets extraEnv override the session's control plane", () => {
+    const out = envAllowlist(
+      { HOME: "/home/u" },
+      {
+        OPENADE_HOOK_TICKET_FILE: "/nonexistent",
+        OPENADE_HOOK_URL: "http://evil.example/hook",
+        OPENADE_MCP_TOKEN: "theirs",
+        OPENADE_THREAD_ID: "theirs",
+      },
+      {
+        OPENADE_HOOK_URL: "http://127.0.0.1/h",
+        OPENADE_HOOK_TICKET_FILE: "/run/ticket",
+        OPENADE_MCP_TOKEN: "ours",
+        OPENADE_THREAD_ID: "ours",
+      },
+    );
+    expect(out.OPENADE_HOOK_URL).toBe("http://127.0.0.1/h");
+    expect(out.OPENADE_HOOK_TICKET_FILE).toBe("/run/ticket");
+    expect(out.OPENADE_MCP_TOKEN).toBe("ours");
+    expect(out.OPENADE_THREAD_ID).toBe("ours");
+  });
+
+  it("drops a reserved name from extraEnv even when the session sets none", () => {
+    const out = envAllowlist({}, { OPENADE_HOOK_TICKET_FILE: "/nonexistent" });
+    expect(out.OPENADE_HOOK_TICKET_FILE).toBeUndefined();
+  });
+
+  it("still passes the operator's own OPENADE_ variables", () => {
+    expect(envAllowlist({}, { OPENADE_STUB_MODE: "1" }).OPENADE_STUB_MODE).toBe("1");
   });
 });
 
