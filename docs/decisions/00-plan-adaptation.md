@@ -30,7 +30,7 @@ Applies to `docs/specs/mvp-build-spec.md` (v0.2, 2026-09-15). Every workstream r
 
 ## External binaries on this machine (2026-09-15)
 
-- `cmd` (command-code 1.54.0) is **not on PATH** but runs through `npx -y command-code@1.54.0`, and `cmd status --json` reports authenticated. The connector probe searches config path, PATH, npm/pnpm/bun global bins and falls back to `npx -y command-code@1.54.0`. Credits are unknown: W2's first task is one minimal live turn; exit code 10 means fixtures come from the frames in spec section 5 and `FakeCmdProcess`. Live smoke is opt-in via `OPENADE_LIVE_CMD=1`.
+- `cmd` (command-code 1.54.0) is **not on PATH** but runs through `npx -y command-code@1.54.0`, and `cmd status --json` reports authenticated. The connector probe searches config path, PATH, npm/pnpm/bun global bins and falls back to `npx -y command-code@1.54.0`. Credits are unknown: W2's first task is one minimal live turn; exit code 10 means fixtures come from the frames in spec section 5 and `FakeCmdProcess`. Live smoke is opt-in via `OPENADE_LIVE_CMD=1`. **Superseded (2026-09-18):** the plan is paid for, `cmd` is installed at `/opt/homebrew/bin/cmd`, nothing is pinned any more (the fallback asks for `command-code@latest`), and `FakeCmdProcess` is gone — every fixture is a real recording. See `w2-cmd-frames.md`.
 - `agent-browser` is **not installed**. W6 uses `npx -y agent-browser@0.37.1` for the spike and adds an install prompt.
 - Reference repos exist read-only at `/Volumes/main/Code/ade/{t3code,zuse,synara,opencodex}`; every file the spec cites was verified present. t3code and synara are MIT, zuse is AGPL (read only), Command Code is UNLICENSED (spawn only).
 
