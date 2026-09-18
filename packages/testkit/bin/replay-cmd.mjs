@@ -98,9 +98,23 @@ if (argv[0] === "status") {
   process.stdout.write(probe("status"));
   process.exit(0);
 }
-if (value("--model") === "definitely/not-a-real-model") {
+/**
+ * The bad-model rejection, replayed for the id the probe recording was made
+ * with — read out of the recording rather than written down here, so nothing in
+ * this file knows a model name of its own and a re-recording with a different
+ * made-up id keeps working.
+ */
+const probeManifest = JSON.parse(readOr(path.join(FIXTURES, "probe", "manifest.json"), "null"));
+const invalidModel = (() => {
+  const probes = probeManifest?.probes ?? [];
+  const recorded = probes.find((entry) => entry.name === "invalid-model");
+  const args = recorded?.args ?? [];
+  const at = args.indexOf("--model");
+  return at === -1 ? null : args[at + 1];
+})();
+if (invalidModel !== null && value("--model") === invalidModel) {
   process.stderr.write(readOr(path.join(FIXTURES, "probe", "invalid-model.stderr.txt")));
-  process.exit(1);
+  process.exit(probeManifest.probes.find((entry) => entry.name === "invalid-model")?.exitCode ?? 1);
 }
 
 // ── the recording to play ──────────────────────────────────────

@@ -13,7 +13,13 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { loadRecording, recordingNames, replayConfig, REPLAY_BINARY } from "./replayCmdProcess";
+import {
+  loadRecording,
+  recordingNames,
+  replayConfig,
+  RECORDINGS_DIR,
+  REPLAY_BINARY,
+} from "./replayCmdProcess";
 
 interface Run {
   readonly stdout: string;
@@ -126,6 +132,33 @@ describe("the recorded non-model surfaces", () => {
 
       const version = await run(["--version"], { cwd: box.cwd, env });
       expect(version.stdout.trim()).toBe("1.55.1");
+    } finally {
+      NodeFS.rmSync(box.root, { recursive: true, force: true });
+    }
+  });
+
+  /**
+   * The id comes from the probe recording's own argv, not from a constant in
+   * the replayer — so this reads it the same way and a re-recording with a
+   * different made-up model needs no edit here either.
+   */
+  it("rejects the model the probe recording was rejected for", async () => {
+    const probe = JSON.parse(
+      NodeFS.readFileSync(NodePath.join(RECORDINGS_DIR, "probe", "manifest.json"), "utf8"),
+    ) as { probes: ReadonlyArray<{ name: string; args: ReadonlyArray<string>; exitCode: number }> };
+    const recorded = probe.probes.find((entry) => entry.name === "invalid-model");
+    const model = recorded?.args[recorded.args.indexOf("--model") + 1];
+    expect(model).toBeDefined();
+
+    const box = sandbox();
+    try {
+      const result = await run(["-p", "hi", "--model", model!], {
+        cwd: box.cwd,
+        env: { HOME: box.home },
+      });
+      expect(result.code).toBe(recorded!.exitCode);
+      expect(result.stderr).toContain("unknown model");
+      expect(result.stdout).toBe("");
     } finally {
       NodeFS.rmSync(box.root, { recursive: true, force: true });
     }
