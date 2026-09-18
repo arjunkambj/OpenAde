@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  approvalCardKey,
-  isOverlayOpen,
-  planCardKey,
-  type CardKeyContext,
-} from "./card-keys";
+import { approvalCardKey, isOverlayOpen, planCardKey, type CardKeyContext } from "./card-keys";
 
 const press = (patch: Partial<CardKeyContext> & { readonly key: string }): CardKeyContext => ({
   defaultPrevented: false,

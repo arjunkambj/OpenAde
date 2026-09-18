@@ -76,7 +76,9 @@ export function KeybindingsProvider({ children }: { readonly children: React.Rea
         return;
       }
       const context = (name: string): boolean | string | undefined =>
-        name === "composerFocus" ? focusedContext(event.target) === "composer" : registry.flag(name);
+        name === "composerFocus"
+          ? focusedContext(event.target) === "composer"
+          : registry.flag(name);
       const binding = resolveKeybinding(keybindingsRef.current, event, context, modKey);
       const handler = binding === null ? undefined : registry.resolve(binding.command);
       if (handler === undefined) {

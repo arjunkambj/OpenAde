@@ -42,8 +42,9 @@ import {
   directoryTyped,
   emptyDirectory,
 } from "@/components/welcome/project-directory";
+import { WelcomeWindowChrome } from "@/components/Layout/window-chrome";
 import { getResolvedConnection } from "@/state/app-runtime";
-import { useConnectionState } from "@/state/hooks";
+import { useConnectionState, useProjects } from "@/state/hooks";
 
 export const Route = createFileRoute("/welcome")({
   component: WelcomePage,
@@ -110,6 +111,9 @@ function WelcomePage() {
   const navigate = useNavigate();
   const probeAll = useAtomSet(atoms.probeConnectorsAtom, { mode: "promise" });
   const dispatch = useAtomSet(atoms.dispatchAtom, { mode: "promiseExit" });
+  // An install that already has projects reached this page from the sidebar or
+  // a banner link, and needs a way back that is not "create another project".
+  const projects = useProjects();
 
   const [directory, setDirectory] = React.useState(emptyDirectory);
   const [connectors, setConnectors] = React.useState<ReadonlyArray<ConnectorSummary> | null>(null);
@@ -189,124 +193,128 @@ function WelcomePage() {
   };
 
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center px-6">
-      <div className="w-full max-w-xl">
-        <h1 className="text-2xl font-medium">Welcome to OpenAde</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Pick a project directory, make sure a connector is installed and signed in, and start.
-        </p>
+    // A chrome row of its own: this route is outside both layouts, so without
+    // one the macOS traffic lights land on the page and the window cannot be
+    // dragged — see `WelcomeWindowChrome`.
+    <div className="flex h-svh min-h-0 flex-col">
+      <WelcomeWindowChrome canGoBack={projects.length > 0} />
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-10">
+        <div className="w-full max-w-xl">
+          <h1 className="text-2xl font-medium">Welcome to OpenAde</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Pick a project directory, make sure a connector is installed and signed in, and start.
+          </p>
 
-        <Card size="sm" className="mt-6">
-          <CardContent>
-            <div className="flex flex-col gap-4">
-              <div>
-                <div className="text-sm font-medium">Project directory</div>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  The workspace the agent runs in.
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {/* Live, not commit-on-blur: "Create project" is gated on this
+          <Card size="sm" className="mt-6">
+            <CardContent>
+              <div className="flex flex-col gap-4">
+                <div>
+                  <div className="text-sm font-medium">Project directory</div>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    The workspace the agent runs in.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {/* Live, not commit-on-blur: "Create project" is gated on this
                     value and a disabled button cannot be clicked to blur the
                     field, which left a fresh install with no way forward. */}
-                <Input
-                  id="welcome-directory"
-                  className="flex-1"
-                  value={directory.path}
-                  placeholder="/path/to/project"
-                  autoFocus
-                  aria-invalid={problem !== null}
-                  aria-describedby={problem === null ? undefined : "welcome-directory-problem"}
-                  onChange={(event) => {
-                    setDirectory(directoryTyped(event.target.value));
-                    setConnectors(null);
-                  }}
-                />
-                <Button variant="outline" size="sm" onClick={() => void browse()}>
-                  <Icon icon="hugeicons:folder-open" />
-                  Browse…
-                </Button>
-              </div>
-              {problem === null ? null : (
-                <p
-                  id="welcome-directory-problem"
-                  role="alert"
-                  className="-mt-2 type-micro text-destructive"
-                >
-                  {problem}
-                </p>
-              )}
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={checking}
-                  onClick={() => void verify()}
-                >
-                  <Icon
-                    icon="solar:refresh-linear"
-                    className={checking ? "animate-spin" : undefined}
+                  <Input
+                    id="welcome-directory"
+                    className="flex-1"
+                    value={directory.path}
+                    placeholder="/path/to/project"
+                    autoFocus
+                    aria-invalid={problem !== null}
+                    aria-describedby={problem === null ? undefined : "welcome-directory-problem"}
+                    onChange={(event) => {
+                      setDirectory(directoryTyped(event.target.value));
+                      setConnectors(null);
+                    }}
                   />
-                  {checking ? "Checking…" : "Check connectors"}
-                </Button>
-                {connectors !== null && connectors.length === 0 ? (
-                  <span className="text-xs text-muted-foreground">
-                    No connectors configured — add one in Settings → Connectors.
-                  </span>
-                ) : null}
-              </div>
-
-              {connectors === null ? null : (
-                <div className="flex flex-col gap-2">
-                  {connectors.map((connector) => {
-                    const help = helpUrlFor(connector.probe);
-                    // One rule for the tick, the line beside it and the
-                    // sentence above the Create button, so the card cannot say
-                    // "ready" and "not signed in" at the same time.
-                    const usable = connectorReady(connector.probe);
-                    return (
-                      <div
-                        key={connector.connectorInstanceId}
-                        className="flex items-center gap-2 text-sm"
-                      >
-                        <Icon
-                          icon={
-                            usable ? "hugeicons:checkmark-circle-01" : "hugeicons:alert-02"
-                          }
-                          className={usable ? "text-added" : "text-removed"}
-                        />
-                        <span className="font-medium">{connector.displayName}</span>
-                        <span className="text-muted-foreground">
-                          {probeSummary(connector.probe)}
-                        </span>
-                        {help === null ? null : (
-                          <button
-                            type="button"
-                            className="text-xs text-primary underline underline-offset-2"
-                            onClick={() => openExternal(help)}
-                          >
-                            Resolve
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
+                  <Button variant="outline" size="sm" onClick={() => void browse()}>
+                    <Icon icon="hugeicons:folder-open" />
+                    Browse…
+                  </Button>
                 </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                {problem === null ? null : (
+                  <p
+                    id="welcome-directory-problem"
+                    role="alert"
+                    className="-mt-2 type-micro text-destructive"
+                  >
+                    {problem}
+                  </p>
+                )}
 
-        <ConnectionDetails />
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={checking}
+                    onClick={() => void verify()}
+                  >
+                    <Icon
+                      icon="solar:refresh-linear"
+                      className={checking ? "animate-spin" : undefined}
+                    />
+                    {checking ? "Checking…" : "Check connectors"}
+                  </Button>
+                  {connectors !== null && connectors.length === 0 ? (
+                    <span className="text-xs text-muted-foreground">
+                      No connectors configured — add one in Settings → Connectors.
+                    </span>
+                  ) : null}
+                </div>
 
-        <div className="mt-6 flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">
-            {ready ? "A connector is ready." : "You can continue once a directory is chosen."}
-          </p>
-          <Button onClick={() => void create()} disabled={!canCreate}>
-            {creating ? "Creating…" : "Create project"}
-          </Button>
+                {connectors === null ? null : (
+                  <div className="flex flex-col gap-2">
+                    {connectors.map((connector) => {
+                      const help = helpUrlFor(connector.probe);
+                      // One rule for the tick, the line beside it and the
+                      // sentence above the Create button, so the card cannot say
+                      // "ready" and "not signed in" at the same time.
+                      const usable = connectorReady(connector.probe);
+                      return (
+                        <div
+                          key={connector.connectorInstanceId}
+                          className="flex items-center gap-2 text-sm"
+                        >
+                          <Icon
+                            icon={usable ? "hugeicons:checkmark-circle-01" : "hugeicons:alert-02"}
+                            className={usable ? "text-added" : "text-removed"}
+                          />
+                          <span className="font-medium">{connector.displayName}</span>
+                          <span className="text-muted-foreground">
+                            {probeSummary(connector.probe)}
+                          </span>
+                          {help === null ? null : (
+                            <button
+                              type="button"
+                              className="text-xs text-primary underline underline-offset-2"
+                              onClick={() => openExternal(help)}
+                            >
+                              Resolve
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <ConnectionDetails />
+
+          <div className="mt-6 flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">
+              {ready ? "A connector is ready." : "You can continue once a directory is chosen."}
+            </p>
+            <Button onClick={() => void create()} disabled={!canCreate}>
+              {creating ? "Creating…" : "Create project"}
+            </Button>
+          </div>
         </div>
       </div>
 
