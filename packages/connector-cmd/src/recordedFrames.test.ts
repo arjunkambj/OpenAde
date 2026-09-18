@@ -177,6 +177,77 @@ describe("every recorded frame is understood", () => {
   });
 });
 
+/**
+ * Thinking and the answer are two rows, in every recording that has both.
+ *
+ * The real CLI's deltas are anonymous — `{"type":"text_delta","delta":"ok"}`,
+ * no message id, no index — and an agent step streams `thinking_delta*` and
+ * then `text_delta*` inside one such run. Keyed without the kind, both landed
+ * on one row: the answer arrived as a `content.delta` on the finished
+ * reasoning row, and the `message_end` thinking block, no longer able to find
+ * the row it had streamed on, minted a second reasoning row beside it. The
+ * statuses were all correct, which is why the assertions above never noticed.
+ */
+describe("a turn that thinks before it answers", () => {
+  const THINKING_TURNS = STARTED_TURNS.filter(([scenario, index]) =>
+    framesOf(scenario, manifestOf(scenario).turns[index]!).some(
+      (frame) => frame.type === "event" && frame.event.type === "thinking_end",
+    ),
+  );
+
+  it("has recordings to say it about", () => {
+    expect(THINKING_TURNS.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it.each(THINKING_TURNS)("%s turn %i opens one row per thinking block", (scenario, index) => {
+    const { events } = replay(scenario, index);
+    const thoughts = framesOf(scenario, manifestOf(scenario).turns[index]!).filter(
+      (frame) => frame.type === "event" && frame.event.type === "thinking_end",
+    );
+    const reasoning = new Set(
+      itemsOf(events)
+        .filter((item) => item.kind === "reasoning")
+        .map((item) => item.itemId),
+    );
+    expect(reasoning.size).toBe(thoughts.length);
+  });
+
+  it.each(THINKING_TURNS)(
+    "%s turn %i keeps the answer off the reasoning row",
+    (scenario, index) => {
+      const { events } = replay(scenario, index);
+      const finalText = framesOf(scenario, manifestOf(scenario).turns[index]!).flatMap((frame) =>
+        frame.type === "event" && frame.event.type === "run_end"
+          ? [frame.event.result?.finalText ?? ""]
+          : [],
+      )[0];
+      if (finalText === undefined || finalText.trim() === "") {
+        return;
+      }
+      const reasoningIds = new Set(
+        itemsOf(events)
+          .filter((item) => item.kind === "reasoning")
+          .map((item) => item.itemId),
+      );
+      for (const item of itemsOf(events)) {
+        if (item.kind === "reasoning") {
+          expect(item.text ?? "", `${scenario}: the answer is on a reasoning row`).not.toContain(
+            finalText,
+          );
+        }
+      }
+      // Nor as a stray `content.delta` addressed to a reasoning row.
+      for (const event of events) {
+        if (event.type === "content.delta" && reasoningIds.has(event.payload.itemId)) {
+          expect(event.payload.kind, `${scenario}: text delta on a reasoning row`).toBe(
+            "reasoning",
+          );
+        }
+      }
+    },
+  );
+});
+
 describe("a text-only turn", () => {
   const { events, manifest } = replay("text");
 

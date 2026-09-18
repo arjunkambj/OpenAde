@@ -435,8 +435,18 @@ export const makeTranslator = (options: {
     const messageId =
       asString(event.messageId) ?? asString(event.message_id) ?? asRecord(event.message).id;
     const index = typeof event.index === "number" ? event.index : 0;
+    // The anonymous key carries the kind. An agent step streams
+    // `thinking_delta*` and then `text_delta*` with neither a message id nor an
+    // index (`fixtures/cmd/resume/turn2`), so a kind-less key put the answer on
+    // the row the thinking opened: `textRows.delta` re-registered that row under
+    // "<thinking><answer>", the `message_end` thinking block could no longer
+    // find the row it had streamed on, and it minted a second reasoning row
+    // beside the first. Same shape in mcp, shell-twice/turn2, question-tools,
+    // plan-write, plan-no-yolo and shell-deny.
     const key =
-      typeof messageId === "string" ? `${messageId}:${index}` : `delta:${deltaRun}:${index}`;
+      typeof messageId === "string"
+        ? `${messageId}:${index}`
+        : `delta:${deltaRun}:${kind}:${index}`;
     const { itemId, opened } = textRows.delta(key, text);
     const out: Array<PendingRuntimeEvent> = [];
     if (opened) {
