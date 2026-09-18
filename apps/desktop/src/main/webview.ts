@@ -1,5 +1,5 @@
 /**
- * The `will-attach-webview` policy for the browser pane (spec section 13).
+ * The `will-attach-webview` policy for the browser pane.
  *
  * Two jobs, and the first one is what the guard used to get wrong: Electron's
  * renderer side builds the attach `params` from a map that always holds every

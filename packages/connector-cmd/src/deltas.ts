@@ -1,8 +1,7 @@
 /**
  * A streaming frame → `content.delta` on the row its message will finish on.
  *
- * Spec 5.2 says to design for delta frames without having captured one —
- * whether print mode streams text at all is §5.7 question 1 — so this reads
+ * This was written for delta frames before one had been captured, so it reads
  * every spelling the family uses (`delta.text`, `delta.thinking`,
  * `delta.partial_json`, a bare `text`) off any `*_delta` event, and returns
  * null for anything it cannot read so the frame still surfaces as

@@ -1,5 +1,5 @@
 /**
- * Reading the plan a plan-mode turn leaves behind (spec sections 5.6 and 8).
+ * Reading the plan a plan-mode turn leaves behind.
  *
  * Plan mode puts a markdown file in `~/.commandcode/plans/`. Interactive
  * sessions also record it in `plans-index.json` beside it — `{ version, plans:
@@ -299,9 +299,9 @@ const writtenThisTurn = (
  * agreed. `plan` is one of the fifteen ItemKinds and the renderer has had a
  * row for it all along; nothing had ever produced one.
  *
- * The turn id is minted by the caller's `makeTurnId`; the engine overwrites it
- * with its own (02 · N3), so what matters here is that both events name the
- * same proposal.
+ * The turn id is minted by the caller's `makeTurnId`; the turn-scoped handle
+ * overwrites it with the server's own, so what matters here is that both
+ * events name the same proposal.
  */
 export const planProposalEvents = (
   proposal: PlanProposal,

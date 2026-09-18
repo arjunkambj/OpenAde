@@ -1,7 +1,7 @@
 /**
  * ipcMain handlers backing the preload bridge: connection info, server-state
  * fan-out, validated external opens, directory picking, and the browser-pane
- * guest bridge (W6 mode A).
+ * guest bridge (the driver's `cdp-attach` mode).
  *
  * The pane's `<webview>` runs in a `persist:thread-*` partition. `attach`
  * records the thread and its host webContents; when the guest webContents

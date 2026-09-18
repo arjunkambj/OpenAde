@@ -5,7 +5,7 @@
  * dispatch says so beside the pickers instead of letting the value snap back
  * with no explanation.
  *
- * Capability wiring (spec section 11): a `restart` switch disables the picker
+ * Capability wiring: a `restart` switch disables the picker
  * with a tooltip; `per-turn` adds an "applies next turn" hint; plan mode
  * disappears from the interaction picker when the connector cannot plan. A
  * thread with no bound session reports no capabilities, in which case model

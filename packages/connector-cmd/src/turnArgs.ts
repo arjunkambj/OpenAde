@@ -3,7 +3,7 @@
  *
  * Print mode has no image flag, so attachments are staged under
  * `<attachmentsDir>/<threadId>/`, that directory joins the run's scope through
- * `--add-dir`, and the prompt names the absolute paths (decision W10).
+ * `--add-dir`, and the prompt names the absolute paths.
  * Mentions become `@name` lines. Everything else is `buildArgs`.
  *
  * `--yolo` goes on every ordinary turn: print mode refuses writes and shell

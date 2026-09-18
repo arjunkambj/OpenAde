@@ -4,7 +4,7 @@
  * Print mode has no image flag, so an attachment is not a parameter — it is a
  * file the server stages under its own attachments directory, a `--add-dir`
  * that puts the directory in the run's scope, and an absolute path named in
- * the prompt (decision w10-attachments). Three pieces that have to agree, and
+ * the prompt. Three pieces that have to agree, and
  * the only way to know they do is to give a model a picture and ask it what it
  * sees.
  *

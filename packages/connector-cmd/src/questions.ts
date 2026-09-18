@@ -1,9 +1,9 @@
 /**
  * `ask_user_question` tool input → `UserQuestion[]`.
  *
- * Spec 5.4 records the input key as `questions[]` and nothing else, and 5.7
- * still lists "what does ask_user_question do in print mode" as unverified —
- * so the exact shape the harness sends is a guess. The wire contract is not:
+ * The recorded payload carries a `questions[]` array and nothing else
+ * (`fixtures/cmd/question-tools/`), so the exact shape of a payload we have
+ * not seen is a guess. The wire contract is not:
  * `questionId`, `question` and every option's `optionId`/`label` are
  * NonEmptyString (contracts/runtime.ts), and one missing field fails the
  * Schema encode at the transport, which loses the whole card.

@@ -1,8 +1,8 @@
 /**
  * What `record-cmd.mjs` asks the real CLI to do.
  *
- * Every scenario answers a question the connector had to guess at (spec 5.7)
- * or exercises a path the connector implements. Prompts are deliberately tiny:
+ * Every scenario answers a question the connector had to guess at, or
+ * exercises a path the connector implements. Prompts are deliberately tiny:
  * each one spends the operator's plan, so they say the least that still forces
  * the behaviour, and `maxTurns` caps every run.
  *
@@ -12,7 +12,7 @@
 
 export const SCENARIOS = {
   text: {
-    description: "Text-only answer: does print mode stream deltas? (spec 5.7 q1)",
+    description: "Text-only answer: does print mode stream deltas?",
     turns: [{ prompt: "Reply with exactly: ok", maxTurns: 1 }],
   },
 
@@ -136,7 +136,7 @@ export const SCENARIOS = {
 
   "plan-no-yolo": {
     description:
-      "plan mode exactly as the connector spawns it — `--permission-mode plan` and no --yolo (spec section 8)",
+      "plan mode exactly as the connector spawns it — `--permission-mode plan` and no --yolo",
     seed: { "app.js": "export const add = (a, b) => a + b;\n" },
     turns: [
       {
@@ -217,7 +217,7 @@ export const SCENARIOS = {
 
   image: {
     description:
-      "image attachment the way the connector stages one: the file under an attachments dir, that dir in --add-dir, the absolute path named in the prompt (decision w10-attachments, 5.7 q4)",
+      "image attachment the way the connector stages one: the file under an attachments dir, that dir in --add-dir, the absolute path named in the prompt",
     // A 2×2 red PNG, written into the scratch root the same way the server
     // writes a staged upload into `<attachmentsDir>/<threadId>/`.
     scratchSeed: { "attachments/red.png": { png: "red" } },

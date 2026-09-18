@@ -13,7 +13,8 @@
  * `subagent_progress` is the only trace of what that was. Dropping these frames
  * leaves the row silent for the whole delegation.
  *
- * Written up in `docs/decisions/w2-cmd-frames.md` (§5.7 q7).
+ * Recorded in `fixtures/cmd/subagent/` and written up in
+ * `docs/command-code-connector.md`, "Subagents".
  */
 
 import { asOptionalString, asString } from "./items";

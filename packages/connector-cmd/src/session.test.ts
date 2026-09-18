@@ -129,7 +129,7 @@ fs.appendFileSync(
   JSON.stringify({ type: "message", id: process.env.OPENADE_STUB_LINE_ID ?? "l1", parentId: null, timestamp: "t", message: assistantMessage, model: "stub/model" }) + "\\n",
 );
 if (process.env.OPENADE_STUB_PLAN === "1") {
-  // What --permission-mode plan leaves behind (spec 5.6): a markdown file
+  // What --permission-mode plan leaves behind: a markdown file
   // plus a plans-index.json entry keyed by file name and matched by sessionId.
   const plansDir = path.join(home, ".commandcode", "plans");
   fs.mkdirSync(plansDir, { recursive: true });
@@ -1041,7 +1041,7 @@ describe("makeCmdSession against a real spawned process", () => {
         .replace(/^-/, "");
       const mcpFile = NodePath.join(f.home, ".commandcode", "projects", slug, "mcp.json");
       expect(NodeFS.existsSync(mcpFile)).toBe(true);
-      // Never inside the user's repo (spec section 8 names the local scope).
+      // Never inside the user's repo: the CLI's own local scope.
       expect(NodeFS.existsSync(NodePath.join(workspace, ".mcp.json"))).toBe(false);
 
       yield* handle.close();

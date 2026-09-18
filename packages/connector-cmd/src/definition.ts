@@ -61,7 +61,7 @@ export const cmdConnectorDefinition: ConnectorDefinition<CmdConnectorConfig> = {
         // Resolved per session start, so an install that appears later is found.
         binary: resolveForSession(config, process.env),
         ...(config.extraEnv === undefined ? {} : { extraEnv: config.extraEnv }),
-        // The child resolves `~/.commandcode` against its own HOME (spec 5.1),
+        // The child resolves `~/.commandcode` against its own HOME,
         // and extraEnv is what sets that HOME. Without this the tailer watches
         // the server's home instead and the timeline loses every streaming
         // item until the run_end reconcile.

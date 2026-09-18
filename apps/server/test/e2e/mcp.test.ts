@@ -101,7 +101,7 @@ const gateway = (driver: Driver) => {
             expect(entry["transport"]).toBe("http");
             expect(entry["enabled"]).toBe(true);
             // The per-session bearer stays a placeholder on disk: the harness
-            // resolves env references at launch (spec 5.6), and a real token in
+            // resolves env references at launch, and a real token in
             // a file in the user's project would outlive the session that
             // minted it.
             const serialized = JSON.stringify(entry);

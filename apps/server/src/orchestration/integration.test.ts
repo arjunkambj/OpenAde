@@ -309,7 +309,7 @@ describe("orchestration with a fake connector", () => {
         // yet another plan forever.
         const after = yield* engine.threadDetail(threadId);
         expect(after?.settings.interactionMode).toBe("default");
-        // The implement turn is a turn like any other (spec section 8), so it
+        // The implement turn is a turn like any other, so it
         // mints a user row like any other: the timeline says what was asked,
         // and the implementation that follows is not an answer to nothing.
         expect(
@@ -323,7 +323,7 @@ describe("orchestration with a fake connector", () => {
       const session = yield* fake.session(threadId);
       const calls = yield* session!.calls;
       const sends = calls.filter((call) => call.method === "send");
-      // Spec section 8: the implement turn names the plan file it approved.
+      // The implement turn names the plan file it approved.
       expect(sends.map((call) => call.detail.text)).toContain(
         "Implement the approved plan at /home/u/.commandcode/plans/the-plan.md",
       );

@@ -76,9 +76,9 @@ export const makeOpenAdeBridge = (ipc: PreloadIpc) => ({
   pickDirectory: (): Promise<string | null> =>
     ipc.invoke("openade:pick-directory") as Promise<string | null>,
   /**
-   * Browser-pane bridge (W6 mode A): `attach` registers this window as the
-   * host of the thread's `persist:thread-*` webview guest; `onInput` then
-   * delivers every real pointer/keyboard/wheel gesture the guest sees —
+   * Browser-pane bridge (the driver's `cdp-attach` mode): `attach` registers
+   * this window as the host of the thread's `persist:thread-*` webview guest;
+   * `onInput` then delivers every real pointer/keyboard/wheel gesture it sees —
    * already shaped like `BrowserHumanInput` — which the pane forwards as a
    * `browser.humanInput` call so the server can mark human control.
    */

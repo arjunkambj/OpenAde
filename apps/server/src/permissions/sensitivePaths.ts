@@ -35,7 +35,7 @@ export const isSensitivePath = (path: string): boolean => {
   if (basename === "" || basename === "." || basename === "..") {
     return false;
   }
-  // `.env*` per spec section 8 — the prefix match also covers `.envrc`,
+  // `.env*` — the prefix match also covers `.envrc`,
   // which the exact/extension forms miss.
   if (SENSITIVE_BASENAMES.has(basename) || basename.startsWith(".env")) {
     return true;
@@ -55,8 +55,8 @@ export const isSensitivePath = (path: string): boolean => {
  * Whether a command line names a sensitive path anywhere in its arguments.
  *
  * `cat ~/.ssh/id_rsa` and `cp .env /tmp` read secrets just as surely as a
- * `file_read` request does, and spec section 9 says sensitive paths always
- * prompt — so the check cannot be limited to file-kind requests. Splitting on
+ * `file_read` request does, and a sensitive path always prompts — so the
+ * check cannot be limited to file-kind requests. Splitting on
  * shell separators and quotes is deliberately rough: this decides whether to
  * *ask*, and asking about one argument too many costs a keystroke.
  */

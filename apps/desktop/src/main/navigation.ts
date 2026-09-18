@@ -1,5 +1,5 @@
 /**
- * The top-level navigation policy for the app window (spec section 13).
+ * The top-level navigation policy for the app window.
  *
  * The window is created with the preload attached, and an Electron preload
  * runs for *every* document its WebContents loads, whatever the origin. The

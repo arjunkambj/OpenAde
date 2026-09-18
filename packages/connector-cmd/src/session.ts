@@ -1,7 +1,7 @@
 /**
  * One Command Code session for one thread.
  *
- * Print mode is one turn per process (spec 5.1): `send` spawns
+ * Print mode is one turn per process: `send` spawns
  * `cmd -p "<prompt>" --session <sessionId> …` and the harness resumes its own
  * persisted session. What the argv says, and why a plan turn's differs, is
  * `turnArgs.ts`.
@@ -79,7 +79,7 @@ export interface CmdSessionOptions {
   readonly sessionRef?: CmdSessionRef;
   /**
    * Home directory override for transcript resolution. The harness resolves
-   * `~/.commandcode` against `HOME` alone (spec 5.1), so a test that points the
+   * `~/.commandcode` against `HOME` alone, so a test that points the
    * child's `HOME` aside passes the same directory here.
    */
   readonly home?: string;
@@ -775,7 +775,7 @@ export const makeCmdSession = (
     return {
       events: queue.events,
       send,
-      // Spec section 8: SIGINT to the process group, SIGKILL after 5s, then a
+      // SIGINT to the process group, SIGKILL after 5s, then a
       // descendant sweep. A bare SIGINT leaves a child that ignores it — or a
       // shell_command grandchild holding the pipe — running forever, and with
       // it a turn that never settles and a thread that can never send again.

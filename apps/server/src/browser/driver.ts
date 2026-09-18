@@ -1,8 +1,7 @@
 /**
  * The driver seam: one live browser per thread, opened lazily on first use.
  *
- * `openAgentBrowserDriver` picks the mode per
- * docs/decisions/w6-browser-mode.md:
+ * `openAgentBrowserDriver` picks one of two modes:
  *
  * - **cdp-attach** — when `OPENADE_CDP_PORT` is set (the desktop launched us
  *   with remote debugging on a random loopback port), the driver lists CDP

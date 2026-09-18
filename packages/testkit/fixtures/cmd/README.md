@@ -136,4 +136,4 @@ ids are left alone — they are per-run identifiers with no meaning off this
 machine, and the tests match on them.
 
 Conclusions drawn from these recordings are written up in
-`docs/decisions/w2-cmd-frames.md`.
+`docs/command-code-connector.md`.

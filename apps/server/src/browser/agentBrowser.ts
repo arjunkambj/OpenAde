@@ -33,7 +33,7 @@ export const AGENT_BROWSER_MISSING_MESSAGE =
   "agent-browser is not installed. Install it with `npm install -g agent-browser`, " +
   "then run `agent-browser install`.";
 
-/** The daemon session name for a thread — `ade-<threadId>` per spec §12. */
+/** The daemon session name for a thread — `ade-<threadId>`. */
 export const sessionNameFor = (threadId: string): string => `ade-${threadId}`;
 
 /** Every call gets this long before the child is SIGKILLed (spec: 30s ceiling). */
@@ -63,8 +63,9 @@ export const sessionEnvFor = (
 /**
  * What the `agent-browser` child — and the Chromium it drives — may inherit.
  *
- * Spec §8 keeps the harness's environment to a named allowlist for exactly one
- * reason, and `agent-browser` is the component that then visits untrusted web
+ * The connector keeps the harness's environment to a named allowlist for
+ * exactly one reason, and `agent-browser` is the component that then visits
+ * untrusted web
  * pages: it is a third-party CLI with an auto-connect, a plugin system and an
  * auth vault of its own. It used to run with `{ ...process.env }`, so the
  * operator's `ANTHROPIC_*` and `OPENAI_*` keys, `AWS_*`, `GITHUB_TOKEN` and

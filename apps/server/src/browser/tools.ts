@@ -1,5 +1,5 @@
 /**
- * The `browser_*` tool vocabulary (spec §12) as one catalogue: name, JSON
+ * The `browser_*` tool vocabulary as one catalogue: name, JSON
  * Schema and annotations for `tools/list`, argument validation, and the
  * agent-browser argv each call maps to.
  *

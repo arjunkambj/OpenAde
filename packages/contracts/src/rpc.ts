@@ -62,7 +62,7 @@ export type ServerHello = typeof ServerHello.Type;
 export const PROTOCOL_VERSION = 1;
 
 /**
- * The server-side budget on every stream RPC (spec section 6).
+ * The server-side budget on every stream RPC.
  *
  * A subscription that exceeds either limit fails with `resnapshot-required`
  * rather than growing a backlog the client will never catch up with. The
@@ -229,7 +229,7 @@ export class FsBrowseError extends Schema.TaggedError<FsBrowseError>()("FsBrowse
  * `Attachment` reference it sends with the turn — the bytes stay on disk.
  *
  * `mime` is the server's sniff of the file's own magic bytes, not the name or
- * the type the browser declared (decision W10); the stored file's extension
+ * the type the browser declared; the stored file's extension
  * comes from the same sniff.
  */
 export const StagedAttachment = Schema.Struct({

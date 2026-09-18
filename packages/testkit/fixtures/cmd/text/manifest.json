@@ -1,6 +1,6 @@
 {
   "scenario": "text",
-  "description": "Text-only answer: does print mode stream deltas? (spec 5.7 q1)",
+  "description": "Text-only answer: does print mode stream deltas?",
   "cli": "/opt/homebrew/bin/cmd",
   "cliVersion": "1.55.1",
   "recordedOn": "2026-09-18",

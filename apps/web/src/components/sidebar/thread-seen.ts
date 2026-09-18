@@ -1,6 +1,5 @@
 /**
- * The sidebar's unread dot (spec section 11: "projects → threads, status pill,
- * unread dot").
+ * The sidebar's unread dot.
  *
  * There is no `unread` flag on the wire and there should not be one — whether
  * a user has looked at a thread is this window's business, not the server's.

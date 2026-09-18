@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * File size guardrail (spec section 16).
+ * File size guardrail.
  *
  *  - No non-test source file over 800 lines anywhere in the workspace.
  *  - No renderer component under `apps/web/src/components` over 400 lines.

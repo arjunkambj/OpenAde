@@ -66,7 +66,7 @@ const FIXTURE_FILES: ReadonlyArray<FileSearchResult> = [
   { path: "src/app.tsx", name: "app.tsx", isDirectory: false },
   { path: "src/components/composer.tsx", name: "composer.tsx", isDirectory: false },
   { path: "src/routes", name: "routes", isDirectory: true },
-  { path: "docs/specs/mvp-build-spec.md", name: "mvp-build-spec.md", isDirectory: false },
+  { path: "docs/architecture.md", name: "architecture.md", isDirectory: false },
   { path: "packages/contracts/src/orchestration.ts", name: "orchestration.ts", isDirectory: false },
   { path: "package.json", name: "package.json", isDirectory: false },
 ];

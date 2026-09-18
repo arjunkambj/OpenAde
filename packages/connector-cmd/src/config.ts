@@ -8,10 +8,10 @@
  *   "timeout": 590 }] }`. The merge preserves every other key and every other
  *   hook entry. Ownership is decided per *hook command*, not per entry, so a
  *   user hook sharing an entry with ours survives the removal.
- * - the local MCP scope (spec 5.3, which is what spec section 8 step 2 names)
+ * - the local MCP scope (`~/.commandcode/projects/<slug>/mcp.json`)
  *   gets an `openade` server entry whose bearer stays a
  *   `${OPENADE_MCP_TOKEN}` placeholder, since the harness resolves env
- *   references at launch (spec 5.6) and the per-session token must never touch
+ *   references at launch and the per-session token must never touch
  *   disk. That file lives under a slug of the workspace path that only the CLI
  *   knows how to spell, so the CLI writes it — see `upsertMcpEntry`.
  *
@@ -118,8 +118,6 @@ const writeJsonObject = (path: string, value: JsonObject): string => {
 
 const settingsLocalPath = (projectRoot: string): string =>
   NodePath.join(projectRoot, ".commandcode", "settings.local.json");
-
-/** The transcript slug of spec 5.3: cwd lowercased, `/` → `-`, leading `-` dropped. */
 
 interface HookEntry {
   readonly matcher?: unknown;

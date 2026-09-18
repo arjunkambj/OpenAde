@@ -1,12 +1,12 @@
 /**
  * Whether Chromium opens a remote-debugging port, and which one.
  *
- * Spec section 13: the port is on loopback "only when the browser pane is
- * enabled". It is an attach surface — anything else running as this user can
- * drive the renderer, read thread content and the `persist:thread-*`
- * partitions — so it is off unless something explicitly asks for it. With no
- * port the server falls back to agent-browser's owned Chromium (mode B,
- * docs/decisions/w6-browser-mode.md), which needs no CDP endpoint at all.
+ * The port is on loopback and open only when the browser pane is enabled. It
+ * is an attach surface — anything else running as this user can drive the
+ * renderer, read thread content and the `persist:thread-*` partitions — so it
+ * is off unless something explicitly asks for it. With no port the server
+ * falls back to agent-browser's owned Chromium (the driver's `owned-chromium`
+ * mode), which needs no CDP endpoint at all.
  *
  * Opt-ins, in precedence order:
  *  - `OPENADE_REMOTE_DEBUG=0` — never, whatever else is set.

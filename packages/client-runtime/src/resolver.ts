@@ -76,8 +76,9 @@ declare global {
       /** Opens `url` in the system browser — the only sanctioned way out. */
       readonly openExternal?: (url: string) => Promise<void>;
       /**
-       * Desktop-only browser-pane bridge (W6 mode A). Absent under a plain
-       * browser — the pane then renders the owned-Chromium frame stream.
+       * Desktop-only browser-pane bridge, for the driver's `cdp-attach` mode.
+       * Absent under a plain browser — the pane then renders the
+       * owned-Chromium frame stream.
        */
       readonly browserPane?: {
         readonly attach: (threadId: string) => Promise<void>;

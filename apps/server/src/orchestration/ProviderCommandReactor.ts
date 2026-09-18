@@ -9,8 +9,7 @@
  *   until the connector settles it, and this fiber settles it itself when
  *   there is no live session left to do so.
  * - `approval.resolved` / `userInput.resolved` / `plan.responded` → the
- *   matching `respond*` on the live handle, plus the plan follow-up commands
- *   spec section 8 prescribes.
+ *   matching `respond*` on the live handle, plus the plan follow-up commands.
  * - `settings.updated` → `handle.updateSettings` so mode/model changes reach
  *   the running session.
  * - `turn.completed` → drain the queue: dequeue the head, dispatch it as a new
@@ -286,12 +285,12 @@ export const ProviderCommandReactor = Layer.effectDiscard(
                 )
                 .pipe(Effect.catch((error) => Effect.logWarning("plan respond failed", error)));
             }
-            // Spec section 8: what each plan action does next.
+            // What each plan action does next.
             const doc = yield* engine.threadDoc(threadId);
             if (doc === null || doc.deleted || doc.status === "archived") {
               return;
             }
-            // Spec section 8 wants the accept turn to name the plan file. The
+            // The accept turn names the plan file it approved. The
             // decider copies it onto this event out of the pending plan it is
             // clearing, so it survives a restart between propose and accept.
             const planPath = typeof payload.planPath === "string" ? payload.planPath : undefined;

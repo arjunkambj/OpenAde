@@ -1,8 +1,8 @@
 /**
  * `normalizeQuestions` against the shapes the harness might plausibly send.
  *
- * The real `ask_user_question` payload is a spec 5.7 unknown, so the test is a
- * table of guesses plus the hostile cases. Every row is also checked against
+ * The recordings pin one real payload; this is the table of everything else
+ * the harness might plausibly send, plus the hostile cases. Every row is also checked against
  * the wire schema: a `user-input.requested` that fails to encode is a card the
  * renderer never sees, which is the failure this module exists to prevent.
  */

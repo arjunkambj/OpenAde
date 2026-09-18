@@ -7,7 +7,7 @@
  * not the browser. The driver (see `./driver`) is opened on the first tool
  * call or human navigation, so opening the pane never launches Chrome.
  *
- * The interrupt rule (spec §12): every session carries an epoch that human
+ * The interrupt rule: every session carries an epoch that human
  * input bumps — except input classes an in-flight `browser_*` call is
  * expected to synthesize itself (a `browser_click` produces pointer events
  * over CDP). A call that settles under a different epoch than it started

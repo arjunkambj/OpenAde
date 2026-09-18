@@ -34,7 +34,7 @@ import { ConnectorInstanceId, EventId, ItemId, RequestId, ThreadId, TurnId } fro
  * forever. The file lives under `<attachments>/<threadId>/` and comes back
  * through `attachments.read`. `name` is what the user called it before
  * staging renamed it, `sha256` identifies the content, and both are optional
- * so a producer that only knows a path stays valid (decision W10).
+ * so a producer that only knows a path stays valid.
  *
  * It lives here rather than beside the commands because both sides need it:
  * the command that starts a turn and the `user_message` row that turn mints.

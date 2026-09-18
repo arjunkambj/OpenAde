@@ -1,5 +1,5 @@
 /**
- * Finding and interrogating the `cmd` binary (spec 5.1, section 8 probe).
+ * Finding and interrogating the `cmd` binary.
  *
  * Resolution lives in `binary.ts` and is shared with the session: the probe
  * used to resolve the binary, report it, and let every turn spawn the bare
@@ -249,7 +249,7 @@ const withContextWindow = (
 
 // ── the probe ──────────────────────────────────────────────────
 
-/** Spec 5.1: the account is fine, it has simply run out of credit. */
+/** Exit 10: the account is fine, it has simply run out of credit. */
 const INSUFFICIENT_CREDITS = 10;
 
 /** The detail line a failing `status` left behind, if it left one. */
@@ -259,8 +259,8 @@ export const probe = (config: CmdConnectorConfig): Effect.Effect<ConnectorProbe,
   Effect.gen(function* () {
     const probedAt = new Date().toISOString();
     const binary = resolveBinary(config, process.env);
-    // The probe's children get the same leak guard the turns do (spec section
-    // 8): no OPENADE_SERVER_*, ANTHROPIC_* or OPENAI_* reaches them — and the
+    // The probe's children get the same leak guard the turns do: no
+    // OPENADE_SERVER_*, ANTHROPIC_* or OPENAI_* reaches them — and the
     // operator's extraEnv does, so a COMMAND_CODE_API_KEY supplied there is
     // not reported as "not authenticated" while turns work fine.
     const env = envAllowlist(process.env, config.extraEnv ?? {});
@@ -341,7 +341,7 @@ export const probe = (config: CmdConnectorConfig): Effect.Effect<ConnectorProbe,
     );
 
     if (status.code !== 0 && parsed.authenticated === undefined) {
-      // A code spec 5.1 names reads as the sentence it was written for; the
+      // A code the table names reads as the sentence it was written for; the
       // raw detail is kept in brackets rather than dropped, because "rate
       // limited" without the harness's own wording is hard to act on.
       const known = EXIT_MESSAGES[status.code];

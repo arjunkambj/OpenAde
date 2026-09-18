@@ -35,6 +35,6 @@ export const databasePath = (env: Env = defaultEnv()): string => configPath(["st
 /** Directory for generated executables, such as the Command Code hook script. */
 export const binDir = (env: Env = defaultEnv()): string => configPath(["bin"], env);
 
-/** Dev-mode connection descriptor written by `apps/server` (decision D3). */
+/** Dev-mode connection descriptor written by `apps/server` in dev mode. */
 export const devConnectionPath = (env: Env = defaultEnv()): string =>
   configPath(["dev", "connection.json"], env);

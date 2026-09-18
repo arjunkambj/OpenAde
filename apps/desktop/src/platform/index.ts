@@ -1,7 +1,8 @@
 /**
  * Platform-facing setup that must run before `app.whenReady`: product name,
  * the Windows user-model id, and the loopback CDP endpoint the browser pane
- * attaches through (W6 mode A — docs/decisions/w6-browser-mode.md).
+ * attaches through (the driver's `cdp-attach` mode; docs/architecture.md, "The
+ * MCP gateway and the browser").
  *
  * Remote debugging is off by default and never leaves `127.0.0.1`; it turns on
  * for `browserPane: true` in the shell's preferences file (`./preferences`),

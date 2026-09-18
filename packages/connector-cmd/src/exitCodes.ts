@@ -1,9 +1,9 @@
 /**
- * What `cmd` means by the code it exits with (spec 5.1).
+ * What `cmd` means by the code it exits with.
  */
 
 /**
- * Every exit code spec 5.1 names, as the sentence the user reads and whether
+ * Every exit code the CLI documents, as the sentence the user reads and whether
  * the thread is done for. `fatal: false` is the difference between "the turn
  * failed, try again" and "this session is over": the three transport failures
  * (rate limit, network, api 5xx) are worth retrying, so they leave the session

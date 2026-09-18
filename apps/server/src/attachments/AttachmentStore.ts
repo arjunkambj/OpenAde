@@ -2,7 +2,7 @@
  * Where a composer image lives between the paste and the prompt.
  *
  * `~/.openade/attachments/<threadId>/` — the very directory
- * `ConnectorServices.attachmentsDir` already names (spec section 8 step 1), so
+ * `ConnectorServices.attachmentsDir` already names, so
  * a file staged here is already where a connector expects to find it and no
  * second copy is made.
  *

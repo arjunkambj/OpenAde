@@ -300,7 +300,7 @@ describe("mcp entry", () => {
       const [argv] = stub.calls();
       expect(argv?.slice(0, 2)).toEqual(["mcp", "add-json"]);
       expect(argv?.[2]).toBe(OPENADE_MCP_NAME);
-      // Spec 5.3 / section 8: the local scope, not a `.mcp.json` in the repo.
+      // The local scope, not a `.mcp.json` inside the user's repo.
       expect(argv).toContain("--scope");
       expect(argv?.[argv.indexOf("--scope") + 1]).toBe("local");
       // Registering must never take the CLI up a version on the user.

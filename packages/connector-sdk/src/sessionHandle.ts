@@ -59,7 +59,7 @@ export interface SessionHandle {
 
 // ── The bounded event queue ────────────────────────────────────
 
-/** Slots in one session's event buffer (spec section 7). */
+/** Slots in one session's event buffer. */
 export const EVENT_QUEUE_CAPACITY = 2048;
 
 /** Of those slots, how many are kept back for terminal events. */

@@ -1,13 +1,13 @@
 /**
  * Spawning the Command Code CLI for one headless turn.
  *
- * Spec 5.1: print mode is one turn per process — `cmd -p "<prompt>"
+ * Print mode is one turn per process — `cmd -p "<prompt>"
  * --output-format json --verbose -t --skip-onboarding --no-auto-update` plus
  * the flags a turn's settings ask for. The process runs `detached` so it leads
  * its own process group: interrupt and close signal the group (`kill(-pid)`),
  * which is the only way to take the harness's own children with it.
  *
- * `envAllowlist` is the leak guard of spec section 8: of the *inherited*
+ * `envAllowlist` is the leak guard: of the *inherited*
  * environment the child sees only the handful of variables a CLI legitimately
  * needs; the operator's `extraEnv` passes by name, because naming it is the
  * decision; and the session's own `OPENADE_*` control plane is applied last so
@@ -51,14 +51,14 @@ export interface BuildArgsInput {
  * is told to use the tool, cannot, and asks its question as prose that no card
  * ever renders. With the flag (`fixtures/cmd/question-tools/`) the tool fires,
  * PreToolUse receives the real `questions[]` payload, and the deny-with-answers
- * bridge of spec section 8 works as designed.
+ * bridge answers it with the user's own words.
  *
  * Only this one is listed. `--tools-all` would also un-withhold whatever else a
  * headless run hides, sight unseen.
  */
 export const TOOLS_ENABLED: ReadonlyArray<string> = ["ask_user_question"];
 
-/** The headless argv of spec 5.1, in a stable order tests can assert. */
+/** The headless argv, in a stable order tests can assert. */
 export const buildArgs = (input: BuildArgsInput): Array<string> => {
   const args = [
     "-p",
@@ -131,7 +131,7 @@ const PASS_PREFIXES = ["LC_", "OPENADE_"];
 
 /**
  * What must never reach the harness, even through `extraEnv`: our own server
- * internals and other vendors' credentials (spec section 8).
+ * internals and other vendors' credentials.
  */
 const DROP_PREFIXES = ["OPENADE_SERVER_", "ANTHROPIC_", "OPENAI_"];
 
@@ -220,7 +220,7 @@ export interface SpawnSpec {
 
 export interface CmdProcess {
   readonly pid: number;
-  /** Decoded UTF-8 chunks — the NDJSON stream of spec 5.2. */
+  /** Decoded UTF-8 chunks — the NDJSON stream. */
   readonly stdout: Stream.Stream<string, SpawnError>;
   /** `--verbose` progress and the `session: <id>` line; drained, not parsed here. */
   readonly stderr: Stream.Stream<string, SpawnError>;

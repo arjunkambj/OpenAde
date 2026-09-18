@@ -1,5 +1,5 @@
 /**
- * Command Code's tool vocabulary (spec 5.4) and the timeline rows it produces.
+ * Command Code's tool vocabulary and the timeline rows it produces.
  *
  * Two things live here, both of which the translator would otherwise carry on
  * top of its own job.
@@ -64,7 +64,7 @@ type WithoutEnvelope<Event> = Event extends RuntimeEvent
 
 export type PendingRuntimeEvent = WithoutEnvelope<RuntimeEvent>;
 
-// ── transcript shapes (spec 5.3, only what we read) ────────────
+// ── transcript shapes (only what we read) ─────────────────────
 
 export interface TranscriptMeta {
   readonly source?: string;
@@ -102,7 +102,7 @@ export interface ToolResultBlock {
   readonly is_error?: boolean;
 }
 
-// ── tool vocabulary (spec 5.4) ─────────────────────────────────
+// ── tool vocabulary ───────────────────────────────────────────
 
 const TOOL_KIND: Readonly<Record<string, ItemKind>> = {
   shell_command: "command_execution",

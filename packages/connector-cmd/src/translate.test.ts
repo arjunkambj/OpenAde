@@ -189,8 +189,8 @@ describe("fixture replay: the captured insufficient-credits run", () => {
 
 describe("turn lifecycle", () => {
   /**
-   * One process is one user turn, so `run_start` opens it (spec section 8 step
-   * 5). The harness's own `turn_start` counts agent steps — `shell-allow/` has
+   * One process is one user turn, so `run_start` opens it. The harness's own
+   * `turn_start` counts agent steps — `shell-allow/` has
    * three of them inside one turn — and must not open a turn of its own.
    */
   it("announces the session once across turns of the same session", () => {
@@ -343,7 +343,7 @@ describe("exit-code mapping", () => {
     }
   });
 
-  it("gives every exit code spec 5.1 names a message of its own", () => {
+  it("gives every exit code in the table a message of its own", () => {
     for (const code of [1, 3, 4, 5, 6, 7, 8, 9, 10]) {
       const events = translator().onExit(code);
       const error = events[0];
@@ -435,7 +435,7 @@ describe("tool calls dedupe on tool_use.id across ndjson and transcript", () => 
     ).toBe(true);
   });
 
-  it("maps the tool vocabulary of spec 5.4 onto item kinds", () => {
+  it("maps the tool vocabulary onto item kinds", () => {
     const translate = translator();
     const cases: ReadonlyArray<[string, unknown, string]> = [
       ["edit_file", { file_path: "a.ts" }, "file_change"],

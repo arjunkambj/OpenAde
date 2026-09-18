@@ -162,7 +162,7 @@ export const OpenConnectors = Context.Reference<Effect.Effect<
  * @public The rest of "New thread defaults", for a `thread.create` whose
  * command patch left them out.
  *
- * Spec §6 defines `defaults` as `{ model, effort, runtimeMode }` and the
+ * `Settings.defaults` is `{ model, effort, runtimeMode }` and the
  * General page renders all three under that heading, but only the model was
  * ever read: a thread created after setting effort to `high` and runtime mode
  * to `full-access` still opened on `medium` / "Ask first". `null` for either

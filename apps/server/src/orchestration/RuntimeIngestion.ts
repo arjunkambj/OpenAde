@@ -52,7 +52,7 @@ const base = (
 /**
  * One runtime event → the orchestration events it produces. `turnId` fields
  * come from the envelope — the turn-scoped handle has already stamped our
- * turnId there (spec section 9).
+ * turnId there.
  */
 const translateRuntimeEvent = (
   event: RuntimeEvent,

@@ -34,7 +34,7 @@ const tempDir = (): Effect.Effect<string, never, Scope.Scope> =>
 // ── argv ───────────────────────────────────────────────────────
 
 describe("buildArgs", () => {
-  it("builds the spec 5.1 headless argv in a stable order", () => {
+  it("builds the headless argv in a stable order", () => {
     expect(buildArgs({ prompt: "do it" })).toEqual([
       "-p",
       "do it",

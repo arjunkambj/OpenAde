@@ -18,10 +18,11 @@ import { configPath } from "@OpenAde/shared/paths";
 
 export interface DesktopPreferences {
   /**
-   * Run the browser pane as the in-app `<webview>` (W6 mode A). Off by
-   * default: it makes Chromium open a loopback remote-debugging port, which
-   * anything else running as this user can drive. Off, the server falls back
-   * to agent-browser's own Chromium (mode B), which needs no such port.
+   * Run the browser pane as the in-app `<webview>`, which the server drives
+   * over CDP. Off by default: it makes Chromium open a loopback
+   * remote-debugging port, which anything else running as this user can
+   * drive. Off, the server falls back to agent-browser's own Chromium, which
+   * needs no such port.
    */
   readonly browserPane: boolean;
 }

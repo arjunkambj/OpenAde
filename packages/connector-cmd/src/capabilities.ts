@@ -14,7 +14,7 @@ export const CMD_CAPABILITIES: ConnectorCapabilities = {
   planMode: true,
   subagents: true,
   // Print mode has no image flag; the connector stages the files and names
-  // their paths in the prompt instead (decision W10).
+  // their paths in the prompt instead.
   images: true,
   resume: true,
   fork: true,

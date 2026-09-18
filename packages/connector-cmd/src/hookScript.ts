@@ -1,5 +1,5 @@
 /**
- * The generated PreToolUse hook script (spec sections 5.5 and 8).
+ * The generated PreToolUse hook script.
  *
  * `~/.openade/bin/cmd-hook.mjs` is a dependency-free node script the harness
  * runs through the system shell for every tool call while OpenAde is driving.

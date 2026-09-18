@@ -2,11 +2,11 @@
  * Command Code frames and transcript lines → `RuntimeEvent`s.
  *
  * Three sources describe the same work and overlap heavily: NDJSON frames on
- * stdout (spec 5.2), the session transcript on disk (5.3), and — on `run_end` —
+ * stdout, the session transcript on disk, and — on `run_end` —
  * `nextState.messages`, the authoritative message list.
  *
  * **Which source is live.** The recordings under `packages/testkit/fixtures/cmd`
- * settle what spec 5.7 left open. Text and thinking stream as `text_delta` /
+ * settle it. Text and thinking stream as `text_delta` /
  * `thinking_delta`, tool calls arrive as a `tool_queued` → `tool_running` →
  * `tool_completed` lifecycle, and the transcript is *not* a live source: it
  * appears seconds into the turn and then grows once per completed message, one
@@ -18,8 +18,7 @@
  * steps* — one model round trip each, three of them in `shell-allow/`. One user
  * turn is one process: `run_start` to `run_end`. Mapping `turn_start` to
  * `turn.started` emitted three `turn.started` events for one turn and one
- * `turn.completed`; spec section 8 step 5 says `run_start` opens the turn, and
- * that is what happens here.
+ * `turn.completed`, so `run_start` is what opens a turn here.
  *
  * The translator's remaining job is to make the overlap idempotent:
  *
@@ -178,7 +177,7 @@ export const makeTranslator = (options: {
   const { processMessage, onMessageContent } = makeMessageFolder({ toolRows, textRows, unmapped });
 
   /**
-   * `run_end.result.usage` has no cost field (spec 5.2) — the only place a
+   * `run_end.result.usage` has no cost field — the only place a
    * price appears is the transcript's per-assistant `usage.costUsd` (5.3), so
    * the turn's cost is the sum of the lines it wrote. Zero stays absent rather
    * than being reported as a free turn.
@@ -308,7 +307,7 @@ export const makeTranslator = (options: {
     const event = frame.event;
     switch (event.type) {
       case "run_start": {
-        // One process is one user turn (spec section 8 step 5). The harness's
+        // One process is one user turn. The harness's
         // own `turn_start` counts agent steps inside it.
         return [...onRunStart(event), { type: "turn.started", payload: { turnId: makeTurnId() } }];
       }
@@ -507,7 +506,7 @@ export const makeTranslator = (options: {
         if (used !== null && limit !== null && limit > 0) {
           out.push({ type: "context.updated", payload: { used: Math.min(used, limit), limit } });
         }
-        // nextState is authoritative (spec 5.2): replay any messages the
+        // nextState is authoritative: replay any messages the
         // streaming sources missed — dedupe makes it a no-op otherwise.
         const nextMessages = (result.nextState as { messages?: ReadonlyArray<TranscriptMessage> })
           ?.messages;

@@ -172,8 +172,8 @@ export const useComposerDraft = (threadId: string): ComposerDraftHandle => {
 const DOCK_TAB_KEY = "openade:dock-tab-by-thread";
 
 /**
- * Which dock tab each thread was last left on. Spec section 11 asks for
- * per-thread tab state that survives a reload; `?pane=` alone cannot do it,
+ * Which dock tab each thread was last left on. The tab has to survive a
+ * reload, and `?pane=` alone cannot do it,
  * because the sidebar links carry no search param and a relaunch starts from
  * the bare route.
  *

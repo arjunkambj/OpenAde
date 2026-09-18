@@ -19,7 +19,8 @@ export const serverSpawnSpec = (): SpawnSpec => {
     ELECTRON_RUN_AS_NODE: "1",
     OPENADE_DEV: app.isPackaged ? "" : "1",
     // The loopback CDP endpoint the browser pane's webview is reachable on
-    // (W6 mode A). Empty when remote debugging is disabled.
+    // (the driver's `cdp-attach` mode). Empty when remote debugging is
+    // disabled.
     OPENADE_CDP_PORT: cdpPort === null ? "" : String(cdpPort),
   };
   const entry = app.isPackaged

@@ -1,7 +1,7 @@
 /**
  * Which executable "cmd" actually means, and how to spell the call.
  *
- * Resolution order is the one spec 5.1 describes: the configured `binaryPath`,
+ * Resolution order: the configured `binaryPath`,
  * then `cmd` on `PATH` — plus the global bin directories a GUI process never
  * inherits — then `npx -y command-code@latest` so a machine without the global
  * install still works.

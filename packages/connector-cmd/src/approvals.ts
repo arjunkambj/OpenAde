@@ -1,6 +1,6 @@
 /**
  * Command Code's tool vocabulary, as the approval card needs it: which kind of
- * permission a tool call asks for (spec 5.4), and the pattern its "allow
+ * permission a tool call asks for, and the pattern its "allow
  * always" button starts from (5.5).
  */
 
@@ -19,7 +19,7 @@ export const approvalKindFor = (toolName: string): ApprovalKind => {
 
 /**
  * The editable pattern the approval card's "allow always" starts from, in
- * Command Code's syntax (spec 5.5): `Shell(<first-word> *)`, `Edit(<path>)`,
+ * Command Code's syntax: `Shell(<first-word> *)`, `Edit(<path>)`,
  * `Write(<path>)`, `Read(<path>)`, `WebFetch(<url>)`, `WebSearch(<query>)`, a
  * literal `mcp__server__tool` — or the bare tool name when nothing narrower
  * applies.

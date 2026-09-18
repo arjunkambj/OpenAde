@@ -7,8 +7,7 @@
  * There is deliberately no `/clear`: in the harnesses this menu stands in for
  * that name clears the session context, and no command in the union does that
  * yet. Offering it as a name for "empty the textarea" would silently drop the
- * draft while keeping the context the user meant to drop — see
- * docs/decisions/w5-composer-notes.md.
+ * draft while keeping the context the user meant to drop.
  */
 
 import type { Effort, InteractionMode, RuntimeMode } from "@OpenAde/contracts/enums";

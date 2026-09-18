@@ -2,10 +2,10 @@
  * Handing a turn's attachments to the harness.
  *
  * Print mode has no image flag — `cmd --help` lists none at any version we have
- * run, and the spec records the same gap (§5.7) with the fallback this module
- * implements: put the file under `<attachmentsDir>/<threadId>/`, add that
- * directory to the run's workspace scope, and name the absolute path in the
- * prompt so the model reads it (decision docs/decisions/w10-attachments.md).
+ * run — so this module takes the way around it: put the file under
+ * `<attachmentsDir>/<threadId>/`, add that directory to the run's workspace
+ * scope, and name the absolute path in the prompt so the model reads it
+ * (docs/command-code-connector.md, "Attachments").
  *
  * That fallback is no longer a guess: `fixtures/cmd/image/` is a real turn
  * staged exactly this way. The model called `read_file` on the PNG, the harness
@@ -13,9 +13,9 @@
  *
  * Most files are already there: the server stages a composer upload straight
  * into that directory. One that is not — a path that came from somewhere else —
- * is copied in, which is what §8 step 1 asks for. A copy that fails is not
- * fatal: the original path is used and the session says so, because a turn the
- * user asked for is better than no turn.
+ * is copied in, so every path on the argv is inside the directory the run may
+ * read. A copy that fails is not fatal: the original path is used and the
+ * session says so, because a turn the user asked for is better than no turn.
  *
  * Nothing here runs a shell. The paths end up as one argv element each and as
  * text inside the prompt, so a file name is never interpreted.

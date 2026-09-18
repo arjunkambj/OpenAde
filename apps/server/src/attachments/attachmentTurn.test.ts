@@ -149,7 +149,7 @@ describe("an attachment reaching the harness", () => {
         const argv = invocation?.argv ?? [];
         const prompt = argv[argv.indexOf("-p") + 1] ?? "";
         // The absolute path, labelled with its media type, so the model knows
-        // it is an image worth reading (decision w10-attachments).
+        // it is an image worth reading.
         expect(prompt).toContain(`Attachment (image/png): ${staged.path}`);
         // And the directory it lives in, or the read tool would refuse: it is
         // outside the workspace root the session was started in.

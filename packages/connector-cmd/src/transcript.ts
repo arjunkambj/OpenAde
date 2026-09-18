@@ -1,5 +1,5 @@
 /**
- * The on-disk session transcript (spec 5.3).
+ * The on-disk session transcript.
  *
  * Command Code writes `~/.commandcode/projects/<slug>/<sessionId>.jsonl`. The
  * connector tails that file by byte offset and parses complete `\n`-terminated

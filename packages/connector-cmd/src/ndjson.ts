@@ -1,5 +1,5 @@
 /**
- * The stdout contract of `cmd -p --output-format json` (spec 5.2): one JSON
+ * The stdout contract of `cmd -p --output-format json`: one JSON
  * object per line, `{"type":"event","event":{...}}` except the final
  * `{"type":"result",...}` line. Only the fields the translator needs are
  * typed — everything else stays on the frame for `event.unmapped` raw.

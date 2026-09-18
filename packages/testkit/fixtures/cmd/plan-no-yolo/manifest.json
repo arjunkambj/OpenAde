@@ -1,6 +1,6 @@
 {
   "scenario": "plan-no-yolo",
-  "description": "plan mode exactly as the connector spawns it — `--permission-mode plan` and no --yolo (spec section 8)",
+  "description": "plan mode exactly as the connector spawns it — `--permission-mode plan` and no --yolo",
   "cli": "/opt/homebrew/bin/cmd",
   "cliVersion": "1.55.1",
   "recordedOn": "2026-09-18",

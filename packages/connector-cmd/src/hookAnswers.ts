@@ -10,7 +10,7 @@
  * no interactive channel, so the question is shown as a card, the answers are
  * collected, and the tool is *denied* with those answers as its reason: the
  * model reads them as context instead of waiting for a prompt that will never
- * come (spec section 8).
+ * come.
  *
  * A dead process leaves every one of those posts parked, so `releasePending` is
  * the other half: it answers each of them rather than letting the hook sit to

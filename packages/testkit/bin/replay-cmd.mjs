@@ -284,7 +284,7 @@ const growthSamples = (turn.transcriptGrowth ?? []).map((sample) => ({
 
 // ── the PreToolUse hook, invoked the way the harness invokes it ─
 
-/** The project's hook commands whose matcher accepts `toolName` (spec 5.5). */
+/** The project's hook commands whose matcher accepts `toolName`. */
 const hookCommandsFor = (toolName) => {
   const settings = JSON.parse(
     readOr(path.join(cwd, ".commandcode", "settings.local.json"), "null"),

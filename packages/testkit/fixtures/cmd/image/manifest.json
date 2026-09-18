@@ -1,6 +1,6 @@
 {
   "scenario": "image",
-  "description": "image attachment the way the connector stages one: the file under an attachments dir, that dir in --add-dir, the absolute path named in the prompt (decision w10-attachments, 5.7 q4)",
+  "description": "image attachment the way the connector stages one: the file under an attachments dir, that dir in --add-dir, the absolute path named in the prompt",
   "cli": "/opt/homebrew/bin/cmd",
   "cliVersion": "1.55.1",
   "recordedOn": "2026-09-18",

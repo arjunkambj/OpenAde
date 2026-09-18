@@ -77,7 +77,7 @@ const planMode = (driver: Driver) => {
           ),
         );
 
-        // Accepting does two things (spec section 8), and the user asks for
+        // Accepting does two things, and the user asks for
         // neither: it leaves plan mode, and it starts the implementation turn
         // naming the plan file. Without the mode reset that turn would spawn
         // `--permission-mode plan` again and answer a request to implement

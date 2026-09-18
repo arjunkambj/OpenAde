@@ -44,7 +44,7 @@ export type Effort = typeof Effort.Type;
 
 /**
  * What one timeline row is. These names are Command Code's tool vocabulary
- * normalised (spec 5.4): every connector maps its own tool names onto them, and
+ * normalised: every connector maps its own tool names onto them, and
  * the renderer has one row component per member.
  */
 export const ItemKind = Schema.Literals([
