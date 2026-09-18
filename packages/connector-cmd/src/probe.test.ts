@@ -95,10 +95,24 @@ describe("parseModelList", () => {
     expect(models.find((model) => model.id === "deepseek/deepseek-v4-pro")?.vision).toBeUndefined();
   });
 
-  it("falls back to the common effort ladder when the table prints none", () => {
-    // 1.55.1 prints no [low,medium] markers at all.
-    expect(models.every((model) => model.efforts.length === 3)).toBe(true);
-    expect(models[0]?.efforts).toEqual(["low", "medium", "high"]);
+  it("narrows nothing when the table prints no effort ladder", () => {
+    // 1.55.1 prints no [low,medium] markers on any of its 70 rows. Assuming
+    // low/medium/high was inventing a ladder: every recorded
+    // `model_request_end` on the account default reports `"effort":"xhigh"`,
+    // and `--effort xhigh` is accepted — so the picker hid two rungs the CLI
+    // uses by default and picking "high" silently downgraded the run.
+    expect(models.every((model) => model.efforts.length === 5)).toBe(true);
+    expect(models[0]?.efforts).toEqual(["low", "medium", "high", "xhigh", "max"]);
+    const rungs = new Set(models.flatMap((model) => [...model.efforts]));
+    expect(rungs.has("xhigh")).toBe(true);
+    expect(rungs.has("max")).toBe(true);
+  });
+
+  it("still honours a ladder the table does print", () => {
+    expect(parseModelList("acme/model-x  fast one [low,high]")[0]?.efforts).toEqual([
+      "low",
+      "high",
+    ]);
   });
 
   it("labels a bare id with itself and survives an empty output", () => {
@@ -107,7 +121,7 @@ describe("parseModelList", () => {
         id: "acme/model-x",
         label: "acme/model-x",
         family: "acme",
-        efforts: ["low", "medium", "high"],
+        efforts: ["low", "medium", "high", "xhigh", "max"],
       },
     ]);
     expect(parseModelList("")).toEqual([]);

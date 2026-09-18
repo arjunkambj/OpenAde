@@ -300,6 +300,34 @@ describe("a text-only turn", () => {
   });
 });
 
+describe("the effort a run really used", () => {
+  it("says so, and says it once", () => {
+    // `model_request_end` is the only frame that names the effort, and on the
+    // account default it is `xhigh` — a rung the picker never offered and the
+    // header never showed, so the run read as whatever the thread's settings
+    // last said. The frame's `effort` was read off the wire and dropped.
+    const { events } = replay("text");
+    const changes = events.filter((event) => event.type === "model.changed");
+    expect(changes.length).toBeGreaterThan(0);
+    expect(changes.at(-1)?.payload.effort).toBe("xhigh");
+    expect(changes.at(-1)?.payload.model).toBe("meta/muse-spark-1.3-contributor");
+    // One `model_request_end` per agent step, all reporting the same level:
+    // a `thread.settings.updated` per step would feed the reactor for nothing.
+    const withEffort = changes.filter((event) => event.payload.effort !== undefined);
+    expect(withEffort).toHaveLength(1);
+  });
+
+  it("reports the level of every step that changes it", () => {
+    const { events } = replay("shell-yolo");
+    const efforts = events.flatMap((event) =>
+      event.type === "model.changed" && event.payload.effort !== undefined
+        ? [event.payload.effort]
+        : [],
+    );
+    expect(efforts).toEqual(["xhigh"]);
+  });
+});
+
 describe("a shell call through the hook", () => {
   it("shows the command, its output, and the same row throughout", () => {
     const { events } = replay("shell-yolo");

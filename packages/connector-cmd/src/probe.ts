@@ -155,6 +155,9 @@ const MODEL_ID = /^[a-z0-9](?:[a-z0-9._-]|\/(?=[a-z0-9]))*(?::[a-z0-9._-]+)?$/i;
 
 const EFFORT_MARKER = /\[(low|medium|high|xhigh|max)(?:,(low|medium|high|xhigh|max))*\]/i;
 
+/** Every rung the contract knows — what a row with no stated ladder offers. */
+const ALL_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
+
 /** The lines that frame the table instead of listing a model. */
 const isTableChrome = (line: string): boolean =>
   line.startsWith("Available models") ||
@@ -170,8 +173,8 @@ const isTableChrome = (line: string): boolean =>
  * `OpenAI`, …), which become `family`. A model is free when its id carries a
  * `:free` tag or its description says `FREE`; `(default)` and `(recommended)`
  * are markers, not part of the label. The binary does not print effort ladders
- * today, so `[low,medium]` is still honoured where it appears and otherwise the
- * common ladder is assumed.
+ * today, so `[low,medium]` is honoured where it appears and a row without one
+ * offers every rung rather than a ladder nobody measured.
  */
 export const parseModelList = (output: string): ReadonlyArray<ModelOption> => {
   const models: Array<ModelOption> = [];
@@ -199,13 +202,20 @@ export const parseModelList = (output: string): ReadonlyArray<ModelOption> => {
       .replace(/\s{2,}/g, " ")
       .trim();
     const effortMatch = EFFORT_MARKER.exec(description);
+    // No marker means the binary said nothing about this model's ladder, and
+    // the recorded output has no marker on any of its 70 rows. Assuming
+    // low/medium/high was inventing one: every recorded `model_request_end` on
+    // the account default reports `"effort":"xhigh"` and `--effort xhigh` is
+    // accepted, so the picker hid two rungs the CLI uses by default and
+    // picking "high" silently downgraded the run. An unstated ladder narrows
+    // nothing.
     const efforts = (
       effortMatch !== null
         ? effortMatch[0]
             .slice(1, -1)
             .split(",")
             .map((entry) => entry.trim().toLowerCase())
-        : ["low", "medium", "high"]
+        : ALL_EFFORTS
     ) as ModelOption["efforts"];
     models.push({
       id,

@@ -38,6 +38,7 @@
 
 import type { ItemId } from "@OpenAde/contracts/ids";
 import { makeTurnId } from "@OpenAde/contracts/ids";
+import type { Effort } from "@OpenAde/contracts/enums";
 import type { ConnectorCapabilities, TurnStopReason } from "@OpenAde/contracts/runtime";
 
 import { EXIT_MESSAGES } from "./exitCodes";
@@ -63,6 +64,14 @@ import { subagentProgress } from "./subagents";
 import { makeTextRows } from "./textRows";
 
 export type { PendingRuntimeEvent } from "./items";
+
+const EFFORTS: ReadonlyArray<Effort> = ["low", "medium", "high", "xhigh", "max"];
+
+/** A frame's `effort`, when it is one the contract knows. */
+const asEffort = (value: unknown): Effort | undefined =>
+  typeof value === "string" && (EFFORTS as ReadonlyArray<string>).includes(value)
+    ? (value as Effort)
+    : undefined;
 
 export interface CmdTranslator {
   /** One stdout frame → the events it means. */
@@ -105,6 +114,8 @@ export const makeTranslator = (options: {
   let sessionId: string | null = null;
   let announced = false;
   let model: string | null = null;
+  /** The effort the last `model_request_end` reported, so it is said once. */
+  let lastEffort: Effort | null = null;
   let turnOpen = false;
   let lastMessageId: string | null = options.resumeAfterMessageId ?? null;
   let resumeMarker = options.resumeAfterMessageId ?? null;
@@ -495,13 +506,32 @@ export const makeTranslator = (options: {
       }
       case "model_request_end": {
         // Usage is `turn_end`'s to report (counting both would double the
-        // turn); the model is worth taking, because a run that switched models
-        // says so here as well.
-        if (event.model !== undefined && event.model !== model) {
-          model = event.model;
-          return [{ type: "model.changed", payload: { model: event.model } }];
+        // turn). The model and the effort it actually ran at are worth taking:
+        // this is the only frame that names the effort, and on the account
+        // default it is `xhigh` — a level the model picker never offered and
+        // the header never showed, so a run at xhigh read as a run at whatever
+        // the thread's settings last said.
+        const effort = asEffort(event.effort);
+        const changed = event.model !== undefined && event.model !== model;
+        if (!changed && (effort === undefined || effort === lastEffort)) {
+          return [];
         }
-        return [];
+        if (event.model !== undefined) {
+          model = event.model;
+        }
+        if (effort !== undefined) {
+          lastEffort = effort;
+        }
+        const named = event.model ?? model;
+        if (named === null) {
+          return [];
+        }
+        return [
+          {
+            type: "model.changed",
+            payload: { model: named, ...(effort === undefined ? {} : { effort }) },
+          },
+        ];
       }
       case "message_end": {
         // The finished message. Its text and thinking blocks settle the rows
