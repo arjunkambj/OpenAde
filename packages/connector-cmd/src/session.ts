@@ -270,6 +270,30 @@ export const makeCmdSession = (
     });
 
     /**
+     * Re-point the stored ref at the transcript now that one exists.
+     *
+     * The ref is minted at `session.started`, which is `run_start` — seconds
+     * before the harness creates the file — so `transcriptPathOf` can only
+     * hand it the slug guess, and the slug is not the directory the harness
+     * uses. Until this ran, the correction happened at process exit, so
+     * anything reading `sessionRef()` while the session is still open (the
+     * engine persisting a settled turn, a resume that follows straight on)
+     * got a path that does not exist. Cheap and idempotent: once the lookup
+     * has found the real file the path stops changing.
+     */
+    const refreshTranscriptPath: Effect.Effect<void> = Effect.gen(function* () {
+      const ref = yield* Ref.get(sessionRef);
+      if (ref === null) {
+        return;
+      }
+      const path = transcriptPathOf(ref.sessionId);
+      if (path === ref.transcriptPath) {
+        return;
+      }
+      yield* Ref.set(sessionRef, { ...ref, transcriptPath: path });
+    });
+
+    /**
      * A plan-mode turn that just ended may have left a plan file behind:
      * `plans-index.json` matches it to this session by `sessionId`, and
      * failing that the turn's own `write_file` frames name the file it wrote.
@@ -443,6 +467,7 @@ export const makeCmdSession = (
           const prepared = enrich(pending);
           if (prepared.type === "turn.completed") {
             yield* drainTranscript;
+            yield* refreshTranscriptPath;
             yield* emitPlanProposal(active);
             yield* Deferred.succeed(active.turnDone, undefined);
           }
