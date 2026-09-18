@@ -15,7 +15,15 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
 
-import { makeConnection, retainedInstanceId, type ConnectionCredentials } from "./connection";
+import * as Context from "effect/Context";
+import * as SubscriptionRef from "effect/SubscriptionRef";
+
+import {
+  ConnectionStateRef,
+  makeConnection,
+  retainedInstanceId,
+  type ConnectionCredentials,
+} from "./connection";
 
 describe("retainedInstanceId", () => {
   it("keeps the boot id across a plain reconnect to the same server", () => {
@@ -96,4 +104,35 @@ describe("makeConnection with no boot credentials", () => {
       }),
     );
   });
+});
+
+describe("what `connected` means", () => {
+  it.live("is not announced until the socket has actually opened", () =>
+    // Building the protocol does not dial — the socket layer is lazy and
+    // `Layer.build` returns while the connect is still in flight. An attempt
+    // that succeeded on the strength of that announced `connected` against a
+    // port with nothing on it, and the first request after it failed with
+    // `SocketOpenError`. Every consumer retries transport errors and so
+    // recovered, which is why it showed only as a banner that said connected
+    // while nothing worked, and one failed refetch per reconnect.
+    Effect.scoped(
+      Effect.gen(function* () {
+        const context = yield* Layer.build(
+          makeConnection({
+            url: "ws://127.0.0.1:4242/ws",
+            token: "t",
+            // Never opens, never errors: the dial simply never lands.
+            webSocketConstructor: () => deadSocket(),
+          }),
+        );
+        const state = Context.get(context, ConnectionStateRef);
+        // Give the attempt loop every chance to declare victory.
+        for (let i = 0; i < 50; i++) {
+          yield* Effect.yieldNow;
+        }
+        const seen = yield* SubscriptionRef.get(state);
+        expect(seen.status).not.toBe("connected");
+      }),
+    ),
+  );
 });

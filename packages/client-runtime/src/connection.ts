@@ -236,6 +236,20 @@ export const makeConnection = (
           });
           const wsUrl = `${toWebSocketUrl(active.url)}?token=${encodeURIComponent(active.token)}`;
           const disconnected = yield* Deferred.make<void>();
+          /**
+           * Resolved by the protocol's own `onConnect` hook, which is the only
+           * moment a socket is really open.
+           *
+           * Building the protocol does not dial: the socket layer is lazy and
+           * `Layer.build` returns while the connect is still in flight. So an
+           * attempt used to succeed — and the supervisor announce
+           * `connected` — against a port with nothing on it, and the first
+           * request after that failed with `SocketOpenError`. Every consumer
+           * in the app retries transport errors and so recovered, which is why
+           * it showed only as a banner that said connected while nothing
+           * worked, and one failed refetch per reconnect.
+           */
+          const opened = yield* Deferred.make<void>();
           const socketLayer = Socket.layerWebSocket(wsUrl).pipe(
             Layer.provide(
               options.webSocketConstructor === undefined
@@ -257,14 +271,26 @@ export const makeConnection = (
                 socketLayer,
                 RpcSerialization.layerJson,
                 Layer.succeed(RpcClient.ConnectionHooks, {
-                  onConnect: Effect.void,
-                  onDisconnect: Deferred.done(disconnected, Exit.void).pipe(Effect.asVoid),
+                  onConnect: Deferred.done(opened, Exit.void).pipe(Effect.asVoid),
+                  onDisconnect: Deferred.done(disconnected, Exit.void).pipe(
+                    Effect.andThen(Deferred.done(opened, Exit.void)),
+                    Effect.asVoid,
+                  ),
                 }),
               ),
             ),
           );
           const protocolContext = yield* Layer.build(protocolLayer);
           const client = yield* makeClient.pipe(Effect.provide(protocolContext));
+          // Wait for the dial to land before calling this an epoch. A socket
+          // that failed to open fires `onDisconnect` instead, which releases
+          // this wait too — and then fails the attempt, so the loop backs off
+          // and asks the channel again rather than handing out a client that
+          // cannot carry a request.
+          yield* Deferred.await(opened);
+          if (yield* Deferred.isDone(disconnected)) {
+            return yield* Effect.fail(NO_CREDENTIALS);
+          }
           return { client, disconnected };
         },
       );
