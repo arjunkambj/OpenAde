@@ -7,10 +7,12 @@
  * its own process group: interrupt and close signal the group (`kill(-pid)`),
  * which is the only way to take the harness's own children with it.
  *
- * `envAllowlist` is the leak guard of spec section 8: the child sees the
- * handful of variables a CLI legitimately needs, `OPENADE_*` control-plane
- * variables we set ourselves, and the operator's `extraEnv` — and nothing
- * starting with `OPENADE_SERVER_`, `ANTHROPIC_` or `OPENAI_`, ever.
+ * `envAllowlist` is the leak guard of spec section 8: of the *inherited*
+ * environment the child sees only the handful of variables a CLI legitimately
+ * needs; the operator's `extraEnv` passes by name, because naming it is the
+ * decision; and the session's own `OPENADE_*` control plane is applied last so
+ * nothing can override it. Nothing starting with `OPENADE_SERVER_`,
+ * `ANTHROPIC_` or `OPENAI_` reaches the child by any of the three routes.
  */
 
 import { execFileSync, spawn } from "node:child_process";
@@ -181,8 +183,16 @@ export const envAllowlist = (
       out[name] = value;
     }
   }
+  // The operator naming a variable *is* the decision, so `extra` is filtered by
+  // the deny half only. Running it through the inherited-env allowlist as well
+  // silently dropped everything outside the ten-name base list — including
+  // `CMD_LOCAL_ONLY=1`, the env form of `--local-only`, which an operator sets
+  // precisely to keep their traffic off Command Code and which went on being
+  // sent there anyway; and `NODE_OPTIONS`, `GH_TOKEN`, `TZ` and every corporate
+  // variable besides. The leak guard the docstring promises is `isDropped`, and
+  // it still applies.
   for (const [name, value] of Object.entries(extra)) {
-    if (isAllowed(name) && !isReserved(name)) {
+    if (!isDropped(name) && !isReserved(name)) {
       out[name] = value;
     }
   }

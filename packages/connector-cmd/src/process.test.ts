@@ -203,6 +203,32 @@ describe("envAllowlist", () => {
   it("still passes the operator's own OPENADE_ variables", () => {
     expect(envAllowlist({}, { OPENADE_STUB_MODE: "1" }).OPENADE_STUB_MODE).toBe("1");
   });
+
+  /**
+   * The settings field says "Variables added to every session this instance
+   * spawns", and they were not: `extra` went through the inherited-env
+   * allowlist too, which passes ten names plus `LC_`/`OPENADE_`. So
+   * `CMD_LOCAL_ONLY=1` — the env form of `--local-only`, which an operator sets
+   * to keep their traffic off Command Code — was dropped without a word and
+   * every turn went to Command Code anyway.
+   */
+  it("passes the variables the operator named, allowlist or not", () => {
+    const out = envAllowlist(
+      { HOME: "/home/u", CMD_LOCAL_ONLY: "inherited-is-still-dropped" },
+      { CMD_LOCAL_ONLY: "1", NODE_OPTIONS: "--max-old-space-size=8192", GH_TOKEN: "gh-1" },
+    );
+    expect(out.CMD_LOCAL_ONLY).toBe("1");
+    expect(out.NODE_OPTIONS).toBe("--max-old-space-size=8192");
+    expect(out.GH_TOKEN).toBe("gh-1");
+  });
+
+  it("keeps the deny list effective on everything the operator names", () => {
+    const out = envAllowlist(
+      {},
+      { ANTHROPIC_API_KEY: "sk-1", OPENAI_API_KEY: "sk-2", OPENADE_SERVER_SECRET: "no" },
+    );
+    expect(out).toEqual({});
+  });
 });
 
 // ── spawning a real child ──────────────────────────────────────
