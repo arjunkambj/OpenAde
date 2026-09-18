@@ -13,7 +13,8 @@ import { describe, expect, it } from "@effect/vitest";
 import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
 
 import { parseFrame, type CmdEventFrame, type CmdFrame, type CmdFrameParseError } from "./ndjson";
-import { makeTranslator, MAX_TOOL_OUTPUT_CHARS, type PendingRuntimeEvent } from "./translate";
+import { MAX_TOOL_OUTPUT_CHARS } from "./items";
+import { makeTranslator, type PendingRuntimeEvent } from "./translate";
 
 const CAPABILITIES: ConnectorCapabilities = {
   modelSwitch: "per-turn",

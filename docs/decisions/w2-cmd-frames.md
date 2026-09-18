@@ -28,7 +28,7 @@ reasoning; `message_update` re-sends the whole message after every delta, and
 It grows, but nowhere near live. The file does not exist at `run_start` — it
 appears seconds in, already holding the run's first lines — and thereafter it is
 appended **once per completed message**, at each agent-step boundary, with the
-last flush landing *with* `run_end`. A single-round-trip turn writes it exactly
+last flush landing _with_ `run_end`. A single-round-trip turn writes it exactly
 once, at the end (`text/`: one growth sample at 3851ms of a 3851ms run); a
 three-step turn writes it three times (`shell-allow/`).
 
@@ -47,9 +47,18 @@ withheld tools by name". With it (`fixtures/cmd/question-tools/`) the tool fires
 and PreToolUse receives the real payload:
 
 ```json
-{"questions":[{"header":"Indent style","question":"Do you prefer tabs or spaces?",
-  "options":[{"label":"Tabs","description":"Use tab characters for indentation."},
-             {"label":"Spaces","description":"Use space characters for indentation."}]}]}
+{
+  "questions": [
+    {
+      "header": "Indent style",
+      "question": "Do you prefer tabs or spaces?",
+      "options": [
+        { "label": "Tabs", "description": "Use tab characters for indentation." },
+        { "label": "Spaces", "description": "Use space characters for indentation." }
+      ]
+    }
+  ]
+}
 ```
 
 The spec's fallback works exactly as designed: deny the tool, put the user's
@@ -67,7 +76,7 @@ harness answers with `Read image red.png and attached it below for viewing
 model answers with the colour of the pixels.
 
 **5. `--permission-mode` accepted values.**
-`--help` lists `standard, plan, auto-accept`. What the *hook* is told in
+`--help` lists `standard, plan, auto-accept`. What the _hook_ is told in
 `permission_mode` is neither: it is `default` on an ordinary run and `bypass`
 under `--yolo`.
 
@@ -104,19 +113,19 @@ Twelve event types the connector did not read, all of them now mapped
 (`packages/connector-cmd/src/translate.ts`, asserted for every recording by
 `recordedFrames.test.ts`, which fails if anything reaches `event.unmapped`):
 
-| frame | what it carries |
-| --- | --- |
-| `message_update` | the whole message so far, after every delta |
-| `message_end` | the finished content blocks |
-| `model_request_end` | `model`, `usage`, `stopReason` (`stop` / `tool_calls`), `effort` |
-| `turn_end` | `turnNumber`, `hadToolCalls`, `usage` for that agent step |
-| `tool_queued` | `toolCallId`, `toolName`, **`input`** |
-| `tool_running` | `toolCallId`, `toolName`, `description` — which is always `null` |
-| `tool_update` | `partial`, a long-running tool's output so far |
-| `tool_completed` | `result` (text and image blocks), `deferred` |
-| `tool_hooks` | the hook's verdict: `phase`, `outcome: {kind, text}` |
-| `tool_hook_blocked` | `hookOutput` — the refusal the model is shown |
-| `thinking_start` / `thinking_delta` / `thinking_end` | reasoning, streamed then whole |
+| frame                                                | what it carries                                                  |
+| ---------------------------------------------------- | ---------------------------------------------------------------- |
+| `message_update`                                     | the whole message so far, after every delta                      |
+| `message_end`                                        | the finished content blocks                                      |
+| `model_request_end`                                  | `model`, `usage`, `stopReason` (`stop` / `tool_calls`), `effort` |
+| `turn_end`                                           | `turnNumber`, `hadToolCalls`, `usage` for that agent step        |
+| `tool_queued`                                        | `toolCallId`, `toolName`, **`input`**                            |
+| `tool_running`                                       | `toolCallId`, `toolName`, `description` — which is always `null` |
+| `tool_update`                                        | `partial`, a long-running tool's output so far                   |
+| `tool_completed`                                     | `result` (text and image blocks), `deferred`                     |
+| `tool_hooks`                                         | the hook's verdict: `phase`, `outcome: {kind, text}`             |
+| `tool_hook_blocked`                                  | `hookOutput` — the refusal the model is shown                    |
+| `thinking_start` / `thinking_delta` / `thinking_end` | reasoning, streamed then whole                                   |
 
 Three things about them that the old mapping got wrong:
 
@@ -161,18 +170,18 @@ failure mode was to open.
 
 Renaming the variable to something the denylist has not learned yet would make
 the approval path depend on a heuristic we cannot see. The environment now
-carries a *path*, `OPENADE_HOOK_TICKET_FILE`, and the bearer lives in a 0600 file
+carries a _path_, `OPENADE_HOOK_TICKET_FILE`, and the bearer lives in a 0600 file
 the session writes when it opens and deletes when it closes.
 
 ## Exit codes and endings, as observed
 
-| scenario | exit | `result.subtype` | `stopReason` |
-| --- | --- | --- | --- |
-| ordinary turn | 0 | `success` | `end_turn` |
-| `--max-turns` exhausted | 8 | `max_turns` | `max_turns` |
-| SIGINT mid-turn | 130 | *(no result line)* | *(no `run_end`)* |
-| unknown `--model` | 1 | — | fails before the model call, costs nothing |
-| no credits (2026-09-15) | 10 | `error` | `run_error` |
+| scenario                | exit | `result.subtype`   | `stopReason`                               |
+| ----------------------- | ---- | ------------------ | ------------------------------------------ |
+| ordinary turn           | 0    | `success`          | `end_turn`                                 |
+| `--max-turns` exhausted | 8    | `max_turns`        | `max_turns`                                |
+| SIGINT mid-turn         | 130  | _(no result line)_ | _(no `run_end`)_                           |
+| unknown `--model`       | 1    | —                  | fails before the model call, costs nothing |
+| no credits (2026-09-15) | 10   | `error`            | `run_error`                                |
 
 SIGINT prints `Interrupted.` on stderr and stops: no `run_end`, no `result`. The
 last recording that cannot be made again is `probe-insufficient-credits.ndjson`,
@@ -199,7 +208,7 @@ or above it says nothing, today and for every release after. A version string we
 cannot parse does not warn either. There is no update checker and no UI for any
 of this.
 
-The probe runs `status --json` and `--list-models` *without* `--no-auto-update`,
+The probe runs `status --json` and `--list-models` _without_ `--no-auto-update`,
 which is how the global install upgraded itself from 1.54.0 to 1.55.1 while an
 agent was asking its version. That is the wanted behaviour — a probe is the one
 safe moment to let the CLI update itself. Turn spawns keep `--no-auto-update`,

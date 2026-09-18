@@ -265,7 +265,7 @@ mode → flags, plan mode via plans-index.json, per-turn model/effort,
 bearer, 590s ceiling, 1MB cap, journaling interface, ask_user_question path).
 `replay-cmd.mjs` replays a recording progressively and calls the installed hook
 at the recorded points. Done when `runConnectorConformance(cmdConnector, …)`
-passes against a recording *and* against the real CLI behind
+passes against a recording _and_ against the real CLI behind
 `OPENADE_LIVE_CMD=1` (`apps/server/src/hooks/cmdLiveConformance.test.ts`).
 
 **W3 transport** (`apps/server/src/rpc`, `packages/client-runtime`, the D3 Vite

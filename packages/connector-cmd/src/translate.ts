@@ -36,31 +36,32 @@
  * the same work lands on the same timeline row.
  */
 
-import * as NodeCrypto from "node:crypto";
-import type { ItemKind } from "@OpenAde/contracts/enums";
 import type { ItemId } from "@OpenAde/contracts/ids";
 import { makeItemId, makeTurnId } from "@OpenAde/contracts/ids";
 import type {
   ConnectorCapabilities,
   ContentDeltaKind,
-  ItemSnapshot,
-  RuntimeEvent,
-  Todo,
   TurnStopReason,
 } from "@OpenAde/contracts/runtime";
 
 import { EXIT_MESSAGES } from "./exitCodes";
+import {
+  anonymousKey,
+  asOptionalString,
+  asRecord,
+  asString,
+  makeToolRows,
+  textOfToolResult,
+  truncateToolOutput,
+  type PendingRuntimeEvent,
+  type ToolResultBlock,
+  type ToolUseBlock,
+  type TranscriptLine,
+  type TranscriptMessage,
+} from "./items";
 import type { CmdFrame, CmdUsage } from "./ndjson";
 
-/**
- * A `RuntimeEvent` minus the envelope fields the session stamps on the way
- * out — the same shape testkit's `ScriptedRuntimeEvent` uses.
- */
-type WithoutEnvelope<Event> = Event extends RuntimeEvent
-  ? Omit<Event, "eventId" | "connectorInstanceId" | "threadId" | "createdAt">
-  : never;
-
-export type PendingRuntimeEvent = WithoutEnvelope<RuntimeEvent>;
+export type { PendingRuntimeEvent } from "./items";
 
 export interface CmdTranslator {
   /** One stdout frame → the events it means. */
@@ -79,143 +80,6 @@ export interface CmdTranslator {
    */
   readonly lastMessageId: string | null;
 }
-
-// ── transcript shapes (spec 5.3, only what we read) ────────────
-
-interface TranscriptMeta {
-  readonly source?: string;
-  readonly createdAt?: number;
-  readonly messageId?: string;
-}
-
-interface TranscriptMessage {
-  readonly role?: string;
-  readonly content?: ReadonlyArray<unknown>;
-  readonly meta?: TranscriptMeta;
-}
-
-interface TranscriptLine {
-  readonly type?: string;
-  readonly id?: string;
-  readonly parentId?: string;
-  readonly timestamp?: string;
-  readonly message?: TranscriptMessage;
-  readonly usage?: CmdUsage & { readonly costUsd?: number };
-  readonly model?: string;
-}
-
-interface ToolUseBlock {
-  readonly type: "tool_use";
-  readonly id?: string;
-  readonly name?: string;
-  readonly input?: unknown;
-}
-
-interface ToolResultBlock {
-  readonly type: "tool_result";
-  readonly tool_use_id?: string;
-  readonly content?: unknown;
-  readonly is_error?: boolean;
-}
-
-// ── tool vocabulary (spec 5.4) ─────────────────────────────────
-
-const TOOL_KIND: Readonly<Record<string, ItemKind>> = {
-  shell_command: "command_execution",
-  edit_file: "file_change",
-  write_file: "file_change",
-  read_file: "tool_call",
-  read_directory: "tool_call",
-  glob: "tool_call",
-  grep: "tool_call",
-  todo_write: "todo",
-  agent: "task",
-  activate_skill: "skill",
-  web_search: "web_search",
-  web_fetch: "web_search",
-};
-
-const kindForTool = (name: string): ItemKind =>
-  name.startsWith("mcp__") ? "mcp_tool_call" : (TOOL_KIND[name] ?? "tool_call");
-
-const asRecord = (value: unknown): Record<string, unknown> =>
-  typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
-
-/** Nothing worth showing: `undefined`, `null`, or `{}`. */
-const isEmptyInput = (value: unknown): boolean =>
-  value === undefined || value === null || Object.keys(asRecord(value)).length === 0;
-
-/** The harness writes `description: null`, which is not the same as absent. */
-const asOptionalString = (value: unknown): string | undefined =>
-  typeof value === "string" && value !== "" ? value : undefined;
-
-/**
- * A stable key for a message with no `meta.messageId`. The old
- * `anon:<blockIndex>` scheme collapsed every anonymous message's block N onto
- * one itemId and gave anonymous tool_use a fresh key per sighting; hashing
- * role+content dedupes the same message re-seen (tailer then run_end) while
- * keeping different messages apart.
- */
-const anonymousKey = (message: TranscriptMessage): string =>
-  `anon:${NodeCrypto.createHash("sha256")
-    .update(JSON.stringify({ role: message.role, content: message.content }), "utf8")
-    .digest("hex")
-    .slice(0, 16)}`;
-
-const asString = (value: unknown): string | undefined =>
-  typeof value === "string" ? value : undefined;
-
-/** `mcp__<server>__<tool>` → server; undefined for ordinary tools. */
-const mcpServerOf = (name: string): string | undefined => {
-  if (!name.startsWith("mcp__")) {
-    return undefined;
-  }
-  const rest = name.slice(5);
-  const separator = rest.indexOf("__");
-  return separator === -1 ? rest : rest.slice(0, separator);
-};
-
-const textOfToolResult = (content: unknown): string => {
-  if (typeof content === "string") {
-    return content;
-  }
-  if (Array.isArray(content)) {
-    return content
-      .map((block) => asString(asRecord(block).text))
-      .filter((text): text is string => text !== undefined)
-      .join("\n");
-  }
-  return "";
-};
-
-/**
- * Tool results land whole in item snapshots — a build log or a minified file
- * would otherwise inflate the event log and the stream budget. 64KB keeps a
- * useful head and marks the cut.
- */
-export const MAX_TOOL_OUTPUT_CHARS = 64 * 1024;
-
-const truncateToolOutput = (text: string): string =>
-  text.length > MAX_TOOL_OUTPUT_CHARS
-    ? `${text.slice(0, MAX_TOOL_OUTPUT_CHARS)}...[truncated]`
-    : text;
-
-const todosOf = (input: Record<string, unknown>): ReadonlyArray<Todo> =>
-  (Array.isArray(input.todos) ? input.todos : []).flatMap((todo, index) => {
-    const record = asRecord(todo);
-    const text = asString(record.text) ?? asString(record.content) ?? asString(record.title);
-    if (text === undefined || text === "") {
-      return [];
-    }
-    const status = asString(record.status);
-    return [
-      {
-        todoId: asString(record.id) ?? asString(record.todoId) ?? `todo-${index}`,
-        text,
-        status: status === "in_progress" || status === "completed" ? status : ("pending" as const),
-      } satisfies Todo,
-    ];
-  });
 
 // ── the translator ─────────────────────────────────────────────
 
@@ -238,17 +102,9 @@ export const makeTranslator = (options: {
   let resumeMarker = options.resumeAfterMessageId ?? null;
   /** meta.messageId — or content-hash key — of every message already folded. */
   const seenMessages = new Set<string>();
+  /** A tool call's row, however many frames and transcript lines describe it. */
+  const toolRows = makeToolRows();
   /** tool_use.id → minted itemId (the dedupe key across ndjson + transcript). */
-  const toolItems = new Map<string, ItemId>();
-  /** tool_use.id → the last snapshot emitted for it, for result merging. */
-  const toolSnapshots = new Map<string, ItemSnapshot>();
-  /**
-   * tool_use.id → the input the call was announced with. `tool_queued` carries
-   * it; `tool_running` and `tool_completed` do not (`description` is null in
-   * every recording), so without this a later frame would rebuild the row from
-   * `{}` and wipe the command it is showing.
-   */
-  const toolInputs = new Map<string, unknown>();
   /** `${messageId}:${blockIndex}` → itemId, so a replayed block hits its row. */
   const blockItems = new Map<string, ItemId>();
   /**
@@ -300,161 +156,6 @@ export const makeTranslator = (options: {
   };
 
   /** The snapshot a tool call announces — what `tool_running` knows, or full `input`. */
-  const snapshotForTool = (
-    itemId: ItemId,
-    toolName: string,
-    input: unknown,
-    description?: string,
-  ): ItemSnapshot => {
-    const record = asRecord(input);
-    const kind = kindForTool(toolName);
-    const base: ItemSnapshot = {
-      itemId,
-      kind,
-      status: "in_progress",
-      ...(description === undefined ? {} : { text: description }),
-    };
-    switch (kind) {
-      case "command_execution": {
-        const cmd = asString(record.command) ?? description ?? toolName;
-        return {
-          ...base,
-          command: {
-            cmd,
-            ...(asString(record.cwd) === undefined ? {} : { cwd: asString(record.cwd) }),
-          },
-        };
-      }
-      case "file_change": {
-        const path = asString(record.file_path) ?? asString(record.path) ?? toolName;
-        return {
-          ...base,
-          fileChange: {
-            path,
-            kind: toolName === "write_file" ? "create" : "edit",
-          },
-          tool: { name: toolName, input },
-        };
-      }
-      case "todo": {
-        return { ...base, todos: [...todosOf(record)] };
-      }
-      case "mcp_tool_call": {
-        const server = mcpServerOf(toolName);
-        return {
-          ...base,
-          tool: { name: toolName, ...(server === undefined ? {} : { server }), input },
-        };
-      }
-      default: {
-        return { ...base, tool: { name: toolName, input } };
-      }
-    }
-  };
-
-  /** A tool_use block/frame → item.started (first sight) or item.updated (known id). */
-  const toolStarted = (
-    toolUseId: string | undefined,
-    toolName: string,
-    input: unknown,
-    description?: string,
-    fallbackKey?: string,
-  ): ReadonlyArray<PendingRuntimeEvent> => {
-    // No tool_use.id: the containing message's dedupe key + block index is a
-    // stable fallback — a key minted per sighting duplicated the row on replay.
-    const key = toolUseId ?? fallbackKey ?? `anon:${toolName}:${makeItemId()}`;
-    // `tool_running` and `tool_completed` announce no input; the one
-    // `tool_queued` carried is the row's, and an empty object must never
-    // replace it.
-    const known = toolInputs.get(key);
-    const effective = isEmptyInput(input) && known !== undefined ? known : input;
-    if (!isEmptyInput(effective)) {
-      toolInputs.set(key, effective);
-    }
-    const existing = toolItems.get(key);
-    if (existing !== undefined) {
-      const prior = toolSnapshots.get(key);
-      const next = snapshotForTool(existing, toolName, effective, description);
-      // Never regress a finished row back to in_progress on a late duplicate.
-      const snapshot = prior === undefined ? next : { ...prior, ...next, status: prior.status };
-      toolSnapshots.set(key, snapshot);
-      return [{ itemId: existing, type: "item.updated", payload: { item: snapshot } }];
-    }
-    const itemId = makeItemId();
-    toolItems.set(key, itemId);
-    const snapshot = snapshotForTool(itemId, toolName, effective, description);
-    toolSnapshots.set(key, snapshot);
-    return [{ itemId, type: "item.started", payload: { item: snapshot } }];
-  };
-
-  /**
-   * A `tool_completed` / `tool_hook_blocked` frame → `item.completed` on the row
-   * its `tool_queued` opened. Same shape as the transcript's `tool_result`, but
-   * arriving one model round trip earlier, so this is what settles the row on
-   * screen.
-   */
-  const toolFinished = (
-    toolCallId: string | undefined,
-    toolName: string,
-    output: string,
-    failed: boolean,
-  ): ReadonlyArray<PendingRuntimeEvent> => {
-    const key = toolCallId ?? `anon:${toolName}:${makeItemId()}`;
-    const existing = toolItems.get(key);
-    const itemId = existing ?? makeItemId();
-    const prior =
-      toolSnapshots.get(key) ??
-      snapshotForTool(itemId, toolName, toolInputs.get(key) ?? {}, undefined);
-    const snapshot: ItemSnapshot = {
-      ...prior,
-      itemId,
-      status: failed ? "failed" : "completed",
-      ...(prior.command === undefined ? {} : { command: { ...prior.command, output } }),
-      ...(prior.tool === undefined ? {} : { tool: { ...prior.tool, output } }),
-      ...(failed ? { error: { message: output } } : {}),
-    };
-    toolItems.set(key, itemId);
-    toolSnapshots.set(key, snapshot);
-    return [{ itemId, type: "item.completed", payload: { item: snapshot } }];
-  };
-
-  /** A tool_result block → item.completed on the row the tool_use opened. */
-  const toolCompleted = (block: ToolResultBlock): ReadonlyArray<PendingRuntimeEvent> => {
-    const text = truncateToolOutput(textOfToolResult(block.content));
-    const existing = block.tool_use_id === undefined ? undefined : toolItems.get(block.tool_use_id);
-    const itemId = existing ?? makeItemId();
-    const prior = existing === undefined ? undefined : toolSnapshots.get(block.tool_use_id!);
-    // A call a hook blocked still gets a `tool_result` in the transcript — the
-    // refusal is what the model is told — and it carries no `is_error`. The
-    // frames are the authority on whether the call ran, so a row already marked
-    // failed is never talked back into "completed".
-    const status =
-      prior?.status === "failed" || block.is_error === true
-        ? ("failed" as const)
-        : ("completed" as const);
-    const snapshot: ItemSnapshot =
-      prior !== undefined
-        ? {
-            ...prior,
-            status,
-            ...(prior.command !== undefined ? { command: { ...prior.command, output: text } } : {}),
-            ...(prior.tool !== undefined ? { tool: { ...prior.tool, output: text } } : {}),
-            ...(block.is_error === true ? { error: { message: text } } : {}),
-          }
-        : {
-            itemId,
-            kind: "tool_call",
-            status,
-            tool: { name: "tool", input: {}, output: text },
-            ...(block.is_error === true ? { error: { message: text } } : {}),
-          };
-    if (block.tool_use_id !== undefined) {
-      toolItems.set(block.tool_use_id, itemId);
-      toolSnapshots.set(block.tool_use_id, snapshot);
-    }
-    return [{ itemId, type: "item.completed", payload: { item: snapshot } }];
-  };
-
   /**
    * One transcript/nextState message → its items. `messageId` dedupe is what
    * makes the run_end reconcile free to repeat what the tailer already saw.
@@ -477,7 +178,7 @@ export const makeTranslator = (options: {
       );
       if (meta.source === "tool" || results.length > 0) {
         for (const block of results) {
-          out.push(...toolCompleted(block));
+          out.push(...toolRows.completed(block));
         }
       }
       // A user *text* message emits nothing: the engine's turn.requested fold
@@ -539,7 +240,7 @@ export const makeTranslator = (options: {
         case "tool_use": {
           const toolUse = record as unknown as ToolUseBlock;
           out.push(
-            ...toolStarted(
+            ...toolRows.started(
               toolUse.id,
               toolUse.name ?? "unknown",
               toolUse.input,
@@ -550,7 +251,7 @@ export const makeTranslator = (options: {
           return;
         }
         case "tool_result": {
-          out.push(...toolCompleted(record as unknown as ToolResultBlock));
+          out.push(...toolRows.completed(record as unknown as ToolResultBlock));
           return;
         }
         default: {
@@ -601,7 +302,7 @@ export const makeTranslator = (options: {
         }
         case "tool_use": {
           const toolUse = record as unknown as ToolUseBlock;
-          out.push(...toolStarted(toolUse.id, toolUse.name ?? "unknown", toolUse.input));
+          out.push(...toolRows.started(toolUse.id, toolUse.name ?? "unknown", toolUse.input));
           return;
         }
         default: {
@@ -875,11 +576,11 @@ export const makeTranslator = (options: {
       case "tool_queued": {
         // Where a tool call's input lives: `tool_running` announces neither
         // input nor description.
-        return [...toolStarted(event.toolCallId, event.toolName ?? "unknown", event.input)];
+        return [...toolRows.started(event.toolCallId, event.toolName ?? "unknown", event.input)];
       }
       case "tool_running": {
         return [
-          ...toolStarted(
+          ...toolRows.started(
             event.toolCallId,
             event.toolName ?? "unknown",
             undefined,
@@ -889,28 +590,16 @@ export const makeTranslator = (options: {
       }
       case "tool_update": {
         // A long-running tool streaming its output as it goes.
-        const partial = asString(event.partial) ?? textOfToolResult(event.partial);
-        const key = event.toolCallId;
-        const itemId = key === undefined ? undefined : toolItems.get(key);
-        const prior = key === undefined ? undefined : toolSnapshots.get(key);
-        if (itemId === undefined || prior === undefined || partial === "") {
-          return [];
-        }
-        const snapshot: ItemSnapshot = {
-          ...prior,
-          ...(prior.command === undefined
-            ? {}
-            : { command: { ...prior.command, output: truncateToolOutput(partial) } }),
-          ...(prior.tool === undefined
-            ? {}
-            : { tool: { ...prior.tool, output: truncateToolOutput(partial) } }),
-        };
-        toolSnapshots.set(key!, snapshot);
-        return [{ itemId, type: "item.updated", payload: { item: snapshot } }];
+        return [
+          ...toolRows.progressed(
+            event.toolCallId,
+            asString(event.partial) ?? textOfToolResult(event.partial),
+          ),
+        ];
       }
       case "tool_completed": {
         return [
-          ...toolFinished(
+          ...toolRows.finished(
             event.toolCallId,
             event.toolName ?? "unknown",
             truncateToolOutput(textOfToolResult(event.result)),
@@ -927,7 +616,7 @@ export const makeTranslator = (options: {
           return [];
         }
         return [
-          ...toolFinished(
+          ...toolRows.finished(
             event.toolCallId,
             event.toolName ?? "unknown",
             asString(outcome.text) ?? "blocked by a hook",
@@ -941,7 +630,7 @@ export const makeTranslator = (options: {
         // second: without `--yolo`, print mode declines a shell call the hook
         // already allowed. Both read as a failed row carrying the reason.
         return [
-          ...toolFinished(
+          ...toolRows.finished(
             event.toolCallId,
             event.toolName ?? "unknown",
             asString(event.hookOutput) ?? "blocked by a hook",

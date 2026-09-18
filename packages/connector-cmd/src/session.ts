@@ -15,16 +15,9 @@
  * turn-scoped wrapper settles turns.
  */
 import * as NodeFS from "node:fs";
-import type { ApprovalDecision } from "@OpenAde/contracts/enums";
-import type { ConnectorInstanceId, RequestId, ThreadId } from "@OpenAde/contracts/ids";
+import type { ConnectorInstanceId, ThreadId } from "@OpenAde/contracts/ids";
 import type { ThreadSettings } from "@OpenAde/contracts/orchestration";
-import type {
-  ApprovalRequest,
-  ConnectorCapabilities,
-  RuntimeEvent,
-  UserQuestion,
-  UserQuestionAnswer,
-} from "@OpenAde/contracts/runtime";
+import type { ConnectorCapabilities, RuntimeEvent } from "@OpenAde/contracts/runtime";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -40,7 +33,7 @@ import type {
 } from "@OpenAde/connector-sdk/definition";
 import { SessionClosed, SpawnFailed, TurnInProgress } from "@OpenAde/connector-sdk/definition";
 import { makeBoundedEventQueue, type SessionHandle } from "@OpenAde/connector-sdk/sessionHandle";
-import { makeEventId, makeRequestId, makeTurnId } from "@OpenAde/contracts/ids";
+import { makeEventId, makeTurnId } from "@OpenAde/contracts/ids";
 
 import {
   installProjectHooks,
@@ -49,12 +42,11 @@ import {
   upsertMcpEntry,
   type InstalledFile,
 } from "./config";
-import { approvalKindFor, patternSuggestionFor } from "./approvals";
 import { stageTurnAttachments } from "./attachments";
 import { ensureHookScript, hookTicketPath, removeHookTicket, writeHookTicket } from "./hookScript";
+import { makeHookAnswerer } from "./hookAnswers";
 import { makeLineSplitter, parseFrame } from "./ndjson";
 import { readPlanProposal } from "./plans";
-import { describeAnswers, normalizeQuestions } from "./questions";
 import { buildArgs, envAllowlist, spawnProcess, TOOLS_ENABLED, type CmdProcess } from "./spawn";
 import { findTranscriptPath, tailTranscript, transcriptPathFor } from "./transcript";
 import { makeTranslator, type PendingRuntimeEvent } from "./translate";
@@ -83,16 +75,6 @@ export interface CmdSessionRef {
    * server was down get emitted, earlier ones don't repeat.
    */
   readonly lastMessageId: string | null;
-}
-
-interface PendingApproval {
-  readonly released: Deferred.Deferred<ApprovalDecision>;
-}
-
-interface PendingUserInput {
-  readonly released: Deferred.Deferred<ReadonlyArray<UserQuestionAnswer>>;
-  /** What was asked, so the answer can go back as text rather than as our ids. */
-  readonly questions: ReadonlyArray<UserQuestion>;
 }
 
 /**
@@ -155,8 +137,6 @@ export const makeCmdSession = (
     const settingsRef = yield* Ref.make(options.settings);
     const processRef = yield* Ref.make<ActiveProcess | null>(null);
     const sessionRef = yield* Ref.make<CmdSessionRef | null>(options.sessionRef ?? null);
-    const pendingApprovals = yield* Ref.make(new Map<RequestId, PendingApproval>());
-    const pendingUserInputs = yield* Ref.make(new Map<RequestId, PendingUserInput>());
     /** Plan files already proposed this session — a settled plan turn must not re-propose. */
     const proposedPlans = yield* Ref.make(new Set<string>());
     /**
@@ -323,136 +303,13 @@ export const makeCmdSession = (
         });
       });
 
-    /**
-     * A dead process leaves hook posts parked — every outstanding approval is
-     * released with `deny` (and `user-input` with empty answers) so the bridge
-     * replies instead of hanging to the 590s ceiling.
-     */
-    const releasePending = Effect.gen(function* () {
-      const approvals = yield* Ref.getAndSet(pendingApprovals, new Map());
-      for (const [requestId, pending] of approvals) {
-        yield* Deferred.succeed(pending.released, "deny" as const);
-        yield* emit({
-          type: "request.resolved",
-          requestId,
-          payload: { requestId, decision: "deny" },
-        });
-      }
-      const inputs = yield* Ref.getAndSet(pendingUserInputs, new Map());
-      for (const [requestId, pending] of inputs) {
-        yield* Deferred.succeed(pending.released, []);
-        yield* emit({ type: "user-input.resolved", requestId, payload: { requestId } });
-      }
+    /** Everything the PreToolUse bridge needs, kept out of this file. */
+    const hookAnswers = yield* makeHookAnswerer({
+      threadId: options.threadId,
+      services: options.services,
+      settings: Ref.get(settingsRef),
+      emit,
     });
-
-    /**
-     * Answers a PreToolUse post for this session: asks the permission engine,
-     * and on "prompt" opens a request and parks until `respondToRequest`
-     * resolves it. The hook script turns the reply into `permissionDecision`.
-     */
-    const onHookPost = (body: unknown): Effect.Effect<unknown> =>
-      Effect.gen(function* () {
-        const record = body as {
-          readonly tool_use_id?: string;
-          readonly tool_name?: string;
-          readonly tool_input?: unknown;
-          readonly hook_event_name?: string;
-        };
-        const toolName = record.tool_name ?? "unknown";
-        // The harness's tool_use_id is not a UUIDv7 — the wire ids are ours.
-        const requestId = makeRequestId();
-
-        if (record.tool_name === "ask_user_question") {
-          // The payload shape is a 5.7 unknown, and the wire schema is not
-          // forgiving — normalize rather than cast, or one unexpected field
-          // fails the encode and the card never reaches the renderer.
-          const questions = normalizeQuestions(record.tool_input);
-          const released = yield* Deferred.make<ReadonlyArray<UserQuestionAnswer>>();
-          yield* Ref.update(pendingUserInputs, (map) =>
-            new Map(map).set(requestId, { released, questions }),
-          );
-          yield* emit({
-            type: "user-input.requested",
-            requestId,
-            payload: { requestId, questions },
-          });
-          const answers = yield* Deferred.await(released);
-          yield* Ref.update(pendingUserInputs, (map) => {
-            const next = new Map(map);
-            next.delete(requestId);
-            return next;
-          });
-          yield* emit({ type: "user-input.resolved", requestId, payload: { requestId } });
-          // Deny the tool and hand the answers back as the reason — the
-          // harness reads them as context instead of asking interactively.
-          // In the model's own words: our ids mean nothing on its side.
-          return {
-            hookSpecificOutput: {
-              permissionDecision: "deny",
-              permissionDecisionReason: JSON.stringify(describeAnswers(questions, answers)),
-            },
-          };
-        }
-
-        const settings = yield* Ref.get(settingsRef);
-        const input = record.tool_input ?? {};
-        const request: ApprovalRequest = {
-          requestId,
-          kind: approvalKindFor(toolName),
-          toolName,
-          input,
-          patternSuggestion: patternSuggestionFor(toolName, input),
-          description: toolName,
-        };
-        const decision = yield* options.services.permissions.decide({
-          request,
-          threadId: options.threadId,
-          runtimeMode: settings.runtimeMode,
-          interactionMode: settings.interactionMode,
-        });
-        if (decision === "allow") {
-          return { hookSpecificOutput: { permissionDecision: "allow" } };
-        }
-        if (decision === "deny") {
-          return {
-            hookSpecificOutput: {
-              permissionDecision: "deny",
-              permissionDecisionReason: "denied by OpenAde permission rules",
-            },
-          };
-        }
-        // prompt → the user decides via thread.approval.respond.
-        const released = yield* Deferred.make<ApprovalDecision>();
-        yield* Ref.update(pendingApprovals, (map) => new Map(map).set(requestId, { released }));
-        yield* emit({ type: "request.opened", requestId, payload: { request } });
-        const answer = yield* Deferred.await(released);
-        yield* Ref.update(pendingApprovals, (map) => {
-          const next = new Map(map);
-          next.delete(requestId);
-          return next;
-        });
-        yield* emit({
-          type: "request.resolved",
-          requestId,
-          payload: { requestId, decision: answer },
-        });
-        return {
-          hookSpecificOutput: {
-            permissionDecision: answer === "deny" ? "deny" : "allow",
-            permissionDecisionReason: `decided ${answer} via OpenAde`,
-          },
-        };
-      }).pipe(
-        Effect.catch(() =>
-          Effect.succeed({
-            // A hook error must never let a tool run — deny is the safe answer.
-            hookSpecificOutput: {
-              permissionDecision: "deny",
-              permissionDecisionReason: "hook bridge error",
-            },
-          }),
-        ),
-      );
 
     // ── session start: hook script + project config + handler ──
 
@@ -504,7 +361,7 @@ export const makeCmdSession = (
       yield* Ref.set(installedMcp, written ?? null);
     }
     if (options.services.registerHookHandler !== undefined) {
-      yield* options.services.registerHookHandler(options.threadId, onHookPost);
+      yield* options.services.registerHookHandler(options.threadId, hookAnswers.onHookPost);
     }
 
     /** Wires one spawned process's three sources into the translator. */
@@ -653,7 +510,7 @@ export const makeCmdSession = (
           lastMessageId: translator.lastMessageId,
         });
       }
-      yield* releasePending;
+      yield* hookAnswers.releasePending;
       // A child we killed ourselves reads as an interrupt whatever signal
       // finished it off: the escalation ladder ends in SIGKILL, which node
       // reports as a null code (-1), and that must not settle the turn
@@ -808,7 +665,7 @@ export const makeCmdSession = (
         if (active !== null) {
           yield* active.proc.kill;
         }
-        yield* releasePending;
+        yield* hookAnswers.releasePending;
         // The project is the user's, not ours: the hook block and the MCP entry
         // go out with the session that put them there. Both reverts no-op when
         // the file has changed since or another session still holds it.
@@ -863,18 +720,8 @@ export const makeCmdSession = (
               : Ref.set(active.interrupted, true).pipe(Effect.andThen(active.proc.kill)),
           ),
         ),
-      respondToRequest: (requestId, decision) =>
-        Effect.gen(function* () {
-          const pending = (yield* Ref.get(pendingApprovals)).get(requestId);
-          if (pending === undefined) return;
-          yield* Deferred.succeed(pending.released, decision);
-        }),
-      respondToUserInput: (requestId, answers) =>
-        Effect.gen(function* () {
-          const pending = (yield* Ref.get(pendingUserInputs)).get(requestId);
-          if (pending === undefined) return;
-          yield* Deferred.succeed(pending.released, answers);
-        }),
+      respondToRequest: hookAnswers.respondToRequest,
+      respondToUserInput: hookAnswers.respondToUserInput,
       respondToPlan: () => Effect.void, // plan-mode turns answer through send()
       updateSettings: (patch) => Ref.update(settingsRef, (settings) => ({ ...settings, ...patch })),
       sessionRef: () => Ref.get(sessionRef),

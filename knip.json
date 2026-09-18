@@ -64,7 +64,10 @@
     },
     "packages/testkit": {
       "includeEntryExports": true,
-      "ignoreExportsUsedInFile": true
+      "ignoreExportsUsedInFile": true,
+      // The recorders are run by hand against the real CLI (they spend the
+      // operator's plan), so nothing imports them — they are entry points.
+      "entry": ["src/**/*.ts", "scripts/*.mjs", "bin/*.mjs"]
     }
   }
 }
