@@ -106,7 +106,14 @@ export class ServerSupervisor extends EventEmitter {
     this.spawnOnce();
   }
 
-  stop() {
+  /**
+   * Signals the child and resolves once it is actually gone — at the latest
+   * one SIGKILL after the grace period. The caller on the quit path must await
+   * this: the server's own shutdown closes sessions one by one, so signalling
+   * and walking away leaves a child holding `state.sqlite` while the next
+   * launch starts a second one against it.
+   */
+  stop(): Promise<void> {
     this.stopped = true;
     if (this.restartTimer !== null) {
       clearTimeout(this.restartTimer);
@@ -118,17 +125,29 @@ export class ServerSupervisor extends EventEmitter {
     }
     const child = this.child;
     this.child = null;
-    if (child !== null) this.killChild(child);
+    if (child === null) return Promise.resolve();
+    return this.killChild(child);
   }
 
-  /** SIGINT first, then SIGKILL once the grace period elapses without an exit. */
-  private killChild(child: ChildProcess, signal: NodeJS.Signals = "SIGINT") {
-    const forceKill = setTimeout(() => {
-      child.kill("SIGKILL");
-    }, KILL_GRACE_MS);
-    forceKill.unref();
-    child.once("exit", () => clearTimeout(forceKill));
-    child.kill(signal);
+  /**
+   * SIGINT first, then SIGKILL once the grace period elapses without an exit.
+   *
+   * The force-kill timer is deliberately ref'd: an unref'd one never fires in a
+   * process whose only remaining work *is* this kill, which is exactly the
+   * quit path. `child.once("exit")` clears it, so a child that goes quietly
+   * still leaves nothing behind holding the loop open.
+   */
+  private killChild(child: ChildProcess, signal: NodeJS.Signals = "SIGINT"): Promise<void> {
+    return new Promise<void>((resolve) => {
+      const forceKill = setTimeout(() => {
+        child.kill("SIGKILL");
+      }, KILL_GRACE_MS);
+      child.once("exit", () => {
+        clearTimeout(forceKill);
+        resolve();
+      });
+      child.kill(signal);
+    });
   }
 
   private spawnOnce() {
@@ -169,8 +188,9 @@ export class ServerSupervisor extends EventEmitter {
       child.stdio[3]?.removeListener("data", onHandshake);
       if (connection === null) {
         // A child speaking the wrong protocol is not connectable — recycle it
-        // through the same failure/backoff path as a crash.
-        this.killChild(child);
+        // through the same failure/backoff path as a crash. Nothing waits for
+        // this one: the restart is already scheduled by `countExit`.
+        void this.killChild(child);
         countExit(reason);
         return;
       }

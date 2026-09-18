@@ -65,6 +65,6 @@ describe("toPublicServerState", () => {
       attempt: null,
       reason: null,
     });
-    supervisor.stop();
+    void supervisor.stop();
   });
 });

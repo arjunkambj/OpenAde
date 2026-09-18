@@ -11,6 +11,7 @@ import { registerIpc } from "./ipc";
 import { applyPlatformDefaults } from "../platform";
 import { quitsWhenAllWindowsClosed } from "../platform/lifecycle";
 import { APP_SCHEME, registerAppProtocol } from "./protocol";
+import { makeQuitHandler } from "./quit";
 import { checkForUpdates } from "./updater";
 import { createWindow } from "./window";
 
@@ -28,6 +29,9 @@ protocol.registerSchemesAsPrivileged([
     },
   },
 ]);
+
+/** How long a quit waits for the server child before exiting without it. */
+const QUIT_DEADLINE_MS = 15_000;
 
 const focusExistingWindow = () => {
   const [win] = BrowserWindow.getAllWindows();
@@ -60,7 +64,19 @@ if (!app.requestSingleInstanceLock()) {
     });
   });
 
-  app.on("before-quit", () => supervisor.stop());
+  app.on(
+    "before-quit",
+    makeQuitHandler({
+      stopServer: () => supervisor.stop(),
+      onWaiting: () => {
+        for (const win of BrowserWindow.getAllWindows()) win.hide();
+      },
+      exit: () => app.exit(),
+      // The server closes sessions one by one under their own timeouts; the
+      // supervisor's own SIGKILL lands well inside this.
+      deadlineMs: QUIT_DEADLINE_MS,
+    }),
+  );
   app.on("window-all-closed", () => {
     if (quitsWhenAllWindowsClosed(process.platform)) app.quit();
   });

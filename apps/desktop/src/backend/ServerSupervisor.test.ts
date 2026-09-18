@@ -211,7 +211,7 @@ describe("ServerSupervisor", () => {
   it("escalates SIGINT to SIGKILL after the grace period", () => {
     const { supervisor, last } = makeSupervisor();
     supervisor.start();
-    supervisor.stop();
+    void supervisor.stop();
 
     expect(last().signals).toEqual(["SIGINT"]);
     vi.advanceTimersByTime(5_000);
@@ -221,18 +221,47 @@ describe("ServerSupervisor", () => {
   it("does not SIGKILL a child that exits within the grace period", () => {
     const { supervisor, last } = makeSupervisor();
     supervisor.start();
-    supervisor.stop();
+    void supervisor.stop();
     last().exit(0);
 
     vi.advanceTimersByTime(60_000);
     expect(last().signals).toEqual(["SIGINT"]);
   });
 
+  /**
+   * The quit path awaits this. Resolving on the signal instead would let
+   * Electron exit while the server is still closing sessions, and the child
+   * would outlive the app holding `state.sqlite`.
+   */
+  it("stop() resolves only once the child has really exited", async () => {
+    const { supervisor, last } = makeSupervisor();
+    supervisor.start();
+
+    let resolved = false;
+    const stopped = supervisor.stop().then(() => {
+      resolved = true;
+    });
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(last().signals).toEqual(["SIGINT", "SIGKILL"]);
+    expect(resolved).toBe(false);
+
+    last().exit(null, "SIGKILL");
+    await stopped;
+    expect(resolved).toBe(true);
+  });
+
+  it("stop() resolves at once when there is no child to wait for", async () => {
+    const { supervisor } = makeSupervisor();
+
+    await expect(supervisor.stop()).resolves.toBeUndefined();
+  });
+
   it("stop() cancels a pending restart", () => {
     const { supervisor, children, last } = makeSupervisor();
     supervisor.start();
     last().exit(1);
-    supervisor.stop();
+    void supervisor.stop();
 
     vi.advanceTimersByTime(60_000);
     expect(children).toHaveLength(1);
