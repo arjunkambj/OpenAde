@@ -4,6 +4,15 @@
  * caller decides what "absent" means (a hidden button, a manual input).
  */
 
+/**
+ * Whether the shell offers a native directory dialog. Only the desktop does, so
+ * everywhere else the renderer opens its own picker over `fs.browse` — which is
+ * the same answer for a browser tab today and a remote client later. Read at
+ * click time rather than at mount: the bridge is on `window` from the first
+ * paint under Electron, and nothing else can make it appear or vanish.
+ */
+export const hasNativePicker = (): boolean => window.openade?.pickDirectory !== undefined;
+
 /** The native directory picker, or `null` in the browser / on cancel. */
 export const pickDirectory = async (): Promise<string | null> =>
   (await window.openade?.pickDirectory?.()) ?? null;

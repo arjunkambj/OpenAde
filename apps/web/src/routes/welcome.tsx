@@ -1,6 +1,7 @@
 /**
- * First-run flow: pick a project directory (the desktop's native picker, or a
- * typed path in the browser), let the server probe its connectors — installed,
+ * First-run flow: pick a project directory (the desktop's native picker, the
+ * server-backed folder picker everywhere else, or a typed path), let the server
+ * probe its connectors — installed,
  * signed in, reachable — and only then create the project and land in chat.
  * A failing probe offers the link `helpUrlFor` picks — the connector's own
  * `helpUrl` when it named one, the account page otherwise.
@@ -29,8 +30,9 @@ import { toast } from "sonner";
 import { Icon } from "@/lib/icon";
 import { useAppAtoms } from "@/lib/app-runtime";
 import { isAccepted, rejectionMessage } from "@/lib/dispatch-outcome";
-import { openExternal, pickDirectory } from "@/lib/desktop";
+import { hasNativePicker, openExternal, pickDirectory } from "@/lib/desktop";
 import { projectNameFromPath } from "@/lib/workspace-path";
+import { FolderPickerDialog } from "@/components/folder-picker/folder-picker-dialog";
 import { helpUrlFor } from "@/components/Settings/probe-help";
 import {
   canCreateProject,
@@ -113,11 +115,20 @@ function WelcomePage() {
   const [connectors, setConnectors] = React.useState<ReadonlyArray<ConnectorSummary> | null>(null);
   const [checking, setChecking] = React.useState(false);
   const [creating, setCreating] = React.useState(false);
-  // `window.openade` only exists under the desktop shell; read it once so the
-  // button is simply absent in a browser tab rather than doing nothing.
-  const [hasPicker] = React.useState(() => window.openade?.pickDirectory !== undefined);
+  const [picking, setPicking] = React.useState(false);
 
+  /** One landing place for a chosen directory, whichever picker chose it. */
+  const accept = (picked: string) => {
+    setDirectory(directoryPicked(picked));
+    setConnectors(null);
+  };
+
+  /** The desktop's own dialog where there is one, ours everywhere else. */
   const browse = async () => {
+    if (!hasNativePicker()) {
+      setPicking(true);
+      return;
+    }
     let picked: string | null;
     try {
       picked = await pickDirectory();
@@ -128,8 +139,7 @@ function WelcomePage() {
     if (picked === null) {
       return;
     }
-    setDirectory(directoryPicked(picked));
-    setConnectors(null);
+    accept(picked);
   };
 
   const verify = async () => {
@@ -211,12 +221,10 @@ function WelcomePage() {
                     setConnectors(null);
                   }}
                 />
-                {hasPicker ? (
-                  <Button variant="outline" size="sm" onClick={() => void browse()}>
-                    <Icon icon="hugeicons:folder-open" />
-                    Browse…
-                  </Button>
-                ) : null}
+                <Button variant="outline" size="sm" onClick={() => void browse()}>
+                  <Icon icon="hugeicons:folder-open" />
+                  Browse…
+                </Button>
               </div>
               {problem === null ? null : (
                 <p
@@ -300,6 +308,13 @@ function WelcomePage() {
           </Button>
         </div>
       </div>
+
+      <FolderPickerDialog
+        open={picking}
+        onOpenChange={setPicking}
+        initialPath={directory.path}
+        onPick={accept}
+      />
     </div>
   );
 }
