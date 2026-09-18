@@ -51,7 +51,7 @@ import {
 } from "./config";
 import { approvalKindFor, patternSuggestionFor } from "./approvals";
 import { stageTurnAttachments } from "./attachments";
-import { ensureHookScript } from "./hookScript";
+import { ensureHookScript, hookTicketPath, removeHookTicket, writeHookTicket } from "./hookScript";
 import { makeLineSplitter, parseFrame } from "./ndjson";
 import { readPlanProposal } from "./plans";
 import { describeAnswers, normalizeQuestions } from "./questions";
@@ -705,6 +705,13 @@ export const makeCmdSession = (
             const settings = yield* Ref.get(settingsRef);
             const prior = yield* Ref.get(sessionRef);
             const hook = yield* options.services.hookEndpoint(options.threadId);
+            // The bearer goes to disk, not into the environment: Command Code
+            // strips secret-shaped variable names out of a hook's env, which
+            // silently turned the whole approval gate off (see hookScript.ts).
+            const ticket = hookTicketPath(options.threadId);
+            yield* writeHookTicket(ticket, hook.bearer).pipe(
+              Effect.catch((error) => warn(`could not write the hook ticket: ${String(error)}`)),
+            );
             const mentioned = turn.mentions.map((m) => `@${m}`);
             // Print mode has no image flag: the files go under
             // `<attachmentsDir>/<threadId>/`, that directory joins the run's
@@ -747,7 +754,8 @@ export const makeCmdSession = (
               cwd: options.workspaceRoot,
               env: envAllowlist(process.env, {
                 OPENADE_HOOK_URL: hook.url,
-                OPENADE_HOOK_TOKEN: hook.bearer,
+                // A path, not a secret — see the ticket comment above.
+                OPENADE_HOOK_TICKET_FILE: ticket,
                 OPENADE_THREAD_ID: options.threadId,
                 ...(mcp === null ? {} : { OPENADE_MCP_TOKEN: mcp.bearer }),
                 ...options.extraEnv,
@@ -816,6 +824,10 @@ export const makeCmdSession = (
             Effect.catch(() => Effect.void),
           );
         }
+        // The bearer outlives nothing: the session that minted it is over.
+        yield* removeHookTicket(hookTicketPath(options.threadId)).pipe(
+          Effect.catch(() => Effect.void),
+        );
         yield* emit({
           type: "session.ended",
           payload: { reason, ...(exitCode === undefined ? {} : { exitCode }) },
