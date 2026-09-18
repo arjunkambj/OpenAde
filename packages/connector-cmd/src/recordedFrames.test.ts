@@ -1,9 +1,12 @@
 /**
  * The translator against every real recording in `testkit/fixtures/cmd`.
  *
- * These are captures of command-code 1.55.1 on 2026-09-18 — not reconstructions
- * — so this file is the connector's statement about what the harness actually
- * emits. Its first assertion is the blunt one: replaying a recording must not
+ * These are captures of the real command-code CLI on 2026-09-18 — not
+ * reconstructions — so this file is the connector's statement about what the
+ * harness actually emits. Each manifest names the version it was taken on; the
+ * connector runs whatever the user has installed, so they are not all the same
+ * version and pinning them to one would be the pin this connector refuses to
+ * have. Its first assertion is the blunt one: replaying a recording must not
  * produce a single `event.unmapped`. A new frame type in a later CLI fails here
  * rather than arriving as an unreadable blob in the timeline.
  */
@@ -14,6 +17,7 @@ import * as NodeURL from "node:url";
 import { describe, expect, it } from "@effect/vitest";
 
 import { parseFrame, type CmdFrame } from "./ndjson";
+import { isBelowOldestTested, OLDEST_TESTED_VERSION } from "./probe";
 import { makeTranslator, type PendingRuntimeEvent } from "./translate";
 import { CMD_CAPABILITIES } from "./session";
 
@@ -25,6 +29,10 @@ const RECORDINGS = NodePath.resolve(
 interface RecordedTurn {
   readonly sessionId: string;
   readonly exitCode: number;
+  readonly connectorArgs: ReadonlyArray<string>;
+  readonly hookCount: number;
+  /** Workspace files the run created or changed, as the recorder diffed them. */
+  readonly touchedFiles: ReadonlyArray<{ readonly name: string; readonly content: string | null }>;
   readonly files: { readonly stdout: string; readonly transcript?: string };
 }
 
@@ -96,12 +104,19 @@ const EVERY_TURN: ReadonlyArray<readonly [string, number]> = NodeFS.readdirSync(
   .flatMap((entry) => manifestOf(entry.name).turns.map((_, index) => [entry.name, index] as const));
 
 describe("the recordings themselves", () => {
-  it("are real captures of one CLI version", () => {
+  it("are real captures, each on a version the connector supports", () => {
     expect(EVERY_TURN.length).toBeGreaterThanOrEqual(16);
     for (const [scenario] of EVERY_TURN) {
       const manifest = manifestOf(scenario);
       expect(manifest.real).toBe(true);
-      expect(manifest.cliVersion).toBe("1.55.1");
+      // Not one pinned version — the operator's install moves, and so do the
+      // recordings taken after it moved. What matters is that none of them
+      // predates the floor the connector warns below.
+      expect(manifest.cliVersion, `${scenario}: no CLI version`).toMatch(/^\d+\.\d+\.\d+$/);
+      expect(
+        isBelowOldestTested(manifest.cliVersion),
+        `${scenario}: ${manifest.cliVersion} is older than ${OLDEST_TESTED_VERSION}`,
+      ).toBe(false);
     }
   });
 });
@@ -313,5 +328,46 @@ describe("how runs end", () => {
     );
     expect(asked.length).toBeGreaterThan(0);
     expect(asked.at(-1)?.status).toBe("failed");
+  });
+});
+
+/**
+ * The approval gate, under the argv the connector really spawns.
+ *
+ * Every turn carries `--yolo`, which turns off the CLI's own print-mode refusal
+ * of writes and shell calls. That leaves our PreToolUse hook as the only thing
+ * between a model and the machine — and commit "hand the hook its bearer in a
+ * file" showed that this gate's failure mode is to open silently. So the deny
+ * is recorded against exactly that argv rather than inferred from a run the CLI
+ * would have refused on its own.
+ */
+describe("a PreToolUse deny under --yolo", () => {
+  const manifest = manifestOf("shell-deny-yolo");
+  const turn = manifest.turns[0]!;
+  const hooks = JSON.parse(
+    NodeFS.readFileSync(NodePath.join(RECORDINGS, "shell-deny-yolo", "hooks.json"), "utf8"),
+  ) as ReadonlyArray<{
+    stdin: { tool_name: string; tool_input: { command?: string }; permission_mode?: string };
+    answer: { hookSpecificOutput: { permissionDecision: string } };
+  }>;
+
+  it("was recorded with --yolo on and the hook answering deny", () => {
+    expect(turn.connectorArgs).toContain("--yolo");
+    expect(turn.connectorArgs.join(" ")).toContain("--tools-enable ask_user_question");
+    expect(hooks).toHaveLength(1);
+    expect(hooks[0]!.stdin.tool_name).toBe("shell_command");
+    expect(hooks[0]!.answer.hookSpecificOutput.permissionDecision).toBe("deny");
+    // `--yolo` is what the CLI calls "bypass" — its own gate really is off.
+    expect(hooks[0]!.stdin.permission_mode).toBe("bypass");
+  });
+
+  it("stopped the call: the command never ran and the file was never made", () => {
+    const { events } = replay("shell-deny-yolo");
+    const shell = itemsOf(events).filter((item) => item.kind === "command_execution");
+    expect(shell.at(0)?.command?.cmd).toBe("cp note.txt copied.txt");
+    expect(shell.at(-1)?.status).toBe("failed");
+    // The side effect the command would have had. The recorder diffs the whole
+    // workspace, so an empty list is the file's absence, not an unchecked hope.
+    expect(turn.touchedFiles).toEqual([]);
   });
 });

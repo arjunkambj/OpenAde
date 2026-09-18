@@ -78,7 +78,9 @@ describe("loadRecording", () => {
     expect(names.length).toBeGreaterThanOrEqual(13);
     for (const name of names) {
       const recording = loadRecording(name);
-      expect(recording.cliVersion).toBe("1.55.1");
+      // A version, not one pinned version: the connector runs whatever the
+      // operator has installed and recordings are taken as that moves.
+      expect(recording.cliVersion, name).toMatch(/^\d+\.\d+\.\d+$/);
       expect(recording.turns.length).toBeGreaterThan(0);
       for (const turn of recording.turns) {
         // Every recording is a real run with real argv and real frames.
@@ -123,15 +125,22 @@ describe("the recorded non-model surfaces", () => {
     const box = sandbox();
     try {
       const env = { HOME: box.home };
+      // The probe recording is the CLI answering for itself, so it is also
+      // what says which version those answers came from.
+      const probeVersion = (
+        JSON.parse(
+          NodeFS.readFileSync(NodePath.join(RECORDINGS_DIR, "probe", "manifest.json"), "utf8"),
+        ) as { cliVersion: string }
+      ).cliVersion;
       const status = await run(["status", "--json"], { cwd: box.cwd, env });
       expect(JSON.parse(status.stdout).authenticated).toBe(true);
-      expect(JSON.parse(status.stdout).version).toBe("1.55.1");
+      expect(JSON.parse(status.stdout).version).toBe(probeVersion);
 
       const models = await run(["--list-models"], { cwd: box.cwd, env });
       expect(models.stdout).toContain("70 models");
 
       const version = await run(["--version"], { cwd: box.cwd, env });
-      expect(version.stdout.trim()).toBe("1.55.1");
+      expect(version.stdout.trim()).toBe(probeVersion);
     } finally {
       NodeFS.rmSync(box.root, { recursive: true, force: true });
     }

@@ -7,13 +7,16 @@ these are re-recorded — they are never edited by hand to make a test pass.
 |             |                                                         |
 | ----------- | ------------------------------------------------------- |
 | CLI         | `/opt/homebrew/bin/cmd` (the operator's global install) |
-| Version     | **1.55.1**                                              |
+| Version     | **1.55.1**, and **1.56.0** for the two newest            |
 | Recorded on | **2026-09-18**                                          |
 | Model       | `meta/muse-spark-1.3-contributor` (the account default) |
 | Recorded by | `packages/testkit/scripts/record-cmd.mjs`               |
 
-Each `manifest.json` carries the model its own frames name, so a recording made
-on a different model says so rather than inheriting this table.
+Each `manifest.json` carries the model its own frames name and the CLI version
+it ran on, so a recording made on a different model or a later release says so
+rather than inheriting this table. The connector runs whatever `cmd` the user
+has installed, so the recordings are not pinned to one release either — the
+tests only insist that none predates `OLDEST_TESTED_VERSION`.
 
 Each run was spawned with the argv and environment
 `packages/connector-cmd/src/spawn.ts` builds, in a throwaway git repo, with the

@@ -133,11 +133,19 @@ const buildArgs = (input) => {
   if (input.yolo === true) args.push("--yolo");
   if (input.maxTurns !== undefined) args.push("--max-turns", String(input.maxTurns));
   for (const dir of input.addDir ?? []) args.push("--add-dir", dir);
+  for (const tool of input.toolsEnable ?? []) args.push("--tools-enable", tool);
   // Not part of `buildArgs`: a scenario that is probing a flag the connector
   // does not send yet appends it here, so the mirror above stays an exact copy.
   for (const extra of input.extraArgs ?? []) args.push(extra);
   return args;
 };
+
+/**
+ * Mirror of `spawn.ts` `TOOLS_ENABLED`: the withheld tools every turn asks for
+ * by name. A scenario recording what a run looks like *without* them sets
+ * `toolsEnable: []`.
+ */
+const TOOLS_ENABLED = ["ask_user_question"];
 
 const BASE_ENV = new Set([
   "HOME",
@@ -367,6 +375,7 @@ const recordTurn = async (context, turn, index) => {
     ...(turn.yolo === false ? {} : { yolo: true }),
     ...(turn.maxTurns === undefined ? {} : { maxTurns: turn.maxTurns }),
     ...(turn.addDir === undefined ? {} : { addDir: turn.addDir }),
+    toolsEnable: turn.toolsEnable ?? TOOLS_ENABLED,
     ...(turn.extraArgs === undefined ? {} : { extraArgs: turn.extraArgs }),
   });
   const argv = [...context.binary.prefixArgs, ...connectorArgs];

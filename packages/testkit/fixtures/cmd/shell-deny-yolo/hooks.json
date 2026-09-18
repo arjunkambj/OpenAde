@@ -1,0 +1,31 @@
+[
+  {
+    "at": 1789721140956,
+    "stdin": {
+      "session_id": "6af50df4-f4e0-4517-9a11-7d71fdbd288c",
+      "transcript_path": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg-czzrjh0000gn-t-openade-rec-shell-deny-yolo-7ae2bee1-repo/6af50df4-f4e0-4517-9a11-7d71fdbd288c.jsonl",
+      "cwd": "<SCRATCH>/repo",
+      "hook_event_name": "PreToolUse",
+      "permission_mode": "bypass",
+      "tool_use_id": "call_01a0b3b15b907561b108272b800733da",
+      "tool_name": "shell_command",
+      "tool_display_name": "SHELL",
+      "tool_input": {
+        "command": "cp note.txt copied.txt",
+        "description": "Copy note.txt to copied.txt"
+      }
+    },
+    "answer": {
+      "hookSpecificOutput": {
+        "permissionDecision": "deny",
+        "permissionDecisionReason": "recorded deny from the recording hook"
+      }
+    },
+    "env": {
+      "COMMANDCODE_PROJECT_DIR": "<SCRATCH>/repo",
+      "COMMANDCODE_SESSION_ID": "6af50df4-f4e0-4517-9a11-7d71fdbd288c",
+      "COMMANDCODE_HOOK_EVENT": "PreToolUse",
+      "COMMANDCODE_CWD": "<SCRATCH>/repo"
+    }
+  }
+]

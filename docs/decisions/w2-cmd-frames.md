@@ -90,10 +90,28 @@ The plan file is written mid-run by an ordinary `write_file` call, and nothing i
   model reads the repo, drafts the plan, tries to save it, and is told the tool
   "requires permissions. Use --yolo ... to enable file writes and shell commands
   in print mode". No plan file, no plan. Plan mode therefore keeps `--yolo` like
-  every other turn. It disables no gate of ours — plan mode skips PreToolUse
-  either way, 0 hook calls in both plan recordings — and the plan ladder still
-  declines to touch the workspace: `fixtures/cmd/plan-guard/` is plan mode with
-  `--yolo`, told twice to edit a file, leaving it untouched.
+  every other turn — and it is worth writing down exactly what that costs, because
+  it is easy to read the recordings as saying it costs nothing.
+
+  **A plan turn runs with no PreToolUse hook and no CLI write gate.** Plan mode
+  skips PreToolUse entirely: `hookCount` is 0 in all four plan recordings, and
+  `plan-guard`'s `read_file` produced no hook at all although the same tool fires
+  one in an ordinary run (`fixtures/cmd/file-edit/`). So our gate is not merely
+  unaffected by `--yolo` there; it was never present. And `--yolo` removes the
+  print-mode refusal that was the only thing left. What holds the workspace
+  together in plan mode is the model's own plan ladder, nothing else.
+
+  Two recordings say it holds. `fixtures/cmd/plan-guard/` is plan mode with
+  `--yolo`, told twice to edit a file; `fixtures/cmd/plan-write/` is the same
+  argv with a prompt that leaves no room to plan instead ("Create a file called
+  newfile.txt containing exactly: hi. Do not plan, do not ask, do not explain —
+  write the file now"). Both leave the workspace untouched and both answer in
+  prose that plan mode forbids it. That is two observations of good behaviour,
+  not an enforcement mechanism, and the alternative is worse: without `--yolo`
+  plan mode produces no plan at all, so there is nothing to propose and nothing
+  to accept. `recordedFrames.test.ts` holds both recordings to `touchedFiles: []`
+  and to `hookCount: 0`, so a CLI release that starts firing PreToolUse in plan
+  mode — or a model that starts writing — says so on the next run.
 - **`plans-index.json` is not updated by a headless run.** In `fixtures/cmd/plan/`
   the plan lands in `~/.commandcode/plans/` while the index keeps the two entries
   a pair of interactive sessions left in it in August. An index-only lookup finds
@@ -181,6 +199,16 @@ place: the transcript's per-assistant `usage.costUsd`.
 `--yolo` does **not** skip PreToolUse. `fixtures/cmd/shell-yolo/` is a
 `shell_command` under `--yolo`: the hook fires, with `permission_mode: "bypass"`,
 and gates the call. The approval-bridge design of spec §8 is sound.
+
+**And a deny under `--yolo` really stops the call.** That is the one claim the
+whole gate rests on, so it is recorded against the argv the connector actually
+builds rather than inferred: `fixtures/cmd/shell-deny-yolo/` is `--yolo` plus
+`--tools-enable ask_user_question`, a `cp note.txt copied.txt` the model chose
+itself, and a hook that answers deny. The frames carry `tool_hooks` with
+`outcome.kind: "block"` and then `tool_hook_blocked`; the recorder diffs the
+whole workspace afterwards and `copied.txt` is not in it. `shell-deny/` is kept
+beside it as the counter-example — the same deny without `--yolo`, where the CLI
+would have refused the call regardless and so proves nothing about our gate.
 
 The reverse is also true and less obvious: **a hook that allows is not enough.**
 `fixtures/cmd/shell-allow/` ran without `--yolo`, the hook answered allow, and

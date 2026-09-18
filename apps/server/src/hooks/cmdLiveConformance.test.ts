@@ -266,6 +266,76 @@ if (!LIVE) {
     );
   });
 
+  /**
+   * The claim the whole approval gate rests on, made against the real CLI.
+   *
+   * Every turn the connector spawns carries `--yolo`, which turns off the CLI's
+   * own refusal of writes and shell calls, so our PreToolUse answer is the only
+   * thing left between a model and the machine. A recording proves the deny is
+   * honoured (`fixtures/cmd/shell-deny-yolo/`); this proves the live wiring
+   * that carries it — bridge, ticket file, hook script — still delivers it.
+   */
+  describe("a live approval answered deny", () => {
+    it.live("stops the call, fails the row, and leaves the side effect undone", () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const threadId = makeThreadId();
+          const target = NodePath.join(WORKSPACE, "denied.txt");
+          NodeFS.rmSync(target, { force: true });
+          const instance = yield* cmdConnectorDefinition.createInstance({
+            instanceId: makeConnectorInstanceId(),
+            config: {},
+            services: servicesWith(() => Effect.succeed("prompt" as const)),
+          });
+          const handle = yield* instance.startSession({
+            threadId,
+            projectId: makeProjectId(),
+            workspaceRoot: WORKSPACE,
+            settings,
+          });
+          const collector = yield* makeStreamCollector(handle.events);
+
+          yield* handle.send({
+            text: "Run the shell command `cp note.txt denied.txt` and tell me what happened. Use the shell tool.",
+            attachments: [],
+            mentions: [],
+          });
+
+          const opened = yield* collector.awaitItem(
+            (event) => event.type === "request.opened" || event.type === "turn.completed",
+          );
+          if (opened.type !== "request.opened") {
+            const seen = (yield* collector.collected).map((event) => event.type);
+            throw new Error(
+              `the turn finished without asking for approval; saw ${seen.join(", ")}`,
+            );
+          }
+          const request = opened.payload.request;
+          yield* handle.respondToRequest(request.requestId, "deny");
+          yield* collector.awaitItem(
+            (event) =>
+              event.type === "request.resolved" && event.payload.requestId === request.requestId,
+          );
+          yield* collector.awaitItem((event) => event.type === "turn.completed");
+
+          const events = yield* collector.collected;
+          const shell = events.flatMap((event) =>
+            (event.type === "item.completed" || event.type === "item.updated") &&
+            event.payload.item.kind === "command_execution"
+              ? [event.payload.item]
+              : [],
+          );
+          expect(shell.length).toBeGreaterThan(0);
+          expect(shell.at(-1)?.status).toBe("failed");
+          // The point of the whole gate: the command did not run.
+          expect(NodeFS.existsSync(target)).toBe(false);
+
+          yield* handle.close();
+        }),
+      ),
+    );
+  });
+
   describe("a live turn's frames", () => {
     it.live("all map — nothing falls through to event.unmapped", () =>
       Effect.scoped(

@@ -98,6 +98,9 @@ export const SCENARIOS = {
         prompt:
           "Use the ask_user_question tool to ask me whether I prefer tabs or spaces. Ask before doing anything else.",
         maxTurns: 2,
+        // The point of this recording: the argv as it was before the flag
+        // below existed, where print mode simply withholds the tool.
+        toolsEnable: [],
         hookPolicy: { default: "deny" },
       },
     ],
@@ -111,9 +114,6 @@ export const SCENARIOS = {
         prompt:
           "Use the ask_user_question tool to ask me whether I prefer tabs or spaces. Ask before doing anything else.",
         maxTurns: 2,
-        // Not part of the connector's argv yet — that is what this recording
-        // decides — so it rides the escape hatch rather than the mirror.
-        extraArgs: ["--tools-enable", "ask_user_question"],
         hookPolicy: { default: "deny" },
       },
     ],
@@ -144,6 +144,20 @@ export const SCENARIOS = {
         maxTurns: 4,
         permissionMode: "plan",
         yolo: false,
+      },
+    ],
+  },
+
+  "shell-deny-yolo": {
+    description:
+      "the connector's OWN argv — --yolo and --tools-enable — with the hook answering deny. The one claim the branch could not otherwise make: that a deny still stops the call once --yolo has lifted the CLI's own refusal.",
+    seed: { "note.txt": "hello\n" },
+    turns: [
+      {
+        prompt:
+          "Run the shell command `cp note.txt copied.txt` and tell me what happened. Use the shell tool.",
+        maxTurns: 3,
+        hookPolicy: { default: "deny" },
       },
     ],
   },
