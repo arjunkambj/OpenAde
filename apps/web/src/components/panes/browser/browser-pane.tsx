@@ -97,7 +97,14 @@ export function BrowserPane({ threadId }: BrowserPaneProps) {
       {missing ? (
         <InstallPrompt onRetry={() => dispatch({ kind: "history", direction: "reload" })} />
       ) : useWebview ? (
+        // `key` is load-bearing: the guest's `partition` cannot be changed
+        // once it is attached (Electron logs an error and reverts the
+        // attribute), while `src` can — so switching threads with the dock
+        // open used to navigate thread B's page inside thread A's persisted
+        // partition, cookies and all. Keying on the thread destroys the guest
+        // and builds a new one in the right partition instead.
         <WebviewSurface
+          key={threadId}
           threadId={threadId}
           attachUrl={`${httpBase}/browser/attach/${threadId}`}
           onLocation={onLocation}

@@ -8,6 +8,11 @@
  * inputs — they synchronize our state but do NOT claim human control (the
  * human's real gestures arrive through `window.openade.browserPane.onInput`,
  * hooked in main.ts's before-input-event relay).
+ *
+ * Mount it with `key={threadId}`. Electron refuses a `partition` change once
+ * the guest is attached, so reusing one element across threads keeps the first
+ * thread's session while `src` moves on — the per-thread isolation this is
+ * built around, gone after the first thread switch.
  */
 import * as React from "react";
 
