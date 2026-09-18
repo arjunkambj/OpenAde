@@ -75,12 +75,17 @@ export const cursorOn = (location: PickerLocation, index: number, count: number)
   movedCursor({ ...location, cursor: 0 }, index, count);
 
 /**
- * What the path field shows: what was typed, or the directory the server
- * answered with. An empty string is a real answer — the user cleared the field
- * — and is not replaced by the current directory.
+ * What the path field shows: what was typed, the directory the server answered
+ * with, or — while that answer is still coming, or never came — the directory
+ * that was asked for. That last fallback is what keeps a path the server just
+ * refused in the field, where it can be corrected, instead of emptying it and
+ * making the user type the whole thing again.
+ *
+ * An empty string is a real answer — the user cleared the field — and is not
+ * replaced by any of them.
  */
 export const fieldValue = (location: PickerLocation, listing: FsListing | null): string =>
-  location.draft ?? listing?.path ?? "";
+  location.draft ?? listing?.path ?? location.path ?? "";
 
 /** The entry the keyboard is on, or `null` for an empty listing. */
 export const highlighted = (location: PickerLocation, listing: FsListing | null): FsEntry | null =>

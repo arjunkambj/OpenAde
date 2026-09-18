@@ -56,7 +56,11 @@ describe("the path field", () => {
     expect(fieldValue(cleared, code)).toBe("");
   });
 
-  it("shows nothing before the first listing lands", () => {
+  it("keeps the directory that was asked for while its listing is still coming", () => {
+    expect(fieldValue(movedTo("/Users/dev/code"), null)).toBe("/Users/dev/code");
+  });
+
+  it("shows nothing when nothing was asked for and nothing has answered", () => {
     expect(fieldValue(initialLocation(""), null)).toBe("");
   });
 

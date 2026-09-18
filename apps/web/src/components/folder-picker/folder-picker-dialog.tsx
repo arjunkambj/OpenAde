@@ -93,12 +93,21 @@ export function FolderPickerDialog({
       : null;
   const listing: FsListing | null = query?._tag === "ok" ? query.listing : null;
 
+  // The last directory that listed, kept for the breadcrumb alone. A refused
+  // path would otherwise take the whole trail with it, leaving the error state
+  // with no way out but retyping — and "up" is exactly the way out of it.
+  const lastListed = React.useRef<FsListing | null>(null);
+  if (listing !== null) {
+    lastListed.current = listing;
+  }
+  const trail = listing ?? lastListed.current;
+
   const draft = fieldValue(location, listing);
   const completions = completionsFor(location.draft, listing);
   const entries = listing?.entries ?? [];
 
   const goTo = (path: string) => setLocation(movedTo(path));
-  const parent = listing === null ? null : listing.parent;
+  const parent = trail === null ? null : trail.parent;
   const goUp = () => {
     if (parent !== null) {
       goTo(parent);
@@ -187,7 +196,7 @@ export function FolderPickerDialog({
           </div>
 
           <Breadcrumb
-            path={listing?.path ?? null}
+            path={trail?.path ?? null}
             canGoUp={parent !== null}
             onGoUp={goUp}
             onNavigate={goTo}
