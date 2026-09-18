@@ -10,6 +10,11 @@ argv, stdout frames with their arrival chunks, stderr, the transcript as it
 grew, every PreToolUse invocation with both halves of the exchange. Where a
 claim rests on a recording, the recording is named.
 
+Its companions: [architecture.md](architecture.md) for the connector boundary
+this fills in, [how-it-works.md](how-it-works.md) for what the rest of the app
+does with what comes back, and [development.md](development.md) for the
+commands that run and record it.
+
 ## Where the code is
 
 The connector is `packages/connector-cmd`. It implements the
@@ -263,8 +268,9 @@ a real turn:
   a headless run hides, sight unseen.
 
 `--max-turns` and `--no-session` are supported by `buildArgs` but no production
-caller passes them, so a turn runs at the CLI's own default cap of 100 agent
-steps. The recordings set `--max-turns` because the recorder does.
+caller passes them, so a turn runs at the CLI's own default cap — `cmd --help`
+says "Cap conversation turns in -p mode (default 100; exit 8 on cap-hit)". The
+recordings set `--max-turns` because the recorder does.
 
 `packages/connector-cmd/src/recordedArgs.test.ts` holds this to account: it
 reads every recording's `connectorArgs` back into a `buildArgs` input, rebuilds
@@ -274,7 +280,9 @@ it, and demands the same list.
 
 One string, assembled by `prepareTurn`: the user's text, then one `@name` line
 per mention, then one line per attachment, joined by blank lines. Empty parts
-are dropped.
+are dropped. A mention is a workspace-relative path and nothing else
+(`Mention` in `packages/contracts/src/orchestration.ts`) — the connector writes
+it as `@path` text and the harness resolves the path itself.
 
 ### Environment
 
@@ -623,7 +631,7 @@ no `is_error`, because the refusal is what the model is told. The frames are
 the authority on whether a call ran, so a row already marked failed is not
 talked back into "completed".
 
-Tool output is truncated at `MAX_TOOL_OUTPUT_CHARS` = 64 KiB with a
+Tool output is truncated at `MAX_TOOL_OUTPUT_CHARS` = 65,536 characters with a
 `...[truncated]` marker, so a build log or a minified file cannot inflate the
 event log and the stream budget.
 
@@ -650,7 +658,8 @@ through.
 **The bearer arrives in a file, not in the environment.** Command Code redacts
 secret-shaped variable names out of the environment it hands a hook. A live run
 with a logging wrapper showed `OPENADE_HOOK_URL` and `OPENADE_THREAD_ID`
-arriving while `OPENADE_HOOK_TOKEN`, `..._BEARER`, `..._SECRET`, `..._AUTH`,
+arriving — along with probes named `..._KEY`, `..._PASS` and `..._TICKET` —
+while `OPENADE_HOOK_TOKEN`, `..._BEARER`, `..._SECRET`, `..._AUTH`,
 `..._PASSWORD` and `..._CREDENTIAL` were all stripped. The script therefore saw
 a URL and no bearer, took its "no OpenAde session owns this run" exit — print
 nothing, exit 0 — the harness fell back to its own flow, and under `--yolo`
@@ -695,12 +704,15 @@ What the CLI puts on the hook's stdin, as recorded in every scenario's
 ```
 
 `permission_mode` is neither the argv spelling nor the CLI's documented set: it
-is `default` on an ordinary run and `bypass` under `--yolo`.
+is `default` on an ordinary run (`fixtures/cmd/shell-allow/`,
+`fixtures/cmd/shell-deny/`) and `bypass` under `--yolo` (every other recording
+that has a `hooks.json`).
 
 The hook's own environment carries `COMMANDCODE_PROJECT_DIR`,
 `COMMANDCODE_SESSION_ID`, `COMMANDCODE_HOOK_EVENT` and `COMMANDCODE_CWD` —
-those four are what the recorder captures. A separate live observation also saw
-`COMMANDCODE_SCRATCHPAD` and `COMMANDCODE_PERMISSION_MODE`.
+those four are what the recorder captures. A separate live observation, not
+reproducible from anything in the tree, also saw `COMMANDCODE_SCRATCHPAD` and
+`COMMANDCODE_PERMISSION_MODE`.
 
 The connector reads `tool_name`, `tool_input` and `tool_use_id` and ignores the
 rest; `tool_use_id` is not a UUIDv7, so the wire ids are minted fresh.
@@ -747,7 +759,9 @@ gate rests on, so it is recorded against the argv the connector actually builds:
 ask_user_question`, a `cp note.txt copied.txt` the model chose itself, and a
 hook that answers deny. The frames carry `tool_hooks` with `outcome.kind:
 "block"` and then `tool_hook_blocked`; the recorder diffs the whole workspace
-afterwards and `copied.txt` is not in it.
+afterwards and `copied.txt` is not in it. `fixtures/cmd/shell-deny/` is kept
+beside it as the counter-example — the same deny without `--yolo`, where print
+mode would have refused the call anyway, so it proves nothing about the gate.
 
 The reverse is also true and less obvious: **a hook that allows is not enough.**
 `fixtures/cmd/shell-allow/` ran without `--yolo`, the hook answered allow, and
@@ -987,8 +1001,9 @@ before its first turn, so the translator knows what a previous runtime already
 emitted and the `run_end` `nextState` replay does not re-emit the whole
 conversation with fresh item ids.
 
-`fork` is advertised in the capabilities (`--fork-session` exists on the CLI)
-but nothing builds that argv today.
+`fork` is advertised in the capabilities and `--fork-session` is in `cmd --help`
+("with --resume/--continue, fork the session into a new one"), but nothing in
+the tree builds that argv today.
 
 ### One turn at a time
 
@@ -1177,15 +1192,10 @@ catch drift, in the order they will tell you:
    Both spend the account's plan, so they are skipped without the variable and
    the gate runs the same scenarios against the recordings.
 
-4. **Re-recording**, when something did change:
-
-   ```sh
-   node packages/testkit/scripts/record-cmd.mjs --list
-   node packages/testkit/scripts/record-cmd.mjs shell-allow
-   node packages/testkit/scripts/record-probe.mjs      # no model turns
-   ```
-
-   Recordings are never edited by hand to make a test pass.
+4. **Re-recording**, when something did change. The scripts, the authorised
+   models and the scrubbing are in
+   [development.md](development.md#recordings-of-the-real-cli); recordings are
+   never edited by hand to make a test pass.
 
 Beyond the tests, the things to read after an upgrade:
 
