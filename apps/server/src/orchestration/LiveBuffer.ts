@@ -11,6 +11,12 @@
  * `itemId`, the latest usage/context frame) while a window is open; a
  * non-mergeable item closes the window immediately so ordering boundaries —
  * `synchronized`, turn boundaries — are never merged away.
+ *
+ * A window preserves arrival order, including for the items it merges: the
+ * surviving version of a key sits where that version arrived, not where the
+ * key was first seen. Callers rely on it — a thread subscription offers events
+ * in event-log order and its client drops anything that does not arrive in
+ * that order.
  */
 
 import { STREAM_BUDGET_BYTES, STREAM_BUDGET_ITEMS } from "@OpenAde/contracts/rpc";
@@ -149,12 +155,40 @@ export const makeLiveBuffer = <A>(
           const keys = yield* Ref.get(pendingKeysRef);
           const existingIndex = keys.get(key);
           if (existingIndex !== undefined) {
-            // Replace in place: the older merged item's charge is exchanged.
+            // Merge to the *end* of the window, not in place. A merged item
+            // carries the newest version of its key, so it belongs where that
+            // version arrived — replacing in place left it standing at its
+            // first arrival's position, and a window holding two keys then
+            // flushed them in the order they were first seen rather than the
+            // order they were last written.
+            //
+            // For a thread subscription those positions are event sequences,
+            // and the client's fold ignores an event whose sequence is not
+            // greater than the one it holds. So an assistant row updated
+            // before a usage frame and again after it went out behind that
+            // frame and was dropped on arrival: the model's answer simply
+            // never appeared. Offers reach here in sequence order, so
+            // last-arrival order is sequence order.
             const pending = yield* Ref.get(pendingRef);
             const previous = pending[existingIndex]!;
-            yield* Ref.update(pendingRef, (all) =>
-              all.map((candidate, i) => (i === existingIndex ? item : candidate)),
-            );
+            const moved = [
+              ...pending.slice(0, existingIndex),
+              ...pending.slice(existingIndex + 1),
+              item,
+            ];
+            yield* Ref.set(pendingRef, moved);
+            // Everything after the vacated slot shifts down one; this key ends
+            // up last.
+            yield* Ref.update(pendingKeysRef, (all) => {
+              const next = new Map<string, number>();
+              for (const [candidate, index] of all) {
+                if (candidate !== key) {
+                  next.set(candidate, index > existingIndex ? index - 1 : index);
+                }
+              }
+              next.set(key, moved.length - 1);
+              return next;
+            });
             yield* Ref.update(retained, (r) => ({
               items: r.items,
               bytes: r.bytes - sizeOf(previous) + bytes,

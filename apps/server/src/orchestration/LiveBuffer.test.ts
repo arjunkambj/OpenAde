@@ -80,4 +80,51 @@ describe("LiveBuffer", () => {
       expect(yield* drainTo(seen, 1)).toBe(false);
     }),
   );
+
+  it.effect("flushes a window in arrival order, merges included", () =>
+    Effect.gen(function* () {
+      const { buffer, seen } = yield* makeBuffer;
+
+      // Two keys, interleaved, with the *first* key written last. Replacing a
+      // merged item in place left it standing at its first arrival's slot, so
+      // this window flushed `a` before `b` even though `a`'s surviving version
+      // arrived after `b`'s.
+      //
+      // For a thread subscription the positions are event sequences and the
+      // client ignores an event that does not arrive in increasing order, so
+      // the out-of-order one was dropped: an assistant row written either side
+      // of a usage frame never reached the timeline.
+      yield* buffer.offer({ key: "a", value: "a1" });
+      yield* buffer.offer({ key: "b", value: "b1" });
+      yield* buffer.offer({ key: "a", value: "a2" });
+      yield* TestClock.adjust(Duration.millis(60));
+      expect(yield* drainTo(seen, 2)).toBe(true);
+
+      expect((yield* Queue.take(seen)).value).toBe("b1");
+      expect((yield* Queue.take(seen)).value).toBe("a2");
+    }),
+  );
+
+  it.effect("keeps merging a key it has already moved to the end", () =>
+    Effect.gen(function* () {
+      const { buffer, seen } = yield* makeBuffer;
+
+      // Moving a merged item re-indexes the whole window, so the third write
+      // to `a` has to find `a` where the second write left it. A stale index
+      // here would overwrite `b` — or append a duplicate row.
+      yield* buffer.offer({ key: "a", value: "a1" });
+      yield* buffer.offer({ key: "b", value: "b1" });
+      yield* buffer.offer({ key: "a", value: "a2" });
+      yield* buffer.offer({ key: "b", value: "b2" });
+      yield* buffer.offer({ key: "a", value: "a3" });
+      yield* TestClock.adjust(Duration.millis(60));
+      expect(yield* drainTo(seen, 2)).toBe(true);
+
+      expect((yield* Queue.take(seen)).value).toBe("b2");
+      expect((yield* Queue.take(seen)).value).toBe("a3");
+      // Two keys in, two rows out: nothing was duplicated by the re-indexing.
+      yield* TestClock.adjust(Duration.millis(60));
+      expect(yield* drainTo(seen, 1)).toBe(false);
+    }),
+  );
 });
