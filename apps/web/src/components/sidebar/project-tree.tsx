@@ -8,6 +8,11 @@
  * A row also carries the unread dot: the open thread stamps its `updatedAt`
  * into `thread-seen`, and any other thread that has moved past its own stamp
  * is marked. That is renderer state by design — see `./thread-seen`.
+ *
+ * Every row has an overflow menu, revealed on hover: rename/archive/delete for
+ * a thread, remove for a project. Those four commands existed end to end —
+ * decider, reactors, tests — with nothing in the UI that could send them, so
+ * the sidebar only ever grew and a mistyped project root could not be dropped.
  */
 
 import { Link, useMatchRoute } from "@tanstack/react-router";
@@ -24,6 +29,8 @@ import type { ProjectId } from "@OpenAde/contracts/ids";
 import type { ProjectSummary, ThreadSummary } from "@OpenAde/contracts/orchestration";
 
 import { AddProjectDialog } from "@/components/sidebar/add-project-dialog";
+import { ProjectRowMenu } from "@/components/sidebar/project-menu";
+import { ThreadRowMenu } from "@/components/sidebar/thread-menu";
 import { isUnread, useThreadSeen } from "@/components/sidebar/thread-seen";
 import { threadStatusMark } from "@/components/sidebar/thread-status";
 import { Icon } from "@/lib/icon";
@@ -66,29 +73,51 @@ function ThreadLink({ thread }: { thread: ThreadSummary }) {
 
   const unread = !active && isUnread(seen, thread);
 
+  // The row is a link plus an overflow menu overlaid at its right edge. The
+  // status and unread marks fade out under it on hover, so the two never share
+  // the same few pixels.
   return (
-    <Link
-      to="/t/$threadId"
-      params={{ threadId: thread.threadId }}
-      aria-current={active ? "page" : undefined}
-      className={cn(
-        "flex h-8 min-w-0 items-center gap-2 rounded-lg py-1.5 pr-2 pl-8.5 text-left type-body text-sidebar-foreground outline-none transition-colors duration-150 ease-out hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-        active && "bg-sidebar-accent text-sidebar-accent-foreground",
-      )}
-    >
-      <span className={cn("min-w-0 flex-1 truncate", unread && "font-medium text-foreground")}>
-        {thread.title}
-      </span>
-      {unread ? (
+    <div className="group/thread relative flex min-w-0 items-center">
+      <Link
+        to="/t/$threadId"
+        params={{ threadId: thread.threadId }}
+        aria-current={active ? "page" : undefined}
+        className={cn(
+          "flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg py-1.5 pr-2 pl-8.5 text-left type-body text-sidebar-foreground outline-none transition-colors duration-150 ease-out hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+          active && "bg-sidebar-accent text-sidebar-accent-foreground",
+        )}
+      >
         <span
-          title="Updated since you last opened it"
-          aria-label="Updated since you last opened it"
-          role="img"
-          className="size-1.5 shrink-0 rounded-full bg-primary"
-        />
-      ) : null}
-      <ThreadStatusDot thread={thread} />
-    </Link>
+          className={cn(
+            "min-w-0 flex-1 truncate",
+            unread && "font-medium text-foreground",
+            // Archiving is a real state change that the row otherwise showed
+            // nothing for: `threadStatusMark` has no mark for it by design.
+            thread.status === "archived" && "text-muted-foreground italic",
+          )}
+          title={thread.status === "archived" ? `${thread.title} (archived)` : undefined}
+        >
+          {thread.title}
+        </span>
+        <span className="flex shrink-0 items-center gap-2 transition-opacity duration-150 ease-out group-hover/thread:opacity-0">
+          {unread ? (
+            <span
+              title="Updated since you last opened it"
+              aria-label="Updated since you last opened it"
+              role="img"
+              className="size-1.5 shrink-0 rounded-full bg-primary"
+            />
+          ) : null}
+          <ThreadStatusDot thread={thread} />
+        </span>
+      </Link>
+      {/* Same reveal as the project row's "New thread" button, plus a hold
+          while its own popup is open — base-ui moves focus into the portalled
+          menu, so `focus-within` on this row is false the whole time it is. */}
+      <span className="absolute right-0.5 opacity-0 transition-opacity duration-150 ease-out group-hover/thread:opacity-100 group-focus-within/thread:opacity-100 [&:has([data-popup-open])]:opacity-100">
+        <ThreadRowMenu thread={thread} />
+      </span>
+    </div>
   );
 }
 
@@ -193,8 +222,9 @@ function ProjectSection({
       <div className="group/project flex h-8 items-center gap-1 rounded-lg px-2 text-sm text-sidebar-foreground">
         <Icon icon="hugeicons:folder-01" className="size-4 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate">{project.name}</span>
-        <span className="opacity-0 transition-opacity duration-150 ease-out group-hover/project:opacity-100 group-focus-within/project:opacity-100">
+        <span className="flex items-center opacity-0 transition-opacity duration-150 ease-out group-hover/project:opacity-100 group-focus-within/project:opacity-100 [&:has([data-popup-open])]:opacity-100">
           <NewThreadButton projectId={project.projectId} />
+          <ProjectRowMenu project={project} threadCount={threads.length} />
         </span>
       </div>
       {threads.map((thread) => (

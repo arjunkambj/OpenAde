@@ -225,6 +225,16 @@ export function ThreadView({
 
   const snapshot = snapshotOf(result);
 
+  // The client fold turns `thread.deleted` into this status for exactly this
+  // purpose: the server drops a deleted thread from the read model, so the only
+  // thing left to do with an open timeline is leave it.
+  const deleted = snapshot?.status === "deleted";
+  React.useEffect(() => {
+    if (deleted) {
+      void navigate({ to: "/" });
+    }
+  }, [deleted, navigate]);
+
   // `thread.interrupt`, `composer.queue` and the `threadRunning` flag belong to
   // the `Composer` below, not here. Both components used to register all three,
   // and which one won depended on whether the thread detail was already cached
