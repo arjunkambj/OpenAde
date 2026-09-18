@@ -33,7 +33,7 @@ import { isAccepted, rejectionMessage } from "@/lib/dispatch-outcome";
 import { hasNativePicker, openExternal, pickDirectory } from "@/lib/desktop";
 import { projectNameFromPath } from "@/lib/workspace-path";
 import { FolderPickerDialog } from "@/components/folder-picker/folder-picker-dialog";
-import { helpUrlFor } from "@/components/Settings/probe-help";
+import { connectorReady, helpUrlFor } from "@/components/Settings/probe-help";
 import {
   canCreateProject,
   directoryPicked,
@@ -154,7 +154,8 @@ function WelcomePage() {
     }
   };
 
-  const ready = connectors !== null && connectors.some((c) => c.probe.status === "ready");
+  // Installed but signed out is not ready — see `connectorReady`.
+  const ready = connectors !== null && connectors.some((c) => connectorReady(c.probe));
 
   const problem = directoryProblem(directory);
   const canCreate = canCreateProject(directory, creating);
@@ -260,6 +261,10 @@ function WelcomePage() {
                 <div className="flex flex-col gap-2">
                   {connectors.map((connector) => {
                     const help = helpUrlFor(connector.probe);
+                    // One rule for the tick, the line beside it and the
+                    // sentence above the Create button, so the card cannot say
+                    // "ready" and "not signed in" at the same time.
+                    const usable = connectorReady(connector.probe);
                     return (
                       <div
                         key={connector.connectorInstanceId}
@@ -267,13 +272,9 @@ function WelcomePage() {
                       >
                         <Icon
                           icon={
-                            connector.probe.status === "ready"
-                              ? "hugeicons:checkmark-circle-01"
-                              : "hugeicons:alert-02"
+                            usable ? "hugeicons:checkmark-circle-01" : "hugeicons:alert-02"
                           }
-                          className={
-                            connector.probe.status === "ready" ? "text-added" : "text-removed"
-                          }
+                          className={usable ? "text-added" : "text-removed"}
                         />
                         <span className="font-medium">{connector.displayName}</span>
                         <span className="text-muted-foreground">

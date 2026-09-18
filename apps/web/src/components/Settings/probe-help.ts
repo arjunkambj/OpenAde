@@ -14,8 +14,20 @@
 
 import { ACCOUNT_HELP_URL, type ConnectorProbe } from "@OpenAde/contracts/rpc";
 
+/**
+ * Whether this connector can actually run a turn.
+ *
+ * `status: "ready"` alone does not mean it can. The cmd probe answers `ready`
+ * with `auth: "absent"` whenever `status --json` succeeds and reports
+ * `authenticated: false` — installed, reachable, signed out. Welcome read the
+ * status by itself and told the user "A connector is ready." beside a row that
+ * said "installed, not signed in"; they pressed on and the first turn failed.
+ */
+export const connectorReady = (probe: ConnectorProbe): boolean =>
+  probe.status === "ready" && probe.auth !== "absent";
+
 export const helpUrlFor = (probe: ConnectorProbe): string | null => {
-  if (probe.status === "ready" || probe.status === "probing") {
+  if (probe.status === "probing" || connectorReady(probe)) {
     return null;
   }
   if (probe.helpUrl !== undefined) {
