@@ -1,0 +1,60 @@
+[
+  {
+    "at": 1789724160073,
+    "stdin": {
+      "session_id": "e117ad38-de8b-4620-88a3-9cb3580905f2",
+      "transcript_path": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg-czzrjh0000gn-t-openade-rec-file-edit-twice-b8a96fd9-repo/e117ad38-de8b-4620-88a3-9cb3580905f2.jsonl",
+      "cwd": "<SCRATCH>/repo",
+      "hook_event_name": "PreToolUse",
+      "permission_mode": "bypass",
+      "tool_use_id": "call_01a0b3df6c38755095918d02e50cc56e",
+      "tool_name": "read_file",
+      "tool_display_name": "READ",
+      "tool_input": {
+        "file_path": "<SCRATCH>/repo/greeting.txt"
+      }
+    },
+    "answer": {
+      "hookSpecificOutput": {
+        "permissionDecision": "allow",
+        "permissionDecisionReason": "recorded allow"
+      }
+    },
+    "env": {
+      "COMMANDCODE_PROJECT_DIR": "<SCRATCH>/repo",
+      "COMMANDCODE_SESSION_ID": "e117ad38-de8b-4620-88a3-9cb3580905f2",
+      "COMMANDCODE_HOOK_EVENT": "PreToolUse",
+      "COMMANDCODE_CWD": "<SCRATCH>/repo"
+    }
+  },
+  {
+    "at": 1789724163406,
+    "stdin": {
+      "session_id": "e117ad38-de8b-4620-88a3-9cb3580905f2",
+      "transcript_path": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg-czzrjh0000gn-t-openade-rec-file-edit-twice-b8a96fd9-repo/e117ad38-de8b-4620-88a3-9cb3580905f2.jsonl",
+      "cwd": "<SCRATCH>/repo",
+      "hook_event_name": "PreToolUse",
+      "permission_mode": "bypass",
+      "tool_use_id": "call_01a0b3df7abc719e9ea6b26038f2eb07",
+      "tool_name": "edit_file",
+      "tool_display_name": "EDIT",
+      "tool_input": {
+        "file_path": "<SCRATCH>/repo/greeting.txt",
+        "new_string": "hello there",
+        "old_string": "hello world"
+      }
+    },
+    "answer": {
+      "hookSpecificOutput": {
+        "permissionDecision": "allow",
+        "permissionDecisionReason": "recorded allow"
+      }
+    },
+    "env": {
+      "COMMANDCODE_PROJECT_DIR": "<SCRATCH>/repo",
+      "COMMANDCODE_SESSION_ID": "e117ad38-de8b-4620-88a3-9cb3580905f2",
+      "COMMANDCODE_HOOK_EVENT": "PreToolUse",
+      "COMMANDCODE_CWD": "<SCRATCH>/repo"
+    }
+  }
+]

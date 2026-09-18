@@ -1,0 +1,1 @@
+{"type":"result","subtype":"error","usage":{"inputTokens":0,"outputTokens":0,"cacheReadTokens":0,"cacheWriteTokens":0},"durationMs":81,"finalText":"","error":"Error: --session \"895e83cf-c5d2-4689-9f6d-71c65aa35a68\" is neither an existing .jsonl transcript nor a known session-id prefix."}

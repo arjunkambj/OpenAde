@@ -249,6 +249,63 @@ export const SCENARIOS = {
     ],
   },
 
+  "shell-twice": {
+    description:
+      "the same shell call twice in one session — what 'allow always' needs: a second, distinct tool call the persisted rule has to answer without asking again",
+    seed: { "note.txt": "hello\n" },
+    turns: [
+      {
+        prompt: "Run the shell command `cat note.txt` and tell me the output. Use the shell tool.",
+        maxTurns: 3,
+        hookPolicy: { default: "allow" },
+      },
+      ({ sessionId }) => ({
+        prompt:
+          "Run the shell command `cat note.txt` again and tell me the output. Use the shell tool.",
+        maxTurns: 3,
+        sessionId,
+        hookPolicy: { default: "allow" },
+      }),
+    ],
+  },
+
+  "file-edit-twice": {
+    description:
+      "two editing turns in one session — what checkpoints need: two turns that each leave the worktree different, so there is a real diff between the two snapshots and something for a restore to undo",
+    seed: { "greeting.txt": "hello world\n", "farewell.txt": "bye world\n" },
+    turns: [
+      {
+        prompt: "Edit greeting.txt so it says `hello there` instead of `hello world`.",
+        maxTurns: 3,
+        hookPolicy: { default: "allow" },
+      },
+      ({ sessionId }) => ({
+        prompt: "Now edit farewell.txt so it says `bye there` instead of `bye world`.",
+        maxTurns: 3,
+        sessionId,
+        hookPolicy: { default: "allow" },
+      }),
+    ],
+  },
+
+  "interrupt-resume": {
+    description:
+      "a turn interrupted mid-flight and then a second turn on the same thread — what the composer promises after Stop: the thread takes the next message, and a queued follow-up runs once the interrupted turn has settled",
+    seed: { "note.txt": "hello\n" },
+    turns: [
+      {
+        prompt: "Count slowly from 1 to 200, one number per line, with a short comment on each.",
+        maxTurns: 2,
+        sigintAfterMs: 9000,
+      },
+      ({ sessionId }) => ({
+        prompt: "Never mind. Reply with exactly: ok",
+        maxTurns: 1,
+        sessionId,
+      }),
+    ],
+  },
+
   subagent: {
     description:
       "a delegated subagent call — does PreToolUse fire for the subagent's own tool calls? (5.7 q7, the half the mcp recording leaves open)",

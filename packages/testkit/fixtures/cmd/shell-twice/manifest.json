@@ -1,0 +1,412 @@
+{
+  "scenario": "shell-twice",
+  "description": "the same shell call twice in one session — what 'allow always' needs: a second, distinct tool call the persisted rule has to answer without asking again",
+  "cli": "/opt/homebrew/bin/cmd",
+  "cliVersion": "1.56.0",
+  "recordedOn": "2026-09-18",
+  "model": "meta/muse-spark-1.3-contributor",
+  "modelRequested": null,
+  "real": true,
+  "turns": [
+    {
+      "index": 0,
+      "prompt": "Run the shell command `cat note.txt` and tell me the output. Use the shell tool.",
+      "connectorArgs": [
+        "-p",
+        "Run the shell command `cat note.txt` and tell me the output. Use the shell tool.",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--yolo",
+        "--max-turns",
+        "3",
+        "--tools-enable",
+        "ask_user_question"
+      ],
+      "argv": [
+        "-p",
+        "Run the shell command `cat note.txt` and tell me the output. Use the shell tool.",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--yolo",
+        "--max-turns",
+        "3",
+        "--tools-enable",
+        "ask_user_question"
+      ],
+      "envKeys": [
+        "HOME",
+        "OPENADE_RECORD_HOOK_LOG",
+        "OPENADE_RECORD_HOOK_POLICY",
+        "OPENADE_THREAD_ID",
+        "PATH",
+        "SHELL",
+        "SSH_AUTH_SOCK",
+        "TMPDIR",
+        "USER"
+      ],
+      "sessionId": "128e600b-1387-424d-bf60-26ca60427dc1",
+      "exitCode": 0,
+      "signal": null,
+      "interrupted": false,
+      "durationMs": 14669,
+      "stdoutChunks": [
+        {
+          "at": 489,
+          "chars": 97
+        },
+        {
+          "at": 520,
+          "chars": 62
+        },
+        {
+          "at": 574,
+          "chars": 50
+        },
+        {
+          "at": 574,
+          "chars": 98
+        },
+        {
+          "at": 628,
+          "chars": 93
+        },
+        {
+          "at": 7482,
+          "chars": 230
+        },
+        {
+          "at": 7538,
+          "chars": 231
+        },
+        {
+          "at": 7538,
+          "chars": 227
+        },
+        {
+          "at": 7538,
+          "chars": 207
+        },
+        {
+          "at": 8127,
+          "chars": 148
+        },
+        {
+          "at": 8132,
+          "chars": 173
+        },
+        {
+          "at": 8133,
+          "chars": 192
+        },
+        {
+          "at": 8133,
+          "chars": 172
+        },
+        {
+          "at": 8134,
+          "chars": 62
+        },
+        {
+          "at": 8134,
+          "chars": 50
+        },
+        {
+          "at": 8134,
+          "chars": 98
+        },
+        {
+          "at": 8135,
+          "chars": 93
+        },
+        {
+          "at": 14317,
+          "chars": 63
+        },
+        {
+          "at": 14317,
+          "chars": 94
+        },
+        {
+          "at": 14651,
+          "chars": 227
+        },
+        {
+          "at": 14651,
+          "chars": 91
+        },
+        {
+          "at": 14652,
+          "chars": 175
+        },
+        {
+          "at": 14656,
+          "chars": 1725
+        },
+        {
+          "at": 14657,
+          "chars": 246
+        }
+      ],
+      "transcriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg-czzrjh0000gn-t-openade-rec-shell-twice-6e43aad4-repo/128e600b-1387-424d-bf60-26ca60427dc1.jsonl",
+      "guessedTranscriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg_czzrjh0000gn-t-openade-rec-shell-twice-6e43aad4-repo/128e600b-1387-424d-bf60-26ca60427dc1.jsonl",
+      "transcriptDirMatchesConnectorSlug": false,
+      "projectDirListing": [
+        "128e600b-1387-424d-bf60-26ca60427dc1.checkpoints.jsonl",
+        "128e600b-1387-424d-bf60-26ca60427dc1.jsonl",
+        "128e600b-1387-424d-bf60-26ca60427dc1.meta.json"
+      ],
+      "transcriptGrowth": [
+        {
+          "at": 8139,
+          "bytes": 1467,
+          "lines": 4
+        },
+        {
+          "at": 14661,
+          "bytes": 1926,
+          "lines": 5
+        }
+      ],
+      "transcriptBytes": 1926,
+      "checkpointGrowth": [
+        {
+          "at": 495,
+          "bytes": 270,
+          "lines": 1
+        }
+      ],
+      "transcriptMeta": "{\n  \"entrypoint\": \"print\",\n  \"traceIds\": [\n    \"69d1ddd5e23cd4df526167b3185d8550\",\n    \"435eae1337d10d5708933ef82dcc9a25\"\n  ]\n}",
+      "hookCount": 1,
+      "plans": [],
+      "touchedFiles": [],
+      "files": {
+        "stdout": "turn1.stdout.ndjson",
+        "stderr": "turn1.stderr.txt",
+        "transcript": "turn1.transcript.jsonl",
+        "checkpoints": "turn1.checkpoints.jsonl",
+        "hooks": "turn1.hooks.json"
+      }
+    },
+    {
+      "index": 1,
+      "prompt": "Run the shell command `cat note.txt` again and tell me the output. Use the shell tool.",
+      "connectorArgs": [
+        "-p",
+        "Run the shell command `cat note.txt` again and tell me the output. Use the shell tool.",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--session",
+        "128e600b-1387-424d-bf60-26ca60427dc1",
+        "--yolo",
+        "--max-turns",
+        "3",
+        "--tools-enable",
+        "ask_user_question"
+      ],
+      "argv": [
+        "-p",
+        "Run the shell command `cat note.txt` again and tell me the output. Use the shell tool.",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--session",
+        "128e600b-1387-424d-bf60-26ca60427dc1",
+        "--yolo",
+        "--max-turns",
+        "3",
+        "--tools-enable",
+        "ask_user_question"
+      ],
+      "envKeys": [
+        "HOME",
+        "OPENADE_RECORD_HOOK_LOG",
+        "OPENADE_RECORD_HOOK_POLICY",
+        "OPENADE_THREAD_ID",
+        "PATH",
+        "SHELL",
+        "SSH_AUTH_SOCK",
+        "TMPDIR",
+        "USER"
+      ],
+      "sessionId": "128e600b-1387-424d-bf60-26ca60427dc1",
+      "exitCode": 0,
+      "signal": null,
+      "interrupted": false,
+      "durationMs": 17141,
+      "stdoutChunks": [
+        {
+          "at": 578,
+          "chars": 97
+        },
+        {
+          "at": 609,
+          "chars": 62
+        },
+        {
+          "at": 664,
+          "chars": 50
+        },
+        {
+          "at": 664,
+          "chars": 98
+        },
+        {
+          "at": 715,
+          "chars": 93
+        },
+        {
+          "at": 4313,
+          "chars": 230
+        },
+        {
+          "at": 4315,
+          "chars": 232
+        },
+        {
+          "at": 4315,
+          "chars": 227
+        },
+        {
+          "at": 4315,
+          "chars": 207
+        },
+        {
+          "at": 4401,
+          "chars": 148
+        },
+        {
+          "at": 4406,
+          "chars": 173
+        },
+        {
+          "at": 4407,
+          "chars": 192
+        },
+        {
+          "at": 4407,
+          "chars": 173
+        },
+        {
+          "at": 4408,
+          "chars": 62
+        },
+        {
+          "at": 4408,
+          "chars": 50
+        },
+        {
+          "at": 4409,
+          "chars": 98
+        },
+        {
+          "at": 4409,
+          "chars": 93
+        },
+        {
+          "at": 11504,
+          "chars": 51
+        },
+        {
+          "at": 11504,
+          "chars": 149
+        },
+        {
+          "at": 16831,
+          "chars": 146
+        },
+        {
+          "at": 16831,
+          "chars": 63
+        },
+        {
+          "at": 16831,
+          "chars": 230
+        },
+        {
+          "at": 17126,
+          "chars": 228
+        },
+        {
+          "at": 17126,
+          "chars": 227
+        },
+        {
+          "at": 17127,
+          "chars": 176
+        },
+        {
+          "at": 17131,
+          "chars": 2936
+        },
+        {
+          "at": 17132,
+          "chars": 247
+        }
+      ],
+      "transcriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg-czzrjh0000gn-t-openade-rec-shell-twice-6e43aad4-repo/128e600b-1387-424d-bf60-26ca60427dc1.jsonl",
+      "guessedTranscriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg_czzrjh0000gn-t-openade-rec-shell-twice-6e43aad4-repo/128e600b-1387-424d-bf60-26ca60427dc1.jsonl",
+      "transcriptDirMatchesConnectorSlug": false,
+      "projectDirListing": [
+        "128e600b-1387-424d-bf60-26ca60427dc1.checkpoints.jsonl",
+        "128e600b-1387-424d-bf60-26ca60427dc1.jsonl",
+        "128e600b-1387-424d-bf60-26ca60427dc1.meta.json"
+      ],
+      "transcriptGrowth": [
+        {
+          "at": 569,
+          "bytes": 1926,
+          "lines": 5
+        },
+        {
+          "at": 4421,
+          "bytes": 3189,
+          "lines": 8
+        },
+        {
+          "at": 17139,
+          "bytes": 3774,
+          "lines": 9
+        }
+      ],
+      "transcriptBytes": 3774,
+      "checkpointGrowth": [
+        {
+          "at": 569,
+          "bytes": 270,
+          "lines": 1
+        },
+        {
+          "at": 595,
+          "bytes": 602,
+          "lines": 2
+        }
+      ],
+      "transcriptMeta": "{\n  \"entrypoint\": \"print\",\n  \"traceIds\": [\n    \"69d1ddd5e23cd4df526167b3185d8550\",\n    \"435eae1337d10d5708933ef82dcc9a25\",\n    \"ef32e59a10e9f6c2477f057103acc2a8\",\n    \"6ff1d4389a19da5f14f7b7c2574805b3\"\n  ]\n}",
+      "hookCount": 1,
+      "plans": [],
+      "touchedFiles": [],
+      "files": {
+        "stdout": "turn2.stdout.ndjson",
+        "stderr": "turn2.stderr.txt",
+        "transcript": "turn2.transcript.jsonl",
+        "checkpoints": "turn2.checkpoints.jsonl",
+        "hooks": "turn2.hooks.json"
+      }
+    }
+  ]
+}
