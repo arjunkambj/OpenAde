@@ -24,10 +24,9 @@ import {
   makeHome,
   seedSettings,
   staticCredentials,
-  watchThread,
-  watchThreadList,
   type Driver,
 } from "./harness";
+import { watchThread, watchThreadList } from "./watch";
 import { makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
 
 /** The prompt `fixtures/cmd/text/` was recorded on. */
@@ -56,8 +55,8 @@ const helloTurn = (driver: Driver) => {
           command({ type: "thread.create", threadId, projectId, settings: { model: E2E_MODEL } }),
         );
 
-        const thread = yield* watchThread(client, threadId);
-        const list = yield* watchThreadList(client, projectId);
+        const thread = yield* watchThread(client.rpc, threadId);
+        const list = yield* watchThreadList(client.rpc, projectId);
 
         yield* client.send(
           command({
@@ -73,7 +72,7 @@ const helloTurn = (driver: Driver) => {
         // The turn is over when the thread settles — no turn running and
         // nothing waiting on the user — which is exactly what the composer
         // re-enables on.
-        const done = yield* thread.awaitView(
+        const done = yield* thread.awaitValue(
           (view) => isSettled(view) && view.items.some((i) => i.kind === "assistant_message"),
         );
 
@@ -100,7 +99,7 @@ const helloTurn = (driver: Driver) => {
         // to the final text. A translator that emitted one item per
         // `text_delta` — or one that replaced the text instead of appending —
         // breaks this even though the last view would still look right.
-        const texts = (yield* thread.views)
+        const texts = (yield* thread.all)
           .map((view) => assistantText(view))
           .filter((text) => text.length > 0);
         const growth = texts.filter((text, index) => index === 0 || text !== texts[index - 1]);
@@ -113,7 +112,7 @@ const helloTurn = (driver: Driver) => {
         expect(growth.at(-1)).toBe(assistantText(done));
 
         // And the sidebar agrees: the thread is idle with a preview.
-        const threads = yield* list.awaitList((all) =>
+        const threads = yield* list.awaitValue((all) =>
           all.some((t) => t.threadId === threadId && t.status === "idle"),
         );
         const summary = threads.find((t) => t.threadId === threadId)!;

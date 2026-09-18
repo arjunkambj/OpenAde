@@ -50,7 +50,7 @@ const questions = (driver: Driver) => {
 
         // A model that answers in prose instead of calling the tool settles
         // the wait too, so this fails with what happened rather than hanging.
-        const asked = yield* open.view.awaitView(
+        const asked = yield* open.view.awaitValue(
           (view) => view.pendingUserInput !== null || isSettled(view),
           started,
         );
@@ -87,7 +87,7 @@ const questions = (driver: Driver) => {
           ),
         );
 
-        const done = yield* open.view.awaitView(isSettled, answered);
+        const done = yield* open.view.awaitValue(isSettled, answered);
         expect(done.pendingUserInput).toBeNull();
         // The turn did not stall on the question it asked.
         expect(done.currentTurnId).toBeNull();

@@ -38,11 +38,11 @@ import {
   makeHome,
   seedSettings,
   staticCredentials,
-  watchThread,
   type Driver,
   type E2EClient,
   type E2EHome,
 } from "./harness";
+import { watchThread } from "./watch";
 
 /** The prompts `fixtures/cmd/shell-yolo/` and `shell-deny-yolo/` were recorded on. */
 const READ_NOTE =
@@ -84,7 +84,7 @@ const approvals = (driver: Driver) => {
         const projectId = makeProjectId();
         const threadId = makeThreadId();
         yield* openThread(client, home, projectId, threadId);
-        const thread = yield* watchThread(client, threadId);
+        const thread = yield* watchThread(client.rpc, threadId);
 
         // Anchored on the turn's own receipt: the thread is settled until the
         // turn starts, so a wait that can resolve from history would otherwise
@@ -104,7 +104,7 @@ const approvals = (driver: Driver) => {
 
         // Either outcome settles the wait, so a turn that never asks fails
         // with what it did instead of timing the suite out.
-        const asked = yield* thread.awaitView(
+        const asked = yield* thread.awaitValue(
           (view) => view.pendingApproval !== null || isSettled(view),
           started,
         );
@@ -125,7 +125,7 @@ const approvals = (driver: Driver) => {
           ),
         );
 
-        const done = yield* thread.awaitView(isSettled, answered);
+        const done = yield* thread.awaitValue(isSettled, answered);
         expect(done.pendingApproval).toBeNull();
 
         // The call ran: a command row that completed, and the file it read.
@@ -156,7 +156,7 @@ const approvals = (driver: Driver) => {
         const projectId = makeProjectId();
         const threadId = makeThreadId();
         yield* openThread(client, home, projectId, threadId);
-        const thread = yield* watchThread(client, threadId);
+        const thread = yield* watchThread(client.rpc, threadId);
 
         const target = NodePath.join(home.workspace, "copied.txt");
         const started = yield* thread.markAfter(
@@ -172,7 +172,7 @@ const approvals = (driver: Driver) => {
           ),
         );
 
-        const asked = yield* thread.awaitView(
+        const asked = yield* thread.awaitValue(
           (view) => view.pendingApproval !== null || isSettled(view),
           started,
         );
@@ -189,7 +189,7 @@ const approvals = (driver: Driver) => {
           ),
         );
 
-        const done = yield* thread.awaitView(isSettled, answered);
+        const done = yield* thread.awaitValue(isSettled, answered);
         const shell = done.items.filter((item) => item.kind === "command_execution");
         expect(shell.length).toBeGreaterThan(0);
         expect(shell.at(-1)!.status).toBe("failed");
@@ -210,7 +210,7 @@ const approvals = (driver: Driver) => {
         const projectId = makeProjectId();
         const threadId = makeThreadId();
         yield* openThread(client, home, projectId, threadId);
-        const thread = yield* watchThread(client, threadId);
+        const thread = yield* watchThread(client.rpc, threadId);
 
         const turn = (text: string) =>
           client
@@ -227,7 +227,7 @@ const approvals = (driver: Driver) => {
             .pipe(Effect.flatMap(thread.markAfter));
 
         const beforeFirst = yield* turn(READ_NOTE);
-        const asked = yield* thread.awaitView(
+        const asked = yield* thread.awaitValue(
           (view) => view.pendingApproval !== null || isSettled(view),
           beforeFirst,
         );
@@ -250,12 +250,12 @@ const approvals = (driver: Driver) => {
             }),
           ),
         );
-        const first = yield* thread.awaitView(isSettled, answered);
+        const first = yield* thread.awaitValue(isSettled, answered);
         const ranOnce = first.items.filter((item) => item.kind === "command_execution").length;
         expect(ranOnce).toBeGreaterThan(0);
 
         // The rule is on the wire, where the settings page reads it.
-        const settings = yield* client.rpc["settings.get"]({}).pipe(Effect.orDie);
+        const settings = yield* (yield* client.rpc)["settings.get"]({}).pipe(Effect.orDie);
         const rule = settings.permissions.find((r) => r.pattern === request.patternSuggestion);
         expect(rule).toBeDefined();
         expect(rule!.decision).toBe("allow");
@@ -265,7 +265,7 @@ const approvals = (driver: Driver) => {
         // Everything below is measured from this mark: the collector resolves a
         // wait from history too, and turn one's card is in that history.
         const beforeSecond = yield* turn(READ_NOTE_AGAIN);
-        const second = yield* thread.awaitView(
+        const second = yield* thread.awaitValue(
           (view) =>
             view.pendingApproval !== null ||
             (isSettled(view) &&
@@ -276,7 +276,7 @@ const approvals = (driver: Driver) => {
 
         // And nothing asked at any point during it: a card that opened and
         // closed again would still be a card the user had to answer.
-        const during = yield* thread.viewsSince(beforeSecond);
+        const during = yield* thread.since(beforeSecond);
         expect(during.filter((view) => view.pendingApproval !== null)).toEqual([]);
       }),
     ),

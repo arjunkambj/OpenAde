@@ -54,25 +54,27 @@ const interrupts = (driver: Driver) => {
         const started = yield* startTurn(client, open, { text: LONG });
         // The turn is really under way before Stop is pressed: interrupting a
         // turn the connector has not spawned yet proves nothing.
-        const running = yield* open.view.awaitViewAt(
+        const running = yield* open.view.awaitAt(
           (view) => view.currentTurnId !== null && view.items.length > 0,
           started,
         );
-        const interruptedTurnId = running.view.currentTurnId;
+        const interruptedTurnId = running.value.currentTurnId;
 
         // Cmd+Enter while it runs: the follow-up goes on the queue rather than
         // racing the session, and it carries an image.
-        const staged = yield* client.rpc["attachments.stage"]({
-          threadId: open.threadId,
-          name: "queued.png",
-          base64: PNG_BASE64,
-        }).pipe(Effect.orDie);
+        const staged = yield* (yield* client.rpc)
+          ["attachments.stage"]({
+            threadId: open.threadId,
+            name: "queued.png",
+            base64: PNG_BASE64,
+          })
+          .pipe(Effect.orDie);
         const queuedAt = yield* startTurn(client, open, {
           text: FOLLOW_UP,
           attachments: [{ path: staged.path, mime: staged.mime, name: staged.name }],
           queued: true,
         });
-        const withQueue = yield* open.view.awaitView((view) => view.queue.length > 0, queuedAt);
+        const withQueue = yield* open.view.awaitValue((view) => view.queue.length > 0, queuedAt);
         expect(withQueue.queue).toHaveLength(1);
         // The attachment survives the queue — it is what the turn will send.
         expect(withQueue.queue[0]!.attachments).toHaveLength(1);
@@ -84,17 +86,17 @@ const interrupts = (driver: Driver) => {
 
         // The interrupted turn settles rather than hanging, and it does not
         // take the thread down with it.
-        const settled = yield* open.view.awaitViewAt(
+        const settled = yield* open.view.awaitAt(
           (view) => view.currentTurnId !== interruptedTurnId,
           stopped,
         );
-        expect(settled.view.status).not.toBe("error");
+        expect(settled.value.status).not.toBe("error");
 
         // The queued message is dequeued and run without anyone asking again.
         // Counted on the timeline rather than on the queue: both the message
         // leaving the queue and the turn ending clear those fields, so only
         // the second user row says the follow-up really went out.
-        const done = yield* open.view.awaitView(
+        const done = yield* open.view.awaitValue(
           (view) =>
             isSettled(view) && view.items.filter((i) => i.kind === "user_message").length === 2,
           stopped,

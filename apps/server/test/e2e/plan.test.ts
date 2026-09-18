@@ -54,7 +54,7 @@ const planMode = (driver: Driver) => {
         yield* autoApprove(client, open);
 
         const started = yield* startTurn(client, open, { text: PROPOSE });
-        const proposed = yield* open.view.awaitView(
+        const proposed = yield* open.view.awaitValue(
           (view) => view.pendingPlan !== null || isSettled(view),
           started,
         );
@@ -82,16 +82,16 @@ const planMode = (driver: Driver) => {
         // naming the plan file. Without the mode reset that turn would spawn
         // `--permission-mode plan` again and answer a request to implement
         // with another plan.
-        const implementing = yield* open.view.awaitViewAt(
+        const implementing = yield* open.view.awaitAt(
           (view) => view.settings.interactionMode === "default" && view.currentTurnId !== null,
           accepted,
         );
-        expect(implementing.view.pendingPlan).toBeNull();
+        expect(implementing.value.pendingPlan).toBeNull();
 
         // And that turn runs to the end as an ordinary one. Measured from the
         // implementation turn's own start: the plan turn settles first, and a
         // wait for "settled" from before it would answer with that.
-        const done = yield* open.view.awaitView(isSettled, implementing.next);
+        const done = yield* open.view.awaitValue(isSettled, implementing.next);
         expect(done.settings.interactionMode).toBe("default");
         expect(done.pendingPlan).toBeNull();
         // A plan row on the timeline is what the pane renders the plan from.
@@ -115,7 +115,7 @@ const planMode = (driver: Driver) => {
         const open = yield* openThread(client, home, { interactionMode: "plan" });
 
         const started = yield* startTurn(client, open, { text: PROPOSE });
-        const proposed = yield* open.view.awaitView(
+        const proposed = yield* open.view.awaitValue(
           (view) => view.pendingPlan !== null || isSettled(view),
           started,
         );
@@ -136,7 +136,7 @@ const planMode = (driver: Driver) => {
         // The card closes — the user has answered it — and a fresh planning
         // turn starts carrying the feedback, because "revise" means "plan
         // again", not "go ahead". The mode is what proves which of the two.
-        const after = yield* open.view.awaitView(
+        const after = yield* open.view.awaitValue(
           (view) => view.pendingPlan === null && view.currentTurnId !== null,
           revised,
         );

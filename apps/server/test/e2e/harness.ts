@@ -36,18 +36,14 @@ import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 
-import {
-  applyThreadListItem,
-  applyThreadStreamItem,
-  type ThreadDetailView,
-} from "@OpenAde/client-runtime/clientState";
+import type { ThreadDetailView } from "@OpenAde/client-runtime/clientState";
 import {
   Connection,
   makeConnection,
   type ConnectionCredentials,
+  type ConnectionState,
   type OpenAdeRpcClient,
 } from "@OpenAde/client-runtime/connection";
-import { makeStreamCollector, type StreamCollector } from "@OpenAde/connector-sdk/streamCollector";
 import {
   makeCommandId,
   makeConnectorInstanceId,
@@ -60,8 +56,6 @@ import type {
   Command,
   CommandReceipt,
   ThreadSettingsPatch,
-  ThreadStreamItem,
-  ThreadSummary,
 } from "@OpenAde/contracts/orchestration";
 import { defaultSettings } from "@OpenAde/contracts/settings";
 import type { ConnectorInstanceConfig } from "@OpenAde/contracts/settings";
@@ -71,8 +65,9 @@ import { vi } from "vitest";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Ref from "effect/Ref";
-import * as Stream from "effect/Stream";
+import * as SubscriptionRef from "effect/SubscriptionRef";
+
+import { watchThread, type ThreadWatch, type ViewMark, type Watch } from "./watch";
 
 import { boot, type BootedServer } from "../../src/boot";
 import { layer as sqliteLayer } from "../../src/persistence/Sqlite";
@@ -293,7 +288,18 @@ export const bootServer = (home: E2EHome, options: { readonly dev?: boolean } = 
 // ── The client ─────────────────────────────────────────────────
 
 export interface E2EClient {
-  readonly rpc: OpenAdeRpcClient;
+  /**
+   * The live RPC client, re-resolved on every use.
+   *
+   * Not a held reference: Effect's socket protocol is single-use, so a
+   * reconnect builds a new client underneath and anything holding the old one
+   * is talking to a closed socket. This is the same per-call accessor the
+   * renderer's atoms use, which is what lets a scenario restart the server
+   * under a client and keep going.
+   */
+  readonly rpc: Effect.Effect<OpenAdeRpcClient>;
+  /** The connection's own state, for asserting a reconnect really happened. */
+  readonly state: SubscriptionRef.SubscriptionRef<ConnectionState>;
   /** Dispatches and returns the receipt, so a caller can wait for its write. */
   readonly dispatch: (command: Command) => Effect.Effect<CommandReceipt>;
   /** Dispatches and fails the test if the server rejected the command. */
@@ -320,11 +326,16 @@ export const connect = (
         resolve: credentials,
       }),
     );
-    const rpc = yield* Context.get(context, Connection).client;
+    const connection = Context.get(context, Connection);
+    const rpc = connection.client;
     const dispatch = (command: Command): Effect.Effect<CommandReceipt> =>
-      rpc["orchestration.dispatch"]({ command }).pipe(Effect.orDie);
+      rpc.pipe(
+        Effect.flatMap((client) => client["orchestration.dispatch"]({ command })),
+        Effect.orDie,
+      );
     return {
       rpc,
+      state: connection.state,
       dispatch,
       send: (command) =>
         dispatch(command).pipe(
@@ -338,6 +349,20 @@ export const connect = (
         ),
     };
   });
+
+/**
+ * Waits for the connection to come back up, after `after`.
+ *
+ * This is the renderer's own signal — `connectionStateAtom` is what the
+ * reconnecting banner reads. A scenario that restarts the server takes the
+ * mark before the old one dies and waits here afterwards; asking the client
+ * for anything sooner races its own backoff.
+ */
+export const awaitConnected = (
+  states: Watch<ConnectionState>,
+  after: ViewMark,
+): Effect.Effect<void> =>
+  states.awaitValue((state) => state.status === "connected", after).pipe(Effect.asVoid);
 
 /** The credentials of one booted server, for `connect`. */
 export const staticCredentials = (server: BootedServer): ConnectionCredentials => ({
@@ -357,214 +382,14 @@ type CommandBody<T extends Command["type"]> = Omit<
  * Builds a command with a fresh id and timestamp, so a scenario reads as the
  * user's intent rather than as bookkeeping.
  */
-export const command = <T extends Command["type"]>(body: CommandBody<T>): Command =>
+export const command = <T extends Command["type"]>(
+  body: CommandBody<T> & { readonly type: T },
+): Command =>
   ({
     commandId: makeCommandId(),
     createdAt: new Date().toISOString(),
     ...body,
-  }) as Command;
-
-// ── Watching a thread the way the renderer does ────────────────
-
-/**
- * A position in the sequence of views, for waits that mean "after this".
- *
- * Without one, "wait for a view with no approval pending" is answered by a
- * view from *before* the thing being tested — the collector searches its whole
- * history, which is what makes it able to resolve an event that already
- * happened. Every scenario here has a before and an after, so every wait takes
- * a mark.
- */
-export type ViewMark = number;
-
-export interface ThreadWatch {
-  /** Every view the fold produced, in order. */
-  readonly views: Effect.Effect<ReadonlyArray<ThreadDetailView>>;
-  /** The position after the views seen so far; pass it to `awaitView`. */
-  readonly mark: Effect.Effect<ViewMark>;
-  /**
-   * Waits until the subscription has caught up with one command's own write,
-   * and answers with the position just after the view that carried it.
-   *
-   * This is what `CommandReceipt.lastSequence` is for: it names the event-log
-   * position the command's effects are visible at, so "the turn I just started
-   * is on screen" is an exact question rather than a race. Every later wait in
-   * a scenario starts from the mark it returns.
-   */
-  readonly markAfter: (receipt: CommandReceipt) => Effect.Effect<ViewMark>;
-  /** The latest view; fails if the subscription ended before one arrived. */
-  readonly latest: Effect.Effect<ThreadDetailView>;
-  /**
-   * Resolves with the first view at or after `after` satisfying `predicate`.
-   * Omitting `after` searches from the beginning, which is right only for the
-   * first wait of a scenario.
-   */
-  readonly awaitView: (
-    predicate: (view: ThreadDetailView) => boolean,
-    after?: ViewMark,
-  ) => Effect.Effect<ThreadDetailView>;
-  /**
-   * The same, plus the position just after the view it matched — for a
-   * scenario whose next wait has to start where this one stopped rather than
-   * where the last command landed.
-   */
-  readonly awaitViewAt: (
-    predicate: (view: ThreadDetailView) => boolean,
-    after?: ViewMark,
-  ) => Effect.Effect<{ readonly view: ThreadDetailView; readonly next: ViewMark }>;
-  /** The views from `after` onwards — for "nothing happened in between". */
-  readonly viewsSince: (after: ViewMark) => Effect.Effect<ReadonlyArray<ThreadDetailView>>;
-  /** The raw stream items, for assertions about delivery rather than state. */
-  readonly items: Effect.Effect<ReadonlyArray<ThreadStreamItem>>;
-}
-
-/** One view and where it sat in the sequence. */
-interface MarkedView {
-  readonly index: ViewMark;
-  readonly view: ThreadDetailView;
-}
-
-/**
- * Subscribes to a thread and folds it exactly as `threadDetailAtom` does.
- *
- * The fold is the renderer's — `applyThreadStreamItem` from
- * `@OpenAde/client-runtime` — so a bug that would show as a wrong pane shows
- * here as a wrong view. `describe` is used in the failure message when a wait
- * outlives its subscription, because "the stream ended" says nothing on its
- * own about which wait was outstanding.
- */
-export const watchThread = (
-  client: E2EClient,
-  threadId: ThreadId,
-): Effect.Effect<ThreadWatch, never, import("effect/Scope").Scope> =>
-  Effect.gen(function* () {
-    const raw = yield* Ref.make<ReadonlyArray<ThreadStreamItem>>([]);
-    const doc = yield* Ref.make<ThreadDetailView | null>(null);
-    const seen = yield* Ref.make<ViewMark>(0);
-    const stream = client.rpc["threads.subscribe"]({ threadId }).pipe(
-      Stream.mapEffect((item) =>
-        Effect.gen(function* () {
-          yield* Ref.update(raw, (all) => [...all, item]);
-          if (item.kind === "resnapshot-required") {
-            yield* Ref.set(doc, null);
-          }
-          const view = yield* Ref.updateAndGet(doc, (current) =>
-            applyThreadStreamItem(current, item),
-          );
-          if (view === null) {
-            return null;
-          }
-          const index = yield* Ref.getAndUpdate(seen, (count) => count + 1);
-          return { index, view } satisfies MarkedView;
-        }),
-      ),
-      Stream.filter((marked): marked is MarkedView => marked !== null),
-      Stream.orDie,
-    );
-    const collector: StreamCollector<MarkedView> = yield* makeStreamCollector(stream);
-    const awaitMarked = (
-      predicate: (view: ThreadDetailView) => boolean,
-      after: ViewMark = 0,
-    ): Effect.Effect<MarkedView> =>
-      collector
-        .awaitItem((marked) => marked.index >= after && predicate(marked.view))
-        .pipe(
-          Effect.catchTag("StreamEnded", (error) =>
-            Effect.die(
-              new Error(
-                `the thread subscription ended after ${error.seen} views without one matching the wait (from mark ${after})`,
-              ),
-            ),
-          ),
-        );
-    const awaitView = (
-      predicate: (view: ThreadDetailView) => boolean,
-      after: ViewMark = 0,
-    ): Effect.Effect<ThreadDetailView> =>
-      awaitMarked(predicate, after).pipe(Effect.map((marked) => marked.view));
-    const views = collector.collected.pipe(Effect.map((all) => all.map((marked) => marked.view)));
-    return {
-      views,
-      mark: Ref.get(seen),
-      markAfter: (receipt) =>
-        awaitMarked((view) => view.snapshotSequence >= receipt.lastSequence).pipe(
-          Effect.map((marked) => marked.index + 1),
-        ),
-      latest: views.pipe(Effect.map((all) => all.at(-1)!)),
-      awaitView,
-      awaitViewAt: (predicate, after) =>
-        awaitMarked(predicate, after).pipe(
-          Effect.map((marked) => ({ view: marked.view, next: marked.index + 1 })),
-        ),
-      viewsSince: (after) =>
-        collector.collected.pipe(
-          Effect.map((all) =>
-            all.filter((marked) => marked.index >= after).map((marked) => marked.view),
-          ),
-        ),
-      items: Ref.get(raw),
-    };
-  });
-
-export interface ListWatch {
-  /** The position after the updates seen so far; pass it to `awaitList`. */
-  readonly mark: Effect.Effect<ViewMark>;
-  readonly awaitList: (
-    predicate: (threads: ReadonlyArray<ThreadSummary>) => boolean,
-    after?: ViewMark,
-  ) => Effect.Effect<ReadonlyArray<ThreadSummary>>;
-  readonly latest: Effect.Effect<ReadonlyArray<ThreadSummary>>;
-}
-
-/** One list state and where it sat in the sequence. */
-interface MarkedList {
-  readonly index: ViewMark;
-  readonly threads: ReadonlyArray<ThreadSummary>;
-}
-
-/** The sidebar's own subscription, folded with the sidebar's own reducer. */
-export const watchThreadList = (
-  client: E2EClient,
-  projectId: ProjectId,
-): Effect.Effect<ListWatch, never, import("effect/Scope").Scope> =>
-  Effect.gen(function* () {
-    const state = yield* Ref.make<ReadonlyArray<ThreadSummary>>([]);
-    const seen = yield* Ref.make<ViewMark>(0);
-    const stream = client.rpc["threads.listSubscribe"]({ projectId }).pipe(
-      Stream.mapEffect((item) =>
-        Effect.gen(function* () {
-          const threads = yield* Ref.updateAndGet(state, (current) =>
-            applyThreadListItem(current, item),
-          );
-          const index = yield* Ref.getAndUpdate(seen, (count) => count + 1);
-          return { index, threads } satisfies MarkedList;
-        }),
-      ),
-      Stream.orDie,
-    );
-    const collector: StreamCollector<MarkedList> = yield* makeStreamCollector(stream);
-    const awaitList = (
-      predicate: (threads: ReadonlyArray<ThreadSummary>) => boolean,
-      after: ViewMark = 0,
-    ): Effect.Effect<ReadonlyArray<ThreadSummary>> =>
-      collector
-        .awaitItem((marked) => marked.index >= after && predicate(marked.threads))
-        .pipe(
-          Effect.map((marked) => marked.threads),
-          Effect.catchTag("StreamEnded", (error) =>
-            Effect.die(
-              new Error(
-                `the thread list ended after ${error.seen} updates without one matching the wait (from mark ${after})`,
-              ),
-            ),
-          ),
-        );
-    return {
-      mark: Ref.get(seen),
-      awaitList,
-      latest: collector.collected.pipe(Effect.map((all) => all.at(-1)?.threads ?? [])),
-    };
-  });
+  }) as unknown as Command;
 
 // ── Where every scenario starts ────────────────────────────────
 
@@ -601,7 +426,7 @@ export const openThread = (
         settings: { model: E2E_MODEL, ...settings },
       }),
     );
-    const view = yield* watchThread(client, threadId);
+    const view = yield* watchThread(client.rpc, threadId);
     return { projectId, threadId, view };
   });
 
@@ -652,15 +477,15 @@ export const autoApprove = (
     const from = yield* open.view.mark;
     const loop = (after: ViewMark): Effect.Effect<void> =>
       open.view
-        .awaitViewAt((view) => view.pendingApproval !== null, after)
+        .awaitAt((view) => view.pendingApproval !== null, after)
         .pipe(
-          Effect.flatMap(({ view, next }) =>
+          Effect.flatMap(({ value, next }) =>
             client
               .send(
                 command({
                   type: "thread.approval.respond",
                   threadId: open.threadId,
-                  requestId: view.pendingApproval!.requestId,
+                  requestId: value.pendingApproval!.requestId,
                   decision,
                 }),
               )
