@@ -13,7 +13,13 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 
-import { plansDirFor, plansIndexPathFor, readPlanProposal } from "./plans";
+import {
+  planFileNameIn,
+  plansDirFor,
+  plansIndexPathFor,
+  readPlanProposal,
+  releasePlanClaims,
+} from "./plans";
 
 /** A throwaway `~/.commandcode/plans` with the given files and mtimes. */
 const plansHome = (files: Readonly<Record<string, { text: string; at: number }>>): string => {
@@ -94,6 +100,73 @@ describe("readPlanProposal", () => {
       NodeFS.writeFileSync(plansIndexPathFor(home), "{not json", "utf8");
       expect(readPlanProposal("sess-1", home, Date.now())).toBeNull();
     } finally {
+      NodeFS.rmSync(home, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("planFileNameIn", () => {
+  const queued = (toolName: string, filePath: string) => ({
+    type: "event",
+    event: { type: "tool_queued", toolCallId: "call-1", toolName, input: { file_path: filePath } },
+  });
+
+  /** The frame `fixtures/cmd/plan/` recorded, path placeholder and all. */
+  it("reads the plan file out of the write_file frame the run emitted", () => {
+    expect(
+      planFileNameIn(queued("write_file", "<HOME>/.commandcode/plans/subtract-function.md")),
+    ).toBe("subtract-function.md");
+  });
+
+  it("ignores writes that are not into the plans directory", () => {
+    expect(planFileNameIn(queued("write_file", "/work/repo/app.js"))).toBeNull();
+    expect(planFileNameIn(queued("write_file", "/work/repo/plans-of-mine.md"))).toBeNull();
+    expect(planFileNameIn(queued("read_file", "/home/u/.commandcode/plans/a.md"))).toBeNull();
+    expect(planFileNameIn({ type: "event", event: { type: "turn_end" } })).toBeNull();
+    expect(planFileNameIn(null)).toBeNull();
+  });
+});
+
+describe("two plan turns running at once", () => {
+  it("proposes the file this turn's own frames named, not the newest one", () => {
+    const now = Date.now();
+    const home = plansHome({
+      "mine.md": { text: "# mine\n", at: now - 2000 },
+      // Another thread's plan, written a moment later — the mtime scan would
+      // hand this one to both of them.
+      "theirs.md": { text: "# theirs\n", at: now },
+    });
+    try {
+      const proposal = readPlanProposal("sess-1", home, now - HOUR, ["mine.md"]);
+      expect(proposal?.planPath.endsWith("mine.md")).toBe(true);
+      expect(proposal?.markdown).toBe("# mine\n");
+    } finally {
+      releasePlanClaims("sess-1");
+      NodeFS.rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps the scan off a plan another live session is already showing", () => {
+    const now = Date.now();
+    const home = plansHome({
+      "theirs.md": { text: "# theirs\n", at: now },
+      "mine.md": { text: "# mine\n", at: now - 2000 },
+    });
+    try {
+      // Thread A names its own file, and by doing so claims it.
+      expect(readPlanProposal("sess-a", home, now - HOUR, ["theirs.md"])?.markdown).toBe(
+        "# theirs\n",
+      );
+      // Thread B has no frame to go on and falls back to the scan. Without the
+      // claim it would propose A's plan, which is a whole other conversation.
+      expect(readPlanProposal("sess-b", home, now - HOUR)?.markdown).toBe("# mine\n");
+
+      // A closes; its plan is fair game for the scan again.
+      releasePlanClaims("sess-a");
+      releasePlanClaims("sess-b");
+      expect(readPlanProposal("sess-c", home, now - HOUR)?.markdown).toBe("# theirs\n");
+    } finally {
+      releasePlanClaims("sess-c");
       NodeFS.rmSync(home, { recursive: true, force: true });
     }
   });

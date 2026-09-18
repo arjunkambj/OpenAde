@@ -193,6 +193,14 @@ describe("a recorded plan turn", () => {
             "# Plan: Add subtract function to app.js\n",
             "utf8",
           );
+          // A newer plan from somewhere else — another thread, or the user's
+          // own interactive run. The directory is global, so an mtime scan
+          // would hand this one to this turn.
+          NodeFS.writeFileSync(
+            NodePath.join(plansDir, "someone-elses.md"),
+            "# Plan: something another conversation is doing\n",
+            "utf8",
+          );
         });
 
         const { handle, collector } = yield* openSession("plan", b, { plan: true });
@@ -201,7 +209,9 @@ describe("a recorded plan turn", () => {
         const events = yield* collector.collected;
 
         const proposed = events.find((event) => event.type === "turn.plan.proposed");
-        // Found without a plans-index.json — print mode never writes one.
+        // Found without a plans-index.json — print mode never writes one — and
+        // found by the `write_file` frame this run emitted, which is why the
+        // newer file beside it is not the one proposed.
         expect(proposed?.type === "turn.plan.proposed" && proposed.payload.planPath).toContain(
           "subtract-function.md",
         );

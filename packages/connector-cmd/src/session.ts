@@ -46,7 +46,7 @@ import { stageTurnAttachments } from "./attachments";
 import { ensureHookScript, hookTicketPath, removeHookTicket, writeHookTicket } from "./hookScript";
 import { makeHookAnswerer } from "./hookAnswers";
 import { makeLineSplitter, parseFrame } from "./ndjson";
-import { readPlanProposal } from "./plans";
+import { planFileNameIn, readPlanProposal, releasePlanClaims } from "./plans";
 import { buildArgs, envAllowlist, spawnProcess, TOOLS_ENABLED, type CmdProcess } from "./spawn";
 import { findTranscriptPath, tailTranscript, transcriptPathFor } from "./transcript";
 import { makeTranslator, type PendingRuntimeEvent } from "./translate";
@@ -97,6 +97,13 @@ interface ActiveProcess {
    * *this* turn is told from one sitting in the directory since last month.
    */
   readonly startedAt: number;
+  /**
+   * Plan files this turn's own `write_file` frames named, in arrival order.
+   * The plans directory is shared by every thread and by the user's own
+   * interactive runs, so this — not the newest mtime — is what says which file
+   * the turn wrote.
+   */
+  readonly planWrites: Ref.Ref<ReadonlyArray<string>>;
   /**
    * The user asked for this one to stop. It decides how the exit reads: a
    * child we killed ourselves settles the turn `interrupted`, the same signal
@@ -264,10 +271,11 @@ export const makeCmdSession = (
 
     /**
      * A plan-mode turn that just ended may have left a plan file behind:
-     * `plans-index.json` matches it to this session by `sessionId`, and the
-     * newest matching entry is read and proposed. Emitted while the turn is
-     * still open — after `turn.completed` the engine no longer tags events
-     * with its turnId — and each plan file is proposed once per session.
+     * `plans-index.json` matches it to this session by `sessionId`, and
+     * failing that the turn's own `write_file` frames name the file it wrote.
+     * Emitted while the turn is still open — after `turn.completed` the engine
+     * no longer tags events with its turnId — and each plan file is proposed
+     * once per session.
      */
     const emitPlanProposal = (active: ActiveProcess): Effect.Effect<void> =>
       Effect.gen(function* () {
@@ -278,8 +286,9 @@ export const makeCmdSession = (
         if (sessionId === null) {
           return;
         }
+        const wrote = yield* Ref.get(active.planWrites);
         const proposal = yield* Effect.sync(() =>
-          readPlanProposal(sessionId, options.home, active.startedAt),
+          readPlanProposal(sessionId, options.home, active.startedAt, wrote),
         );
         if (proposal === null) {
           return;
@@ -458,17 +467,22 @@ export const makeCmdSession = (
       /** One complete stdout line → its events. */
       const handleLine = (line: string): Effect.Effect<void> => {
         const frame = parseFrame(line);
-        const pendings: ReadonlyArray<PendingRuntimeEvent> =
-          "line" in frame
-            ? [
-                {
-                  type: "event.unmapped" as const,
-                  payload: {},
-                  raw: { source: "cmd.ndjson", payload: frame },
-                },
-              ]
-            : translator.onFrame(frame);
-        return Effect.forEach(pendings, emitPrepared, { discard: true });
+        if ("line" in frame) {
+          return emitPrepared({
+            type: "event.unmapped",
+            payload: {},
+            raw: { source: "cmd.ndjson", payload: frame },
+          });
+        }
+        // A plan turn writes its plan with an ordinary `write_file`, and this
+        // is the only place its name appears tied to this run.
+        const planFile = planFileNameIn(frame);
+        const pendings = translator.onFrame(frame);
+        return (
+          planFile === null
+            ? Effect.void
+            : Ref.update(active.planWrites, (files) => [...files, planFile])
+        ).pipe(Effect.andThen(() => Effect.forEach(pendings, emitPrepared, { discard: true })));
       };
 
       const stdoutFiber = yield* Stream.runForEach(proc.stdout, (chunk) =>
@@ -624,6 +638,7 @@ export const makeCmdSession = (
               settled: yield* Deferred.make<void>(),
               plan,
               startedAt: yield* Effect.clockWith((clock) => clock.currentTimeMillis),
+              planWrites: yield* Ref.make<ReadonlyArray<string>>([]),
               interrupted: yield* Ref.make(false),
             };
             yield* Ref.set(processRef, active);
@@ -654,6 +669,12 @@ export const makeCmdSession = (
           return;
         }
         yield* Ref.set(closedRef, true);
+        // The plans this session claimed go back into the pool: another
+        // thread's mtime scan may consider them again.
+        const claimedBy = translator.sessionId;
+        if (claimedBy !== null) {
+          yield* Effect.sync(() => releasePlanClaims(claimedBy));
+        }
         // The session's processes are gone once this returns — revoke the hook
         // bearer with them rather than leave it valid until the scope ends.
         if (options.services.unregisterHookHandler !== undefined) {
