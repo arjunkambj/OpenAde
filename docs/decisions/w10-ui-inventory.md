@@ -174,17 +174,17 @@ section 11, not an oversight.
 
 ## Settings and welcome
 
-| Surface                                             | Status     | File                                                          |
-| --------------------------------------------------- | ---------- | ------------------------------------------------------------- |
-| General                                             | real       | `components/Settings/general-panel.tsx`                       |
-| Connectors: schema-driven form + probe details      | real       | `components/Settings/connectors-panel.tsx`, `schema-form.tsx` |
-| MCP servers                                         | real       | `components/Settings/mcp-panel.tsx`, `mcp-server-dialog.tsx`  |
-| Skills                                              | real       | `components/Settings/skills-panel.tsx`                        |
+| Surface                                             | Status     | File                                                           |
+| --------------------------------------------------- | ---------- | -------------------------------------------------------------- |
+| General                                             | real       | `components/Settings/general-panel.tsx`                        |
+| Connectors: schema-driven form + probe details      | real       | `components/Settings/connectors-panel.tsx`, `schema-form.tsx`  |
+| MCP servers                                         | real       | `components/Settings/mcp-panel.tsx`, `mcp-server-dialog.tsx`   |
+| Skills                                              | real       | `components/Settings/skills-panel.tsx`                         |
 | Keybindings                                         | real       | `routes/settings/keybindings.tsx` → `components/keybindings/*` |
-| Appearance: system / light / dark                   | real       | `components/Settings/theme-cards.tsx`                         |
-| Closed `<Select>` shows its label                   | fixed here | `components/Settings/select-label.ts`                         |
-| Shell shortcuts on settings routes                  | fixed here | `components/Layout/settings-layout.tsx`                       |
-| Welcome: pick project, verify harness, billing link | fixed here | `routes/welcome.tsx`, `components/Settings/probe-help.ts`     |
+| Appearance: system / light / dark                   | real       | `components/Settings/theme-cards.tsx`                          |
+| Closed `<Select>` shows its label                   | fixed here | `components/Settings/select-label.ts`                          |
+| Shell shortcuts on settings routes                  | fixed here | `components/Layout/settings-layout.tsx`                        |
+| Welcome: pick project, verify harness, billing link | fixed here | `routes/welcome.tsx`, `components/Settings/probe-help.ts`      |
 
 base-ui's `Select.Value` renders the raw _value_ unless it is handed a
 formatter: the items live in a portal that is unmounted while the popup is
