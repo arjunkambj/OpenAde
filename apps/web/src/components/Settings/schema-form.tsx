@@ -188,15 +188,20 @@ export function KeyValueInput({
 /**
  * A `shortcut` control: click, then press the chord. The stored notation is
  * `Cmd+Shift+B` — `Cmd` stands for the platform modifier and is normalised at
- * the point of use. Escape alone records `Escape` (it is a real binding);
- * Backspace clears.
+ * the point of use. Escape alone records `Escape`; it is a real binding.
+ *
+ * There is no "clear". A `shortcut` field is a `NonEmptyString` by contract, so
+ * no consumer can accept an empty one — Backspace used to call
+ * `onChange(undefined)` and the keybindings page silently dropped the write,
+ * leaving a control that looked like it did something and never did. Removing a
+ * binding is the row's own action, not this button's.
  */
 function ShortcutInput({
   value,
   onChange,
 }: {
   readonly value: string;
-  readonly onChange: (next: string | undefined) => void;
+  readonly onChange: (next: string) => void;
 }) {
   const [listening, setListening] = React.useState(false);
   return (
@@ -211,11 +216,6 @@ function ShortcutInput({
         }
         event.preventDefault();
         event.stopPropagation();
-        if (event.key === "Backspace") {
-          onChange(undefined);
-          setListening(false);
-          return;
-        }
         if (["Meta", "Control", "Alt", "Shift"].includes(event.key)) {
           return;
         }
