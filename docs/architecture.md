@@ -10,9 +10,13 @@ it emits into the `RuntimeEvent` vocabulary — and everything else is written
 against that vocabulary. One connector ships today:
 `packages/connector-cmd`, for the Command Code CLI (`cmd`).
 
-This document describes the pieces and how they connect. It is written against
-the code as it stands; where a comment, a spec or a decision note disagrees with
-the code, the code is what is described here.
+This document describes the pieces and how they connect, written against the
+code as it stands. Its companions:
+[how-it-works.md](how-it-works.md) traces what happens at runtime,
+[philosophy.md](philosophy.md) says which of these shapes are rules and where
+they are enforced, [development.md](development.md) is how to run and check the
+thing, and [command-code-connector.md](command-code-connector.md) is what the
+`cmd` CLI actually does.
 
 ## Processes
 
@@ -44,7 +48,7 @@ pipe. The server writes one JSON line to fd 3 (`writeHandshake` in
 `apps/server/src/rpc/bootstrap.ts`) carrying `{ url, token, serverInstanceId }`,
 and falls back to stdout when fd 3 is not a handshake pipe — including when the
 process has a node IPC channel, which also lands on fd 3. The supervisor reads
-at most 64KB waiting for that line, gives up after 15 seconds, restarts on crash
+at most 64 KiB waiting for that line, gives up after 15 seconds, restarts on crash
 with 500ms→10s backoff, and after five consecutive failures stops and reports
 instead of spinning (`onRepeatedFailure`, wired to a dialog in
 `apps/desktop/src/backend/serverDeps.ts`).
@@ -184,18 +188,43 @@ only; must never import the server, the connector packages or the renderer.
 
 ### apps/web
 
-The renderer. TanStack Router routes under `apps/web/src/routes` (`_home`,
-`_home/t/$threadId`, `browser.$threadId`, `settings/*`, `welcome`, plus `dev/*`
-fixture pages), state through `@effect/atom-react`, components under
-`apps/web/src/components`: `timeline`, `composer`, `approvals`, `panes/{changes,browser,
-files}`, `dock/right-dock.tsx`, `sidebar`, `Settings`, `folder-picker`,
-`welcome`.
+The renderer. TanStack Router routes under `apps/web/src/routes`, state through
+`@effect/atom-react`, components under `apps/web/src/components`.
 
-The RPC client never leaves the client runtime: `apps/web/src/lib/client-runtime.tsx`
-builds the atom factories once from a `Connection` layer and hands them out
-through React context. Presentation state that never reaches the server lives
-in `apps/web/src/state/ui.ts` — row disclosure, dock width, the active dock tab (which
-also travels in the route's `?pane=` search param).
+| Route                             | What it is                                                 |
+| --------------------------------- | ---------------------------------------------------------- |
+| `_home/index`                     | start a thread, pick a project                             |
+| `_home/t/$threadId`               | the thread view; `?pane=` carries the dock tab             |
+| `settings` + 5 pages              | general, connectors, mcp, skills, keybindings, appearance  |
+| `welcome`                         | first run: folder, connector probe, project create         |
+| `browser.$threadId`               | the marker page the browser pane's `<webview>` guest loads |
+| `dev/{timeline,composer,changes}` | fixture pages, DEV only                                    |
+
+The shell is a left sidebar (projects → threads, with a status icon and an
+unread dot), the thread column (timeline, composer, interaction cards) and a
+right dock with three tabs: **changes** (a turn selector over `git.diff`),
+**browser** (the pane) and **files** (a search over `files.search` that drills
+into directories and previews a file through `files.read`, paged by line offset
+because a window is capped by characters, not lines). Under 768px the dock is an
+overlay rather than a column, so its tabs stay reachable.
+
+The atom runtime is built once. `apps/web/src/state/app-runtime.tsx` owns the
+single `makeRuntime` instance, the shared registry and the offline layer that
+keeps every atom mountable when there is no server;
+`apps/web/src/lib/app-runtime.ts` adds the settings and welcome atoms on top of
+that instance; `apps/web/src/lib/client-runtime.tsx` publishes it to React
+(and lets a fixture page substitute a scripted client). Components read through
+`apps/web/src/state/hooks.ts` and hold no RPC client of their own.
+
+Presentation state that never reaches the server lives in
+`apps/web/src/state/ui.ts` and the browser's own storage — row disclosure, dock
+width, the per-thread dock tab, and the "last seen" stamp behind the unread dot.
+There is no `unread` flag on the wire: whether this window has looked at a
+thread is not the server's business, and a thread with no stamp is deliberately
+not unread.
+
+The three `dev/*` pages load their bodies through a dynamic import inside
+`if (import.meta.env.DEV)`, so no fixture data reaches a production bundle.
 
 Public seam: none; it is a leaf. May import `ui`, `contracts`,
 `client-runtime`, `shared`. Must never name a connector.
@@ -505,10 +534,12 @@ decided.
 
 A reactor consumes the engine's published streams and performs the side effect
 an event calls for. Reactors never dispatch as an input to a decision that has
-already been made; they act on what was decided. All four are merged in
-`boot.ts` and subscribe eagerly at layer build, because a forked fiber does not
-start until the builder yields and the engine's PubSub drops what it publishes
-while nobody is listening.
+already been made; they act on what was decided. Four of them are merged in
+`boot.ts` — `ProviderCommandReactor`, `CheckpointReactor`, `AttachmentReactor`
+and the session supervisor — and they subscribe eagerly at layer build, because
+a forked fiber does not start until the builder yields and the engine's PubSub
+drops what it publishes while nobody is listening. `RuntimeIngestion` is the
+exception: one fiber per session, forked by the session manager.
 
 | Reactor                              | Watches                    | Does                                                                                                                                                 |
 | ------------------------------------ | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -595,14 +626,14 @@ synchronized → live`.
    │ boundary item (mergeKey null) flushes first  │
    │ retained items/bytes charged until pulled    │
    └───────────────────────┬─────────────────────┘
-        over 1000 items or 8MB │
+       over 1000 items or 8 MiB │
                                ▼
                  { kind: "resnapshot-required" }, then end
 ```
 
 The budget is per subscription, and both ends agree on the numbers because they
 live in `packages/contracts/src/rpc.ts`: `STREAM_BUDGET_ITEMS` 1000,
-`STREAM_BUDGET_BYTES` 8MB, `STREAM_COALESCE_MS` 50. Every item delivered but not
+`STREAM_BUDGET_BYTES` 8 MiB, `STREAM_COALESCE_MS` 50. Every item delivered but not
 yet pulled counts; pulling one releases its charge. A subscriber that falls too
 far behind gets a terminal `resnapshot-required` and re-subscribes for a fresh
 snapshot, rather than being fed a backlog it will never catch up with.
@@ -739,26 +770,18 @@ and a replay all converge on the same row.
 ## The Command Code connector
 
 The seam described above, filled in for one CLI. What follows is the shape of
-the connector; the harness's own behaviour is recorded under
-`packages/testkit/fixtures/cmd/` and written up in
-`docs/command-code-connector.md`.
+the connector inside this architecture; every fact about the harness itself —
+the argv, the frame catalogue, the hook payload, the version policy, plan mode,
+subagents, exit codes, resume — is in
+[command-code-connector.md](command-code-connector.md), read off the code and
+the recordings under `packages/testkit/fixtures/cmd/`.
 
-**Version policy.** The connector runs whatever `cmd` the user has installed, at
-whatever version, and never prefers a pinned copy of its own. The npx fallback
-asks for `command-code@latest`; `OLDEST_TESTED_VERSION` (1.54.0) is only a
-warning floor, and a version string that cannot be parsed does not warn either.
-The probe runs without `--no-auto-update` — a probe is the one safe moment to
-let the CLI update itself — and turn spawns keep it, because swapping the binary
-under a running conversation is not.
-
-**One process per turn.** Print mode takes one turn per process:
-`cmd -p "<prompt>" --output-format json --verbose -t --skip-onboarding
---no-auto-update`, plus `--session <id>`, the model/effort flags, `--add-dir`
-for attachment directories, and `--tools-enable ask_user_question`. The child is
+**One process per turn.** Print mode takes one turn per process, so `send`
+spawns a child, waits for it to exit, and settles the turn. The child is
 `detached` so interrupt and close can signal its whole process group. Of the
-inherited environment the child sees only an allowlist; the operator's
-`extraEnv` passes by name; the session's own `OPENADE_*` control plane is
-applied last so nothing can override it.
+inherited environment it sees only an allowlist; the operator's `extraEnv`
+passes by name; the session's own `OPENADE_*` control plane is applied last so
+nothing can override it.
 
 **Three sources feed one event stream.** NDJSON frames on stdout are the live
 source. The transcript on disk is history — it is appended once per completed
@@ -771,29 +794,8 @@ process, dedupes the overlap across turns.
 harness's own `turn_start`/`turn_end` frames count model round trips inside it,
 of which one user turn can contain several.
 
-**Approvals** ride the PreToolUse hook (below). **Plan mode** is the one turn
-spawned without `--yolo`, because plan mode fires no PreToolUse hook at all: our
-ladder is not present there, and adding `--yolo` would remove the print-mode
-refusal that is. The plan file the model tries to write is refused by print
-mode, but its whole body is in the frame that announced the call, so the
-connector saves the file itself (`plans.ts`) and proposes it.
-
-**Subagents.** PreToolUse fires once for the delegation and never for the work
-inside it, so approving an `agent` call approves everything it goes on to do,
-and the delegation's own brief is all the user gets to judge.
-`subagent_start`/`_progress`/`_stop` map onto the task row the call opened and
-are the only visibility there is.
-
-**Exit codes** map to a sentence and a fatal flag (`exitCodes.ts`). The three
-transport failures — rate limit, network, API 5xx — are non-fatal, so the
-session stays alive for the supervisor to back off against; 0 and 130 are not
-failures and are absent.
-
-**Resume.** A run killed by SIGINT never writes its transcript, so the session
-id it announced names a session that no longer exists and the next spawn exits 1
-before emitting a frame. The connector checks the filesystem for the transcript
-before resuming — the same question the harness asks — and otherwise continues
-in a new session with a `session.warning`.
+**Approvals** ride the PreToolUse hook (below), which is the only approval
+channel print mode has.
 
 **Files we write into the user's world**, both reverted when the session closes
 (`config.ts`): the PreToolUse hook block in
@@ -878,20 +880,16 @@ cmd child ──► ~/.openade/bin/cmd-hook.mjs   (system shell, per tool call)
 
 The bearer is the routing key and the capability in one: it is minted per
 thread, lives only in the spawned process's world, and revoking it is
-`unregister`. It arrives in a **file**, not in the environment, because the CLI
-redacts secret-shaped variable names out of a hook's environment — the script
-then took its "no OpenAde session owns this run" path, the harness fell back to
-its own flow, and under `--yolo` every tool call ran unapproved. Picking a name
-the denylist has not learned yet would make the gate depend on a heuristic we
-cannot see, so `OPENADE_HOOK_TICKET_FILE` carries a path and the bearer lives in
-a 0600 file the session writes when it opens and deletes when it closes
-(`packages/connector-cmd/src/hookScript.ts`).
+`unregister`. It arrives in a **file** named by `OPENADE_HOOK_TICKET_FILE`, not
+in the environment, because the CLI redacts secret-shaped variable names out of
+a hook's environment; the failure that taught us so is in
+[command-code-connector.md](command-code-connector.md#the-ticket-file).
 
 Every failure path in the script prints a `deny`: bridge down, timeout, garbage
 response. The bridge itself answers `deny` for an unregistered thread, a failing
 handler and a handler that exceeds 590 seconds — under the harness's 600-second
-cap and the script's own 570-second fetch timeout. Bodies are capped at 1MB. An
-unrecognised bearer is a 401.
+cap and the script's own 570-second fetch timeout. Bodies are capped at 1 MiB.
+An unrecognised bearer is a 401.
 
 One exception to deny-on-unreachable: the hook block we install in a project
 outlives the session, so an interactive `cmd` run in that project invokes the
@@ -926,14 +924,19 @@ except for input classes an in-flight call is expected to produce (a
 `browser_click` produces one pointer event; a `browser_type` produces one key
 event per character). A call that settles under a different epoch than it
 started returns `interrupted_by_human`, which the agent reads in the tool
-result. Results are capped at 64KB counted in bytes, cut on a byte boundary.
+result. Results are capped at 64 KiB counted in bytes, cut on a byte boundary.
 
 Timeline rows for `mcp__openade__browser_*` come from the harness transcript
 through the connector's translator, not from the gateway — emitting items there
 would double every row.
 
-The browser itself has two modes (`apps/server/src/browser/driver.ts`), opened
-lazily on first use so opening the pane never launches Chrome:
+The browser itself is the `agent-browser` CLI, wrapped rather than mounted as
+its own MCP server: wrapping is what gives a session per thread, a pinned
+target, the interrupt rule and teardown on thread close. Every call is one
+`--json` invocation whose envelope is `{ success, data, error }`.
+
+Two modes (`apps/server/src/browser/driver.ts`), opened lazily on first use so
+opening the pane never launches Chrome:
 
 - **cdp-attach** — `OPENADE_CDP_PORT` is set, so the desktop launched with
   remote debugging. The driver binds the pane's own webview guest through
@@ -943,6 +946,15 @@ lazily on first use so opening the pane never launches Chrome:
 - **owned-chromium** — no CDP endpoint, or no webview target inside the attach
   window: agent-browser runs its own headless Chrome and the driver streams
   JPEG frames over the session's WebSocket and forwards human input into it.
+  Every gesture on that pane is human by construction — the agent cannot click
+  an `<img>` — so each one bumps the epoch.
+
+The remote-debugging port is opt-in for a reason: anything else running as this
+user can drive the renderer through it. The shell opens one only when the
+browser pane is enabled — `browserPane: true` in `desktop.json`, or the
+`OPENADE_BROWSER_PANE` / `OPENADE_CDP_PORT` overrides, with
+`OPENADE_REMOTE_DEBUG=0` as a veto — and with no port every thread runs
+owned-chromium.
 
 A missing `agent-browser` binary is not fatal: the service reports no binary,
 every call fails with `AgentBrowserUnavailable`, and the pane renders an install
@@ -994,7 +1006,8 @@ other.
 Rules live in `permission_rules`, scoped `global | project | session`, with
 `project_id`/`thread_id` stored as `''` rather than NULL so the uniqueness
 constraint dedupes. That table is the single source of truth; the wire
-`Settings.permissions` array is a projection of it. "Allow always" writes a row
+`Settings.permissions` array is a projection of it, and the stored settings
+document keeps its own copy of that array empty, so the two can never disagree. "Allow always" writes a row
 inside the dispatch transaction and, after commit, invalidates the reactive key
 so an open settings page re-reads it — after, because a subscriber told to
 re-read mid-transaction can see a row the rest of the dispatch then rolls back.
@@ -1033,9 +1046,9 @@ test that adds an MCP server does not edit the operator's real config.
 
 ## Tests and the gate
 
-`pnpm check` runs, in order: `oxlint`, `oxfmt --check` (including the markdown
-under `docs/`), `tsc` across the workspace, `vitest`,
-`scripts/check-boundaries.mjs`, `scripts/check-file-sizes.mjs`, and `knip`.
+One command is the gate — `pnpm check`: lint, format, types, tests, boundaries,
+file sizes, dead code. What each stage enforces and how to run one on its own is
+in [development.md](development.md#the-gate).
 
 Unit suites sit beside their subjects in every workspace. Above them:
 
@@ -1054,14 +1067,13 @@ Unit suites sit beside their subjects in every workspace. Above them:
   never happens ends as a failed wait rather than a slow pass.
 
 The end-to-end suite and the live conformance test have two drivers, differing
-only in the binary. The gate runs the **replay** driver: the connector's binary
-path points at `packages/testkit/bin/replay-cmd.mjs`, which puts a recording of
-a real run back on the wire — real argv, real stdout chunking, a real transcript
-appearing on disk, the project's real hook script invoked through the system
-shell. `OPENADE_LIVE_CMD=1` switches to the **live** driver, which discovers the
-operator's own `cmd` and spends their plan; it is opt-in for that reason.
+only in the binary: the gate runs recordings through
+`packages/testkit/bin/replay-cmd.mjs`, and `OPENADE_LIVE_CMD=1` runs the
+operator's own `cmd`. [development.md](development.md#the-end-to-end-suite) has
+the commands and how a recording is made.
 
 `pnpm build` produces the server bundle, the web `dist` and the macOS app
-through electron-builder. `apps/server`'s esbuild entry is `apps/server/src/main.ts` and
-nothing under a `test/` directory is bundled, which is the other half of why the
-boundary check keeps testkit out of the production allowlist.
+through electron-builder. `apps/server`'s esbuild entry is
+`apps/server/src/main.ts` and nothing under a `test/` directory is bundled,
+which is the other half of why the boundary check keeps testkit out of the
+production allowlist.
