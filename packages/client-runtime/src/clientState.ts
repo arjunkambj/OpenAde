@@ -54,6 +54,27 @@ export interface ThreadDetailView extends ThreadDetailSnapshot {
 }
 
 /**
+ * `waiting` whenever a card is open, the given status otherwise — the client's
+ * copy of `waitingOr` in apps/server/src/orchestration/state.ts. The server
+ * holds arrays of open approvals and questions where the snapshot carries only
+ * the head of each, but "is anything open" is the same question either way.
+ */
+const waitingOr = (doc: ThreadDetailView, fallback: ThreadDetailView["status"]) =>
+  doc.pendingApproval !== null || doc.pendingUserInput !== null || doc.pendingPlan !== null
+    ? "waiting"
+    : fallback;
+
+/**
+ * Where one answered card leaves the thread: back to the turn it interrupted
+ * if one is still running, and otherwise to whatever else is still open. The
+ * caller passes the document with its own card already cleared, so a thread
+ * with nothing left open lands on `idle` rather than staying `waiting` on its
+ * own answered question.
+ */
+const settledStatus = (doc: ThreadDetailView) =>
+  doc.currentTurnId === null ? waitingOr(doc, "idle") : "running";
+
+/**
  * Merges one orchestration event into the snapshot. Payload fields map
  * straight onto the document — the server's fold already validated them.
  */
@@ -116,10 +137,25 @@ export const applyThreadEvent = (
     case "thread.turn.completed":
       // `pendingPlan` survives the turn's end: the server proposes plans late
       // in the turn and the user answers after it finishes — the plan card
-      // must stay up until `thread.plan.responded` clears it.
+      // must stay up until `thread.plan.responded` clears it. Which is exactly
+      // why the status has to be `waiting` here whenever a card is open: the
+      // connector emits the proposal immediately before it ends the turn, so
+      // `idle` meant every plan-mode turn parked the header pill on "Idle"
+      // beside a sidebar row — fed by the server's summary — marked waiting.
+      //
+      // An archived thread stays archived, as on the server: a turn its
+      // connector was stopped mid-answer must not file it back into the list.
+      //
+      // The queue is the one place the client is deliberately ahead: the
+      // server says `idle` and its reactor's drain turns the thread `running`
+      // a beat later, and following it would blink the pill on every queued
+      // message.
       return {
         ...doc,
-        status: doc.queue.length > 0 ? "running" : "idle",
+        status:
+          doc.status === "archived"
+            ? "archived"
+            : waitingOr(doc, doc.queue.length > 0 ? "running" : "idle"),
         currentTurnId: null,
         updatedAt: event.occurredAt,
       };
@@ -162,15 +198,24 @@ export const applyThreadEvent = (
         updatedAt: event.occurredAt,
       };
     }
+    // Each of the three "a card is open" events puts the thread in `waiting`,
+    // and each answer hands it back to the turn that is still running or, when
+    // none is, to whatever else is still open. Same rules as the server's fold.
     case "thread.approval.opened":
       return {
         ...doc,
         pendingApproval: payload.request as ThreadDetailSnapshot["pendingApproval"],
+        status: "waiting",
         updatedAt: event.occurredAt,
       };
     case "thread.approval.resolved":
       return doc.pendingApproval?.requestId === payload.requestId
-        ? { ...doc, pendingApproval: null, updatedAt: event.occurredAt }
+        ? {
+            ...doc,
+            pendingApproval: null,
+            status: settledStatus({ ...doc, pendingApproval: null }),
+            updatedAt: event.occurredAt,
+          }
         : doc;
     case "thread.userInput.requested":
       return {
@@ -179,11 +224,17 @@ export const applyThreadEvent = (
           requestId: payload.requestId,
           questions: payload.questions,
         } as ThreadDetailSnapshot["pendingUserInput"],
+        status: "waiting",
         updatedAt: event.occurredAt,
       };
     case "thread.userInput.resolved":
       return doc.pendingUserInput?.requestId === payload.requestId
-        ? { ...doc, pendingUserInput: null, updatedAt: event.occurredAt }
+        ? {
+            ...doc,
+            pendingUserInput: null,
+            status: settledStatus({ ...doc, pendingUserInput: null }),
+            updatedAt: event.occurredAt,
+          }
         : doc;
     case "thread.plan.proposed":
       return {
@@ -193,11 +244,17 @@ export const applyThreadEvent = (
           planMarkdown: payload.planMarkdown,
           planPath: payload.planPath,
         } as ThreadDetailSnapshot["pendingPlan"],
+        status: "waiting",
         updatedAt: event.occurredAt,
       };
     case "thread.plan.responded":
       return doc.pendingPlan?.turnId === payload.turnId
-        ? { ...doc, pendingPlan: null, updatedAt: event.occurredAt }
+        ? {
+            ...doc,
+            pendingPlan: null,
+            status: settledStatus({ ...doc, pendingPlan: null }),
+            updatedAt: event.occurredAt,
+          }
         : doc;
     case "thread.settings.updated":
       return {

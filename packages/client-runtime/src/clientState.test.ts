@@ -69,9 +69,10 @@ describe("clientState fold", () => {
     expect(doc.pendingPlan?.turnId).toBe(turnId);
 
     // Plans are answered after the turn ends — completing the turn must not
-    // take the card down.
+    // take the card down, and the thread waits on the answer rather than
+    // claiming to be idle with a card up.
     doc = applyThreadEvent(doc, event("thread.turn.completed", { turnId, stopReason: "end_turn" }));
-    expect(doc.status).toBe("idle");
+    expect(doc.status).toBe("waiting");
     expect(doc.currentTurnId).toBeNull();
     expect(doc.pendingPlan?.turnId).toBe(turnId);
 
@@ -232,6 +233,74 @@ describe("clientState fold", () => {
       event("thread.error", { message: "tool failed", fatal: false }),
     );
     expect(noted.status).toBe("running");
+  });
+
+  it("goes to waiting whenever a card opens, and back on the turn's end", () => {
+    // The server's fold puts the thread in `waiting` on each of these three
+    // and keeps it there through `turn.completed` (`waitingOr`). A client that
+    // said `idle` showed an "Idle" header pill beside a sidebar row — fed by
+    // the server's own summary — carrying the waiting mark.
+    const turnId = makeTurnId();
+    const started = applyThreadEvent(snapshot(), event("thread.turn.started", { turnId }));
+
+    const approving = applyThreadEvent(
+      started,
+      event("thread.approval.opened", {
+        request: { requestId: "r1", kind: "file_write", summary: "write" },
+      }),
+    );
+    expect(approving.status).toBe("waiting");
+
+    const asking = applyThreadEvent(
+      started,
+      event("thread.userInput.requested", { requestId: "q1", questions: [] }),
+    );
+    expect(asking.status).toBe("waiting");
+
+    const planning = applyThreadEvent(
+      started,
+      event("thread.plan.proposed", { turnId, planMarkdown: "# plan" }),
+    );
+    expect(planning.status).toBe("waiting");
+
+    // The connector proposes the plan immediately before it ends the turn, so
+    // this is the ordering every plan-mode turn actually takes.
+    const settled = applyThreadEvent(
+      planning,
+      event("thread.turn.completed", { turnId, stopReason: "end_turn" }),
+    );
+    expect(settled.status).toBe("waiting");
+
+    const answered = applyThreadEvent(
+      settled,
+      event("thread.plan.responded", { turnId, action: "accept" }),
+    );
+    expect(answered.status).toBe("idle");
+  });
+
+  it("keeps an archived thread archived when its turn settles", () => {
+    // The server's fold guards this case: a thread archived mid-answer must
+    // not come back to the sidebar because the connector finally stopped.
+    const turnId = makeTurnId();
+    const archived = applyThreadEvent(snapshot(), event("thread.archived", {}));
+    const settled = applyThreadEvent(
+      archived,
+      event("thread.turn.completed", { turnId, stopReason: "end_turn" }),
+    );
+    expect(settled.status).toBe("archived");
+  });
+
+  it("anticipates the queue drain a completed turn sets off", () => {
+    // The one place the client is deliberately ahead of the server: the server
+    // says `idle` and the reactor's drain turns it `running` a beat later.
+    // Following it would blink the pill on every queued message.
+    const turnId = makeTurnId();
+    let doc = applyThreadEvent(
+      snapshot(),
+      event("thread.message.queued", { message: { queuedMessageId: "m1" } }),
+    );
+    doc = applyThreadEvent(doc, event("thread.turn.completed", { turnId, stopReason: "end_turn" }));
+    expect(doc.status).toBe("running");
   });
 
   it("clears the thread list when the server asks for a resnapshot", () => {
