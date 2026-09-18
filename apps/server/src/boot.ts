@@ -50,7 +50,7 @@ import { ServerIdentity, SettingsStore } from "./rpc/services";
 import { layer as cmdConfigLayer } from "./settings/CmdConfig";
 import { ConnectorHost } from "./settings/ConnectorHost";
 import { ConnectorManager, ConnectorRegistryService } from "./settings/ConnectorManager";
-import { routingPreference } from "./settings/connectorRouting";
+import { OpenConnectors, routingPreference } from "./settings/connectorRouting";
 
 /** @public The composition root's options; `main.ts` fills them from argv. */
 export interface BootOptions {
@@ -106,11 +106,19 @@ export const boot = (options: BootOptions) =>
       sqlite,
       Layer.mergeAll(EventStore.layer, ReadModelStore.layer).pipe(Layer.provide(sqlite)),
     );
-    const engine = OrchestrationEngine.layer.pipe(Layer.provide(persistence));
     const registry = yield* makeRegistry([eraseConnectorDefinition(cmdConnectorDefinition)]);
     // Routing follows the connectors page's own order, not the order instances
     // happened to be opened in — the same reading the engine seeds a new
-    // thread's model from, so the two always name one instance.
+    // thread's model from, so the two always name one instance. Both also skip
+    // an enabled entry that never opened, so a thread routed past a broken
+    // connector is not started on that connector's model.
+    const openConnectors = Effect.map(registry.instances, (instances) =>
+      instances.map((instance) => instance.instanceId),
+    );
+    const engine = OrchestrationEngine.layer.pipe(
+      Layer.provide(persistence),
+      Layer.provide(Layer.succeed(OpenConnectors, openConnectors)),
+    );
     const selection = ConnectorSelection.fromRegistry(
       registry,
       routingPreference(Context.get(sqliteContext, SqlClient.SqlClient)),

@@ -41,7 +41,7 @@ import { layer as sqliteLayer, testLayer as sqliteTestLayer } from "../persisten
 import { SettingsStore } from "../rpc/services";
 import { ConnectorHost } from "./ConnectorHost";
 import { ConnectorManager, ConnectorRegistryService } from "./ConnectorManager";
-import { readConnectorRouting, routingPreference } from "./connectorRouting";
+import { readConnectorRouting, routingPreference, seedModel } from "./connectorRouting";
 
 interface Fixture {
   readonly manager: ConnectorManager["Service"];
@@ -135,6 +135,10 @@ const awaitSummaries = (
   manager: ConnectorManager["Service"],
   pred: (summaries: ReadonlyArray<ConnectorSummary>) => boolean,
 ) => manager.changes.pipe(Stream.filter(pred), Stream.runHead, Effect.map(Option.getOrThrow));
+
+/** The open-instance reading the entrypoint hands the engine. */
+const openIds = (registry: ConnectorRegistry) =>
+  Effect.map(registry.instances, (instances) => instances.map((instance) => instance.instanceId));
 
 const threadId = makeThreadId();
 
@@ -431,7 +435,79 @@ describe("ConnectorManager", () => {
         // connector was never asked about.
         const routing = yield* readConnectorRouting(sql);
         expect(routing.enabled[0]!.connectorInstanceId).toBe(routed.instanceId);
-        expect(routing.enabled[0]!.defaultModel).toBe("acme/first");
+        expect(yield* seedModel(sql, openIds(registry))).toBe("acme/first");
+      }),
+    ),
+  );
+
+  it.effect("a thread routed past a connector that never opened is not seeded from it", () =>
+    withFixture(({ manager, store, registry, sql }) =>
+      Effect.gen(function* () {
+        // The document's first enabled entry names a kind this build does not
+        // ship, so it is probed, reported as an error and never registered.
+        // Selection therefore routes to the second entry; the seed has to
+        // follow it there, or the thread starts on a model the connector it
+        // actually runs on has never heard of.
+        const ghost = {
+          connectorInstanceId: makeConnectorInstanceId(),
+          kind: "no-such-connector",
+          displayName: "Ghost",
+          enabled: true,
+          config: { defaultModel: "ghost/never-opened" },
+        };
+        const working = {
+          connectorInstanceId: makeConnectorInstanceId(),
+          kind: "fake",
+          displayName: "Working",
+          enabled: true,
+          config: { defaultModel: "acme/working" },
+        };
+        yield* store.update({ connectors: [ghost, working] });
+        yield* awaitSummaries(
+          manager,
+          (all) =>
+            all.length === 2 && all[0]!.probe.status === "error" && all[1]!.capabilities !== null,
+        );
+
+        const selection = yield* Effect.scoped(
+          Effect.map(
+            Layer.build(ConnectorSelection.fromRegistry(registry, routingPreference(sql))),
+            (built) => Context.get(built, ConnectorSelection),
+          ),
+        );
+        const routed = yield* selection.instanceFor({ threadId } as ThreadDoc);
+        expect(routed.instanceId).toBe(working.connectorInstanceId);
+        expect(yield* seedModel(sql, openIds(registry))).toBe("acme/working");
+
+        // Without the registry to consult, the document's order is all there
+        // is — which is the reading every engine test without a connector gets.
+        expect(yield* seedModel(sql, null)).toBe("ghost/never-opened");
+      }),
+    ),
+  );
+
+  it.effect("nothing open seeds nothing, and a shared default outranks both", () =>
+    withFixture(({ manager, store, sql, registry }) =>
+      Effect.gen(function* () {
+        const ghost = {
+          connectorInstanceId: makeConnectorInstanceId(),
+          kind: "no-such-connector",
+          displayName: "Ghost",
+          enabled: true,
+          config: { defaultModel: "ghost/never-opened" },
+        };
+        yield* store.update({ connectors: [ghost] });
+        yield* awaitSummaries(
+          manager,
+          (all) => all.length === 1 && all[0]!.probe.status === "error",
+        );
+        // No enabled entry is open, so no entry speaks for whatever the
+        // registry falls back to: the thread starts on the connector's own.
+        expect(yield* seedModel(sql, openIds(registry))).toBeNull();
+
+        const current = yield* store.get;
+        yield* store.update({ defaults: { ...current.defaults, model: "acme/shared" } });
+        expect(yield* seedModel(sql, openIds(registry))).toBe("acme/shared");
       }),
     ),
   );

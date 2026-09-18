@@ -43,7 +43,7 @@ import type { SqlError } from "effect/unstable/sql/SqlError";
 import { EventStore, type ConcurrencyConflict, type PlannedEvent } from "../persistence/EventStore";
 import { layer as migrationsLayer } from "../persistence/Migrations";
 import { PERMISSION_RULES_KEY } from "../permissions/PermissionService";
-import { readConnectorRouting } from "../settings/connectorRouting";
+import { OpenConnectors, seedModel } from "../settings/connectorRouting";
 import { ReadModelStore } from "../persistence/ReadModels";
 import {
   foldProject,
@@ -173,6 +173,10 @@ export class OrchestrationEngine extends Context.Service<
       const reactivity = yield* Reactivity.Reactivity;
       const store = yield* EventStore;
       const readModels = yield* ReadModelStore;
+      // Captured at build time so the rule is fixed with the graph rather than
+      // resolved off whichever fiber happens to dispatch. The value is itself
+      // an effect, so it still reads the registry fresh on every seed.
+      const openConnectors = yield* OpenConnectors;
 
       // Rows written by an older projector cannot be trusted: a field added
       // to `ThreadDoc` since would read back as `undefined`. Rebuilding is a
@@ -231,19 +235,14 @@ export class OrchestrationEngine extends Context.Service<
       }));
 
       /**
-       * The model a `thread.create` without one starts on.
-       *
-       * The app-wide default first, and then the connector's own, so that a
-       * `defaultModel` on the connectors page means "new threads on this
-       * connector" rather than nothing at all. Which connector that is comes
-       * from `readConnectorRouting` — the same reading `ConnectorSelection`
+       * The model a `thread.create` without one starts on: the app-wide
+       * default first, and then the connector's own, so that a `defaultModel`
+       * on the connectors page means "new threads on this connector" rather
+       * than nothing at all. `seedModel` is the same rule `ConnectorSelection`
        * routes by, so the seeded model belongs to the instance the thread's
        * first turn will actually run on.
        */
-      const defaultModel = Effect.map(
-        readConnectorRouting(sql),
-        (routing) => routing.sharedModel ?? routing.enabled[0]?.defaultModel ?? null,
-      );
+      const defaultModel = seedModel(sql, openConnectors);
 
       /** Cross-aggregate facts the decider may check, gathered inside the txn. */
       const buildContext = (command: Command): Effect.Effect<DeciderContext, SqlError> =>

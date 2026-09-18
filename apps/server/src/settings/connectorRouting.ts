@@ -20,14 +20,17 @@
  * `SettingsStore`, because the engine's call runs inside its dispatch
  * transaction and the store is not in its layer graph.
  *
- * One case stays outside the rule: an enabled entry whose instance failed to
- * open is not in the registry, so selection falls through to the next one that
- * did open while the seed still comes from the document. That connector cannot
- * run a turn at all — its card on the connectors page carries the error — and
- * routing a thread to a working instance beats failing it outright.
+ * An enabled entry whose instance failed to open — a bad `binaryPath`, a
+ * harness that is installed but dies on `createInstance` — is not in the
+ * registry, so selection falls through to the next one that did open. The
+ * seed follows it there rather than staying on the document's first entry:
+ * with two connectors on different accounts a thread routed to B and seeded
+ * with A's model fails its first turn on a model B has never heard of. Which
+ * instances are open is `OpenConnectors`, below.
  */
 
 import type { ConnectorInstanceId } from "@OpenAde/contracts/ids";
+import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import type * as SqlClient from "effect/unstable/sql/SqlClient";
 import type { SqlError } from "effect/unstable/sql/SqlError";
@@ -113,3 +116,43 @@ export const routingPreference = (
     Effect.map((routing) => routing.enabled.map((connector) => connector.connectorInstanceId)),
     Effect.catch(() => Effect.succeed([] as ReadonlyArray<ConnectorInstanceId>)),
   );
+
+/**
+ * @public Which instances the registry currently holds open, read fresh each
+ * time. A `Context.Reference` because the engine is built long before the
+ * registry exists in the layer graph, and because most tests have no registry
+ * at all: `null` is "nobody is tracking that", and then the settings document
+ * stands alone, which is what those tests already assert.
+ */
+export const OpenConnectors = Context.Reference<Effect.Effect<
+  ReadonlyArray<ConnectorInstanceId>
+> | null>("server/settings/OpenConnectors", { defaultValue: () => null });
+
+/**
+ * @public The model a `thread.create` without one starts on.
+ *
+ * The app-wide default outranks everything. Otherwise it is the `defaultModel`
+ * of the connector this thread will actually run on — the first enabled entry
+ * that is open, which is exactly what `ConnectorSelection` picks. When none of
+ * the enabled entries is open, selection falls back to whatever the registry
+ * holds and no document entry can speak for it, so nothing is seeded and the
+ * thread starts on that connector's own default instead of a foreign model.
+ */
+export const seedModel = (
+  sql: SqlClient.SqlClient,
+  open: Effect.Effect<ReadonlyArray<ConnectorInstanceId>> | null,
+): Effect.Effect<string | null, SqlError> =>
+  Effect.gen(function* () {
+    const routing = yield* readConnectorRouting(sql);
+    if (routing.sharedModel !== null) {
+      return routing.sharedModel;
+    }
+    if (open === null) {
+      return routing.enabled[0]?.defaultModel ?? null;
+    }
+    const openIds = yield* open;
+    return (
+      routing.enabled.find((connector) => openIds.includes(connector.connectorInstanceId))
+        ?.defaultModel ?? null
+    );
+  });
