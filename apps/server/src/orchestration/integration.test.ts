@@ -13,7 +13,7 @@ import {
 } from "@OpenAde/contracts/ids";
 import type { Command, OrchestrationEvent } from "@OpenAde/contracts/orchestration";
 import type { ConnectorInstance, ConnectorServices } from "@OpenAde/connector-sdk/definition";
-import { SpawnFailed } from "@OpenAde/connector-sdk/definition";
+import { SessionClosed, SpawnFailed } from "@OpenAde/connector-sdk/definition";
 import {
   approvalTurnScript,
   makeFakeConnector,
@@ -184,6 +184,41 @@ describe("orchestration with a fake connector", () => {
         expect(failed[0]?.status).toBe("failed");
         expect(failed[0]?.text).toContain("could not be decoded");
       }).pipe(Effect.provide(stackLayer({ instance })));
+    }),
+  );
+
+  it.effect("a connector error with no message still leaves a readable log", () =>
+    Effect.gen(function* () {
+      // `SessionClosed`, `NoConnector`, `ConnectorNotFound` and `TurnInProgress`
+      // are `Data.TaggedError`s with no `message` field, so `Error.message` on
+      // them is "". Writing that onto `thread.error` — whose message is a
+      // NonEmptyString — produced a row nothing could decode again: the thread
+      // was unopenable and the next boot died replaying the log.
+      const { instance } = yield* openFake();
+      const closed: ConnectorInstance = {
+        ...instance,
+        startSession: () => Effect.fail(new SessionClosed({ threadId })),
+      };
+      yield* Effect.gen(function* () {
+        const engine = yield* OrchestrationEngine;
+        yield* engine.dispatch(createProject);
+        yield* engine.dispatch(createThread);
+
+        const failed = yield* awaitEvent(engine, isType("thread.error"));
+        yield* engine.dispatch(turnStart("go"));
+        const event = Option.getOrThrow(yield* Fiber.join(failed));
+        expect((event.payload as { message: string }).message).toBe(
+          "the connector failed: SessionClosed",
+        );
+
+        // The proof the row is readable: both of these decode the whole stream
+        // through `OrchestrationEvent`, and an empty message threw a defect no
+        // `Effect.catch` in the graph could stop.
+        const replayed = yield* engine.subscribeThread(threadId, { afterSequence: 0 });
+        yield* Stream.runDrain(Stream.take(replayed, 1));
+        const receipt = yield* engine.dispatch(turnStart("again"));
+        expect(receipt.status).toBe("accepted");
+      }).pipe(Effect.provide(stackLayer({ instance: closed, supervisor: false })));
     }),
   );
 

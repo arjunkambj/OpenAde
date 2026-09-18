@@ -64,6 +64,32 @@ const systemEvent = <Type extends OrchestrationEvent["type"]>(
     payload,
   }) as PlannedEvent;
 
+/** What a failure with nothing to say is called on the timeline. */
+const GENERIC_FAILURE = "the connector failed";
+
+/**
+ * A description that is never the empty string.
+ *
+ * Four of the five errors this reactor can see from a turn — `NoConnector`,
+ * `ConnectorNotFound`, `SessionClosed`, `TurnInProgress` — are `Data.TaggedError`s
+ * with no `message` field, and `Error.message` on those is `""`. Writing that
+ * onto `thread.error` produced a row `OrchestrationEvent` cannot decode, which
+ * took the thread down and then, through the checkpoint reactor's boot replay,
+ * the whole server. The tag is what the user can act on anyway: "removed
+ * connector" reads very differently from "session closed".
+ */
+const describeError = (error: unknown): string => {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.trim() !== "") {
+    return message;
+  }
+  const tag =
+    typeof error === "object" && error !== null && "_tag" in error
+      ? String((error as { readonly _tag: unknown })._tag)
+      : "";
+  return tag === "" ? GENERIC_FAILURE : `${GENERIC_FAILURE}: ${tag}`;
+};
+
 export const ProviderCommandReactor = Layer.effectDiscard(
   Effect.gen(function* () {
     const engine = yield* OrchestrationEngine;
@@ -95,7 +121,16 @@ export const ProviderCommandReactor = Layer.effectDiscard(
       Effect.gen(function* () {
         const now = new Date().toISOString();
         const planned: Array<PlannedEvent> = [
-          systemEvent(threadId, "thread.error", { message, fatal: true }, now, causedBy),
+          systemEvent(
+            threadId,
+            "thread.error",
+            // `thread.error.message` is a NonEmptyString, so an empty one is a
+            // row the log can hold but not read back. Clamped here rather than
+            // only at the call site: every future caller gets the same floor.
+            { message: message.trim() === "" ? GENERIC_FAILURE : message, fatal: true },
+            now,
+            causedBy,
+          ),
         ];
         if (doc.currentTurn !== null) {
           planned.push(
@@ -161,12 +196,7 @@ export const ProviderCommandReactor = Layer.effectDiscard(
                 }),
               ),
               Effect.catch((error) =>
-                failThread(
-                  threadId,
-                  doc,
-                  error instanceof Error ? error.message : String(error),
-                  event.eventId,
-                ),
+                failThread(threadId, doc, describeError(error), event.eventId),
               ),
             );
             return;
