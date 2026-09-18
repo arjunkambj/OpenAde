@@ -315,6 +315,8 @@ export const uninstallProjectHooks = (
  */
 export interface McpRegistration {
   readonly binaryPath: string;
+  /** The npx fallback's package spec, prepended to every `cmd mcp` call. */
+  readonly prefixArgs?: ReadonlyArray<string>;
   readonly projectRoot: string;
   readonly env: Readonly<Record<string, string>>;
 }
@@ -327,7 +329,7 @@ const runCmdMcp = (
   Effect.sync(() => {
     const result = NodeChildProcess.spawnSync(
       registration.binaryPath,
-      ["mcp", ...args, "--no-auto-update"],
+      [...(registration.prefixArgs ?? []), "mcp", ...args, "--no-auto-update"],
       { cwd: registration.projectRoot, env: { ...registration.env }, encoding: "utf8" },
     );
     return result.status === 0;

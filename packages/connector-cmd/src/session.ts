@@ -17,7 +17,7 @@
 import * as NodeFS from "node:fs";
 import type { ConnectorInstanceId, ThreadId } from "@OpenAde/contracts/ids";
 import type { ThreadSettings } from "@OpenAde/contracts/orchestration";
-import type { ConnectorCapabilities, RuntimeEvent } from "@OpenAde/contracts/runtime";
+import type { RuntimeEvent } from "@OpenAde/contracts/runtime";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -44,6 +44,8 @@ import {
   type McpRegistration,
 } from "./config";
 import { stageTurnAttachments } from "./attachments";
+import { CMD_CAPABILITIES } from "./capabilities";
+import { resolveForSession, type ResolvedBinary } from "./binary";
 import { ensureHookScript, hookTicketPath, removeHookTicket, writeHookTicket } from "./hookScript";
 import { makeHookAnswerer } from "./hookAnswers";
 import { makeLineSplitter, parseFrame } from "./ndjson";
@@ -52,19 +54,6 @@ import { buildArgs, envAllowlist, spawnProcess, TOOLS_ENABLED, type CmdProcess }
 import { makeSessionRefLocator, type CmdSessionRef } from "./sessionRef";
 import { findTranscriptPath, tailTranscript } from "./transcript";
 import { makeTranslator, type PendingRuntimeEvent } from "./translate";
-
-export const CMD_CAPABILITIES: ConnectorCapabilities = {
-  modelSwitch: "per-turn",
-  effortSwitch: "per-turn",
-  steering: false,
-  planMode: true,
-  subagents: true,
-  // Print mode has no image flag; the connector stages the files and names
-  // their paths in the prompt instead (decision W10).
-  images: true,
-  resume: true,
-  fork: true,
-};
 
 /** Re-exported so consumers keep importing the session's own vocabulary from it. */
 export type { CmdSessionRef };
@@ -116,6 +105,11 @@ export interface CmdSessionOptions {
   readonly threadId: ThreadId;
   readonly workspaceRoot: string;
   readonly binaryPath?: string;
+  /**
+   * The executable the probe resolved — command plus the npx fallback's prefix
+   * args. Omitted, the session resolves it itself the same way.
+   */
+  readonly binary?: ResolvedBinary;
   readonly extraEnv?: Record<string, string>;
   readonly services: ConnectorServices;
   readonly settings: ThreadSettings;
@@ -146,6 +140,19 @@ export const makeCmdSession = (
     const sendMutex = yield* Semaphore.make(1);
     const closedRef = yield* Ref.make(false);
     const scope = yield* Effect.scope;
+
+    // The binary every turn and every `cmd mcp` call of this session spawns,
+    // resolved the way the probe resolves it (`binary.ts`) rather than left as
+    // the bare name: a packaged .app inherits launchd's PATH, which has no
+    // /opt/homebrew/bin. Resolved once — not under a running conversation.
+    const binary = yield* Effect.sync(
+      (): ResolvedBinary =>
+        options.binary ??
+        resolveForSession(
+          options.binaryPath === undefined ? {} : { binaryPath: options.binaryPath },
+          process.env,
+        ),
+    );
 
     // The harness slugs its *resolved* cwd into the transcript path — a
     // workspace reached through a symlink (macOS /tmp → /private/tmp) writes
@@ -346,7 +353,8 @@ export const makeCmdSession = (
      * the CLI resolves `~/.commandcode` against the same `HOME` its turns do.
      */
     const mcpRegistration: McpRegistration = {
-      binaryPath: options.binaryPath ?? "cmd",
+      binaryPath: binary.command,
+      ...(binary.prefixArgs.length === 0 ? {} : { prefixArgs: binary.prefixArgs }),
       projectRoot: options.workspaceRoot,
       env: envAllowlist(process.env, { ...options.extraEnv }),
     };
@@ -659,8 +667,8 @@ export const makeCmdSession = (
               toolsEnable: TOOLS_ENABLED,
             });
             const proc = yield* spawnProcess({
-              binaryPath: options.binaryPath ?? "cmd",
-              args,
+              binaryPath: binary.command,
+              args: [...binary.prefixArgs, ...args],
               cwd: options.workspaceRoot,
               env: envAllowlist(process.env, {
                 OPENADE_HOOK_URL: hook.url,

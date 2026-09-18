@@ -1,10 +1,9 @@
 /**
  * Finding and interrogating the `cmd` binary (spec 5.1, section 8 probe).
  *
- * Resolution order: the configured `binaryPath`, then `cmd` on `PATH` (plus
- * the usual global bin dirs), then the npx fallback `npx -y
- * command-code@latest` so a machine without the global install still works —
- * at the cost of a slower first probe.
+ * Resolution lives in `binary.ts` and is shared with the session: the probe
+ * used to resolve the binary, report it, and let every turn spawn the bare
+ * string `"cmd"` against the server's own PATH instead.
  *
  * **Version policy.** We run whatever the user has installed, at whatever
  * version it is, and we never prefer a pinned copy of our own: the CLI
@@ -22,9 +21,6 @@
  */
 
 import { execFile } from "node:child_process";
-import * as NodeFS from "node:fs";
-import * as NodeOS from "node:os";
-import * as NodePath from "node:path";
 import type { CmdConnectorConfig } from "@OpenAde/contracts/settings";
 import type { ModelOption } from "@OpenAde/contracts/rpc";
 import { ACCOUNT_HELP_URL } from "@OpenAde/contracts/rpc";
@@ -32,6 +28,7 @@ import type { ConnectorProbe } from "@OpenAde/connector-sdk/definition";
 import { ProbeFailed } from "@OpenAde/connector-sdk/definition";
 import * as Effect from "effect/Effect";
 
+import { resolveBinary, type ResolvedBinary } from "./binary";
 import { EXIT_MESSAGES } from "./exitCodes";
 import { envAllowlist } from "./spawn";
 
@@ -40,73 +37,6 @@ import { envAllowlist } from "./spawn";
  * probe warns below, never a version it asks for. A newer `cmd` is always fine.
  */
 export const OLDEST_TESTED_VERSION = "1.54.0";
-
-/** What the npx fallback installs when there is no `cmd` on the machine. */
-const NPX_PACKAGE = "command-code@latest";
-
-interface ResolvedBinary {
-  readonly command: string;
-  /** Prepended args — the npx fallback's package spec. */
-  readonly prefixArgs: ReadonlyArray<string>;
-  /** What `binaryPath` reports on the probe: the configured path, or the display name. */
-  readonly display: string;
-}
-
-const isExecutable = (path: string): boolean => {
-  try {
-    NodeFS.accessSync(path, NodeFS.constants.X_OK);
-    return NodeFS.statSync(path).isFile();
-  } catch {
-    return false;
-  }
-};
-
-/** Extra directories `cmd` commonly lands in when PATH was not inherited. */
-const extraBinDirs = (): Array<string> => {
-  const home = NodeOS.homedir();
-  return [
-    "/usr/local/bin",
-    "/opt/homebrew/bin",
-    NodePath.join(home, ".bun", "bin"),
-    NodePath.join(home, ".local", "share", "pnpm"),
-    NodePath.join(home, ".npm-global", "bin"),
-  ];
-};
-
-const findOnPath = (
-  name: string,
-  env: Readonly<Record<string, string | undefined>>,
-): string | null => {
-  const dirs = [...(env.PATH ?? "").split(":").filter(Boolean), ...extraBinDirs()];
-  for (const dir of dirs) {
-    const candidate = NodePath.join(dir, name);
-    if (isExecutable(candidate)) {
-      return candidate;
-    }
-  }
-  return null;
-};
-
-const resolveBinary = (
-  config: CmdConnectorConfig,
-  env: Readonly<Record<string, string | undefined>>,
-): ResolvedBinary | null => {
-  if (config.binaryPath !== undefined && config.binaryPath !== "") {
-    return { command: config.binaryPath, prefixArgs: [], display: config.binaryPath };
-  }
-  const onPath = findOnPath("cmd", env);
-  if (onPath !== null) {
-    return { command: onPath, prefixArgs: [], display: onPath };
-  }
-  if (findOnPath("npx", env) !== null) {
-    return {
-      command: "npx",
-      prefixArgs: ["-y", NPX_PACKAGE],
-      display: `npx ${NPX_PACKAGE}`,
-    };
-  }
-  return null;
-};
 
 interface RunResult {
   readonly code: number;

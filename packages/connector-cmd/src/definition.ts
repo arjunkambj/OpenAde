@@ -10,8 +10,10 @@ import type { ConnectorDefinition, StartSessionInput } from "@OpenAde/connector-
 import { SpawnFailed } from "@OpenAde/connector-sdk/definition";
 import * as Effect from "effect/Effect";
 
+import { resolveForSession } from "./binary";
 import { probe as probeBinary } from "./probe";
-import { makeCmdSession, CMD_CAPABILITIES, type CmdSessionRef } from "./session";
+import { CMD_CAPABILITIES } from "./capabilities";
+import { makeCmdSession, type CmdSessionRef } from "./session";
 
 export const CMD_KIND = "cmd";
 
@@ -53,6 +55,11 @@ export const cmdConnectorDefinition: ConnectorDefinition<CmdConnectorConfig> = {
         threadId: input.threadId,
         workspaceRoot: input.workspaceRoot,
         ...(config.binaryPath === undefined ? {} : { binaryPath: config.binaryPath }),
+        // The same resolution the probe reports, carried into the spawn instead
+        // of discarded: the server's own PATH is not where `cmd` necessarily
+        // is, and the npx fallback is not a binary at all (`binary.ts`).
+        // Resolved per session start, so an install that appears later is found.
+        binary: resolveForSession(config, process.env),
         ...(config.extraEnv === undefined ? {} : { extraEnv: config.extraEnv }),
         // The child resolves `~/.commandcode` against its own HOME (spec 5.1),
         // and extraEnv is what sets that HOME. Without this the tailer watches

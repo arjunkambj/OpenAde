@@ -19,7 +19,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { parseFrame, type CmdFrame } from "./ndjson";
 import { isBelowOldestTested, OLDEST_TESTED_VERSION } from "./probe";
 import { makeTranslator, type PendingRuntimeEvent } from "./translate";
-import { CMD_CAPABILITIES } from "./session";
+import { CMD_CAPABILITIES } from "./capabilities";
 
 const RECORDINGS = NodePath.resolve(
   NodeURL.fileURLToPath(import.meta.url),

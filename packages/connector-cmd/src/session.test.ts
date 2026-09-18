@@ -33,6 +33,7 @@ import * as Ref from "effect/Ref";
 import type * as Scope from "effect/Scope";
 
 import { patternSuggestionFor } from "./approvals";
+import { NPX_PACKAGE } from "./binary";
 import { makeCmdSession, type CmdSessionRef } from "./session";
 import { transcriptPathFor } from "./transcript";
 
@@ -829,6 +830,75 @@ describe("makeCmdSession against a real spawned process", () => {
         tool_input: { file_path: "a.ts" },
       })) as { hookSpecificOutput: { permissionDecision: string } };
       expect(response.hookSpecificOutput.permissionDecision).toBe("allow");
+      yield* handle.close();
+    }),
+  );
+});
+
+/**
+ * The binary the probe resolved is the binary the turn spawns.
+ *
+ * Until this landed the resolution was reported to the UI and thrown away:
+ * `spawnProcess` asked for the literal string `"cmd"`, resolved against the
+ * server's own PATH. The npx fallback is the sharpest version of that bug — the
+ * probe says "ready, via npx command-code@latest" and the spawn asks for a
+ * binary that is not on the machine at all — so that is what this drives: a
+ * PATH with `npx` on it and no `cmd` anywhere.
+ */
+describe("the resolved binary reaches the spawn", () => {
+  it.effect("runs a turn through the npx fallback, package spec and all", () =>
+    Effect.gen(function* () {
+      const f = yield* fixture();
+      withOpenadeHome(f);
+      // An `npx` that forwards everything after `-y <package>` to the stub,
+      // exactly as `npx -y command-code@latest <args>` would.
+      const binDir = NodePath.join(f.root, "bin");
+      NodeFS.mkdirSync(binDir, { recursive: true });
+      NodeFS.writeFileSync(
+        NodePath.join(binDir, "npx"),
+        `#!/usr/bin/env node
+import { spawnSync } from "node:child_process";
+const argv = process.argv.slice(2);
+if (argv[0] !== "-y" || argv[1] !== "command-code@latest") process.exit(66);
+const result = spawnSync(process.execPath, [process.env.OPENADE_STUB_REAL_CMD, ...argv.slice(2)], {
+  stdio: "inherit",
+});
+process.exit(result.status ?? 1);
+`,
+        { mode: 0o755 },
+      );
+      const handle = yield* makeCmdSession({
+        instanceId: makeConnectorInstanceId(),
+        threadId: makeThreadId(),
+        workspaceRoot: NodePath.join(f.root, "workspace"),
+        // What `resolveForSession` answers on a machine with no global install.
+        // `binaryPath` is deliberately absent: a resolution that only reached
+        // the probe is exactly the bug.
+        binary: {
+          command: NodePath.join(binDir, "npx"),
+          prefixArgs: ["-y", NPX_PACKAGE],
+          display: `npx ${NPX_PACKAGE}`,
+        },
+        extraEnv: {
+          HOME: f.home,
+          OPENADE_STUB_SESSION_ID: SESSION_ID,
+          OPENADE_STUB_REAL_CMD: f.binary,
+        },
+        home: f.home,
+        services: yield* services("allow"),
+        settings: {
+          model: "stub/model",
+          runtimeMode: "approval-required",
+          interactionMode: "default",
+        },
+      });
+      const collector = yield* makeStreamCollector(handle.events);
+      yield* handle.send({ text: "hi", attachments: [], mentions: [] });
+      const completed = yield* collector.awaitItem(isType("turn.completed"));
+      // The npx stub exits 66 unless it was handed `-y command-code@latest`
+      // ahead of the turn's own argv, so a turn that ends `end_turn` is the
+      // prefix args having survived into the spawn.
+      expect(completed.type === "turn.completed" && completed.payload.stopReason).toBe("end_turn");
       yield* handle.close();
     }),
   );
