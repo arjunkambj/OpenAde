@@ -4,10 +4,11 @@
  * a `thread.settings.update` patch. Everything the menu can do is expressed as
  * a `SlashAction` so the composer keeps one `onSelect` path.
  *
- * There is deliberately no `/clear`: in Command Code that clears the session
- * context, and no command in the union does that yet. Offering it as a name
- * for "empty the textarea" would silently drop the draft while keeping the
- * context the user meant to drop — see docs/decisions/w5-composer-notes.md.
+ * There is deliberately no `/clear`: in the harnesses this menu stands in for
+ * that name clears the session context, and no command in the union does that
+ * yet. Offering it as a name for "empty the textarea" would silently drop the
+ * draft while keeping the context the user meant to drop — see
+ * docs/decisions/w5-composer-notes.md.
  */
 
 import type { Effort, InteractionMode, RuntimeMode } from "@OpenAde/contracts/enums";

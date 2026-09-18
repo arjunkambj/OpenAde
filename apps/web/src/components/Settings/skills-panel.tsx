@@ -40,7 +40,8 @@ export function SkillsPanel() {
         <div>
           <h1 className="text-2xl font-medium">Skills</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Skill files Command Code can invoke. Project skills shadow user skills of the same name.
+            Skill files the connector can invoke. Project skills shadow user skills of the same
+            name.
           </p>
         </div>
         <Select

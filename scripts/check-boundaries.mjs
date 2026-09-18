@@ -80,9 +80,16 @@ const TEST_ONLY_ALLOWLIST = new Map([["apps/server", ["testkit", "client-runtime
 const isTestFile = (file) =>
   /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(file) || file.split("/").includes("test");
 
-/** Decision D4: the exact patterns, and the one directory they do not apply to. */
+/**
+ * Decision D4: the exact patterns, and the one directory they do not apply to.
+ *
+ * `commandcode` matches the spaced spelling too. The one-word form was the
+ * only thing the pattern caught, so "Command Code" walked straight through it
+ * — and did, in the Skills page's own description, which named one connector
+ * on a page that renders whichever connector is configured.
+ */
 const RENDERER_FORBIDDEN = [
-  { name: "commandcode", pattern: /\bcommandcode\b/i },
+  { name: "commandcode", pattern: /\bcommand\s*code\b/i },
   { name: '"cmd"', pattern: /"cmd"/ },
   { name: "claude", pattern: /\bclaude\b/i },
 ];
