@@ -60,6 +60,68 @@ export const sessionEnvFor = (
   ...extra,
 });
 
+/**
+ * What the `agent-browser` child — and the Chromium it drives — may inherit.
+ *
+ * Spec §8 keeps the harness's environment to a named allowlist for exactly one
+ * reason, and `agent-browser` is the component that then visits untrusted web
+ * pages: it is a third-party CLI with an auto-connect, a plugin system and an
+ * auth vault of its own. It used to run with `{ ...process.env }`, so the
+ * operator's `ANTHROPIC_*` and `OPENAI_*` keys, `AWS_*`, `GITHUB_TOKEN` and
+ * every `OPENADE_*` control-plane variable reached it — the same two prefixes
+ * the connector's spawn guard drops on purpose.
+ *
+ * The list is here rather than shared with `packages/connector-cmd/src/spawn.ts`
+ * because the two children need different things: this one wants its own
+ * `AGENT_BROWSER_*` and the display variables a browser needs, and none of the
+ * harness's credential variables.
+ */
+const BROWSER_ENV = new Set([
+  "HOME",
+  "PATH",
+  "USER",
+  "SHELL",
+  "LANG",
+  "TERM",
+  "TMPDIR",
+  "HTTP_PROXY",
+  "HTTPS_PROXY",
+  "NO_PROXY",
+  "SSL_CERT_FILE",
+  "NODE_EXTRA_CA_CERTS",
+  // A Chrome that has to find a display: X11 and Wayland on Linux, and the
+  // per-session bootstrap socket on macOS.
+  "DISPLAY",
+  "WAYLAND_DISPLAY",
+  "XDG_RUNTIME_DIR",
+  "XAUTHORITY",
+]);
+
+const BROWSER_ENV_PREFIXES = ["LC_", "AGENT_BROWSER_", "CHROME_"];
+
+/** The environment one invocation runs with: the allowlist, plus our own. */
+export const browserEnv = (
+  env: Readonly<Record<string, string | undefined>>,
+  extra: Readonly<Record<string, string>> = {},
+): Record<string, string> => {
+  const allowed = (name: string): boolean =>
+    BROWSER_ENV.has(name) || BROWSER_ENV_PREFIXES.some((prefix) => name.startsWith(prefix));
+  const out: Record<string, string> = {};
+  for (const [name, value] of Object.entries(env)) {
+    if (value !== undefined && allowed(name)) {
+      out[name] = value;
+    }
+  }
+  // `extra` is ours — `sessionEnvFor`'s idle timeout — and is not filtered out
+  // from under itself, but it cannot smuggle a name the list refuses either.
+  for (const [name, value] of Object.entries(extra)) {
+    if (allowed(name)) {
+      out[name] = value;
+    }
+  }
+  return out;
+};
+
 const Envelope = Schema.Struct({
   success: Schema.Boolean,
   data: Schema.optional(Schema.Unknown),
@@ -168,7 +230,7 @@ export class AgentBrowser extends Context.Service<
               timeout: options.timeoutMs ?? COMMAND_TIMEOUT_MS,
               killSignal: "SIGKILL",
               maxBuffer: 16 * 1024 * 1024,
-              env: { ...process.env, ...extraEnv },
+              env: browserEnv(process.env, extraEnv),
             },
             (error, stdout, stderr) => {
               const parsed = decodeEnvelope(stdout);
@@ -241,7 +303,7 @@ const runRaw = (
     const child = execFile(
       binary,
       [...args],
-      { timeout: options.timeoutMs, killSignal: "SIGKILL" },
+      { timeout: options.timeoutMs, killSignal: "SIGKILL", env: browserEnv(process.env) },
       (error, stdout) => {
         if (error !== null) {
           resume(Effect.fail(error instanceof Error ? error : new Error(String(error))));

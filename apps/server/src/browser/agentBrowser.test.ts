@@ -5,7 +5,12 @@
 
 import { describe, expect, it } from "vitest";
 
-import { AGENT_BROWSER_MISSING_MESSAGE, sessionEnvFor, sessionNameFor } from "./agentBrowser";
+import {
+  AGENT_BROWSER_MISSING_MESSAGE,
+  browserEnv,
+  sessionEnvFor,
+  sessionNameFor,
+} from "./agentBrowser";
 
 describe("agentBrowser", () => {
   it("tells the user exactly what to run when the binary is missing", () => {
@@ -31,5 +36,43 @@ describe("agentBrowser", () => {
     const env = sessionEnvFor({ AGENT_BROWSER_IDLE_TIMEOUT_MS: "1000", OTHER: "x" });
     expect(env.AGENT_BROWSER_IDLE_TIMEOUT_MS).toBe("1000");
     expect(env.OTHER).toBe("x");
+  });
+
+  it("hands the child an allowlist, not the server's whole environment", () => {
+    // agent-browser is a third-party CLI with a plugin system and an auth
+    // vault, and it is the component that then visits untrusted pages. It used
+    // to inherit `process.env` whole — including the very prefixes the
+    // connector's own spawn guard drops on purpose.
+    const env = browserEnv(
+      {
+        HOME: "/Users/someone",
+        PATH: "/usr/bin",
+        HTTPS_PROXY: "http://proxy.internal:3128",
+        DISPLAY: ":0",
+        LC_ALL: "en_GB.UTF-8",
+        ANTHROPIC_API_KEY: "sk-test-1234",
+        OPENAI_API_KEY: "sk-test-5678",
+        AWS_SECRET_ACCESS_KEY: "aws-secret",
+        GITHUB_TOKEN: "ghp_test",
+        COMMAND_CODE_API_KEY: "cc-secret",
+        OPENADE_SERVER_TOKEN: "server-token",
+        OPENADE_HOME: "/Users/someone/.openade",
+      },
+      sessionEnvFor(),
+    );
+
+    expect(env).toEqual({
+      HOME: "/Users/someone",
+      PATH: "/usr/bin",
+      HTTPS_PROXY: "http://proxy.internal:3128",
+      DISPLAY: ":0",
+      LC_ALL: "en_GB.UTF-8",
+      AGENT_BROWSER_IDLE_TIMEOUT_MS: "300000",
+    });
+  });
+
+  it("will not let the extra env smuggle a name the list refuses", () => {
+    const env = browserEnv({}, { ANTHROPIC_API_KEY: "sk-test", AGENT_BROWSER_PROFILE: "work" });
+    expect(env).toEqual({ AGENT_BROWSER_PROFILE: "work" });
   });
 });
