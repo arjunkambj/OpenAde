@@ -1,0 +1,9 @@
+{
+  "path": "/Users/dev/code",
+  "parent": "/Users/dev",
+  "entries": [
+    { "name": "notes", "path": "/Users/dev/code/notes", "isGitRepo": false },
+    { "name": "openade", "path": "/Users/dev/code/openade", "isGitRepo": true }
+  ],
+  "truncated": false
+}

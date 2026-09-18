@@ -1,0 +1,6 @@
+{
+  "path": "/",
+  "parent": null,
+  "entries": [{ "name": "Users", "path": "/Users", "isGitRepo": false }],
+  "truncated": true
+}

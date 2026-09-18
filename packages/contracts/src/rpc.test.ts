@@ -3,6 +3,8 @@ import * as Effect from "effect/Effect";
 import * as RpcSchema from "effect/unstable/rpc/RpcSchema";
 
 import {
+  FS_BROWSE_ENTRY_LIMIT,
+  FsBrowseFailure,
   OpenAdeRpcGroup,
   PROTOCOL_VERSION,
   RPC_METHODS,
@@ -56,6 +58,29 @@ describe("PROTOCOL_VERSION", () => {
       const version = yield* Effect.succeed(PROTOCOL_VERSION);
       expect(Number.isInteger(version)).toBe(true);
       expect(version).toBeGreaterThan(0);
+    }),
+  );
+});
+
+describe("fs.browse", () => {
+  it.effect("caps a listing, so one directory can never be an unbounded frame", () =>
+    Effect.gen(function* () {
+      const limit = yield* Effect.succeed(FS_BROWSE_ENTRY_LIMIT);
+      expect(Number.isInteger(limit)).toBe(true);
+      expect(limit).toBeGreaterThan(0);
+    }),
+  );
+
+  it.effect("names every failure the picker has a different answer for", () =>
+    Effect.gen(function* () {
+      const reasons = yield* Effect.succeed([...FsBrowseFailure.literals].sort());
+      expect(reasons).toEqual([
+        "internal",
+        "not-a-directory",
+        "not-absolute",
+        "not-found",
+        "permission-denied",
+      ]);
     }),
   );
 });
