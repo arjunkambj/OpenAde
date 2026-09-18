@@ -8,24 +8,24 @@
  *   "timeout": 590 }] }`. The merge preserves every other key and every other
  *   hook entry. Ownership is decided per *hook command*, not per entry, so a
  *   user hook sharing an entry with ours survives the removal.
- * - `~/.commandcode/projects/<slug>/mcp.json` — the local scope of spec 5.3,
- *   which is what spec section 8 step 2 names — gets an `openade` server entry
- *   whose bearer stays a `${OPENADE_MCP_TOKEN}` placeholder, since the harness
- *   resolves env references at launch (spec 5.6) and the per-session token must
- *   never touch disk. Writing it there rather than into `<root>/.mcp.json`
- *   keeps a loopback URL out of the user's git repo.
+ * - the local MCP scope (spec 5.3, which is what spec section 8 step 2 names)
+ *   gets an `openade` server entry whose bearer stays a
+ *   `${OPENADE_MCP_TOKEN}` placeholder, since the harness resolves env
+ *   references at launch (spec 5.6) and the per-session token must never touch
+ *   disk. That file lives under a slug of the workspace path that only the CLI
+ *   knows how to spell, so the CLI writes it — see `upsertMcpEntry`.
  *
- * Teardown is conditional twice over. Each install returns the hash of the
- * exact bytes it wrote, and the matching uninstall reverts only while the file
- * on disk still hashes to that — a file the user (or `cmd` itself) has since
- * edited is left alone. And a per-path retain count keeps the first session to
- * close from pulling the hook out from under a second session running in the
- * same project.
+ * Teardown of the hook block is conditional twice over. The install returns the
+ * hash of the exact bytes it wrote, and the uninstall reverts only while the
+ * file on disk still hashes to that — a file the user (or `cmd` itself) has
+ * since edited is left alone. And a per-path retain count keeps the first
+ * session to close from pulling the hook out from under a second session
+ * running in the same project.
  */
 
+import * as NodeChildProcess from "node:child_process";
 import * as NodeCrypto from "node:crypto";
 import * as NodeFS from "node:fs";
-import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import * as Effect from "effect/Effect";
 
@@ -120,24 +120,6 @@ const settingsLocalPath = (projectRoot: string): string =>
   NodePath.join(projectRoot, ".commandcode", "settings.local.json");
 
 /** The transcript slug of spec 5.3: cwd lowercased, `/` → `-`, leading `-` dropped. */
-const slugFor = (cwd: string): string => {
-  const slug = cwd.toLowerCase().replaceAll("/", "-");
-  return slug.startsWith("-") ? slug.slice(1) : slug;
-};
-
-/**
- * `~/.commandcode/projects/<slug>/mcp.json` — the project-local MCP scope.
- * `home` overrides the home directory the same way the transcript reader's
- * does, so a session with an `extraEnv.HOME` writes where its child reads.
- */
-const mcpPath = (projectRoot: string, home?: string): string =>
-  NodePath.join(
-    home ?? NodeOS.homedir(),
-    ".commandcode",
-    "projects",
-    slugFor(projectRoot),
-    "mcp.json",
-  );
 
 interface HookEntry {
   readonly matcher?: unknown;
@@ -328,68 +310,75 @@ export const uninstallProjectHooks = (
 // ── the MCP server entry ───────────────────────────────────────
 
 /**
- * Upserts the `openade` server in the project's local `mcp.json`, preserving
- * every other server and every other key. The bearer is written as the
- * `${OPENADE_MCP_TOKEN}` env reference the harness resolves at launch.
+ * What one `cmd mcp` call needs: the binary the session is already spawning,
+ * the workspace it runs in, and that session's environment.
+ */
+export interface McpRegistration {
+  readonly binaryPath: string;
+  readonly projectRoot: string;
+  readonly env: Readonly<Record<string, string>>;
+}
+
+/** Runs one `cmd mcp …` subcommand for its exit code. Never throws. */
+const runCmdMcp = (
+  registration: McpRegistration,
+  args: ReadonlyArray<string>,
+): Effect.Effect<boolean> =>
+  Effect.sync(() => {
+    const result = NodeChildProcess.spawnSync(
+      registration.binaryPath,
+      ["mcp", ...args, "--no-auto-update"],
+      { cwd: registration.projectRoot, env: { ...registration.env }, encoding: "utf8" },
+    );
+    return result.status === 0;
+  });
+
+/**
+ * Registers the `openade` server in the project's local MCP scope — by asking
+ * the CLI to do it.
  *
- * `null` when the file does not parse — the user's other servers are not ours
- * to drop, so nothing is written and the caller warns instead.
+ * The file is `~/.commandcode/projects/<slug>/mcp.json`, and **that slug is
+ * not something this connector can compute**. `slugFor` is a guess, every
+ * recording's manifest says so (`transcriptDirMatchesConnectorSlug: false`),
+ * and a real install splits camel humps where the guess does not:
+ * `.../mcpslug.suYi/wsCamelCase` is filed under
+ * `…-mcpslug-su-yi-ws-camel-case`, not `…-mcpslug.suyi-wscamelcase`.
+ *
+ * Writing the file ourselves therefore put the entry in a directory the
+ * harness never reads, which meant OpenAde's browser tools were advertised to
+ * nobody: the model was never offered a single one of them, in any session
+ * this connector has ever opened. The transcript reader already refuses to
+ * trust that slug and looks the session up by id instead — but an MCP entry
+ * has to exist *before* the first run, when there is no session id yet.
+ *
+ * `cmd mcp add-json --scope local` knows where its own config lives, merges
+ * into it, and writes exactly the shape we used to write by hand, placeholder
+ * and all. It is also what `record-cmd.mjs` has always used to register the
+ * recording MCP server. Answers `false` when the CLI refused, so the caller
+ * can say the tools are unavailable this session rather than assume they are
+ * there.
  */
 export const upsertMcpEntry = (
-  projectRoot: string,
+  registration: McpRegistration,
   endpoint: { readonly url: string },
-  home?: string,
-): Effect.Effect<InstalledFile | null> =>
-  Effect.sync(() => {
-    const path = mcpPath(projectRoot, home);
-    const state = readJsonState(path);
-    if (state.kind === "unreadable") {
-      return null;
-    }
-    const fresh = state.kind === "absent";
-    const config = state.kind === "object" ? state.value : {};
-    const servers = { ...(config.mcpServers as JsonObject | undefined) };
-    servers[OPENADE_MCP_NAME] = {
+): Effect.Effect<boolean> =>
+  runCmdMcp(registration, [
+    "add-json",
+    OPENADE_MCP_NAME,
+    JSON.stringify({
       transport: "http",
       enabled: true,
       url: endpoint.url,
       headers: { Authorization: "Bearer ${OPENADE_MCP_TOKEN}" },
-    };
-    const hash = writeJsonObject(path, { ...config, mcpServers: servers });
-    return { path, hash, created: retain(path, fresh) };
-  });
+    }),
+    "--scope",
+    "local",
+  ]);
 
 /**
- * Removes the `openade` server entry. With `installed` it reverts only an
- * untouched file, and only once the last session holding it has closed.
+ * Removes the `openade` server entry, again through the CLI, so the same
+ * merge that added it takes it away. The entry's *name* is the ownership
+ * marker: a server the user added under any other name is untouched.
  */
-export const removeMcpEntry = (
-  projectRoot: string,
-  home?: string,
-  installed?: InstalledFile,
-): Effect.Effect<void> =>
-  Effect.sync(() => {
-    const path = installed?.path ?? mcpPath(projectRoot, home);
-    const compute = (): JsonObject => {
-      const config = readJsonObject(path);
-      const servers = config.mcpServers as JsonObject | undefined;
-      if (servers === undefined || !(OPENADE_MCP_NAME in servers)) {
-        return config;
-      }
-      const next = { ...servers };
-      delete next[OPENADE_MCP_NAME];
-      // An mcpServers map holding nothing but ours goes with it, so a file we
-      // created can be deleted outright instead of left as `{"mcpServers":{}}`.
-      return Object.keys(next).length === 0
-        ? Object.fromEntries(Object.entries(config).filter(([key]) => key !== "mcpServers"))
-        : { ...config, mcpServers: next };
-    };
-    if (installed !== undefined) {
-      revert(installed, compute());
-      return;
-    }
-    const servers = readJsonObject(path).mcpServers as JsonObject | undefined;
-    if (servers !== undefined && OPENADE_MCP_NAME in servers) {
-      writeJsonObject(path, compute());
-    }
-  });
+export const removeMcpEntry = (registration: McpRegistration): Effect.Effect<void> =>
+  runCmdMcp(registration, ["remove", OPENADE_MCP_NAME, "--scope", "local"]).pipe(Effect.asVoid);

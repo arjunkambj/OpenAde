@@ -44,14 +44,6 @@ const install = (root: string, hookPath: string): Effect.Effect<InstalledFile> =
     }),
   );
 
-const upsert = (root: string, url: string, home: string): Effect.Effect<InstalledFile> =>
-  upsertMcpEntry(root, { url }, home).pipe(
-    Effect.map((installed) => {
-      expect(installed, "the upsert stood down on a writable file").not.toBeNull();
-      return installed as InstalledFile;
-    }),
-  );
-
 describe("installProjectHooks", () => {
   it.effect("writes the PreToolUse block into a fresh settings.local.json", () =>
     Effect.gen(function* () {
@@ -257,76 +249,120 @@ describe("installProjectHooks", () => {
 });
 
 describe("mcp entry", () => {
-  it.effect("upserts the openade server into the project-local mcp.json", () =>
-    Effect.gen(function* () {
-      const home = yield* tempDir();
-      const root = yield* tempDir();
-      // Spec 5.3 / section 8: the local scope is ~/.commandcode/projects/<slug>,
-      // not a .mcp.json inside the user's repo.
-      const slug = root.toLowerCase().replaceAll("/", "-").replace(/^-/, "");
-      const expected = NodePath.join(home, ".commandcode", "projects", slug, "mcp.json");
-      NodeFS.mkdirSync(NodePath.dirname(expected), { recursive: true });
-      NodeFS.writeFileSync(
-        expected,
-        JSON.stringify({ mcpServers: { other: { transport: "stdio", command: "x" } } }),
-      );
+  /**
+   * A stand-in `cmd` that records the argv it was called with.
+   *
+   * The file this registers lives under a slug of the workspace path that only
+   * the CLI knows how to spell — that is the whole reason the CLI writes it —
+   * so what is testable here is the request, not the result. That the entry
+   * really lands where the harness reads it is asserted against the real CLI
+   * in `apps/server/test/e2e/mcp.test.ts`.
+   */
+  /** The stub runs under `#!/usr/bin/env node`, so it needs a PATH with node on it. */
+  const stubEnv = { PATH: process.env.PATH ?? "" };
 
-      const { path } = yield* upsert(root, "http://127.0.0.1:4321/mcp", home);
-      expect(path).toBe(expected);
+  const stubCmd = (root: string, exitCode = 0): { binary: string; calls: () => string[][] } => {
+    const binary = NodePath.join(root, "stub-cmd.mjs");
+    const log = NodePath.join(root, "stub-cmd.log");
+    NodeFS.writeFileSync(
+      binary,
+      [
+        "#!/usr/bin/env node",
+        'import * as fs from "node:fs";',
+        `fs.appendFileSync(${JSON.stringify(log)}, JSON.stringify(process.argv.slice(2)) + "\\n");`,
+        `process.exit(${exitCode});`,
+      ].join("\n"),
+      { mode: 0o755 },
+    );
+    return {
+      binary,
+      calls: () =>
+        NodeFS.readFileSync(log, "utf8")
+          .split("\n")
+          .filter((line) => line.length > 0)
+          .map((line) => JSON.parse(line) as string[]),
+    };
+  };
+
+  it.effect("asks the CLI to register the openade server in the local scope", () =>
+    Effect.gen(function* () {
+      const root = yield* tempDir();
+      const stub = stubCmd(root);
+      const registration = {
+        binaryPath: stub.binary,
+        projectRoot: root,
+        env: stubEnv,
+      };
+
+      expect(yield* upsertMcpEntry(registration, { url: "http://127.0.0.1:4321/mcp" })).toBe(true);
+
+      const [argv] = stub.calls();
+      expect(argv?.slice(0, 2)).toEqual(["mcp", "add-json"]);
+      expect(argv?.[2]).toBe(OPENADE_MCP_NAME);
+      // Spec 5.3 / section 8: the local scope, not a `.mcp.json` in the repo.
+      expect(argv).toContain("--scope");
+      expect(argv?.[argv.indexOf("--scope") + 1]).toBe("local");
+      // Registering must never take the CLI up a version on the user.
+      expect(argv).toContain("--no-auto-update");
       expect(NodeFS.existsSync(NodePath.join(root, ".mcp.json"))).toBe(false);
-      const servers = readJson(path).mcpServers as Record<string, unknown>;
-      expect(servers.other).toEqual({ transport: "stdio", command: "x" });
-      expect(servers[OPENADE_MCP_NAME]).toEqual({
+
+      // The bearer is an env reference, never the token itself: the harness
+      // resolves it at launch (5.6) and a real token would outlive the session.
+      const payload = JSON.parse(argv![3]!) as Record<string, unknown>;
+      expect(payload).toEqual({
         transport: "http",
         enabled: true,
         url: "http://127.0.0.1:4321/mcp",
         headers: { Authorization: "Bearer ${OPENADE_MCP_TOKEN}" },
       });
-
-      // A second upsert moves the url without duplicating the server.
-      yield* upsert(root, "http://127.0.0.1:9999/mcp", home);
-      const again = readJson(path).mcpServers as Record<string, { url: string }>;
-      expect(Object.keys(again)).toHaveLength(2);
-      expect(again[OPENADE_MCP_NAME]?.url).toBe("http://127.0.0.1:9999/mcp");
-
-      yield* removeMcpEntry(root, home);
-      const after = readJson(path).mcpServers as Record<string, unknown>;
-      expect(after[OPENADE_MCP_NAME]).toBeUndefined();
-      expect(after.other).toBeDefined();
-
-      // Removing when never installed is a no-op.
-      yield* removeMcpEntry(root, home);
     }),
   );
 
-  it.effect("a guarded remove deletes the mcp.json it created", () =>
+  it.effect("asks the CLI to remove it again, by name", () =>
     Effect.gen(function* () {
-      const home = yield* tempDir();
       const root = yield* tempDir();
-      const installed = yield* upsert(root, "http://127.0.0.1:1/mcp", home);
-      expect(NodeFS.existsSync(installed.path)).toBe(true);
+      const stub = stubCmd(root);
+      const registration = {
+        binaryPath: stub.binary,
+        projectRoot: root,
+        env: stubEnv,
+      };
 
-      yield* removeMcpEntry(root, home, installed);
-      expect(NodeFS.existsSync(installed.path)).toBe(false);
+      yield* removeMcpEntry(registration);
+
+      // The name is the ownership marker: a server the user added under any
+      // other name is not ours to remove.
+      const [argv] = stub.calls();
+      expect(argv?.slice(0, 3)).toEqual(["mcp", "remove", OPENADE_MCP_NAME]);
+      expect(argv?.[argv.indexOf("--scope") + 1]).toBe("local");
     }),
   );
 
-  it.effect("stands down on an mcp.json that does not parse", () =>
+  it.effect("reports a refusal instead of assuming the tools are there", () =>
     Effect.gen(function* () {
-      const home = yield* tempDir();
+      // A harness that would not take the entry — an unparseable config of the
+      // user's, a scope it does not support. The session says the tools are
+      // unavailable rather than offering the model something it cannot reach.
       const root = yield* tempDir();
-      const slug = root.toLowerCase().replaceAll("/", "-").replace(/^-/, "");
-      const path = NodePath.join(home, ".commandcode", "projects", slug, "mcp.json");
-      NodeFS.mkdirSync(NodePath.dirname(path), { recursive: true });
-      const original = '{ "mcpServers": { "other": { "command": "x" } } // mine\n}\n';
-      NodeFS.writeFileSync(path, original);
+      const stub = stubCmd(root, 1);
+      expect(
+        yield* upsertMcpEntry(
+          { binaryPath: stub.binary, projectRoot: root, env: stubEnv },
+          { url: "http://127.0.0.1:1/mcp" },
+        ),
+      ).toBe(false);
+    }),
+  );
 
-      const installed = yield* upsertMcpEntry(root, { url: "http://127.0.0.1:1/mcp" }, home);
-      expect(installed).toBeNull();
-      expect(NodeFS.readFileSync(path, "utf8")).toBe(original);
-
-      yield* removeMcpEntry(root, home);
-      expect(NodeFS.readFileSync(path, "utf8")).toBe(original);
+  it.effect("answers false rather than throwing when there is no binary", () =>
+    Effect.gen(function* () {
+      const root = yield* tempDir();
+      expect(
+        yield* upsertMcpEntry(
+          { binaryPath: NodePath.join(root, "nope"), projectRoot: root, env: {} },
+          { url: "http://127.0.0.1:1/mcp" },
+        ),
+      ).toBe(false);
     }),
   );
 });

@@ -59,6 +59,10 @@ const value = (flag) => {
   return index === -1 ? undefined : argv[index + 1];
 };
 
+/** This run's working directory and home, needed before the recording loads. */
+const cwdOf = () => process.cwd();
+const home = process.env.HOME ?? os.homedir();
+
 const readOr = (file, fallback = "") => {
   try {
     return fs.readFileSync(file, "utf8");
@@ -96,6 +100,51 @@ if (has("--version") || has("-V") || has("-v")) {
 }
 if (has("--list-models")) {
   process.stdout.write(probe("list-models"));
+  process.exit(0);
+}
+/**
+ * `cmd mcp add-json` / `cmd mcp remove`, implemented rather than replayed.
+ *
+ * These are the one surface whose effect is a function of the *cwd* and not of
+ * the model: the real CLI files the entry under a slug of the workspace path
+ * that only it knows how to spell, which is exactly why the connector asks it
+ * to write the file instead of writing it itself. A recording cannot supply a
+ * directory name that differs per run, so the replay keeps its own
+ * deterministic slug — `replaySlugFor` — and the tests that care about the
+ * real one assert against the real CLI.
+ */
+const replaySlugFor = (dir) => {
+  const slug = dir.toLowerCase().replaceAll("/", "-");
+  return slug.startsWith("-") ? slug.slice(1) : slug;
+};
+
+if (argv[0] === "mcp") {
+  const file = path.join(home, ".commandcode", "projects", replaySlugFor(cwdOf()), "mcp.json");
+  const config = (() => {
+    try {
+      return JSON.parse(fs.readFileSync(file, "utf8"));
+    } catch {
+      return {};
+    }
+  })();
+  const servers = { ...(config.mcpServers ?? {}) };
+  if (argv[1] === "add-json") {
+    try {
+      servers[argv[2]] = JSON.parse(argv[3] ?? "{}");
+    } catch {
+      process.exit(1);
+    }
+  } else if (argv[1] === "remove") {
+    delete servers[argv[2]];
+  } else {
+    process.exit(1);
+  }
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(
+    file,
+    `${JSON.stringify({ ...config, mcpServers: servers }, null, 2)}\n`,
+    "utf8",
+  );
   process.exit(0);
 }
 if (argv[0] === "status") {
@@ -161,8 +210,7 @@ const turnIndex = (() => {
 const turn = manifest.turns[Math.min(turnIndex, manifest.turns.length - 1)];
 const file = (name) => (name === undefined ? null : path.join(recordingDir, name));
 
-const cwd = process.cwd();
-const home = process.env.HOME ?? os.homedir();
+const cwd = cwdOf();
 
 /**
  * Recordings are scrubbed: the operator's home is `<HOME>` and the throwaway

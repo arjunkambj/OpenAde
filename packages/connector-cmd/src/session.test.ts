@@ -53,6 +53,21 @@ const cwd = process.cwd();
 const slug = cwd.toLowerCase().replaceAll("/", "-").replace(/^-/, "");
 const dir = path.join(home, ".commandcode", "projects", slug);
 fs.mkdirSync(dir, { recursive: true });
+// \`cmd mcp add-json|remove\`: the real CLI owns this file, because only it
+// knows how its project directory is spelled. The stub owns the stub's.
+const argv = process.argv.slice(2);
+if (argv[0] === "mcp") {
+  const file = path.join(dir, "mcp.json");
+  let config = {};
+  try { config = JSON.parse(fs.readFileSync(file, "utf8")); } catch {}
+  const servers = { ...(config.mcpServers ?? {}) };
+  if (argv[1] === "add-json") servers[argv[2]] = JSON.parse(argv[3]);
+  else if (argv[1] === "remove") delete servers[argv[2]];
+  else process.exit(1);
+  if (Object.keys(servers).length === 0) fs.rmSync(file, { force: true });
+  else fs.writeFileSync(file, JSON.stringify({ ...config, mcpServers: servers }, null, 2) + "\\n");
+  process.exit(0);
+}
 const transcript = path.join(dir, sessionId + ".jsonl");
 const emit = (event) =>
   process.stdout.write(JSON.stringify({ type: "event", event }) + "\\n");

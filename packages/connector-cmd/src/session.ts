@@ -41,6 +41,7 @@ import {
   uninstallProjectHooks,
   upsertMcpEntry,
   type InstalledFile,
+  type McpRegistration,
 } from "./config";
 import { stageTurnAttachments } from "./attachments";
 import { ensureHookScript, hookTicketPath, removeHookTicket, writeHookTicket } from "./hookScript";
@@ -339,7 +340,16 @@ export const makeCmdSession = (
     );
     // What the two installs below wrote, so close() can put both files back.
     const installedHooks = yield* Ref.make<InstalledFile | null>(null);
-    const installedMcp = yield* Ref.make<InstalledFile | null>(null);
+    const installedMcp = yield* Ref.make(false);
+    /**
+     * What a `cmd mcp` call needs. The environment is the session's own, so
+     * the CLI resolves `~/.commandcode` against the same `HOME` its turns do.
+     */
+    const mcpRegistration: McpRegistration = {
+      binaryPath: options.binaryPath ?? "cmd",
+      projectRoot: options.workspaceRoot,
+      env: envAllowlist(process.env, { ...options.extraEnv }),
+    };
     if (hookPath !== null) {
       // `null` is the install standing down on a file it cannot parse;
       // `undefined` is the write itself failing. Both run the session without
@@ -362,17 +372,17 @@ export const makeCmdSession = (
     // An empty url is how a server without an MCP endpoint says "nothing to
     // configure": skip writing mcp.json entirely.
     if (mcp !== null && mcp.url !== "") {
-      const written = yield* upsertMcpEntry(transcriptRoot, { url: mcp.url }, options.home).pipe(
+      const registered = yield* upsertMcpEntry(mcpRegistration, { url: mcp.url }).pipe(
         Effect.catch((error) =>
-          warn(`could not write mcp.json: ${String(error)}`).pipe(Effect.as(undefined)),
+          warn(`could not register the MCP server: ${String(error)}`).pipe(Effect.as(false)),
         ),
       );
-      if (written === null) {
+      if (!registered) {
         yield* warn(
-          "the project's mcp.json is not valid JSON — left it untouched, so OpenAde's MCP tools are unavailable this session",
+          "the harness refused to register OpenAde's MCP server, so its tools are unavailable this session",
         );
       }
-      yield* Ref.set(installedMcp, written ?? null);
+      yield* Ref.set(installedMcp, registered);
     }
     if (options.services.registerHookHandler !== undefined) {
       yield* options.services.registerHookHandler(options.threadId, hookAnswers.onHookPost);
@@ -725,11 +735,8 @@ export const makeCmdSession = (
             Effect.catch(() => Effect.void),
           );
         }
-        const mcpFile = yield* Ref.get(installedMcp);
-        if (mcpFile !== null) {
-          yield* removeMcpEntry(transcriptRoot, options.home, mcpFile).pipe(
-            Effect.catch(() => Effect.void),
-          );
+        if (yield* Ref.get(installedMcp)) {
+          yield* removeMcpEntry(mcpRegistration).pipe(Effect.catch(() => Effect.void));
         }
         // The bearer outlives nothing: the session that minted it is over.
         yield* removeHookTicket(hookTicketPath(options.threadId)).pipe(
