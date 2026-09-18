@@ -178,13 +178,17 @@ export function AddProjectDialog({ disabled }: { disabled?: boolean }) {
 
       {/* A sibling, not a child: two modal dialogs each own their own focus
           trap, and nesting one inside the other's content makes the outer one
-          fight the inner for it. */}
-      <FolderPickerDialog
-        open={picking}
-        onOpenChange={setPicking}
-        initialPath={workspaceRoot}
-        onPick={accept}
-      />
+          fight the inner for it. Mounted only while it is open, so it seeds
+          itself from the field as it stands now and browses nothing until
+          someone asks it to — this one lives in the sidebar, on every route. */}
+      {picking ? (
+        <FolderPickerDialog
+          open
+          onOpenChange={setPicking}
+          initialPath={workspaceRoot}
+          onPick={accept}
+        />
+      ) : null}
     </>
   );
 }

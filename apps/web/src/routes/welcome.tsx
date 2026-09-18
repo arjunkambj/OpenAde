@@ -309,12 +309,18 @@ function WelcomePage() {
         </div>
       </div>
 
-      <FolderPickerDialog
-        open={picking}
-        onOpenChange={setPicking}
-        initialPath={directory.path}
-        onPick={accept}
-      />
+      {/* Mounted only while it is open: the dialog seeds itself from
+          `initialPath` once, on its first render, so a kept-alive instance
+          would open on a stale directory and would browse before anyone asked
+          it to. */}
+      {picking ? (
+        <FolderPickerDialog
+          open
+          onOpenChange={setPicking}
+          initialPath={directory.path}
+          onPick={accept}
+        />
+      ) : null}
     </div>
   );
 }

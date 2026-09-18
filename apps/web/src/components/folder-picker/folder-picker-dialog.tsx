@@ -12,6 +12,12 @@
  * multi-select, no favourites — the answer this produces is a single absolute
  * path, and everything that happens to it afterwards is the caller's existing
  * validation and create path.
+ *
+ * Mount it only while it is open. Every piece of its state — where it opens,
+ * the cursor, the hidden toggle — is seeded on the first render, and its
+ * listing atom subscribes as soon as it exists; a kept-alive instance would
+ * open on the directory of the *previous* visit and would read a directory on
+ * the server before anyone had clicked anything.
  */
 
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
