@@ -5,6 +5,11 @@ agentic coding harness that normally runs in a terminal — from a graphical
 interface. This document traces what actually happens at runtime, in order,
 with the real names of the processes, commands, events, RPC methods and files
 involved, and a path into the source for each step.
+[architecture.md](architecture.md) describes the pieces themselves,
+[philosophy.md](philosophy.md) the rules they keep,
+[development.md](development.md) how to run them, and
+[command-code-connector.md](command-code-connector.md) what the CLI on the far
+end does.
 
 Three processes matter.
 
@@ -45,7 +50,7 @@ the connector-neutral `RuntimeEvent` vocabulary in
 ### The supervisor spawns the server
 
 `apps/desktop/src/main/index.ts` takes the single-instance lock, registers the
-`app://` scheme as privileged, and constructs a `ServerSupervisor`
+app's own `openade://` scheme as privileged, and constructs a `ServerSupervisor`
 (`apps/desktop/src/backend/ServerSupervisor.ts`) before the first window
 opens.
 
@@ -297,11 +302,15 @@ else — a browser tab, and later a client that is not on this machine — gets
 `apps/web/src/components/folder-picker/`, which browses the **server's** disk
 through `fs.browse`.
 
-`apps/server/src/fs/Directories.ts` lists subdirectories only: absolute paths
-only (a relative one would resolve against the server's working directory),
-answers with the symlink-resolved path it actually read, never badges a
-symlinked entry as a git repo, skips an unreadable entry rather than failing the
-listing, and truncates at `FS_BROWSE_ENTRY_LIMIT` (500). Failures come back as
+`apps/server/src/fs/Directories.ts` lists one directory's subfolders, sorted,
+hidden entries left out unless they were asked for, each flagged when it holds a
+`.git`. The rules: absolute paths only (a relative one would resolve against the
+server's working directory), the answer names the symlink-resolved path it
+actually read — so a breadcrumb is a path `fs.browse` accepts back — a symlinked
+entry is listed but never badged as a git repository, because deciding that
+means reading inside the link target, an unreadable entry is skipped rather than
+failing the listing, and the list truncates at `FS_BROWSE_ENTRY_LIMIT` (500)
+with a `truncated` flag. Failures come back as
 `FsBrowseError` with one of `not-absolute | not-found | not-a-directory |
 permission-denied | internal` — five named reasons, because the picker offers a
 different next step for each.
@@ -336,7 +345,17 @@ function in `composer-keys.ts`:
 `Cmd+Enter` is the `composer.queue` binding: it sends with `queued: true`.
 `use-send-draft.ts` uploads any attachments first (a browser `File` has no
 filesystem path, so the server must hold the bytes before the command can name
-them) and latches so one Enter cannot start two real turns.
+them) and latches so one Enter cannot start two real turns. While a turn is in
+flight the send button becomes Queue and a Stop button appears — both read
+`turnInFlight` (`apps/web/src/lib/turn.ts`) rather than `currentTurnId`, which
+the projection only fills one event later.
+
+The `/` popover offers `/model`, `/effort`, `/mode`, `/plan`, `/default`,
+`/clear-draft` and the project's skills. `/clear` is deliberately not offered:
+in Command Code it drops the session's context, no command in the union does
+that, and binding it to emptying the textarea would throw away the sentence the
+user was writing while keeping every token they meant to drop. `@` searches the
+project's files through `files.search` and inserts a chip.
 
 ### Command to events
 
@@ -400,10 +419,6 @@ cmd -p "<prompt>" --output-format json --verbose -t --skip-onboarding --no-auto-
     [--add-dir <dir>]… --tools-enable ask_user_question
 ```
 
-`buildArgs` also accepts `--max-turns <n>` and `--no-session`; nothing in the
-product passes either today, and the `max-turns/` recording is what the exit-8
-mapping was taken from.
-
 Two flags are decided per turn:
 
 - **`--yolo` on every ordinary turn.** Without it print mode refuses writes and
@@ -419,23 +434,13 @@ ever renders.
 The prompt is the user's text, then `@mention` lines, then one
 `Attachment (<mime>): <absolute path>` line per staged file.
 
-The environment is built by `envAllowlist` in three passes, in this order:
-
-1. inherited variables that are allowed: `HOME`, `PATH`, `USER`, `SHELL`,
-   `LANG`, `TERM`, `TMPDIR`, `SSH_AUTH_SOCK`, `HTTP_PROXY`, `HTTPS_PROXY`,
-   `NO_PROXY`, `SSL_CERT_FILE`, `NODE_EXTRA_CA_CERTS`, `COMMAND_CODE_API_KEY`,
-   and anything starting `LC_` or `OPENADE_`;
-2. the operator's `extraEnv`, filtered by the deny half only — naming a
-   variable on the connectors page _is_ the decision;
-3. the session's own control plane, applied last so nothing can override it:
-   `OPENADE_HOOK_URL`, `OPENADE_HOOK_TICKET_FILE`, `OPENADE_THREAD_ID`, and
-   `OPENADE_MCP_TOKEN` when the gateway gave one.
-
-Nothing starting `OPENADE_SERVER_`, `ANTHROPIC_` or `OPENAI_` reaches the child
-by any of the three routes, and `OPENADE_HOOK_*`, `OPENADE_MCP_*` and
-`OPENADE_THREAD_ID` are reserved — an `extraEnv` entry with one of those names
-is dropped, because pointing the ticket file somewhere wrong would silently
-disable the approval gate under `--yolo`.
+The environment is built by `envAllowlist` in three passes: the inherited
+variables an allowlist names, then the operator's `extraEnv` from the connectors
+page, then the session's own `OPENADE_*` control plane — the hook URL, the
+ticket file, the thread id and the MCP token — applied last so nothing can
+override it. The exact name lists, and why `OPENADE_HOOK_*` is reserved against
+`extraEnv`, are in
+[command-code-connector.md](command-code-connector.md#environment).
 
 The process is spawned `detached`, so it leads its own process group and a
 signal can reach the harness's own children.
@@ -586,16 +591,14 @@ PermissionService.decide(...)          apps/server/src/permissions/PermissionSer
 only when its content hash changes, written temp-and-rename so a running `cmd`
 never reads half a script.
 
-**The bearer arrives in a file, not in the environment.** Command Code redacts
-secret-shaped variable names out of a hook's environment: a live run showed
-`OPENADE_HOOK_URL` and `OPENADE_THREAD_ID` arriving while `OPENADE_HOOK_TOKEN`,
-`..._BEARER`, `..._SECRET`, `..._AUTH`, `..._PASSWORD` and `..._CREDENTIAL`
-were all stripped. The script then took its "no OpenAde session owns this run"
-path and exited silently, the harness fell back to its own flow, and under
-`--yolo` every tool call ran unapproved. So `OPENADE_HOOK_TICKET_FILE` carries
-a **path**, and the bearer lives in a `0600` file at
-`~/.openade/bin/tickets/<threadId>.ticket` that the session writes when it opens
-and deletes when it closes. `OPENADE_HOOK_TOKEN` is still read when it survives.
+**The bearer arrives in a file, not in the environment.**
+`OPENADE_HOOK_TICKET_FILE` carries a **path**, and the bearer lives in a `0600`
+file at `~/.openade/bin/tickets/<threadId>.ticket` that the session writes when
+it opens and deletes when it closes; `OPENADE_HOOK_TOKEN` is still read first
+when it survives. It is a path because Command Code strips secret-shaped
+variable names out of a hook's environment, which once left every tool call
+running unapproved — the observation and the failure are in
+[command-code-connector.md](command-code-connector.md#the-ticket-file).
 
 Every failure path in the script prints a `deny`: bridge down, non-2xx, garbage
 body, timeout. The one exception is a run that carries no URL and no bearer at
@@ -610,35 +613,22 @@ hook script is our own child and sends none.
 
 ### The ladder
 
-`decidePermission` in `apps/server/src/permissions/PermissionService.ts` is
-pure and ordered:
+`decidePermission` in `apps/server/src/permissions/PermissionService.ts` is pure
+and ordered — deny rules, plan mode, sensitive paths, allow rules, reads, then
+the thread's runtime mode. The six steps, the pattern syntax and the
+sensitive-path list are in [architecture.md](architecture.md#permissions).
 
-1. a matching `deny` rule → **deny**;
-2. plan mode and the request is not a read → **deny**;
-3. a sensitive path → **prompt**, whatever any allow rule says;
-4. a matching `allow` rule → **allow**;
-5. a read → **allow**;
-6. the runtime mode decides: `approval-required` prompts,
-   `auto-accept-edits` allows `file_write` and prompts for the rest,
-   `full-access` allows.
-
-Sensitive paths (`apps/server/src/permissions/sensitivePaths.ts`) are about
-credentials, not caution in general: basenames `.env*`, `.netrc`, `.pgpass`,
-`credentials`, `id_rsa`/`id_dsa`/`id_ecdsa`/`id_ed25519`; extensions `.pem`,
-`.key`, `.p12`, `.pfx`; any path segment `.ssh`, `.aws`, `.gnupg`, `.git`,
-`.commandcode`; and `.config/gh`. For a `command` request every argument of the
-command line is checked, and for any other kind both the path and a `file:`
-URL are — otherwise `browser_open` on a `file:` URL would read a key that
-`read_file` prompts for.
-
-A permissions failure logs a warning and returns `prompt`. It never reads as
-allow.
+Two things about it matter to this flow: a sensitive path prompts however the
+user has widened the rules, and a failure inside the decision logs a warning and
+returns `prompt`. It never reads as allow.
 
 ### The card and the rules it writes
 
 `apps/web/src/components/approvals/approval-card.tsx` renders the request and
 offers four answers. Keys while it is up: `1` allow once, `2` allow for
-session, `3` always allow, `d` or `Escape` deny.
+session, `3` always allow, `d` or `Escape` deny. The card listens in **capture**
+phase and stops propagation, so its `Escape` beats the global `thread.interrupt`
+binding (§11) while a card is open — denying the call, not stopping the turn.
 
 `allow-session` and `allow-always` carry a `pattern` — the `patternSuggestion`
 the connector proposed, editable in the card before it is accepted
@@ -657,10 +647,13 @@ The rule is inserted inside the dispatch transaction, and the engine then
 invalidates the `permission_rules` reactivity key so an open settings page
 re-reads its list.
 
-Pattern syntax is Command Code's own: `Shell(npm run *)`, `Edit(/src/**)`,
-`Write(...)`, `Read(...)`, `WebFetch(...)`, `WebSearch(...)`,
-`mcp__server__tool`, or a bare tool name. `**` crosses path separators, `*`
-does not, `?` is one character; a command glob's `*` spans anything.
+The patterns are Command Code's own syntax — `Shell(npm run *)`,
+`Edit(/src/**)`, `mcp__server__tool` and the rest — matched by
+`packages/shared/src/permissionPattern.ts` on both sides, so the preview in the
+card means what the engine will do. The grammar is in
+[architecture.md](architecture.md#permissions); which suggestion a given tool
+call produces is in
+[command-code-connector.md](command-code-connector.md#the-tool-vocabulary).
 
 ### Subagents
 
@@ -690,14 +683,13 @@ Setting a thread's `interactionMode` to `plan` changes the next turn's argv:
 `--permission-mode plan`, and **no `--yolo`**
 (`packages/connector-cmd/src/turnArgs.ts`).
 
-That combination is deliberate and the reasoning is recorded against real runs.
-Plan mode skips PreToolUse entirely — `hookCount: 0` in all four plan
-recordings, including one whose `read_file` fires a hook in an ordinary run — so
-none of the ladder above runs there: not the user's deny rules, not "plan mode
-is read-only", not the sensitive-path prompt. Adding `--yolo` on top would
-remove the last thing standing, which is print mode's own refusal of writes and
-shell calls. Without it the CLI refuses them itself, which is what the mode
-claims to be.
+That combination is deliberate, and it is the whole of plan mode's enforcement.
+Plan mode skips PreToolUse entirely, so none of the ladder above runs there:
+not the user's deny rules, not "plan mode is read-only", not the sensitive-path
+prompt. Adding `--yolo` on top would remove the last thing standing, which is
+print mode's own refusal of writes and shell calls; without it the CLI refuses
+them itself, which is what the mode claims to be. The recordings this rests on
+are in [command-code-connector.md](command-code-connector.md#plan-mode).
 
 The plan survives that refusal. The model writes its plan with an ordinary
 `write_file`, and the whole body is in the `tool_queued` frame that announced
@@ -705,13 +697,11 @@ the call, so the connector saves the file itself (`plans.ts`,
 `materializePlan`) and the refused write is shown as a saved plan rather than a
 red failed row.
 
-Finding the plan file (`packages/connector-cmd/src/plans.ts`): the
-`plans-index.json` beside `~/.commandcode/plans/` first — except a headless run
-never updates it — then the path named by this run's own frames, then, only if
-neither answers, the newest `.md` in the plans directory written at or after the
-moment the turn was spawned. That last scan is fenced: the plans directory is
-global, so a file another live session has claimed is skipped, and claims are
-released when a session ends.
+Finding the file the plan landed in takes three sources in order — the plans
+index, this run's own frames, then an mtime scan fenced against the other
+sessions writing into the same global directory
+(`packages/connector-cmd/src/plans.ts`, and
+[command-code-connector.md](command-code-connector.md#finding-the-plan)).
 
 The proposal becomes `thread.plan.proposed` while the turn is still open, and
 the card (`apps/web/src/components/approvals/plan-card.tsx`) offers three
@@ -871,10 +861,14 @@ Print mode has no image flag. The path around it:
 1. the composer reads the pasted or dropped file and calls
    `attachments.stage({ threadId, name, base64 })`;
 2. `apps/server/src/attachments/AttachmentStore.ts` sniffs the media type from
-   the file's own magic bytes — never the name or the declared type — refuses
-   anything over `MAX_ATTACHMENT_BYTES` (8 MiB) on the base64 length before
-   decoding, and writes it to `~/.openade/attachments/<threadId>/` with the
-   extension the sniff chose, mode `0600` in a `0700` directory;
+   the file's own magic bytes — PNG's signature, JPEG's `FF D8 FF`,
+   `GIF87a`/`GIF89a`, `RIFF….WEBP` (`packages/shared/src/imageBytes.ts`), never
+   the name or the declared type, so a `.png` that is really a shell script is
+   refused — checks `MAX_ATTACHMENT_BYTES` (8 MiB) on the base64 length before
+   decoding and again on the decoded bytes, and writes the file as
+   `<sha256 prefix>-<sanitised name>.<ext>` under
+   `~/.openade/attachments/<threadId>/`, with the extension the sniff chose,
+   mode `0600` in a `0700` directory;
 3. the reply is a `StagedAttachment` — path, name, mime, size, sha256;
 4. `thread.turn.start` carries that **reference**. The bytes never enter the
    event log, which is replayed on every boot and streamed to every client;
@@ -882,8 +876,8 @@ Print mode has no image flag. The path around it:
    names each file in the prompt as
    `Attachment (<mime>): <absolute path>`;
 6. a timeline thumbnail fetches the bytes back with `attachments.read`, which
-   re-sniffs and refuses any path that resolves outside the thread's own
-   directory.
+   re-sniffs, re-checks the size, and resolves symlinks before refusing any path
+   that lands outside the thread's own directory.
 
 `~/.openade/attachments` is the very directory `ConnectorServices.attachmentsDir`
 names, so a staged file is already where the connector expects it and no second
@@ -908,11 +902,12 @@ over mid-call.
 `apps/server/src/browser/driver.ts` picks one per session:
 
 - **`cdp-attach`** — the desktop launched the server with `OPENADE_CDP_PORT`
-  set. The driver lists CDP targets through `agent-browser --cdp <port> tab
---json` and pins the pane's `<webview>` guest, identified by the marker page
-  it loads (`GET /browser/attach/:threadId`). There is no frame to ship: the
-  webview is already showing the page, and human input lands in the guest
-  directly.
+  set, which it does only when the browser pane is enabled (the port is an
+  attach surface; see [architecture.md](architecture.md#the-mcp-gateway-and-the-browser)).
+  The driver lists CDP targets through `agent-browser --cdp <port> tab --json`
+  and pins the pane's `<webview>` guest, identified by the marker page it loads
+  (`GET /browser/attach/:threadId`). There is no frame to ship: the webview is
+  already showing the page, and human input lands in the guest directly.
 - **`owned-chromium`** — no CDP endpoint, or no webview target inside the
   attach window. `agent-browser` runs its own headless Chrome, the driver
   connects its `stream` WebSocket, and the pane renders the JPEG frames that
@@ -1031,10 +1026,23 @@ disables the binding rather than misfiring
 
 There is exactly one listener, mounted at the app root
 (`apps/web/src/lib/shortcuts.tsx`). It runs in bubble phase so focused controls
-get first refusal and it skips `defaultPrevented` events. A surface that owns a
-command registers a handler while it is mounted; registration is a stack per
-command id, so two surfaces claiming the same id hand it back in order instead
-of blanking it (`apps/web/src/lib/command-registry.ts`).
+get first refusal and it skips `defaultPrevented` events — an interaction card
+claims `1`/`2`/`3`/`d`/`Escape` in capture phase, and the composer's trigger
+menu eats `Escape` before that, so the global table only ever sees what nothing
+closer to the focus wanted. A surface that owns a command registers a handler
+while it is mounted, and a surface that is not mounted does not answer its
+command: `thread.interrupt` belongs to the composer, so it is inert on the
+settings page rather than reaching into a thread nobody is looking at.
+Registration is a stack per command id, so two surfaces claiming the same id
+hand it back in order instead of blanking it
+(`apps/web/src/lib/command-registry.ts`).
+
+An empty table in the settings document falls back to `DEFAULT_KEYBINDINGS`,
+because a renderer with no shortcuts at all is indistinguishable from a bug;
+once the table holds any row it is authoritative, so a binding the user removed
+stays removed. The editor shows that same effective table rather than the raw
+one — showing the empty list would let someone add one row, save, and silently
+unbind everything else.
 
 ### Connector instances
 
@@ -1231,6 +1239,10 @@ deliberately stopped. A connector whose event stream outlives its close gets
 
 | area                                   | start here                                                                                                                                    |
 | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| the pieces, one by one                 | [architecture.md](architecture.md)                                                                                                            |
+| the rules and where they are enforced  | [philosophy.md](philosophy.md)                                                                                                                |
+| running, testing, packaging            | [development.md](development.md)                                                                                                              |
+| the CLI on the far end                 | [command-code-connector.md](command-code-connector.md)                                                                                        |
 | commands, events, read models          | `packages/contracts/src/orchestration.ts`                                                                                                     |
 | the connector-neutral event vocabulary | `packages/contracts/src/runtime.ts`                                                                                                           |
 | the RPC surface                        | `packages/contracts/src/rpc.ts`                                                                                                               |
