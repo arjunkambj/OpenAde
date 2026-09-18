@@ -1,5 +1,5 @@
 /**
- * The W9 done-when proof for `CmdConfig`: an upsert lands in Command Code's
+ * `CmdConfig` proven end to end: an upsert lands in Command Code's
  * own `mcp.json` carrying the `_openade` marker, a hand-authored entry without
  * the marker survives a round-trip untouched, remove refuses unmanaged entries,
  * and skills are discovered from the user and project `skills` roots.

@@ -1,9 +1,8 @@
 /**
  * The Command Code process, replayed.
  *
- * Spec W0/W2 asked for a `FakeCmdProcess` "to fill with captured fixtures".
- * These are the captures — `packages/testkit/fixtures/cmd/`, real runs of
- * command-code 1.55.1 — and this is what puts them back on the wire. There is
+ * The captures are `packages/testkit/fixtures/cmd/`, real runs of
+ * command-code 1.55.1, and this is what puts them back on the wire. There is
  * no stand-in CLI any more and nothing here decides anything: a test that wants
  * a different outcome names a different recording.
  *

@@ -1,5 +1,5 @@
 /**
- * The W9 reconcile loop, proven against the real `SettingsStore` over sqlite:
+ * The reconcile loop, proven against the real `SettingsStore` over sqlite:
  * a fresh install seeds one enabled instance per registered definition,
  * toggles and removals open and close registry entries to match, probes feed
  * `connectors.list`, and a settings row from a previous boot is never

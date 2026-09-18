@@ -273,7 +273,8 @@ const translateRuntimeEvent = (
       ];
 
     case "mcp.status.updated":
-      // No read-model slot for MCP status yet; W6 owns the surface it lands on.
+      // No read-model slot for MCP status yet; the browser layer owns the
+      // surface it lands on.
       return [];
 
     case "runtime.error":

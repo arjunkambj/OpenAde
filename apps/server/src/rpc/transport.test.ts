@@ -1,5 +1,5 @@
 /**
- * The transport's done-when proof, over a real WebSocket:
+ * The transport, proven over a real WebSocket:
  *
  * - `server.hello` answers with the boot identity.
  * - A wrong token gets a 401 on the upgrade, before any RPC runs.

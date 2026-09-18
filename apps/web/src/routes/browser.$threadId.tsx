@@ -1,7 +1,7 @@
 /**
  * The pane's dev route — `/browser/:threadId`. In a real layout the pane sits
- * inside the thread view; this route is the W6 harness for driving it
- * standalone (and the first live exercise of `browser.subscribe`).
+ * inside the thread view; this route drives it standalone, against a real
+ * `browser.subscribe`.
  */
 import * as React from "react";
 

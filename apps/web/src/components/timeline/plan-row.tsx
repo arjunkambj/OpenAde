@@ -1,7 +1,7 @@
 /**
- * `plan` — a proposed plan card. The accept/revise actions are the composer
- * slot's interaction card (W5); this row is the in-timeline record and renders
- * the markdown open by default.
+ * `plan` — a proposed plan card. The accept/revise actions live on the
+ * composer slot's interaction card; this row is the in-timeline record and
+ * renders the markdown open by default.
  */
 
 import type { ItemSnapshot } from "@OpenAde/contracts/runtime";

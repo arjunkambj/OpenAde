@@ -35,7 +35,7 @@ catalog:
   vitest: 4.1.11
   tsx: ^4.23.13
   esbuild: ^0.28.2
-  # Renderer timeline and diff rendering (W4, W5, W8).
+  # Renderer timeline and diff rendering.
   "@legendapp/list": ^3.3.11
   "@pierre/diffs": ^1.4.2
   react-markdown: ^10.1.0

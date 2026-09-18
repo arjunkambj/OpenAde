@@ -1,5 +1,5 @@
 /**
- * The W6 service proof over `makeFakeDriver` — no browser binary needed:
+ * The browser service over `makeFakeDriver` — no browser binary needed:
  *
  * - `browser_open → browser_snapshot → browser_click` walks a fake page and
  *   the subscribe stream tracks the url.

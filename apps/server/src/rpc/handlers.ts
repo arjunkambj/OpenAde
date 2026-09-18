@@ -1,7 +1,7 @@
 /**
- * Wires `OpenAdeRpcGroup` to services. Orchestration reads and writes go to the
- * W1 engine; the surfaces other workstreams own resolve to their Tag service so
- * they can be swapped without touching this file.
+ * Wires `OpenAdeRpcGroup` to services. Orchestration reads and writes go to
+ * the engine; every other surface resolves to its Tag service, so one can be
+ * swapped without touching this file.
  */
 
 import { OpenAdeRpcError, OpenAdeRpcGroup, PROTOCOL_VERSION } from "@OpenAde/contracts/rpc";

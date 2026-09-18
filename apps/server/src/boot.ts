@@ -182,7 +182,7 @@ export const boot = (options: BootOptions) =>
       Layer.provide(sqlite),
     );
 
-    // W6: browser sessions + the MCP gateway. `browser` is shared by the RPC
+    // Browser sessions + the MCP gateway. `browser` is shared by the RPC
     // handlers and the gateway (the layer graph memoizes it, so both see the
     // one session registry); HttpServer flows in from the outermost provide for
     // the attach-marker and endpoint URLs.

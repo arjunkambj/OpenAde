@@ -1,8 +1,9 @@
 /**
- * Service interfaces behind the RPC surface. Everything here that belongs to
- * another workstream (W2 connectors, W6 browser, W8 files/git, W9 config) gets
- * an in-memory implementation now so the server runs end to end; those
- * workstreams swap the layer, not the contract.
+ * Service interfaces behind the RPC surface. Each surface the orchestration
+ * layer does not own itself — connectors, the browser, files and git, the
+ * harness's own config — is a Tag with an in-memory implementation here, so
+ * the server runs end to end with any of them swapped for a fake. The real
+ * implementations provide the layer; none of them touches this contract.
  */
 
 import type {
@@ -49,7 +50,7 @@ export class ServerIdentity extends Context.Service<
   }
 >()("server/rpc/ServerIdentity") {}
 
-// ── Connectors (W2 fills the real implementation) ──────────────
+// ── Connectors ─────────────────────────────────────────────────
 
 export class ConnectorCatalog extends Context.Service<
   ConnectorCatalog,
@@ -68,7 +69,7 @@ export class ConnectorCatalog extends Context.Service<
   );
 }
 
-// ── Files (W8) ─────────────────────────────────────────────────
+// ── Files ──────────────────────────────────────────────────────
 
 export class FileService extends Context.Service<
   FileService,
@@ -115,7 +116,7 @@ export class DirectoryBrowser extends Context.Service<
   }
 >()("server/rpc/DirectoryBrowser") {}
 
-// ── Git (W8) ───────────────────────────────────────────────────
+// ── Git ────────────────────────────────────────────────────────
 
 export class GitService extends Context.Service<
   GitService,
@@ -148,7 +149,7 @@ export class GitService extends Context.Service<
   );
 }
 
-// ── Browser (W6) ───────────────────────────────────────────────
+// ── Browser ────────────────────────────────────────────────────
 
 /**
  * The browser pane's session service. `subscribe`/`humanInput` are the wire
@@ -192,7 +193,7 @@ export class BrowserService extends Context.Service<
   );
 }
 
-// ── Command Code config (W9) ───────────────────────────────────
+// ── Command Code config ────────────────────────────────────────
 
 export class CmdConfig extends Context.Service<
   CmdConfig,

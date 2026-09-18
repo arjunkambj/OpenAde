@@ -7,11 +7,11 @@
  * says so and points at /welcome, which is the connection diagnostic.
  *
  * With a server and no projects the route redirects to /welcome, but this
- * screen still carries its own empty state: that redirect was dead code for a
- * whole wave, and what a fresh install got instead was this page with a
- * heading, a subtitle about picking a project, and nothing to pick — no link,
- * no add action, no way forward at all. The empty state below is what makes
- * that a recoverable screen rather than a dead end.
+ * screen still carries its own empty state, because that redirect cannot be
+ * relied on: without it a fresh install lands on a heading, a subtitle about
+ * picking a project, and nothing to pick — no link, no add action, no way
+ * forward at all. The empty state below is what makes that a recoverable
+ * screen rather than a dead end.
  */
 
 import { Link } from "@tanstack/react-router";

@@ -1,7 +1,7 @@
 /**
  * A connector with no harness behind it.
  *
- * Every workstream above the connector layer — the orchestration engine, the
+ * Everything above the connector layer — the orchestration engine, the
  * transport, the renderer's atoms — has to be testable without a CLI, an
  * account or credits. `makeFakeConnector` is that: a real
  * `ConnectorDefinition` whose sessions replay a scripted list of runtime events

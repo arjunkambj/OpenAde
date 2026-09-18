@@ -1,5 +1,5 @@
 /**
- * The live W6 proof against a real `agent-browser` daemon + Chrome for
+ * The live browser proof against a real `agent-browser` daemon + Chrome for
  * Testing — owned-chromium mode (no Electron CDP in a test process).
  *
  * Gated on `OPENADE_LIVE_BROWSER=1`: it spawns a real browser, so it is

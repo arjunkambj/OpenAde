@@ -1,11 +1,11 @@
 /**
  * The per-thread overflow menu: rename, archive, delete.
  *
- * `thread.rename`, `thread.archive` and `thread.delete` have been in the
- * command union, the decider and the reactors since W1 — closing the session,
- * pruning the checkpoints, deleting the staged attachments — with no dispatch
- * site anywhere in the renderer. The sidebar grew forever and every one of
- * those cleanup behaviours was unreachable from the product.
+ * `thread.rename`, `thread.archive` and `thread.delete` run through the
+ * command union, the decider and the reactors — closing the session, pruning
+ * the checkpoints, deleting the staged attachments. This menu is the only
+ * place the renderer dispatches them; without it the sidebar grows forever and
+ * every one of those cleanup behaviours is unreachable from the product.
  *
  * Delete is behind a confirmation, on the precedent `RestoreCheckpointDialog`
  * set: it is durable and there is no undo. Archive is not — the thread stays,

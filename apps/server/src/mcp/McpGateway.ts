@@ -9,9 +9,9 @@
  * serialized queue and the `interrupted_by_human` epoch live — this module
  * stays thin JSON-RPC plumbing.
  *
- * Tool results cap at 64KB of text per spec; `browser_screenshot` adds an
- * image content block. Timeline rows for `mcp__openade__browser_*` come from
- * the harness transcript (W2's translator), not from here — emitting
+ * Tool results cap at 64KB of text; `browser_screenshot` adds an image
+ * content block. Timeline rows for `mcp__openade__browser_*` come from the
+ * harness transcript (the connector's translator), not from here — emitting
  * `thread.item.upserted` in this layer would double every row.
  */
 

@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
 /**
- * `settings` holds small keyed documents (W9's SettingsStore writes the main
+ * `settings` holds small keyed documents (`SettingsStore` writes the main
  * document here). `permission_rules` is its own table rather than a JSON blob
  * because the permission engine filters it by scope on every tool call, and
  * because "allow always" appends a row from the approval flow.

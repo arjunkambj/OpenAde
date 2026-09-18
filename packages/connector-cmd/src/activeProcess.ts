@@ -44,9 +44,10 @@ export interface ActiveProcess {
    * The approval gate's failure mode is to open silently: a hook that does not
    * run — a path the shell mis-parsed, a script that is not executable —
    * produces no decision, and the harness falls back to its own flow, which
-   * under `--yolo` allows everything. Across all 28 recorded turns the counts
-   * match exactly, one post per queued call, so a turn that queued tools and
-   * posted nothing is the observable sign of a gate that is not there.
+   * under `--yolo` allows everything. Across the 25 recorded turns that are
+   * not plan turns the counts match exactly, one post per queued call, so a
+   * turn that queued tools and posted nothing is the observable sign of a gate
+   * that is not there. Plan mode is the one exemption: no hook fires there.
    */
   readonly queuedTools: Ref.Ref<number>;
   readonly postsAtStart: number;

@@ -1,5 +1,5 @@
 /**
- * The W8 implementation of the orchestration `CheckpointHook` seam: capture
+ * The git implementation of the orchestration `CheckpointHook` seam: capture
  * writes the hidden git ref and reports the summary the `thread.checkpoint.created`
  * event embeds; restore reverts the worktree to that ref.
  */

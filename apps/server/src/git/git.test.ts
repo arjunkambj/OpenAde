@@ -1,5 +1,5 @@
 /**
- * W8 done-when: two checkpointed turns diff correctly against each other, a
+ * Two checkpointed turns diff correctly against each other, a
  * restore reverts the worktree, `files.search` answers warm, and `files.read`
  * caps large files. Repositories are real `git init` directories in tmp.
  */

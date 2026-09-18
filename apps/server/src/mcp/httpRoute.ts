@@ -144,7 +144,7 @@ const attachPage = (threadId: string): string => `<!doctype html>
 const escapeHtml = (text: string): string =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-/** The extra HTTP routes W6 adds to the server's router. */
+/** The browser and MCP routes, added to the server's router. */
 export const mcpRoutesLayer = Layer.mergeAll(
   HttpRouter.add("POST", "/mcp", mcpRoute),
   HttpRouter.add("GET", "/mcp", mcpGetRoute),

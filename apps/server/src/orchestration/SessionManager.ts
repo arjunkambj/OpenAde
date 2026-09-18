@@ -1,9 +1,9 @@
 /**
  * Which connector instance a thread talks to, and the live sessions on top.
  *
- * `ConnectorSelection` is the seam W9's settings UI will own: for now an
- * instance is "the first one registered", which is what the fake-connector
- * tests provide. Routing on a thread that already has a session always goes by
+ * `ConnectorSelection` is the seam the settings layer fills through the
+ * registry (`settings/connectorRouting.ts`). Left to itself it answers "the
+ * first instance registered", which is what the fake-connector tests provide. Routing on a thread that already has a session always goes by
  * the persisted `connectorInstanceId` — two instances of the same kind can
  * differ in binary, credentials and model, so kind is never a lookup key.
  *
@@ -92,7 +92,10 @@ export class ConnectorSelection extends Context.Service<
       instanceById: (instanceId) => registry.instance(instanceId),
     });
 
-  /** A fixed instance — what the W1 tests and a single-connector build want. */
+  /**
+   * A fixed instance — what the orchestration tests and a single-connector
+   * build want.
+   */
   static readonly fromInstance = (instance: ConnectorInstance): Layer.Layer<ConnectorSelection> =>
     Layer.succeed(ConnectorSelection, {
       instanceFor: () => Effect.succeed(instance),

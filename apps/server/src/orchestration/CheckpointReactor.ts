@@ -1,10 +1,10 @@
 /**
- * The checkpoint seam W8 fills in.
+ * The checkpoint seam the git implementation fills.
  *
- * `CheckpointHook` is the service W8's git work implements: `capture` turns a
- * finished turn into a hidden-ref checkpoint summary (or `null` when nothing
- * changed), `restore` checks one out. The default implementation is an
- * explicit no-op so W1's stack runs without git.
+ * `CheckpointHook` is the service `apps/server/src/git` implements: `capture`
+ * turns a finished turn into a hidden-ref checkpoint summary (or `null` when
+ * nothing changed), `restore` checks one out. The default implementation is an
+ * explicit no-op, so the orchestration stack runs without git.
  *
  * `CheckpointReactor` wires it to the log: `turn.completed` → capture →
  * `thread.checkpoint.created`; a `thread.checkpoint.restore.requested` work

@@ -1,5 +1,5 @@
 /**
- * `files.search` and `files.read` behind the W3 Tag. Search walks tracked plus
+ * `files.search` and `files.read` behind the `Files` Tag. Search walks tracked plus
  * untracked-but-not-ignored paths via `git ls-files`, so .gitignore is honored
  * for free; a per-root cache keyed off `.git/index` mtime keeps repeat queries
  * warm (the composer hits this on every `@` keystroke).

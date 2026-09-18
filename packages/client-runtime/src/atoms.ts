@@ -388,7 +388,7 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
     }),
   );
 
-  // W6: the thread's live browser state for the pane — `null` until the
+  // The thread's live browser state for the pane — `null` until the
   // server answers, then the latest BrowserState (mode, url, frame, activeTool).
   const browserStateAtom = Atom.family((threadId: ThreadId) =>
     runtime.atom(

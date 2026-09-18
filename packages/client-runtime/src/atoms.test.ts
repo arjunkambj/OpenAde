@@ -1,5 +1,5 @@
 /**
- * Atom-level tests over a stubbed RPC client — the done-when pieces that live
+ * Atom-level tests over a stubbed RPC client — the behaviour that lives
  * entirely in the client runtime: per-thread isolation, resnapshot handling,
  * and the `serverInstanceId` reset.
  */
