@@ -18,7 +18,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { chmod, mkdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import * as NodePath from "node:path";
 import type { ThreadId } from "@OpenAde/contracts/ids";
 import type { AttachmentBytes, StagedAttachment } from "@OpenAde/contracts/rpc";
@@ -78,6 +78,22 @@ export class AttachmentStore extends Context.Service<
     ) => Effect.Effect<AttachmentBytes, OpenAdeRpcError>;
     /** Removes everything a thread staged. Never fails: cleanup is best effort. */
     readonly purge: (threadId: ThreadId) => Effect.Effect<void>;
+    /**
+     * Removes a thread's staged files that `keep` does not name and that are
+     * older than `graceMillis`.
+     *
+     * The composer stages before it dispatches, so a file whose turn is never
+     * sent — a failed dispatch, a cleared draft, a closed window, a server that
+     * died mid-send — was referenced by nothing and kept for the life of the
+     * thread. The grace window is what keeps an upload that is racing its own
+     * dispatch from being deleted under it. Best effort, and the count is for
+     * the log line.
+     */
+    readonly sweep: (
+      threadId: ThreadId,
+      keep: ReadonlySet<string>,
+      graceMillis: number,
+    ) => Effect.Effect<number>;
   }
 >()("server/attachments/AttachmentStore") {
   static readonly layer = Layer.sync(AttachmentStore, () => make(configPath(["attachments"])));
@@ -200,5 +216,30 @@ const make = (root: string) => {
       Effect.ignore,
     );
 
-  return AttachmentStore.of({ directoryFor, stage, read, purge });
+  const sweep = (threadId: ThreadId, keep: ReadonlySet<string>, graceMillis: number) =>
+    Effect.gen(function* () {
+      const now = yield* Effect.clockWith((clock) => clock.currentTimeMillis);
+      const directory = directoryFor(threadId);
+      const entries = yield* Effect.promise(() =>
+        readdir(directory).catch(() => [] as ReadonlyArray<string>),
+      );
+      let removed = 0;
+      for (const entry of entries) {
+        const path = containedPath(directory, entry);
+        if (path === null || keep.has(path)) {
+          continue;
+        }
+        const stats = yield* Effect.promise(() => stat(path).catch(() => null));
+        // A directory, or something that vanished under us, is not ours to
+        // remove; a file young enough to be mid-upload is not ours either.
+        if (stats === null || !stats.isFile() || now - stats.mtimeMs < graceMillis) {
+          continue;
+        }
+        yield* Effect.promise(() => rm(path, { force: true }).catch(() => undefined));
+        removed += 1;
+      }
+      return removed;
+    }).pipe(Effect.orElseSucceed(() => 0));
+
+  return AttachmentStore.of({ directoryFor, stage, read, purge, sweep });
 };
