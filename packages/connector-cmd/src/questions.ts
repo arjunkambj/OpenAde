@@ -146,3 +146,42 @@ export const normalizeQuestions = (input: unknown): ReadonlyArray<UserQuestion> 
     .map(normalizeQuestion)
     .filter((question): question is UserQuestion => question !== null);
 };
+
+/**
+ * The hook's answer text → what the timeline should show for an answered
+ * question.
+ *
+ * The question bridge deliberately denies `ask_user_question` and hands the
+ * answers back in `permissionDecisionReason` — the harness reads them as
+ * context instead of asking interactively, which is the design the recordings
+ * confirm. The CLI reports that as `tool_hook_blocked`, so the row ended up
+ * red and failed with the user's own answers printed as an error message,
+ * followed by "Do not retry this tool". The answer is not a failure and the
+ * policy sentence is addressed to the model, not to the reader.
+ */
+export const readableAnswers = (hookOutput: string): string => {
+  const body = hookOutput.replace(/\(Blocked by hook policy\.[^)]*\)/g, "").trim();
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return body;
+  }
+  if (!Array.isArray(parsed)) {
+    return body;
+  }
+  const lines = parsed.flatMap((entry) => {
+    const record = asRecord(entry);
+    const question = text(record, "question");
+    const selected = Array.isArray(record.selected)
+      ? record.selected.filter((value): value is string => typeof value === "string")
+      : [];
+    const free = text(record, "text");
+    const answer = [...selected, ...(free === "" ? [] : [free])].join(", ");
+    if (question === "" && answer === "") {
+      return [];
+    }
+    return [question === "" ? answer : `${question} → ${answer || "(no answer)"}`];
+  });
+  return lines.length === 0 ? body : lines.join("\n");
+};

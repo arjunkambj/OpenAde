@@ -43,6 +43,7 @@ import type { ConnectorCapabilities, TurnStopReason } from "@OpenAde/contracts/r
 import { EXIT_MESSAGES } from "./exitCodes";
 import {
   anonymousKey,
+  ASK_USER_QUESTION,
   asCompactionTokens,
   asOptionalString,
   asRecord,
@@ -563,7 +564,10 @@ export const makeTranslator = (options: {
         // block is news: an allow outcome means the call is about to run, which
         // the lifecycle frames already say.
         const outcome = asRecord(event.outcome);
-        if (outcome.kind !== "block") {
+        // `ask_user_question` is settled by the `tool_hook_blocked` frame one
+        // line later, which is the one carrying the user's answers; this frame
+        // only says "blocked", which for a question is noise.
+        if (outcome.kind !== "block" || event.toolName === ASK_USER_QUESTION) {
           return [];
         }
         return [

@@ -24,6 +24,25 @@ import { makeItemId } from "@OpenAde/contracts/ids";
 import type { ItemSnapshot, RuntimeEvent, Todo } from "@OpenAde/contracts/runtime";
 
 import type { CmdUsage } from "./ndjson";
+import { readableAnswers } from "./questions";
+
+/** The tool the question bridge answers by denying it — see `readableAnswers`. */
+export const ASK_USER_QUESTION = "ask_user_question";
+
+/**
+ * How a finished call reads. An answered `ask_user_question` is the one tool
+ * whose refusal is a success: the bridge denies it on purpose and hands the
+ * user's answers back as the reason, so a failed row would be showing the user
+ * their own answer as an error.
+ */
+const settlement = (
+  toolName: string | undefined,
+  output: string,
+  failed: boolean,
+): { readonly output: string; readonly failed: boolean } =>
+  toolName === ASK_USER_QUESTION
+    ? { output: readableAnswers(output), failed: false }
+    : { output, failed };
 
 /**
  * A `RuntimeEvent` minus the envelope fields the session stamps on the way
@@ -325,9 +344,10 @@ export const makeToolRows = (): ToolRows => {
   const toolFinished = (
     toolCallId: string | undefined,
     toolName: string,
-    output: string,
-    failed: boolean,
+    rawOutput: string,
+    rawFailed: boolean,
   ): ReadonlyArray<PendingRuntimeEvent> => {
+    const { output, failed } = settlement(toolName, rawOutput, rawFailed);
     const key = toolCallId ?? `anon:${toolName}:${makeItemId()}`;
     const existing = toolItems.get(key);
     const itemId = existing ?? makeItemId();
@@ -349,16 +369,21 @@ export const makeToolRows = (): ToolRows => {
 
   /** A tool_result block → item.completed on the row the tool_use opened. */
   const toolCompleted = (block: ToolResultBlock): ReadonlyArray<PendingRuntimeEvent> => {
-    const text = truncateToolOutput(textOfToolResult(block.content));
     const existing = block.tool_use_id === undefined ? undefined : toolItems.get(block.tool_use_id);
     const itemId = existing ?? makeItemId();
     const prior = existing === undefined ? undefined : toolSnapshots.get(block.tool_use_id!);
+    // The transcript replays the deny the bridge answered with, so the same
+    // reading applies here as on the frame that settled the row live.
+    const text = truncateToolOutput(
+      settlement(prior?.tool?.name, textOfToolResult(block.content), false).output,
+    );
     // A call a hook blocked still gets a `tool_result` in the transcript — the
     // refusal is what the model is told — and it carries no `is_error`. The
     // frames are the authority on whether the call ran, so a row already marked
     // failed is never talked back into "completed".
     const status =
-      prior?.status === "failed" || block.is_error === true
+      (prior?.status === "failed" || block.is_error === true) &&
+      prior?.tool?.name !== ASK_USER_QUESTION
         ? ("failed" as const)
         : ("completed" as const);
     const snapshot: ItemSnapshot =

@@ -18,6 +18,7 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { parseFrame, type CmdFrame } from "./ndjson";
 import { isBelowOldestTested, OLDEST_TESTED_VERSION } from "./probe";
+import { readableAnswers } from "./questions";
 import { makeTranslator, type PendingRuntimeEvent } from "./translate";
 import { CMD_CAPABILITIES } from "./capabilities";
 
@@ -469,14 +470,37 @@ describe("how runs end", () => {
     expect(errors[0]?.payload.message).toContain("neither an existing .jsonl transcript");
   });
 
-  it("carries a question's answer-shaped tool call as an ordinary row", () => {
-    // `--tools-enable ask_user_question` un-withholds the tool; the card itself
-    // comes from the hook, but the timeline still shows the call.
-    const asked = itemsOf(replay("question-tools").events).filter(
-      (item) => item.tool?.name === "ask_user_question",
-    );
+  it("shows an answered question as an answer, not as a failure", () => {
+    // `--tools-enable ask_user_question` un-withholds the tool; the card comes
+    // from the hook, and the bridge answers it by *denying* the call with the
+    // user's answers as the reason (that is how the harness reads them as
+    // context). The CLI reports that as `tool_hook_blocked` — so the row used
+    // to be red and failed, with the user's own answer as its error message
+    // and "Do not retry this tool" underneath it.
+    const events = replay("question-tools").events;
+    const asked = itemsOf(events).filter((item) => item.tool?.name === "ask_user_question");
     expect(asked.length).toBeGreaterThan(0);
-    expect(asked.at(-1)?.status).toBe("failed");
+    expect(asked.at(-1)?.status).toBe("completed");
+    expect(asked.at(-1)?.error).toBeUndefined();
+    // The policy sentence is addressed to the model, not to the reader.
+    expect(String(asked.at(-1)?.tool?.output ?? "")).not.toContain("Blocked by hook policy");
+    // One row, whatever the frames and the transcript both say about it.
+    expect(new Set(asked.map((item) => item.itemId)).size).toBe(1);
+  });
+
+  it("renders the answers the bridge handed back", () => {
+    expect(readableAnswers('[{"question":"Tabs or spaces?","selected":["Tabs"]}]')).toBe(
+      "Tabs or spaces? → Tabs",
+    );
+    expect(
+      readableAnswers(
+        '[{"question":"Which?","selected":["A"]}]\n\n(Blocked by hook policy. Do not retry this tool — choose another approach.)',
+      ),
+    ).toBe("Which? → A");
+    // Anything that is not the bridge's own JSON is shown as it came.
+    expect(readableAnswers("recorded deny from the recording hook")).toBe(
+      "recorded deny from the recording hook",
+    );
   });
 });
 
