@@ -212,9 +212,14 @@ export const forEachDriver = (title: string, body: (driver: Driver) => void): vo
       });
       continue;
     }
-    if (driver.name === "live") {
-      vi.setConfig({ testTimeout: 600_000, hookTimeout: 120_000 });
-    }
+    // Even a replay is several real processes, a real socket and a real
+    // database, and a multi-turn scenario spawns the replayer once per turn —
+    // comfortably past the five seconds vitest allows by default. A live turn
+    // is a model round trip on top of that.
+    vi.setConfig({
+      testTimeout: driver.name === "live" ? 600_000 : 120_000,
+      hookTimeout: 120_000,
+    });
     describe(`${title} [${driver.name}]`, () => body(driver));
   }
 };
@@ -344,17 +349,53 @@ export const command = <T extends Command["type"]>(body: CommandBody<T>): Comman
 
 // ── Watching a thread the way the renderer does ────────────────
 
+/**
+ * A position in the sequence of views, for waits that mean "after this".
+ *
+ * Without one, "wait for a view with no approval pending" is answered by a
+ * view from *before* the thing being tested — the collector searches its whole
+ * history, which is what makes it able to resolve an event that already
+ * happened. Every scenario here has a before and an after, so every wait takes
+ * a mark.
+ */
+export type ViewMark = number;
+
 export interface ThreadWatch {
   /** Every view the fold produced, in order. */
   readonly views: Effect.Effect<ReadonlyArray<ThreadDetailView>>;
+  /** The position after the views seen so far; pass it to `awaitView`. */
+  readonly mark: Effect.Effect<ViewMark>;
+  /**
+   * Waits until the subscription has caught up with one command's own write,
+   * and answers with the position just after the view that carried it.
+   *
+   * This is what `CommandReceipt.lastSequence` is for: it names the event-log
+   * position the command's effects are visible at, so "the turn I just started
+   * is on screen" is an exact question rather than a race. Every later wait in
+   * a scenario starts from the mark it returns.
+   */
+  readonly markAfter: (receipt: CommandReceipt) => Effect.Effect<ViewMark>;
   /** The latest view; fails if the subscription ended before one arrived. */
   readonly latest: Effect.Effect<ThreadDetailView>;
-  /** Resolves with the first view satisfying `predicate`, past or future. */
+  /**
+   * Resolves with the first view at or after `after` satisfying `predicate`.
+   * Omitting `after` searches from the beginning, which is right only for the
+   * first wait of a scenario.
+   */
   readonly awaitView: (
     predicate: (view: ThreadDetailView) => boolean,
+    after?: ViewMark,
   ) => Effect.Effect<ThreadDetailView>;
+  /** The views from `after` onwards — for "nothing happened in between". */
+  readonly viewsSince: (after: ViewMark) => Effect.Effect<ReadonlyArray<ThreadDetailView>>;
   /** The raw stream items, for assertions about delivery rather than state. */
   readonly items: Effect.Effect<ReadonlyArray<ThreadStreamItem>>;
+}
+
+/** One view and where it sat in the sequence. */
+interface MarkedView {
+  readonly index: ViewMark;
+  readonly view: ThreadDetailView;
 }
 
 /**
@@ -373,50 +414,82 @@ export const watchThread = (
   Effect.gen(function* () {
     const raw = yield* Ref.make<ReadonlyArray<ThreadStreamItem>>([]);
     const doc = yield* Ref.make<ThreadDetailView | null>(null);
+    const seen = yield* Ref.make<ViewMark>(0);
     const stream = client.rpc["threads.subscribe"]({ threadId }).pipe(
       Stream.mapEffect((item) =>
         Effect.gen(function* () {
-          yield* Ref.update(raw, (seen) => [...seen, item]);
+          yield* Ref.update(raw, (all) => [...all, item]);
           if (item.kind === "resnapshot-required") {
             yield* Ref.set(doc, null);
           }
-          return yield* Ref.updateAndGet(doc, (current) => applyThreadStreamItem(current, item));
+          const view = yield* Ref.updateAndGet(doc, (current) =>
+            applyThreadStreamItem(current, item),
+          );
+          if (view === null) {
+            return null;
+          }
+          const index = yield* Ref.getAndUpdate(seen, (count) => count + 1);
+          return { index, view } satisfies MarkedView;
         }),
       ),
-      Stream.filter((view): view is ThreadDetailView => view !== null),
+      Stream.filter((marked): marked is MarkedView => marked !== null),
       Stream.orDie,
     );
-    const collector: StreamCollector<ThreadDetailView> = yield* makeStreamCollector(stream);
-    const awaitView = (
+    const collector: StreamCollector<MarkedView> = yield* makeStreamCollector(stream);
+    const awaitMarked = (
       predicate: (view: ThreadDetailView) => boolean,
-    ): Effect.Effect<ThreadDetailView> =>
+      after: ViewMark = 0,
+    ): Effect.Effect<MarkedView> =>
       collector
-        .awaitItem(predicate)
+        .awaitItem((marked) => marked.index >= after && predicate(marked.view))
         .pipe(
           Effect.catchTag("StreamEnded", (error) =>
             Effect.die(
               new Error(
-                `the thread subscription ended after ${error.seen} views without the awaited one`,
+                `the thread subscription ended after ${error.seen} views without one matching the wait (from mark ${after})`,
               ),
             ),
           ),
         );
+    const awaitView = (
+      predicate: (view: ThreadDetailView) => boolean,
+      after: ViewMark = 0,
+    ): Effect.Effect<ThreadDetailView> =>
+      awaitMarked(predicate, after).pipe(Effect.map((marked) => marked.view));
+    const views = collector.collected.pipe(Effect.map((all) => all.map((marked) => marked.view)));
     return {
-      views: collector.collected,
-      latest: awaitView(() => true).pipe(
-        Effect.flatMap(() => collector.collected),
-        Effect.map((all) => all.at(-1)!),
-      ),
+      views,
+      mark: Ref.get(seen),
+      markAfter: (receipt) =>
+        awaitMarked((view) => view.snapshotSequence >= receipt.lastSequence).pipe(
+          Effect.map((marked) => marked.index + 1),
+        ),
+      latest: views.pipe(Effect.map((all) => all.at(-1)!)),
       awaitView,
+      viewsSince: (after) =>
+        collector.collected.pipe(
+          Effect.map((all) =>
+            all.filter((marked) => marked.index >= after).map((marked) => marked.view),
+          ),
+        ),
       items: Ref.get(raw),
     };
   });
 
 export interface ListWatch {
+  /** The position after the updates seen so far; pass it to `awaitList`. */
+  readonly mark: Effect.Effect<ViewMark>;
   readonly awaitList: (
     predicate: (threads: ReadonlyArray<ThreadSummary>) => boolean,
+    after?: ViewMark,
   ) => Effect.Effect<ReadonlyArray<ThreadSummary>>;
   readonly latest: Effect.Effect<ReadonlyArray<ThreadSummary>>;
+}
+
+/** One list state and where it sat in the sequence. */
+interface MarkedList {
+  readonly index: ViewMark;
+  readonly threads: ReadonlyArray<ThreadSummary>;
 }
 
 /** The sidebar's own subscription, folded with the sidebar's own reducer. */
@@ -426,30 +499,40 @@ export const watchThreadList = (
 ): Effect.Effect<ListWatch, never, import("effect/Scope").Scope> =>
   Effect.gen(function* () {
     const state = yield* Ref.make<ReadonlyArray<ThreadSummary>>([]);
+    const seen = yield* Ref.make<ViewMark>(0);
     const stream = client.rpc["threads.listSubscribe"]({ projectId }).pipe(
       Stream.mapEffect((item) =>
-        Ref.updateAndGet(state, (threads) => applyThreadListItem(threads, item)),
+        Effect.gen(function* () {
+          const threads = yield* Ref.updateAndGet(state, (current) =>
+            applyThreadListItem(current, item),
+          );
+          const index = yield* Ref.getAndUpdate(seen, (count) => count + 1);
+          return { index, threads } satisfies MarkedList;
+        }),
       ),
       Stream.orDie,
     );
-    const collector = yield* makeStreamCollector(stream);
+    const collector: StreamCollector<MarkedList> = yield* makeStreamCollector(stream);
     const awaitList = (
       predicate: (threads: ReadonlyArray<ThreadSummary>) => boolean,
+      after: ViewMark = 0,
     ): Effect.Effect<ReadonlyArray<ThreadSummary>> =>
       collector
-        .awaitItem(predicate)
+        .awaitItem((marked) => marked.index >= after && predicate(marked.threads))
         .pipe(
+          Effect.map((marked) => marked.threads),
           Effect.catchTag("StreamEnded", (error) =>
             Effect.die(
               new Error(
-                `the thread list ended after ${error.seen} updates without the awaited one`,
+                `the thread list ended after ${error.seen} updates without one matching the wait (from mark ${after})`,
               ),
             ),
           ),
         );
     return {
+      mark: Ref.get(seen),
       awaitList,
-      latest: collector.collected.pipe(Effect.map((all) => all.at(-1) ?? [])),
+      latest: collector.collected.pipe(Effect.map((all) => all.at(-1)?.threads ?? [])),
     };
   });
 
