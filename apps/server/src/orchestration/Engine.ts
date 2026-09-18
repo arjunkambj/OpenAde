@@ -40,7 +40,12 @@ import * as Reactivity from "effect/unstable/reactivity/Reactivity";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import type { SqlError } from "effect/unstable/sql/SqlError";
 
-import { EventStore, type ConcurrencyConflict, type PlannedEvent } from "../persistence/EventStore";
+import {
+  EventStore,
+  type ConcurrencyConflict,
+  type InvalidEvent,
+  type PlannedEvent,
+} from "../persistence/EventStore";
 import { layer as migrationsLayer } from "../persistence/Migrations";
 import { PERMISSION_RULES_KEY } from "../permissions/PermissionService";
 import {
@@ -69,7 +74,13 @@ import {
 } from "./decider";
 import { makeLiveBuffer, sizeOfJson, threadItemMergeKey, threadListMergeKey } from "./LiveBuffer";
 
-export type EngineError = SqlError | ConcurrencyConflict;
+/**
+ * Everything a dispatch can fail with. `InvalidEvent` is here because the
+ * store validates a planned event against `OrchestrationEvent` before it
+ * writes: a payload the union rejects fails the command that produced it
+ * rather than poisoning the log for every later read.
+ */
+export type EngineError = SqlError | ConcurrencyConflict | InvalidEvent;
 
 /**
  * Where the engine mints identifiers and timestamps. A `Context.Reference`

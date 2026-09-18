@@ -249,8 +249,12 @@ export const CheckpointReactor: Layer.Layer<
     });
 
     const pending = yield* pendingRestores.pipe(
-      Effect.catch((error) =>
-        Effect.logWarning("checkpoint restore replay could not read the log", error).pipe(
+      // `catchCause`, not `catch`: this runs inside the layer build, so a
+      // defect from the read — an undecodable row used to throw one — did not
+      // fail the reactor, it failed `Layer.build(app)`, and the server never
+      // reached its handshake.
+      Effect.catchCause((cause) =>
+        Effect.logWarning("checkpoint restore replay could not read the log", cause).pipe(
           Effect.as([] as ReadonlyArray<OrchestrationEvent>),
         ),
       ),

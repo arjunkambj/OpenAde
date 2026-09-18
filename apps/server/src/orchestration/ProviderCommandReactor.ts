@@ -378,7 +378,10 @@ export const ProviderCommandReactor = Layer.effectDiscard(
           }
         }
       }).pipe(
-        Effect.catch((error) => Effect.logWarning("provider reactor dropped an event", error)),
+        // `catchCause`, not `catch`: a defect here — a schema decode that threw
+        // deep inside a read, say — would otherwise kill the loop fiber and the
+        // reactor would stop reacting to everything, silently.
+        Effect.catchCause((cause) => Effect.logWarning("provider reactor dropped an event", cause)),
       );
 
     // Eager subscribe: the mailbox exists before the layer finishes building,

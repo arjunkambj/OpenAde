@@ -40,7 +40,25 @@ export class ConcurrencyConflict extends Data.TaggedError("ConcurrencyConflict")
   readonly streamId: string;
 }> {}
 
-export type EventStoreError = SqlError | ConcurrencyConflict;
+/**
+ * A planned event the `OrchestrationEvent` union rejects.
+ *
+ * The refined schema types are not branded — `NonEmptyString` is
+ * `Schema.String.check(Schema.isNonEmpty())`, whose `.Type` is plain `string` —
+ * so TypeScript happily accepts `""` where the schema does not. Every read path
+ * decodes, so a row like that was a poison pill: the thread stopped opening and
+ * the checkpoint reactor's boot replay took the whole server with it. Failing
+ * the write that produced it keeps the log readable, and the caller sees which
+ * event it was.
+ */
+export class InvalidEvent extends Data.TaggedError("InvalidEvent")<{
+  readonly streamKind: StreamKind;
+  readonly streamId: string;
+  readonly eventType: string;
+  readonly message: string;
+}> {}
+
+export type EventStoreError = SqlError | ConcurrencyConflict | InvalidEvent;
 
 interface EventRow {
   readonly sequence: number;
@@ -59,20 +77,57 @@ interface EventRow {
 
 const decodeEvent = Schema.decodeUnknownSync(OrchestrationEvent);
 
-const rowToEvent = (row: EventRow): OrchestrationEvent =>
-  decodeEvent({
-    sequence: row.sequence,
-    eventId: row.event_id,
-    streamKind: row.stream_kind,
-    streamId: row.stream_id,
-    streamVersion: row.stream_version,
-    type: row.type,
-    occurredAt: row.occurred_at,
-    actor: row.actor,
-    ...(row.command_id === null ? {} : { commandId: row.command_id }),
-    ...(row.causation_event_id === null ? {} : { causationEventId: row.causation_event_id }),
-    ...(row.correlation_id === null ? {} : { correlationId: row.correlation_id }),
-    payload: JSON.parse(row.payload_json),
+/** `null` when the union rejects the candidate, with the reason. */
+const decodeOrNull = (
+  candidate: unknown,
+): { readonly event: OrchestrationEvent } | { readonly message: string } => {
+  try {
+    return { event: decodeEvent(candidate) };
+  } catch (cause) {
+    return { message: cause instanceof Error ? cause.message : String(cause) };
+  }
+};
+
+const rowToCandidate = (row: EventRow): unknown => ({
+  sequence: row.sequence,
+  eventId: row.event_id,
+  streamKind: row.stream_kind,
+  streamId: row.stream_id,
+  streamVersion: row.stream_version,
+  type: row.type,
+  occurredAt: row.occurred_at,
+  actor: row.actor,
+  ...(row.command_id === null ? {} : { commandId: row.command_id }),
+  ...(row.causation_event_id === null ? {} : { causationEventId: row.causation_event_id }),
+  ...(row.correlation_id === null ? {} : { correlationId: row.correlation_id }),
+  payload: JSON.parse(row.payload_json),
+});
+
+/**
+ * Rows to events, skipping — loudly — any the union cannot decode.
+ *
+ * The write side now validates, so a row like this can only come from an older
+ * build or a hand-edited database. Throwing on it, which is what
+ * `decodeUnknownSync` does, escaped as a *defect*: `Effect.catch` around the
+ * readers is typed-errors-only, so one bad byte stopped `dispatch`,
+ * `subscribeThread`, and the checkpoint reactor's boot replay — and therefore
+ * the whole layer build. The same treatment `SettingsStore.load` gives an
+ * unreadable settings row: log it, leave it in place, carry on.
+ */
+const decodeRows = (rows: ReadonlyArray<EventRow>) =>
+  Effect.gen(function* () {
+    const events: Array<OrchestrationEvent> = [];
+    for (const row of rows) {
+      const decoded = decodeOrNull(rowToCandidate(row));
+      if ("event" in decoded) {
+        events.push(decoded.event);
+        continue;
+      }
+      yield* Effect.logWarning(
+        `events: skipping row ${row.sequence} (${row.type}) — ${decoded.message}`,
+      );
+    }
+    return events as ReadonlyArray<OrchestrationEvent>;
   });
 
 const EVENT_COLUMNS = `
@@ -128,7 +183,7 @@ export class EventStore extends Context.Service<
           SELECT ${sql.literal(EVENT_COLUMNS)} FROM events
           WHERE stream_kind = ${streamKind} AND stream_id = ${streamId}
           ORDER BY stream_version
-        `.pipe(Effect.map((rows) => rows.map(rowToEvent)));
+        `.pipe(Effect.flatMap(decodeRows));
 
       const streamAfter = (streamKind: StreamKind, streamId: string, after: number) =>
         sql<EventRow>`
@@ -136,18 +191,18 @@ export class EventStore extends Context.Service<
           WHERE stream_kind = ${streamKind} AND stream_id = ${streamId}
             AND sequence > ${after}
           ORDER BY sequence
-        `.pipe(Effect.map((rows) => rows.map(rowToEvent)));
+        `.pipe(Effect.flatMap(decodeRows));
 
       const threadEventsAfter = (after: number) =>
         sql<EventRow>`
           SELECT ${sql.literal(EVENT_COLUMNS)} FROM events
           WHERE stream_kind = 'thread' AND sequence > ${after}
           ORDER BY sequence
-        `.pipe(Effect.map((rows) => rows.map(rowToEvent)));
+        `.pipe(Effect.flatMap(decodeRows));
 
       const allEvents = sql<EventRow>`
           SELECT ${sql.literal(EVENT_COLUMNS)} FROM events ORDER BY sequence
-        `.pipe(Effect.map((rows) => rows.map(rowToEvent)));
+        `.pipe(Effect.flatMap(decodeRows));
 
       const append = (
         streamKind: StreamKind,
@@ -167,6 +222,20 @@ export class EventStore extends Context.Service<
           const appended: Array<OrchestrationEvent> = [];
           for (const [index, event] of planned.entries()) {
             const streamVersion = base + index + 1;
+            // Validated before it is written, because everything that reads the
+            // log decodes: a payload the union rejects is a row that stops the
+            // thread opening and the server booting. `sequence` is not assigned
+            // yet, so the candidate stands in with the one the row will get at
+            // the earliest — the schema only checks that it is a position.
+            const candidate = decodeOrNull({ ...event, streamVersion, sequence: base + index + 1 });
+            if (!("event" in candidate)) {
+              return yield* new InvalidEvent({
+                streamKind,
+                streamId,
+                eventType: event.type,
+                message: candidate.message,
+              });
+            }
             const inserted = yield* sql<{ readonly sequence: number }>`
               INSERT INTO events (
                 event_id, stream_kind, stream_id, stream_version, type,
