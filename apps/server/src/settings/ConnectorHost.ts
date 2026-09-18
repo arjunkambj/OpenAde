@@ -119,7 +119,22 @@ export class ConnectorHost extends Context.Service<
         services,
         install: (real) =>
           Effect.andThen(
-            Effect.promise(() => mkdir(attachmentsDir, { recursive: true })).pipe(Effect.ignore),
+            // Best effort, and it has to stay that way: `install` runs on the
+            // critical path, before the handshake lets a client in, so a home
+            // that cannot hold the directory — it already exists as a file, an
+            // unwritable or read-only home, a parent that is not a directory —
+            // must degrade to "attachments will fail" rather than kill the
+            // boot. `Effect.promise` turns a rejection into a *defect*, which
+            // `Effect.ignore` does not catch (it only matches the typed error
+            // channel), so this swallows the cause instead — and logs it,
+            // because otherwise the first turn that writes an attachment fails
+            // with no trail back to here.
+            Effect.promise(() => mkdir(attachmentsDir, { recursive: true })).pipe(
+              Effect.ignoreCause({
+                log: "Warn",
+                message: `could not create the attachments directory ${attachmentsDir}`,
+              }),
+            ),
             Ref.set(installed, real),
           ),
       });

@@ -6,7 +6,7 @@
  * holding the *same* services object sees the real endpoints afterwards.
  */
 
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -34,25 +34,30 @@ const request: ApprovalRequest = {
  * host here gets a home of its own — a plain `vitest run` must never write into
  * the developer's real `~/.openade`.
  */
-const host = Effect.acquireRelease(
-  Effect.sync(() => {
-    const previous = process.env[OPENADE_HOME_ENV];
-    process.env[OPENADE_HOME_ENV] = mkdtempSync(join(tmpdir(), "openade-host-"));
-    return previous;
-  }),
-  (previous) =>
+const hostWithHome = (prepare: (home: string) => void = () => {}) =>
+  Effect.acquireRelease(
     Effect.sync(() => {
-      if (previous === undefined) {
-        delete process.env[OPENADE_HOME_ENV];
-      } else {
-        process.env[OPENADE_HOME_ENV] = previous;
-      }
+      const previous = process.env[OPENADE_HOME_ENV];
+      const home = mkdtempSync(join(tmpdir(), "openade-host-"));
+      prepare(home);
+      process.env[OPENADE_HOME_ENV] = home;
+      return previous;
     }),
-).pipe(
-  Effect.andThen(
-    Effect.map(Layer.build(ConnectorHost.layer), (ctx) => Context.get(ctx, ConnectorHost)),
-  ),
-);
+    (previous) =>
+      Effect.sync(() => {
+        if (previous === undefined) {
+          delete process.env[OPENADE_HOME_ENV];
+        } else {
+          process.env[OPENADE_HOME_ENV] = previous;
+        }
+      }),
+  ).pipe(
+    Effect.andThen(
+      Effect.map(Layer.build(ConnectorHost.layer), (ctx) => Context.get(ctx, ConnectorHost)),
+    ),
+  );
+
+const host = hostWithHome();
 
 describe("ConnectorHost", () => {
   it.effect("before install an endpoint is a defect and every decision is prompt", () =>
@@ -107,6 +112,37 @@ describe("ConnectorHost", () => {
             interactionMode: "default",
           }),
         ).toBe("deny");
+      }),
+    ),
+  );
+
+  it.effect("a home that cannot hold the attachments directory still installs", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        // `install` sits on the boot's critical path, before the handshake, so
+        // a `mkdir` that cannot succeed must degrade rather than take the
+        // server down. A plain file where the directory belongs is the
+        // cheapest way to make it reject, and the rejection arrives as a
+        // defect — which is exactly what the old `Effect.ignore` let through.
+        const service = yield* hostWithHome((home) =>
+          writeFileSync(join(home, "attachments"), "not a directory"),
+        );
+        const threadId = makeThreadId();
+
+        const exit = yield* Effect.exit(
+          service.install({
+            mcpEndpoint: (id) => Effect.succeed({ url: `http://mcp/${id}`, bearer: "m" }),
+            hookEndpoint: (id) => Effect.succeed({ url: `http://hook/${id}`, bearer: "h" }),
+            permissions: { decide: () => Effect.succeed("deny") },
+          }),
+        );
+
+        expect(Exit.isSuccess(exit)).toBe(true);
+        // And the endpoints it was given are live, so boot carries on.
+        expect(yield* service.services.hookEndpoint(threadId)).toEqual({
+          url: `http://hook/${threadId}`,
+          bearer: "h",
+        });
       }),
     ),
   );
