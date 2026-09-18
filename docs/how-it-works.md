@@ -1204,9 +1204,13 @@ before-quit
   ▼
 ServerSupervisor.stop()      SIGINT to the child, SIGKILL after 5s
   │                          resolves when the child is really gone
-  ▼                          (or after QUIT_DEADLINE_MS = 15s, whichever first)
+  ▼                          (or after the injected deadline, whichever first)
 app.exit()
 ```
+
+`quit.ts` is Electron-free and takes the deadline as a dependency; the value it
+is given is `QUIT_DEADLINE_MS` = 15s, declared and passed in
+`apps/desktop/src/main/index.ts`.
 
 Signalling and walking away used to leave the server reparented and still
 running — it closes sessions one at a time, each spawning `cmd mcp remove` — and
