@@ -139,6 +139,15 @@ describe("a recorded text turn", () => {
             (event) => event.type === "usage.updated" && event.payload.costUsd !== undefined,
           ),
         ).toBe(true);
+        // And it reached them in time. The transcript's last flush lands with
+        // `run_end`, so a cost read after `turn.completed` is a cost the engine
+        // no longer tags to this turn — the bug the end-of-turn drain fixed.
+        const priced = events.findIndex(
+          (event) => event.type === "usage.updated" && event.payload.costUsd !== undefined,
+        );
+        const completed = events.findIndex((event) => event.type === "turn.completed");
+        expect(priced).toBeGreaterThanOrEqual(0);
+        expect(priced).toBeLessThan(completed);
 
         yield* handle.close();
       }),

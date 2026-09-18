@@ -281,6 +281,98 @@ describe("replaying a turn", () => {
     }
   });
 
+  /**
+   * The ordering the translator is built on: stdout goes out as the run
+   * produces it, and the transcript is not there when the run starts, appears
+   * partway through, and takes its last append with `run_end`. A replay that
+   * wrote the whole transcript before its first byte of stdout — which is what
+   * this one used to do — hands the tailer a finished file to skip past, so no
+   * recording-driven test ever exercises the live path or the late `costUsd`
+   * it carries.
+   *
+   * The observer is the hook: it runs inside the replay, at a point the
+   * recording fixed, and reports how large each file was at that moment.
+   * stdout goes to a file so the answer is the child's own write ordering and
+   * not this process's scheduling.
+   */
+  it("writes stdout as it goes, with the transcript still unwritten", async () => {
+    const box = sandbox();
+    try {
+      const log = NodePath.join(box.root, "size.log");
+      const hook = NodePath.join(box.root, "size-hook.mjs");
+      NodeFS.writeFileSync(
+        hook,
+        [
+          "import * as fs from 'node:fs';",
+          "let data = '';",
+          "process.stdin.setEncoding('utf8');",
+          "process.stdin.on('data', (c) => { data += c; });",
+          "process.stdin.on('end', () => {",
+          "  const at = JSON.parse(data).transcript_path;",
+          "  let bytes = -1;",
+          "  try { bytes = fs.statSync(at).size; } catch { bytes = -1; }",
+          "  let out = -1;",
+          "  try { out = fs.statSync(process.env.REPLAY_STDOUT_FILE).size; } catch { out = -1; }",
+          `  fs.appendFileSync(${JSON.stringify(log)}, JSON.stringify({ at, bytes, out }) + '\\n');`,
+          "  process.stdout.write(JSON.stringify({ hookSpecificOutput: { permissionDecision: 'allow' } }));",
+          "});",
+        ].join("\n"),
+        { encoding: "utf8", mode: 0o700 },
+      );
+      NodeFS.mkdirSync(NodePath.join(box.cwd, ".commandcode"), { recursive: true });
+      NodeFS.writeFileSync(
+        NodePath.join(box.cwd, ".commandcode", "settings.local.json"),
+        JSON.stringify({
+          hooks: {
+            PreToolUse: [
+              {
+                matcher: ".*",
+                hooks: [{ type: "command", command: `${process.execPath} ${hook}`, timeout: 590 }],
+              },
+            ],
+          },
+        }),
+        "utf8",
+      );
+
+      const recording = loadRecording("shell-yolo");
+      const config = replayConfig("shell-yolo", { home: box.home, turn: 0 });
+      const stdoutFile = NodePath.join(box.root, "stdout.ndjson");
+      const fd = NodeFS.openSync(stdoutFile, "w");
+      const child = spawn(process.execPath, [REPLAY_BINARY, ...recording.turns[0]!.connectorArgs], {
+        cwd: box.cwd,
+        env: { ...process.env, ...config.extraEnv, REPLAY_STDOUT_FILE: stdoutFile },
+        stdio: ["ignore", fd, "ignore"],
+      });
+      await new Promise<void>((resolve) => child.once("close", () => resolve()));
+      NodeFS.closeSync(fd);
+
+      const seen = NodeFS.readFileSync(log, "utf8")
+        .split("\n")
+        .filter((line) => line.trim().length > 0)
+        .map((line) => JSON.parse(line) as { at: string; bytes: number; out: number });
+      expect(seen.length).toBeGreaterThan(0);
+      // Frames were already on stdout when this hook ran...
+      expect(seen[0]!.out).toBeGreaterThan(0);
+      // ...and the transcript had not been written at all: the recording's own
+      // growth samples put its first flush after the frame this hook gates.
+      expect(seen[0]!.bytes).toBe(-1);
+      // By the end the whole transcript is there, and so is every frame.
+      expect(
+        NodeFS.readFileSync(seen[0]!.at, "utf8")
+          .split("\n")
+          .filter((line) => line.length > 0),
+      ).toHaveLength(recording.turns[0]!.transcript.length);
+      expect(
+        NodeFS.readFileSync(stdoutFile, "utf8")
+          .split("\n")
+          .filter((line) => line.length > 0),
+      ).toHaveLength(recording.turns[0]!.frames.length);
+    } finally {
+      NodeFS.rmSync(box.root, { recursive: true, force: true });
+    }
+  });
+
   it("exits with the recorded code", async () => {
     const box = sandbox();
     try {

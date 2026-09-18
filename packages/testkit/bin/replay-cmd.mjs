@@ -15,7 +15,11 @@
  *     same half-written lines the connector's splitter met;
  *   - the session transcript is appended progressively, one flush per agent
  *     step, in the project directory the harness really used — which is *not*
- *     the one the connector's slug guesses;
+ *     the one the connector's slug guesses. The flushes are interleaved with
+ *     the stdout chunks on the recording's own timestamps, so the file is
+ *     absent when the run starts, appears partway through, and takes its last
+ *     append with `run_end` — the ordering the translator's late `costUsd`
+ *     drain exists for;
  *   - the installed PreToolUse hook is invoked at the recorded points with the
  *     recorded payload, and the run blocks on its answer exactly as the CLI
  *     blocks on it;
@@ -219,11 +223,16 @@ const flushTranscript = (upTo) => {
 };
 
 /**
- * How many transcript lines existed at each flush, from the recording's growth
- * samples. The transcript is written once per completed message — one flush per
- * agent step — so these line up with the `turn_end` frames.
+ * The recording's transcript growth samples: how many lines existed, and the
+ * millisecond the sampler saw them. The transcript is written once per
+ * completed message — one flush per agent step — and the last sample of every
+ * recording lands within milliseconds of the last stdout chunk, which is what
+ * "the final flush arrives with `run_end`" means in practice.
  */
-const growthLines = (turn.transcriptGrowth ?? []).map((sample) => sample.lines);
+const growthSamples = (turn.transcriptGrowth ?? []).map((sample) => ({
+  at: sample.at ?? 0,
+  lines: sample.lines,
+}));
 
 // ── the PreToolUse hook, invoked the way the harness invokes it ─
 
@@ -325,61 +334,88 @@ process.on("SIGTERM", onInterrupt);
 process.stderr.write(stderrText);
 
 /**
- * The recorded chunk boundaries, as character counts. Replaying them is what
- * hands a reader the same partial lines the connector's splitter had to hold.
+ * The recorded stdout chunks — each a character count and the millisecond it
+ * arrived at. Replaying the boundaries is what hands a reader the same partial
+ * lines the connector's splitter had to hold; replaying the times is what puts
+ * the transcript's flushes back where they fell between them.
  */
-const chunkSizes = (turn.stdoutChunks ?? []).map((chunk) => chunk.chars);
+const chunks = turn.stdoutChunks ?? [];
+
+let chunkIndex = 0;
+let growthIndex = 0;
+let buffered = "";
+
+/** Every recorded transcript flush the recording timed at or before `at`. */
+const flushesUpTo = (at) => {
+  while (growthIndex < growthSamples.length && growthSamples[growthIndex].at <= at) {
+    flushTranscript(growthSamples[growthIndex].lines);
+    growthIndex += 1;
+  }
+};
+
+/**
+ * Writes out every whole recorded chunk the buffer can now fill, each preceded
+ * by the transcript flushes that landed before it.
+ *
+ * This ordering is the point of the file. The transcript is not written ahead
+ * of the run: it appears seconds in, grows once per completed message, and its
+ * last flush lands *with* `run_end` — which is why the connector drains it
+ * again at the end rather than trusting its tailer. A replay that wrote the
+ * whole transcript first would hand the tailer a finished file to skip past,
+ * and no test would ever exercise the live path or the late `costUsd`.
+ */
+const drain = async () => {
+  while (chunkIndex < chunks.length && buffered.length >= chunks[chunkIndex].chars) {
+    const chunk = chunks[chunkIndex];
+    chunkIndex += 1;
+    flushesUpTo(chunk.at);
+    process.stdout.write(buffered.slice(0, chunk.chars));
+    buffered = buffered.slice(chunk.chars);
+    // Hand the loop back so the pipe really delivers this chunk before the
+    // next flush appends to the transcript. No timer: the order is the
+    // recording's, the pace is as fast as the event loop turns.
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+};
 
 /**
  * Walks the recorded stdout line by line, doing at each frame what the harness
- * did: call the hook before a gated tool call, flush the transcript at an agent
- * step boundary. Output is re-cut into the recorded chunks afterwards.
+ * did: call the hook before a gated tool call, and hand the line to the chunked
+ * writer, which interleaves the transcript's growth with it.
  */
-const lines = stdout.split("\n");
-const emitted = [];
-let steps = 0;
-for (const line of lines) {
-  if (interrupted) {
-    break;
-  }
-  if (line.length === 0) {
-    continue;
-  }
-  let frame = null;
-  try {
-    frame = JSON.parse(line);
-  } catch {
-    // A line the recording could not parse either — replay it verbatim.
-  }
-  const event = frame?.type === "event" ? frame.event : null;
-  if (event?.type === "tool_queued") {
-    const recorded = hookFor(event.toolCallId);
-    if (recorded !== null) {
-      askHook(recorded);
+const replay = async () => {
+  for (const line of stdout.split("\n")) {
+    if (interrupted) {
+      break;
     }
+    if (line.length === 0) {
+      continue;
+    }
+    let frame = null;
+    try {
+      frame = JSON.parse(line);
+    } catch {
+      // A line the recording could not parse either — replay it verbatim.
+    }
+    const event = frame?.type === "event" ? frame.event : null;
+    if (event?.type === "tool_queued") {
+      const recorded = hookFor(event.toolCallId);
+      if (recorded !== null) {
+        askHook(recorded);
+      }
+    }
+    buffered += `${line}\n`;
+    await drain();
   }
-  emitted.push(line);
-  if (event?.type === "turn_end") {
-    steps += 1;
-    flushTranscript(growthLines[steps - 1] ?? transcriptLines.length);
+  // Whatever the recorded chunk sizes did not account for — a run cut short by
+  // SIGINT, or a final chunk the sampler merged.
+  if (buffered.length > 0) {
+    process.stdout.write(buffered);
+    buffered = "";
   }
-  if (event?.type === "run_end") {
-    flushTranscript(transcriptLines.length);
-  }
-}
+};
 
-const text = emitted.length === 0 ? "" : `${emitted.join("\n")}\n`;
-let offset = 0;
-for (const size of chunkSizes) {
-  if (offset >= text.length) {
-    break;
-  }
-  process.stdout.write(text.slice(offset, offset + size));
-  offset += size;
-}
-if (offset < text.length) {
-  process.stdout.write(text.slice(offset));
-}
+await replay();
 
 /**
  * A recording taken by interrupting a live run ends with the process still
