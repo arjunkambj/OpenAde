@@ -44,6 +44,21 @@ describe("where the picker opens", () => {
       expect(initialLocation(seed).path).toBeNull();
     }
   });
+
+  // The dialog seeds itself with this on its first render and is mounted only
+  // while it is open, so what a re-open shows is this function of the field —
+  // never the directory the previous visit wandered off to.
+  it("owes nothing to wherever the last visit ended up", () => {
+    const wandered = movedCursor(typed(movedTo("/Users/dev/code"), "conv"), 2, code.entries.length);
+    expect(wandered).toEqual({ path: "/Users/dev/code", draft: "conv", cursor: 2 });
+
+    expect(initialLocation("/Volumes/work")).toEqual({
+      path: "/Volumes/work",
+      draft: null,
+      cursor: 0,
+    });
+    expect(initialLocation("")).toEqual({ path: null, draft: null, cursor: 0 });
+  });
 });
 
 describe("the path field", () => {
