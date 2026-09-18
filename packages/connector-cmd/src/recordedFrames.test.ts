@@ -574,22 +574,32 @@ describe("a PreToolUse deny under --yolo", () => {
 });
 
 /**
- * Plan mode, told in as many words to mutate the workspace.
+ * Plan mode, and why a plan turn is the one turn spawned without `--yolo`.
  *
- * What these two recordings show, and it is worth stating plainly: a plan turn
- * has no gate of ours at all. PreToolUse never fires in plan mode — `hookCount`
- * is 0 in every plan recording, including one whose `read_file` fires a hook in
- * an ordinary run — and `--yolo` takes away the CLI's refusal as well. The
- * workspace survives because the model's plan ladder holds, which is worth
- * recording and is not the same thing as enforcement.
+ * PreToolUse never fires in plan mode — `hookCount` is 0 in every plan
+ * recording, including one whose `read_file` fires a hook in an ordinary run —
+ * so none of the permission ladder runs there: not the user's `deny` rules,
+ * not the ladder's own "plan mode is read-only", not the sensitive-path
+ * prompt. `plan-guard/` and `plan-write/` are what adding `--yolo` on top of
+ * that left: plan mode told outright to mutate, with nothing but the model's
+ * compliance between it and the workspace. They happened not to mutate, which
+ * is worth recording and is not the same thing as enforcement.
+ *
+ * `plan-no-yolo/` is the argv the connector spawns now, and the one that makes
+ * the mode what its label claims: print mode refuses the write itself. The
+ * plan survives the refusal because its whole body is in the `tool_queued`
+ * frame that announced the call (`plans.ts`).
  */
-describe("plan mode under --yolo", () => {
-  it.each(["plan-guard", "plan-write"])("%s leaves the workspace untouched", (scenario) => {
-    const turn = manifestOf(scenario).turns[0]!;
-    expect(turn.connectorArgs).toContain("--yolo");
-    expect(turn.connectorArgs.join(" ")).toContain("--permission-mode plan");
-    expect(turn.touchedFiles).toEqual([]);
-  });
+describe("plan mode", () => {
+  it.each(["plan-guard", "plan-write"])(
+    "%s is the recorded experiment: --yolo, told to mutate",
+    (scenario) => {
+      const turn = manifestOf(scenario).turns[0]!;
+      expect(turn.connectorArgs).toContain("--yolo");
+      expect(turn.connectorArgs.join(" ")).toContain("--permission-mode plan");
+      expect(turn.touchedFiles).toEqual([]);
+    },
+  );
 
   it("never fires a PreToolUse hook, however many tools the turn queues", () => {
     for (const scenario of ["plan", "plan-guard", "plan-no-yolo", "plan-write"]) {
@@ -599,5 +609,34 @@ describe("plan mode under --yolo", () => {
     }
     // ...while the same tools do fire one outside plan mode.
     expect(manifestOf("file-edit").turns[0]!.hookCount).toBeGreaterThan(0);
+  });
+
+  it("refuses the write without --yolo, and the plan is in the frame anyway", () => {
+    const turn = manifestOf("plan-no-yolo").turns[0]!;
+    const frames = framesOf("plan-no-yolo", turn);
+    const refusal = frames.find(
+      (frame) => frame.type === "event" && frame.event.type === "tool_hook_blocked",
+    );
+    expect(refusal?.type === "event" ? String(refusal.event.hookOutput) : "").toContain(
+      "requires permissions",
+    );
+    const queued = frames.find(
+      (frame) =>
+        frame.type === "event" &&
+        frame.event.type === "tool_queued" &&
+        frame.event.toolName === "write_file",
+    );
+    const input = queued?.type === "event" ? (queued.event.input as Record<string, unknown>) : {};
+    expect(String(input.file_path)).toContain("/.commandcode/plans/");
+    expect(String(input.content)).toContain("# Plan");
+    expect(turn.touchedFiles).toEqual([]);
+  });
+
+  it("shows the refused plan write as a saved plan, not a failed one", () => {
+    const { events } = replay("plan-no-yolo");
+    const writes = itemsOf(events).filter((item) => item.kind === "file_change");
+    expect(writes.at(-1)?.status).toBe("completed");
+    expect(writes.at(-1)?.error).toBeUndefined();
+    expect(String(writes.at(-1)?.tool?.output ?? "")).not.toContain("requires permissions");
   });
 });

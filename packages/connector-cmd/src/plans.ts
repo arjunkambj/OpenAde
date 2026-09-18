@@ -109,17 +109,15 @@ const fromIndex = (sessionId: string, home?: string): { file: string; at: number
  * one this process can open. A write whose parent directory is not `plans` is
  * an ordinary workspace edit and is ignored.
  */
-export const planFileNameIn = (frame: unknown): string | null => {
-  const event = (frame as { readonly event?: Record<string, unknown> } | null)?.event;
-  if (event === undefined || event["type"] !== "tool_queued") {
+const WRITE_TOOLS = new Set(["write_file", "create_file", "edit_file"]);
+
+/** The plan file a `write_file` input names, or null for an ordinary edit. */
+const planFileIn = (toolName: unknown, input: unknown): string | null => {
+  if (typeof toolName !== "string" || !WRITE_TOOLS.has(toolName)) {
     return null;
   }
-  const tool = event["toolName"];
-  if (tool !== "write_file" && tool !== "create_file" && tool !== "edit_file") {
-    return null;
-  }
-  const input = event["input"] as Record<string, unknown> | undefined;
-  const raw = input?.["file_path"] ?? input?.["path"];
+  const record = (input ?? {}) as Record<string, unknown>;
+  const raw = record["file_path"] ?? record["path"];
   if (typeof raw !== "string" || raw.length === 0) {
     return null;
   }
@@ -129,6 +127,73 @@ export const planFileNameIn = (frame: unknown): string | null => {
   }
   const file = NodePath.posix.basename(normalized);
   return file.endsWith(".md") ? file : null;
+};
+
+/**
+ * True when a tool call is the model writing its plan.
+ *
+ * A plan turn runs without `--yolo` — that is the only thing standing between
+ * the model and the workspace in a mode the UI presents as read-only — so
+ * print mode refuses this write like any other. The refusal is not a failure
+ * the user needs to see: the content was in the frame that announced the call
+ * and OpenAde saves the file itself.
+ */
+export const isPlanWrite = (toolName: unknown, input: unknown): boolean =>
+  planFileIn(toolName, input) !== null;
+
+/** What the timeline shows instead of the harness's refusal. */
+export const PLAN_SAVED = "plan saved";
+
+export interface PlanWrite {
+  readonly file: string;
+  readonly content: string;
+}
+
+/**
+ * The plan a stdout frame says this turn wrote — name and content both.
+ *
+ * Print mode writes the plan with an ordinary `write_file`, and the
+ * `tool_queued` frame that announces the call carries its path *and* its whole
+ * body. Only the base name is taken: the plans directory is fixed, and the
+ * recordings replace the operator's home with a placeholder, so an absolute
+ * path from a frame is not one this process can open. A write whose parent
+ * directory is not `plans` is an ordinary workspace edit and is ignored.
+ */
+export const planWriteIn = (frame: unknown): PlanWrite | null => {
+  const event = (frame as { readonly event?: Record<string, unknown> } | null)?.event;
+  if (event === undefined || event["type"] !== "tool_queued") {
+    return null;
+  }
+  const input = event["input"];
+  const file = planFileIn(event["toolName"], input);
+  if (file === null) {
+    return null;
+  }
+  const content = ((input ?? {}) as Record<string, unknown>)["content"];
+  return { file, content: typeof content === "string" ? content : "" };
+};
+
+/**
+ * Writes a plan the harness refused to write.
+ *
+ * Without `--yolo` print mode declines the plan file along with every other
+ * write (`fixtures/cmd/plan-no-yolo/`), which is exactly what makes plan mode
+ * read-only — and the plan is not lost by it, because the `tool_queued` frame
+ * already carried the whole body. Content is only written when there is some:
+ * an empty body would replace a plan the harness did manage to write.
+ */
+export const materializePlan = (write: PlanWrite, home?: string): void => {
+  if (write.content === "") {
+    return;
+  }
+  try {
+    const dir = plansDirFor(home);
+    NodeFS.mkdirSync(dir, { recursive: true });
+    NodeFS.writeFileSync(NodePath.join(dir, write.file), write.content, "utf8");
+  } catch {
+    // Nothing to propose then; `readPlanProposal` answers null and the turn
+    // settles without a plan card, which is a normal outcome.
+  }
 };
 
 /** The newest of the files this turn's own frames named, if any still exists. */

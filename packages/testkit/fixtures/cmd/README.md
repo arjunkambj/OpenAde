@@ -26,8 +26,9 @@ recording PreToolUse hook installed through the same
 `packages/connector-cmd/src/recordedArgs.test.ts` holds that claim to account:
 it reads every manifest's `connectorArgs` back into a `buildArgs` input, rebuilds
 it and demands the same list. Two kinds of difference are allowed and both are
-written down in that file — the recordings that deliberately drop `--yolo`
-(`plan-no-yolo`, `shell-allow`, `shell-deny`), which are the counter-examples
+written down in that file — the recordings that drop `--yolo`
+(`plan-no-yolo`, which is the argv a plan turn is spawned with today;
+`shell-allow` and `shell-deny`), which are the counter-examples
 that say what the flag is for, and `--tools-enable ask_user_question`, which
 joined the argv after most of these were taken and un-withholds one tool without
 changing anything else they are cited for. Anything else fails the build.

@@ -2,12 +2,9 @@
  * One Command Code session for one thread.
  *
  * Print mode is one turn per process (spec 5.1): `send` spawns
- * `cmd -p "<prompt>" --session <sessionId> --yolo` and the harness resumes its
- * own persisted session. `--yolo` keeps the CLI from ever blocking on its own
- * prompts — approvals flow through our PreToolUse hook instead, which the
- * HookBridge route answers. `interactionMode: "plan"` adds
- * `--permission-mode plan` on top; it does not replace `--yolo`, because
- * without it the harness refuses even to write the plan file.
+ * `cmd -p "<prompt>" --session <sessionId> …` and the harness resumes its own
+ * persisted session. What the argv says, and why a plan turn's differs, is
+ * `turnArgs.ts`.
  *
  * Three sources feed the event stream: NDJSON frames on stdout, the session
  * transcript the harness appends on disk, and hook posts. The translator —
@@ -50,7 +47,8 @@ import { ensureHookScript, hookTicketPath, removeHookTicket, writeHookTicket } f
 import { makeHookAnswerer } from "./hookAnswers";
 import { makeLineSplitter, parseFrame } from "./ndjson";
 import { contextWindowFor } from "./probe";
-import { planFileNameIn, planProposalFor, releasePlanClaims } from "./plans";
+import { materializePlan, planProposalFor, planWriteIn, releasePlanClaims } from "./plans";
+import type { PlanWrite } from "./plans";
 import { envAllowlist, spawnProcess } from "./spawn";
 import { prepareTurn } from "./turnArgs";
 import { makeSessionRefLocator, type CmdSessionRef } from "./sessionRef";
@@ -281,13 +279,10 @@ export const makeCmdSession = (
      * Re-point the stored ref at the transcript now that one exists.
      *
      * The ref is minted at `session.started`, which is `run_start` — seconds
-     * before the harness creates the file — so `refs.pathOf` can only
-     * hand it the slug guess, and the slug is not the directory the harness
-     * uses. Until this ran, the correction happened at process exit, so
-     * anything reading `sessionRef()` while the session is still open (the
-     * engine persisting a settled turn, a resume that follows straight on)
-     * got a path that does not exist. Cheap and idempotent: once the lookup
-     * has found the real file the path stops changing.
+     * before the harness creates the file — so `refs.pathOf` can only hand it
+     * the slug guess, and the slug is not the directory the harness uses.
+     * Cheap and idempotent: once the lookup has found the real file the path
+     * stops changing.
      */
     const refreshTranscriptPath: Effect.Effect<void> = Effect.gen(function* () {
       const ref = yield* Ref.get(sessionRef);
@@ -310,17 +305,25 @@ export const makeCmdSession = (
       Effect.gen(function* () {
         const wrote = yield* Ref.get(active.planWrites);
         const seen = yield* Ref.get(proposedPlans);
-        const events = yield* Effect.sync(() =>
-          planProposalFor({
+        const events = yield* Effect.sync(() => {
+          // A plan turn carries no `--yolo`, so the harness refused the plan
+          // file along with every other write. The body was in the frame that
+          // announced the call, so OpenAde saves it.
+          if (active.plan) {
+            for (const write of wrote) {
+              materializePlan(write, options.home);
+            }
+          }
+          return planProposalFor({
             plan: active.plan,
             sessionId: translator.sessionId,
             home: options.home,
             startedAt: active.startedAt,
-            wrote,
+            wrote: wrote.map((write) => write.file),
             seen,
             ids: () => ({ itemId: makeItemId(), turnId: makeTurnId() }),
-          }),
-        );
+          });
+        });
         yield* emitAll(events);
       });
 
@@ -521,7 +524,7 @@ export const makeCmdSession = (
         }
         // A plan turn writes its plan with an ordinary `write_file`, and this
         // is the only place its name appears tied to this run.
-        const planFile = planFileNameIn(frame);
+        const planFile = planWriteIn(frame);
         const queued =
           "event" in frame && frame.event.type === "tool_queued"
             ? Ref.update(active.queuedTools, (count) => count + 1)
@@ -684,7 +687,7 @@ export const makeCmdSession = (
               settled: yield* Deferred.make<void>(),
               plan,
               startedAt: yield* Effect.clockWith((clock) => clock.currentTimeMillis),
-              planWrites: yield* Ref.make<ReadonlyArray<string>>([]),
+              planWrites: yield* Ref.make<ReadonlyArray<PlanWrite>>([]),
               interrupted: yield* Ref.make(false),
             };
             yield* Ref.set(processRef, active);

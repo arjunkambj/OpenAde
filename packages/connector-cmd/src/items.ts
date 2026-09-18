@@ -24,25 +24,35 @@ import { makeItemId } from "@OpenAde/contracts/ids";
 import type { ItemSnapshot, RuntimeEvent, Todo } from "@OpenAde/contracts/runtime";
 
 import type { CmdUsage } from "./ndjson";
+import { isPlanWrite, PLAN_SAVED } from "./plans";
 import { readableAnswers } from "./questions";
 
 /** The tool the question bridge answers by denying it — see `readableAnswers`. */
 export const ASK_USER_QUESTION = "ask_user_question";
 
 /**
- * How a finished call reads. An answered `ask_user_question` is the one tool
- * whose refusal is a success: the bridge denies it on purpose and hands the
- * user's answers back as the reason, so a failed row would be showing the user
- * their own answer as an error.
+ * How a finished call reads. Two tools' refusals are successes: an answered
+ * `ask_user_question`, where the bridge denies on purpose and hands the user's
+ * answers back as the reason, and a plan turn's own plan file, which print
+ * mode refuses because a plan turn is spawned without `--yolo`.
  */
 const settlement = (
-  toolName: string | undefined,
+  tool: { readonly name?: string; readonly input?: unknown } | undefined,
   output: string,
   failed: boolean,
-): { readonly output: string; readonly failed: boolean } =>
-  toolName === ASK_USER_QUESTION
-    ? { output: readableAnswers(output), failed: false }
-    : { output, failed };
+): { readonly output: string; readonly failed: boolean } => {
+  if (tool?.name === ASK_USER_QUESTION) {
+    return { output: readableAnswers(output), failed: false };
+  }
+  // The plan a plan turn wrote. Plan turns carry no `--yolo`, so print mode
+  // refuses this write like any other — and that refusal is what makes the
+  // mode read-only, not a failure the reader needs to see. The body was in
+  // the frame that announced the call and the session saves it (`plans.ts`).
+  if (isPlanWrite(tool?.name, tool?.input)) {
+    return { output: PLAN_SAVED, failed: false };
+  }
+  return { output, failed };
+};
 
 /**
  * A `RuntimeEvent` minus the envelope fields the session stamps on the way
@@ -227,6 +237,8 @@ export interface ToolRows {
     toolCallId: string | undefined,
     partial: string,
   ) => ReadonlyArray<PendingRuntimeEvent>;
+  /** The input a `tool_queued` announced the call with, if one did. */
+  readonly inputFor: (toolCallId: string | undefined) => unknown;
   /**
    * Fails every row still running and says why. A SIGINT'd run writes no
    * `tool_completed`, no `message_end` and no `run_end`, so a call that was
@@ -347,8 +359,12 @@ export const makeToolRows = (): ToolRows => {
     rawOutput: string,
     rawFailed: boolean,
   ): ReadonlyArray<PendingRuntimeEvent> => {
-    const { output, failed } = settlement(toolName, rawOutput, rawFailed);
     const key = toolCallId ?? `anon:${toolName}:${makeItemId()}`;
+    const { output, failed } = settlement(
+      { name: toolName, input: toolInputs.get(key) },
+      rawOutput,
+      rawFailed,
+    );
     const existing = toolItems.get(key);
     const itemId = existing ?? makeItemId();
     const prior =
@@ -375,17 +391,19 @@ export const makeToolRows = (): ToolRows => {
     // The transcript replays the deny the bridge answered with, so the same
     // reading applies here as on the frame that settled the row live.
     const text = truncateToolOutput(
-      settlement(prior?.tool?.name, textOfToolResult(block.content), false).output,
+      settlement(prior?.tool, textOfToolResult(block.content), false).output,
     );
     // A call a hook blocked still gets a `tool_result` in the transcript — the
     // refusal is what the model is told — and it carries no `is_error`. The
     // frames are the authority on whether the call ran, so a row already marked
-    // failed is never talked back into "completed".
-    const status =
-      (prior?.status === "failed" || block.is_error === true) &&
-      prior?.tool?.name !== ASK_USER_QUESTION
-        ? ("failed" as const)
-        : ("completed" as const);
+    // failed is never talked back into "completed" — except for the two tools
+    // whose refusal is a success, which `settlement` names.
+    const settled = settlement(
+      prior?.tool,
+      "",
+      prior?.status === "failed" || block.is_error === true,
+    );
+    const status = settled.failed ? ("failed" as const) : ("completed" as const);
     const snapshot: ItemSnapshot =
       prior !== undefined
         ? {
@@ -442,6 +460,7 @@ export const makeToolRows = (): ToolRows => {
   };
 
   return {
+    inputFor: (toolCallId) => (toolCallId === undefined ? undefined : toolInputs.get(toolCallId)),
     started: toolStarted,
     finished: toolFinished,
     completed: toolCompleted,

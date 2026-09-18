@@ -14,7 +14,9 @@ import * as NodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 
 import {
-  planFileNameIn,
+  isPlanWrite,
+  materializePlan,
+  planWriteIn,
   plansDirFor,
   plansIndexPathFor,
   readPlanProposal,
@@ -105,25 +107,69 @@ describe("readPlanProposal", () => {
   });
 });
 
-describe("planFileNameIn", () => {
-  const queued = (toolName: string, filePath: string) => ({
+describe("planWriteIn", () => {
+  const queued = (toolName: string, filePath: string, content = "# the plan\n") => ({
     type: "event",
-    event: { type: "tool_queued", toolCallId: "call-1", toolName, input: { file_path: filePath } },
+    event: {
+      type: "tool_queued",
+      toolCallId: "call-1",
+      toolName,
+      input: { file_path: filePath, content },
+    },
   });
 
   /** The frame `fixtures/cmd/plan/` recorded, path placeholder and all. */
-  it("reads the plan file out of the write_file frame the run emitted", () => {
+  it("reads the plan file and its body out of the frame the run emitted", () => {
     expect(
-      planFileNameIn(queued("write_file", "<HOME>/.commandcode/plans/subtract-function.md")),
-    ).toBe("subtract-function.md");
+      planWriteIn(queued("write_file", "<HOME>/.commandcode/plans/subtract-function.md")),
+    ).toEqual({ file: "subtract-function.md", content: "# the plan\n" });
   });
 
   it("ignores writes that are not into the plans directory", () => {
-    expect(planFileNameIn(queued("write_file", "/work/repo/app.js"))).toBeNull();
-    expect(planFileNameIn(queued("write_file", "/work/repo/plans-of-mine.md"))).toBeNull();
-    expect(planFileNameIn(queued("read_file", "/home/u/.commandcode/plans/a.md"))).toBeNull();
-    expect(planFileNameIn({ type: "event", event: { type: "turn_end" } })).toBeNull();
-    expect(planFileNameIn(null)).toBeNull();
+    expect(planWriteIn(queued("write_file", "/work/repo/app.js"))).toBeNull();
+    expect(planWriteIn(queued("write_file", "/work/repo/plans-of-mine.md"))).toBeNull();
+    expect(planWriteIn(queued("read_file", "/home/u/.commandcode/plans/a.md"))).toBeNull();
+    expect(planWriteIn({ type: "event", event: { type: "turn_end" } })).toBeNull();
+    expect(planWriteIn(null)).toBeNull();
+  });
+
+  it("recognises the same call from its tool name and input alone", () => {
+    // What the translator has when the harness refuses the write: the input
+    // the `tool_queued` frame left on the row.
+    expect(isPlanWrite("write_file", { file_path: "/h/.commandcode/plans/a.md" })).toBe(true);
+    expect(isPlanWrite("write_file", { file_path: "/work/app.js" })).toBe(false);
+    expect(isPlanWrite("shell_command", { command: "ls" })).toBe(false);
+    expect(isPlanWrite("write_file", undefined)).toBe(false);
+  });
+});
+
+/**
+ * A plan turn runs without `--yolo` — that is what makes the mode the UI calls
+ * "Plan first" actually read-only — so print mode refuses the plan file along
+ * with every other write (`fixtures/cmd/plan-no-yolo/`). The plan is not lost
+ * by it: the whole body was in the frame that announced the call.
+ */
+describe("materializePlan", () => {
+  it("writes the plan the harness refused to write", () => {
+    const home = plansHome({});
+    try {
+      materializePlan({ file: "add-subtract.md", content: "# Plan\n\n1. do it\n" }, home);
+      const proposal = readPlanProposal("sess-1", home, Date.now(), ["add-subtract.md"]);
+      expect(proposal?.markdown).toBe("# Plan\n\n1. do it\n");
+      expect(proposal?.planPath.endsWith("add-subtract.md")).toBe(true);
+    } finally {
+      NodeFS.rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("writes nothing when the frame carried no body", () => {
+    const home = plansHome({});
+    try {
+      materializePlan({ file: "empty.md", content: "" }, home);
+      expect(readPlanProposal("sess-1", home, Date.now(), ["empty.md"])).toBeNull();
+    } finally {
+      NodeFS.rmSync(home, { recursive: true, force: true });
+    }
   });
 });
 

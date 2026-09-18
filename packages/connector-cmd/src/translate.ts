@@ -56,6 +56,7 @@ import {
 } from "./items";
 import type { CmdFrame, CmdUsage } from "./ndjson";
 import { deltaEvents } from "./deltas";
+import { isPlanWrite, PLAN_SAVED } from "./plans";
 import { subagentProgress } from "./subagents";
 import { makeMessageFolder } from "./messages";
 import { makeTextRows } from "./textRows";
@@ -269,6 +270,19 @@ export const makeTranslator = (options: {
     ];
   };
 
+  const isRefusedPlanWrite = (event: { readonly [key: string]: unknown }): boolean =>
+    isPlanWrite(event.toolName, toolRows.inputFor(asString(event.toolCallId)));
+
+  const planWriteRow = (event: {
+    readonly [key: string]: unknown;
+  }): ReadonlyArray<PendingRuntimeEvent> =>
+    toolRows.finished(
+      asString(event.toolCallId),
+      asString(event.toolName) ?? "write_file",
+      PLAN_SAVED,
+      false,
+    );
+
   const onFrame = (frame: CmdFrame): ReadonlyArray<PendingRuntimeEvent> => {
     if (frame.type === "result") {
       const out: Array<PendingRuntimeEvent> = [];
@@ -426,6 +440,9 @@ export const makeTranslator = (options: {
         // block is news: an allow outcome means the call is about to run, which
         // the lifecycle frames already say.
         const outcome = asRecord(event.outcome);
+        if (outcome.kind === "block" && isRefusedPlanWrite(event)) {
+          return [...planWriteRow(event)];
+        }
         // `ask_user_question` is settled by the `tool_hook_blocked` frame one
         // line later, which is the one carrying the user's answers; this frame
         // only says "blocked", which for a question is noise.
@@ -446,6 +463,14 @@ export const makeTranslator = (options: {
         // or the CLI's own ladder refusing outright — `shell-allow/` shows the
         // second: without `--yolo`, print mode declines a shell call the hook
         // already allowed. Both read as a failed row carrying the reason.
+        //
+        // A plan turn's own plan file is the exception. It carries no `--yolo`
+        // precisely so that print mode refuses every write, and this one is
+        // not a failure the user needs to see: the body was in the frame that
+        // announced the call and the session saves the file itself.
+        if (isRefusedPlanWrite(event)) {
+          return [...planWriteRow(event)];
+        }
         return [
           ...toolRows.finished(
             event.toolCallId,

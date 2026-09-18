@@ -99,6 +99,14 @@ if (process.env.OPENADE_STUB_TOOL === "1") {
   emit({ type: "tool_queued", toolCallId: "call-1", toolName: "shell_command", input: { command: "rm -rf build" } });
   emit({ type: "tool_completed", toolCallId: "call-1", toolName: "shell_command", result: [{ type: "text", text: "" }], deferred: false });
 }
+if (process.env.OPENADE_STUB_PLAN_REFUSED === "1") {
+  // A plan turn as the connector spawns it now: no --yolo, so print mode
+  // refuses the plan file — and the whole plan is in the frame that announced
+  // the call. Nothing is written to disk here on purpose.
+  const planPath = path.join(home, ".commandcode", "plans", "stub-plan.md");
+  emit({ type: "tool_queued", toolCallId: "plan-1", toolName: "write_file", input: { file_path: planPath, content: "# The plan\\n\\n1. do the thing\\n" } });
+  emit({ type: "tool_hook_blocked", toolCallId: "plan-1", toolName: "write_file", hookOutput: 'Error: Tool "write_file" requires permissions. Use --yolo (or --dangerously-skip-permissions) to enable file writes and shell commands in print mode.' });
+}
 if (process.env.OPENADE_STUB_GATE) {
   const gate = process.env.OPENADE_STUB_GATE;
   while (!fs.existsSync(gate)) {
@@ -815,6 +823,59 @@ describe("makeCmdSession against a real spawned process", () => {
             event.type === "session.warning" && event.payload.message.includes("approval gate"),
         ),
       ).toBe(false);
+      yield* handle.close();
+    }),
+  );
+
+  /**
+   * A plan turn is the one turn spawned without `--yolo`, because plan mode
+   * fires no PreToolUse hook and `--yolo` removed the only enforcement left —
+   * print mode's own refusal of writes and shell calls. The plan survives the
+   * refusal: its whole body is in the `tool_queued` frame that announced the
+   * write, and the session saves the file itself.
+   */
+  it.effect("saves the plan the harness refused to write, and proposes it", () =>
+    Effect.gen(function* () {
+      const f = yield* fixture();
+      withOpenadeHome(f);
+      const handle = yield* makeCmdSession({
+        instanceId: makeConnectorInstanceId(),
+        threadId: makeThreadId(),
+        workspaceRoot: NodePath.join(f.root, "workspace"),
+        binaryPath: f.binary,
+        extraEnv: {
+          HOME: f.home,
+          OPENADE_STUB_SESSION_ID: SESSION_ID,
+          OPENADE_STUB_PLAN_REFUSED: "1",
+        },
+        home: f.home,
+        services: yield* services("allow"),
+        settings: {
+          model: "stub/model",
+          runtimeMode: "approval-required",
+          interactionMode: "plan",
+        },
+      });
+      const collector = yield* makeStreamCollector(handle.events);
+
+      yield* handle.send({ text: "plan it", attachments: [], mentions: [] });
+      const proposed = yield* collector.awaitItem(isType("turn.plan.proposed"));
+      expect(proposed.type === "turn.plan.proposed" && proposed.payload.planMarkdown).toBe(
+        "# The plan\n\n1. do the thing\n",
+      );
+      expect(
+        NodeFS.readFileSync(NodePath.join(f.home, ".commandcode", "plans", "stub-plan.md"), "utf8"),
+      ).toContain("do the thing");
+
+      // The refusal is not a red row: it is what makes the mode read-only.
+      const rows = (yield* collector.collected).flatMap((event) =>
+        event.type === "item.completed" && event.payload.item.kind === "file_change"
+          ? [event.payload.item]
+          : [],
+      );
+      expect(rows.at(-1)?.status).toBe("completed");
+      expect(rows.at(-1)?.error).toBeUndefined();
+
       yield* handle.close();
     }),
   );

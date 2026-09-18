@@ -84,34 +84,35 @@ under `--yolo`.
 The plan file is written mid-run by an ordinary `write_file` call, and nothing in
 `run_end` references it. Two consequences, both of which broke plan mode:
 
-- **`--permission-mode plan` alone cannot write it.** Print mode refuses writes
-  and shell without `--yolo` whatever a hook answered, and that refusal covers
-  the plan file the model is told to write. `fixtures/cmd/plan-no-yolo/`: the
-  model reads the repo, drafts the plan, tries to save it, and is told the tool
-  "requires permissions. Use --yolo ... to enable file writes and shell commands
-  in print mode". No plan file, no plan. Plan mode therefore keeps `--yolo` like
-  every other turn — and it is worth writing down exactly what that costs, because
-  it is easy to read the recordings as saying it costs nothing.
+- **`--permission-mode plan` alone cannot write it — and that is the point.**
+  Print mode refuses writes and shell without `--yolo` whatever a hook answered,
+  and that refusal covers the plan file the model is told to write.
+  `fixtures/cmd/plan-no-yolo/`: the model reads the repo, drafts the plan, tries
+  to save it, and is told the tool "requires permissions. Use --yolo ... to
+  enable file writes and shell commands in print mode".
 
-  **A plan turn runs with no PreToolUse hook and no CLI write gate.** Plan mode
-  skips PreToolUse entirely: `hookCount` is 0 in all four plan recordings, and
-  `plan-guard`'s `read_file` produced no hook at all although the same tool fires
-  one in an ordinary run (`fixtures/cmd/file-edit/`). So our gate is not merely
-  unaffected by `--yolo` there; it was never present. And `--yolo` removes the
-  print-mode refusal that was the only thing left. What holds the workspace
-  together in plan mode is the model's own plan ladder, nothing else.
+  **A plan turn runs with no PreToolUse hook at all.** Plan mode skips
+  PreToolUse entirely: `hookCount` is 0 in all four plan recordings, and
+  `plan-guard`'s `read_file` produced no hook although the same tool fires one
+  in an ordinary run (`fixtures/cmd/file-edit/`). So none of the permission
+  ladder runs there — not the user's `deny` rules, not its own "plan mode is
+  read-only", not the sensitive-path prompt. Our gate is not merely unaffected
+  by `--yolo` in plan mode; it was never present.
 
-  Two recordings say it holds. `fixtures/cmd/plan-guard/` is plan mode with
-  `--yolo`, told twice to edit a file; `fixtures/cmd/plan-write/` is the same
-  argv with a prompt that leaves no room to plan instead ("Create a file called
-  newfile.txt containing exactly: hi. Do not plan, do not ask, do not explain —
-  write the file now"). Both leave the workspace untouched and both answer in
-  prose that plan mode forbids it. That is two observations of good behaviour,
-  not an enforcement mechanism, and the alternative is worse: without `--yolo`
-  plan mode produces no plan at all, so there is nothing to propose and nothing
-  to accept. `recordedFrames.test.ts` holds both recordings to `touchedFiles: []`
-  and to `hookCount: 0`, so a CLI release that starts firing PreToolUse in plan
-  mode — or a model that starts writing — says so on the next run.
+  Adding `--yolo` on top therefore removed the last thing standing: the
+  print-mode refusal. `fixtures/cmd/plan-guard/` and `fixtures/cmd/plan-write/`
+  are that experiment — plan mode with `--yolo`, told outright to mutate. Both
+  left the workspace untouched, which is two observations of good behaviour and
+  not an enforcement mechanism, in a mode the UI labels "Plan first".
+
+  **So a plan turn is the one turn spawned without `--yolo`** (`turnArgs.ts`),
+  and the plan survives the refusal anyway: the whole body of the refused
+  `write_file` is in the `tool_queued` frame that announced the call, so the
+  connector saves the file itself (`plans.ts`) and proposes it as before. The
+  refused write is shown as a saved plan rather than a red failed row.
+  `recordedFrames.test.ts` still holds `plan-guard` and `plan-write` to
+  `touchedFiles: []` and all four to `hookCount: 0`, so a CLI release that
+  starts firing PreToolUse in plan mode says so on the next run.
 
 - **`plans-index.json` is not updated by a headless run.** In `fixtures/cmd/plan/`
   the plan lands in `~/.commandcode/plans/` while the index keeps the two entries
@@ -215,7 +216,8 @@ The reverse is also true and less obvious: **a hook that allows is not enough.**
 `fixtures/cmd/shell-allow/` ran without `--yolo`, the hook answered allow, and
 print mode refused anyway — `tool_hook_blocked` with "requires permissions. Use
 --yolo ... to enable file writes and shell commands in print mode". Hence
-`--yolo` on every turn.
+`--yolo` on every _ordinary_ turn — and deliberately not on a plan turn, where
+no hook fires to replace what it takes away (see 6 above).
 
 The hook payload matches §5.5 exactly. The injected environment has two
 variables §5.5 does not list: `COMMANDCODE_SCRATCHPAD` and

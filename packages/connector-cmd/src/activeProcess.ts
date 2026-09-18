@@ -8,6 +8,7 @@
 import type * as Deferred from "effect/Deferred";
 import type * as Ref from "effect/Ref";
 
+import type { PlanWrite } from "./plans";
 import type { CmdProcess } from "./spawn";
 
 /**
@@ -36,7 +37,7 @@ export interface ActiveProcess {
    * interactive runs, so this — not the newest mtime — is what says which file
    * the turn wrote.
    */
-  readonly planWrites: Ref.Ref<ReadonlyArray<string>>;
+  readonly planWrites: Ref.Ref<ReadonlyArray<PlanWrite>>;
   /**
    * Tool calls this turn queued, and the hook posts answered before it began.
    *

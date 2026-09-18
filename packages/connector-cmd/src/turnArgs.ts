@@ -9,7 +9,8 @@
  * `--yolo` goes on every ordinary turn: print mode refuses writes and shell
  * without it whatever a hook answered (`fixtures/cmd/shell-allow/`), while a
  * deny still stops the call under it — recorded under this exact argv in
- * `fixtures/cmd/shell-deny-yolo/`. Plan mode is the exception; see below.
+ * `fixtures/cmd/shell-deny-yolo/`. A plan turn is the exception and does not
+ * carry it; see below.
  */
 
 import type { ThreadId } from "@OpenAde/contracts/ids";
@@ -53,7 +54,18 @@ export const prepareTurn = async (input: {
       model: input.settings.model,
       ...(input.settings.effort === undefined ? {} : { effort: input.settings.effort }),
       ...(input.resumeSessionId === null ? {} : { sessionId: input.resumeSessionId }),
-      yolo: true,
+      // Not in plan mode. `--yolo` turns off print mode's own refusal of
+      // writes and shell calls, and in plan mode PreToolUse never fires —
+      // `hookCount: 0` in all four plan recordings, including one whose
+      // `read_file` fires a hook in an ordinary run — so under both together
+      // a mode the UI labels "Plan first" had no enforcement of any kind:
+      // not the user's deny rules, not the ladder's own "plan mode is
+      // read-only", not the sensitive-path prompt. Nothing but the model's
+      // compliance. Without `--yolo` the CLI refuses every write and every
+      // shell call itself (`fixtures/cmd/plan-no-yolo/`), which is what the
+      // mode claims to be — and the plan survives, because the body of the
+      // refused `write_file` is in the frame that announced it (`plans.ts`).
+      yolo: !plan,
       ...(plan ? { permissionMode: "plan" as const } : {}),
       ...(attached.addDirs.length === 0 ? {} : { addDir: attached.addDirs }),
       toolsEnable: TOOLS_ENABLED,

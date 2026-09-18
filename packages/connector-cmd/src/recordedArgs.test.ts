@@ -52,7 +52,8 @@ const manifests = (): ReadonlyArray<{ scenario: string; turns: ReadonlyArray<Man
  * cannot grow by accident.
  */
 const NO_YOLO: Readonly<Record<string, string>> = {
-  "plan-no-yolo": "plan mode without --yolo: the plan file itself is refused",
+  "plan-no-yolo":
+    "plan mode without --yolo — the argv a plan turn is spawned with today: print mode refuses the write, which is what makes the mode read-only",
   "shell-allow": "a hook allow without --yolo: print mode refuses the call anyway",
   "shell-deny": "a hook deny without --yolo, where the CLI would have refused it regardless",
 };
@@ -157,10 +158,11 @@ describe("the argv every recording was made with", () => {
   });
 
   /**
-   * `--yolo` is on every turn the connector spawns, and it is what decides
-   * whether the CLI refuses a write or a shell call on its own. A recording
-   * without it that is not a named counter-example is describing a gate nobody
-   * runs.
+   * `--yolo` is on every ordinary turn the connector spawns, and it is what
+   * decides whether the CLI refuses a write or a shell call on its own. A
+   * recording without it that is not a named counter-example is describing a
+   * gate nobody runs. Plan turns are the exception and `turnArgs.test.ts` is
+   * where that is asserted.
    */
   it("carries --yolo, or is a named counter-example to it", () => {
     const missing: Array<string> = [];
@@ -185,6 +187,9 @@ describe("the argv every recording was made with", () => {
         found[0]!.turns.some((turn) => !turn.connectorArgs.includes("--yolo")),
         `${scenario} now carries --yolo — drop it from the list`,
       ).toBe(true);
+      // And the entry says which of the two it is, so the list cannot quietly
+      // keep describing a gate the connector has changed its mind about.
+      expect(why).toMatch(/plan mode|print mode|hook/);
     }
   });
 
