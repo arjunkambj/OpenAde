@@ -6,10 +6,11 @@
  * `AsyncResult` that carries its own loading/failure states, so the view never
  * has to know whether the socket is mid-resnapshot.
  *
- * The thread-scoped keybindings live here rather than in the home layout
- * because they need the thread: `thread.interrupt` dispatches against it,
- * `browserPane.toggle` flips this thread's dock. The layout keeps the bindings
- * that work with no thread open.
+ * `browserPane.toggle` is claimed here because it needs the thread's dock. The
+ * rest of the thread-scoped bindings — `thread.interrupt`, `composer.queue` and
+ * the `threadRunning` flag — belong to the composer, which owns the Stop button
+ * and the error line those bindings report through. The layout keeps the
+ * bindings that work with no thread open.
  */
 
 import { useNavigate } from "@tanstack/react-router";
@@ -19,7 +20,6 @@ import * as React from "react";
 
 import { Button } from "@OpenAde/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import { makeCommandId } from "@OpenAde/contracts/ids";
 import type { ThreadId } from "@OpenAde/contracts/ids";
 import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
 import type { ThreadStatus } from "@OpenAde/contracts/orchestration";
@@ -31,10 +31,9 @@ import { isDockTab, RightDock, type DockTab } from "@/components/dock/right-dock
 import { HeaderControls } from "@/components/header-controls";
 import { Timeline } from "@/components/timeline/timeline";
 import { Icon } from "@/lib/icon";
-import { turnInFlight } from "@/lib/turn";
-import { useKeybindingCommand, useKeybindingFlag } from "@/lib/shortcuts";
+import { useKeybindingCommand } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
-import { useConnectionState, useDispatchCommand, useThreadDetail } from "@/state/hooks";
+import { useConnectionState, useThreadDetail } from "@/state/hooks";
 import { useDockTabMemory } from "@/state/ui";
 
 const STATUS_LABEL: Record<ThreadStatus, string> = {
@@ -193,7 +192,6 @@ export function ThreadView({
   const result = useThreadDetail(threadId);
   const connection = useConnectionState();
   const navigate = useNavigate();
-  const dispatch = useDispatchCommand();
 
   const [dockTabs, rememberDockTab] = useDockTabMemory();
 
@@ -226,28 +224,15 @@ export function ThreadView({
   }, [dockTab, navigate, remembered, threadId]);
 
   const snapshot = snapshotOf(result);
-  // Interrupting outside a turn is a command the server can only reject, so
-  // the handler checks this itself rather than trusting a `when` clause the
-  // served keybinding table may not carry.
-  const running = snapshot !== null && turnInFlight(snapshot);
 
-  useKeybindingFlag("threadRunning", running);
-  useKeybindingCommand("thread.interrupt", () => {
-    if (!running) {
-      return;
-    }
-    void dispatch({
-      commandId: makeCommandId(),
-      createdAt: new Date().toISOString(),
-      type: "thread.turn.interrupt",
-      threadId,
-    });
-  });
-  // The composer owns Cmd+Enter while focused; from anywhere else the binding
-  // means "take me to the input I am about to queue into".
-  useKeybindingCommand("composer.queue", () => {
-    document.querySelector<HTMLElement>('[data-context="composer"]')?.focus();
-  });
+  // `thread.interrupt`, `composer.queue` and the `threadRunning` flag belong to
+  // the `Composer` below, not here. Both components used to register all three,
+  // and which one won depended on whether the thread detail was already cached
+  // at first paint — so Escape either showed the Stop button's "Stopping…"
+  // state and reported a rejected interrupt, or did neither, on the same
+  // thread. The composer is the surface with the visible Stop button and the
+  // error line, so it is the one that answers. This keeps the dock toggle,
+  // which is the only one of the four that is really this component's.
   useKeybindingCommand("browserPane.toggle", () =>
     setDockTab(dockTab === "browser" ? null : "browser"),
   );
