@@ -119,7 +119,11 @@ export const withComposerDraft = (
   return { ...drafts, [threadId]: draft };
 };
 
-const composerDraftAtom = Atom.make<Readonly<Record<string, ComposerDraft>>>({});
+// `keepAlive`, and it is the whole point: an atom is disposed when its last
+// subscriber goes, and the only subscriber here is the composer of the thread
+// being looked at. Without it the map is thrown away by the very unmount it
+// exists to survive, and the draft is gone exactly as before.
+const composerDraftAtom = Atom.keepAlive(Atom.make<Readonly<Record<string, ComposerDraft>>>({}));
 
 export interface ComposerDraftHandle extends ComposerDraft {
   readonly setText: React.Dispatch<React.SetStateAction<string>>;
