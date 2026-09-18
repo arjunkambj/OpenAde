@@ -68,6 +68,16 @@ export interface BootOptions {
   readonly dev: boolean;
   /** `0` — the default — asks the OS for a free port. */
   readonly port?: number;
+  /**
+   * Where the *harness's* own configuration lives — `~/.commandcode` by
+   * default, and not to be confused with `home`, which is ours.
+   *
+   * The settings pages read and write two of the user's Command Code files
+   * through `CmdConfig`, so this is the one thing `OPENADE_HOME` cannot move:
+   * an end-to-end test that adds an MCP server would otherwise edit the
+   * operator's real config. Production leaves it unset.
+   */
+  readonly commandCodeHome?: string;
 }
 
 /** @public What a booted server tells a client (or the desktop shell) about itself. */
@@ -175,7 +185,9 @@ export const boot = (options: BootOptions) =>
       attachments,
       browser,
       mcp,
-      cmdConfigLayer().pipe(Layer.provide(persistence)),
+      cmdConfigLayer(
+        options.commandCodeHome === undefined ? {} : { commandCodeHome: options.commandCodeHome },
+      ).pipe(Layer.provide(persistence)),
       // SettingsStore is not listed here: `sharedSettings` already merges the one
       // instance the manager watches and the RPC handlers mutate.
       permissions,
