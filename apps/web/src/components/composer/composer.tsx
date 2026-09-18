@@ -23,7 +23,6 @@ import {
   detectComposerTrigger,
   replaceComposerTrigger,
   retainComposerReferences,
-  type ComposerTrigger,
 } from "@OpenAde/client-runtime/composerTrigger";
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
@@ -34,14 +33,10 @@ import { ComposerHints } from "@/components/composer/composer-hints";
 import { ComposerToolbar } from "@/components/composer/composer-toolbar";
 import { PendingCard } from "@/components/composer/pending-card";
 import { QueueStrip } from "@/components/composer/queue-strip";
-import {
-  SlashMenu,
-  slashMenuItems,
-  type SlashLevel,
-  type SlashMenuItem,
-} from "@/components/composer/slash-menu";
+import { SlashMenu, slashMenuItems, type SlashMenuItem } from "@/components/composer/slash-menu";
 import { TriggerMenu, type TriggerMenuItem } from "@/components/composer/trigger-menu";
 import { useAttachments } from "@/components/composer/use-attachments";
+import { useComposerTrigger } from "@/components/composer/use-composer-trigger";
 import { useInterrupt } from "@/components/composer/use-interrupt";
 import { useSendDraft } from "@/components/composer/use-send-draft";
 import { useClientRuntime } from "@/lib/client-runtime";
@@ -100,12 +95,19 @@ export function Composer({
 
   const [text, setText] = React.useState("");
   const [mentions, setMentions] = React.useState<ReadonlyArray<string>>([]);
-  const [trigger, setTrigger] = React.useState<ComposerTrigger | null>(null);
-  const [activeIndex, setActiveIndex] = React.useState(0);
-  const [slashLevel, setSlashLevel] = React.useState<SlashLevel>("root");
   const [error, setError] = React.useState<string | null>(null);
   const attachments = useAttachments(threadId);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const {
+    trigger,
+    activeIndex,
+    slashLevel,
+    setActiveIndex,
+    setLevel: setSlashLevel,
+    open: openTrigger,
+    close: closeMenu,
+    refresh: refreshTrigger,
+  } = useComposerTrigger(textareaRef);
 
   // `turnInFlight`, not `currentTurnId`: the projection fills the id on
   // thread.turn.started, one event after status goes to "running" on
@@ -148,30 +150,6 @@ export function Composer({
   }, [trigger, slashLevel, skills, models, doc?.settings.model]);
   const menuItemCount = trigger?.kind === "at" ? atItems.length : slashItems.length;
 
-  const closeMenu = React.useCallback(() => {
-    setTrigger(null);
-    setSlashLevel("root");
-    setActiveIndex(0);
-  }, []);
-
-  /** Store the detected trigger; a kind change resets level and highlight. */
-  const openTrigger = React.useCallback((next: ComposerTrigger | null) => {
-    setTrigger((current) => {
-      if (next === null || current === null || next.kind !== current.kind) {
-        setSlashLevel("root");
-        setActiveIndex(0);
-      }
-      return next;
-    });
-  }, []);
-
-  const refreshTrigger = React.useCallback(() => {
-    const el = textareaRef.current;
-    if (el !== null) {
-      openTrigger(detectComposerTrigger(el.value, el.selectionStart ?? el.value.length));
-    }
-  }, [openTrigger]);
-
   const setTextAndCaret = (nextText: string, caret: number) => {
     setText(nextText);
     requestAnimationFrame(() => {
@@ -198,7 +176,6 @@ export function Composer({
     switch (item.action.type) {
       case "level":
         setSlashLevel(item.action.level);
-        setActiveIndex(0);
         return;
       case "insert":
         if (trigger !== null) {
@@ -315,7 +292,6 @@ export function Composer({
         event.stopPropagation();
         if (slashLevel !== "root") {
           setSlashLevel("root");
-          setActiveIndex(0);
         } else {
           closeMenu();
         }
