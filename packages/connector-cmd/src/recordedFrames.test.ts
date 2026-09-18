@@ -427,12 +427,26 @@ describe("how runs end", () => {
     }
     events.push(...translate.onExit(10));
 
+    // One failure, one fatal error — and since commit 427a082 every fatal
+    // runtime.error also plants its own `error` row, so three of them were
+    // three red rows and three `thread.error` status changes for one turn.
+    // The `result` frame's wording wins: it is the one carrying the billing URL.
     const errors = events.filter((event) => event.type === "runtime.error");
-    expect(errors.map((event) => event.payload.fatal)).toEqual([true, true, true]);
+    expect(errors.map((event) => event.payload.fatal)).toEqual([true]);
     expect(errors[0]?.payload.message).toContain("insufficient credits");
-    // Exit 10 is named, so the user is told to top up rather than shown a code.
-    expect(errors.at(-1)?.payload.message.toLowerCase()).toContain("credits");
+    expect(errors[0]?.payload.message).toContain("https://commandcode.ai/billing");
     expect(events.filter((event) => event.type === "turn.completed")).toHaveLength(1);
+  });
+
+  it("reports a refused resume once, not twice", () => {
+    // `--session` naming a transcript that was never written: the CLI answers
+    // with one `result` frame and exits 1. The generic "cmd failed — see the
+    // output above" that exit 1 is named for adds nothing to the CLI's own
+    // sentence, and used to arrive as a second red row beside it.
+    const { events } = replay("interrupt-resume", 1);
+    const errors = events.filter((event) => event.type === "runtime.error");
+    expect(errors).toHaveLength(1);
+    expect(errors[0]?.payload.message).toContain("neither an existing .jsonl transcript");
   });
 
   it("carries a question's answer-shaped tool call as an ordinary row", () => {

@@ -143,17 +143,21 @@ describe("fixture replay: the captured insufficient-credits run", () => {
 
     // The session announces itself once, before any work.
     expect(events[0]?.type).toBe("event.unmapped"); // the stderr "session: <id>" line
+    // One failure, one fatal runtime.error: the `run_error` frame holds its
+    // transport message and the `result` frame's wording — the one with the
+    // billing URL — is what reaches the timeline.
     expect(types(events)).toEqual([
       "event.unmapped",
       "session.started",
       "turn.started",
       "model.changed",
-      "runtime.error",
       "usage.updated",
-      "turn.completed",
       "runtime.error",
+      "turn.completed",
       "event.unmapped",
     ]);
+    // And the error is inside the turn: an error row emitted after
+    // `turn.completed` is one the engine cannot tag with the turn.
 
     const started = events.find((event) => event.type === "session.started");
     expect(started?.type === "session.started" && started.payload.capabilities).toEqual(
@@ -229,12 +233,43 @@ describe("turn lifecycle", () => {
     expect(again[0]?.type === "model.changed" && again[0].payload.model).toBe("stealth/ox-beta");
   });
 
-  it("run_error is a fatal runtime.error", () => {
+  it("holds run_error until something settles the run, then reports it once", () => {
+    // The frame alone says nothing yet: the `result` frame that normally
+    // follows carries the same failure in words the user can act on.
     const translate = translator();
-    const events = translate.onFrame(
-      frame({ type: "run_error", error: { name: "TransportError", message: "boom" } }),
+    expect(
+      translate.onFrame(
+        frame({ type: "run_error", error: { name: "TransportError", message: "boom" } }),
+      ),
+    ).toEqual([]);
+    // No result frame arrived — the exit is the backstop, and it reports the
+    // held message rather than the generic "cmd failed" exit 1 is named for.
+    expect(translate.onExit(1)).toEqual([
+      { type: "runtime.error", payload: { message: "boom", fatal: true } },
+    ]);
+  });
+
+  it("drops a run_error the harness recovered from", () => {
+    const translate = translator();
+    translate.onFrame(frame({ type: "run_error", error: { message: "retried and fine" } }));
+    expect(translate.onExit(0)).toEqual([]);
+  });
+
+  it("does not repeat the result frame's error at the exit", () => {
+    const translate = translator();
+    translate.onFrame(runStart());
+    translate.onFrame(turnStart());
+    translate.onFrame(
+      frame({ type: "run_error", error: { message: "POST /alpha/generate → 400" } }),
     );
-    expect(events).toEqual([{ type: "runtime.error", payload: { message: "boom", fatal: true } }]);
+    const settled = translate.onFrame({
+      type: "result",
+      subtype: "error",
+      sessionId: "sess-1",
+      error: "Error: out of credits: https://commandcode.ai/billing",
+    });
+    expect(settled.filter((event) => event.type === "runtime.error")).toHaveLength(1);
+    expect(translate.onExit(10).filter((event) => event.type === "runtime.error")).toHaveLength(0);
   });
 
   it("result subtype error is a fatal runtime.error and ends the turn once", () => {

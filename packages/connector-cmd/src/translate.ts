@@ -111,6 +111,19 @@ export const makeTranslator = (options: {
   const costedLines = new Set<string>();
   /** Tokens the run's agent steps have reported so far (`turn_end.usage`). */
   let turnUsage: CmdUsage = {};
+  /**
+   * One failure, one error row.
+   *
+   * Three paths describe the same death — the `run_error` frame, the final
+   * `result` frame with `subtype: "error"`, and the exit code — and since every
+   * fatal `runtime.error` also plants its own `error` row on the timeline, an
+   * out-of-credits turn showed three red rows and moved the thread to `error`
+   * three times. The `result` frame carries the wording worth showing (it is
+   * the one with the billing URL), so `run_error` only *holds* its message and
+   * the exit code is the backstop for a run that never got that far.
+   */
+  let reportedFatal = false;
+  let heldFatal: string | null = null;
 
   /**
    * A run's counters, zeroed when the next process announces itself.
@@ -126,6 +139,18 @@ export const makeTranslator = (options: {
     textRows.forgetRun();
     turnCostUsd = 0;
     turnUsage = {};
+    reportedFatal = false;
+    heldFatal = null;
+  };
+
+  /** The run's one fatal error, or nothing when it has already been reported. */
+  const fatalError = (message: string): ReadonlyArray<PendingRuntimeEvent> => {
+    if (reportedFatal) {
+      return [];
+    }
+    reportedFatal = true;
+    heldFatal = null;
+    return [{ type: "runtime.error", payload: { message, fatal: true } }];
   };
 
   const unmapped = (source: string, payload: unknown): PendingRuntimeEvent => ({
@@ -396,10 +421,9 @@ export const makeTranslator = (options: {
     if (frame.type === "result") {
       const out: Array<PendingRuntimeEvent> = [];
       if (frame.subtype === "error") {
-        out.push({
-          type: "runtime.error",
-          payload: { message: frame.error ?? "command code run failed", fatal: true },
-        });
+        // The summary line, and the one the CLI puts the actionable wording in
+        // — so it supersedes whatever `run_error` was holding.
+        out.push(...fatalError(frame.error ?? "command code run failed"));
       }
       if (turnOpen) {
         out.push(
@@ -560,15 +584,11 @@ export const makeTranslator = (options: {
         return [...toolRows.progressed(event.toolCallId, subagentProgress(event) ?? "")];
       }
       case "run_error": {
-        return [
-          {
-            type: "runtime.error",
-            payload: {
-              message: event.error?.message ?? event.error?.name ?? "run failed",
-              fatal: true,
-            },
-          },
-        ];
+        // Held, not emitted: the `result` frame that follows says the same
+        // thing in the words the user can act on. If the process dies before
+        // one arrives, `onExit` reports this instead.
+        heldFatal = event.error?.message ?? event.error?.name ?? "run failed";
+        return [];
       }
       case "run_end": {
         const result = event.result ?? {};
@@ -596,7 +616,13 @@ export const makeTranslator = (options: {
           }
         }
         out.push(usageUpdated(result.usage ?? turnUsage, { withCost: true }));
-        if (turnOpen) {
+        // A run that died is not settled here: the `result` line one frame
+        // later words the same failure the way the user can act on it (it is
+        // the one with the billing URL), and an error emitted after
+        // `turn.completed` is an error row the engine cannot tag with the turn
+        // — it lands outside the turn group on the timeline. `onExit` is the
+        // backstop for a process that dies before that line arrives.
+        if (turnOpen && !(heldFatal !== null && !reportedFatal)) {
           out.push(completeTurn(stopReasonFor(result.stopReason)));
         }
         return out;
@@ -692,14 +718,24 @@ export const makeTranslator = (options: {
       ),
     ];
 
+    // A clean exit means the harness recovered from whatever it held — there is
+    // nothing for the user to do about a request that was retried and worked.
+    if (code === 0) {
+      heldFatal = null;
+    }
     const named = EXIT_MESSAGES[code];
-    if (named !== undefined) {
-      out.push({ type: "runtime.error", payload: { ...named } });
+    if (heldFatal !== null) {
+      out.push(...fatalError(heldFatal));
+    } else if (named !== undefined) {
+      // A non-fatal code plants no row, only a status — so it is always worth
+      // saying, even after a fatal error has been reported.
+      out.push(
+        ...(named.fatal
+          ? fatalError(named.message)
+          : [{ type: "runtime.error" as const, payload: { ...named } }]),
+      );
     } else if (code !== 0 && code !== 130) {
-      out.push({
-        type: "runtime.error",
-        payload: { message: `cmd exited with code ${code}`, fatal: true },
-      });
+      out.push(...fatalError(`cmd exited with code ${code}`));
     }
     if (turnOpen) {
       out.push(
