@@ -7,7 +7,7 @@
  * project whose path was mistyped could only be dropped by editing the sqlite
  * file by hand. What it does is not obvious from its name, either:
  * `ProviderCommandReactor` dispatches a `thread.delete` for every thread under
- * it, so the confirmation says so and counts them.
+ * it, so the confirmation says so and counts them — see `./removal-copy`.
  */
 
 import * as React from "react";
@@ -24,13 +24,10 @@ import { makeCommandId } from "@OpenAde/contracts/ids";
 import type { ProjectSummary } from "@OpenAde/contracts/orchestration";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { projectRemovalWarning } from "@/components/sidebar/removal-copy";
 import { isAccepted, rejectionMessage } from "@/lib/dispatch-outcome";
 import { Icon } from "@/lib/icon";
 import { useDispatchCommand } from "@/state/hooks";
-
-/** "and its 3 threads", or nothing at all when it has none. */
-const threadClause = (count: number): string =>
-  count === 0 ? "" : count === 1 ? " and its one thread" : ` and its ${count} threads`;
 
 export function ProjectRowMenu({
   project,
@@ -81,7 +78,7 @@ export function ProjectRowMenu({
         open={confirming}
         onOpenChange={setConfirming}
         title={`Remove ${project.name}?`}
-        description={`The project${threadClause(threadCount)} are deleted from OpenAde, along with their transcripts and turn checkpoints. Nothing in ${project.workspaceRoot} is touched.`}
+        description={projectRemovalWarning(project.name, threadCount, project.workspaceRoot)}
         confirmLabel="Remove project"
         onConfirm={() => void remove()}
       />
