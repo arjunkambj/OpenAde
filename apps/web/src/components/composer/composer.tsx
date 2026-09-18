@@ -4,7 +4,8 @@
  * interaction-card slot — one card at a time, above the input.
  *
  * Keys: Enter sends (queues while a turn runs — the decider rejects a second
- * turn, so "send" on a busy thread means queue), Shift+Enter newline,
+ * turn, so "send" on a busy thread means queue) unless an open trigger menu has
+ * a row to pick, which `composer-keys` decides; Shift+Enter newline,
  * Cmd+Enter queues explicitly, Escape closes an open trigger menu first and
  * otherwise reaches the `thread.interrupt` binding this component registers —
  * the toolbar's Stop button is the same call with a mouse. State reads
@@ -28,6 +29,7 @@ import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 
 import { ComposerChips } from "@/components/composer/composer-chips";
+import { composerEnter } from "@/components/composer/composer-keys";
 import { ComposerHints } from "@/components/composer/composer-hints";
 import { ComposerToolbar } from "@/components/composer/composer-toolbar";
 import { PendingCard } from "@/components/composer/pending-card";
@@ -253,6 +255,38 @@ export function Composer({
   };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Enter") {
+      const action = composerEnter({
+        triggerOpen: trigger !== null,
+        menuItemCount,
+        shiftKey: event.shiftKey,
+        composing: event.nativeEvent.isComposing,
+      });
+      if (action === "insert") {
+        return;
+      }
+      event.preventDefault();
+      if (action === "send") {
+        // An open menu with nothing in it does not hold the message hostage:
+        // close it and send, rather than swallowing the key.
+        closeMenu();
+        send(event.metaKey || event.ctrlKey);
+        return;
+      }
+      const index = Math.min(activeIndex, Math.max(0, menuItemCount - 1));
+      if (trigger?.kind === "at") {
+        const item = atItems[index];
+        if (item !== undefined) {
+          pickMention(item);
+        }
+      } else {
+        const item = slashItems[index];
+        if (item !== undefined) {
+          applySlash(item);
+        }
+      }
+      return;
+    }
     if (trigger !== null) {
       if (event.key === "ArrowDown" || (event.key === "Tab" && !event.shiftKey)) {
         event.preventDefault();
@@ -262,22 +296,6 @@ export function Composer({
       if (event.key === "ArrowUp" || (event.key === "Tab" && event.shiftKey)) {
         event.preventDefault();
         setActiveIndex((index) => (index - 1 + menuItemCount) % Math.max(1, menuItemCount));
-        return;
-      }
-      if (event.key === "Enter") {
-        event.preventDefault();
-        const index = Math.min(activeIndex, Math.max(0, menuItemCount - 1));
-        if (trigger.kind === "at") {
-          const item = atItems[index];
-          if (item !== undefined) {
-            pickMention(item);
-          }
-        } else {
-          const item = slashItems[index];
-          if (item !== undefined) {
-            applySlash(item);
-          }
-        }
         return;
       }
       if (event.key === "Escape") {
@@ -291,10 +309,6 @@ export function Composer({
         }
         return;
       }
-    }
-    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-      event.preventDefault();
-      send(event.metaKey || event.ctrlKey);
     }
   };
 
