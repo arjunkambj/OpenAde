@@ -415,6 +415,11 @@ export interface FakePage {
   /** Visited entries; `historyIndex` marks the current one. */
   history: Array<{ url: string; title: string }>;
   historyIndex: number;
+  /**
+   * What `tab list` answers. Defaults to one `page` target for the current
+   * url; a test that cares about the cdp-attach target rules sets its own.
+   */
+  tabs?: ReadonlyArray<{ targetId: string; type: string; url: string }>;
 }
 
 /**
@@ -533,7 +538,9 @@ export const makeFakeDriver = (
           return record({ path });
         }
         case "tab":
-          return record({ tabs: [{ targetId: "fake-target", type: "page", url: page.url }] });
+          return record({
+            tabs: page.tabs ?? [{ targetId: "fake-target", type: "page", url: page.url }],
+          });
         case "close":
           return record({ closed: true });
         default:

@@ -262,6 +262,82 @@ describe("BrowserService", () => {
     ),
   );
 
+  it.live("in cdp-attach mode the pane's webview is the only tab there is", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        // The CDP port the session attaches to is the app's *own* remote
+        // debugging port: one of the `page` targets on it is the OpenAde
+        // window. The driver refuses to bind anything but the pane's webview
+        // for that reason, and `browser_tabs` used to walk straight around it —
+        // `list` named the app's window and `switch` rebound the session to it,
+        // which put snapshot, click and eval inside our own UI.
+        const argvs: Array<ReadonlyArray<string>> = [];
+        const page: FakePage = {
+          ...fakePage(),
+          tabs: [
+            { targetId: "t-webview", type: "webview", url: "https://example.com/" },
+            { targetId: "t-app", type: "page", url: "openade://app/t/thread" },
+          ],
+        };
+        const { browser } = yield* buildStack(() =>
+          Effect.succeed(
+            makeFakeDriver(page, {
+              mode: "cdp-attach",
+              onExec: (argv) =>
+                Effect.sync(() => {
+                  argvs.push(argv);
+                }),
+            }),
+          ),
+        );
+
+        const listed = yield* browser.callTool(threadId, "browser_tabs", { action: "list" });
+        expect(listed.kind).toBe("ok");
+        expect(listed.kind === "ok" ? listed.data.tabs : null).toEqual([
+          { targetId: "t-webview", type: "webview", url: "https://example.com/" },
+        ]);
+
+        for (const args of [
+          { action: "switch", tab: "t-app" },
+          { action: "close", tab: "t-app" },
+          { action: "new", url: "https://example.com/" },
+        ]) {
+          const refused = yield* browser.callTool(threadId, "browser_tabs", args);
+          expect(refused.kind).toBe("error");
+          expect(refused.kind === "error" ? refused.message : "").toContain(
+            "tab management is unavailable",
+          );
+        }
+        // Not merely filtered on the way back: the command never ran.
+        expect(argvs.filter((argv) => argv[0] === "tab")).toEqual([["tab", "list"]]);
+      }),
+    ),
+  );
+
+  it.live("owned chromium is ours alone, so tab management still works there", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const argvs: Array<ReadonlyArray<string>> = [];
+        const { browser } = yield* buildStack(() =>
+          Effect.succeed(
+            makeFakeDriver(fakePage(), {
+              onExec: (argv) =>
+                Effect.sync(() => {
+                  argvs.push(argv);
+                }),
+            }),
+          ),
+        );
+        const switched = yield* browser.callTool(threadId, "browser_tabs", {
+          action: "switch",
+          tab: "t2",
+        });
+        expect(switched.kind).toBe("ok");
+        expect(argvs).toContainEqual(["tab", "t2"]);
+      }),
+    ),
+  );
+
   it.live("the toolbar drives the attached webview in cdp-attach mode", () =>
     Effect.scoped(
       Effect.gen(function* () {

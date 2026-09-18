@@ -80,6 +80,43 @@ interface Session {
 const isTabGone = (error: { readonly message: string; readonly code?: string | null }): boolean =>
   error.code === "tab_gone";
 
+/**
+ * What `browser_tabs` may do while the pane owns the browser.
+ *
+ * In cdp-attach mode the session is bound to a CDP endpoint that is the
+ * Electron app's *own* remote-debugging port, and `pickWebviewTarget` refuses
+ * to bind anything but the pane's webview guest for exactly that reason: one of
+ * the `page` targets on that port is the OpenAde window itself. `browser_tabs`
+ * went around the guard — `list` enumerated every target on the port, including
+ * `openade://app/...`, and `switch` took an arbitrary `targetId`, which rebound
+ * the session to the app's own renderer. From there `browser_snapshot` read the
+ * UI, `browser_click` could press Allow on a pending approval card, and
+ * `browser_eval` reached `window.openade.getConnection()`.
+ *
+ * So: in that mode the pane's webview is the only tab there is. `list` is
+ * filtered down to it, and the three tab-management actions are refused.
+ */
+const TAB_MANAGEMENT_UNAVAILABLE = "tab management is unavailable while the pane owns the browser";
+
+const isTabList = (argv: ReadonlyArray<string>): boolean => argv[0] === "tab" && argv[1] === "list";
+
+/** The result of `tab list`, with everything that is not a webview removed. */
+const webviewTabsOnly = (data: Record<string, unknown>): Record<string, unknown> => {
+  const tabs = data.tabs;
+  if (!Array.isArray(tabs)) {
+    return data;
+  }
+  return {
+    ...data,
+    tabs: tabs.filter(
+      (tab) =>
+        typeof tab === "object" &&
+        tab !== null &&
+        (tab as Record<string, unknown>).type === "webview",
+    ),
+  };
+};
+
 /** Which input epoch-class a human gesture belongs to. */
 const inputClassOf = (input: BrowserHumanInput): InputClass | null => {
   switch (input.kind) {
@@ -337,6 +374,16 @@ export const makeService = (injected: {
               );
               if (!ensured.ok) return ensured.outcome;
               let driver = ensured.driver;
+              if (
+                call.name === "browser_tabs" &&
+                driver.mode === "cdp-attach" &&
+                !isTabList(call.argv)
+              ) {
+                return {
+                  kind: "error",
+                  message: TAB_MANAGEMENT_UNAVAILABLE,
+                } satisfies BrowserCallOutcome;
+              }
               const argv = call.screenshot
                 ? call.argv.map((part) => (part === "{shot}" ? screenshotPath() : part))
                 : call.argv;
@@ -361,7 +408,13 @@ export const makeService = (injected: {
                   message: executed.error.message,
                 } satisfies BrowserCallOutcome;
               }
-              const data = executed.data;
+              // The app's own window is one of the `page` targets on this port.
+              // Naming it to the agent is already a disclosure, and the id it
+              // hands back is what a `switch` would have taken.
+              const data =
+                driver.mode === "cdp-attach" && isTabList(call.argv)
+                  ? webviewTabsOnly(executed.data)
+                  : executed.data;
 
               if (call.mutating) yield* refreshLocation(session, driver);
 
