@@ -338,6 +338,63 @@ describe("mcp entry", () => {
     }),
   );
 
+  /**
+   * `~/.commandcode/projects/<slug>/mcp.json` is keyed by the workspace, and
+   * every thread of a project shares that workspace. Without a hold, the first
+   * thread to close ran `cmd mcp remove` under a second thread that was still
+   * running turns — and from its next turn on the model was offered none of
+   * OpenAde's browser tools, with no warning, because the removal succeeded.
+   */
+  it.effect("keeps the entry while a second session in the same project holds it", () =>
+    Effect.gen(function* () {
+      const root = yield* tempDir();
+      const stub = stubCmd(root);
+      const registration = { binaryPath: stub.binary, projectRoot: root, env: stubEnv };
+
+      yield* upsertMcpEntry(registration, { url: "http://127.0.0.1:4321/mcp" });
+      yield* upsertMcpEntry(registration, { url: "http://127.0.0.1:4321/mcp" });
+
+      // First thread closes: the second is still running turns through it.
+      yield* removeMcpEntry(registration);
+      expect(stub.calls().filter((argv) => argv[1] === "remove")).toEqual([]);
+
+      // Last one out removes it.
+      yield* removeMcpEntry(registration);
+      expect(stub.calls().filter((argv) => argv[1] === "remove")).toHaveLength(1);
+    }),
+  );
+
+  it.effect("holds per project, so another project's entry is untouched", () =>
+    Effect.gen(function* () {
+      const one = yield* tempDir();
+      const two = yield* tempDir();
+      const stub = stubCmd(one);
+      const first = { binaryPath: stub.binary, projectRoot: one, env: stubEnv };
+      const second = { binaryPath: stub.binary, projectRoot: two, env: stubEnv };
+
+      yield* upsertMcpEntry(first, { url: "http://127.0.0.1:4321/mcp" });
+      yield* upsertMcpEntry(second, { url: "http://127.0.0.1:4321/mcp" });
+      yield* removeMcpEntry(first);
+      expect(stub.calls().filter((argv) => argv[1] === "remove")).toHaveLength(1);
+      yield* removeMcpEntry(second);
+      expect(stub.calls().filter((argv) => argv[1] === "remove")).toHaveLength(2);
+    }),
+  );
+
+  it.effect("takes no hold for a registration the harness refused", () =>
+    Effect.gen(function* () {
+      const root = yield* tempDir();
+      const refusing = stubCmd(root, 1);
+      const registration = { binaryPath: refusing.binary, projectRoot: root, env: stubEnv };
+      expect(yield* upsertMcpEntry(registration, { url: "http://127.0.0.1:1/mcp" })).toBe(false);
+      // Nothing of ours is in the file, so nothing of ours is holding it: a
+      // later session's removal must not be blocked by a failed registration.
+      yield* upsertMcpEntry(registration, { url: "http://127.0.0.1:1/mcp" });
+      yield* removeMcpEntry(registration);
+      expect(refusing.calls().filter((argv) => argv[1] === "remove")).toHaveLength(1);
+    }),
+  );
+
   it.effect("reports a refusal instead of assuming the tools are there", () =>
     Effect.gen(function* () {
       // A harness that would not take the entry — an unparseable config of the

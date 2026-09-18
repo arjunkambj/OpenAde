@@ -200,6 +200,16 @@ const retain = (path: string, created: boolean): boolean => {
   return entry.created;
 };
 
+/** Takes a hold on something that has no "created" question to answer. */
+const retainKey = (key: string): void => {
+  const entry = retained.get(key);
+  if (entry === undefined) {
+    retained.set(key, { count: 1, created: false });
+    return;
+  }
+  entry.count += 1;
+};
+
 /** Drops one hold. True when it was the last — the file may be reverted now. */
 const release = (path: string): boolean => {
   const entry = retained.get(path);
@@ -313,6 +323,22 @@ export const uninstallProjectHooks = (
  * What one `cmd mcp` call needs: the binary the session is already spawning,
  * the workspace it runs in, and that session's environment.
  */
+/**
+ * The retain key for a project's MCP entry. The file it stands for lives under
+ * `~/.commandcode/projects/<slug>/`, whose spelling only the CLI knows — so
+ * the workspace root, resolved through symlinks, is the handle. Prefixed so it
+ * cannot collide with the settings files held by path.
+ */
+const mcpKey = (projectRoot: string): string => {
+  let resolved = projectRoot;
+  try {
+    resolved = NodeFS.realpathSync(projectRoot);
+  } catch {
+    // A workspace that has gone away keys on the path we were given.
+  }
+  return `mcp:${resolved}`;
+};
+
 export interface McpRegistration {
   readonly binaryPath: string;
   /** The npx fallback's package spec, prepended to every `cmd mcp` call. */
@@ -375,12 +401,33 @@ export const upsertMcpEntry = (
     }),
     "--scope",
     "local",
-  ]);
+  ]).pipe(
+    Effect.tap((registered) =>
+      Effect.sync(() => {
+        if (registered) {
+          retainKey(mcpKey(registration.projectRoot));
+        }
+      }),
+    ),
+  );
 
 /**
  * Removes the `openade` server entry, again through the CLI, so the same
  * merge that added it takes it away. The entry's *name* is the ownership
  * marker: a server the user added under any other name is untouched.
+ *
+ * Held per project root, the way the hook file is held per path.
+ * `~/.commandcode/projects/<slug>/mcp.json` is keyed by the workspace, and
+ * every thread of a project shares that workspace — so the first thread to
+ * close used to run `cmd mcp remove` under a second thread that was still
+ * running turns, and the model was offered none of OpenAde's browser tools for
+ * the rest of that session, with no warning, because the removal succeeded.
  */
 export const removeMcpEntry = (registration: McpRegistration): Effect.Effect<void> =>
-  runCmdMcp(registration, ["remove", OPENADE_MCP_NAME, "--scope", "local"]).pipe(Effect.asVoid);
+  Effect.suspend(() =>
+    release(mcpKey(registration.projectRoot))
+      ? runCmdMcp(registration, ["remove", OPENADE_MCP_NAME, "--scope", "local"]).pipe(
+          Effect.asVoid,
+        )
+      : Effect.void,
+  );
