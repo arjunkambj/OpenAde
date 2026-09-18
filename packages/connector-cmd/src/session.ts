@@ -33,7 +33,7 @@ import type {
 } from "@OpenAde/connector-sdk/definition";
 import { SessionClosed, SpawnFailed, TurnInProgress } from "@OpenAde/connector-sdk/definition";
 import { makeBoundedEventQueue, type SessionHandle } from "@OpenAde/connector-sdk/sessionHandle";
-import { makeEventId, makeTurnId } from "@OpenAde/contracts/ids";
+import { makeEventId, makeItemId, makeTurnId } from "@OpenAde/contracts/ids";
 
 import {
   installProjectHooks,
@@ -46,7 +46,7 @@ import { stageTurnAttachments } from "./attachments";
 import { ensureHookScript, hookTicketPath, removeHookTicket, writeHookTicket } from "./hookScript";
 import { makeHookAnswerer } from "./hookAnswers";
 import { makeLineSplitter, parseFrame } from "./ndjson";
-import { planFileNameIn, readPlanProposal, releasePlanClaims } from "./plans";
+import { planFileNameIn, planProposalEvents, readPlanProposal, releasePlanClaims } from "./plans";
 import { buildArgs, envAllowlist, spawnProcess, TOOLS_ENABLED, type CmdProcess } from "./spawn";
 import { makeSessionRefLocator, type CmdSessionRef } from "./sessionRef";
 import { findTranscriptPath, tailTranscript } from "./transcript";
@@ -312,14 +312,9 @@ export const makeCmdSession = (
         if (!fresh) {
           return;
         }
-        yield* emit({
-          type: "turn.plan.proposed",
-          payload: {
-            turnId: makeTurnId(),
-            planMarkdown: proposal.markdown,
-            planPath: proposal.planPath,
-          },
-        });
+        yield* emitAll(
+          planProposalEvents(proposal, { itemId: makeItemId(), turnId: makeTurnId() }),
+        );
       });
 
     /** Everything the PreToolUse bridge needs, kept out of this file. */

@@ -35,6 +35,8 @@ import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 
+import type { ItemId, TurnId } from "@OpenAde/contracts/ids";
+
 export interface PlanProposal {
   /** Absolute path of the plan's markdown file. */
   readonly planPath: string;
@@ -221,6 +223,66 @@ const writtenThisTurn = (
  * last resort; without either, only the index is consulted, which in print mode
  * means nothing is ever found.
  */
+/**
+ * What a settled plan turn puts on the wire: a timeline row and a card.
+ *
+ * They are two surfaces and a plan needs both. `turn.plan.proposed` raises the
+ * card the user answers, and that card clears the moment they do — so the
+ * plan, the most consequential thing in a plan-mode thread, used to leave no
+ * trace at all. Scrolling back through a finished thread showed an
+ * implementation turn citing a file path and nothing that said what had been
+ * agreed. `plan` is one of the fifteen ItemKinds and the renderer has had a
+ * row for it all along; nothing had ever produced one.
+ *
+ * The turn id is minted by the caller's `makeTurnId`; the engine overwrites it
+ * with its own (02 · N3), so what matters here is that both events name the
+ * same proposal.
+ */
+export const planProposalEvents = (
+  proposal: PlanProposal,
+  ids: { readonly itemId: ItemId; readonly turnId: TurnId },
+): ReadonlyArray<
+  | {
+      readonly type: "item.completed";
+      readonly payload: {
+        readonly item: {
+          readonly itemId: ItemId;
+          readonly kind: "plan";
+          readonly status: "completed";
+          readonly text: string;
+        };
+      };
+    }
+  | {
+      readonly type: "turn.plan.proposed";
+      readonly payload: {
+        readonly turnId: TurnId;
+        readonly planMarkdown: string;
+        readonly planPath: string;
+      };
+    }
+> => [
+  {
+    type: "item.completed",
+    payload: {
+      item: {
+        itemId: ids.itemId,
+        kind: "plan",
+        status: "completed",
+        text: proposal.markdown,
+      },
+    },
+  },
+  {
+    type: "turn.plan.proposed",
+    payload: {
+      turnId: ids.turnId,
+      planMarkdown: proposal.markdown,
+      planPath: proposal.planPath,
+    },
+  },
+];
+
 export const readPlanProposal = (
   sessionId: string,
   home?: string,
