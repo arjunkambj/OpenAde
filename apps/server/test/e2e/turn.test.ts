@@ -95,13 +95,22 @@ const helloTurn = (driver: Driver) => {
         expect(done.usage!.input).toBeGreaterThan(0);
         expect(done.session).not.toBeNull();
 
-        // The deltas really were deltas: the text grew across views rather
-        // than arriving whole. (A recording replays the recorded chunking, so
-        // this holds for both drivers.)
+        // The deltas coalesced rather than each arriving as its own row: every
+        // successive answer the client held is a prefix of the next, growing
+        // to the final text. A translator that emitted one item per
+        // `text_delta` — or one that replaced the text instead of appending —
+        // breaks this even though the last view would still look right.
         const texts = (yield* thread.views)
           .map((view) => assistantText(view))
           .filter((text) => text.length > 0);
-        expect(texts.at(-1)).toBe(assistantText(done));
+        const growth = texts.filter((text, index) => index === 0 || text !== texts[index - 1]);
+        for (const [index, text] of growth.entries()) {
+          if (index > 0) {
+            expect(growth[index - 1]!.length).toBeLessThan(text.length);
+            expect(text.startsWith(growth[index - 1]!)).toBe(true);
+          }
+        }
+        expect(growth.at(-1)).toBe(assistantText(done));
 
         // And the sidebar agrees: the thread is idle with a preview.
         const threads = yield* list.awaitList((all) =>
