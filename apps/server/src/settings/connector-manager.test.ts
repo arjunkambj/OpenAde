@@ -140,6 +140,14 @@ const awaitSummaries = (
 const openIds = (registry: ConnectorRegistry) =>
   Effect.map(registry.instances, (instances) => instances.map((instance) => instance.instanceId));
 
+/** The models reading the entrypoint hands the engine, for the last-resort seed. */
+const connectorModels = (registry: ConnectorRegistry) => (instanceId: ConnectorInstanceId) =>
+  registry.instance(instanceId).pipe(
+    Effect.flatMap((instance) => instance.listModels()),
+    Effect.map((models) => models.map((model) => model.id)),
+    Effect.catchCause(() => Effect.succeed([] as ReadonlyArray<string>)),
+  );
+
 const threadId = makeThreadId();
 
 describe("ConnectorManager", () => {
@@ -508,6 +516,27 @@ describe("ConnectorManager", () => {
         const current = yield* store.get;
         yield* store.update({ defaults: { ...current.defaults, model: "acme/shared" } });
         expect(yield* seedModel(sql, openIds(registry))).toBe("acme/shared");
+      }),
+    ),
+  );
+
+  it.effect("a fresh install seeds the routed connector's own first model", () =>
+    withFixture(({ manager, registry, sql }) =>
+      Effect.gen(function* () {
+        // Exactly what a first launch leaves behind: `defaultSettings()` writes
+        // `model: null`, and the seeded entry carries the kind's empty
+        // `defaultConfig()`, so neither the document's default nor the
+        // connector's has anything in it. Before the fallback existed this
+        // answered null and every `thread.create` was rejected.
+        yield* awaitSummaries(manager, (all) => all.length === 1 && all[0]!.capabilities !== null);
+        const routing = yield* readConnectorRouting(sql);
+        expect(routing.sharedModel).toBeNull();
+        expect(routing.enabled[0]!.defaultModel).toBeNull();
+        expect(yield* seedModel(sql, openIds(registry))).toBeNull();
+
+        expect(yield* seedModel(sql, openIds(registry), connectorModels(registry))).toBe(
+          "fake/model",
+        );
       }),
     ),
   );

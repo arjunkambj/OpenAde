@@ -43,7 +43,7 @@ import type { SqlError } from "effect/unstable/sql/SqlError";
 import { EventStore, type ConcurrencyConflict, type PlannedEvent } from "../persistence/EventStore";
 import { layer as migrationsLayer } from "../persistence/Migrations";
 import { PERMISSION_RULES_KEY } from "../permissions/PermissionService";
-import { OpenConnectors, seedModel } from "../settings/connectorRouting";
+import { ConnectorModels, OpenConnectors, seedModel } from "../settings/connectorRouting";
 import { ReadModelStore } from "../persistence/ReadModels";
 import {
   foldProject,
@@ -177,6 +177,7 @@ export class OrchestrationEngine extends Context.Service<
       // resolved off whichever fiber happens to dispatch. The value is itself
       // an effect, so it still reads the registry fresh on every seed.
       const openConnectors = yield* OpenConnectors;
+      const connectorModels = yield* ConnectorModels;
 
       // Rows written by an older projector cannot be trusted: a field added
       // to `ThreadDoc` since would read back as `undefined`. Rebuilding is a
@@ -242,7 +243,7 @@ export class OrchestrationEngine extends Context.Service<
        * routes by, so the seeded model belongs to the instance the thread's
        * first turn will actually run on.
        */
-      const defaultModel = seedModel(sql, openConnectors);
+      const defaultModel = seedModel(sql, openConnectors, connectorModels);
 
       /** Cross-aggregate facts the decider may check, gathered inside the txn. */
       const buildContext = (command: Command): Effect.Effect<DeciderContext, SqlError> =>

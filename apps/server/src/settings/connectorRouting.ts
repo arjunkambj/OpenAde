@@ -29,6 +29,7 @@
  * instances are open is `OpenConnectors`, below.
  */
 
+import type { Effort, RuntimeMode } from "@OpenAde/contracts/enums";
 import type { ConnectorInstanceId } from "@OpenAde/contracts/ids";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -49,14 +50,41 @@ export interface RoutableConnector {
 export interface ConnectorRouting {
   /** The app-wide default model, which outranks any connector's own. */
   readonly sharedModel: string | null;
+  /** What "New thread defaults" holds besides the model, when it is filled in. */
+  readonly sharedEffort: Effort | null;
+  readonly sharedRuntimeMode: RuntimeMode | null;
   /** Enabled connectors, in document order. The first is the one to route to. */
   readonly enabled: ReadonlyArray<RoutableConnector>;
 }
 
-const EMPTY: ConnectorRouting = { sharedModel: null, enabled: [] };
+const EMPTY: ConnectorRouting = {
+  sharedModel: null,
+  sharedEffort: null,
+  sharedRuntimeMode: null,
+  enabled: [],
+};
+
+const EFFORTS = new Set<string>(["low", "medium", "high"]);
+const RUNTIME_MODES = new Set<string>(["approval-required", "auto-accept-edits", "full-access"]);
+
+/**
+ * The stored document is read raw rather than decoded, so a field written by a
+ * newer build cannot take routing down. That means the two enums have to be
+ * checked here: an unknown string is treated as "not set" rather than handed to
+ * the decider, which would put it straight onto `thread.created`.
+ */
+const asEffort = (value: unknown): Effort | null =>
+  typeof value === "string" && EFFORTS.has(value) ? (value as Effort) : null;
+
+const asRuntimeMode = (value: unknown): RuntimeMode | null =>
+  typeof value === "string" && RUNTIME_MODES.has(value) ? (value as RuntimeMode) : null;
 
 interface StoredSettings {
-  readonly defaults?: { readonly model?: string | null };
+  readonly defaults?: {
+    readonly model?: string | null;
+    readonly effort?: unknown;
+    readonly runtimeMode?: unknown;
+  };
   readonly connectors?: ReadonlyArray<{
     readonly connectorInstanceId?: string;
     readonly enabled?: boolean;
@@ -84,6 +112,8 @@ export const readConnectorRouting = (
         const doc = JSON.parse(row.value_json) as StoredSettings;
         return {
           sharedModel: doc.defaults?.model ?? null,
+          sharedEffort: asEffort(doc.defaults?.effort),
+          sharedRuntimeMode: asRuntimeMode(doc.defaults?.runtimeMode),
           enabled: (doc.connectors ?? [])
             .filter((connector) => connector.enabled === true)
             .flatMap((connector) =>
@@ -129,6 +159,18 @@ export const OpenConnectors = Context.Reference<Effect.Effect<
 > | null>("server/settings/OpenConnectors", { defaultValue: () => null });
 
 /**
+ * @public What a live connector says it can run, best first.
+ *
+ * A `Context.Reference` for the same reason `OpenConnectors` is one: the engine
+ * is built before the registry has opened anything, and most tests have no
+ * connector at all. `null` is "nobody can answer that", and then the settings
+ * document stands alone.
+ */
+export const ConnectorModels = Context.Reference<
+  ((instanceId: ConnectorInstanceId) => Effect.Effect<ReadonlyArray<string>>) | null
+>("server/settings/ConnectorModels", { defaultValue: () => null });
+
+/**
  * @public The model a `thread.create` without one starts on.
  *
  * The app-wide default outranks everything. Otherwise it is the `defaultModel`
@@ -137,22 +179,41 @@ export const OpenConnectors = Context.Reference<Effect.Effect<
  * the enabled entries is open, selection falls back to whatever the registry
  * holds and no document entry can speak for it, so nothing is seeded and the
  * thread starts on that connector's own default instead of a foreign model.
+ *
+ * Last comes the connector itself. A fresh install has filled in none of the
+ * three: `defaultSettings()` writes `model: null`, the connector seed writes
+ * the kind's empty `defaultConfig()`, and nothing ever fills either from a
+ * probe — so every `thread.create` was rejected and the app could not be used
+ * until the user found Settings → General by themselves. Asking the routed
+ * instance for its first model is what makes the first thread possible, and it
+ * names a model that instance certainly has.
  */
 export const seedModel = (
   sql: SqlClient.SqlClient,
   open: Effect.Effect<ReadonlyArray<ConnectorInstanceId>> | null,
+  models: ((instanceId: ConnectorInstanceId) => Effect.Effect<ReadonlyArray<string>>) | null = null,
 ): Effect.Effect<string | null, SqlError> =>
   Effect.gen(function* () {
     const routing = yield* readConnectorRouting(sql);
     if (routing.sharedModel !== null) {
       return routing.sharedModel;
     }
-    if (open === null) {
-      return routing.enabled[0]?.defaultModel ?? null;
+    const openIds = open === null ? null : yield* open;
+    const routed =
+      openIds === null
+        ? routing.enabled[0]
+        : routing.enabled.find((connector) => openIds.includes(connector.connectorInstanceId));
+    if (routed?.defaultModel != null) {
+      return routed.defaultModel;
     }
-    const openIds = yield* open;
-    return (
-      routing.enabled.find((connector) => openIds.includes(connector.connectorInstanceId))
-        ?.defaultModel ?? null
-    );
+    if (models === null) {
+      return null;
+    }
+    // Whichever instance the turn would run on: the routed entry when there is
+    // one, and otherwise the instance `ConnectorSelection` falls back to.
+    const instanceId = routed?.connectorInstanceId ?? openIds?.[0];
+    if (instanceId === undefined) {
+      return null;
+    }
+    return (yield* models(instanceId))[0] ?? null;
   });

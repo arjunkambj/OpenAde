@@ -149,7 +149,9 @@ export const decide = (
       const patch = command.settings ?? {};
       const model = patch.model ?? ctx.defaultModel;
       if (model === null) {
-        return rejected("no model configured: pass settings.model or set a default");
+        return rejected(
+          "no model is configured — pick a default in Settings → General → New thread defaults",
+        );
       }
       return accepted([
         emit("thread.created", {

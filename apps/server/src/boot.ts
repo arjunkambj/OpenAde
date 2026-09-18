@@ -18,6 +18,7 @@ import { NodeHttpServer } from "@effect/platform-node";
 import { cmdConnectorDefinition } from "@OpenAde/connector-cmd/definition";
 import { eraseConnectorDefinition } from "@OpenAde/connector-sdk/definition";
 import { makeRegistry } from "@OpenAde/connector-sdk/registry";
+import type { ConnectorInstanceId } from "@OpenAde/contracts/ids";
 import { OPENADE_HOME_ENV } from "@OpenAde/shared/paths";
 import { uuidV7 } from "@OpenAde/shared/ids";
 import * as Context from "effect/Context";
@@ -51,7 +52,7 @@ import { ServerIdentity, SettingsStore } from "./rpc/services";
 import { layer as cmdConfigLayer } from "./settings/CmdConfig";
 import { ConnectorHost } from "./settings/ConnectorHost";
 import { ConnectorManager, ConnectorRegistryService } from "./settings/ConnectorManager";
-import { OpenConnectors, routingPreference } from "./settings/connectorRouting";
+import { ConnectorModels, OpenConnectors, routingPreference } from "./settings/connectorRouting";
 
 /** @public The composition root's options; `main.ts` fills them from argv. */
 export interface BootOptions {
@@ -126,9 +127,25 @@ export const boot = (options: BootOptions) =>
     const openConnectors = Effect.map(registry.instances, (instances) =>
       instances.map((instance) => instance.instanceId),
     );
+    // The last word on "what model does a new thread start on" when the
+    // settings document holds none: the instance's own list. A fresh install
+    // has no default anywhere, and without this every `thread.create` was
+    // rejected. It is only reached on that path, so the extra call the
+    // connector makes to answer costs nothing once a default exists.
+    const connectorModels = (instanceId: ConnectorInstanceId) =>
+      registry.instance(instanceId).pipe(
+        Effect.flatMap((instance) => instance.listModels()),
+        Effect.map((models) => models.map((model) => model.id)),
+        Effect.catchCause(() => Effect.succeed([] as ReadonlyArray<string>)),
+      );
     const engine = OrchestrationEngine.layer.pipe(
       Layer.provide(persistence),
-      Layer.provide(Layer.succeed(OpenConnectors, openConnectors)),
+      Layer.provide(
+        Layer.mergeAll(
+          Layer.succeed(OpenConnectors, openConnectors),
+          Layer.succeed(ConnectorModels, connectorModels),
+        ),
+      ),
     );
     const selection = ConnectorSelection.fromRegistry(
       registry,
