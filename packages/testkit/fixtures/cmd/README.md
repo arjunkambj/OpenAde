@@ -30,9 +30,11 @@ node packages/testkit/scripts/record-cmd.mjs shell-allow
 node packages/testkit/scripts/record-probe.mjs      # no model turns
 ```
 
-`--model <id>` overrides the account default. Only models the operator has
-authorised may be used: `meta/muse-spark-1.3-contributor` (the default),
-`poolside/laguna-s-2.1-free` and `inclusionai/ling-3.0-flash-sante:free`.
+`--model <id>` overrides the account default, and the recorder refuses any id
+but the three the operator authorised — `meta/muse-spark-1.3-contributor` (the
+default), `poolside/laguna-s-2.1-free` and
+`inclusionai/ling-3.0-flash-sante:free` — before it spawns anything. Most of the
+seventy models `--list-models` offers bill real money.
 
 ## What each directory holds
 

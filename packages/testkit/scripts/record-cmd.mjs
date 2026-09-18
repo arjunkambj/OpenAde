@@ -35,6 +35,19 @@ const CLI_PACKAGE = "command-code@latest";
 const TRANSCRIPT_POLL_MS = 25;
 
 /**
+ * The only models a recording may be made on. `cmd --list-models` offers about
+ * seventy and most of them bill the operator's card; these three are the ones
+ * the operator authorised — the account default, which is cheap and good at
+ * tool use, and two free tiers. Recording is spending, so a `--model` outside
+ * this list stops the run rather than discovering the price afterwards.
+ */
+const AUTHORISED_MODELS = [
+  "meta/muse-spark-1.3-contributor",
+  "poolside/laguna-s-2.1-free",
+  "inclusionai/ling-3.0-flash-sante:free",
+];
+
+/**
  * The binary the connector would pick (probe.ts `resolveBinary`): `cmd` on
  * PATH or in a global bin dir, else the `@latest` npx fallback. Recording
  * through the same resolution is what makes the fixtures describe the
@@ -692,6 +705,11 @@ const main = async () => {
   }
   const modelFlag = argv.indexOf("--model");
   const model = modelFlag === -1 ? scenario.model : argv[modelFlag + 1];
+  if (model !== undefined && !AUTHORISED_MODELS.includes(model)) {
+    throw new Error(
+      `${model} is not one of the models authorised for recording: ${AUTHORISED_MODELS.join(", ")}`,
+    );
+  }
 
   const home = NodeOS.homedir();
   const scratchBase = process.env.RECORD_SCRATCH ?? NodePath.join(NodeOS.tmpdir(), "openade-rec");
