@@ -7,7 +7,7 @@ these are re-recorded — they are never edited by hand to make a test pass.
 |             |                                                         |
 | ----------- | ------------------------------------------------------- |
 | CLI         | `/opt/homebrew/bin/cmd` (the operator's global install) |
-| Version     | **1.55.1**, and **1.56.0** for the two newest            |
+| Version     | **1.55.1**, and **1.56.0** for the two newest           |
 | Recorded on | **2026-09-18**                                          |
 | Model       | `meta/muse-spark-1.3-contributor` (the account default) |
 | Recorded by | `packages/testkit/scripts/record-cmd.mjs`               |

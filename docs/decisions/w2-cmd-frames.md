@@ -112,6 +112,7 @@ The plan file is written mid-run by an ordinary `write_file` call, and nothing i
   to accept. `recordedFrames.test.ts` holds both recordings to `touchedFiles: []`
   and to `hookCount: 0`, so a CLI release that starts firing PreToolUse in plan
   mode — or a model that starts writing — says so on the next run.
+
 - **`plans-index.json` is not updated by a headless run.** In `fixtures/cmd/plan/`
   the plan lands in `~/.commandcode/plans/` while the index keeps the two entries
   a pair of interactive sessions left in it in August. An index-only lookup finds
