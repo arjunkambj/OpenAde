@@ -10,6 +10,7 @@ import { fileChangeFallbackLabel } from "@/components/timeline/file-change";
 import { DisclosureRow } from "@/components/timeline/row-shell";
 import { diffStats } from "@/lib/diff-stats";
 import { cn } from "@/lib/utils";
+import { useRowDisclosure } from "@/state/ui";
 
 const KIND_LABEL = {
   create: "created",
@@ -32,6 +33,14 @@ function DiffCount({ diff }: { diff: string }) {
 
 export function FileChangeRow({ item }: { item: ItemSnapshot }) {
   const fileChange = item.fileChange;
+  const diff = fileChange?.diff;
+  // `DisclosureRow` keeps its content mounted while closed, and a settled turn
+  // folds all of its work rows into one collapsed group — so every patch in
+  // that turn used to reach the two-worker highlight pool the moment the single
+  // virtualized group row scrolled into the draw distance, expanded or not.
+  // Read the same disclosure state the row uses and hold the diff back until it
+  // is open, which is what the Changes pane already does for its own list.
+  const [open] = useRowDisclosure(item.itemId, diff !== undefined);
   // `fileChange` is optional on the contract, so a connector can emit the item
   // with nothing but its text. Returning null there dropped the row out of the
   // transcript while the enclosing work group still counted it as a tool call
@@ -46,7 +55,6 @@ export function FileChangeRow({ item }: { item: ItemSnapshot }) {
       />
     );
   }
-  const diff = fileChange.diff;
   return (
     <DisclosureRow
       rowId={item.itemId}
@@ -70,10 +78,13 @@ export function FileChangeRow({ item }: { item: ItemSnapshot }) {
       meta={diff !== undefined ? <DiffCount diff={diff} /> : null}
       defaultOpen={diff !== undefined}
     >
-      {diff !== undefined ? (
+      {diff === undefined ? (
+        <p className="whitespace-pre-wrap">{item.text ?? "No diff recorded."}</p>
+      ) : open ? (
         <InlineDiff patch={diff} />
       ) : (
-        <p className="whitespace-pre-wrap">{item.text ?? "No diff recorded."}</p>
+        // Non-undefined, so the row still counts as expandable.
+        <div />
       )}
     </DisclosureRow>
   );
