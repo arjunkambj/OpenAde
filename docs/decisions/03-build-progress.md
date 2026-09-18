@@ -210,6 +210,33 @@ mechanical merges.
    (`devConnectionPath()`) in both the server bootstrap and the web Vite plugin,
    so `OPENADE_HOME` moves it for both.
 
+### Folder picker
+
+Choosing a project folder used to need the desktop shell: `Browse…` on
+`/welcome` and `Choose…` in Add project were hidden wherever
+`window.openade.pickDirectory` was absent, which left a browser tab with nothing
+but a path to type by hand. Both buttons are now always there, and they open the
+native dialog when the shell has one and the renderer's own picker otherwise.
+
+The listing behind it is an RPC, `fs.browse` — one directory's subfolders,
+sorted, hidden entries excluded unless asked for, capped at 500 with a
+`truncated` flag, each entry flagged when it holds a `.git`. It is server-backed
+rather than a preload bridge on purpose: the renderer already runs in a browser
+tab during development and is meant to run away from this machine later, and the
+server is the only side that can see the disk either way. A native dialog would
+have to be re-invented per host; one RPC works for all of them.
+
+Three rules worth keeping. The answer always names the server's own
+symlink-resolved path, so a breadcrumb crumb is a path `fs.browse` accepts back.
+A symlinked entry is listed but never carries the git badge, because deciding
+that means reading inside the link target — outside the directory that was
+asked for. And the error is its own tagged type carrying a reason, the path the
+caller named and a sentence for a person: no errno, no cause chain, nothing of
+the server's filesystem the client did not already know. Pieces:
+`packages/contracts/src/rpc.ts`, `apps/server/src/fs/Directories.ts`,
+`packages/client-runtime/src/fsAtoms.ts`,
+`apps/web/src/components/folder-picker/`.
+
 ### Known gaps
 
 - No automated test boots the real entrypoint. The migration-order and

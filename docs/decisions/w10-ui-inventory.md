@@ -57,6 +57,7 @@ other two fixture routes use; a rebuild confirms no fixture id appears in
 | Unread dot                                 | fixed here | `components/sidebar/thread-seen.ts`                               |
 | Sidebar footer                             | fixed here | `components/sidebar/sidebar-user.tsx`, `sidebar-footer-state.ts`  |
 | Add project                                | real       | `components/sidebar/add-project-dialog.tsx`                       |
+| Folder picker (no native dialog)           | real       | `components/folder-picker/*` over `fs.browse`                     |
 | Center thread view                         | real       | `components/thread/thread-view.tsx`                               |
 | Right dock, tabs changes / browser / files | real       | `components/dock/right-dock.tsx`                                  |
 | Per-thread tab state persisted             | real       | `state/ui.ts` (`useDockTabMemory`) + `?pane=`                     |
