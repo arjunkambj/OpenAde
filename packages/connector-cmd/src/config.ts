@@ -199,7 +199,7 @@ const stripOurs = (entries: ReadonlyArray<unknown>, hookPath: string): Array<unk
     return next === null ? [] : [next];
   });
 
-// ".*" is the matcher the spec documents (section 8): a matcher is a regex
+// ".*" is the matcher the harness documents: a matcher is a regex
 // over the tool name, and an empty one risks matching nothing — which would
 // leave every tool ungated under --yolo.
 const ourEntry = (hookPath: string): JsonObject => ({

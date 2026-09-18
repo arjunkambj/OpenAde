@@ -108,8 +108,8 @@ export interface TranscriptTail {
 
 export interface TailOptions {
   /**
-   * Where to begin. `false` (default) starts at the file's current end — spec
-   * section 8 tails new appends only, so a resumed session does not replay its
+   * Where to begin. `false` (default) starts at the file's current end: the
+   * tailer follows new appends only, so a resumed session does not replay its
    * whole history into the timeline. `true` reads the file from byte zero,
    * which is what a test against a pre-seeded fixture wants.
    */

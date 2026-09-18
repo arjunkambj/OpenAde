@@ -296,7 +296,7 @@ process.exit(42);
     }),
   );
 
-  it.effect("names an exit code the spec knows, and keeps the harness's own words", () =>
+  it.effect("names a known exit code, and keeps the harness's own words", () =>
     Effect.gen(function* () {
       const fake = yield* fakes();
       const result = yield* probe({

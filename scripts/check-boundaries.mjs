@@ -10,7 +10,7 @@
  *     may always import itself; anything else has to be listed. A package with
  *     no rule may not import any workspace package. A relative specifier that
  *     climbs out of its own workspace directory is a violation whatever it
- *     lands on: packages are consumed through their `exports` map (D1), so
+ *     lands on: packages are consumed through their `exports` map, so
  *     `../../../packages/testkit/src/receipts` is a boundary crossing wearing a
  *     path.
  *  2. The renderer connector-neutrality grep. Connector identity never reaches
@@ -59,7 +59,7 @@ const IMPORT_ALLOWLIST = new Map([
  *
  * `@OpenAde/testkit` is the fakes and the receipt helpers; the server drives
  * them from its tests and must never ship them, because apps/server is bundled
- * to `out/main.cjs` for packaging (D1). `@OpenAde/client-runtime` joins in
+ * to `out/main.cjs` for packaging. `@OpenAde/client-runtime` joins in
  * tests for W3's transport suite, which exercises the real client against the
  * real server over a WebSocket. Keeping both out of the production list is
  * what makes an accidental import in `src/main.ts` fail the gate.
@@ -221,7 +221,7 @@ const WORKSPACE_DIRECTORIES = [...listDirectories("apps"), ...listDirectories("p
 /**
  * Published package name -> workspace directory, for every workspace.
  *
- * Apps are unscoped (D1), so `web`, `desktop` and `server` are import targets
+ * Apps are unscoped, so `web`, `desktop` and `server` are import targets
  * that no `@OpenAde/` prefix would ever reveal.
  */
 const WORKSPACE_BY_PACKAGE_NAME = new Map(
@@ -324,7 +324,7 @@ for (const workspaceDirectory of WORKSPACE_DIRECTORIES) {
   }
 }
 
-// ------------------------------------------------- renderer neutrality (D4)
+// ----------------------------------------------------- renderer neutrality
 
 for (const file of walkAllFiles(RENDERER_ROOT)) {
   if (RENDERER_EXCLUDED.some((excluded) => file.startsWith(excluded))) {

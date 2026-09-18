@@ -547,8 +547,8 @@ describe("BrowserService", () => {
 
         yield* browser.callTool(ownThread, "browser_open", { url: "https://example.com" });
 
-        // The path the spec's done-when names: the engine emits
-        // thread.deleted and the forked reactor tears the browser down. No
+        // The teardown path: the engine emits thread.deleted and the forked
+        // reactor tears the browser down. No
         // one calls teardown() by hand.
         yield* engine.dispatch({
           commandId: makeCommandId(),

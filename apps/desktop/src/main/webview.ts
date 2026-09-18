@@ -9,7 +9,7 @@
  * the pane's own clean `<webview partition="persist:thread-1" src="https://…">`.
  * The policy judges values instead.
  *
- * The second job is the one the spec actually asks for: the handler overwrites
+ * The second job is the one that matters for the guest: the handler overwrites
  * renderer-supplied preferences rather than only refusing bad ones, so a guest
  * that somehow reaches this point still runs sandboxed, context-isolated and
  * without Node or a preload script.

@@ -25,8 +25,7 @@ import { ConnectorInstanceId, EventId, ItemId, RequestId, ThreadId, TurnId } fro
 
 /**
  * A file the user attached to a turn, already written to the attachments dir.
- * `mime` is the spec's field name (section 7) and is optional because a plain
- * path drop carries no declared type.
+ * `mime` is optional because a plain path drop carries no declared type.
  *
  * A *reference*, never the bytes: an attachment travels inside
  * `thread.turn.start` and lands in the event log, which is replayed on every

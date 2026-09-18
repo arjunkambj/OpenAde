@@ -308,7 +308,7 @@ describe("mcp entry", () => {
       expect(NodeFS.existsSync(NodePath.join(root, ".mcp.json"))).toBe(false);
 
       // The bearer is an env reference, never the token itself: the harness
-      // resolves it at launch (5.6) and a real token would outlive the session.
+      // resolves it at launch and a real token would outlive the session.
       const payload = JSON.parse(argv![3]!) as Record<string, unknown>;
       expect(payload).toEqual({
         transport: "http",

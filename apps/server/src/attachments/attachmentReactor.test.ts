@@ -1,5 +1,5 @@
 /**
- * The path the spec's cleanup rule names: the engine emits `thread.deleted`
+ * The cleanup path: the engine emits `thread.deleted`
  * and the forked reactor removes the directory. Nothing calls `purge()` by
  * hand, and archiving a thread leaves its files alone.
  */

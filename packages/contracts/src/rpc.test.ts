@@ -86,7 +86,7 @@ describe("fs.browse", () => {
 });
 
 describe("the stream budget", () => {
-  it.effect("is the one the spec names, so server and client cannot drift", () =>
+  it.effect("is the one the contract names, so server and client cannot drift", () =>
     Effect.gen(function* () {
       const budget = yield* Effect.succeed({
         items: STREAM_BUDGET_ITEMS,

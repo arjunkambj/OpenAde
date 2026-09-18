@@ -1,6 +1,6 @@
 /**
  * The changes pane's comparison picker: two selects that cover the three
- * comparisons the spec asks for.
+ * comparisons the pane offers.
  *
  * - base `HEAD` + target `working tree` — what the pane opens on.
  * - base `checkpoint` + target `working tree` — one turn's changes, still live.

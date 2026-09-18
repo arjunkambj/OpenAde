@@ -1,7 +1,7 @@
 /**
  * Command Code's tool vocabulary, as the approval card needs it: which kind of
- * permission a tool call asks for, and the pattern its "allow
- * always" button starts from (5.5).
+ * permission a tool call asks for, and the pattern its "allow always" button
+ * starts from (docs/command-code-connector.md, "The tool vocabulary").
  */
 
 import type { ApprovalKind } from "@OpenAde/contracts/enums";

@@ -178,7 +178,7 @@ export const makeTranslator = (options: {
 
   /**
    * `run_end.result.usage` has no cost field — the only place a
-   * price appears is the transcript's per-assistant `usage.costUsd` (5.3), so
+   * price appears is the transcript's per-assistant `usage.costUsd`, so
    * the turn's cost is the sum of the lines it wrote. Zero stays absent rather
    * than being reported as a free turn.
    */

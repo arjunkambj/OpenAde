@@ -5,7 +5,7 @@
  * top of its own job.
  *
  * The first is the shape of what the harness says: the transcript's message and
- * block types (5.3), the tool-name → `ItemKind` table, and the small readers
+ * block types, the tool-name → `ItemKind` table, and the small readers
  * that turn an unknown into something worth putting on a row.
  *
  * The second is `makeToolRows`, which owns a session's tool calls. One call

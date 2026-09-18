@@ -87,7 +87,7 @@ describe("bounded event queue", () => {
     }),
   );
 
-  it.effect("defaults to the capacity and reserve the spec fixes", () =>
+  it.effect("defaults to the capacity and reserve the contract fixes", () =>
     Effect.gen(function* () {
       const queue = yield* makeBoundedEventQueue();
       const accepted: Array<boolean> = [];

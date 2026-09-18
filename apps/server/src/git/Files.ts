@@ -4,7 +4,7 @@
  * for free; a per-root cache keyed off `.git/index` mtime keeps repeat queries
  * warm (the composer hits this on every `@` keystroke).
  *
- * Nothing in the spec requires a project to be a git repository, so a
+ * A project need not be a git repository, so a
  * workspace that is not one (or a machine with no usable `git`) falls back to
  * the ignore-aware filesystem walk in `walk.ts` rather than failing the RPC.
  */

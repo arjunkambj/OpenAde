@@ -3,7 +3,8 @@
   "ui": "tui",
   // `OPENADE_HOME` moves every path the app owns, including the dev handshake
   // file the server writes and the web plugin serves at
-  // `/__openade/connection` (decision D3). Both resolve it through
+  // `/__openade/connection` (docs/development.md, "OPENADE_HOME"). Both
+  // resolve it through
   // `devConnectionPath()`, but turbo hands a task a filtered environment, so
   // without this the variable reached neither of them: a developer pointing a
   // dev loop at another home got a server writing to it and a renderer reading
