@@ -72,7 +72,7 @@ export interface Watch<A> {
  * outlives it raises — "the stream ended" says nothing on its own about which
  * wait was outstanding.
  */
-export const watch = <A, E, R>(
+const watch = <A, E, R>(
   what: string,
   stream: Stream.Stream<A, E, R>,
 ): Effect.Effect<Watch<A>, never, R | Scope.Scope> =>

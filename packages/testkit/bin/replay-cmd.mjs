@@ -127,7 +127,7 @@ if (argv[0] === "mcp") {
       return {};
     }
   })();
-  const servers = { ...(config.mcpServers ?? {}) };
+  const servers = { ...config.mcpServers };
   if (argv[1] === "add-json") {
     try {
       servers[argv[2]] = JSON.parse(argv[3] ?? "{}");

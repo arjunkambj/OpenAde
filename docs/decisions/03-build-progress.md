@@ -237,15 +237,53 @@ the server's filesystem the client did not already know. Pieces:
 `packages/client-runtime/src/fsAtoms.ts`,
 `apps/web/src/components/folder-picker/`.
 
+### End to end, against the real CLI
+
+`apps/server/test/e2e/` drives the assembled product: `boot()`'s own graph, a
+real WebSocket, `makeConnection` from the client runtime, and the renderer's own
+folds — so what the assertions read is what a pane would render. One suite, two
+drivers, differing only in the binary the connector spawns:
+
+```sh
+pnpm vitest run apps/server/test/e2e                     # recordings; in the gate
+OPENADE_LIVE_CMD=1 pnpm vitest run apps/server/test/e2e  # the operator's own cmd
+```
+
+Ten scenarios: a turn, the approval gate's three answers, a question card, plan
+accept and revise, Stop with a queued follow-up, checkpoints and a restore, a
+server restart mid-thread, the settings pages against the user's real config, an
+image attachment, and the MCP gateway. Both drivers make the same assertions, so
+a recording that has stopped describing reality shows up as a live failure.
+
+Seven product bugs were found by running it, and none of them by any unit suite:
+
+1. A coalescing window flushed out of sequence order, so the client dropped the
+   model's answer after a tool call — the user saw the command run and then
+   nothing.
+2. Pressing Stop broke a thread permanently: the interrupted run writes no
+   transcript, so every later turn failed to resume its session id.
+3. The server could not shut down while a client was connected.
+4. `connected` was announced before the socket opened, so the first request
+   after a reconnect always failed.
+5. The `openade` MCP entry was written under a slug the connector guessed, which
+   is not the one the harness reads for any path with a camel hump in it — so
+   the browser tools were offered to nobody in this repo's own workspace.
+6. Sessions still open at shutdown were never closed, leaving the hook block and
+   a dead-port MCP entry in the user's config, one per session.
+7. A proposed plan and a fatal error each left no row on the timeline, though
+   both are ItemKinds the renderer has drawn since W4.
+
 ### Known gaps
 
-- No automated test boots the real entrypoint. The migration-order and
-  duplicate-route bugs above were both found by hand, by running the built
-  bundle; the suites passed throughout. A boot smoke test is the obvious next
-  guardrail.
 - `apps/server/src/browser/live.test.ts` is skipped by default (it wants a real
-  browser), as is the live `cmd` smoke behind `OPENADE_LIVE_CMD=1`.
-- Nothing has been run against a real Command Code install in this session.
+  browser). The `cmd` suites behind `OPENADE_LIVE_CMD=1` are opt-in because they
+  spend the operator's plan, not because they are unproven — they were run.
+- The end-to-end suite opens a fresh subscription after a server restart rather
+  than proving an open pane resubscribes itself. That loop lives in the atoms
+  and is covered in `packages/client-runtime/src/atoms.test.ts`.
+- Under the live driver the settings scenario redirects `commandCodeHome` while
+  the sessions keep the operator's real `HOME` for credentials, so it proves the
+  RPC writes the file it is told to, not that those two agree in production.
 
 ### Wave 1 briefs
 

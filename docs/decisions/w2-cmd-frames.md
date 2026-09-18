@@ -298,14 +298,64 @@ on any model but the three the operator authorised
 (`meta/muse-spark-1.3-contributor`, `poolside/laguna-s-2.1-free`,
 `inclusionai/ling-3.0-flash-sante:free`).
 
+So does the end-to-end suite, which drives the whole assembled product — server,
+socket, client fold — against the same binary:
+
+```sh
+OPENADE_LIVE_CMD=1 pnpm vitest run apps/server/test/e2e
+```
+
+Without the variable the same scenarios run against the recordings, which is
+what the gate does. See `apps/server/test/e2e/harness.ts` for what the two
+drivers differ in, which is only the binary.
+
+## What an interrupted run leaves behind
+
+**Nothing.** A run killed by SIGINT never writes its transcript, so the session
+id it announced at `run_start` names a session that no longer exists anywhere:
+
+```
+Error: --session "<id>" is neither an existing .jsonl transcript nor a known session-id prefix.
+```
+
+and the next spawn exits 1 before emitting a frame
+(`fixtures/cmd/interrupt-resume/`, turn 2). Pressing Stop therefore used to
+break a thread permanently — every turn after it failed the same way. The
+connector now checks the filesystem for a transcript before it resumes, which is
+the same question the harness asks, and continues in a new session with a
+`session.warning` when there is none (`fixtures/cmd/interrupt-continue/`).
+
 ## Two connector decisions worth writing down
 
-1. **The `openade` MCP entry goes in `~/.commandcode/projects/<slug>/mcp.json`,
-   not `<projectRoot>/.mcp.json`.** Both are real local scopes (§5.3), but the
-   second lives inside the user's git repo and would be committed with a dead
-   loopback URL in it. Section 8 step 2 names the first one; we follow it.
+1. **The `openade` MCP entry goes in the local scope (§5.3) rather than
+   `<projectRoot>/.mcp.json`.** Both are real local scopes, but the second lives
+   inside the user's git repo and would be committed with a dead loopback URL in
+   it. Section 8 step 2 names the first one; we follow it.
+
+   **The CLI writes that file, not us** — `cmd mcp add-json --scope local`, and
+   `cmd mcp remove` to take it back. The file is
+   `~/.commandcode/projects/<slug>/mcp.json`, and the slug is the same private
+   rule the transcript locator refuses to reimplement. Writing it ourselves put
+   the entry beside the directory the harness reads whenever the workspace path
+   has a camel hump or an underscore in it — `…/mcpslug.suYi/wsCamelCase` is
+   filed under `…-mcpslug-su-yi-ws-camel-case`, our guess said
+   `…-mcpslug.suyi-wscamelcase` — and `/Volumes/main/Code/OpenAde` is one of
+   those paths (`open-ade`, not `openade`). For a plain lowercase path like
+   `/Volumes/main/Code/admiro` the guess happened to be right, which is why this
+   went unnoticed: it worked for some projects and silently offered the model no
+   browser tools at all in others. `cmd mcp add-json` writes byte-identical
+   content, placeholder and all, and it is what `record-cmd.mjs` had always used
+   to register its own server.
+
 2. **Both files we write into a user's project are reverted when the session
-   closes** — the PreToolUse block and the MCP entry — but only while the file
-   still hashes to what we wrote, and only once the last session using that
-   project has closed. A file edited since is left alone; a file we created and
-   emptied is deleted.
+   closes** — the PreToolUse block and the MCP entry. The hook block is reverted
+   only while the file still hashes to what we wrote, and only once the last
+   session using that project has closed; a file edited since is left alone. The
+   MCP entry is removed by name through the CLI, so a server the user added
+   under any other name is untouched.
+
+   The session that has to close for any of that to happen is now closed by the
+   `SessionManager` when the server stops. Its driver scopes are free-standing,
+   and nothing used to close the ones still open at shutdown, so the finalizers
+   never ran: every server exit left the hook block and an `openade` entry
+   naming a dead port behind, one per session, in files the user owns.

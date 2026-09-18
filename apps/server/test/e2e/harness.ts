@@ -85,7 +85,7 @@ import { SettingsStore } from "../../src/rpc/services";
 export const E2E_MODEL = "meta/muse-spark-1.3-contributor";
 
 /** Whether the live driver may spend the operator's plan. */
-export const LIVE = process.env.OPENADE_LIVE_CMD === "1";
+const LIVE = process.env.OPENADE_LIVE_CMD === "1";
 
 // ── Homes ──────────────────────────────────────────────────────
 
@@ -172,7 +172,7 @@ export interface Driver {
  * and `extraEnv` is empty so the child inherits the operator's `HOME`, which
  * is where the CLI keeps its credentials.
  */
-export const liveDriver: Driver = {
+const liveDriver: Driver = {
   name: "live",
   harnessHome: () => NodeOS.homedir(),
   connector: () => ({
@@ -185,7 +185,7 @@ export const liveDriver: Driver = {
 };
 
 /** The same connector, spawning a recording instead of a model. */
-export const replayDriver: Driver = {
+const replayDriver: Driver = {
   name: "replay",
   harnessHome: (home) => home.cmdHome,
   connector: (home, recording) => {
@@ -201,7 +201,7 @@ export const replayDriver: Driver = {
 };
 
 /** Both drivers, with the live one skipped unless it is turned on. */
-export const drivers: ReadonlyArray<Driver> = [replayDriver, liveDriver];
+const drivers: ReadonlyArray<Driver> = [replayDriver, liveDriver];
 
 /**
  * Runs one scenario body against both drivers.
@@ -515,13 +515,6 @@ export const assistantText = (view: ThreadDetailView): string =>
     .filter((item) => item.kind === "assistant_message")
     .map((item) => item.text ?? "")
     .join(" ");
-
-/** The timeline rows of one kind, oldest first. */
-export const itemsOfKind = (
-  view: ThreadDetailView,
-  kind: string,
-): ReadonlyArray<ThreadDetailView["items"][number]> =>
-  view.items.filter((item) => item.kind === kind);
 
 /**
  * True once the thread is free — the moment the composer re-enables.
