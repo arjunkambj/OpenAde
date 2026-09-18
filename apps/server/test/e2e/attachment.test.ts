@@ -30,9 +30,16 @@ import {
   type Driver,
 } from "./harness";
 
-/** A 2×2 red PNG — the same colour `fixtures/cmd/image/` was recorded on. */
+/**
+ * A 2×2 solid PNG of `COLOURS.red`, the very bytes
+ * `packages/testkit/scripts/record-assets.mjs` staged for
+ * `fixtures/cmd/image/`. A hand-written stand-in is not good enough here: the
+ * provider decodes the file and answers `400 invalid image data` for anything
+ * that is not a real PNG, which is a failure of the fixture rather than of the
+ * path under test.
+ */
 const RED_PNG_BASE64 =
-  "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFElEQVR4nGP8z8DAwMDAxAADpLAApisCzwOSMwUAAAAASUVORK5CYII=";
+  "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEElEQVR4nGO4IycHRAwQCgAhpgRhTxp8CQAAAABJRU5ErkJggg==";
 
 const ASK_COLOUR = "What colour is the image? Answer with one word.";
 
@@ -65,9 +72,15 @@ const attachments = (driver: Driver) => {
           attachments: [{ path: staged.path, mime: staged.mime, name: staged.name }],
         });
         const done = yield* open.view.awaitValue(
-          (view) => isSettled(view) && view.items.some((i) => i.kind === "assistant_message"),
+          (view) =>
+            isSettled(view) &&
+            view.items.some((i) => i.kind === "assistant_message" || i.kind === "error"),
           started,
         );
+        // A turn that died says so on the timeline now, so a failure here reads
+        // as the reason rather than as a wait that never ended.
+        const failed = done.items.filter((item) => item.kind === "error");
+        expect(failed.map((item) => item.text ?? "")).toEqual([]);
 
         // The row the timeline draws a thumbnail from carries the reference,
         // not the bytes.
