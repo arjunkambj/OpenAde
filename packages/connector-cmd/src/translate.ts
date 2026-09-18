@@ -37,7 +37,7 @@
  */
 
 import type { ItemId } from "@OpenAde/contracts/ids";
-import { makeItemId, makeTurnId } from "@OpenAde/contracts/ids";
+import { makeTurnId } from "@OpenAde/contracts/ids";
 import type {
   ConnectorCapabilities,
   ContentDeltaKind,
@@ -61,6 +61,7 @@ import {
 } from "./items";
 import type { CmdFrame, CmdUsage } from "./ndjson";
 import { subagentProgress } from "./subagents";
+import { makeTextRows } from "./textRows";
 
 export type { PendingRuntimeEvent } from "./items";
 
@@ -105,56 +106,9 @@ export const makeTranslator = (options: {
   const seenMessages = new Set<string>();
   /** A tool call's row, however many frames and transcript lines describe it. */
   const toolRows = makeToolRows();
-  /** tool_use.id → minted itemId (the dedupe key across ndjson + transcript). */
-  /** `${messageId}:${blockIndex}` → itemId, so a replayed block hits its row. */
-  const blockItems = new Map<string, ItemId>();
-  /**
-   * Streaming text, for the delta path: the text accumulated so far on each
-   * streamed row, and the reverse index the transcript uses to recognize its
-   * own finished block. A delta frame that names its message keys the same way
-   * the transcript does and needs neither; an anonymous one is matched on the
-   * text it built up, which is the only handle the two sources share.
-   */
-  const streamedText = new Map<string, string>();
-  const streamedItemForText = new Map<string, ItemId>();
+  /** Which row a piece of assistant text belongs on, across all three sources. */
+  const textRows = makeTextRows();
   let deltaRun = 0;
-  /**
-   * Rows a `message_end` had to mint itself, because the model streamed no
-   * delta for that block — in mint order, per text.
-   *
-   * Text is the only handle the frames and the transcript share (an anonymous
-   * `text_delta` names no message), so a row has to be findable by its string.
-   * But a string is not unique: one message may repeat a text block, and two
-   * agent steps may both end in "Done.". A single text → row index answered
-   * every one of those with the *first* row, so the second block silently
-   * landed on a row another block already owned and never got one of its own.
-   *
-   * A queue per text fixes it without giving up the handle: `message_end` mints
-   * one row per block and pushes it here, and the transcript replaying the same
-   * message takes them back one block at a time, in the order they were minted.
-   */
-  const endedItemsForText = new Map<string, Array<ItemId>>();
-  const rememberEnded = (text: string, itemId: ItemId): void => {
-    const queue = endedItemsForText.get(text);
-    if (queue === undefined) {
-      endedItemsForText.set(text, [itemId]);
-      return;
-    }
-    queue.push(itemId);
-  };
-  const takeEnded = (text: string): ItemId | undefined => {
-    const queue = endedItemsForText.get(text);
-    if (queue === undefined) {
-      return undefined;
-    }
-    const itemId = queue.shift();
-    if (queue.length === 0) {
-      endedItemsForText.delete(text);
-    }
-    return itemId;
-  };
-  /** How many `message_end` frames have been folded — part of their row keys. */
-  let endedMessages = 0;
   /** Cost the transcript reported for this turn's assistant messages. */
   let turnCostUsd = 0;
   const costedLines = new Set<string>();
@@ -167,12 +121,12 @@ export const makeTranslator = (options: {
    * Not at `turn.completed`, which is where they used to be cleared: the
    * transcript is the only source of `costUsd` and its last flush lands *with*
    * or after `run_end`, so a cost cleared at turn end was a cost never reported.
-   * The same goes for `streamedItemForText`, which is how a transcript line
-   * arriving after the turn finds the row it already streamed on — it now lives
-   * as long as the session, beside `seenMessages` and `blockItems`.
+   * The same goes for the text rows' reverse index, which is how a transcript
+   * line arriving after the turn finds the row it already streamed on — it
+   * lives as long as the session, beside `seenMessages`.
    */
   const forgetRun = (): void => {
-    streamedText.clear();
+    textRows.forgetRun();
     turnCostUsd = 0;
     turnUsage = {};
   };
@@ -182,33 +136,6 @@ export const makeTranslator = (options: {
     payload: {},
     raw: { source, payload },
   });
-
-  const itemIdFor = (key: string): ItemId => {
-    const existing = blockItems.get(key);
-    if (existing !== undefined) {
-      return existing;
-    }
-    const itemId = makeItemId();
-    blockItems.set(key, itemId);
-    return itemId;
-  };
-
-  /**
-   * The row a replayed text/thinking block belongs on, in preference order: the
-   * row that streamed this exact text, the next row a `message_end` minted for
-   * it, and failing both a row of the block's own. `claimed` holds the rows the
-   * message being replayed has already settled, so a repeated string walks the
-   * queue instead of settling one row twice.
-   */
-  const rowFor = (text: string, key: string, claimed: Set<ItemId>): ItemId => {
-    const streamed = streamedItemForText.get(text);
-    const itemId =
-      streamed !== undefined && !claimed.has(streamed)
-        ? streamed
-        : (takeEnded(text) ?? itemIdFor(key));
-    claimed.add(itemId);
-    return itemId;
-  };
 
   /** The snapshot a tool call announces — what `tool_running` knows, or full `input`. */
   /**
@@ -260,7 +187,7 @@ export const makeTranslator = (options: {
           // A row already streamed this exact text — finish it rather than
           // open a second one next to it. A row this same message already
           // settled is not that row, though: take the next one instead.
-          const itemId = rowFor(text, key, claimed);
+          const itemId = textRows.replayed(text, key, claimed);
           out.push({
             itemId,
             type: "item.completed",
@@ -280,7 +207,7 @@ export const makeTranslator = (options: {
           if (thinking === "") {
             return;
           }
-          const itemId = rowFor(thinking, key, claimed);
+          const itemId = textRows.replayed(thinking, key, claimed);
           out.push({
             itemId,
             type: "item.completed",
@@ -335,8 +262,7 @@ export const makeTranslator = (options: {
       return [];
     }
     const out: Array<PendingRuntimeEvent> = [];
-    endedMessages += 1;
-    const message = endedMessages;
+    const message = textRows.nextMessage();
     /** Rows this frame has already settled — one block may not take two. */
     const claimed = new Set<ItemId>();
     content.forEach((block, index) => {
@@ -350,19 +276,9 @@ export const makeTranslator = (options: {
           }
           const kind =
             record.type === "text" ? ("assistant_message" as const) : ("reasoning" as const);
-          // A model that streams no deltas still gets a row: mint one, and
-          // queue it so the transcript recognizes it as already emitted. The
-          // key counts messages rather than agent steps, so two `message_end`
-          // frames inside one step cannot share a row either.
-          const streamed = streamedItemForText.get(text);
-          const itemId =
-            streamed !== undefined && !claimed.has(streamed)
-              ? streamed
-              : itemIdFor(`message_end:${message}:${index}`);
-          claimed.add(itemId);
-          if (itemId !== streamed) {
-            rememberEnded(text, itemId);
-          }
+          // A model that streams no deltas still gets a row: `ended` mints one
+          // and queues it so the transcript recognizes it as already emitted.
+          const itemId = textRows.ended(text, message, index, claimed);
           out.push({
             itemId,
             type: "item.completed",
@@ -521,10 +437,9 @@ export const makeTranslator = (options: {
     const index = typeof event.index === "number" ? event.index : 0;
     const key =
       typeof messageId === "string" ? `${messageId}:${index}` : `delta:${deltaRun}:${index}`;
-    const known = streamedText.get(key);
-    const itemId = itemIdFor(key);
+    const { itemId, opened } = textRows.delta(key, text);
     const out: Array<PendingRuntimeEvent> = [];
-    if (known === undefined) {
+    if (opened) {
       out.push({
         itemId,
         type: "item.started",
@@ -537,15 +452,6 @@ export const makeTranslator = (options: {
         },
       });
     }
-    const full = (known ?? "") + text;
-    streamedText.set(key, full);
-    // Only the whole text is a handle the transcript matches on: a shorter
-    // prefix is a stale key that both retains its string and answers a later
-    // lookup for text that happens to equal it.
-    if (known !== undefined) {
-      streamedItemForText.delete(known);
-    }
-    streamedItemForText.set(full, itemId);
     out.push({ itemId, type: "content.delta", payload: { itemId, kind, delta: text } });
     return out;
   };
@@ -634,7 +540,7 @@ export const makeTranslator = (options: {
         if (text === undefined) {
           return [];
         }
-        const itemId = streamedItemForText.get(text) ?? itemIdFor(`thinking_end:${deltaRun}`);
+        const itemId = textRows.streamedFor(text) ?? textRows.idFor(`thinking_end:${deltaRun}`);
         return [
           {
             itemId,
