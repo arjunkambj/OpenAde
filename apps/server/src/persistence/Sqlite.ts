@@ -49,11 +49,36 @@ const normalizeParams = (params: ReadonlyArray<unknown>): ReadonlyArray<unknown>
     ? params.map((param) => (typeof param === "boolean" ? (param ? 1 : 0) : param))
     : params;
 
+/**
+ * Owner-only, for the same reason `writeDevConnectionFile` and the hook
+ * tickets are: the database is the whole event log — every prompt, every
+ * answer, every tool input and file diff, the settings document and the
+ * permission rules — and `mkdir`/`open` under the usual umask left it at
+ * 0755/0644, readable by any other account on the machine. The explicit
+ * `chmod` matters as much as the mode passed to `mkdir`: neither creating a
+ * directory that already exists nor opening a file that already exists lowers
+ * what is there, so an install made by an earlier build would have stayed
+ * world-readable forever. Best effort — a database on a filesystem with no
+ * permission bits at all must still open.
+ */
+const restrict = (path: string, mode: number): void => {
+  try {
+    NodeFS.chmodSync(path, mode);
+  } catch {
+    // Not ours to tighten, or a filesystem without modes. Opening still wins.
+  }
+};
+
+/** `state.sqlite` and the two files WAL mode keeps beside it. */
+const DB_SUFFIXES = ["", "-wal", "-shm"] as const;
+
 const openDatabase = (config: SqliteConfig): Effect.Effect<DatabaseSync, SqlError> =>
   Effect.try({
     try: () => {
       if (config.filename !== ":memory:") {
-        NodeFS.mkdirSync(NodePath.dirname(config.filename), { recursive: true });
+        const directory = NodePath.dirname(config.filename);
+        NodeFS.mkdirSync(directory, { recursive: true, mode: 0o700 });
+        restrict(directory, 0o700);
       }
       return new DatabaseSync(config.filename, { enableForeignKeyConstraints: true });
     },
@@ -63,8 +88,18 @@ const openDatabase = (config: SqliteConfig): Effect.Effect<DatabaseSync, SqlErro
       Effect.try({
         try: () => {
           db.exec("PRAGMA busy_timeout = 5000");
+          if (config.filename !== ":memory:") {
+            // Before the WAL is switched on: SQLite gives the journal and WAL
+            // files the mode of the database file they belong to.
+            restrict(config.filename, 0o600);
+          }
           if (config.disableWAL !== true && config.filename !== ":memory:") {
             db.exec("PRAGMA journal_mode = WAL");
+          }
+          if (config.filename !== ":memory:") {
+            for (const suffix of DB_SUFFIXES) {
+              restrict(`${config.filename}${suffix}`, 0o600);
+            }
           }
         },
         catch: toSqlError("configure"),

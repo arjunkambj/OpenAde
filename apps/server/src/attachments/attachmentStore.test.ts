@@ -4,7 +4,7 @@
  * directory, and something that is simply too big.
  */
 
-import { mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
 import { readFile, readdir, stat } from "node:fs/promises";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
@@ -66,6 +66,26 @@ describe("AttachmentStore.stage", () => {
       const staged = yield* store.stage({ threadId: THREAD, name: "a.png", base64: PNG_BASE64 });
       const stats = yield* Effect.promise(() => stat(staged.path));
       expect(stats.mode & 0o777).toBe(0o600);
+    }),
+  );
+
+  it.effect("keeps the directories owner-only too, including ones already there", () =>
+    Effect.gen(function* () {
+      // The file was already 0600, but the folders were 0755, so the names —
+      // which are the user's own file names — were listable by anyone with an
+      // account on the machine. The chmod is what fixes an install an earlier
+      // build already created: `mkdir` does not lower an existing directory.
+      const { root, store } = yield* fixture;
+      yield* Effect.sync(() => {
+        mkdirSync(NodePath.join(root, THREAD), { recursive: true });
+        chmodSync(root, 0o755);
+        chmodSync(NodePath.join(root, THREAD), 0o755);
+      });
+      const staged = yield* store.stage({ threadId: THREAD, name: "a.png", base64: PNG_BASE64 });
+      for (const directory of [root, NodePath.dirname(staged.path)]) {
+        const stats = yield* Effect.promise(() => stat(directory));
+        expect(stats.mode & 0o777).toBe(0o700);
+      }
     }),
   );
 

@@ -18,7 +18,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { mkdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import * as NodePath from "node:path";
 import type { ThreadId } from "@OpenAde/contracts/ids";
 import type { AttachmentBytes, StagedAttachment } from "@OpenAde/contracts/rpc";
@@ -41,6 +41,15 @@ const MAX_BASE64_LENGTH = Math.ceil(MAX_ATTACHMENT_BYTES / 3) * 4 + 4;
 
 /** Owner-only: an attachment is the user's, and never executable. */
 const FILE_MODE = 0o600;
+
+/**
+ * The same for the directories. The files were already 0600, but `mkdir`
+ * left `~/.openade/attachments` and every thread's folder at 0755 under the
+ * usual umask, so their names — and the names are the user's own file names —
+ * were listable by any other local account. `chmod` as well as the `mkdir`
+ * mode: a directory that already exists keeps the mode it was made with.
+ */
+const DIRECTORY_MODE = 0o700;
 
 /**
  * `child` resolved under `parent`, or `null` when it escapes. Compared on the
@@ -119,7 +128,10 @@ const make = (root: string) => {
 
       yield* Effect.tryPromise({
         try: async () => {
-          await mkdir(directory, { recursive: true });
+          await mkdir(directory, { recursive: true, mode: DIRECTORY_MODE });
+          for (const path of [root, directory]) {
+            await chmod(path, DIRECTORY_MODE).catch(() => undefined);
+          }
           await writeFile(target, bytes, { mode: FILE_MODE });
         },
         catch: () => new OpenAdeRpcError({ code: "internal", message: "internal error" }),
