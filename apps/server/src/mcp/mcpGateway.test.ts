@@ -235,10 +235,26 @@ describe("McpGateway", () => {
         );
         expect(crossOrigin.status).toBe(403);
 
+        // `Origin: null` is an *opaque* origin — what a page sends from a
+        // sandboxed iframe, a `data:` document or a `file:` page. It used to be
+        // in the allowed set alongside "no header at all", which is the only
+        // thing the harness actually sends, so any remote page could put its
+        // fetches into the allowed class at will.
+        const opaqueOrigin = yield* Effect.promise(() =>
+          post(url, bearer, { jsonrpc: "2.0", id: 7, method: "ping" }, { origin: "null" }),
+        );
+        expect(opaqueOrigin.status).toBe(403);
+
         // There is no GET stream on this transport — say so instead of 404.
         const stream = yield* Effect.promise(() => fetch(url).then(read));
         expect(stream.status).toBe(405);
         expect(stream.headers.allow).toBe("POST");
+
+        // ...but not to a page: the answer says the endpoint is here.
+        const probed = yield* Effect.promise(() =>
+          fetch(url, { headers: { origin: "https://evil.example" } }).then(read),
+        );
+        expect(probed.status).toBe(403);
 
         // Revoked bearers die — dead requests never reach a session.
         yield* gateway.revoke(threadId);

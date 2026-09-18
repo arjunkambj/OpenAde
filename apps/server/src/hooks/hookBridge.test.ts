@@ -121,6 +121,34 @@ describe("HookBridge over a real port", () => {
     ),
   );
 
+  it.effect("refuses a post that carries a page's origin", () =>
+    withBridge((bridge) =>
+      Effect.gen(function* () {
+        // The hook script is a child of ours and sends no Origin at all. A
+        // request that carries one is a page that found the port, and the
+        // ticket should not be the only thing between it and an approval.
+        const threadId = makeThreadId();
+        const seen = yield* Ref.make<ReadonlyArray<unknown>>([]);
+        yield* bridge.register(threadId, (body) =>
+          Ref.update(seen, (list) => [...list, body]).pipe(Effect.as({})),
+        );
+        const endpoint = yield* bridge.endpointFor(threadId);
+        const payload = { session_id: "s", tool_name: "x" };
+
+        for (const origin of ["https://evil.example", "null"]) {
+          const refused = yield* post(endpoint.url, payload, {
+            authorization: `Bearer ${endpoint.bearer}`,
+            origin,
+          });
+          expect(refused.status).toBe(403);
+        }
+        expect(yield* Ref.get(seen)).toEqual([]);
+
+        yield* bridge.unregister(threadId);
+      }),
+    ),
+  );
+
   it.effect("denies a post for a thread with no handler", () =>
     withBridge((bridge) =>
       Effect.gen(function* () {

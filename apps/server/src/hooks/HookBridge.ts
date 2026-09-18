@@ -31,6 +31,8 @@ import * as HttpServer from "effect/unstable/http/HttpServer";
 import * as HttpServerRequest from "effect/unstable/http/HttpServerRequest";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 
+import { isLoopbackOrigin } from "../rpc/origin";
+
 const HOOK_ROUTE_PATH = "/hooks/pretooluse";
 const HOOK_TIMEOUT_SECONDS = 590;
 const HOOK_MAX_BODY_BYTES = 1024 * 1024;
@@ -200,6 +202,12 @@ export class HookBridge extends Context.Service<
         Effect.gen(function* () {
           const request = yield* HttpServerRequest.HttpServerRequest;
 
+          // The hook script is a child process of ours and sends no `Origin`;
+          // anything that does is a page that found the port, and the ticket is
+          // not the only thing that should stand between it and an approval.
+          if (!isLoopbackOrigin(request.headers["origin"])) {
+            return HttpServerResponse.text("forbidden origin", { status: 403 });
+          }
           const authorization = request.headers["authorization"] ?? "";
           const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : null;
           if (token === null) {

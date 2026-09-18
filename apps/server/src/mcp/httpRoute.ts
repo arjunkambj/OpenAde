@@ -22,6 +22,7 @@ import * as HttpServerRequest from "effect/unstable/http/HttpServerRequest";
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse";
 import { MaxBodySize } from "effect/unstable/http/HttpIncomingMessage";
 
+import { isLoopbackOrigin } from "../rpc/origin";
 import { McpGateway, type JsonRpcRequest } from "./McpGateway";
 
 const BODY_CAP = FileSystem.Size(1024 * 1024);
@@ -37,22 +38,6 @@ const unauthorized = () =>
     },
   );
 
-/**
- * The endpoint is loopback-only and bearer-gated, but a page in any browser
- * can still reach 127.0.0.1. A request that carries a non-loopback `Origin`
- * is a website talking to us, never the harness (a CLI client sends none), so
- * it is refused before the token is even looked at.
- */
-const isAllowedOrigin = (origin: string | undefined): boolean => {
-  if (origin === undefined || origin === "" || origin === "null") return true;
-  try {
-    const host = new URL(origin).hostname;
-    return host === "127.0.0.1" || host === "localhost" || host === "::1" || host === "[::1]";
-  } catch {
-    return false;
-  }
-};
-
 const bearerOf = (request: HttpServerRequest.HttpServerRequest): string | null => {
   const header = request.headers.authorization;
   return typeof header === "string" && header.startsWith("Bearer ")
@@ -64,7 +49,7 @@ const mcpRoute = Effect.gen(function* () {
   const gateway = yield* McpGateway;
   const request = yield* HttpServerRequest.HttpServerRequest;
 
-  if (!isAllowedOrigin(request.headers.origin)) {
+  if (!isLoopbackOrigin(request.headers.origin)) {
     return HttpServerResponse.jsonUnsafe({ error: "forbidden origin" }, { status: 403 });
   }
   const token = bearerOf(request);
@@ -107,17 +92,23 @@ const mcpRoute = Effect.gen(function* () {
  * This transport is JSON-RPC over POST only — there is no SSE stream to open.
  * A client that probes `GET /mcp` gets a plain answer instead of the router's
  * generic 404, which reads as "wrong url" and sends people looking for a
- * misconfiguration that is not there.
+ * misconfiguration that is not there. A page probing it is refused the same
+ * way the POST route refuses one: the answer tells a caller the endpoint is
+ * here, and that is not a website's to learn.
  */
-const mcpGetRoute = Effect.succeed(
-  HttpServerResponse.jsonUnsafe(
+const mcpGetRoute = Effect.gen(function* () {
+  const request = yield* HttpServerRequest.HttpServerRequest;
+  if (!isLoopbackOrigin(request.headers.origin)) {
+    return HttpServerResponse.jsonUnsafe({ error: "forbidden origin" }, { status: 403 });
+  }
+  return HttpServerResponse.jsonUnsafe(
     {
       error: "method not allowed",
       detail: "the openade MCP endpoint speaks JSON-RPC over POST; it has no GET event stream",
     },
     { status: 405, headers: { allow: "POST" } },
-  ),
-);
+  );
+});
 
 const attachPageRoute = Effect.gen(function* () {
   const params = yield* HttpRouter.params;
