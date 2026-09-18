@@ -197,6 +197,14 @@ export interface ToolRows {
     toolCallId: string | undefined,
     partial: string,
   ) => ReadonlyArray<PendingRuntimeEvent>;
+  /**
+   * Fails every row still running and says why. A SIGINT'd run writes no
+   * `tool_completed`, no `message_end` and no `run_end`, so a call that was
+   * queued when the user pressed Stop otherwise span under an idle thread for
+   * as long as the thread existed — the wrong status goes into the event log,
+   * so it survives a reload too.
+   */
+  readonly abandonOpen: (reason: string) => ReadonlyArray<PendingRuntimeEvent>;
 }
 
 export const makeToolRows = (): ToolRows => {
@@ -384,10 +392,24 @@ export const makeToolRows = (): ToolRows => {
     return [{ itemId, type: "item.updated", payload: { item: snapshot } }];
   };
 
+  const abandonOpen = (reason: string): ReadonlyArray<PendingRuntimeEvent> => {
+    const out: Array<PendingRuntimeEvent> = [];
+    for (const [key, prior] of toolSnapshots) {
+      if (prior.status !== "in_progress") {
+        continue;
+      }
+      const snapshot: ItemSnapshot = { ...prior, status: "failed", error: { message: reason } };
+      toolSnapshots.set(key, snapshot);
+      out.push({ itemId: prior.itemId, type: "item.completed", payload: { item: snapshot } });
+    }
+    return out;
+  };
+
   return {
     started: toolStarted,
     finished: toolFinished,
     completed: toolCompleted,
     progressed,
+    abandonOpen,
   };
 };

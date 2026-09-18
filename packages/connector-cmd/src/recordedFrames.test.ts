@@ -171,9 +171,11 @@ describe("every recorded frame is understood", () => {
     for (const item of itemsOf(events)) {
       last.set(item.itemId, item.status);
     }
-    // The interrupt recording is the one run that legitimately ends mid-thought.
+    // No exception for `interrupt`: a run that ends mid-thought still has to
+    // settle the row it was streaming on, or the timeline spins forever under
+    // a thread that reads idle.
     const stillWorking = [...last.values()].filter((status) => status === "in_progress");
-    expect(stillWorking.length === 0 || scenario === "interrupt").toBe(true);
+    expect(stillWorking).toEqual([]);
   });
 });
 
@@ -390,6 +392,18 @@ describe("how runs end", () => {
     expect(events.find((event) => event.type === "turn.completed")?.payload.stopReason).toBe(
       "interrupted",
     );
+    // The row the run was mid-thought on is completed with what it streamed,
+    // and it is completed *before* the turn is — after `turn.completed` the
+    // engine no longer tags events with that turn.
+    const reasoning = itemsOf(events).filter((item) => item.kind === "reasoning");
+    expect(reasoning.at(-1)?.status).toBe("completed");
+    expect(reasoning.at(-1)?.text?.length).toBeGreaterThan(0);
+    const settledAt = events.findIndex(
+      (event) => event.type === "item.completed" && event.payload.item.kind === "reasoning",
+    );
+    const completedAt = events.findIndex((event) => event.type === "turn.completed");
+    expect(settledAt).toBeGreaterThanOrEqual(0);
+    expect(settledAt).toBeLessThan(completedAt);
   });
 
   /**

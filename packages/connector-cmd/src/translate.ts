@@ -188,6 +188,7 @@ export const makeTranslator = (options: {
           // open a second one next to it. A row this same message already
           // settled is not that row, though: take the next one instead.
           const itemId = textRows.replayed(text, key, claimed);
+          textRows.settle(itemId);
           out.push({
             itemId,
             type: "item.completed",
@@ -208,6 +209,7 @@ export const makeTranslator = (options: {
             return;
           }
           const itemId = textRows.replayed(thinking, key, claimed);
+          textRows.settle(itemId);
           out.push({
             itemId,
             type: "item.completed",
@@ -279,6 +281,7 @@ export const makeTranslator = (options: {
           // A model that streams no deltas still gets a row: `ended` mints one
           // and queues it so the transcript recognizes it as already emitted.
           const itemId = textRows.ended(text, message, index, claimed);
+          textRows.settle(itemId);
           out.push({
             itemId,
             type: "item.completed",
@@ -447,18 +450,15 @@ export const makeTranslator = (options: {
       typeof messageId === "string"
         ? `${messageId}:${index}`
         : `delta:${deltaRun}:${kind}:${index}`;
-    const { itemId, opened } = textRows.delta(key, text);
+    const rowKind = kind === "reasoning" ? ("reasoning" as const) : ("assistant_message" as const);
+    const { itemId, opened } = textRows.delta(key, text, rowKind);
     const out: Array<PendingRuntimeEvent> = [];
     if (opened) {
       out.push({
         itemId,
         type: "item.started",
         payload: {
-          item: {
-            itemId,
-            kind: kind === "reasoning" ? "reasoning" : "assistant_message",
-            status: "in_progress",
-          },
+          item: { itemId, kind: rowKind, status: "in_progress" },
         },
       });
     }
@@ -551,6 +551,7 @@ export const makeTranslator = (options: {
           return [];
         }
         const itemId = textRows.streamedFor(text) ?? textRows.idFor(`thinking_end:${deltaRun}`);
+        textRows.settle(itemId);
         return [
           {
             itemId,
@@ -725,8 +726,45 @@ export const makeTranslator = (options: {
     return [unmapped("cmd.transcript", line)];
   };
 
-  const onExit = (code: number): ReadonlyArray<PendingRuntimeEvent> => {
+  /**
+   * Settles everything the dead process left open.
+   *
+   * An interrupted run writes no `message_end`, no `result` and no `run_end`
+   * (`fixtures/cmd/interrupt`: exit 130 after `thinking_delta` and then
+   * nothing), so the rows its deltas opened kept `status: "in_progress"` — a
+   * spinner under a thread that reads idle, and, because the status is what
+   * goes into the event log, still spinning after a reload. A text row keeps
+   * whatever it streamed; a tool call that never reported is a failure.
+   */
+  const settleOpenRows = (reason: string): ReadonlyArray<PendingRuntimeEvent> => {
     const out: Array<PendingRuntimeEvent> = [];
+    for (const row of textRows.open()) {
+      textRows.settle(row.itemId);
+      out.push({
+        itemId: row.itemId,
+        type: "item.completed",
+        payload: {
+          item: {
+            itemId: row.itemId,
+            kind: row.kind,
+            status: row.text === "" ? "failed" : "completed",
+            ...(row.text === "" ? {} : { text: row.text }),
+          },
+        },
+      });
+    }
+    out.push(...toolRows.abandonOpen(reason));
+    return out;
+  };
+
+  const onExit = (code: number): ReadonlyArray<PendingRuntimeEvent> => {
+    const out: Array<PendingRuntimeEvent> = [
+      ...settleOpenRows(
+        code === 130
+          ? "the turn was interrupted before this call finished"
+          : "the harness exited before this call finished",
+      ),
+    ];
 
     const named = EXIT_MESSAGES[code];
     if (named !== undefined) {

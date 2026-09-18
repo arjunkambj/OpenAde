@@ -24,6 +24,14 @@
 
 import { makeItemId, type ItemId } from "@OpenAde/contracts/ids";
 
+/** A row a delta opened and nothing has settled yet. */
+export interface OpenTextRow {
+  readonly itemId: ItemId;
+  readonly kind: "assistant_message" | "reasoning";
+  /** Everything streamed onto it so far. */
+  readonly text: string;
+}
+
 export interface TextRows {
   /** The row for a key, minted once and remembered for the session. */
   readonly idFor: (key: string) => ItemId;
@@ -37,7 +45,16 @@ export interface TextRows {
   readonly delta: (
     key: string,
     text: string,
+    kind: OpenTextRow["kind"],
   ) => { readonly itemId: ItemId; readonly opened: boolean };
+  /** This row has been completed — it is no longer one of the open ones. */
+  readonly settle: (itemId: ItemId) => void;
+  /**
+   * Rows still streaming. A SIGINT'd run writes no `message_end` and no
+   * `run_end`, so without this the last row it opened stayed `in_progress`
+   * forever — a spinner under an idle thread, still spinning after a reload.
+   */
+  readonly open: () => ReadonlyArray<OpenTextRow>;
   /** Counts `message_end` frames; part of the keys the next call mints. */
   readonly nextMessage: () => number;
   /** The row a `message_end` block settles, minting and queueing if need be. */
@@ -61,6 +78,8 @@ export const makeTextRows = (): TextRows => {
   const streamedItemForText = new Map<string, ItemId>();
   /** Rows a `message_end` minted itself, in mint order, per text. */
   const endedItemsForText = new Map<string, Array<ItemId>>();
+  /** Rows a delta opened and nothing has settled yet. */
+  const openRows = new Map<ItemId, OpenTextRow>();
   let endedMessages = 0;
 
   const idFor = (key: string): ItemId => {
@@ -97,11 +116,12 @@ export const makeTextRows = (): TextRows => {
   return {
     idFor,
     streamedFor: (text) => streamedItemForText.get(text),
-    delta: (key, text) => {
+    delta: (key, text, kind) => {
       const known = streamedText.get(key);
       const itemId = idFor(key);
       const full = (known ?? "") + text;
       streamedText.set(key, full);
+      openRows.set(itemId, { itemId, kind, text: full });
       // Only the whole text is a handle the transcript matches on: a shorter
       // prefix is a stale key that both retains its string and answers a later
       // lookup for text that happens to equal it.
@@ -111,6 +131,10 @@ export const makeTextRows = (): TextRows => {
       streamedItemForText.set(full, itemId);
       return { itemId, opened: known === undefined };
     },
+    settle: (itemId) => {
+      openRows.delete(itemId);
+    },
+    open: () => [...openRows.values()],
     nextMessage: () => {
       endedMessages += 1;
       return endedMessages;
