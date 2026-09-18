@@ -67,7 +67,7 @@ export type { PendingRuntimeEvent } from "./items";
  * What to call a subagent on its progress line. The harness names a kind
  * (`general` in `subagent/`); an unnamed one is still worth a word.
  */
-const subagentLabel = (event: { readonly subagentType?: unknown }): string => {
+const subagentLabel = (event: { readonly [key: string]: unknown }): string => {
   const type = asOptionalString(event.subagentType);
   return type === undefined ? "subagent" : `${type} subagent`;
 };
