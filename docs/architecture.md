@@ -145,16 +145,19 @@ boundary crossing wearing a path.
 **2. Renderer connector-neutrality.** The strings `command code` (spaced or
 not), the quoted literal `"cmd"` and `claude` must not appear anywhere under
 `apps/web/src` — in any file, whatever its extension, and in file names as well
-as contents. The renderer renders whichever connector is configured; a
-connector's name in a CSS class, an SVG title or a JSON label breaks that as
-surely as one in a string literal. This is why `ACCOUNT_HELP_URL` lives in
+as contents. One path is exempt, `apps/web/src/components/ui/icons`, so a
+connector's own logo can ship under its own name; nothing lives there today.
+The renderer renders whichever connector is configured; a connector's name in a
+CSS class, an SVG title or a JSON label breaks that as surely as one in a string
+literal. This is why `ACCOUNT_HELP_URL` lives in
 `packages/contracts/src/rpc.ts` and why a connector's own help link arrives as
 `ConnectorProbe.helpUrl` rather than being written into a component.
 
-**3. No barrels.** An `index.ts`/`index.tsx` anywhere under `packages/` is
-refused: a package exports one entry per module through its `exports` map. Apps
-are exempt — the router's `apps/web/src/routes/settings/index.tsx` is a route, and the
-Electron entry points are named by electron-builder.
+**3. No barrels.** An `index` module anywhere under `packages/` is refused —
+`.ts`, `.tsx`, `.js`, `.jsx` or `.mjs`: a package exports one entry per module
+through its `exports` map. Apps are exempt — the router's
+`apps/web/src/routes/settings/index.tsx` is a route, and the Electron entry
+points are named by electron-builder.
 
 A second guardrail, `scripts/check-file-sizes.mjs`, caps non-test source files
 at 800 lines and renderer components under `apps/web/src/components` at 400.
@@ -849,12 +852,16 @@ Reads that must stay fresh are streams rather than polls, and every stream can
 end in `resnapshot-required`.
 
 Two loopback HTTP routes ride the same server besides `/ws` and `/healthz`:
-`POST /hooks/pretooluse` and `POST /mcp`, plus the inert marker page
-`GET /browser/attach/:threadId`. Every one of them refuses a request whose
-`Origin` header is present and is not loopback (`apps/server/src/rpc/origin.ts`)
-before the bearer is even looked at. `Origin: null` is explicitly _not_ treated
-as "no origin": an opaque origin is what a sandboxed iframe, a `data:` document
-and a `file:` page send.
+`POST /hooks/pretooluse` and `POST /mcp`. Each refuses a request whose `Origin`
+header is present and is not loopback (`apps/server/src/rpc/origin.ts`) before
+the bearer is even looked at. `Origin: null` is explicitly _not_ treated as "no
+origin": an opaque origin is what a sandboxed iframe, a `data:` document and a
+`file:` page send.
+
+The marker page `GET /browser/attach/:threadId` rides along on the same router
+and is neither authenticated nor origin-checked: it is a static page that names
+the thread a webview belongs to, reads nothing and returns nothing that is not
+already in its own URL.
 
 ## The hook bridge
 
