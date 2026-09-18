@@ -48,11 +48,18 @@ import {
   type OpenAdeRpcClient,
 } from "@OpenAde/client-runtime/connection";
 import { makeStreamCollector, type StreamCollector } from "@OpenAde/connector-sdk/streamCollector";
-import { makeCommandId, makeConnectorInstanceId } from "@OpenAde/contracts/ids";
+import {
+  makeCommandId,
+  makeConnectorInstanceId,
+  makeProjectId,
+  makeThreadId,
+} from "@OpenAde/contracts/ids";
 import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
 import type {
+  Attachment,
   Command,
   CommandReceipt,
+  ThreadSettingsPatch,
   ThreadStreamItem,
   ThreadSummary,
 } from "@OpenAde/contracts/orchestration";
@@ -386,6 +393,15 @@ export interface ThreadWatch {
     predicate: (view: ThreadDetailView) => boolean,
     after?: ViewMark,
   ) => Effect.Effect<ThreadDetailView>;
+  /**
+   * The same, plus the position just after the view it matched — for a
+   * scenario whose next wait has to start where this one stopped rather than
+   * where the last command landed.
+   */
+  readonly awaitViewAt: (
+    predicate: (view: ThreadDetailView) => boolean,
+    after?: ViewMark,
+  ) => Effect.Effect<{ readonly view: ThreadDetailView; readonly next: ViewMark }>;
   /** The views from `after` onwards — for "nothing happened in between". */
   readonly viewsSince: (after: ViewMark) => Effect.Effect<ReadonlyArray<ThreadDetailView>>;
   /** The raw stream items, for assertions about delivery rather than state. */
@@ -466,6 +482,10 @@ export const watchThread = (
         ),
       latest: views.pipe(Effect.map((all) => all.at(-1)!)),
       awaitView,
+      awaitViewAt: (predicate, after) =>
+        awaitMarked(predicate, after).pipe(
+          Effect.map((marked) => ({ view: marked.view, next: marked.index + 1 })),
+        ),
       viewsSince: (after) =>
         collector.collected.pipe(
           Effect.map((all) =>
@@ -534,6 +554,112 @@ export const watchThreadList = (
       awaitList,
       latest: collector.collected.pipe(Effect.map((all) => all.at(-1)?.threads ?? [])),
     };
+  });
+
+// ── Where every scenario starts ────────────────────────────────
+
+export interface OpenThread {
+  readonly projectId: ProjectId;
+  readonly threadId: ThreadId;
+  /** The thread's own subscription, already folding. */
+  readonly view: ThreadWatch;
+}
+
+/**
+ * A project on the temp workspace, a thread on it, and a subscription.
+ *
+ * The subscription is opened here rather than by the caller so that no
+ * scenario can dispatch its first turn before the stream is attached and then
+ * assert against a snapshot that already contains the answer.
+ */
+export const openThread = (
+  client: E2EClient,
+  home: E2EHome,
+  settings: ThreadSettingsPatch = {},
+): Effect.Effect<OpenThread, never, import("effect/Scope").Scope> =>
+  Effect.gen(function* () {
+    const projectId = makeProjectId();
+    const threadId = makeThreadId();
+    yield* client.send(
+      command({ type: "project.create", projectId, name: "e2e", workspaceRoot: home.workspace }),
+    );
+    yield* client.send(
+      command({
+        type: "thread.create",
+        threadId,
+        projectId,
+        settings: { model: E2E_MODEL, ...settings },
+      }),
+    );
+    const view = yield* watchThread(client, threadId);
+    return { projectId, threadId, view };
+  });
+
+/**
+ * Starts a turn and answers with the mark at which it is on screen, so every
+ * wait that follows is measured from the turn rather than from the thread's
+ * whole history.
+ */
+export const startTurn = (
+  client: E2EClient,
+  open: OpenThread,
+  input: {
+    readonly text: string;
+    readonly attachments?: ReadonlyArray<Attachment>;
+    readonly mentions?: ReadonlyArray<string>;
+    /** Cmd+Enter: queue behind the running turn instead of racing it. */
+    readonly queued?: boolean;
+  },
+): Effect.Effect<ViewMark> =>
+  client
+    .send(
+      command({
+        type: "thread.turn.start",
+        threadId: open.threadId,
+        text: input.text,
+        attachments: input.attachments ?? [],
+        mentions: input.mentions ?? [],
+        queued: input.queued ?? false,
+      }),
+    )
+    .pipe(Effect.flatMap(open.view.markAfter));
+
+/**
+ * Answers every approval the thread raises, until the scope closes.
+ *
+ * Scenarios that are *about* the approval gate answer their cards by hand.
+ * Every other scenario still has to get past it — a turn that edits a file
+ * stops on a card whatever the test is really interested in — and this is the
+ * user sitting there clicking Allow. Marks keep it from answering a card
+ * twice, and the loop simply ends when the subscription does.
+ */
+export const autoApprove = (
+  client: E2EClient,
+  open: OpenThread,
+  decision: "allow-once" | "allow-session" = "allow-once",
+): Effect.Effect<void, never, import("effect/Scope").Scope> =>
+  Effect.gen(function* () {
+    const from = yield* open.view.mark;
+    const loop = (after: ViewMark): Effect.Effect<void> =>
+      open.view
+        .awaitViewAt((view) => view.pendingApproval !== null, after)
+        .pipe(
+          Effect.flatMap(({ view, next }) =>
+            client
+              .send(
+                command({
+                  type: "thread.approval.respond",
+                  threadId: open.threadId,
+                  requestId: view.pendingApproval!.requestId,
+                  decision,
+                }),
+              )
+              .pipe(Effect.andThen(loop(next))),
+          ),
+        );
+    // The loop ends with the subscription, and a rejected answer — a card the
+    // turn withdrew first — is not this fiber's business either.
+    yield* Effect.forkScoped(Effect.ignore(loop(from)));
   });
 
 // ── Reading a view ─────────────────────────────────────────────
