@@ -231,7 +231,18 @@ export const CheckpointReactor: Layer.Layer<
      * restore`/`git clean -fd` runs and two outcomes for one order.
      */
     const pendingRestores = Effect.gen(function* () {
-      const events = yield* store.threadEventsAfter(0);
+      // Only the four types this fold looks at, off the `(type, sequence)`
+      // index. It used to read and schema-decode every thread event ever
+      // written, here, inside the layer build — before `boot` writes its
+      // handshake, and the desktop supervisor SIGKILLs a child that has not
+      // handshaken in fifteen seconds and gives up after five of those. A big
+      // enough log made a perfectly intact install unstartable for good.
+      const events = yield* store.threadEventsOfTypes([
+        "thread.checkpoint.restore.requested",
+        "thread.checkpoint.restored",
+        "thread.checkpoint.restore.failed",
+        "thread.deleted",
+      ]);
       const pending = new Map<ThreadId, OrchestrationEvent>();
       for (const entry of events) {
         const threadId = entry.streamId as ThreadId;

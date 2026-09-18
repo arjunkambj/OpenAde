@@ -154,6 +154,16 @@ export class EventStore extends Context.Service<
     readonly threadEventsAfter: (
       after: number,
     ) => Effect.Effect<ReadonlyArray<OrchestrationEvent>, SqlError>;
+    /**
+     * Thread events of these types only, in append order — an indexed read for
+     * a reactor that needs a rare kind of event out of a log of any size. The
+     * checkpoint reactor's boot replay used to scan and decode the whole thread
+     * log for this, inside the layer build and under the desktop supervisor's
+     * fixed handshake timeout.
+     */
+    readonly threadEventsOfTypes: (
+      types: ReadonlyArray<OrchestrationEvent["type"]>,
+    ) => Effect.Effect<ReadonlyArray<OrchestrationEvent>, SqlError>;
     /** The whole log in append order — what a projection rebuild folds. */
     readonly allEvents: Effect.Effect<ReadonlyArray<OrchestrationEvent>, SqlError>;
     /** Appends planned events; returns them with `sequence` and `streamVersion` assigned. */
@@ -199,6 +209,15 @@ export class EventStore extends Context.Service<
           WHERE stream_kind = 'thread' AND sequence > ${after}
           ORDER BY sequence
         `.pipe(Effect.flatMap(decodeRows));
+
+      const threadEventsOfTypes = (types: ReadonlyArray<OrchestrationEvent["type"]>) =>
+        types.length === 0
+          ? Effect.succeed([] as ReadonlyArray<OrchestrationEvent>)
+          : sql<EventRow>`
+              SELECT ${sql.literal(EVENT_COLUMNS)} FROM events
+              WHERE stream_kind = 'thread' AND type IN ${sql.in(types)}
+              ORDER BY sequence
+            `.pipe(Effect.flatMap(decodeRows));
 
       const allEvents = sql<EventRow>`
           SELECT ${sql.literal(EVENT_COLUMNS)} FROM events ORDER BY sequence
@@ -308,6 +327,7 @@ export class EventStore extends Context.Service<
         loadStream,
         streamAfter,
         threadEventsAfter,
+        threadEventsOfTypes,
         allEvents,
         append,
         lastSequence,

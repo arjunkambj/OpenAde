@@ -48,6 +48,40 @@ describe("EventStore", () => {
     }).pipe(Effect.provide(persistenceLayer())),
   );
 
+  it.effect("answers a type query off the index instead of scanning the log", () =>
+    Effect.gen(function* () {
+      const store = yield* EventStore;
+      const sql = yield* SqlClient.SqlClient;
+      yield* store.append("thread", threadId, [errorEvent("one"), errorEvent("two")]);
+      yield* store.append("thread", threadId, [
+        {
+          eventId: makeEventId(),
+          streamKind: "thread",
+          streamId: threadId,
+          occurredAt: NOW,
+          actor: "user",
+          type: "thread.renamed",
+          payload: { title: "renamed" },
+        } as PlannedEvent,
+      ]);
+
+      const renames = yield* store.threadEventsOfTypes(["thread.renamed"]);
+      expect(renames.map((event) => event.type)).toEqual(["thread.renamed"]);
+      expect(yield* store.threadEventsOfTypes([])).toEqual([]);
+
+      // The point of the query: the checkpoint reactor runs it inside the layer
+      // build, before the handshake the desktop supervisor is timing. A plan
+      // that says SCAN would put the boot back under the whole log's weight.
+      const plan = yield* sql<{ readonly detail: string }>`
+        EXPLAIN QUERY PLAN
+        SELECT sequence FROM events
+        WHERE stream_kind = 'thread' AND type IN ('thread.renamed')
+        ORDER BY sequence
+      `;
+      expect(plan.map((row) => row.detail).join(" ")).toContain("idx_events_type_sequence");
+    }).pipe(Effect.provide(persistenceLayer())),
+  );
+
   it.effect("skips an undecodable row instead of dying on it", () =>
     Effect.gen(function* () {
       const store = yield* EventStore;
