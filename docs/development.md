@@ -3,7 +3,10 @@
 How to install, run, test, check and package OpenAde. Every command here is one
 the workspace actually defines — the root `package.json` scripts, a workspace's
 own scripts, or a script under `scripts/` — and every path is relative to the
-repository root.
+repository root. For what the pieces are, read
+[architecture.md](architecture.md); for what they do at runtime,
+[how-it-works.md](how-it-works.md); for the rules the checks enforce,
+[philosophy.md](philosophy.md).
 
 ## Prerequisites
 
@@ -131,15 +134,15 @@ pnpm check
 is `lint → fmt:check → typecheck → test → check:boundaries → check:file-sizes →
 knip`, and it is what CI runs on Ubuntu and macOS. Each stage runs alone too:
 
-| Stage      | Command                 | What it enforces                                                    |
-| ---------- | ----------------------- | ------------------------------------------------------------------- |
-| lint       | `pnpm lint`             | oxlint: `correctness` as error, `no-explicit-any`, the shadcn rules |
-| format     | `pnpm fmt:check`        | oxfmt over the tree, markdown docs included; `pnpm fmt` writes      |
-| types      | `pnpm typecheck`        | `tsc --noEmit` per workspace; web also runs `vite build`            |
-| tests      | `pnpm test`             | `turbo run test` → `vitest run` per workspace                       |
-| boundaries | `pnpm check:boundaries` | import allowlist, renderer neutrality, no barrel files              |
-| file sizes | `pnpm check:file-sizes` | 800 lines a file, 400 for a renderer component                      |
-| dead code  | `pnpm knip`             | unused files, exports and dependencies                              |
+| Stage      | Command                 | What it enforces                                                         |
+| ---------- | ----------------------- | ------------------------------------------------------------------------ |
+| lint       | `pnpm lint`             | oxlint: `correctness` as error, `no-explicit-any`, the shadcn rules      |
+| format     | `pnpm fmt:check`        | oxfmt over the tree, the markdown in `docs/` included; `pnpm fmt` writes |
+| types      | `pnpm typecheck`        | `tsc --noEmit` per workspace; web also runs `vite build`                 |
+| tests      | `pnpm test`             | `turbo run test` → `vitest run` per workspace                            |
+| boundaries | `pnpm check:boundaries` | import allowlist, renderer neutrality, no barrel files                   |
+| file sizes | `pnpm check:file-sizes` | 800 lines a file, 400 for a renderer component                           |
+| dead code  | `pnpm knip`             | unused files, exports and dependencies                                   |
 
 `pnpm typecheck` and `pnpm check-types` are the same script.
 
@@ -149,23 +152,10 @@ knip`, and it is what CI runs on Ubuntu and macOS. Each stage runs alone too:
 sources.
 
 **Import allowlist.** Every import that names another workspace package is
-checked against a table in that file. A relative specifier that climbs out of
-its own workspace directory is a violation whatever it lands on, because
+checked against a table in that file — the table is reproduced in
+[architecture.md](architecture.md#boundaries). A relative specifier that climbs
+out of its own workspace directory is a violation whatever it lands on, because
 packages are consumed through their `exports` map.
-
-| Workspace                 | May import                                              |
-| ------------------------- | ------------------------------------------------------- |
-| `apps/web`                | `ui`, `contracts`, `client-runtime`, `shared`           |
-| `apps/desktop`            | `contracts`, `shared`                                   |
-| `apps/server`             | `contracts`, `connector-sdk`, `connector-cmd`, `shared` |
-| `packages/connector-sdk`  | `contracts`, `shared`                                   |
-| `packages/connector-*`    | `connector-sdk`, `contracts`, `shared`                  |
-| `packages/contracts`      | `shared`                                                |
-| `packages/client-runtime` | `contracts`, `shared`                                   |
-| `packages/testkit`        | `contracts`, `connector-sdk`, `shared`                  |
-| `packages/shared`         | nothing                                                 |
-| `packages/ui`             | nothing                                                 |
-| `packages/config`         | nothing                                                 |
 
 A workspace with no rule may import no workspace package at all; add the rule
 before the import. Test files in `apps/server` get two extras — `testkit` and
@@ -175,8 +165,9 @@ test when it ends in `.test.`/`.spec.` or sits under a `test/` directory.
 
 **Renderer neutrality.** Connector identity never reaches `apps/web/src`: the
 patterns `command code` (spaced or not), the literal `"cmd"` and `claude` are
-refused anywhere under it, in file names as well as contents, outside
-`apps/web/src/components/ui/icons`.
+refused anywhere under it, in file names as well as contents. One path is
+exempt, `apps/web/src/components/ui/icons`, so a connector's own logo can be
+shipped under its own name; nothing lives there today.
 
 **No barrels.** An `index.ts`/`index.tsx` anywhere under `packages/` is
 refused; each package exports one entry per module through its `exports` map.
@@ -193,6 +184,12 @@ points are named by electron-builder.
 not by directory name.
 
 ### knip and `@public`
+
+Packages are consumed as TypeScript source, so every `exports` entry is an entry
+point and by default every symbol a package exports counts as used. Each
+`packages/*` workspace therefore sets `includeEntryExports` — knip reads inside
+the entry files — together with `ignoreExportsUsedInFile`, so a schema that is
+exported and also composed further down its own module is not reported.
 
 `knip.json` sets `"tags": ["-@public"]`, so an export whose JSDoc carries
 `@public` is exempt from the dead-export report. Use it for the seams a
@@ -235,12 +232,11 @@ read the same files (`apps/web/src/lib/turn.test.ts`).
 
 **Connectors run a shared suite.** `runConnectorConformance`
 (`packages/connector-sdk/src/conformance.ts`) drives a real definition through
-`createInstance`/`startSession`/`send`/`close` and holds it to five promises: a
-session announces itself first, every turn completes exactly once, every
-approval it opens is resolved, nothing is emitted after `close`, and `close`
-proves the process tree is gone. A sixth case re-encodes every event through
-the `RuntimeEvent` schema. `packages/testkit/src/fakeConnector.ts` is the fake
-that exercises the SDK interface itself.
+`createInstance`/`startSession`/`send`/`close` and holds it to the five promises
+listed in [architecture.md](architecture.md#the-conformance-suite). A new
+connector's test file is one call to it.
+`packages/testkit/src/fakeConnector.ts` is the fake that exercises the SDK
+interface itself.
 
 **The CLI is never invented.** Anything a test needs to know about Command Code
 comes from a recording under `packages/testkit/fixtures/cmd/`, replayed by
@@ -413,6 +409,11 @@ The server is bundled into the app and spawned as a child under
 `ELECTRON_RUN_AS_NODE`, so `out/server` is listed in `asarUnpack` — a child
 process cannot spawn from inside the asar archive.
 
+`apps/desktop` lists `@OpenAde/contracts` and `@OpenAde/shared` as
+_devDependencies_ on purpose: esbuild inlines them into the bundle, and
+electron-builder packs only `dependencies`, so declaring them as runtime
+dependencies would ship a second copy of each.
+
 The config names no code-signing identity, so a machine without a Developer ID
 certificate produces an unsigned build. It runs locally; it is not something to
 hand to anyone else.
@@ -442,6 +443,9 @@ because it decides Chromium command-line flags. Today it holds one key:
 `{ "browserPane": true }` turns on the in-app `<webview>` browser pane, which
 makes Chromium open a loopback remote-debugging port. Off by default, and the
 server then drives its own Chromium through `agent-browser` instead.
+`OPENADE_BROWSER_PANE=1` and `OPENADE_CDP_PORT=<port>` turn it on for one run;
+`OPENADE_REMOTE_DEBUG=0` vetoes it. Anything running as this user can drive the
+renderer through that port, which is why it is opt-in.
 
 The hook script is regenerated only when its content hash changes, so starting
 a session does not churn the file under a running `cmd`.
@@ -478,6 +482,11 @@ spawn the binary the probe resolved`, `feat(web): rename, archive and delete
 a thread`. Scopes name the area, not the workspace path.
 - **No attribution trailers.** No `Co-Authored-By`, no "generated with" line,
   in commit messages or pull request descriptions.
+- **Documentation lives in `docs/`**, five documents indexed by
+  [docs/README.md](README.md). They are markdown that oxfmt formats like any
+  other file, so `pnpm fmt` rewraps them and `pnpm fmt:check` fails on a
+  document that was not rewrapped. Describe the software, not the history of
+  building it.
 - **Never `--no-verify`.** `pnpm check` is the gate; if it is red the change is
   not finished.
 
