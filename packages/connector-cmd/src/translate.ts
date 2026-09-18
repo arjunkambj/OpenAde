@@ -342,12 +342,12 @@ export const makeTranslator = (options: {
    * Every `usage.updated` is a snapshot of the run so far, never a delta: the
    * counters are cumulative and are zeroed only when the next process starts
    * (`forgetRun`). A turn whose price arrives late therefore restates the whole
-   * figure rather than asking the consumer to add up instalments.
+   * figure rather than asking the consumer to add up instalments — and every
+   * one of them carries the running cost, because the projection replaces the
+   * usage object rather than merging into it, so an update that left the cost
+   * out erased it from the screen mid-turn.
    */
-  const usageUpdated = (
-    usage: CmdUsage | undefined,
-    options_: { readonly withCost: boolean },
-  ): PendingRuntimeEvent => {
+  const usageUpdated = (usage: CmdUsage | undefined): PendingRuntimeEvent => {
     const costUsd = turnCostUsd;
     return {
       type: "usage.updated",
@@ -357,7 +357,7 @@ export const makeTranslator = (options: {
         output: usage?.outputTokens ?? 0,
         cacheRead: usage?.cacheReadTokens ?? 0,
         cacheWrite: usage?.cacheWriteTokens ?? 0,
-        ...(options_.withCost && costUsd > 0 ? { costUsd } : {}),
+        ...(costUsd > 0 ? { costUsd } : {}),
       },
     };
   };
@@ -463,7 +463,13 @@ export const makeTranslator = (options: {
         // The step's tokens. `model_request_end` reports the same numbers one
         // frame earlier, so only one of the two may be counted.
         accumulate(event.usage as CmdUsage | undefined);
-        return [usageUpdated(turnUsage, { withCost: false })];
+        // With the cost, because the projection replaces the whole usage object
+        // rather than merging into it: a cost-less update mid-turn wiped the
+        // dollar figure the transcript had just reported and the user watched
+        // it blink out (`shell-allow` is three agent steps over 26 seconds).
+        // `usageUpdated` omits the field while the running cost is 0, and the
+        // counters are cumulative snapshots, so restating it is idempotent.
+        return [usageUpdated(turnUsage)];
       }
       case "message_start":
       case "message_update":
@@ -632,7 +638,7 @@ export const makeTranslator = (options: {
             out.push(...processMessage(message));
           }
         }
-        out.push(usageUpdated(result.usage ?? turnUsage, { withCost: true }));
+        out.push(usageUpdated(result.usage ?? turnUsage));
         // A run that died is not settled here: the `result` line one frame
         // later words the same failure the way the user can act on it (it is
         // the one with the billing URL), and an error emitted after
@@ -688,7 +694,7 @@ export const makeTranslator = (options: {
         // it arrives rather than only at a turn boundary that may already have
         // passed. `costedLines` is what keeps a re-read line from charging
         // twice.
-        out.push(usageUpdated(turnUsage, { withCost: true }));
+        out.push(usageUpdated(turnUsage));
       }
       return out;
     }

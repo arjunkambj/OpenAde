@@ -886,6 +886,25 @@ describe("cost", () => {
     expect(secondUsage?.type === "usage.updated" && secondUsage.payload.costUsd).toBeUndefined();
   });
 
+  it("keeps the cost on every later usage report of the same turn", () => {
+    // The projection replaces the whole usage object rather than merging into
+    // it, so a cost-less `usage.updated` erased the figure from the screen.
+    // `shell-allow` is three agent steps over 26 seconds: the cost appeared
+    // after step 1, vanished at step 2's `turn_end`, and came back at run_end.
+    const translate = translator();
+    translate.onFrame(runStart());
+    translate.onFrame(turnStart());
+    translate.onTranscriptLine({
+      ...transcriptMessage("assistant", [{ type: "text", text: "one" }], "m-1"),
+      usage: { costUsd: 0.25 },
+    });
+    const stepEnd = translate.onFrame(
+      frame({ type: "turn_end", turnNumber: 1, usage: { inputTokens: 5, outputTokens: 1 } }),
+    );
+    const usage = stepEnd.find((event) => event.type === "usage.updated");
+    expect(usage?.type === "usage.updated" && usage.payload.costUsd).toBe(0.25);
+  });
+
   it("does not carry an interrupted turn's cost into the next turn", () => {
     const translate = translator();
     translate.onFrame(runStart());
