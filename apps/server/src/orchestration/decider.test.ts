@@ -27,6 +27,8 @@ const ctx = (overrides: Partial<DeciderContext> = {}): DeciderContext => ({
   workspaceRootTaken: () => false,
   restoreInFlight: () => false,
   defaultModel: "fake/model",
+  defaultEffort: null,
+  defaultRuntimeMode: null,
   ...overrides,
 });
 
@@ -804,6 +806,53 @@ describe("decide", () => {
         runtimeMode: "full-access",
         interactionMode: "plan",
         effort: "high",
+      });
+    }
+  });
+
+  it("takes effort and runtime mode from the settings defaults", () => {
+    // The renderer's only create path sends no settings at all, so "New thread
+    // defaults" is the only place these two can come from. They used to be
+    // dropped: the panel wrote them, read them back and nothing applied them.
+    const command = {
+      ...baseCommand,
+      type: "thread.create",
+      threadId: makeThreadId(),
+      projectId: makeProjectId(),
+    } as unknown as Command;
+    const result = decide(
+      command,
+      { project: null, thread: null },
+      ctx({ defaultEffort: "high", defaultRuntimeMode: "full-access" }),
+      env,
+    );
+    expect(result.accepted).toBe(true);
+    if (result.accepted) {
+      const payload = result.events[0]!.payload as { settings: unknown };
+      expect(payload.settings).toEqual({
+        model: "fake/model",
+        runtimeMode: "full-access",
+        interactionMode: "default",
+        effort: "high",
+      });
+    }
+  });
+
+  it("keeps the built-in fallbacks when the defaults hold nothing", () => {
+    const command = {
+      ...baseCommand,
+      type: "thread.create",
+      threadId: makeThreadId(),
+      projectId: makeProjectId(),
+    } as unknown as Command;
+    const result = decide(command, { project: null, thread: null }, ctx(), env);
+    expect(result.accepted).toBe(true);
+    if (result.accepted) {
+      const payload = result.events[0]!.payload as { settings: unknown };
+      expect(payload.settings).toEqual({
+        model: "fake/model",
+        runtimeMode: "approval-required",
+        interactionMode: "default",
       });
     }
   });

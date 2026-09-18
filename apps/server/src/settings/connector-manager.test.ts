@@ -41,7 +41,12 @@ import { layer as sqliteLayer, testLayer as sqliteTestLayer } from "../persisten
 import { SettingsStore } from "../rpc/services";
 import { ConnectorHost } from "./ConnectorHost";
 import { ConnectorManager, ConnectorRegistryService } from "./ConnectorManager";
-import { readConnectorRouting, routingPreference, seedModel } from "./connectorRouting";
+import {
+  readConnectorRouting,
+  routingPreference,
+  seedModel,
+  seedThreadDefaults,
+} from "./connectorRouting";
 
 interface Fixture {
   readonly manager: ConnectorManager["Service"];
@@ -516,6 +521,33 @@ describe("ConnectorManager", () => {
         const current = yield* store.get;
         yield* store.update({ defaults: { ...current.defaults, model: "acme/shared" } });
         expect(yield* seedModel(sql, openIds(registry))).toBe("acme/shared");
+      }),
+    ),
+  );
+
+  it.effect("the new-thread defaults carry effort and runtime mode too", () =>
+    withFixture(({ store, sql }) =>
+      Effect.gen(function* () {
+        const current = yield* store.get;
+        yield* store.update({
+          defaults: { ...current.defaults, effort: "high", runtimeMode: "full-access" },
+        });
+        expect(yield* seedThreadDefaults(sql)).toEqual({
+          effort: "high",
+          runtimeMode: "full-access",
+        });
+
+        // A value from a build that knows an enum member this one does not
+        // must read as "not set", never travel onto `thread.created`.
+        yield* sql`
+          UPDATE settings
+          SET value_json = ${JSON.stringify({
+            ...current,
+            defaults: { model: null, effort: "galactic", runtimeMode: "yolo" },
+          })}
+          WHERE key = 'settings'
+        `;
+        expect(yield* seedThreadDefaults(sql)).toEqual({ effort: null, runtimeMode: null });
       }),
     ),
   );

@@ -159,6 +159,28 @@ export const OpenConnectors = Context.Reference<Effect.Effect<
 > | null>("server/settings/OpenConnectors", { defaultValue: () => null });
 
 /**
+ * @public The rest of "New thread defaults", for a `thread.create` whose
+ * command patch left them out.
+ *
+ * Spec §6 defines `defaults` as `{ model, effort, runtimeMode }` and the
+ * General page renders all three under that heading, but only the model was
+ * ever read: a thread created after setting effort to `high` and runtime mode
+ * to `full-access` still opened on `medium` / "Ask first". `null` for either
+ * one means the stored document says nothing usable, and the decider's own
+ * fallback stands.
+ */
+export const seedThreadDefaults = (
+  sql: SqlClient.SqlClient,
+): Effect.Effect<
+  { readonly effort: Effort | null; readonly runtimeMode: RuntimeMode | null },
+  SqlError
+> =>
+  Effect.map(readConnectorRouting(sql), (routing) => ({
+    effort: routing.sharedEffort,
+    runtimeMode: routing.sharedRuntimeMode,
+  }));
+
+/**
  * @public What a live connector says it can run, best first.
  *
  * A `Context.Reference` for the same reason `OpenConnectors` is one: the engine

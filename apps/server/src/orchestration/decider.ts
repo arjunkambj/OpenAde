@@ -11,6 +11,7 @@
  */
 
 import { DEFAULT_RUNTIME_MODE } from "@OpenAde/contracts/enums";
+import type { Effort, RuntimeMode } from "@OpenAde/contracts/enums";
 import type { EventId, ItemId, ProjectId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
 import type {
   Actor,
@@ -63,8 +64,10 @@ export interface DeciderContext {
    * exclusion has to be project-wide even though `restoring` is per-thread.
    */
   readonly restoreInFlight: (projectId: ProjectId, exceptThreadId: ThreadId) => boolean;
-  /** Settings default for a thread whose create command did not choose one. */
+  /** Settings defaults for a thread whose create command did not choose them. */
   readonly defaultModel: string | null;
+  readonly defaultEffort: Effort | null;
+  readonly defaultRuntimeMode: RuntimeMode | null;
 }
 
 /** Id and clock minting, injected so tests can fix both. */
@@ -153,6 +156,11 @@ export const decide = (
           "no model is configured — pick a default in Settings → General → New thread defaults",
         );
       }
+      // The command patch first, then "New thread defaults", then the built-in
+      // fallback. All three of the settings document's defaults are read the
+      // same way: a panel that writes a value the decider ignores is worse
+      // than no panel at all.
+      const effort = patch.effort ?? ctx.defaultEffort;
       return accepted([
         emit("thread.created", {
           threadId: command.threadId,
@@ -160,9 +168,9 @@ export const decide = (
           title: command.title ?? "New thread",
           settings: {
             model,
-            runtimeMode: patch.runtimeMode ?? DEFAULT_RUNTIME_MODE,
+            runtimeMode: patch.runtimeMode ?? ctx.defaultRuntimeMode ?? DEFAULT_RUNTIME_MODE,
             interactionMode: patch.interactionMode ?? "default",
-            ...(patch.effort === undefined ? {} : { effort: patch.effort }),
+            ...(effort === null || effort === undefined ? {} : { effort }),
           },
         }),
       ]);

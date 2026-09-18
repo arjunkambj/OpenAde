@@ -43,7 +43,12 @@ import type { SqlError } from "effect/unstable/sql/SqlError";
 import { EventStore, type ConcurrencyConflict, type PlannedEvent } from "../persistence/EventStore";
 import { layer as migrationsLayer } from "../persistence/Migrations";
 import { PERMISSION_RULES_KEY } from "../permissions/PermissionService";
-import { ConnectorModels, OpenConnectors, seedModel } from "../settings/connectorRouting";
+import {
+  ConnectorModels,
+  OpenConnectors,
+  seedModel,
+  seedThreadDefaults,
+} from "../settings/connectorRouting";
 import { ReadModelStore } from "../persistence/ReadModels";
 import {
   foldProject,
@@ -252,6 +257,10 @@ export class OrchestrationEngine extends Context.Service<
           const exists = projectId === null ? false : yield* readModels.projectExists(projectId);
           const roots = command.type === "project.create" ? yield* readModels.workspaceRoots : [];
           const model = command.type === "thread.create" ? yield* defaultModel : null;
+          const defaults =
+            command.type === "thread.create"
+              ? yield* seedThreadDefaults(sql)
+              : { effort: null, runtimeMode: null };
           // A checkpoint restore rewrites the project's whole workspace root,
           // so the commands it excludes have to see every sibling thread's
           // `restoring` flag, not just their own stream's.
@@ -266,6 +275,8 @@ export class OrchestrationEngine extends Context.Service<
             restoreInFlight: (id, exceptThreadId) =>
               restoring.some((doc) => doc.projectId === id && doc.threadId !== exceptThreadId),
             defaultModel: model,
+            defaultEffort: defaults.effort,
+            defaultRuntimeMode: defaults.runtimeMode,
           };
         });
 
