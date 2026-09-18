@@ -14,8 +14,11 @@ actually is on this branch and where it lives.
 
 Paths are relative to the repository root. Everything below was exercised
 against a running server (`apps/server` with `OPENADE_HOME` pointed at a scratch
-directory, `apps/web` on Vite) with the connector instance's binary path set to
-`packages/testkit/bin/fake-cmd.mjs`, so no real harness credits were spent.
+directory, `apps/web` on Vite). At the time the connector instance's binary path
+pointed at a stand-in CLI, because the account had no credits. That stand-in is
+gone: the app is driven by the operator's real `cmd`, and the tests replay real
+recordings (`docs/decisions/w2-cmd-frames.md`). The surfaces below are unchanged
+by that — what reaches them is.
 
 ## Routes
 

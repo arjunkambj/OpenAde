@@ -57,9 +57,10 @@ the same gate on Linux and macOS (`.github/workflows/ci.yml`).
   terminal reserve), `turnScopedHandle` (`makeTurnScopedHandle`), `conformance`
   (`runConnectorConformance`), `registry` (`makeRegistry`, routes by instance id),
   `streamCollector`.
-- `packages/testkit`: `fakeConnector` (passes the conformance suite), `receipts`,
-  `sqlite` (node:sqlite in-memory helper), `fakeCmdProcess` (NDJSON + transcript
-  - hook replay; fixture `fixtures/cmd/run-error.ndjson`).
+- `packages/testkit`: `fakeConnector` (a scripted connector; passes the
+  conformance suite), `receipts`, `sqlite` (node:sqlite in-memory helper),
+  `replayCmdProcess` + `bin/replay-cmd.mjs` (replays the real recordings under
+  `fixtures/cmd/`: frames, transcript growth, hook calls, exit codes).
 - Stubs with declared dependencies and a placeholder `meta` module:
   `packages/client-runtime`, `packages/connector-cmd`, `apps/server` (`tsx watch`
   dev script, esbuild bundle to `out/main.cjs`).
@@ -246,15 +247,12 @@ mid-turn kill resumes from the persisted sessionRef, and the budget test fails t
 stream and a resubscribe recovers.
 
 **W2 connector-cmd** (`packages/connector-cmd`, `apps/server/src/hooks`,
-`packages/testkit/{fixtures/cmd,src/fakeCmdProcess.ts}`; spec sections 5 and 8):
-day one run `npx -y command-code@1.54.0 status --json`, `--list-models`, `--help`,
-then one minimal live turn in a scratch directory (`-p "Reply with exactly: ok"
---output-format json --verbose -t --skip-onboarding --no-auto-update --max-turns 1
---no-session`) to learn whether credits exist; record real frames and transcript
-to `packages/testkit/fixtures/cmd/` if it works and answer spec 5.7 in
-`docs/decisions/w2-cmd-frames.md`, otherwise say so there and build on the
-section 5 frames. Then: probe (binary discovery incl. the npx fallback, `status
---json`, version warning below 1.54), `spawn.ts` (argv, env allowlist, detached
+`packages/testkit/{fixtures/cmd,src/replayCmdProcess.ts}`; spec sections 5 and 8).
+Day one is done and the plan is paid for: the real CLI has been recorded across
+sixteen scenarios under `packages/testkit/fixtures/cmd/`, every §5.7 unknown is
+answered in `docs/decisions/w2-cmd-frames.md`, and there is no stand-in binary
+any more. Then: probe (binary discovery incl. the `@latest` npx fallback,
+`status --json`, a warning only below `OLDEST_TESTED_VERSION`), `spawn.ts` (argv, env allowlist, detached
 group, SIGINT then SIGKILL after 5s, descendant check), `ndjson.ts`,
 `transcript.ts` (byte-offset tailer), `translate.ts` (frames + transcript →
 RuntimeEvent with `payload` nesting, dedupe on tool_use.id and messageId, tool
@@ -265,9 +263,10 @@ mode → flags, plan mode via plans-index.json, per-turn model/effort,
 `--list-models` → ModelOption[], exit-code mapping (3, 10, 130);
 `apps/server/src/hooks/HookBridge.ts` (loopback POST /pretooluse, per-session
 bearer, 590s ceiling, 1MB cap, journaling interface, ask_user_question path).
-Fill FakeCmdProcess to replay fixtures progressively and serve hook POSTs. Done
-when `runConnectorConformance(cmdConnector, …)` passes with FakeCmdProcess; live
-smoke behind `OPENADE_LIVE_CMD=1`.
+`replay-cmd.mjs` replays a recording progressively and calls the installed hook
+at the recorded points. Done when `runConnectorConformance(cmdConnector, …)`
+passes against a recording *and* against the real CLI behind
+`OPENADE_LIVE_CMD=1` (`apps/server/src/hooks/cmdLiveConformance.test.ts`).
 
 **W3 transport** (`apps/server/src/rpc`, `packages/client-runtime`, the D3 Vite
 plugin in `apps/web/vite.config.ts`, removal of `apps/web/.env`; spec section 10

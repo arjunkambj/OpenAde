@@ -113,20 +113,24 @@ PubSub drops what it publishes with no subscriber.
 Archived threads keep their attachments — an archived thread can be reopened and
 its timeline still renders.
 
-## 5. Proving it without the real CLI
+## 5. Proving it — and it is proved
 
-`packages/testkit/bin/fake-cmd.mjs` now understands the same prompt shape. When
-a turn's prompt carries `Attachment (<media type>): <path>` lines the fake reads
-each file off disk, records the user message with a real
-`{type:"image",source:{type:"base64",media_type,data}}` block the way the
-transcript format says the harness would, and answers with the file's name,
-sniffed media type and byte count. A file it cannot read is reported as such
-rather than silently ignored, so a test can tell "staged badly" from "not
-staged".
+This design was a documented fallback when it was written. It is now a
+recording. `packages/testkit/fixtures/cmd/image/` is a real turn of
+command-code 1.55.1 staged exactly this way: a PNG under an attachments
+directory outside the workspace root, that directory passed as `--add-dir`, and
+one `Attachment (image/png): <absolute path>` line in the prompt.
 
-That makes the whole path testable with no account:
-composer validation → `attachments.stage` → bytes on disk → `send()` →
-`--add-dir` + prompt line → the binary really opening the file.
+The model called `read_file` on the path. The harness answered with
+`Read image red.png and attached it below for viewing (618 B, image/jpeg)` plus
+a `{type:"image",source:{type:"base64",media_type,data}}` block — it transcodes
+to JPEG on the way in — and the model replied with the colour of the pixels.
+
+`apps/server/src/attachments/attachmentTurn.test.ts` runs the whole path against
+that recording: composer validation → `attachments.stage` → bytes on disk →
+`send()` → the argv and prompt the connector really builds, which the replay
+records and the test asserts → the answer the real CLI gave when it was handed
+the same thing.
 
 ## Things every later workstream must know
 

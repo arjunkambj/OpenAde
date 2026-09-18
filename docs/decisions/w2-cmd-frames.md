@@ -1,108 +1,230 @@
-# W2 — Command Code frames: day-one probe results
+# W2 — what the Command Code harness actually does
 
-Date: 2026-09-18. Probe: `npx -y command-code@1.54.0` (no `cmd` on PATH —
-brief says `npm i -g command-code`; not installed globally).
+Date: **2026-09-18**. Binary: `/opt/homebrew/bin/cmd`, **version 1.55.1**, the
+operator's own global install. Account authenticated, default model
+`meta/muse-spark-1.3-contributor`, 70 models listed.
 
-## Status
+Everything below was observed on real runs. They are recorded — argv, stdout
+frames with their arrival chunks, stderr, the on-disk transcript as it grew, the
+checkpoints file, every PreToolUse invocation with both halves of the
+conversation, the plan files and the files each turn touched — under
+`packages/testkit/fixtures/cmd/`, one directory per scenario, with
+`packages/testkit/fixtures/cmd/README.md` as the index. Nothing in this document
+is inferred from documentation.
 
-`cmd status --json` → authenticated as `arjunkambj`, version 1.54.0,
-default model `stealth/ox-alpha`. `--list-models` returns 70 models.
+Recorded by `packages/testkit/scripts/record-cmd.mjs`, which spawns the CLI with
+exactly the argv and environment `packages/connector-cmd/src/spawn.ts` builds.
+Replayed by `packages/testkit/bin/replay-cmd.mjs`.
 
-## Credits: still missing
+## The answers to spec §5.7
 
-A minimal headless turn
-(`-p "Reply with exactly: ok" --output-format json --verbose -t
---skip-onboarding --no-auto-update --max-turns 1 --no-session`) fails at the
-model call:
+**1. Does `--output-format json` stream assistant text deltas?**
+Yes. `text_delta` carries `{delta: "<text>"}` and `thinking_delta` the same for
+reasoning; `message_update` re-sends the whole message after every delta, and
+`message_end` carries the finished content blocks. `fixtures/cmd/text/` is one
+`text_delta` for a one-word answer; `fixtures/cmd/plan/turn1` has eleven.
 
-    run_error: POST /alpha/generate → 400 error: You have insufficient credits
-    result.subtype = error, error: "https://commandcode.ai/billing"
+**2. Does the transcript JSONL grow during the turn?**
+It grows, but nowhere near live. The file does not exist at `run_start` — it
+appears seconds in, already holding the run's first lines — and thereafter it is
+appended **once per completed message**, at each agent-step boundary, with the
+last flush landing *with* `run_end`. A single-round-trip turn writes it exactly
+once, at the end (`text/`: one growth sample at 3851ms of a 3851ms run); a
+three-step turn writes it three times (`shell-allow/`).
 
-The account needs credits at https://commandcode.ai/billing before the
-section-5.7 unknowns can be verified live (text deltas? transcript growth
-timing? ask_user_question in print mode?).
+So the transcript is one whole model round trip behind the frames and cannot
+drive a live UI. The frames are the live source; the transcript is history — what
+survives a restart, what carries `usage.costUsd`, and what a resumed session
+reads to pick up where a dead one stopped.
 
-The failed run's real frames are captured at
-`packages/testkit/fixtures/cmd/probe-insufficient-credits.ndjson`.
+**3. What does `ask_user_question` do in print mode?**
+It is **withheld**. `fixtures/cmd/question/` is the connector's own argv with a
+prompt that insists on the tool: the model cannot reach it and asks its question
+as prose, which no card renders and no answer returns to.
 
-## What is verified without credits
+`cmd --help` has the way out — `--tools-enable <names>`, "enable specific
+withheld tools by name". With it (`fixtures/cmd/question-tools/`) the tool fires
+and PreToolUse receives the real payload:
 
-- Frame envelope: every line is `{"type":"event","event":{...}}` except the
-  final `{"type":"result",...}` line.
-- Verified event types from the failed run: `run_start` (carries
-  `sessionId`), `turn_start` (`turnNumber`), `message_start`,
-  `model_request_start` (`model`), `model_trace` (`traceId`), `run_error`
-  (`error.name`, `error.message`), `run_end` (`result` with `finalText`,
-  `stopReason`, `turnCount`, `usage`, `nextState` = full message list).
-- `result` line: `{type:"result", subtype:"error"|..., sessionId, usage,
-durationMs, finalText, error}`.
-- `run_end.result.nextState` is the authoritative end-of-turn snapshot —
-  the translator treats it as such even when streaming frames are sparse.
-- `--session <id>` resumes a session; `--permission-mode
-standard|plan|auto-accept` and `--yolo` exist; exit codes per spec §5.1.
-
-## Open until credits land (spec §5.7)
-
-1. Whether assistant text streams as deltas or only lands in `run_end` /
-   transcript. Connector handles both (delta → `content.delta`, otherwise
-   transcript-tail → `item.*`).
-2. Whether the transcript file grows during a turn or only at turn end —
-   the transcript tailer assumes per-message appends.
-3. `ask_user_question` in print mode — the connector installs a PreToolUse
-   hook on it regardless (spec fallback).
-4. Whether PreToolUse fires for `agent` subagent calls and `mcp__*` tools.
-
-## Running without an account: `packages/testkit/bin/fake-cmd.mjs`
-
-Everything above is still true — there are no credits and no recorded turn — so
-the connector is built and verified against a stand-in binary instead. It is a
-plain node executable with no dependencies, never imported by the server bundle,
-and it speaks the slice of the CLI the connector uses:
-
-```
-cmd status --json            # authenticated, version, user, provider, model
-cmd --list-models            # the table below
-cmd --help | --version
-cmd -p "<prompt>" --output-format json --verbose [--session <id>]
-                             # one turn: NDJSON frames (§5.2) on stdout, the
-                             # transcript appended under $HOME (§5.3), the
-                             # project's PreToolUse hook invoked for tool calls
-                             # (§5.5), SIGINT → exit 130
+```json
+{"questions":[{"header":"Indent style","question":"Do you prefer tabs or spaces?",
+  "options":[{"label":"Tabs","description":"Use tab characters for indentation."},
+             {"label":"Spaces","description":"Use space characters for indentation."}]}]}
 ```
 
-**Use it to run the whole app without an account.** Set the connector
-instance's binary path to the file:
+The spec's fallback works exactly as designed: deny the tool, put the user's
+answers in `permissionDecisionReason`. **Every turn now passes
+`--tools-enable ask_user_question`.** Only that one — `--tools-all` would also
+un-withhold whatever else a headless run hides, sight unseen.
 
-```jsonc
-// Settings → Connectors → Command Code → binary path
-"/path/to/OpenAde/packages/testkit/bin/fake-cmd.mjs"
+**4. How are images attached in print mode?**
+There is still no flag, and the fallback of `docs/decisions/w10-attachments.md`
+works end to end. `fixtures/cmd/image/` stages a PNG the way the server stages an
+upload, passes its directory as `--add-dir`, and names it in the prompt as
+`Attachment (image/png): <absolute path>`. The model calls `read_file` on it; the
+harness answers with `Read image red.png and attached it below for viewing
+(618 B, image/jpeg)` plus a base64 image block — it transcodes to JPEG — and the
+model answers with the colour of the pixels.
+
+**5. `--permission-mode` accepted values.**
+`--help` lists `standard, plan, auto-accept`. What the *hook* is told in
+`permission_mode` is neither: it is `default` on an ordinary run and `bypass`
+under `--yolo`.
+
+**6. Is the plan file written before `run_end`, and does `run_end` reference it?**
+The plan file is written mid-run by an ordinary `write_file` call, and nothing in
+`run_end` references it. Two consequences, both of which broke plan mode:
+
+- **`--permission-mode plan` alone cannot write it.** Print mode refuses writes
+  and shell without `--yolo` whatever a hook answered, and that refusal covers
+  the plan file the model is told to write. `fixtures/cmd/plan-no-yolo/`: the
+  model reads the repo, drafts the plan, tries to save it, and is told the tool
+  "requires permissions. Use --yolo ... to enable file writes and shell commands
+  in print mode". No plan file, no plan. Plan mode therefore keeps `--yolo` like
+  every other turn. It disables no gate of ours — plan mode skips PreToolUse
+  either way, 0 hook calls in both plan recordings — and the plan ladder still
+  declines to touch the workspace: `fixtures/cmd/plan-guard/` is plan mode with
+  `--yolo`, told twice to edit a file, leaving it untouched.
+- **`plans-index.json` is not updated by a headless run.** In `fixtures/cmd/plan/`
+  the plan lands in `~/.commandcode/plans/` while the index keeps the two entries
+  a pair of interactive sessions left in it in August. An index-only lookup finds
+  nothing for every plan turn this connector runs, so `readPlanProposal` falls
+  back to the newest plan markdown whose mtime is at or after the moment the turn
+  was spawned.
+
+**7. Does PreToolUse fire for `agent` subagent calls and for MCP tools?**
+For MCP tools, yes. `fixtures/cmd/mcp/` registers a trivial stdio server through
+`cmd mcp add-json --scope project` and the hook is invoked with
+`tool_name: "mcp__rec__echo"` and the server-defined input; the `.*` matcher
+covers it. Subagent (`agent`) calls were not provoked and remain unobserved.
+
+## What the frames really are
+
+Twelve event types the connector did not read, all of them now mapped
+(`packages/connector-cmd/src/translate.ts`, asserted for every recording by
+`recordedFrames.test.ts`, which fails if anything reaches `event.unmapped`):
+
+| frame | what it carries |
+| --- | --- |
+| `message_update` | the whole message so far, after every delta |
+| `message_end` | the finished content blocks |
+| `model_request_end` | `model`, `usage`, `stopReason` (`stop` / `tool_calls`), `effort` |
+| `turn_end` | `turnNumber`, `hadToolCalls`, `usage` for that agent step |
+| `tool_queued` | `toolCallId`, `toolName`, **`input`** |
+| `tool_running` | `toolCallId`, `toolName`, `description` — which is always `null` |
+| `tool_update` | `partial`, a long-running tool's output so far |
+| `tool_completed` | `result` (text and image blocks), `deferred` |
+| `tool_hooks` | the hook's verdict: `phase`, `outcome: {kind, text}` |
+| `tool_hook_blocked` | `hookOutput` — the refusal the model is shown |
+| `thinking_start` / `thinking_delta` / `thinking_end` | reasoning, streamed then whole |
+
+Three things about them that the old mapping got wrong:
+
+- **A turn is a process, not an agent step.** `turn_start`/`turn_end` count model
+  round trips — three of them inside one `shell-allow` turn. One user turn is
+  `run_start` to `run_end`, which is what spec §8 step 5 says.
+- **The input lives on `tool_queued`.** `tool_running` carries no input and a
+  null description, so a row built from it shows an empty command.
+- **A blocked call still gets an ordinary `tool_result`** in the transcript, with
+  no `is_error`, because the refusal is what the model is told. The frames are
+  the authority on whether a call ran.
+
+`run_end.result.nextState.messages` remains the authoritative end-of-turn
+message list, and `result.usage` the turn's total. Cost appears in exactly one
+place: the transcript's per-assistant `usage.costUsd`.
+
+## Permissions, and the bug that mattered most
+
+`--yolo` does **not** skip PreToolUse. `fixtures/cmd/shell-yolo/` is a
+`shell_command` under `--yolo`: the hook fires, with `permission_mode: "bypass"`,
+and gates the call. The approval-bridge design of spec §8 is sound.
+
+The reverse is also true and less obvious: **a hook that allows is not enough.**
+`fixtures/cmd/shell-allow/` ran without `--yolo`, the hook answered allow, and
+print mode refused anyway — `tool_hook_blocked` with "requires permissions. Use
+--yolo ... to enable file writes and shell commands in print mode". Hence
+`--yolo` on every turn.
+
+The hook payload matches §5.5 exactly. The injected environment has two
+variables §5.5 does not list: `COMMANDCODE_SCRATCHPAD` and
+`COMMANDCODE_PERMISSION_MODE`.
+
+**And the CLI redacts secrets out of a hook's environment.** A live run with a
+logging wrapper showed `OPENADE_HOOK_URL` and `OPENADE_THREAD_ID` arriving, along
+with probes named `..._KEY`, `..._PASS` and `..._TICKET` — while
+`OPENADE_HOOK_TOKEN`, `..._BEARER`, `..._SECRET`, `..._AUTH`, `..._PASSWORD` and
+`..._CREDENTIAL` were all stripped. Our hook script therefore saw a URL and no
+bearer, took its "no OpenAde session owns this run" exit — print nothing, exit 0
+— and the harness fell back to its own flow, which under `--yolo` allows
+everything. **Every tool call ran unapproved, silently.** The safety gate's
+failure mode was to open.
+
+Renaming the variable to something the denylist has not learned yet would make
+the approval path depend on a heuristic we cannot see. The environment now
+carries a *path*, `OPENADE_HOOK_TICKET_FILE`, and the bearer lives in a 0600 file
+the session writes when it opens and deletes when it closes.
+
+## Exit codes and endings, as observed
+
+| scenario | exit | `result.subtype` | `stopReason` |
+| --- | --- | --- | --- |
+| ordinary turn | 0 | `success` | `end_turn` |
+| `--max-turns` exhausted | 8 | `max_turns` | `max_turns` |
+| SIGINT mid-turn | 130 | *(no result line)* | *(no `run_end`)* |
+| unknown `--model` | 1 | — | fails before the model call, costs nothing |
+| no credits (2026-09-15) | 10 | `error` | `run_error` |
+
+SIGINT prints `Interrupted.` on stderr and stops: no `run_end`, no `result`. The
+last recording that cannot be made again is `probe-insufficient-credits.ndjson`,
+captured before the plan was paid for; it is the only capture of `run_error`.
+
+## Where the transcript really is
+
+`~/.commandcode/projects/<slug>/<sessionId>.jsonl`, and **the slug is not the one
+§5.3 describes**. Every recording's manifest says
+`transcriptDirMatchesConnectorSlug: false`: the harness kebab-cases camel humps
+(`OpenAde` → `open-ade`) and collapses the repeated dash that stripping a leading
+slash leaves. Rather than reimplement a private rule, the connector looks the
+session up by the one identifier the harness hands it — `run_start.sessionId` is
+unique, so the transcript is the `<sessionId>.jsonl` under whichever project
+directory holds it.
+
+## Version policy
+
+The connector runs **whatever `cmd` the user has installed, at whatever version
+it is**, and never prefers a pinned copy of its own. Nothing is pinned: the npx
+fallback asks for `command-code@latest`, and `OLDEST_TESTED_VERSION` (1.54.0) is
+only the floor these recordings were made above — below it the probe warns, equal
+or above it says nothing, today and for every release after. A version string we
+cannot parse does not warn either. There is no update checker and no UI for any
+of this.
+
+The probe runs `status --json` and `--list-models` *without* `--no-auto-update`,
+which is how the global install upgraded itself from 1.54.0 to 1.55.1 while an
+agent was asking its version. That is the wanted behaviour — a probe is the one
+safe moment to let the CLI update itself. Turn spawns keep `--no-auto-update`,
+because swapping the binary under a running conversation is not.
+
+## Running the app
+
+Against the real CLI. There is no stand-in binary any more: the invented
+`fake-cmd.mjs` was written when the account had no credits, and it is gone along
+with the reconstructed model table and the hand-written frame fixtures. Point a
+connector instance at your own `cmd` (or leave the binary path empty and let the
+probe find it) and send a message.
+
+Tests replay recordings through `packages/testkit/bin/replay-cmd.mjs`, which has
+no behaviour of its own. The conformance suite also runs against the real CLI,
+opt-in:
+
+```sh
+OPENADE_LIVE_CMD=1 pnpm vitest run apps/server/src/hooks/cmdLiveConformance.test.ts
 ```
 
-Then send a message. The fake picks its scenario from the prompt text, so the
-message decides what the turn does:
-
-| the prompt contains | the turn does                                              |
-| ------------------- | ---------------------------------------------------------- |
-| `question`          | `ask_user_question` — the card, answered through the hook  |
-| `plan`              | writes `~/.commandcode/plans/<file>.md` + the index entry  |
-| `edit`              | `edit_file` — really writes `fake-cmd-edit.txt` in the cwd |
-| `tool` or `shell`   | `shell_command`, gated by the PreToolUse hook              |
-| anything else       | a short text answer                                        |
-
-Env knobs for tests: `OPENADE_FAKE_SESSION_ID` pins the session id,
-`OPENADE_FAKE_EXIT_CODE` overrides the exit code, `OPENADE_FAKE_HANG=1` keeps
-the process alive after the frames (for interrupt tests), and
-`OPENADE_FAKE_PID_DIR` drops a file named after the pid so a suite can prove the
-process tree is gone.
-
-It is what `apps/server/src/hooks/cmdConformance.test.ts` drives — the whole
-production round trip, hook script through the bridge and back, minus the model.
-
-`packages/testkit/fixtures/cmd/list-models.txt` is the table the fake prints and
-`parseModelList` is tested against. It is **reconstructed, not captured**: the
-model ids and the "70 models / (default) / FREE" shape come from spec §5.1 and
-from the probe run above, but the column layout is a guess. Recapture it against
-a real binary when one is available — `probe.test.ts` will say what breaks.
+It spends the operator's plan, so it is skipped otherwise, and it refuses to run
+on any model but the three the operator authorised
+(`meta/muse-spark-1.3-contributor`, `poolside/laguna-s-2.1-free`,
+`inclusionai/ling-3.0-flash-sante:free`).
 
 ## Two connector decisions worth writing down
 
