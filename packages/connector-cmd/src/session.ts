@@ -54,7 +54,7 @@ import { contextWindowFor } from "./probe";
 import { planFileNameIn, planProposalFor, releasePlanClaims } from "./plans";
 import { buildArgs, envAllowlist, spawnProcess, TOOLS_ENABLED } from "./spawn";
 import { makeSessionRefLocator, type CmdSessionRef } from "./sessionRef";
-import { findTranscriptPath, tailTranscript } from "./transcript";
+import { findTranscriptPath, readTranscriptLines, tailTranscript } from "./transcript";
 import { makeTranslator, type PendingRuntimeEvent } from "./translate";
 
 /** Re-exported so consumers keep importing the session's own vocabulary from it. */
@@ -191,45 +191,91 @@ export const makeCmdSession = (
       Effect.forEach(pendings, (pending) => emit(enrich(pending)), { discard: true });
 
     /**
-     * Reads the transcript to the end and folds whatever the tailer has not
-     * reached yet, before the turn is allowed to settle.
+     * Says the session ref again, with the marker the turn just advanced it to.
      *
-     * The harness's last transcript flush lands *with* `run_end`, not before
-     * it, and the tailer is a poller — so the assistant line that carries
-     * `usage.costUsd` reliably arrived after `turn.completed`, which is after
-     * the engine has stopped tagging events with that turn. The turn's price
-     * was therefore never reported.
-     *
-     * Re-reading what the tailer already delivered costs nothing: messages
-     * dedupe on `meta.messageId` and priced lines on the same id, so a line
-     * seen twice emits nothing and charges nothing.
+     * `thread.session.bound` is the marker's only writer and `session.started`
+     * the only event that reaches it — emitted once per session, at run_start,
+     * before a transcript line has been read, so the stored ref carried
+     * `lastMessageId: null` for every session ever started. The fold replaces
+     * the ref and nothing else, so saying it again is free.
      */
-    const drainTranscript: Effect.Effect<void> = Effect.gen(function* () {
-      const sessionId = translator.sessionId;
-      if (sessionId === null) {
+    const announceRef: Effect.Effect<void> = Effect.gen(function* () {
+      const id = translator.sessionId;
+      if (id === null) {
         return;
       }
-      const lines = yield* Effect.sync(() => {
-        const path = findTranscriptPath(transcriptRoot, sessionId, options.home);
-        if (path === null) {
-          return [] as ReadonlyArray<string>;
-        }
-        try {
-          return NodeFS.readFileSync(path, "utf8")
-            .split("\n")
-            .filter((line) => line.trim().length > 0);
-        } catch {
-          return [] as ReadonlyArray<string>;
+      const settings = yield* Ref.get(settingsRef);
+      yield* emit(
+        enrich({
+          type: "session.started",
+          payload: {
+            sessionRef: { sessionId: id, transcriptPath: null, cwd: null },
+            model: settings.model,
+            capabilities: CMD_CAPABILITIES,
+          },
+        }),
+      );
+    });
+
+    /**
+     * Folds a session's transcript through the translator.
+     *
+     * With `emitEvents`, this is the drain a turn runs before it settles: the
+     * harness's last flush lands *with* `run_end` and the tailer is a poller,
+     * so the assistant line carrying `usage.costUsd` reliably arrived after
+     * `turn.completed` — after the engine stops tagging events with that turn
+     * — and the turn's price was never reported. Re-reading what the tailer
+     * already delivered costs nothing: messages dedupe on `meta.messageId` and
+     * priced lines on the same id.
+     *
+     * Without it, this is the seed a resumed session runs before its first
+     * turn, up to the marker the previous runtime reached: everything after it
+     * is work nobody has been shown and the tailer delivers it, everything
+     * before is history, and folding that silently is what keeps the `run_end`
+     * reconcile from re-emitting the whole conversation with fresh itemIds. A
+     * ref with no marker folds the whole file — which loses the lines written
+     * while the server was down, and never shows the conversation twice.
+     */
+    const foldTranscript = (input: {
+      readonly sessionId: string;
+      readonly emitEvents: boolean;
+      readonly fallbackPath?: string;
+      readonly stopAfter?: string | null;
+    }): Effect.Effect<void> =>
+      Effect.gen(function* () {
+        const lines = yield* Effect.sync(() =>
+          readTranscriptLines(transcriptRoot, input.sessionId, options.home, input.fallbackPath),
+        );
+        for (const line of lines) {
+          const pendings = yield* Effect.try({
+            try: () => translator.onTranscriptLine(JSON.parse(line)),
+            catch: (): ReadonlyArray<PendingRuntimeEvent> => [],
+          }).pipe(Effect.catch(() => Effect.succeed([] as ReadonlyArray<PendingRuntimeEvent>)));
+          if (input.emitEvents) {
+            yield* emitAll(pendings);
+          }
+          if (input.stopAfter != null && translator.lastMessageId === input.stopAfter) {
+            return;
+          }
         }
       });
-      for (const line of lines) {
-        const pendings = yield* Effect.try({
-          try: () => translator.onTranscriptLine(JSON.parse(line)),
-          catch: (): ReadonlyArray<PendingRuntimeEvent> => [],
-        }).pipe(Effect.catch(() => Effect.succeed([] as ReadonlyArray<PendingRuntimeEvent>)));
-        yield* emitAll(pendings);
-      }
-    });
+
+    const drainTranscript: Effect.Effect<void> = Effect.suspend(() =>
+      translator.sessionId === null
+        ? Effect.void
+        : foldTranscript({ sessionId: translator.sessionId, emitEvents: true }),
+    );
+
+    // A resumed session catches its translator up on what a previous runtime
+    // already delivered, before its first turn opens.
+    if (options.sessionRef !== undefined) {
+      yield* foldTranscript({
+        sessionId: options.sessionRef.sessionId,
+        emitEvents: false,
+        fallbackPath: options.sessionRef.transcriptPath,
+        stopAfter: options.sessionRef.lastMessageId,
+      });
+    }
 
     /**
      * Re-point the stored ref at the transcript now that one exists.
@@ -366,10 +412,11 @@ export const makeCmdSession = (
           const locate = (): string | null =>
             findTranscriptPath(transcriptRoot, sessionId, options.home);
           const fiber = yield* tailTranscript(locate, {
-            // A resumed session's marker: start right after the last message
-            // a previous runtime emitted — lines written while the server was
-            // down still arrive, earlier ones don't repeat.
-            afterMessageId: options.sessionRef?.lastMessageId ?? undefined,
+            // Where the translator has already read to — the seeded marker on
+            // a resumed session, undefined on a fresh one. Lines written while
+            // the server was down still arrive; earlier ones do not repeat.
+            afterMessageId:
+              translator.lastMessageId ?? options.sessionRef?.lastMessageId ?? undefined,
           }).pipe(
             Effect.provideService(Scope.Scope, scope),
             Effect.flatMap((tailer) =>
@@ -500,6 +547,7 @@ export const makeCmdSession = (
           cwd: options.workspaceRoot,
           lastMessageId: translator.lastMessageId,
         });
+        yield* announceRef;
       }
       yield* hookAnswers.releasePending;
       // A child we killed ourselves reads as an interrupt whatever signal

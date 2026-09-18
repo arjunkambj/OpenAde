@@ -241,9 +241,16 @@ describe("a recorded pair of turns", () => {
         );
         const events = yield* collector.collected;
 
-        // One session announced, two turns, the same id throughout — the
-        // second process really did resume the first.
-        expect(events.filter((event) => event.type === "session.started")).toHaveLength(1);
+        // One session, two turns, the same id throughout — the second process
+        // really did resume the first. The ref is re-announced when a turn
+        // settles, so that its advancing `lastMessageId` reaches the thread
+        // document; what must never change is the session it names.
+        const announced = events.flatMap((event) =>
+          event.type === "session.started"
+            ? [(event.payload.sessionRef as CmdSessionRef).sessionId]
+            : [],
+        );
+        expect(new Set(announced).size).toBe(1);
         expect(events.filter((event) => event.type === "turn.started")).toHaveLength(2);
         expect(recorded.turns[1]!.sessionId).toBe(recorded.turns[0]!.sessionId);
         const ref = (yield* handle.sessionRef()) as CmdSessionRef | null;

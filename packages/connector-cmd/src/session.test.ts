@@ -330,8 +330,16 @@ describe("makeCmdSession against a real spawned process", () => {
         (event) => event.type === "turn.completed" && event.eventId !== completed.eventId,
       );
       const after = yield* collector.collected;
-      expect(after.filter(isType("session.started"))).toHaveLength(1);
       expect(after.filter(isType("turn.completed"))).toHaveLength(2);
+      // The ref is re-announced when a turn settles — `thread.session.bound`
+      // is the only writer of the resume marker and `session.started` the only
+      // event that reaches it — but it always names the same session.
+      const announced = after.flatMap((event) =>
+        event.type === "session.started"
+          ? [(event.payload.sessionRef as CmdSessionRef).sessionId]
+          : [],
+      );
+      expect(new Set(announced)).toEqual(new Set([SESSION_ID]));
 
       yield* handle.close();
       yield* collector.awaitDone;
@@ -639,6 +647,98 @@ describe("makeCmdSession against a real spawned process", () => {
       });
       // At-or-before the marker: never re-emitted.
       expect(texts).not.toContain("already emitted");
+
+      yield* handle.close();
+    }),
+  );
+
+  /**
+   * The ref every real thread actually has on disk.
+   *
+   * `lastMessageId` was filled in at `session.started`, which is `run_start` —
+   * before a single transcript line had been read — and the in-memory updates
+   * that follow were never re-persisted. So the stored marker was null for
+   * every session that was ever started fresh, and a resumed turn reconciled
+   * `run_end`'s `nextState.messages` from index 0 with an empty `seenMessages`:
+   * every assistant message and every reasoning block of the whole history
+   * came back with new itemIds, at the bottom of the timeline.
+   */
+  it.effect("a resume with no marker replays nothing it has already shown", () =>
+    Effect.gen(function* () {
+      const f = yield* fixture();
+      withOpenadeHome(f);
+      const root = NodePath.join(f.root, "workspace");
+      const transcriptPath = transcriptPathFor(NodeFS.realpathSync(root), SESSION_ID, f.home);
+      NodeFS.mkdirSync(NodePath.dirname(transcriptPath), { recursive: true });
+      NodeFS.writeFileSync(
+        transcriptPath,
+        [
+          JSON.stringify({
+            type: "session",
+            version: 3,
+            id: SESSION_ID,
+            timestamp: "t",
+            cwd: root,
+          }),
+          JSON.stringify({
+            type: "message",
+            id: "l1",
+            parentId: null,
+            timestamp: "t",
+            message: {
+              role: "assistant",
+              content: [{ type: "text", text: "the answer from last time" }],
+              meta: { source: "model", createdAt: 1, messageId: "a-1" },
+            },
+            model: "stub/model",
+          }),
+        ].join("\n") + "\n",
+      );
+
+      const handle = yield* makeCmdSession({
+        instanceId: makeConnectorInstanceId(),
+        threadId: makeThreadId(),
+        workspaceRoot: root,
+        binaryPath: f.binary,
+        extraEnv: {
+          HOME: f.home,
+          OPENADE_STUB_SESSION_ID: SESSION_ID,
+          OPENADE_STUB_APPEND: "1",
+          OPENADE_STUB_MSG_ID: "a-2",
+          OPENADE_STUB_LINE_ID: "l2",
+          OPENADE_STUB_TEXT: "this turn's answer",
+        },
+        home: f.home,
+        services: yield* services("allow"),
+        settings: {
+          model: "stub/model",
+          runtimeMode: "approval-required",
+          interactionMode: "default",
+        },
+        // What the thread document really holds: no marker at all.
+        sessionRef: { sessionId: SESSION_ID, transcriptPath, cwd: root, lastMessageId: null },
+      });
+      const collector = yield* makeStreamCollector(handle.events);
+
+      yield* handle.send({ text: "again", attachments: [], mentions: [] });
+      yield* collector.awaitItem(isType("turn.completed"));
+      const texts = (yield* collector.collected).flatMap((event) =>
+        event.type === "item.completed" && event.payload.item.kind === "assistant_message"
+          ? [event.payload.item.text ?? ""]
+          : [],
+      );
+      expect(texts).not.toContain("the answer from last time");
+      expect(texts).toContain("this turn's answer");
+
+      // And the ref reaches the thread document with a marker that is actually
+      // true, so the next resume can tell history from what it has not shown.
+      yield* collector.awaitItem(
+        (event) =>
+          event.type === "session.started" &&
+          (event.payload.sessionRef as CmdSessionRef).lastMessageId === "a-2",
+      );
+      const persisted = (yield* handle.sessionRef()) as CmdSessionRef | null;
+      expect(persisted?.lastMessageId).toBe("a-2");
 
       yield* handle.close();
     }),
