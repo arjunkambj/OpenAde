@@ -15,6 +15,12 @@ machine-checked, the check is named; a rule with no check is a rule that will
 erode, and several here exist only because a check was added after something
 went wrong.
 
+The pieces these rules are about are described in
+[architecture.md](architecture.md), what they do at runtime in
+[how-it-works.md](how-it-works.md), the commands in
+[development.md](development.md), and the harness's own behaviour in
+[command-code-connector.md](command-code-connector.md).
+
 ## 1. The harness is the source of truth
 
 OpenAde never re-implements what the CLI does. It does not vendor it, bundle it,
@@ -45,7 +51,9 @@ computed.
 **To honour it:** when you need a fact about the CLI, get it from the CLI. Add a
 recording under `packages/testkit/fixtures/cmd/` rather than a constant. If you
 find yourself writing the harness's own logic a second time — a path rule, a
-config format, a plan index — look for the command that does it instead.
+config format, a plan index — look for the command that does it instead. What
+the CLI has been observed to do is written down once, in
+[command-code-connector.md](command-code-connector.md).
 
 ## 2. Contracts are the seam
 
@@ -63,7 +71,9 @@ than a TODO, and a fixture nothing reads is also a failure.
 
 Shapes grow by addition. New fields are optional so an older producer stays
 valid — `Attachment` carries `mime`, `name`, `size` and `sha256` optionally for
-exactly that reason. When a shape cannot grow additively, `PROTOCOL_VERSION` in
+exactly that reason. Nothing checks that a new field was added optionally; what
+the round-trip test catches is the fixture that stopped matching, which is
+usually the same mistake one step later. When a shape cannot grow additively, `PROTOCOL_VERSION` in
 `packages/contracts/src/rpc.ts` is bumped, the server states it in `ServerHello`,
 and a client that sees a different number goes to the terminal `incompatible`
 connection state instead of retrying forever
@@ -87,12 +97,11 @@ engine, the projections, the transport, the renderer — no code names a harness
 
 For the renderer this is enforced by grep.
 `scripts/check-boundaries.mjs` refuses the strings `command code` (spaced or
-not), the quoted literal `"cmd"` and `claude` anywhere under `apps/web/src`,
-outside `apps/web/src/components/ui/icons`. It reads every file, not only
-sources, and it checks file names as well as contents — a connector name reads
-the same in a CSS class, an SVG title or a filename. The spaced spelling was
-added after "Command Code" walked through a one-word pattern and into the Skills
-page's own description.
+not), the quoted literal `"cmd"` and `claude` anywhere under `apps/web/src`. It
+reads every file, not only sources, and it checks file names as well as
+contents — a connector name reads the same in a CSS class, an SVG title or a
+filename. The spaced spelling was added after "Command Code" walked through a
+one-word pattern and into the Skills page's own description.
 
 Capabilities are how the UI adapts without knowing. A connector declares
 `ConnectorCapabilities` — `modelSwitch`, `effortSwitch`, `steering`, `planMode`,
@@ -105,21 +114,17 @@ string comparison against a connector kind above the SDK.
 
 ## 4. A connector's promises are executable
 
-The engine is written against five promises, for every connector at once, so
-they are a suite rather than a paragraph
-(`packages/connector-sdk/src/conformance.ts`):
+The engine is written against five promises — a session announces itself before
+it reports work, every turn completes exactly once, every approval it opens is
+resolved, nothing is emitted after `close`, and `close` proves the process tree
+is gone — and they are a suite rather than a paragraph
+(`packages/connector-sdk/src/conformance.ts`; the five are spelled out in
+[architecture.md](architecture.md#the-conformance-suite)).
 
-1. A session announces itself before it reports any work.
-2. Every turn completes exactly once.
-3. Every approval request it opens is eventually resolved.
-4. Nothing about the work is emitted after `close`.
-5. `close` proves the process tree is gone.
-
-A sixth case encodes every event the connector emitted back through the
-`RuntimeEvent` schema. The suite drives the real definition — `createInstance`,
-`startSession`, `send`, `close` — and inspects nothing a connector did not put on
-its event stream; `isProcessGone` is the single hook it takes from outside,
-because proof that a process tree is gone cannot come from the stream.
+The suite drives the real definition — `createInstance`, `startSession`, `send`,
+`close` — and inspects nothing a connector did not put on its event stream;
+`isProcessGone` is the single hook it takes from outside, because proof that a
+process tree is gone cannot come from the stream.
 
 Breaking one of these does not fail loudly on its own. It strands a thread,
 leaks a process, or leaves an approval card on screen forever.
@@ -173,23 +178,20 @@ outside the engine writes durable state.
 ## 6. Approval is required by default, and the gate fails closed
 
 `apps/server/src/permissions/PermissionService.ts` is one ladder, evaluated in
-order:
+order: a `deny` rule, then plan mode (read-only), then a sensitive path, then an
+`allow` rule, then reads, then the thread's runtime mode. The six steps and what
+each answers are in
+[architecture.md](architecture.md#permissions); two of them are the principle.
 
-| Step | Condition                | Result                                     |
-| ---- | ------------------------ | ------------------------------------------ |
-| 1    | a matching `deny` rule   | deny                                       |
-| 2    | plan mode and not a read | deny — plan mode is read-only              |
-| 3    | a sensitive path         | prompt, outranking any remembered `allow`  |
-| 4    | a matching `allow` rule  | allow                                      |
-| 5    | a read                   | allow                                      |
-| 6    | the runtime mode         | approval-required asks; full-access allows |
+**Ask outranks allow.** The sensitive-path check sits _above_ every remembered
+`allow` and above `full-access`, because full access means everything except
+secrets and explicit denials.
 
 The user widens it, never the app: rules live in the `permission_rules` table,
 scoped to a thread, a project or globally, and the `Settings.permissions` array
 on the wire is a projection of that table, not a second place a rule can live.
 "Sensitive path" means credentials and key material specifically
-(`sensitivePaths.ts`), which is why it sits _above_ `full-access` in the ladder:
-full access means everything except secrets and explicit denials.
+(`sensitivePaths.ts`), not caution in general.
 
 The matcher is shared, not duplicated:
 `packages/shared/src/permissionPattern.ts` is dependency-free and imported by
@@ -197,24 +199,23 @@ both the server and the renderer, so an "allow always" preview in the UI uses th
 exact semantics the engine will enforce.
 
 Failing closed is the harder half. `apps/server/src/hooks/HookBridge.ts` blocks
-the CLI's `PreToolUse` POST until the user answers, up to 590s, then denies.
-Three real failures shaped the current design and are worth knowing before you
-change any of it:
+the CLI's `PreToolUse` POST until the user answers, up to 590s, then denies, and
+every failure path in the generated hook script prints a deny. Three real
+failures shaped that design; each one is written up against the recording that
+shows it in [command-code-connector.md](command-code-connector.md):
 
-- The CLI redacts secret-looking variables out of a hook's environment. A bearer
-  named `OPENADE_HOOK_TOKEN` never arrived, the hook script took its "no session
-  owns this run" exit, and the harness fell back to its own flow — which under
-  `--yolo` allows everything. The gate's failure mode was to open. The bearer now
-  travels as a path (`OPENADE_HOOK_TICKET_FILE`) to a `0600` file the session
-  writes and deletes.
-- Plan mode fires no `PreToolUse` hook at all, so none of the ladder runs there.
-  A plan turn is therefore the one turn spawned _without_ `--yolo`
+- **The gate's failure mode was to open.** The CLI redacts secret-looking
+  variable names out of a hook's environment, the bearer never arrived, and
+  under `--yolo` every tool call ran unapproved. The bearer now travels as a
+  path to a `0600` ticket file.
+- **Plan mode fires no `PreToolUse` hook at all**, so none of the ladder runs
+  there. A plan turn is therefore the one turn spawned _without_ `--yolo`
   (`packages/connector-cmd/src/turnArgs.ts`), so print mode's own refusal of
   writes and shell is what makes "Plan first" read-only.
-- Approving an `agent` delegation approves everything the subagent goes on to do:
-  the harness fires one hook for the delegation and none for its inner calls. The
-  card has to show the subagent's brief, because that brief is all the user gets
-  to judge.
+- **Approving an `agent` delegation approves everything the subagent goes on to
+  do**: the harness fires one hook for the delegation and none for its inner
+  calls. The card has to show the subagent's brief, because that brief is all
+  the user gets to judge.
 
 **To honour it:** a new tool kind gets a place in the ladder and a row in the
 table test before it gets a card. When you touch the hook path, ask what happens
@@ -222,12 +223,18 @@ when a piece of it is missing, and make that answer "deny".
 
 ## 7. The renderer renders
 
-`apps/web` holds no state the server owns and never calls the RPC client. The
-only place it touches the connection is `apps/web/src/state/app-runtime.tsx`,
-which builds the `AtomRuntime` layer once; every component reads through the
-hooks in `apps/web/src/state/hooks.ts`, which read atoms from
-`packages/client-runtime/src/atoms.ts`, and writes by dispatching a `Command`
-through `dispatchAtom` and awaiting its receipt.
+`apps/web` holds no state the server owns, and no component calls the RPC
+client. The connection is built once, in `apps/web/src/state/app-runtime.tsx`;
+the client is reached only inside atom definitions — those of
+`packages/client-runtime/src/atoms.ts`, plus the settings and welcome atoms in
+`apps/web/src/lib/app-runtime.ts`. Every component reads through the hooks in
+`apps/web/src/state/hooks.ts` and writes by dispatching a `Command` through
+`dispatchAtom` and awaiting its receipt.
+
+Nothing enforces that automatically the way the neutrality grep enforces
+connector-neutrality, so it is a convention the code keeps rather than a guarded
+invariant: a component that reaches for `Connection` itself is the thing to
+catch in review.
 
 The client's fold (`packages/client-runtime/src/clientState.ts`) is a projection
 of the server's projection: it merges deltas and decides nothing. When a
@@ -265,11 +272,16 @@ enters the event log: `thread.turn.start` carries a reference
 (`apps/server/src/attachments/AttachmentStore.ts`). A replayed log must not
 re-send every screenshot ever pasted.
 
+And the checks live on the same side as the disk. The composer validates a file
+before it uploads megabytes, but that copy is a courtesy: size, media type and
+containment are decided again in `attachments.stage`, from the bytes rather than
+from anything the client said about them.
+
 **To honour it:** new filesystem capability goes in `apps/server`, behind an RPC
 with a narrow surface, and gets asked "what does this give a remote client?"
 before it gets written. Nothing in `apps/web` imports `node:fs`.
 
-## 9. OS knowledge lives in one folder, behind pure functions
+## 9. The shell's OS decisions live in one folder, behind pure functions
 
 `apps/desktop/src/platform/` holds the shell's OS decisions: the title-bar style,
 the `data-desktop*` attributes `packages/ui` keys its shell styles off, whether
@@ -348,32 +360,17 @@ what a user would see. The replay driver and the live driver differ in exactly
 one thing — the binary.
 
 **To honour it:** to test a new CLI behaviour, record it. Recording spends money
-and is never run from CI; the scripts are in `packages/testkit/scripts/`, and
-recordings are scrubbed of the operator's home, account name and anything
-token-shaped on the way in.
+and is never run from CI; the scripts, the scrubbing and when to re-record are
+in [development.md](development.md#recordings-of-the-real-cli).
 
 ## 12. Deny by default, and keep files small enough to read
 
-`scripts/check-boundaries.mjs` holds an explicit allowlist per workspace. A
-workspace with no rule may import no workspace package at all, and a relative
-specifier that climbs out of its own directory is a violation whatever it lands
-on — packages are consumed through their `exports` map, so
+`scripts/check-boundaries.mjs` holds an explicit allowlist per workspace — the
+table is in [architecture.md](architecture.md#boundaries). A workspace with no
+rule may import no workspace package at all, and a relative specifier that
+climbs out of its own directory is a violation whatever it lands on — packages
+are consumed through their `exports` map, so
 `../../../packages/testkit/src/receipts` is a boundary crossing wearing a path.
-The current rules:
-
-| Workspace                 | May import                                      |
-| ------------------------- | ----------------------------------------------- |
-| `apps/web`                | ui, contracts, client-runtime, shared           |
-| `apps/desktop`            | contracts, shared                               |
-| `apps/server`             | contracts, connector-sdk, connector-cmd, shared |
-| `packages/connector-sdk`  | contracts, shared                               |
-| `packages/connector-*`    | connector-sdk, contracts, shared                |
-| `packages/contracts`      | shared                                          |
-| `packages/client-runtime` | contracts, shared                               |
-| `packages/testkit`        | contracts, connector-sdk, shared                |
-| `packages/shared`         | nothing                                         |
-| `packages/ui`             | nothing                                         |
-| `packages/config`         | nothing                                         |
 
 `apps/server` additionally gets `testkit` and `client-runtime` in test files
 only, because it is bundled to `out/main.cjs` for packaging and an import from
@@ -423,7 +420,8 @@ commit.
 app through electron-builder.
 
 **To honour it:** run `pnpm check` before you ask anyone to look at the change,
-and never route around a failing step.
+and never route around a failing step. What each stage does, and how to run one
+on its own, is in [development.md](development.md#the-gate).
 
 ---
 
