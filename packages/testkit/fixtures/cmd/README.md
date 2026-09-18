@@ -69,6 +69,7 @@ Multi-turn scenarios prefix each file with `turn1.` / `turn2.`.
 | `question-tools/` | the same with `--tools-enable ask_user_question` — it fires, and the hook sees the questions |
 | `image/`          | an image attachment staged the way the connector stages one                                  |
 | `mcp/`            | an `mcp__<server>__<tool>` call — PreToolUse fires for it                                    |
+| `subagent/`       | an `agent` delegation — one hook for the delegation, none for what the subagent then does    |
 | `interrupt/`      | SIGINT mid-turn — exit 130, no `run_end`, no `result`                                        |
 | `resume/`         | a second turn resuming the first session id                                                  |
 | `max-turns/`      | `--max-turns` exhausted — exit 8, `subtype: "max_turns"`                                     |

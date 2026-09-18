@@ -218,6 +218,23 @@ export const SCENARIOS = {
       },
     ],
   },
+
+  subagent: {
+    description:
+      "a delegated subagent call — does PreToolUse fire for the subagent's own tool calls? (5.7 q7, the half the mcp recording leaves open)",
+    seed: { "note.txt": "hello\n" },
+    turns: [
+      {
+        prompt:
+          "Delegate this to a subagent with the agent tool: read note.txt and report what it says. Do not read the file yourself.",
+        maxTurns: 4,
+        // `--tools-all` because a subagent tool is exactly the kind a headless
+        // run withholds, and this recording is what decides whether it is.
+        extraArgs: ["--tools-all"],
+        hookPolicy: { default: "allow" },
+      },
+    ],
+  },
 };
 
 export const scenarioNames = () => Object.keys(SCENARIOS);

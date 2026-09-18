@@ -105,27 +105,61 @@ The plan file is written mid-run by an ordinary `write_file` call, and nothing i
 For MCP tools, yes. `fixtures/cmd/mcp/` registers a trivial stdio server through
 `cmd mcp add-json --scope project` and the hook is invoked with
 `tool_name: "mcp__rec__echo"` and the server-defined input; the `.*` matcher
-covers it. Subagent (`agent`) calls were not provoked and remain unobserved.
+covers it.
+
+For subagents, **once — for the delegation, and never again**.
+`fixtures/cmd/subagent/` delegates a file read with `--tools-all`. PreToolUse
+fires exactly one time, with `tool_name: "agent"` and the subagent's own brief as
+the input:
+
+```json
+{
+  "description": "Read note.txt file",
+  "prompt": "Read the file note.txt … report exactly what it says."
+}
+```
+
+The subagent then ran `read_file` and **no hook fired for it**. The whole of the
+evidence is three frames the connector had never seen:
+
+| frame               | what it carries                                   |
+| ------------------- | ------------------------------------------------- |
+| `subagent_start`    | `toolCallId`, `subagentType` (`general`), a title |
+| `subagent_progress` | one per inner tool call: `toolName`, `toolInput`  |
+| `subagent_stop`     | `tokensUsed` for the whole delegation             |
+
+Two consequences the approval design has to own:
+
+- **Approving an `agent` call approves everything it goes on to do.** The gate
+  is the delegation, not the work; the prompt in that one payload is all the
+  user gets to judge. Anything stricter would have to come from us, not from a
+  hook the harness never calls.
+- **`subagent_progress` is the only visibility there is.** All three frames map
+  onto the `task` row the `agent` call opened — the kind of agent, each inner
+  tool as it is reached for, then the cost — and `tool_completed` replaces that
+  row with the subagent's answer. Unread, the row would sit silent for the whole
+  delegation.
 
 ## What the frames really are
 
-Twelve event types the connector did not read, all of them now mapped
+Fifteen event types the connector did not read, all of them now mapped
 (`packages/connector-cmd/src/translate.ts`, asserted for every recording by
 `recordedFrames.test.ts`, which fails if anything reaches `event.unmapped`):
 
-| frame                                                | what it carries                                                  |
-| ---------------------------------------------------- | ---------------------------------------------------------------- |
-| `message_update`                                     | the whole message so far, after every delta                      |
-| `message_end`                                        | the finished content blocks                                      |
-| `model_request_end`                                  | `model`, `usage`, `stopReason` (`stop` / `tool_calls`), `effort` |
-| `turn_end`                                           | `turnNumber`, `hadToolCalls`, `usage` for that agent step        |
-| `tool_queued`                                        | `toolCallId`, `toolName`, **`input`**                            |
-| `tool_running`                                       | `toolCallId`, `toolName`, `description` — which is always `null` |
-| `tool_update`                                        | `partial`, a long-running tool's output so far                   |
-| `tool_completed`                                     | `result` (text and image blocks), `deferred`                     |
-| `tool_hooks`                                         | the hook's verdict: `phase`, `outcome: {kind, text}`             |
-| `tool_hook_blocked`                                  | `hookOutput` — the refusal the model is shown                    |
-| `thinking_start` / `thinking_delta` / `thinking_end` | reasoning, streamed then whole                                   |
+| frame                                                    | what it carries                                                  |
+| -------------------------------------------------------- | ---------------------------------------------------------------- |
+| `message_update`                                         | the whole message so far, after every delta                      |
+| `message_end`                                            | the finished content blocks                                      |
+| `model_request_end`                                      | `model`, `usage`, `stopReason` (`stop` / `tool_calls`), `effort` |
+| `turn_end`                                               | `turnNumber`, `hadToolCalls`, `usage` for that agent step        |
+| `tool_queued`                                            | `toolCallId`, `toolName`, **`input`**                            |
+| `tool_running`                                           | `toolCallId`, `toolName`, `description` — which is always `null` |
+| `tool_update`                                            | `partial`, a long-running tool's output so far                   |
+| `tool_completed`                                         | `result` (text and image blocks), `deferred`                     |
+| `tool_hooks`                                             | the hook's verdict: `phase`, `outcome: {kind, text}`             |
+| `tool_hook_blocked`                                      | `hookOutput` — the refusal the model is shown                    |
+| `thinking_start` / `thinking_delta` / `thinking_end`     | reasoning, streamed then whole                                   |
+| `subagent_start` / `subagent_progress` / `subagent_stop` | a delegation's kind, each inner tool call, its cost              |
 
 Three things about them that the old mapping got wrong:
 

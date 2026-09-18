@@ -217,6 +217,37 @@ describe("thinking, files and MCP", () => {
     expect(calls.at(-1)?.status).toBe("completed");
   });
 
+  /**
+   * The `agent` call is one `task` row; the subagent's own steps only ever
+   * appear as progress on it, because no PreToolUse hook fires for them. If
+   * these frames stopped being read the row would sit silent for the whole
+   * delegation and the user would never learn what the subagent touched.
+   */
+  it("shows a subagent's steps as progress on the task row that spawned it", () => {
+    const { events } = replay("subagent");
+    const tasks = events.flatMap((event) =>
+      (event.type === "item.started" ||
+        event.type === "item.updated" ||
+        event.type === "item.completed") &&
+      event.payload.item.kind === "task"
+        ? [event.payload.item]
+        : [],
+    );
+    expect(tasks.length).toBeGreaterThan(0);
+    const outputs = tasks.map((item) => String(item.tool?.output ?? ""));
+    // The inner call the subagent made, named as it happened.
+    expect(outputs.some((text) => text.includes("general subagent: read_file note.txt"))).toBe(
+      true,
+    );
+    expect(outputs.some((text) => text.includes("general subagent started"))).toBe(true);
+    expect(outputs.some((text) => /general subagent finished \(\d+ tokens\)/.test(text))).toBe(
+      true,
+    );
+    // And the delegation itself ends as one completed row carrying the answer.
+    expect(tasks.at(-1)?.status).toBe("completed");
+    expect(tasks.at(-1)?.tool?.output).toContain("hello");
+  });
+
   it("keeps an image tool result's bytes out of the row", () => {
     const reads = itemsOf(replay("image").events).filter((item) => item.kind === "tool_call");
     const output = String(reads.at(-1)?.tool?.output ?? "");

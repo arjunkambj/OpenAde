@@ -1,0 +1,31 @@
+[
+  {
+    "at": 1789718850097,
+    "stdin": {
+      "session_id": "dd3202e2-e2c7-4b6a-9dbd-4f76728a9e4c",
+      "transcript_path": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg-czzrjh0000gn-t-openade-rec-subagent-0bc4b712-repo/dd3202e2-e2c7-4b6a-9dbd-4f76728a9e4c.jsonl",
+      "cwd": "<SCRATCH>/repo",
+      "hook_event_name": "PreToolUse",
+      "permission_mode": "bypass",
+      "tool_use_id": "call_01a0b38e6538735abb416de81cad2ce1",
+      "tool_name": "agent",
+      "tool_display_name": "AGENT",
+      "tool_input": {
+        "description": "Read note.txt file",
+        "prompt": "Read the file note.txt in the current working directory (<SCRATCH>/repo) and report exactly what it says. Return the full content."
+      }
+    },
+    "answer": {
+      "hookSpecificOutput": {
+        "permissionDecision": "allow",
+        "permissionDecisionReason": "recorded allow"
+      }
+    },
+    "env": {
+      "COMMANDCODE_PROJECT_DIR": "<SCRATCH>/repo",
+      "COMMANDCODE_SESSION_ID": "dd3202e2-e2c7-4b6a-9dbd-4f76728a9e4c",
+      "COMMANDCODE_HOOK_EVENT": "PreToolUse",
+      "COMMANDCODE_CWD": "<SCRATCH>/repo"
+    }
+  }
+]
