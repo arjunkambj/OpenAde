@@ -330,10 +330,15 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
         status: "waiting",
       };
     case "thread.plan.responded":
+      // `waitingOr` reads the plan that was just answered, so it has to see
+      // the document with that plan already gone — as the two resolve cases
+      // above pass their filtered arrays. Passing `doc` left a thread with no
+      // turn running parked on "waiting" over its own answered plan.
       return {
         ...next,
         pendingPlan: null,
-        status: doc.currentTurn === null ? waitingOr(doc, "idle") : "running",
+        status:
+          doc.currentTurn === null ? waitingOr({ ...doc, pendingPlan: null }, "idle") : "running",
       };
     case "thread.settings.updated":
       return {

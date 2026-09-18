@@ -125,6 +125,23 @@ describe("the thread fold", () => {
     expect(doc?.userInputs).toEqual([]);
   });
 
+  it("goes back to idle once an answered plan is the last card up", () => {
+    const turnId = makeTurnId();
+    const doc = foldThread([
+      created(),
+      turnRequested(turnId),
+      event("thread.plan.proposed", { turnId, planMarkdown: "# plan" }),
+      event("thread.turn.completed", { turnId, stopReason: "end_turn" }),
+      event("thread.plan.responded", { turnId, action: "revise" }),
+    ]);
+
+    // Nothing is open and no turn is running, so the thread is idle. Reading
+    // the pre-event document here left it parked on "waiting" over the plan it
+    // had just answered, until the next turn moved it.
+    expect(doc?.pendingPlan).toBeNull();
+    expect(doc?.status).toBe("idle");
+  });
+
   it("keeps the in-flight turn while an interrupt settles", () => {
     const turnId = makeTurnId();
     const doc = foldThread([
