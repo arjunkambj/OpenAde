@@ -1,0 +1,531 @@
+# Development
+
+How to install, run, test, check and package OpenAde. Every command here is one
+the workspace actually defines — the root `package.json` scripts, a workspace's
+own scripts, or a script under `scripts/` — and every path is relative to the
+repository root.
+
+## Prerequisites
+
+| Thing            | Version                     | Where it is written                    |
+| ---------------- | --------------------------- | -------------------------------------- |
+| Node             | `>=22.16`                   | `package.json` `engines.node`          |
+| pnpm             | `11.21.0`                   | `package.json` `packageManager`        |
+| Command Code CLI | whatever you have installed | `packages/connector-cmd/src/binary.ts` |
+| git              | any                         | checkpoints shell out to it            |
+
+pnpm comes from the `packageManager` field, so `corepack enable` is enough; CI
+does exactly that and pins nothing else (`.github/workflows/ci.yml`).
+
+The app drives the Command Code CLI, so a working `cmd` is a prerequisite for
+anything past the first screen. `resolveBinary` in
+`packages/connector-cmd/src/binary.ts` looks for it in this order:
+
+1. the `binaryPath` configured on the connector instance,
+2. `cmd` on `PATH`, then in `/usr/local/bin`, `/opt/homebrew/bin`,
+   `~/.bun/bin`, `~/.local/share/pnpm`, `~/.npm-global/bin`,
+3. `npx -y command-code@latest`.
+
+Log in once with `cmd login`; the connector's probe reads `cmd status --json`
+for auth, account and version, and `cmd --list-models` for the model picker
+(`packages/connector-cmd/src/probe.ts`). Nothing is pinned to a CLI release:
+`OLDEST_TESTED_VERSION` (`1.54.0`) is only the floor the probe warns below.
+
+The browser pane needs `agent-browser` on `PATH`, or `OPENADE_AGENT_BROWSER`
+pointing at it (`apps/server/src/browser/agentBrowser.ts`). Without it the pane
+renders an install prompt instead of failing the app.
+
+## Install
+
+```sh
+pnpm install
+```
+
+`pnpm-workspace.yaml` allows post-install builds only for `electron` and
+`esbuild`; `msgpackr-extract` is deliberately left unbuilt so a checkout never
+needs a C++ toolchain. CI installs with `--frozen-lockfile`.
+
+## Running it
+
+```
+pnpm dev
+ ├── turbo run dev -F web      → vite dev on http://localhost:3001 (strictPort)
+ └── apps/desktop/scripts/dev.mjs
+      ├── esbuild --watch  main | preload | ../server/src/main.ts
+      └── electron apps/desktop  (ELECTRON_RENDERER_URL=http://localhost:3001)
+           └── ServerSupervisor spawns the server as a child
+                <electron> --import <tsx loader> apps/server/src/main.ts
+                ELECTRON_RUN_AS_NODE=1  OPENADE_DEV=1
+                handshake { url, token, serverInstanceId } on fd 3
+```
+
+`pnpm dev` is `turbo run dev:hmr -F desktop`, which is `concurrently` over the
+Vite dev server and `apps/desktop/scripts/dev.mjs`. The desktop shell owns the
+server process: `ServerSupervisor`
+(`apps/desktop/src/backend/ServerSupervisor.ts`) spawns it, reads the bootstrap
+handshake off fd 3, and restarts it with 500 ms → 10 s backoff, pausing after
+five consecutive failures. Both in dev and when packaged the child is
+`process.execPath` — the Electron binary — run with `ELECTRON_RUN_AS_NODE=1`
+(`apps/desktop/src/backend/serverDeps.ts`). In dev its argv is
+`--import <tsx loader> apps/server/src/main.ts` rather than the `tsx` CLI, so
+the server stays a direct child and fd 3 survives
+(`apps/desktop/src/backend/serverArgs.ts`). Unpackaged, it also gets
+`OPENADE_DEV=1`, so a desktop dev run writes the dev connection file too.
+
+There is no root `dev:server` script. The other useful entry points:
+
+| Command                 | What it starts                                        |
+| ----------------------- | ----------------------------------------------------- |
+| `pnpm dev`              | desktop shell + web dev server + supervised server    |
+| `pnpm dev:desktop`      | the same thing (`turbo run dev:hmr -F desktop`)       |
+| `pnpm dev:web`          | the Vite dev server alone                             |
+| `pnpm -F server dev`    | `tsx watch apps/server/src/main.ts --dev`             |
+| `pnpm -F desktop start` | builds web, bundles, runs Electron without watch mode |
+
+### Running the renderer in a browser
+
+`pnpm dev:web` alone has no server to talk to. Start one in dev mode in a
+second terminal:
+
+```sh
+pnpm -F server dev
+```
+
+`--dev` makes the server also write `~/.openade/dev/connection.json`
+(`apps/server/src/rpc/bootstrap.ts`, mode 0600 in a 0700 directory). The Vite
+config serves that file at `GET /__openade/connection`, refusing cross-origin
+reads (`apps/web/vite.config.ts`), and the client resolver dials it
+(`packages/client-runtime/src/resolver.ts`). The resolution order the renderer
+uses is: the Electron preload bridge, then that dev endpoint, then
+`?server=<url>&token=<t>` on the query string.
+
+The file holds a bearer token for a socket that accepts
+`orchestration.dispatch`. Treat it as a credential.
+
+### OPENADE_HOME
+
+`OPENADE_HOME` moves every path the app owns — the database, the attachments
+directory, the generated hook script, the dev connection file
+(`packages/shared/src/paths.ts`). Use a scratch home whenever you are running a
+dev build, so an experiment cannot corrupt the real `~/.openade` or make the
+desktop app and the dev loop fight over one `state.sqlite`:
+
+```sh
+OPENADE_HOME=/tmp/openade-scratch pnpm dev
+```
+
+`turbo.json` lists it under `globalPassThroughEnv`, because turbo otherwise
+hands a task a filtered environment and the variable would reach neither the
+server nor the Vite plugin. `boot()` sets it process-wide when it is given a
+`home`, so spawned connector children inherit it (`apps/server/src/boot.ts`).
+
+Other environment knobs the server itself reads: `OPENADE_PORT` (default `0`,
+meaning ask the OS), `OPENADE_DEV=1` (same as `--dev`).
+
+## The gate
+
+```sh
+pnpm check
+```
+
+is `lint → fmt:check → typecheck → test → check:boundaries → check:file-sizes →
+knip`, and it is what CI runs on Ubuntu and macOS. Each stage runs alone too:
+
+| Stage      | Command                 | What it enforces                                                    |
+| ---------- | ----------------------- | ------------------------------------------------------------------- |
+| lint       | `pnpm lint`             | oxlint: `correctness` as error, `no-explicit-any`, the shadcn rules |
+| format     | `pnpm fmt:check`        | oxfmt over the tree, markdown docs included; `pnpm fmt` writes      |
+| types      | `pnpm typecheck`        | `tsc --noEmit` per workspace; web also runs `vite build`            |
+| tests      | `pnpm test`             | `turbo run test` → `vitest run` per workspace                       |
+| boundaries | `pnpm check:boundaries` | import allowlist, renderer neutrality, no barrel files              |
+| file sizes | `pnpm check:file-sizes` | 800 lines a file, 400 for a renderer component                      |
+| dead code  | `pnpm knip`             | unused files, exports and dependencies                              |
+
+`pnpm typecheck` and `pnpm check-types` are the same script.
+
+### Boundaries
+
+`scripts/check-boundaries.mjs` does three things in one pass over the workspace
+sources.
+
+**Import allowlist.** Every import that names another workspace package is
+checked against a table in that file. A relative specifier that climbs out of
+its own workspace directory is a violation whatever it lands on, because
+packages are consumed through their `exports` map.
+
+| Workspace                 | May import                                              |
+| ------------------------- | ------------------------------------------------------- |
+| `apps/web`                | `ui`, `contracts`, `client-runtime`, `shared`           |
+| `apps/desktop`            | `contracts`, `shared`                                   |
+| `apps/server`             | `contracts`, `connector-sdk`, `connector-cmd`, `shared` |
+| `packages/connector-sdk`  | `contracts`, `shared`                                   |
+| `packages/connector-*`    | `connector-sdk`, `contracts`, `shared`                  |
+| `packages/contracts`      | `shared`                                                |
+| `packages/client-runtime` | `contracts`, `shared`                                   |
+| `packages/testkit`        | `contracts`, `connector-sdk`, `shared`                  |
+| `packages/shared`         | nothing                                                 |
+| `packages/ui`             | nothing                                                 |
+| `packages/config`         | nothing                                                 |
+
+A workspace with no rule may import no workspace package at all; add the rule
+before the import. Test files in `apps/server` get two extras — `testkit` and
+`client-runtime` — which is what keeps an accidental import of either out of
+`src/main.ts`, since that file is bundled for packaging. A file counts as a
+test when it ends in `.test.`/`.spec.` or sits under a `test/` directory.
+
+**Renderer neutrality.** Connector identity never reaches `apps/web/src`: the
+patterns `command code` (spaced or not), the literal `"cmd"` and `claude` are
+refused anywhere under it, in file names as well as contents, outside
+`apps/web/src/components/ui/icons`.
+
+**No barrels.** An `index.ts`/`index.tsx` anywhere under `packages/` is
+refused; each package exports one entry per module through its `exports` map.
+Apps are exempt — a router `index.tsx` is a route, and the Electron entry
+points are named by electron-builder.
+
+### File sizes
+
+`scripts/check-file-sizes.mjs`: 800 lines for any source file under `apps/`,
+`packages/` or `scripts/`, and 400 for anything under
+`apps/web/src/components`. Exempt: `.test.`/`.spec.` files, `*.gen.ts`,
+`routeTree.gen.ts`, and the two fixture roots
+(`packages/contracts/fixtures`, `packages/testkit/fixtures`) — skipped by path,
+not by directory name.
+
+### knip and `@public`
+
+`knip.json` sets `"tags": ["-@public"]`, so an export whose JSDoc carries
+`@public` is exempt from the dead-export report. Use it for the seams a
+composition root or a test drives rather than a caller in the same graph —
+`boot`'s options and result, the layers `main.ts` wires
+(`apps/server/src/boot.ts`, `apps/server/src/persistence/Sqlite.ts`,
+`apps/server/src/settings/connectorRouting.ts`). Everything else that nothing
+imports is dead code, and knip says so.
+
+knip reads `apps/web/src/routeTree.gen.ts`, which is gitignored and written by
+`vite build`. Run `pnpm typecheck` (or `pnpm build`) before `pnpm knip` on a
+fresh checkout. `turbo.json` declares that file as an output of
+`web#check-types` so a cache replay puts it back.
+
+## Test conventions
+
+Vitest, one project per workspace, collected by the root `vitest.config.ts`
+(`packages/*`, `apps/server`, `apps/desktop`, `apps/web`). `pnpm test` runs
+them through turbo; `pnpm exec vitest run <path>` runs one file from the root.
+
+**Nothing waits on a clock.** Every write in OpenAde is a command and every
+command comes back as a `CommandReceipt` carrying the event-log position its
+effects are visible at, so "did my write land?" is answerable exactly. Tests
+record receipts and await the one they care about by `commandId`
+(`packages/testkit/src/receipts.ts`); streams are awaited through
+`makeStreamCollector`'s `awaitItem`
+(`packages/connector-sdk/src/streamCollector.ts`). A scenario that never
+happens ends as a failed `awaitItem`, not a slow pass. Where a test genuinely
+needs time to move, it uses Effect's `TestClock`
+(`apps/server/src/orchestration/LiveBuffer.test.ts`).
+
+**Fixtures are the contract made concrete.** `packages/contracts/fixtures/`
+holds one JSON file per `RuntimeEvent` variant, per `ItemKind`, per `Command`,
+per `OrchestrationEventType`, per stream frame, per read model and per RPC
+result. `packages/contracts/test/fixtures.test.ts` decodes each one and encodes
+it again, and the result must equal the bytes on disk. The coverage cases
+derive their lists from the schemas, so adding a variant without a fixture
+fails, and a fixture nothing round-trips fails too. The renderer's own tests
+read the same files (`apps/web/src/lib/turn.test.ts`).
+
+**Connectors run a shared suite.** `runConnectorConformance`
+(`packages/connector-sdk/src/conformance.ts`) drives a real definition through
+`createInstance`/`startSession`/`send`/`close` and holds it to five promises: a
+session announces itself first, every turn completes exactly once, every
+approval it opens is resolved, nothing is emitted after `close`, and `close`
+proves the process tree is gone. A sixth case re-encodes every event through
+the `RuntimeEvent` schema. `packages/testkit/src/fakeConnector.ts` is the fake
+that exercises the SDK interface itself.
+
+**The CLI is never invented.** Anything a test needs to know about Command Code
+comes from a recording under `packages/testkit/fixtures/cmd/`, replayed by
+`packages/testkit/bin/replay-cmd.mjs`. See
+[Recordings](#recordings-of-the-real-cli).
+
+## The end-to-end suite
+
+`apps/server/test/e2e/` boots the product: `boot()` assembles the same graph
+`main.ts` ships, `makeConnection` from `@OpenAde/client-runtime` dials it over
+a real WebSocket, and the folds the renderer's atoms use turn the subscription
+into the view a pane renders. Ten scenarios:
+
+| File                  | Scenario                                              |
+| --------------------- | ----------------------------------------------------- |
+| `turn.test.ts`        | a turn, from `project.create` to the answer on screen |
+| `approval.test.ts`    | the approval gate, all three answers                  |
+| `question.test.ts`    | the model asks the user a question                    |
+| `plan.test.ts`        | plan mode, accepted and revised                       |
+| `interrupt.test.ts`   | Stop, and what the thread does next                   |
+| `checkpoints.test.ts` | two editing turns, two checkpoints, and a restore     |
+| `resume.test.ts`      | the server dies mid-thread and comes back             |
+| `settings.test.ts`    | the settings pages, against the user's real files     |
+| `attachment.test.ts`  | an image on a turn                                    |
+| `mcp.test.ts`         | OpenAde's own tools, offered to the harness           |
+
+Each scenario runs against two drivers (`apps/server/test/e2e/harness.ts`):
+
+- **replay** — the connector's `binaryPath` points at testkit's replayer, which
+  puts a recording of that run back on the wire. This is what the gate runs.
+- **live** — the connector discovers your own `cmd` and spends your plan.
+  Skipped unless `OPENADE_LIVE_CMD=1`.
+
+```sh
+pnpm exec vitest run apps/server/test/e2e              # replay only
+OPENADE_LIVE_CMD=1 pnpm exec vitest run apps/server/test/e2e
+```
+
+The same assertions run twice, which is the point: the replay says the product
+behaves, and the live run says the recording still describes reality. A
+scenario that needs different expectations from the two drivers is a scenario
+whose recording has gone stale.
+
+Every test gets a fresh `OPENADE_HOME` and a throwaway git repo under the
+system temp directory. The replay driver also redirects `HOME`, so it cannot
+touch `~/.commandcode`; the live driver deliberately does not, because that is
+where the CLI's credentials live. Both redirect `commandCodeHome` so the
+settings scenario edits a copy rather than your real `~/.commandcode/mcp.json`.
+
+The live conformance suite is separate and cheaper — about six turns:
+
+```sh
+OPENADE_LIVE_CMD=1 pnpm exec vitest run apps/server/src/hooks/cmdLiveConformance.test.ts
+```
+
+`OPENADE_LIVE_CMD_MODEL` overrides the model, `OPENADE_LIVE_CMD_DEBUG=1` adds
+output. The browser equivalent is `OPENADE_LIVE_BROWSER=1` over
+`apps/server/src/browser/live.test.ts`, which spawns a real Chromium.
+
+### Which models cost money
+
+`cmd --list-models` offers about seventy and most of them bill the account.
+Three are authorised in the code, and both the recorder and the live suites
+refuse anything else:
+
+| Model                                   | Note                                         |
+| --------------------------------------- | -------------------------------------------- |
+| `meta/muse-spark-1.3-contributor`       | the account default; cheap, good at tool use |
+| `poolside/laguna-s-2.1-free`            | free tier                                    |
+| `inclusionai/ling-3.0-flash-sante:free` | free tier                                    |
+
+The end-to-end suite runs on the first of these (`E2E_MODEL`), which is also
+the model every recording was made on.
+
+## Recordings of the real CLI
+
+`packages/testkit/fixtures/cmd/` holds one directory per scenario, each a real
+run of the real CLI — argv, stdout with its chunk boundaries, stderr, the
+on-disk transcript as it grew, the checkpoints file, every PreToolUse
+invocation with both halves of the conversation, the plan files and the files
+the turn touched. Nothing in it is hand-written, and it is never edited to make
+a test pass. `packages/testkit/fixtures/cmd/README.md` is the index and the
+scenario catalogue.
+
+### Making one
+
+Recording spends the operator's paid plan, so it is never run from CI:
+
+```sh
+node packages/testkit/scripts/record-cmd.mjs --list
+node packages/testkit/scripts/record-cmd.mjs shell-allow
+node packages/testkit/scripts/record-cmd.mjs plan --model poolside/laguna-s-2.1-free
+node packages/testkit/scripts/record-probe.mjs      # no model turns at all
+```
+
+`record-cmd.mjs` gives each run a throwaway git repo under a scratch root
+(`RECORD_SCRATCH`, default the system temp directory), spawns the CLI through
+the same binary resolution `probe.ts` uses and with the same argv and
+environment `packages/connector-cmd/src/spawn.ts` builds, and installs the
+recording hook through the same `.commandcode/settings.local.json` mechanism
+`config.ts` uses. A `--model` outside the authorised list stops the run before
+anything is spawned. `record-probe.mjs` captures the free surfaces —
+`status --json`, `--list-models`, `--version`, `--help`, and the error a bad
+`--model` produces.
+
+### Scrubbing
+
+Recordings are scrubbed on the way in: the scratch root becomes `<SCRATCH>`,
+the home directory becomes `<HOME>`, the account name and the home directory's
+basename become `user`, and anything token-shaped becomes `<REDACTED>`. Session
+ids and trace ids are left alone — they are per-run identifiers with no meaning
+off the machine, and the tests match on them. The replayer puts `<HOME>` and
+`<SCRATCH>` back from the running process's own directories.
+
+### When to re-record
+
+Any CLI release that changes the frames. Three tests fail when it happens, and
+they are the notice:
+
+- `packages/connector-cmd/src/recordedFrames.test.ts` — replaying every
+  recording must produce no `event.unmapped`. A new frame type fails here
+  rather than arriving as an unreadable blob in the timeline. It also pins the
+  facts a recording is cited for, such as `hookCount: 0` on all four plan
+  recordings and `touchedFiles: []` on the two plan-guard ones.
+- `packages/connector-cmd/src/recordedArgs.test.ts` — reads every manifest's
+  `connectorArgs` back into a `buildArgs` input, rebuilds it, and demands the
+  same list. The two allowed differences are written down in that file.
+- the live end-to-end and conformance suites, which run the same assertions
+  against the CLI you actually have.
+
+Do not edit a recording. Re-record the scenario, or point the test at a
+different one.
+
+## Building and packaging
+
+```sh
+pnpm build
+```
+
+is `turbo run build --filter='!desktop'` followed by `turbo run build -F
+desktop`. What lands where:
+
+| Artifact                             | Produced by                      |
+| ------------------------------------ | -------------------------------- |
+| `apps/web/dist/`                     | `vite build`                     |
+| `apps/server/out/main.cjs`           | esbuild, cjs, node22             |
+| `apps/desktop/out/main/index.cjs`    | `apps/desktop/scripts/build.mjs` |
+| `apps/desktop/out/preload/index.cjs` | the same                         |
+| `apps/desktop/out/server/main.cjs`   | the server, bundled into the app |
+| `apps/desktop/out/renderer/`         | a copy of `apps/web/dist`        |
+| `apps/desktop/artifacts/<channel>/`  | electron-builder                 |
+
+`pnpm build`'s desktop step runs `node scripts/package.mjs --dir`, which stops
+at the unpacked directory. For real installers:
+
+```sh
+pnpm build:desktop          # channel stable
+pnpm build:desktop:canary   # channel canary
+```
+
+macOS targets are `dmg` and `zip` for `arm64` and `x64`; Windows is `nsis`,
+Linux is `AppImage` and `deb` (`apps/desktop/electron-builder.config.cjs`). The
+channel reaches two places at once: electron-builder switches the app id
+(`dev.openade.OpenAde.desktop[.canary]`), the product name and the output
+directory, and `scripts/build.mjs` defines `process.env.OPENADE_CHANNEL` into
+the bundle so `src/platform/channel.ts` names the running app the same way. A
+test asserts the two agree; otherwise the two channels would share userData.
+
+The server is bundled into the app and spawned as a child under
+`ELECTRON_RUN_AS_NODE`, so `out/server` is listed in `asarUnpack` — a child
+process cannot spawn from inside the asar archive.
+
+The config names no code-signing identity, so a machine without a Developer ID
+certificate produces an unsigned build. It runs locally; it is not something to
+hand to anyone else.
+
+## Where state lives on disk
+
+Everything OpenAde owns hangs off `configDir()` — `~/.openade`, or
+`OPENADE_HOME` (`packages/shared/src/paths.ts`).
+
+```
+~/.openade/
+├── state.sqlite            event log, projections, settings, permissions
+├── desktop.json            shell preferences read before Electron is ready
+├── attachments/            staged uploads
+├── bin/
+│   ├── cmd-hook.mjs        generated PreToolUse hook script
+│   └── tickets/<id>.ticket per-session bearer, mode 0600
+└── dev/connection.json     dev handshake, mode 0600 (dev mode only)
+```
+
+`state.sqlite` is migrated on boot by `apps/server/src/persistence/Migrations.ts`;
+migration ids are contiguous from 1 and a merged migration file is never
+edited — new ones append.
+
+`desktop.json` is the shell's own small file, read synchronously at startup
+because it decides Chromium command-line flags. Today it holds one key:
+`{ "browserPane": true }` turns on the in-app `<webview>` browser pane, which
+makes Chromium open a loopback remote-debugging port. Off by default, and the
+server then drives its own Chromium through `agent-browser` instead.
+
+The hook script is regenerated only when its content hash changes, so starting
+a session does not churn the file under a running `cmd`.
+
+### The user's Command Code files
+
+`OPENADE_HOME` does not move these: they are the harness's, not ours.
+
+| File                                                  | What OpenAde does to it                              |
+| ----------------------------------------------------- | ---------------------------------------------------- |
+| `~/.commandcode/mcp.json`                             | user-scope MCP servers, from the settings page       |
+| `<workspaceRoot>/.mcp.json`                           | project-scope MCP servers, the same                  |
+| `<workspaceRoot>/.commandcode/settings.local.json`    | the PreToolUse hook block, while a session runs      |
+| `~/.commandcode/skills`, `<root>/.commandcode/skills` | read only, for the skills list                       |
+| `~/.commandcode/projects/<slug>/`                     | the CLI's own transcripts, which the connector reads |
+| `~/.commandcode/plans/`                               | where a plan turn's markdown lands                   |
+
+Both written files are edited per entry, not per file. Every MCP server OpenAde
+writes carries an `_openade` marker and upsert/remove refuse to touch an entry
+that lacks one; a file that exists but does not parse is never rewritten
+(`apps/server/src/settings/CmdConfig.ts`). The hook block is installed on
+session start and reverted on close, but only while the file still hashes to
+the bytes the install wrote, and only once the last session in that project has
+gone (`packages/connector-cmd/src/config.ts`).
+
+The `boot()` option `commandCodeHome` redirects all of this, which is how tests
+avoid editing the real files.
+
+## Repository conventions
+
+- **One commit per logical change**, conventional subject:
+  `type(scope): what changed`, lowercase, in the imperative — `fix(connector):
+spawn the binary the probe resolved`, `feat(web): rename, archive and delete
+a thread`. Scopes name the area, not the workspace path.
+- **No attribution trailers.** No `Co-Authored-By`, no "generated with" line,
+  in commit messages or pull request descriptions.
+- **Never `--no-verify`.** `pnpm check` is the gate; if it is red the change is
+  not finished.
+
+## Troubleshooting
+
+**The window sits on "starting", or the shell reports the server failed.** The
+supervisor gives the child 15 s to produce its fd 3 handshake, restarts it with
+500 ms → 10 s backoff, and after five consecutive failures stops and reports
+instead of spinning. The server's stdout and stderr are inherited, so the real
+error is in the terminal running `pnpm dev`. Check that nothing else already
+holds the same `OPENADE_HOME` — two servers over one `state.sqlite` is the
+usual cause after a force quit. On a normal quit the supervisor signals SIGINT
+and waits for the child to exit, SIGKILLing it after 5 s.
+
+**A browser renderer dials a dead server.** `~/.openade/dev/connection.json` is
+written on every dev boot and is not deleted on shutdown, so a stale one points
+at a port nobody is listening on. Delete it and restart `pnpm -F server dev`.
+If you are running a scratch home, remember the Vite plugin resolves the file
+through the same `OPENADE_HOME` — start both sides with the same value or they
+will never meet.
+
+**`cmd` not found, or found by the probe and not by the turn.** Both the probe
+and the spawn go through `resolveBinary`, so they agree; what differs is the
+environment. A packaged `.app` launched from Finder inherits launchd's `PATH`
+(`/usr/bin:/bin:/usr/sbin:/sbin`), which is why the resolver also searches the
+global bin directories. If your install is somewhere else, set `binaryPath` on
+the connector instance in Settings. The npx fallback works but downloads
+`command-code@latest` on first use.
+
+**Insufficient credits.** Exit code 10, reported as
+`insufficient credits — top up at https://commandcode.ai/billing and retry`.
+The full exit-code table is `packages/connector-cmd/src/exitCodes.ts`: 3 is not
+logged in, 4 is the CLI's own permission refusal, 5/6/7 are retryable transport
+failures, 8 is `--max-turns`, 130 is an interrupt.
+
+**`pnpm knip` fails on a fresh tree** with an unresolved
+`apps/web/src/routeTree.gen.ts`. That file is generated by `vite build` and
+gitignored; run `pnpm typecheck` or `pnpm build` first. knip is a root script
+and not a turbo task, so it does not build anything itself.
+
+**A check passes locally and fails in CI, or the other way round.** Turbo
+caches `build`, `test` and `check-types` in `.turbo`. Force a stage to rerun
+with `pnpm exec turbo run check-types --force`. Note that `test` declares
+`"inputs": ["$TURBO_DEFAULT$", "!README.md"]`, so editing a README does not
+invalidate a test cache.
+
+**An end-to-end test hangs instead of failing.** It should not: everything is
+awaited through a receipt or a subscription. A hang means something is waiting
+on an item that will never arrive — read the harness's `awaitItem` call rather
+than raising a timeout. The replay driver already allows 120 s per test and the
+live driver 600 s.
