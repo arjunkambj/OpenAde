@@ -45,6 +45,7 @@ import { Breadcrumb, FolderList } from "./folder-list";
 import { useFsAtoms } from "./fs-atoms";
 import {
   completionsFor,
+  confirmAction,
   cursorOn,
   fieldValue,
   highlighted,
@@ -111,6 +112,7 @@ export function FolderPickerDialog({
   const draft = fieldValue(location, listing);
   const completions = completionsFor(location.draft, listing);
   const entries = listing?.entries ?? [];
+  const confirm = confirmAction(location, listing);
 
   const goTo = (path: string) => setLocation(movedTo(path));
   const parent = trail === null ? null : trail.parent;
@@ -256,17 +258,24 @@ export function FolderPickerDialog({
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
+          {/* A path still sitting in the field is what the user means, not the
+              directory that was listed before they typed it — so this browses
+              there first and only confirms what is actually on screen. */}
           <Button
             type="button"
-            disabled={listing === null}
+            disabled={confirm.kind === "none"}
             onClick={() => {
-              if (listing !== null) {
-                onPick(listing.path);
+              if (confirm.kind === "navigate") {
+                goTo(confirm.path);
+                return;
+              }
+              if (confirm.kind === "pick") {
+                onPick(confirm.path);
                 onOpenChange(false);
               }
             }}
           >
-            Use this folder
+            {confirm.kind === "navigate" ? "Go to this folder" : "Use this folder"}
           </Button>
         </DialogFooter>
       </DialogContent>

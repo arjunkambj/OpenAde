@@ -10,6 +10,7 @@ import type { FsListing } from "@OpenAde/contracts/rpc";
 import {
   breadcrumbFor,
   completionsFor,
+  confirmAction,
   cursorOn,
   fieldValue,
   highlighted,
@@ -162,6 +163,47 @@ describe("the breadcrumb", () => {
 
   it("is the root alone at the root", () => {
     expect(breadcrumbFor("/")).toEqual([{ label: "/", path: "/" }]);
+  });
+});
+
+describe("confirming", () => {
+  it("returns the directory the picker is actually showing", () => {
+    expect(confirmAction(movedTo("/Users/dev/code"), code)).toEqual({
+      kind: "pick",
+      path: "/Users/dev/code",
+    });
+  });
+
+  it("browses a path still sitting in the field instead of the stale listing", () => {
+    // The regression: the field showed the typed path and the button returned
+    // `listing.path`, so typing a root and clicking "Use this folder" without
+    // pressing Enter first created a project on the previous directory.
+    expect(confirmAction(typed(movedTo("/Users/dev/code"), "/Users/dev/other"), code)).toEqual({
+      kind: "navigate",
+      path: "/Users/dev/other",
+    });
+  });
+
+  it("treats a trailing slash as the same directory", () => {
+    expect(confirmAction(typed(movedTo("/Users/dev/code"), "/Users/dev/code/"), code)).toEqual({
+      kind: "pick",
+      path: "/Users/dev/code",
+    });
+  });
+
+  it("confirms the listing again once the field is cleared", () => {
+    expect(confirmAction(typed(movedTo("/Users/dev/code"), "   "), code)).toEqual({
+      kind: "pick",
+      path: "/Users/dev/code",
+    });
+  });
+
+  it("has nothing to confirm before the first listing lands", () => {
+    expect(confirmAction(initialLocation(""), null)).toEqual({ kind: "none" });
+    expect(confirmAction(typed(initialLocation(""), "/Users/dev"), null)).toEqual({
+      kind: "navigate",
+      path: "/Users/dev",
+    });
   });
 });
 

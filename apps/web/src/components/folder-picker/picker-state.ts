@@ -173,6 +173,37 @@ export const breadcrumbFor = (path: string): ReadonlyArray<Crumb> => {
   return crumbs;
 };
 
+/**
+ * What "Use this folder" should do right now.
+ *
+ * The field and the button used to disagree. The field renders `fieldValue`,
+ * which is the typed draft while there is one; the button returned
+ * `listing.path`, the directory of the last successful listing. Typing a path
+ * only changes what is browsed once Enter navigates to it — so between typing
+ * and Enter the button handed back a directory the user was no longer looking
+ * at, and the caller created a project on the wrong root.
+ *
+ * So a pending draft navigates instead of confirming: the picker goes where the
+ * field says, and the next press confirms what it then shows. A draft that is
+ * only a different spelling of the listed directory (a trailing slash) is the
+ * same place, and confirms.
+ */
+export type PickerConfirm =
+  | { readonly kind: "pick"; readonly path: string }
+  | { readonly kind: "navigate"; readonly path: string }
+  | { readonly kind: "none" };
+
+export const confirmAction = (
+  location: PickerLocation,
+  listing: FsListing | null,
+): PickerConfirm => {
+  const draft = (location.draft ?? "").trim();
+  if (draft !== "" && (listing === null || withoutTrailingSlash(draft) !== listing.path)) {
+    return { kind: "navigate", path: draft };
+  }
+  return listing === null ? { kind: "none" } : { kind: "pick", path: listing.path };
+};
+
 /** What a key press means, given where the focus is. */
 export type PickerKeyAction =
   | "cursor-up"
