@@ -71,6 +71,13 @@ function RenameThreadDialog({
   const trimmed = title.trim();
   const canSubmit = trimmed.length > 0 && trimmed !== thread.title;
 
+  const submit = () => {
+    if (canSubmit) {
+      onOpenChange(false);
+      onSubmit(trimmed);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -84,10 +91,7 @@ function RenameThreadDialog({
           className="flex flex-col gap-3"
           onSubmit={(event) => {
             event.preventDefault();
-            if (canSubmit) {
-              onOpenChange(false);
-              onSubmit(trimmed);
-            }
+            submit();
           }}
         >
           <div className="flex flex-col gap-1.5">
@@ -97,6 +101,16 @@ function RenameThreadDialog({
               value={title}
               autoFocus
               onChange={(event) => setTitle(event.target.value)}
+              // Explicit rather than leaning on the form's implicit submission:
+              // this dialog is one field, Enter is the obvious way out of it,
+              // and it should not depend on how a portalled popup happens to
+              // route the key.
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                  event.preventDefault();
+                  submit();
+                }
+              }}
             />
           </div>
           <DialogFooter>
