@@ -12,7 +12,7 @@
  */
 
 import type { ConnectorInstanceId, ConnectorKind, ItemId, ThreadId } from "@OpenAde/contracts/ids";
-import { makeEventId } from "@OpenAde/contracts/ids";
+import { makeEventId, makeItemId } from "@OpenAde/contracts/ids";
 import type { ItemSnapshot, RuntimeEvent } from "@OpenAde/contracts/runtime";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
@@ -64,10 +64,10 @@ const translateRuntimeEvent = (
     readonly nextEventId?: () => PlannedEvent["eventId"];
   },
 ): ReadonlyArray<PlannedEvent> => {
-  const at = base(event, {
-    threadId: ctx.threadId,
-    nextEventId: ctx.nextEventId ?? makeEventId,
-  });
+  const identity = { threadId: ctx.threadId, nextEventId: ctx.nextEventId ?? makeEventId };
+  const at = base(event, identity);
+  /** A second envelope, for the rare translation that plans two events. */
+  const alsoAt = () => base(event, identity);
   const turnId = event.turnId;
 
   switch (event.type) {
@@ -277,12 +277,34 @@ const translateRuntimeEvent = (
       return [];
 
     case "runtime.error":
+      // A fatal error is a row as well as a state change. `thread.error` moves
+      // the thread's status and nothing else — no item, no text — so a turn
+      // that died on a 400 from the provider, an exhausted account or a
+      // crashed harness simply stopped, and the timeline said nothing at all
+      // about why. `error` is one of the fifteen ItemKinds and the renderer
+      // has a row for it; this is what fills it.
       return [
         {
           ...at,
           type: "thread.error",
           payload: { message: event.payload.message, fatal: event.payload.fatal },
         },
+        ...(event.payload.fatal
+          ? [
+              {
+                ...alsoAt(),
+                type: "thread.item.upserted" as const,
+                payload: {
+                  item: {
+                    itemId: makeItemId(),
+                    kind: "error" as const,
+                    status: "failed" as const,
+                    text: event.payload.message,
+                  } satisfies ItemSnapshot,
+                },
+              },
+            ]
+          : []),
       ];
 
     case "event.unmapped":

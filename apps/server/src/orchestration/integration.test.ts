@@ -154,6 +154,39 @@ describe("orchestration with a fake connector", () => {
     }),
   );
 
+  it.effect("a fatal error leaves a row on the timeline, not just a status", () =>
+    Effect.gen(function* () {
+      // `thread.error` moves the thread's status and nothing else, so a turn
+      // that died on a 400 from the provider, an exhausted account or a
+      // crashed harness simply stopped and the timeline said nothing about
+      // why. `error` is one of the fifteen ItemKinds and the renderer has a
+      // row for it; until this, nothing in the product ever produced one.
+      const { instance } = yield* openFake({
+        script: () => [
+          {
+            type: "runtime.error",
+            payload: { message: "the image payload could not be decoded", fatal: true },
+          },
+        ],
+      });
+      yield* Effect.gen(function* () {
+        const engine = yield* OrchestrationEngine;
+        yield* engine.dispatch(createProject);
+        yield* engine.dispatch(createThread);
+
+        const completed = yield* awaitEvent(engine, isType("thread.turn.completed"));
+        yield* engine.dispatch(turnStart("show me the picture"));
+        yield* Fiber.join(completed);
+
+        const detail = yield* engine.threadDetail(threadId);
+        const failed = detail?.items.filter((item) => item.kind === "error") ?? [];
+        expect(failed).toHaveLength(1);
+        expect(failed[0]?.status).toBe("failed");
+        expect(failed[0]?.text).toContain("could not be decoded");
+      }).pipe(Effect.provide(stackLayer({ instance })));
+    }),
+  );
+
   it.effect("routes an approval through the reactor back to the session", () =>
     Effect.gen(function* () {
       const { fake, instance } = yield* openFake({ script: approvalTurnScript });
