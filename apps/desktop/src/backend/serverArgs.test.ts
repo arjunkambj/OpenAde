@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { afterAll, describe, expect, it } from "vitest";
@@ -33,7 +33,10 @@ describe("devServerEntry", () => {
     const { args } = devServerEntry(process.execPath, MAIN_DIR);
 
     // `tsx/cli` re-execs node, and the grandchild loses the supervisor's fd 3.
-    expect(args.some((arg) => arg.includes("cli"))).toBe(false);
+    // Matched on the file name alone: every argument here is an absolute path,
+    // and a checkout under a directory whose own name happens to contain "cli"
+    // is not the tsx CLI.
+    expect(args.some((arg) => basename(arg).includes("cli"))).toBe(false);
     expect(args.includes("watch")).toBe(false);
 
     expect(args[0]).toBe("--import");
