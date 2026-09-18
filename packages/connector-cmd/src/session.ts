@@ -508,13 +508,13 @@ export const makeCmdSession = (
           const pushed = splitter.push(chunk);
           yield* Effect.forEach(pushed.lines, handleLine, { discard: true });
           if (pushed.overflow !== null) {
-            // The tail exceeded the line cap and was dropped — say so rather
-            // than lose the bytes silently.
-            yield* emitPrepared({
-              type: "event.unmapped",
-              payload: {},
-              raw: { source: "cmd.ndjson", payload: pushed.overflow },
-            });
+            // The tail exceeded the line cap and was dropped. `event.unmapped`
+            // is where ingestion sends frames it does not recognize — nothing
+            // downstream shows one — so a lost `run_end` said nothing at all.
+            // A warning does, and the head of the line names the frame.
+            yield* warn(
+              `dropped a ${pushed.overflow.droppedChars}-character line from the harness: ${pushed.overflow.head}`,
+            );
           }
         }),
       ).pipe(
