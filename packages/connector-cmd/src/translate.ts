@@ -60,17 +60,9 @@ import {
   type TranscriptMessage,
 } from "./items";
 import type { CmdFrame, CmdUsage } from "./ndjson";
+import { subagentProgress } from "./subagents";
 
 export type { PendingRuntimeEvent } from "./items";
-
-/**
- * What to call a subagent on its progress line. The harness names a kind
- * (`general` in `subagent/`); an unnamed one is still worth a word.
- */
-const subagentLabel = (event: { readonly [key: string]: unknown }): string => {
-  const type = asOptionalString(event.subagentType);
-  return type === undefined ? "subagent" : `${type} subagent`;
-};
 
 export interface CmdTranslator {
   /** One stdout frame → the events it means. */
@@ -647,50 +639,13 @@ export const makeTranslator = (options: {
           ),
         ];
       }
-      /**
-       * A delegated subagent, reported against the `agent` call that spawned
-       * it (`subagent/`). The three frames are progress on that one `task` row,
-       * which `tool_completed` finally replaces with the subagent's answer:
-       * `subagent_start` names the kind of agent, `subagent_progress` names
-       * each tool it reaches for, `subagent_stop` says what it cost.
-       *
-       * The subagent's own tool calls are **not** gated: `subagent_progress`
-       * is the only trace of them and no PreToolUse hook fires, so approving
-       * the `agent` call approves everything it goes on to do. Surfacing each
-       * inner call as it happens is the whole of the visibility we get.
-       */
-      case "subagent_start": {
-        return [
-          ...toolRows.progressed(
-            event.toolCallId,
-            `${subagentLabel(event)} started${
-              asOptionalString(event.description) === undefined
-                ? ""
-                : `: ${asString(event.description)}`
-            }`,
-          ),
-        ];
-      }
-      case "subagent_progress": {
-        const input = asString(event.toolInput) ?? JSON.stringify(event.toolInput ?? {});
-        const tool = asOptionalString(event.toolName);
-        return [
-          ...toolRows.progressed(
-            event.toolCallId,
-            tool === undefined
-              ? `${subagentLabel(event)} working`
-              : `${subagentLabel(event)}: ${tool} ${input}`.trimEnd(),
-          ),
-        ];
-      }
+      // A delegated subagent: three frames of progress on the `task` row the
+      // `agent` call opened, and the only trace of work no hook ever sees
+      // (`subagents.ts`).
+      case "subagent_start":
+      case "subagent_progress":
       case "subagent_stop": {
-        const tokens = typeof event.tokensUsed === "number" ? event.tokensUsed : undefined;
-        return [
-          ...toolRows.progressed(
-            event.toolCallId,
-            `${subagentLabel(event)} finished${tokens === undefined ? "" : ` (${tokens} tokens)`}`,
-          ),
-        ];
+        return [...toolRows.progressed(event.toolCallId, subagentProgress(event) ?? "")];
       }
       case "run_error": {
         return [

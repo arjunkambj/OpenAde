@@ -249,7 +249,7 @@ stream and a resubscribe recovers.
 **W2 connector-cmd** (`packages/connector-cmd`, `apps/server/src/hooks`,
 `packages/testkit/{fixtures/cmd,src/replayCmdProcess.ts}`; spec sections 5 and 8).
 Day one is done and the plan is paid for: the real CLI has been recorded across
-sixteen scenarios under `packages/testkit/fixtures/cmd/`, every §5.7 unknown is
+seventeen scenarios under `packages/testkit/fixtures/cmd/`, every §5.7 unknown is
 answered in `docs/decisions/w2-cmd-frames.md`, and there is no stand-in binary
 any more. Then: probe (binary discovery incl. the `@latest` npx fallback,
 `status --json`, a warning only below `OLDEST_TESTED_VERSION`), `spawn.ts` (argv, env allowlist, detached
