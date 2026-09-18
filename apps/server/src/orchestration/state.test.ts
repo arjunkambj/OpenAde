@@ -18,7 +18,7 @@ import {
 } from "@OpenAde/contracts/ids";
 import type { CheckpointSummary, OrchestrationEvent } from "@OpenAde/contracts/orchestration";
 
-import { foldThread } from "./state";
+import { foldThread, threadSnapshotOf } from "./state";
 
 const NOW = "2026-01-02T03:04:05.000Z";
 
@@ -178,6 +178,11 @@ describe("the thread fold", () => {
       event("thread.checkpoint.restore.requested", { checkpoint }),
     ]);
     expect(requested?.restoring).toBe(true);
+    // Which checkpoint, not only that one is running: `threadSnapshotOf` puts
+    // it on the wire so a client that reloads mid-restore keeps the spinner up
+    // and the Restore button disabled.
+    expect(requested?.restoringCheckpoint).toEqual(checkpoint);
+    expect(threadSnapshotOf(requested!).restoring).toEqual(checkpoint);
 
     const done = foldThread([
       created(),
@@ -186,6 +191,8 @@ describe("the thread fold", () => {
       event("thread.checkpoint.restored", { checkpoint }),
     ]);
     expect(done?.restoring).toBe(false);
+    expect(done?.restoringCheckpoint).toBeNull();
+    expect(threadSnapshotOf(done!).restoring).toBeNull();
 
     const failed = foldThread([
       created(),
@@ -197,6 +204,8 @@ describe("the thread fold", () => {
       }),
     ]);
     expect(failed?.restoring).toBe(false);
+    expect(failed?.restoringCheckpoint).toBeNull();
+    expect(threadSnapshotOf(failed!).restoring).toBeNull();
   });
 
   it("stamps each stored item with the turn that produced it", () => {

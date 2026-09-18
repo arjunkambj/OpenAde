@@ -25,30 +25,23 @@ export interface ThreadRestoreFailure {
  * A checkpoint restore is a durable work order: the server accepts it
  * (`thread.checkpoint.restore.requested`), the reactor runs git, and only then
  * does `thread.checkpoint.restored` or `thread.checkpoint.restore.failed`
- * arrive. `ThreadDoc.restoring` is the server's own internal flag and is
- * deliberately not on the wire, so the client has to fold those three events
- * itself or the Changes pane cannot say that a restore is running, let alone
- * that git refused one.
+ * arrive. `restoring` is on the wire — `ThreadDetailSnapshot.restoring`, filled
+ * from the server's own document — and the fold below keeps it current between
+ * snapshots, so the two agree and a client that reloads mid-restore still knows
+ * one is running.
+ *
+ * `restoreFailure` is the client's alone. The reason git gave lives in the
+ * `restore.failed` event and nowhere else, so it lasts exactly as long as the
+ * subscription that saw it: a failure that lands while the window is closed is
+ * in the timeline as an error, but the pane's own line does not come back.
  *
  * Both fields are *optional* so a plain `ThreadDetailSnapshot` — the dev
  * fixtures, a component prop typed against the contract — still satisfies this
  * type. That keeps the view from having to be plumbed through every component
  * between the atom and the pane: the object the atom emits carries the fields,
  * and only the reader that wants them has to say so.
- *
- * Known limit, because they are folded from events and not read off a
- * snapshot: they last exactly as long as the subscription that saw the
- * `restore.requested`. Reload the window, restart the server, or leave the
- * thread and come back while git is still working, and the client takes a
- * fresh snapshot and forgets — the spinner drops and Restore goes live again,
- * where the server rejects it with "is already restoring a checkpoint". The
- * fix is a `restoring` field on `ThreadDetailSnapshot`, filled from the
- * server's own `ThreadDoc.restoring`; that is an additive contracts change and
- * is not part of this wave.
  */
 export interface ThreadDetailView extends ThreadDetailSnapshot {
-  /** The checkpoint whose restore is running right now, if any. */
-  readonly restoring?: CheckpointSummary | null;
   /** Why the last restore failed, until another one is ordered. */
   readonly restoreFailure?: ThreadRestoreFailure | null;
 }

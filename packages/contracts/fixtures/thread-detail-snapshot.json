@@ -231,6 +231,7 @@
       "createdAt": "2026-09-15T12:00:00.000Z"
     }
   ],
+  "restoring": null,
   "session": {
     "connectorInstanceId": "0199c0de-0003-7000-8000-000000000001",
     "connectorKind": "cmd",

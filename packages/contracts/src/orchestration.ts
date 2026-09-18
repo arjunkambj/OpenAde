@@ -661,6 +661,21 @@ export const ThreadDetailSnapshot = Schema.Struct({
   items: Schema.Array(ItemSnapshot),
   queue: Schema.Array(QueuedMessage),
   checkpoints: Schema.Array(CheckpointSummary),
+  /**
+   * The checkpoint whose restore is running right now.
+   *
+   * A restore is a durable work order: the server accepts it, a reactor runs
+   * git over the whole worktree, and only then does `restored` or
+   * `restore.failed` arrive. The client used to learn about that window only by
+   * folding those three events, so a fresh snapshot forgot it — reload the
+   * window while git is still working and the "Restoring the worktree…" line
+   * was gone, the Restore button was live again, and pressing it was rejected
+   * with "is already restoring a checkpoint".
+   *
+   * Optional, so a snapshot written before this field existed still decodes;
+   * absent and `null` both mean "no restore in flight".
+   */
+  restoring: Schema.optional(Schema.NullOr(CheckpointSummary)),
   session: Schema.NullOr(ThreadSession),
   currentTurnId: Schema.NullOr(TurnId),
   pendingApproval: Schema.NullOr(ApprovalRequest),

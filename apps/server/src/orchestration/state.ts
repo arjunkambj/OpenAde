@@ -88,6 +88,14 @@ export interface ThreadDoc {
    * replay at the next boot, which settles it either way.
    */
   readonly restoring: boolean;
+  /**
+   * Which checkpoint that restore is for, or `null`. Set and cleared in the
+   * same fold branches as `restoring`, so the two cannot disagree; it exists
+   * because `restoring` alone is a boolean and `ThreadDetailSnapshot.restoring`
+   * carries the checkpoint, which is how a client that reloads mid-restore
+   * knows both that one is running and which turn it goes back to.
+   */
+  readonly restoringCheckpoint: CheckpointSummary | null;
   readonly pendingPlan: PendingPlan | null;
   readonly usage: TurnUsage | null;
   readonly context: ContextWindowUsage | null;
@@ -145,6 +153,7 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
       currentTurn: null,
       interrupting: false,
       restoring: false,
+      restoringCheckpoint: null,
       pendingPlan: null,
       usage: null,
       context: null,
@@ -366,13 +375,17 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
         checkpoints: [...doc.checkpoints, payload.checkpoint as CheckpointSummary],
       };
     case "thread.checkpoint.restore.requested":
-      return { ...next, restoring: true };
+      return {
+        ...next,
+        restoring: true,
+        restoringCheckpoint: payload.checkpoint as CheckpointSummary,
+      };
     case "thread.checkpoint.restored":
     case "thread.checkpoint.restore.failed":
       // The worktree moved back (or did not); the document has nothing to
       // rewind — the checkpoint refs still exist and the event only settles
       // the in-flight restore.
-      return { ...next, restoring: false };
+      return { ...next, restoring: false, restoringCheckpoint: null };
     case "thread.error":
       return payload.fatal === true
         ? { ...next, status: "error", currentTurn: null, interrupting: false }
@@ -447,6 +460,10 @@ export const threadSnapshotOf = (doc: ThreadDoc): ThreadDetailSnapshot => ({
   items: doc.items,
   queue: doc.queue,
   checkpoints: doc.checkpoints,
+  // On the wire so a client that reloads mid-restore still knows one is
+  // running; folding the three restore events was the client's only source
+  // before, and a fresh snapshot forgot them.
+  restoring: doc.restoringCheckpoint,
   session: doc.session,
   currentTurnId: doc.currentTurn?.turnId ?? null,
   pendingApproval: doc.approvals[0] ?? null,

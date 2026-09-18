@@ -1,0 +1,45 @@
+{
+  "threadId": "0199c0de-0002-7000-8000-000000000001",
+  "projectId": "0199c0de-0001-7000-8000-000000000001",
+  "title": "Health check endpoint",
+  "status": "idle",
+  "settings": {
+    "model": "stealth/ox-alpha",
+    "effort": "medium",
+    "runtimeMode": "approval-required",
+    "interactionMode": "default"
+  },
+  "snapshotSequence": 24,
+  "items": [],
+  "queue": [],
+  "checkpoints": [
+    {
+      "checkpointId": "0199c0de-0009-7000-8000-000000000001",
+      "turnId": "0199c0de-0004-7000-8000-000000000001",
+      "ref": "refs/openade/checkpoints/0199c0de-0002-7000-8000-000000000001/0199c0de-0004-7000-8000-000000000001",
+      "createdAt": "2026-09-15T12:00:00.000Z"
+    }
+  ],
+  "restoring": {
+    "checkpointId": "0199c0de-0009-7000-8000-000000000001",
+    "turnId": "0199c0de-0004-7000-8000-000000000001",
+    "ref": "refs/openade/checkpoints/0199c0de-0002-7000-8000-000000000001/0199c0de-0004-7000-8000-000000000001",
+    "createdAt": "2026-09-15T12:00:00.000Z"
+  },
+  "session": {
+    "connectorInstanceId": "0199c0de-0003-7000-8000-000000000001",
+    "connectorKind": "cmd",
+    "sessionRef": {
+      "sessionId": "5bc08bab-1c4e-4c2f-9f2a-7a6f0b9c1d22",
+      "cwd": "/Users/dev/projects/openade"
+    }
+  },
+  "currentTurnId": null,
+  "pendingApproval": null,
+  "pendingUserInput": null,
+  "pendingPlan": null,
+  "usage": null,
+  "context": null,
+  "createdAt": "2026-09-15T12:00:00.000Z",
+  "updatedAt": "2026-09-15T12:04:00.000Z"
+}

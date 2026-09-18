@@ -232,11 +232,10 @@ export function ChangesPane({ snapshot }: { snapshot: ThreadDetailView }) {
   // Offline the dispatch never resolves (the offline layer's client is
   // `Effect.never`), so the button would sit on "Restoring…" forever. Say why
   // instead.
-  // Folded from `thread.checkpoint.restore.requested` / `restored` /
-  // `restore.failed` by the client projection: the server's own `restoring`
-  // flag is not on the wire, so without this the pane could only say a restore
-  // had been *accepted*, never that it was still running or that git refused
-  // it — the failure went nowhere at all.
+  // `restoring` comes off the snapshot and is kept current between snapshots by
+  // the client fold, so it survives a reload while git is still working. The
+  // failure line is the fold's alone: the reason git gave is carried by the
+  // `restore.failed` event and by nothing durable.
   const restoring = snapshot.restoring ?? null;
   const restoreFailure = snapshot.restoreFailure ?? null;
 
