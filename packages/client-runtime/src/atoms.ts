@@ -290,10 +290,31 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
     ),
   );
 
-  const dispatchAtom = runtime.fn((command: Command) =>
+  /**
+   * Sends a command and resolves with its receipt.
+   *
+   * Threads have `threads.listSubscribe` to tell the client what a command
+   * changed, but projects have no subscription at all: `projectsAtom` is a
+   * `perConnection` read model, so without a nudge here a `project.create`
+   * the server *accepted* stays invisible until the socket reconnects — the
+   * welcome flow navigates to an empty list and "Add project" closes onto a
+   * sidebar that still says there are no projects. Refreshing from the one
+   * place every command goes through keeps every caller honest instead of
+   * asking each dialog to remember; refetching after `project.remove` matters
+   * for the same reason. Only an accepted command moves the read model, so a
+   * rejection re-fetches nothing.
+   */
+  const dispatchAtom = runtime.fn((command: Command, get) =>
     Effect.gen(function* () {
       const client = yield* (yield* Connection).client;
-      return yield* client["orchestration.dispatch"]({ command });
+      const receipt = yield* client["orchestration.dispatch"]({ command });
+      if (
+        receipt.status === "accepted" &&
+        (command.type === "project.create" || command.type === "project.remove")
+      ) {
+        get.registry.refresh(projectsAtom);
+      }
+      return receipt;
     }),
   );
 

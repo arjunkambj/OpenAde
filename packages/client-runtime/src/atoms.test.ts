@@ -7,8 +7,16 @@
 import { OpenAdeRpcError, PROTOCOL_VERSION } from "@OpenAde/contracts/rpc";
 import { describe, expect, it } from "@effect/vitest";
 import type { ThreadId } from "@OpenAde/contracts/ids";
-import { makeEventId, makeItemId, makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
+import {
+  makeCommandId,
+  makeEventId,
+  makeItemId,
+  makeProjectId,
+  makeThreadId,
+} from "@OpenAde/contracts/ids";
 import type {
+  Command,
+  CommandReceipt,
   ProjectSummary,
   ThreadDetailSnapshot,
   ThreadListStreamItem,
@@ -103,6 +111,8 @@ interface StubData {
   /** Answers `projects.list` itself — how a test makes the read model fail. */
   readonly projectsRequest?: () => Effect.Effect<ReadonlyArray<ProjectSummary>, OpenAdeRpcError>;
   readonly settings?: () => Queue.Queue<Settings, unknown>;
+  /** Answers `orchestration.dispatch` — how a test accepts or rejects one. */
+  readonly dispatch?: (command: Command) => CommandReceipt;
   /** What `server.hello` claims to speak; defaults to this build's version. */
   readonly protocolVersion?: number;
 }
@@ -150,6 +160,10 @@ const fakeClient = (
       if (key === "projects.list" && data.projects !== undefined) {
         const projects = data.projects;
         return () => Ref.get(projects);
+      }
+      if (key === "orchestration.dispatch" && data.dispatch !== undefined) {
+        const dispatch = data.dispatch;
+        return ({ command }: { command: Command }) => Effect.sync(() => dispatch(command));
       }
       if (key === "settings.subscribe" && data.settings !== undefined) {
         const settings = data.settings;
@@ -459,6 +473,68 @@ describe("atoms", () => {
           awaitValue(registry, projectsAtom, (value) => value.length === 2),
         );
         expect(list.map((p) => p.name)).toEqual(["one", "two"]);
+      }),
+    ),
+  );
+
+  it.live("an accepted project command refetches the project list", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const instance = yield* Ref.make(INSTANCE);
+        const projects = yield* Ref.make<ReadonlyArray<ProjectSummary>>([project("one")]);
+        let calls = 0;
+        const { registry, projectsAtom, dispatchAtom } = yield* runtimeWith(
+          fakeClient(new Map(), instance, {
+            projectsRequest: () => {
+              calls += 1;
+              return Ref.get(projects);
+            },
+            dispatch: (command) => ({
+              commandId: command.commandId,
+              // The workspace root a rejection would complain about; the
+              // accepted one is the second command this test sends.
+              status:
+                command.type === "project.create" && command.name === "taken"
+                  ? "rejected"
+                  : "accepted",
+              lastSequence: 7,
+            }),
+          }),
+          { status: "connected", serverInstanceId: INSTANCE },
+        );
+
+        registry.mount(projectsAtom);
+        registry.mount(dispatchAtom);
+        yield* Effect.promise(() =>
+          awaitValue(registry, projectsAtom, (list) => list.length === 1),
+        );
+
+        // Nothing pushes projects, so without a refresh here the list the
+        // welcome flow navigates to stays empty until the socket reconnects.
+        yield* Ref.set(projects, [project("one"), project("two")]);
+
+        // A rejected create changed nothing on the server, so it must not
+        // refetch — sent first so an unwanted refetch would be counted by the
+        // time the accepted one below has landed.
+        const createCommand = (name: string): Command => ({
+          commandId: makeCommandId(),
+          createdAt: "2026-01-01T00:00:00.000Z",
+          type: "project.create",
+          projectId: makeProjectId(),
+          name,
+          workspaceRoot: `/repo/${name}`,
+        });
+        registry.set(dispatchAtom, createCommand("taken"));
+        yield* Effect.promise(() =>
+          awaitValue(registry, dispatchAtom, (receipt) => receipt.status === "rejected"),
+        );
+
+        registry.set(dispatchAtom, createCommand("two"));
+        const list = yield* Effect.promise(() =>
+          awaitValue(registry, projectsAtom, (value) => value.length === 2),
+        );
+        expect(list.map((p) => p.name)).toEqual(["one", "two"]);
+        expect(calls).toBe(2);
       }),
     ),
   );
