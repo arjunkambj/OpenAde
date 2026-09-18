@@ -611,9 +611,21 @@ export const makeCmdSession = (
               // (`fixtures/cmd/shell-allow/`), and in plan mode that refusal
               // extends to the plan file the model is told to write, so a plan
               // turn without it produces no plan at all
-              // (`fixtures/cmd/plan-no-yolo/`). It costs no gate: plan mode
-              // skips PreToolUse entirely either way, and the plan ladder still
-              // declines to touch the workspace (`fixtures/cmd/plan-guard/`).
+              // (`fixtures/cmd/plan-no-yolo/`).
+              //
+              // On an ordinary turn it costs no gate: the hook still fires and
+              // a deny still stops the call, recorded under this exact argv in
+              // `fixtures/cmd/shell-deny-yolo/`.
+              //
+              // In plan mode it does, and the honest statement is that a plan
+              // turn has no gate of ours at all — PreToolUse never fires there
+              // (`hookCount: 0` in all four plan recordings, including one
+              // whose `read_file` fires a hook in an ordinary run), so `--yolo`
+              // takes away the only enforcement left. What keeps the workspace
+              // intact is the model's plan ladder: `plan-guard/` and
+              // `plan-write/` are both plan mode under `--yolo`, told outright
+              // to mutate, and both leave it untouched. Two observations, not a
+              // mechanism — and the alternative produces no plan to propose.
               yolo: true,
               ...(plan ? { permissionMode: "plan" as const } : {}),
               ...(attached.addDirs.length === 0 ? {} : { addDir: attached.addDirs }),

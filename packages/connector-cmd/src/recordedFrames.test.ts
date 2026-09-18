@@ -371,3 +371,32 @@ describe("a PreToolUse deny under --yolo", () => {
     expect(turn.touchedFiles).toEqual([]);
   });
 });
+
+/**
+ * Plan mode, told in as many words to mutate the workspace.
+ *
+ * What these two recordings show, and it is worth stating plainly: a plan turn
+ * has no gate of ours at all. PreToolUse never fires in plan mode — `hookCount`
+ * is 0 in every plan recording, including one whose `read_file` fires a hook in
+ * an ordinary run — and `--yolo` takes away the CLI's refusal as well. The
+ * workspace survives because the model's plan ladder holds, which is worth
+ * recording and is not the same thing as enforcement.
+ */
+describe("plan mode under --yolo", () => {
+  it.each(["plan-guard", "plan-write"])("%s leaves the workspace untouched", (scenario) => {
+    const turn = manifestOf(scenario).turns[0]!;
+    expect(turn.connectorArgs).toContain("--yolo");
+    expect(turn.connectorArgs.join(" ")).toContain("--permission-mode plan");
+    expect(turn.touchedFiles).toEqual([]);
+  });
+
+  it("never fires a PreToolUse hook, however many tools the turn queues", () => {
+    for (const scenario of ["plan", "plan-guard", "plan-no-yolo", "plan-write"]) {
+      const first = manifestOf(scenario).turns[0]!;
+      expect(first.connectorArgs.join(" "), scenario).toContain("--permission-mode plan");
+      expect(first.hookCount, `${scenario}: a plan turn fired a hook`).toBe(0);
+    }
+    // ...while the same tools do fire one outside plan mode.
+    expect(manifestOf("file-edit").turns[0]!.hookCount).toBeGreaterThan(0);
+  });
+});

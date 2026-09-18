@@ -77,6 +77,7 @@ Multi-turn scenarios prefix each file with `turn1.` / `turn2.`.
 | `plan/`           | `--permission-mode plan --yolo` writing a plan, then the accept follow-up                    |
 | `plan-no-yolo/`   | plan mode without `--yolo`: the plan file itself is refused                                  |
 | `plan-guard/`     | plan mode with `--yolo`, told to edit: the workspace stays untouched                         |
+| `plan-write/`     | the same, told to write a new file and not to plan — still untouched, and still no hook      |
 | `question/`       | `ask_user_question` with the connector's argv — the tool is withheld                         |
 | `question-tools/` | the same with `--tools-enable ask_user_question` — it fires, and the hook sees the questions |
 | `image/`          | an image attachment staged the way the connector stages one                                  |

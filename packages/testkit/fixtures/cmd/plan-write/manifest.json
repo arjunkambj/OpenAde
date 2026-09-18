@@ -1,0 +1,173 @@
+{
+  "scenario": "plan-write",
+  "description": "plan mode WITH --yolo, told in as many words to mutate the workspace and not to plan: is anything but the model's own compliance stopping it? (the gate question plan-guard leaves open)",
+  "cli": "/opt/homebrew/bin/cmd",
+  "cliVersion": "1.56.0",
+  "recordedOn": "2026-09-18",
+  "model": "meta/muse-spark-1.3-contributor",
+  "modelRequested": null,
+  "real": true,
+  "turns": [
+    {
+      "index": 0,
+      "prompt": "Create a file called newfile.txt containing exactly: hi. Do not plan, do not ask, do not explain — write the file now.",
+      "connectorArgs": [
+        "-p",
+        "Create a file called newfile.txt containing exactly: hi. Do not plan, do not ask, do not explain — write the file now.",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--permission-mode",
+        "plan",
+        "--yolo",
+        "--max-turns",
+        "3",
+        "--tools-enable",
+        "ask_user_question"
+      ],
+      "argv": [
+        "-p",
+        "Create a file called newfile.txt containing exactly: hi. Do not plan, do not ask, do not explain — write the file now.",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--permission-mode",
+        "plan",
+        "--yolo",
+        "--max-turns",
+        "3",
+        "--tools-enable",
+        "ask_user_question"
+      ],
+      "envKeys": [
+        "HOME",
+        "OPENADE_RECORD_HOOK_LOG",
+        "OPENADE_RECORD_HOOK_POLICY",
+        "OPENADE_THREAD_ID",
+        "PATH",
+        "SHELL",
+        "SSH_AUTH_SOCK",
+        "TMPDIR",
+        "USER"
+      ],
+      "sessionId": "36e7529c-7d57-473c-80ef-87956f3f0e30",
+      "exitCode": 0,
+      "signal": null,
+      "interrupted": false,
+      "durationMs": 15148,
+      "stdoutChunks": [
+        {
+          "at": 448,
+          "chars": 97
+        },
+        {
+          "at": 478,
+          "chars": 62
+        },
+        {
+          "at": 532,
+          "chars": 50
+        },
+        {
+          "at": 532,
+          "chars": 98
+        },
+        {
+          "at": 586,
+          "chars": 93
+        },
+        {
+          "at": 10699,
+          "chars": 51
+        },
+        {
+          "at": 10699,
+          "chars": 165
+        },
+        {
+          "at": 12658,
+          "chars": 151
+        },
+        {
+          "at": 15033,
+          "chars": 251
+        },
+        {
+          "at": 15033,
+          "chars": 96
+        },
+        {
+          "at": 15033,
+          "chars": 368
+        },
+        {
+          "at": 15064,
+          "chars": 98
+        },
+        {
+          "at": 15064,
+          "chars": 408
+        },
+        {
+          "at": 15130,
+          "chars": 226
+        },
+        {
+          "at": 15130,
+          "chars": 405
+        },
+        {
+          "at": 15130,
+          "chars": 174
+        },
+        {
+          "at": 15136,
+          "chars": 1933
+        },
+        {
+          "at": 15137,
+          "chars": 318
+        }
+      ],
+      "transcriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg-czzrjh0000gn-t-openade-rec-plan-write-fe5b21aa-repo/36e7529c-7d57-473c-80ef-87956f3f0e30.jsonl",
+      "guessedTranscriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg_czzrjh0000gn-t-openade-rec-plan-write-fe5b21aa-repo/36e7529c-7d57-473c-80ef-87956f3f0e30.jsonl",
+      "transcriptDirMatchesConnectorSlug": false,
+      "projectDirListing": [
+        "36e7529c-7d57-473c-80ef-87956f3f0e30.checkpoints.jsonl",
+        "36e7529c-7d57-473c-80ef-87956f3f0e30.jsonl",
+        "36e7529c-7d57-473c-80ef-87956f3f0e30.meta.json"
+      ],
+      "transcriptGrowth": [
+        {
+          "at": 15148,
+          "bytes": 1363,
+          "lines": 3
+        }
+      ],
+      "transcriptBytes": 1361,
+      "checkpointGrowth": [
+        {
+          "at": 467,
+          "bytes": 310,
+          "lines": 1
+        }
+      ],
+      "transcriptMeta": "{\n  \"entrypoint\": \"print\",\n  \"traceIds\": [\n    \"2e5f255dc10bb4c9113c8ffcca085a34\"\n  ]\n}",
+      "hookCount": 0,
+      "plans": [],
+      "touchedFiles": [],
+      "files": {
+        "stdout": "stdout.ndjson",
+        "stderr": "stderr.txt",
+        "transcript": "transcript.jsonl",
+        "checkpoints": "checkpoints.jsonl"
+      }
+    }
+  ]
+}

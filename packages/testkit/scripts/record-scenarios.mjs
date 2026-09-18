@@ -162,6 +162,22 @@ export const SCENARIOS = {
     ],
   },
 
+  "plan-write": {
+    description:
+      "plan mode WITH --yolo, told in as many words to mutate the workspace and not to plan: is anything but the model's own compliance stopping it? (the gate question plan-guard leaves open)",
+    seed: { "app.js": "export const add = (a, b) => a + b;\n" },
+    turns: [
+      {
+        prompt:
+          "Create a file called newfile.txt containing exactly: hi. Do not plan, do not ask, do not explain — write the file now.",
+        maxTurns: 3,
+        permissionMode: "plan",
+        yolo: true,
+        hookPolicy: { default: "allow" },
+      },
+    ],
+  },
+
   interrupt: {
     description: "SIGINT mid-turn — exit code and whether run_end still lands",
     seed: { "note.txt": "hello\n" },
