@@ -15,10 +15,19 @@ these are re-recorded — they are never edited by hand to make a test pass.
 Each `manifest.json` carries the model its own frames name, so a recording made
 on a different model says so rather than inheriting this table.
 
-Each run was spawned with exactly the argv and environment
+Each run was spawned with the argv and environment
 `packages/connector-cmd/src/spawn.ts` builds, in a throwaway git repo, with the
 recording PreToolUse hook installed through the same
 `.commandcode/settings.local.json` mechanism `config.ts` uses.
+
+`packages/connector-cmd/src/recordedArgs.test.ts` holds that claim to account:
+it reads every manifest's `connectorArgs` back into a `buildArgs` input, rebuilds
+it and demands the same list. Two kinds of difference are allowed and both are
+written down in that file — the recordings that deliberately drop `--yolo`
+(`plan-no-yolo`, `shell-allow`, `shell-deny`), which are the counter-examples
+that say what the flag is for, and `--tools-enable ask_user_question`, which
+joined the argv after most of these were taken and un-withholds one tool without
+changing anything else they are cited for. Anything else fails the build.
 
 ## Re-recording
 
