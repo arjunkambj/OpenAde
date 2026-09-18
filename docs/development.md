@@ -18,7 +18,8 @@ repository root. For what the pieces are, read
 | git              | any                         | checkpoints shell out to it            |
 
 pnpm comes from the `packageManager` field, so `corepack enable` is enough; CI
-does exactly that and pins nothing else (`.github/workflows/ci.yml`).
+does exactly that and pins only the Node major (`node-version: "22"` in
+`.github/workflows/ci.yml`).
 
 The app drives the Command Code CLI, so a working `cmd` is a prerequisite for
 anything past the first screen. `resolveBinary` in
@@ -169,10 +170,10 @@ refused anywhere under it, in file names as well as contents. One path is
 exempt, `apps/web/src/components/ui/icons`, so a connector's own logo can be
 shipped under its own name; nothing lives there today.
 
-**No barrels.** An `index.ts`/`index.tsx` anywhere under `packages/` is
-refused; each package exports one entry per module through its `exports` map.
-Apps are exempt — a router `index.tsx` is a route, and the Electron entry
-points are named by electron-builder.
+**No barrels.** An `index` module anywhere under `packages/` is refused —
+`.ts`, `.tsx`, `.js`, `.jsx` or `.mjs`; each package exports one entry per
+module through its `exports` map. Apps are exempt — a router `index.tsx` is a
+route, and the Electron entry points are named by electron-builder.
 
 ### File sizes
 
