@@ -145,10 +145,11 @@ recorded capture is `packages/testkit/fixtures/cmd/probe/list-models.stdout.txt`
 
 - A model row is `<id><two or more spaces><description>`. A line without that
   column gap is a section header and becomes the `family` for the rows under
-  it — `Open Source`, `Anthropic`, `OpenAI`, `xAI`.
+  it — seven of them in the recording: `Open Source`, `Anthropic`, `OpenAI`,
+  `Google`, `Sakana`, `Meta`, `xAI`.
 - Splitting on the column gap rather than on a `/` is what keeps the bare ids
   out of the header bucket. Anthropic's and OpenAI's rows are bare model names
-  (`claude-opus-5`, `gpt-6-astra`), not `provider/model`.
+  (`claude-opus-5`, `gpt-6-astra`); every other family's are `provider/model`.
 - A lone token with a `/` in it is an id with no description, not a family.
 - Ids may carry a `:tag` suffix. A model is free when its id ends in `:free`
   (`meituan/longcat-2.0:free`, `inclusionai/ling-3.0-flash-sante:free`) or its
@@ -522,9 +523,10 @@ event log, still spinning after a reload.
 **The slug is not one we can compute.** All 22 scenario manifests carry
 `transcriptDirMatchesConnectorSlug: false`. The harness kebab-cases camel humps
 — `/Volumes/main/Code/OpenAde` becomes `volumes-main-code-open-ade`, not
-`volumes-main-code-openade` — while `/Users/<user>/Code/SettlerSaga` becomes
-`users-<user>-code-settlersaga`, which is not split the same way. Rather than
-reimplement a private rule, `findTranscriptPath` looks the session up by the
+`volumes-main-code-openade`, and a dotted segment splits too:
+`.../mcpslug.suYi/wsCamelCase` is filed under `…-mcpslug-su-yi-ws-camel-case`
+(`packages/connector-cmd/src/config.ts`). Rather than reimplement a private
+rule, `findTranscriptPath` looks the session up by the
 one identifier the harness hands us: `run_start.sessionId` is unique, so the
 file is the `<sessionId>.jsonl` under whichever project directory holds it. The
 `slugFor` guess is kept only as the first probe, because it is right often
@@ -756,8 +758,8 @@ The bridge caps request bodies at 1 MiB.
 And a deny under `--yolo` really stops the call. That is the one claim the whole
 gate rests on, so it is recorded against the argv the connector actually builds:
 `fixtures/cmd/shell-deny-yolo/` is `--yolo` plus `--tools-enable
-ask_user_question`, a `cp note.txt copied.txt` the model chose itself, and a
-hook that answers deny. The frames carry `tool_hooks` with `outcome.kind:
+ask_user_question`, a `cp note.txt copied.txt` the prompt asks for and the model
+calls the shell tool to run, and a hook that answers deny. The frames carry `tool_hooks` with `outcome.kind:
 "block"` and then `tool_hook_blocked`; the recorder diffs the whole workspace
 afterwards and `copied.txt` is not in it. `fixtures/cmd/shell-deny/` is kept
 beside it as the counter-example — the same deny without `--yolo`, where print
@@ -767,9 +769,12 @@ The reverse is also true and less obvious: **a hook that allows is not enough.**
 `fixtures/cmd/shell-allow/` ran without `--yolo`, the hook answered allow, and
 print mode refused anyway, with `tool_hook_blocked` carrying:
 
-> `Error: Tool "write_file" requires permissions. Use --yolo (or
+> `Error: Tool "shell_command" requires permissions. Use --yolo (or
 --dangerously-skip-permissions) to enable file writes and shell commands in
 print mode.`
+
+The refusal names whichever tool was queued — `fixtures/cmd/plan-no-yolo/`
+carries the same sentence with `write_file` in it.
 
 Hence `--yolo` on every ordinary turn.
 
@@ -785,11 +790,13 @@ decision and the harness falls back to its own flow. Two guards:
   ran without raising a card. A path that needs no quoting is still written
   exactly as before, so no existing settings file changes.
 - Every turn counts the tool calls it queued and the hook posts it answered.
-  Across all 28 recorded turns those counts match exactly, one post per queued
-  call, so a turn that queued tools and posted nothing gets a
-  `session.warning`: `N tool call(s) ran without reaching OpenAde's approval
-gate — the PreToolUse hook did not fire, so this turn was not gated`. Plan
-  mode is exempt, because no hook fires there by design.
+  Across the 25 recorded turns that are not plan turns those counts match
+  exactly, one post per queued call, so a turn that queued tools and posted
+  nothing gets a `session.warning`: `N tool call(s) ran without reaching
+OpenAde's approval gate — the PreToolUse hook did not fire, so this turn was
+not gated`. Plan mode is exempt and is the only place the two counts diverge:
+  the three plan-mode turns queue five tool calls between them and post
+  nothing, because no hook fires there by design.
 
 ## Plan mode
 
