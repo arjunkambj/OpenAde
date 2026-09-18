@@ -103,6 +103,23 @@ const EVERY_TURN: ReadonlyArray<readonly [string, number]> = NodeFS.readdirSync(
   .filter((entry) => entry.isDirectory() && entry.name !== "probe")
   .flatMap((entry) => manifestOf(entry.name).turns.map((_, index) => [entry.name, index] as const));
 
+/**
+ * Whether the harness actually started a run for this turn.
+ *
+ * Every real run opens with `run_start`. A run it refused outright — the one
+ * recorded case is `--session` naming a session whose transcript was never
+ * written — answers with a single `result` frame instead, so there is no turn
+ * to assert anything about. The recording itself says which is which; nothing
+ * here is a hand-kept list.
+ */
+const didStart = ([scenario, index]: readonly [string, number]): boolean =>
+  framesOf(scenario, manifestOf(scenario).turns[index]!).some(
+    (frame) => frame.type === "event" && frame.event.type === "run_start",
+  );
+
+const STARTED_TURNS = EVERY_TURN.filter(didStart);
+const REFUSED_TURNS = EVERY_TURN.filter((turn) => !didStart(turn));
+
 describe("the recordings themselves", () => {
   it("are real captures, each on a version the connector supports", () => {
     expect(EVERY_TURN.length).toBeGreaterThanOrEqual(16);
@@ -128,14 +145,27 @@ describe("every recorded frame is understood", () => {
     expect(unmapped.map((event) => JSON.stringify(event.raw).slice(0, 200))).toEqual([]);
   });
 
-  it.each(EVERY_TURN)("%s turn %i opens exactly one turn", (scenario, index) => {
+  it.each(STARTED_TURNS)("%s turn %i opens exactly one turn", (scenario, index) => {
     const { events } = replay(scenario, index);
     // One process is one user turn, however many agent steps it takes.
     expect(typesOf(events).filter((type) => type === "turn.started")).toHaveLength(1);
     expect(typesOf(events).filter((type) => type === "turn.completed")).toHaveLength(1);
   });
 
-  it.each(EVERY_TURN)("%s turn %i leaves no row in progress", (scenario, index) => {
+  it.each(REFUSED_TURNS)("%s turn %i is a run the harness refused to start", (scenario, index) => {
+    // The counter-example the two assertions above are scoped against, and the
+    // reason `sessionRef.ts` checks the filesystem before it resumes: handed
+    // `--session <id>` for a session with no transcript, the harness answers
+    // with one `result` frame and exits — there is no run, so there is no turn
+    // to open and nothing for the translator to do but say so.
+    const { turn, events } = replay(scenario, index);
+    expect(turn.exitCode).not.toBe(0);
+    expect(typesOf(events)).not.toContain("turn.started");
+    const errors = events.filter((event) => event.type === "runtime.error");
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it.each(STARTED_TURNS)("%s turn %i leaves no row in progress", (scenario, index) => {
     const { events } = replay(scenario, index);
     const last = new Map<string, string>();
     for (const item of itemsOf(events)) {

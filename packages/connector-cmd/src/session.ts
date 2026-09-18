@@ -48,7 +48,8 @@ import { makeHookAnswerer } from "./hookAnswers";
 import { makeLineSplitter, parseFrame } from "./ndjson";
 import { planFileNameIn, readPlanProposal, releasePlanClaims } from "./plans";
 import { buildArgs, envAllowlist, spawnProcess, TOOLS_ENABLED, type CmdProcess } from "./spawn";
-import { findTranscriptPath, tailTranscript, transcriptPathFor } from "./transcript";
+import { makeSessionRefLocator, type CmdSessionRef } from "./sessionRef";
+import { findTranscriptPath, tailTranscript } from "./transcript";
 import { makeTranslator, type PendingRuntimeEvent } from "./translate";
 
 export const CMD_CAPABILITIES: ConnectorCapabilities = {
@@ -64,18 +65,8 @@ export const CMD_CAPABILITIES: ConnectorCapabilities = {
   fork: true,
 };
 
-/** The opaque `sessionRef` the engine persists between process spawns. */
-export interface CmdSessionRef {
-  readonly sessionId: string;
-  readonly transcriptPath: string;
-  readonly cwd: string;
-  /**
-   * Newest transcript message already emitted — `meta.messageId` or the line
-   * id. On resume the tailer picks up right after it: lines written while the
-   * server was down get emitted, earlier ones don't repeat.
-   */
-  readonly lastMessageId: string | null;
-}
+/** Re-exported so consumers keep importing the session's own vocabulary from it. */
+export type { CmdSessionRef };
 
 /**
  * The live process plus two latches: `turnDone` flips when the turn's
@@ -166,15 +157,10 @@ export const makeCmdSession = (
       }
     });
 
-    /**
-     * The transcript path the sessionRef carries. `findTranscriptPath` answers
-     * with the directory the harness really used; before the file exists there
-     * is nothing to find, so the slug guess stands in until it does — the ref
-     * is rewritten on every event that touches it, and the last write wins.
-     */
-    const transcriptPathOf = (sessionId: string): string =>
-      findTranscriptPath(transcriptRoot, sessionId, options.home) ??
-      transcriptPathFor(transcriptRoot, sessionId, options.home);
+    const refs = makeSessionRefLocator({
+      root: transcriptRoot,
+      ...(options.home === undefined ? {} : { home: options.home }),
+    });
 
     // One translator for the session's whole life: dedupe keys (tool_use.id,
     // messageId) must survive across the one-process-per-turn boundary or the
@@ -217,7 +203,7 @@ export const makeCmdSession = (
           ...pending.payload,
           sessionRef: {
             sessionId,
-            transcriptPath: transcriptPathOf(sessionId),
+            transcriptPath: refs.pathOf(sessionId),
             cwd: options.workspaceRoot,
             lastMessageId: translator.lastMessageId,
           } satisfies CmdSessionRef,
@@ -273,7 +259,7 @@ export const makeCmdSession = (
      * Re-point the stored ref at the transcript now that one exists.
      *
      * The ref is minted at `session.started`, which is `run_start` — seconds
-     * before the harness creates the file — so `transcriptPathOf` can only
+     * before the harness creates the file — so `refs.pathOf` can only
      * hand it the slug guess, and the slug is not the directory the harness
      * uses. Until this ran, the correction happened at process exit, so
      * anything reading `sessionRef()` while the session is still open (the
@@ -286,7 +272,7 @@ export const makeCmdSession = (
       if (ref === null) {
         return;
       }
-      const path = transcriptPathOf(ref.sessionId);
+      const path = refs.pathOf(ref.sessionId);
       if (path === ref.transcriptPath) {
         return;
       }
@@ -480,7 +466,7 @@ export const makeCmdSession = (
               // right after the turn already resolves.
               yield* Ref.set(sessionRef, {
                 sessionId: ref.sessionId,
-                transcriptPath: transcriptPathOf(ref.sessionId),
+                transcriptPath: refs.pathOf(ref.sessionId),
                 cwd: options.workspaceRoot,
                 lastMessageId: translator.lastMessageId,
               });
@@ -544,7 +530,7 @@ export const makeCmdSession = (
       if (translator.sessionId !== null) {
         yield* Ref.set(sessionRef, {
           sessionId: translator.sessionId,
-          transcriptPath: transcriptPathOf(translator.sessionId),
+          transcriptPath: refs.pathOf(translator.sessionId),
           cwd: options.workspaceRoot,
           lastMessageId: translator.lastMessageId,
         });
@@ -599,7 +585,18 @@ export const makeCmdSession = (
               yield* Deferred.await(previous.settled);
             }
             const settings = yield* Ref.get(settingsRef);
-            const prior = yield* Ref.get(sessionRef);
+            const stored = yield* Ref.get(sessionRef);
+            // Resuming an id the harness has no transcript for fails the whole
+            // run, so the locator asks the filesystem first. Losing the model's
+            // own memory of a turn it never finished is the smaller loss, and
+            // the warning says so rather than letting the context quietly
+            // shrink. See `sessionRef.ts` for what the harness does instead.
+            const prior = refs.resumable(stored);
+            if (stored !== null && prior === null) {
+              yield* warn(
+                "the previous session left no transcript to resume — it was interrupted before the harness wrote one; continuing in a new session",
+              );
+            }
             const hook = yield* options.services.hookEndpoint(options.threadId);
             // The bearer goes to disk, not into the environment: Command Code
             // strips secret-shaped variable names out of a hook's env, which
