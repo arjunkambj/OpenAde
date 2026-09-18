@@ -118,6 +118,43 @@ export const makeTranslator = (options: {
   const streamedText = new Map<string, string>();
   const streamedItemForText = new Map<string, ItemId>();
   let deltaRun = 0;
+  /**
+   * Rows a `message_end` had to mint itself, because the model streamed no
+   * delta for that block — in mint order, per text.
+   *
+   * Text is the only handle the frames and the transcript share (an anonymous
+   * `text_delta` names no message), so a row has to be findable by its string.
+   * But a string is not unique: one message may repeat a text block, and two
+   * agent steps may both end in "Done.". A single text → row index answered
+   * every one of those with the *first* row, so the second block silently
+   * landed on a row another block already owned and never got one of its own.
+   *
+   * A queue per text fixes it without giving up the handle: `message_end` mints
+   * one row per block and pushes it here, and the transcript replaying the same
+   * message takes them back one block at a time, in the order they were minted.
+   */
+  const endedItemsForText = new Map<string, Array<ItemId>>();
+  const rememberEnded = (text: string, itemId: ItemId): void => {
+    const queue = endedItemsForText.get(text);
+    if (queue === undefined) {
+      endedItemsForText.set(text, [itemId]);
+      return;
+    }
+    queue.push(itemId);
+  };
+  const takeEnded = (text: string): ItemId | undefined => {
+    const queue = endedItemsForText.get(text);
+    if (queue === undefined) {
+      return undefined;
+    }
+    const itemId = queue.shift();
+    if (queue.length === 0) {
+      endedItemsForText.delete(text);
+    }
+    return itemId;
+  };
+  /** How many `message_end` frames have been folded — part of their row keys. */
+  let endedMessages = 0;
   /** Cost the transcript reported for this turn's assistant messages. */
   let turnCostUsd = 0;
   const costedLines = new Set<string>();
@@ -156,6 +193,23 @@ export const makeTranslator = (options: {
     return itemId;
   };
 
+  /**
+   * The row a replayed text/thinking block belongs on, in preference order: the
+   * row that streamed this exact text, the next row a `message_end` minted for
+   * it, and failing both a row of the block's own. `claimed` holds the rows the
+   * message being replayed has already settled, so a repeated string walks the
+   * queue instead of settling one row twice.
+   */
+  const rowFor = (text: string, key: string, claimed: Set<ItemId>): ItemId => {
+    const streamed = streamedItemForText.get(text);
+    const itemId =
+      streamed !== undefined && !claimed.has(streamed)
+        ? streamed
+        : (takeEnded(text) ?? itemIdFor(key));
+    claimed.add(itemId);
+    return itemId;
+  };
+
   /** The snapshot a tool call announces — what `tool_running` knows, or full `input`. */
   /**
    * One transcript/nextState message → its items. `messageId` dedupe is what
@@ -172,6 +226,8 @@ export const makeTranslator = (options: {
     seenMessages.add(dedupeKey);
     const out: Array<PendingRuntimeEvent> = [];
     const content = Array.isArray(message.content) ? message.content : [];
+    /** Rows this message has already settled — one block may not take two. */
+    const claimed = new Set<ItemId>();
 
     if (message.role === "user") {
       const results = content.filter(
@@ -202,8 +258,9 @@ export const makeTranslator = (options: {
             return;
           }
           // A row already streamed this exact text — finish it rather than
-          // open a second one next to it.
-          const itemId = streamedItemForText.get(text) ?? itemIdFor(key);
+          // open a second one next to it. A row this same message already
+          // settled is not that row, though: take the next one instead.
+          const itemId = rowFor(text, key, claimed);
           out.push({
             itemId,
             type: "item.completed",
@@ -223,7 +280,7 @@ export const makeTranslator = (options: {
           if (thinking === "") {
             return;
           }
-          const itemId = streamedItemForText.get(thinking) ?? itemIdFor(key);
+          const itemId = rowFor(thinking, key, claimed);
           out.push({
             itemId,
             type: "item.completed",
@@ -278,6 +335,10 @@ export const makeTranslator = (options: {
       return [];
     }
     const out: Array<PendingRuntimeEvent> = [];
+    endedMessages += 1;
+    const message = endedMessages;
+    /** Rows this frame has already settled — one block may not take two. */
+    const claimed = new Set<ItemId>();
     content.forEach((block, index) => {
       const record = asRecord(block);
       switch (record.type) {
@@ -290,10 +351,18 @@ export const makeTranslator = (options: {
           const kind =
             record.type === "text" ? ("assistant_message" as const) : ("reasoning" as const);
           // A model that streams no deltas still gets a row: mint one, and
-          // register it so the transcript recognizes it as already emitted.
+          // queue it so the transcript recognizes it as already emitted. The
+          // key counts messages rather than agent steps, so two `message_end`
+          // frames inside one step cannot share a row either.
+          const streamed = streamedItemForText.get(text);
           const itemId =
-            streamedItemForText.get(text) ?? itemIdFor(`message_end:${deltaRun}:${index}`);
-          streamedItemForText.set(text, itemId);
+            streamed !== undefined && !claimed.has(streamed)
+              ? streamed
+              : itemIdFor(`message_end:${message}:${index}`);
+          claimed.add(itemId);
+          if (itemId !== streamed) {
+            rememberEnded(text, itemId);
+          }
           out.push({
             itemId,
             type: "item.completed",

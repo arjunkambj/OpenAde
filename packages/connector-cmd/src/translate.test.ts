@@ -870,3 +870,60 @@ describe("cost", () => {
     expect(usage?.type === "usage.updated" && usage.payload.costUsd).toBeUndefined();
   });
 });
+
+describe("a message that repeats one of its strings", () => {
+  const itemIdsOf = (events: ReadonlyArray<PendingRuntimeEvent>): Array<string> =>
+    events.flatMap((event) =>
+      event.type === "item.completed" ? [String(event.payload.item.itemId)] : [],
+    );
+
+  it("gives each block its own row when one message_end repeats a text block", () => {
+    const translate = translator();
+    translate.onFrame(runStart());
+    translate.onFrame(turnStart());
+    const events = translate.onFrame(
+      frame({
+        type: "message_end",
+        content: [
+          { type: "text", text: "same" },
+          { type: "thinking", thinking: "x" },
+          { type: "text", text: "same" },
+        ],
+      }),
+    );
+    const ids = itemIdsOf(events);
+    expect(ids).toHaveLength(3);
+    expect(new Set(ids).size).toBe(3);
+  });
+
+  it("gives each agent step its own row when two of them end in the same text", () => {
+    const translate = translator();
+    translate.onFrame(runStart());
+    translate.onFrame(turnStart());
+    const first = translate.onFrame(
+      frame({ type: "message_end", content: [{ type: "text", text: "Done." }] }),
+    );
+    translate.onFrame(turnStart());
+    const second = translate.onFrame(
+      frame({ type: "message_end", content: [{ type: "text", text: "Done." }] }),
+    );
+    const ids = [...itemIdsOf(first), ...itemIdsOf(second)];
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(2);
+  });
+
+  it("lands the transcript's copy of those blocks on the rows the frames opened", () => {
+    const translate = translator();
+    translate.onFrame(runStart());
+    translate.onFrame(turnStart());
+    const content = [
+      { type: "text", text: "same" },
+      { type: "text", text: "same" },
+    ];
+    const fromFrames = itemIdsOf(translate.onFrame(frame({ type: "message_end", content })));
+    const replayed = translate.onTranscriptLine(transcriptMessage("assistant", content, "m-1"));
+    expect(itemIdsOf(replayed)).toEqual(fromFrames);
+    // And nothing was opened beside them.
+    expect(types(replayed)).toEqual(["item.completed", "item.completed"]);
+  });
+});
