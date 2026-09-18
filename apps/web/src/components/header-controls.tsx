@@ -9,7 +9,9 @@
  * with a tooltip; `per-turn` adds an "applies next turn" hint; plan mode
  * disappears from the interaction picker when the connector cannot plan. A
  * thread with no bound session reports no capabilities, in which case model
- * and effort behave as per-turn — that is what a fresh session consumes.
+ * and effort behave as per-turn — that is what a fresh session consumes. The
+ * model *list* does not wait for that binding: it comes from the instance the
+ * thread would route to (`@/lib/connector-routing`).
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
@@ -36,6 +38,7 @@ import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 
 import { useClientRuntime } from "@/lib/client-runtime";
+import { routedConnectorInstanceId } from "@/lib/connector-routing";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
 import { Icon } from "@/lib/icon";
 
@@ -154,10 +157,17 @@ export function HeaderControls({
   const connectors = AsyncResult.isSuccess(connectorsResult) ? connectorsResult.value : [];
   const dispatch = useAtomSet(dispatchAtom, { mode: "promise" });
 
-  const instanceId = doc?.session?.connectorInstanceId ?? null;
+  // Capabilities are the *bound* session's: a thread with none behaves as
+  // per-turn, because that is what a fresh session consumes.
+  const boundInstanceId = doc?.session?.connectorInstanceId ?? null;
   const capabilities =
-    connectors.find((c) => c.connectorInstanceId === instanceId)?.capabilities ?? null;
-  const modelsResult = useAtomValue(connectorModelsAtom(instanceId));
+    connectors.find((c) => c.connectorInstanceId === boundInstanceId)?.capabilities ?? null;
+  // The model list, though, is the instance this thread *would* run on — see
+  // `@/lib/connector-routing`. Without it a thread that has not run a turn yet
+  // offered a picker holding nothing but the raw current model id.
+  const modelsResult = useAtomValue(
+    connectorModelsAtom(routedConnectorInstanceId(boundInstanceId, connectors)),
+  );
   const models = AsyncResult.isSuccess(modelsResult) ? modelsResult.value : [];
 
   const [error, setError] = React.useState<string | null>(null);
