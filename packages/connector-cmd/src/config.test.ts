@@ -6,6 +6,7 @@
  * whole contract.
  */
 
+import { spawnSync } from "node:child_process";
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
@@ -488,6 +489,58 @@ describe("mcp entry", () => {
           { url: "http://127.0.0.1:1/mcp" },
         ),
       ).toBe(false);
+    }),
+  );
+});
+
+/**
+ * The harness runs a hook's `command` through `/bin/bash` — `runSyncHook` in
+ * the 1.56.0 bundle calls `shell.run({command, shell: hookShell(runtime)})`
+ * and `hookShell` answers `/bin/bash` off Windows. So an unquoted path with a
+ * space in it is two words, the hook never runs, it produces no decision, and
+ * under `--yolo` every shell command and file write in that session runs
+ * without ever raising a card: the gate's failure mode is to open, silently.
+ */
+describe("the hook command a shell has to read", () => {
+  it.effect("is one word even when the home directory has a space in it", () =>
+    Effect.gen(function* () {
+      const root = yield* tempDir();
+      const hookPath = NodePath.join(root, "First Last", "bin", "cmd-hook.mjs");
+      yield* installProjectHooks(root, hookPath);
+      const written = JSON.parse(
+        NodeFS.readFileSync(NodePath.join(root, ".commandcode", "settings.local.json"), "utf8"),
+      ) as { hooks: { PreToolUse: Array<{ hooks: Array<{ command: string }> }> } };
+      const command = written.hooks.PreToolUse[0]!.hooks[0]!.command;
+
+      // Ask a real bash what it makes of it: one argument, spelled correctly.
+      const seen = spawnSync("/bin/bash", ["-c", `printf '%s\\n' ${command}`, "--"], {
+        encoding: "utf8",
+      });
+      expect(seen.stdout.trimEnd().split("\n")).toEqual([hookPath]);
+    }),
+  );
+
+  it.effect("recognises its own quoted command again when it removes it", () =>
+    Effect.gen(function* () {
+      const root = yield* tempDir();
+      const hookPath = NodePath.join(root, "First Last", "bin", "cmd-hook.mjs");
+      const installed = (yield* installProjectHooks(root, hookPath))!;
+      yield* uninstallProjectHooks(root, hookPath, installed);
+      expect(NodeFS.existsSync(installed.path)).toBe(false);
+    }),
+  );
+
+  it.effect("leaves an ordinary path exactly as it always wrote it", () =>
+    Effect.gen(function* () {
+      // No churn in the settings file of every user whose home has no space.
+      const root = yield* tempDir();
+      const hookPath = NodePath.join(root, "bin", "cmd-hook.mjs");
+      yield* installProjectHooks(root, hookPath);
+      const written = NodeFS.readFileSync(
+        NodePath.join(root, ".commandcode", "settings.local.json"),
+        "utf8",
+      );
+      expect(written).toContain(`"command": ${JSON.stringify(hookPath)}`);
     }),
   );
 });

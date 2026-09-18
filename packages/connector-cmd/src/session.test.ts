@@ -93,6 +93,19 @@ emit({ type: "run_start", sessionId });
 emit({ type: "turn_start", turnNumber: 1 });
 emit({ type: "message_start" });
 emit({ type: "model_request_start", model: "stub/model" });
+if (process.env.OPENADE_STUB_TOOL === "1") {
+  // A tool call that reaches the machine. Whether a hook fired for it is the
+  // subject; the gate file lets the test answer it before the turn settles.
+  emit({ type: "tool_queued", toolCallId: "call-1", toolName: "shell_command", input: { command: "rm -rf build" } });
+  emit({ type: "tool_completed", toolCallId: "call-1", toolName: "shell_command", result: [{ type: "text", text: "" }], deferred: false });
+}
+if (process.env.OPENADE_STUB_GATE) {
+  const gate = process.env.OPENADE_STUB_GATE;
+  while (!fs.existsSync(gate)) {
+    // Busy-wait: this stub has nothing else to do and the test is the only
+    // thing that can release it.
+  }
+}
 const userMessage = {
   role: "user",
   content: [{ type: "text", text: "hi" }],
@@ -740,6 +753,68 @@ describe("makeCmdSession against a real spawned process", () => {
       const persisted = (yield* handle.sessionRef()) as CmdSessionRef | null;
       expect(persisted?.lastMessageId).toBe("a-2");
 
+      yield* handle.close();
+    }),
+  );
+
+  /**
+   * The approval gate fails open. A hook that does not run — a command the
+   * shell mis-parsed, a script that is not executable — produces no decision,
+   * and the harness falls back to its own flow, which under `--yolo` allows
+   * everything. Across all 28 recorded turns the counts match exactly, one
+   * PreToolUse post per queued call, so a turn that queued tools and posted
+   * nothing is the observable sign of a gate that is not there.
+   */
+  it.effect("says so when a turn ran tool calls and no hook ever posted", () =>
+    Effect.gen(function* () {
+      const f = yield* fixture();
+      withOpenadeHome(f);
+      const { handle, collector } = yield* startSession(f, "allow", undefined, {
+        OPENADE_STUB_TOOL: "1",
+      });
+
+      yield* handle.send({ text: "hi", attachments: [], mentions: [] });
+      const warned = yield* collector.awaitItem(
+        (event) =>
+          event.type === "session.warning" && event.payload.message.includes("approval gate"),
+      );
+      expect(warned.type === "session.warning" && warned.payload.message).toContain("did not fire");
+      yield* handle.close();
+    }),
+  );
+
+  it.effect("stays quiet on a turn whose tool calls did reach the gate", () =>
+    Effect.gen(function* () {
+      const f = yield* fixture();
+      withOpenadeHome(f);
+      const registered = yield* Ref.make<((body: unknown) => Effect.Effect<unknown>) | null>(null);
+      const gate = NodePath.join(f.root, "gate");
+      const { handle, collector } = yield* startSession(f, "allow", registered, {
+        OPENADE_STUB_TOOL: "1",
+        OPENADE_STUB_GATE: gate,
+      });
+      const handler = (yield* Ref.get(registered))!;
+
+      yield* handle.send({ text: "hi", attachments: [], mentions: [] });
+      // The row the tool call opened is the receipt that the turn is under way.
+      yield* collector.awaitItem(
+        (event) => event.type === "item.started" && event.payload.item.kind === "command_execution",
+      );
+      yield* handler({
+        session_id: SESSION_ID,
+        hook_event_name: "PreToolUse",
+        tool_name: "shell_command",
+        tool_input: { command: "rm -rf build" },
+      });
+      NodeFS.writeFileSync(gate, "go");
+      yield* collector.awaitItem(isType("turn.completed"));
+      const warnings = (yield* collector.collected).filter(isType("session.warning"));
+      expect(
+        warnings.some(
+          (event) =>
+            event.type === "session.warning" && event.payload.message.includes("approval gate"),
+        ),
+      ).toBe(false);
       yield* handle.close();
     }),
   );

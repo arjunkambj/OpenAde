@@ -43,7 +43,6 @@ import {
   type InstalledFile,
   type McpRegistration,
 } from "./config";
-import { stageTurnAttachments } from "./attachments";
 import { CMD_CAPABILITIES } from "./capabilities";
 import { SIGNAL_DEATHS, type ActiveProcess } from "./activeProcess";
 import { resolveForSession, type ResolvedBinary } from "./binary";
@@ -52,7 +51,8 @@ import { makeHookAnswerer } from "./hookAnswers";
 import { makeLineSplitter, parseFrame } from "./ndjson";
 import { contextWindowFor } from "./probe";
 import { planFileNameIn, planProposalFor, releasePlanClaims } from "./plans";
-import { buildArgs, envAllowlist, spawnProcess, TOOLS_ENABLED } from "./spawn";
+import { envAllowlist, spawnProcess } from "./spawn";
+import { prepareTurn } from "./turnArgs";
 import { makeSessionRefLocator, type CmdSessionRef } from "./sessionRef";
 import { findTranscriptPath, readTranscriptLines, tailTranscript } from "./transcript";
 import { makeTranslator, type PendingRuntimeEvent } from "./translate";
@@ -324,6 +324,26 @@ export const makeCmdSession = (
         yield* emitAll(events);
       });
 
+    /**
+     * A turn that queued tool calls and got no hook post ran ungated.
+     *
+     * Plan mode is exempt: PreToolUse never fires there, which is why a plan
+     * turn is spawned without `--yolo` and leans on print mode's own refusal.
+     */
+    const warnIfGateWasSilent = (active: ActiveProcess): Effect.Effect<void> =>
+      Effect.gen(function* () {
+        if (active.plan) {
+          return;
+        }
+        const queued = yield* Ref.get(active.queuedTools);
+        const posts = (yield* hookAnswers.postCount) - active.postsAtStart;
+        if (queued > 0 && posts === 0) {
+          yield* warn(
+            `${queued} tool call(s) ran without reaching OpenAde's approval gate — the PreToolUse hook did not fire, so this turn was not gated`,
+          );
+        }
+      });
+
     /** Everything the PreToolUse bridge needs, kept out of this file. */
     const hookAnswers = yield* makeHookAnswerer({
       threadId: options.threadId,
@@ -465,6 +485,7 @@ export const makeCmdSession = (
         Effect.gen(function* () {
           const prepared = enrich(pending);
           if (prepared.type === "turn.completed") {
+            yield* warnIfGateWasSilent(active);
             yield* drainTranscript;
             yield* refreshTranscriptPath;
             yield* emitPlanProposal(active);
@@ -501,12 +522,19 @@ export const makeCmdSession = (
         // A plan turn writes its plan with an ordinary `write_file`, and this
         // is the only place its name appears tied to this run.
         const planFile = planFileNameIn(frame);
+        const queued =
+          "event" in frame && frame.event.type === "tool_queued"
+            ? Ref.update(active.queuedTools, (count) => count + 1)
+            : Effect.void;
         const pendings = translator.onFrame(frame);
-        return (
-          planFile === null
-            ? Effect.void
-            : Ref.update(active.planWrites, (files) => [...files, planFile])
-        ).pipe(Effect.andThen(() => Effect.forEach(pendings, emitPrepared, { discard: true })));
+        return queued.pipe(
+          Effect.andThen(() =>
+            planFile === null
+              ? Effect.void
+              : Ref.update(active.planWrites, (files) => [...files, planFile]),
+          ),
+          Effect.andThen(() => Effect.forEach(pendings, emitPrepared, { discard: true })),
+        );
       };
 
       const stdoutFiber = yield* Stream.runForEach(proc.stdout, (chunk) =>
@@ -619,57 +647,22 @@ export const makeCmdSession = (
             yield* writeHookTicket(ticket, hook.bearer).pipe(
               Effect.catch((error) => warn(`could not write the hook ticket: ${String(error)}`)),
             );
-            const mentioned = turn.mentions.map((m) => `@${m}`);
-            // Print mode has no image flag: the files go under
-            // `<attachmentsDir>/<threadId>/`, that directory joins the run's
-            // scope, and the prompt names the absolute paths (decision W10).
-            const attached = yield* Effect.promise(() =>
-              stageTurnAttachments({
+            const prepared = yield* Effect.promise(() =>
+              prepareTurn({
+                turn,
+                settings,
                 attachmentsDir: options.services.attachmentsDir,
                 threadId: options.threadId,
-                attachments: turn.attachments,
+                resumeSessionId: prior?.sessionId ?? null,
               }),
             );
-            for (const message of attached.warnings) {
+            for (const message of prepared.warnings) {
               yield* warn(message);
             }
-            const prompt = [turn.text, ...mentioned, ...attached.promptLines]
-              .filter((part) => part.length > 0)
-              .join("\n\n");
-            const plan = settings.interactionMode === "plan";
-            const args = buildArgs({
-              prompt,
-              model: settings.model,
-              ...(settings.effort === undefined ? {} : { effort: settings.effort }),
-              ...(prior === null ? {} : { sessionId: prior.sessionId }),
-              // `--yolo` on every turn, plan mode included. Print mode refuses
-              // writes and shell without it whatever a hook answered
-              // (`fixtures/cmd/shell-allow/`), and in plan mode that refusal
-              // extends to the plan file the model is told to write, so a plan
-              // turn without it produces no plan at all
-              // (`fixtures/cmd/plan-no-yolo/`).
-              //
-              // On an ordinary turn it costs no gate: the hook still fires and
-              // a deny still stops the call, recorded under this exact argv in
-              // `fixtures/cmd/shell-deny-yolo/`.
-              //
-              // In plan mode it does, and the honest statement is that a plan
-              // turn has no gate of ours at all — PreToolUse never fires there
-              // (`hookCount: 0` in all four plan recordings, including one
-              // whose `read_file` fires a hook in an ordinary run), so `--yolo`
-              // takes away the only enforcement left. What keeps the workspace
-              // intact is the model's plan ladder: `plan-guard/` and
-              // `plan-write/` are both plan mode under `--yolo`, told outright
-              // to mutate, and both leave it untouched. Two observations, not a
-              // mechanism — and the alternative produces no plan to propose.
-              yolo: true,
-              ...(plan ? { permissionMode: "plan" as const } : {}),
-              ...(attached.addDirs.length === 0 ? {} : { addDir: attached.addDirs }),
-              toolsEnable: TOOLS_ENABLED,
-            });
+            const plan = prepared.plan;
             const proc = yield* spawnProcess({
               binaryPath: binary.command,
-              args: [...binary.prefixArgs, ...args],
+              args: [...binary.prefixArgs, ...prepared.args],
               cwd: options.workspaceRoot,
               env: envAllowlist(
                 process.env,
@@ -685,6 +678,8 @@ export const makeCmdSession = (
             }).pipe(Effect.provideService(Scope.Scope, scope));
             const active: ActiveProcess = {
               proc,
+              queuedTools: yield* Ref.make(0),
+              postsAtStart: yield* hookAnswers.postCount,
               turnDone: yield* Deferred.make<void>(),
               settled: yield* Deferred.make<void>(),
               plan,

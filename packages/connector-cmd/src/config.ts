@@ -134,14 +134,47 @@ interface HookCommand {
 
 const HOOK_SCRIPT_BASENAME = "cmd-hook.mjs";
 
+/** Characters a POSIX shell passes through untouched. */
+const SHELL_SAFE = /^[A-Za-z0-9_@%+=:,./-]+$/;
+
+/**
+ * A hook command the shell will read as one word.
+ *
+ * The harness runs a hook's `command` through `/bin/bash` — `runSyncHook` in
+ * the 1.56.0 bundle calls `shell.run({command, shell: hookShell(runtime)})`,
+ * and `hookShell` answers `/bin/bash` off Windows. So on a macOS account whose
+ * home is `/Users/First Last`, the unquoted path split into two words, the
+ * hook never ran, it produced no decision, and under `--yolo` every
+ * shell_command and file write in that session ran without ever raising a
+ * card: the gate's failure mode is to open, silently.
+ *
+ * A path that needs no quoting is written exactly as before, so no existing
+ * settings file changes and nothing has to be re-matched by hand.
+ */
+export const shellQuote = (value: string): string =>
+  SHELL_SAFE.test(value) ? value : `'${value.replaceAll("'", `'\\''`)}'`;
+
+/** The path inside a hook command, however it was quoted when written. */
+const unquote = (command: string): string => {
+  const trimmed = command.trim();
+  if (trimmed.length >= 2 && trimmed.startsWith("'") && trimmed.endsWith("'")) {
+    return trimmed.slice(1, -1).replaceAll(`'\\''`, "'");
+  }
+  return trimmed;
+};
+
 /** True when one hook *command* inside an entry is our generated script. */
 const isOurCommand = (hook: unknown, hookPath: string): boolean => {
-  const command = (hook as HookCommand | undefined)?.command;
+  const raw = (hook as HookCommand | undefined)?.command;
+  if (typeof raw !== "string") {
+    return false;
+  }
+  const command = unquote(raw);
   return (
-    typeof command === "string" &&
-    (command === hookPath ||
-      command.endsWith(`/${HOOK_SCRIPT_BASENAME}`) ||
-      command === HOOK_SCRIPT_BASENAME)
+    command === hookPath ||
+    command === unquote(hookPath) ||
+    command.endsWith(`/${HOOK_SCRIPT_BASENAME}`) ||
+    command === HOOK_SCRIPT_BASENAME
   );
 };
 
@@ -173,7 +206,7 @@ const stripOurs = (entries: ReadonlyArray<unknown>, hookPath: string): Array<unk
 // leave every tool ungated under --yolo.
 const ourEntry = (hookPath: string): JsonObject => ({
   matcher: ".*",
-  hooks: [{ type: "command", command: hookPath, timeout: HOOK_TIMEOUT_SECONDS }],
+  hooks: [{ type: "command", command: shellQuote(hookPath), timeout: HOOK_TIMEOUT_SECONDS }],
 });
 
 // ── retain counts ──────────────────────────────────────────────

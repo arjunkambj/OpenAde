@@ -38,6 +38,18 @@ export interface ActiveProcess {
    */
   readonly planWrites: Ref.Ref<ReadonlyArray<string>>;
   /**
+   * Tool calls this turn queued, and the hook posts answered before it began.
+   *
+   * The approval gate's failure mode is to open silently: a hook that does not
+   * run — a path the shell mis-parsed, a script that is not executable —
+   * produces no decision, and the harness falls back to its own flow, which
+   * under `--yolo` allows everything. Across all 28 recorded turns the counts
+   * match exactly, one post per queued call, so a turn that queued tools and
+   * posted nothing is the observable sign of a gate that is not there.
+   */
+  readonly queuedTools: Ref.Ref<number>;
+  readonly postsAtStart: number;
+  /**
    * The user asked for this one to stop. It decides how the exit reads: a
    * child we killed ourselves settles the turn `interrupted`, the same signal
    * death unasked-for is a crash the supervisor resumes from.

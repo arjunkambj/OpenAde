@@ -46,6 +46,13 @@ export interface HookAnswerer {
   readonly onHookPost: (body: unknown) => Effect.Effect<unknown>;
   /** Answers every parked post — the process that asked them is gone. */
   readonly releasePending: Effect.Effect<void>;
+  /**
+   * How many PreToolUse posts this session has answered. The gate's failure
+   * mode is to open silently — a hook that does not run produces no decision
+   * and the harness falls back to its own flow — so a turn that queued tools
+   * and posted nothing is the one observable sign of it.
+   */
+  readonly postCount: Effect.Effect<number>;
   /** The user's decision on an open approval. */
   readonly respondToRequest: (
     requestId: RequestId,
@@ -67,6 +74,8 @@ export const makeHookAnswerer = (options: {
 }): Effect.Effect<HookAnswerer> =>
   Effect.gen(function* () {
     const pendingApprovals = yield* Ref.make(new Map<RequestId, PendingApproval>());
+    /** PreToolUse posts answered, for the gate-silence check in the session. */
+    const posts = yield* Ref.make(0);
     const pendingUserInputs = yield* Ref.make(new Map<RequestId, PendingUserInput>());
     const emit = options.emit;
 
@@ -99,6 +108,7 @@ export const makeHookAnswerer = (options: {
      */
     const onHookPost = (body: unknown): Effect.Effect<unknown> =>
       Effect.gen(function* () {
+        yield* Ref.update(posts, (count) => count + 1);
         const record = body as {
           readonly tool_use_id?: string;
           readonly tool_name?: string;
@@ -204,6 +214,7 @@ export const makeHookAnswerer = (options: {
     return {
       onHookPost,
       releasePending,
+      postCount: Ref.get(posts),
       respondToRequest: (requestId, decision) =>
         Effect.gen(function* () {
           const pending = (yield* Ref.get(pendingApprovals)).get(requestId);
