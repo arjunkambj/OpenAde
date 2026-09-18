@@ -216,6 +216,24 @@ describe("clientState fold", () => {
     expect(doc.queue).toHaveLength(1);
   });
 
+  it("settles a fatal thread error as error, the way the server's fold does", () => {
+    // A fatal error between turns has no `thread.turn.completed` behind it to
+    // converge the two folds, so `idle` here survived until a resnapshot and
+    // then flipped to `error` with nothing having happened in between.
+    const turnId = makeTurnId();
+    let doc = applyThreadEvent(snapshot(), event("thread.turn.started", { turnId }));
+    doc = applyThreadEvent(doc, event("thread.error", { message: "out of credits", fatal: true }));
+    expect(doc.status).toBe("error");
+    expect(doc.currentTurnId).toBeNull();
+
+    // A non-fatal error is a note on the timeline; it moves nothing.
+    const noted = applyThreadEvent(
+      snapshot(),
+      event("thread.error", { message: "tool failed", fatal: false }),
+    );
+    expect(noted.status).toBe("running");
+  });
+
   it("clears the thread list when the server asks for a resnapshot", () => {
     const threads = applyThreadListItem([], {
       kind: "snapshot",

@@ -243,8 +243,14 @@ export const applyThreadEvent = (
         updatedAt: event.occurredAt,
       };
     case "thread.error":
+      // `error`, not `idle`: apps/server/src/orchestration/state.ts settles a
+      // fatal error that way, and a fatal error outside a turn has no
+      // `turn.completed` behind it to converge the two folds. Saying `idle`
+      // here left the header pill disagreeing with the sidebar row — which is
+      // fed by the server's own `ThreadSummary` — until a resnapshot flipped
+      // it with nothing having happened in between.
       return payload.fatal === true
-        ? { ...doc, status: "idle", currentTurnId: null, updatedAt: event.occurredAt }
+        ? { ...doc, status: "error", currentTurnId: null, updatedAt: event.occurredAt }
         : doc;
     default:
       return doc;
