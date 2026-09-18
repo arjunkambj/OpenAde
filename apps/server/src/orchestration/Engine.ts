@@ -528,12 +528,20 @@ export class OrchestrationEngine extends Context.Service<
           let cutoff: number;
           const baseline: Array<ThreadListStreamItem> = [];
           if (options.afterSequence === undefined) {
+            // The cutoff is read *first*. These are two statements with a yield
+            // point between them and the writer runs on another fiber: with the
+            // documents read first, a commit landing in the gap is both missing
+            // from the snapshot and filtered out of the live pump below, and
+            // the sidebar row stays wrong until some later event happens to
+            // touch that thread. Reading the cutoff first can only put the
+            // snapshot ahead of it, and a re-delivered event is an idempotent
+            // `upserted`.
+            const last = yield* store.lastSequence;
             const docs = (yield* readModels.listThreadDocs).filter(
               (doc) =>
                 !doc.deleted &&
                 (options.projectId === undefined || doc.projectId === options.projectId),
             );
-            const last = yield* store.lastSequence;
             baseline.push({
               kind: "snapshot",
               snapshotSequence: last,
