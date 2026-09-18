@@ -388,9 +388,9 @@ files are exempt, by path and by exact suffix rather than by directory name, so
 ordinary source cannot hide behind one.
 
 Lint adds the rest: no `@ts-ignore`, `@ts-expect-error` only with a reason and a
-URL, no `as any` outside tests and generated files, and no raw colours,
-arbitrary values, inline styles or restyling of design-system components outside
-`packages/ui`.
+URL, no `as any` outside tests and generated files, no raw colours and no inline
+styles anywhere, and no arbitrary values, no dynamic class names and no
+restyling of design-system components outside `packages/ui/src/components`.
 
 **To honour it:** adding a workspace means adding its rule first. Widening a rule
 is a decision; make it explicitly, in the same commit as the import that needs
