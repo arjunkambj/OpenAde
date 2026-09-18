@@ -23,6 +23,7 @@ import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { toast } from "sonner";
 
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useAppAtoms } from "@/lib/app-runtime";
 import { openExternal } from "@/lib/desktop";
 import { Icon } from "@/lib/icon";
@@ -173,6 +174,8 @@ export function ConnectorsPanel() {
   const probeAll = useAtomSet(atoms.probeConnectorsAtom, { mode: "promise" });
   const [probing, setProbing] = React.useState(false);
 
+  const [removing, setRemoving] = React.useState<ConnectorInstanceConfig | null>(null);
+
   const settings = AsyncResult.isSuccess(settingsResult) ? settingsResult.value : null;
   const summaries = AsyncResult.isSuccess(connectorsResult) ? connectorsResult.value : [];
   const byInstanceId = new Map(summaries.map((s) => [s.connectorInstanceId, s]));
@@ -253,16 +256,32 @@ export function ConnectorsPanel() {
                 ),
               )
             }
-            onRemove={() =>
-              void write(
-                settings.connectors.filter(
-                  (c) => c.connectorInstanceId !== conn.connectorInstanceId,
-                ),
-              )
-            }
+            onRemove={() => setRemoving(conn)}
           />
         ))
       )}
+
+      {/* A removal rewrites the settings document and cannot be undone — the
+          same reason `RestoreCheckpointDialog` asks first. */}
+      <ConfirmDialog
+        open={removing !== null}
+        onOpenChange={(next) => {
+          if (!next) {
+            setRemoving(null);
+          }
+        }}
+        title={removing === null ? "Remove connector?" : `Remove ${removing.displayName}?`}
+        description="Its configuration is deleted with it, and every thread bound to this instance loses its session binding. Nothing else on this machine is touched."
+        confirmLabel="Remove connector"
+        onConfirm={() => {
+          if (removing === null || settings === null) {
+            return;
+          }
+          const instanceId = removing.connectorInstanceId;
+          setRemoving(null);
+          void write(settings.connectors.filter((c) => c.connectorInstanceId !== instanceId));
+        }}
+      />
 
       <div className="flex flex-wrap gap-2">
         {Object.entries(CONNECTOR_CONFIG_SCHEMAS).map(([kind, entry]) => (

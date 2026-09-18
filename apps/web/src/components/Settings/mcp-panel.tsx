@@ -23,6 +23,7 @@ import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { toast } from "sonner";
 
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { describeExitError, useAppAtoms } from "@/lib/app-runtime";
 import { Icon } from "@/lib/icon";
 
@@ -47,6 +48,7 @@ export function McpPanel() {
     open: boolean;
     editing: McpServerConfig | null;
   }>({ open: false, editing: null });
+  const [removing, setRemoving] = React.useState<McpServerConfig | null>(null);
 
   const projects = AsyncResult.isSuccess(projectsResult) ? projectsResult.value : [];
   const servers = AsyncResult.isSuccess(serversResult) ? serversResult.value : [];
@@ -139,7 +141,7 @@ export function McpPanel() {
                           variant="ghost"
                           size="icon-sm"
                           aria-label={`Remove ${server.name}`}
-                          onClick={() => void removeServer(server)}
+                          onClick={() => setRemoving(server)}
                         >
                           <Icon icon="hugeicons:delete-02" />
                         </Button>
@@ -161,6 +163,32 @@ export function McpPanel() {
         projectId={projectId}
         canUseProjectScope={projectId !== null}
         onClose={() => setDialog({ open: false, editing: null })}
+      />
+
+      {/* Removing an entry rewrites the connector's config file; there is no
+          undo, so it asks first the way the restore dialog does. */}
+      <ConfirmDialog
+        open={removing !== null}
+        onOpenChange={(next) => {
+          if (!next) {
+            setRemoving(null);
+          }
+        }}
+        title={removing === null ? "Remove server?" : `Remove ${removing.name}?`}
+        description={
+          removing === null
+            ? ""
+            : `Its entry is deleted from the ${removing.scope === "project" ? "project's .mcp.json" : "user-level mcp.json"}, and sessions started after this will not launch it.`
+        }
+        confirmLabel="Remove server"
+        onConfirm={() => {
+          if (removing === null) {
+            return;
+          }
+          const server = removing;
+          setRemoving(null);
+          void removeServer(server);
+        }}
       />
     </div>
   );
