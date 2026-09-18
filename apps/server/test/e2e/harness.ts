@@ -156,6 +156,14 @@ export interface Driver {
    * operator's own `cmd` exactly as the shipped product does.
    */
   readonly connector: (home: E2EHome, recording: string) => ConnectorInstanceConfig;
+  /**
+   * The home the connector's *sessions* resolve `~/.commandcode` against.
+   *
+   * Not the same as the one `boot` is given for the settings pages: a live
+   * session inherits the operator's real `HOME`, because that is where the
+   * CLI's credentials are, so anything the harness writes for it lands there.
+   */
+  readonly harnessHome: (home: E2EHome) => string;
 }
 
 /**
@@ -166,6 +174,7 @@ export interface Driver {
  */
 export const liveDriver: Driver = {
   name: "live",
+  harnessHome: () => NodeOS.homedir(),
   connector: () => ({
     connectorInstanceId: makeConnectorInstanceId(),
     kind: "cmd",
@@ -178,6 +187,7 @@ export const liveDriver: Driver = {
 /** The same connector, spawning a recording instead of a model. */
 export const replayDriver: Driver = {
   name: "replay",
+  harnessHome: (home) => home.cmdHome,
   connector: (home, recording) => {
     const replay = replayConfig(recording, { home: home.cmdHome });
     return {

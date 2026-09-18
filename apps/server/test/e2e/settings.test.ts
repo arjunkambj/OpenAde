@@ -121,7 +121,10 @@ const settings = (driver: Driver) => {
         expect(models.length).toBeGreaterThan(0);
         expect(models.map((model) => model.id)).toContain(E2E_MODEL);
 
-        const listed = yield* rpc["connectors.list"]({}).pipe(Effect.orDie);
+        // `refresh` because the first pass only registers the instances —
+        // probing continues behind the handshake, so a plain list may still
+        // answer "probing", which is a true answer and not the one under test.
+        const listed = yield* rpc["connectors.list"]({ refresh: true }).pipe(Effect.orDie);
         expect(listed).toHaveLength(1);
         expect(listed[0]!.probe.status).toBe("ready");
 
