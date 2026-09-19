@@ -21,7 +21,14 @@ import * as Effect from "effect/Effect";
 import type * as Scope from "effect/Scope";
 
 import { EXIT_MESSAGES } from "./exitCodes";
-import { isBelowOldestTested, OLDEST_TESTED_VERSION, parseModelList, probe } from "./probe";
+import {
+  isBelowOldestTested,
+  OLDEST_TESTED_VERSION,
+  parseModelList,
+  PREFERRED_DEFAULT_MODEL,
+  probe,
+  withPreferredFirst,
+} from "./probe";
 
 const FIXTURE = NodePath.resolve(
   NodeURL.fileURLToPath(import.meta.url),
@@ -93,6 +100,14 @@ describe("parseModelList", () => {
   it("flags the models whose description mentions vision or multimodality", () => {
     expect(models.find((model) => model.id === "moonshotai/kimi-k2.6")?.vision).toBe(true);
     expect(models.find((model) => model.id === "deepseek/deepseek-v4-pro")?.vision).toBeUndefined();
+  });
+
+  it("puts the preferred default first when the table lists it, and only then", () => {
+    const ordered = withPreferredFirst(models);
+    expect(ordered[0]?.id).toBe(PREFERRED_DEFAULT_MODEL);
+    expect(ordered).toHaveLength(models.length);
+    const without = models.filter((model) => model.id !== PREFERRED_DEFAULT_MODEL);
+    expect(withPreferredFirst(without)).toEqual(without);
   });
 
   it("narrows nothing when the table prints no effort ladder", () => {

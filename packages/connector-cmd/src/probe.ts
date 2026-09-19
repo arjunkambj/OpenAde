@@ -247,6 +247,23 @@ const withContextWindow = (
   );
 };
 
+/**
+ * The model OpenAde starts a new thread on when nobody has picked one. Moved to
+ * the front of the list so the server's "first model of the routed instance"
+ * fallback lands on it — only when the binary actually lists it, so an account
+ * or release without it keeps the CLI's own order.
+ */
+export const PREFERRED_DEFAULT_MODEL = "meta/muse-spark-1.2-contributor";
+
+export const withPreferredFirst = (
+  models: ReadonlyArray<ModelOption>,
+): ReadonlyArray<ModelOption> => {
+  const preferred = models.find((model) => model.id === PREFERRED_DEFAULT_MODEL);
+  return preferred === undefined
+    ? models
+    : [preferred, ...models.filter((model) => model !== preferred)];
+};
+
 // ── the probe ──────────────────────────────────────────────────
 
 /** Exit 10: the account is fine, it has simply run out of credit. */
@@ -332,7 +349,9 @@ export const probe = (config: CmdConnectorConfig): Effect.Effect<ConnectorProbe,
       env,
     }).pipe(
       Effect.map((result) =>
-        result.code === 0 ? withContextWindow(parseModelList(result.stdout), parsed) : [],
+        result.code === 0
+          ? withPreferredFirst(withContextWindow(parseModelList(result.stdout), parsed))
+          : [],
       ),
       Effect.catch((error) => {
         warnings.push(`--list-models failed: ${error.message}`);
