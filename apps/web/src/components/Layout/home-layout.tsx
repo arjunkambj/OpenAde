@@ -13,6 +13,7 @@
  */
 
 import { Outlet } from "@tanstack/react-router";
+import type * as React from "react";
 
 import { SidebarInset, SidebarProvider } from "@OpenAde/ui/components/sidebar";
 import { TooltipProvider } from "@OpenAde/ui/components/tooltip";
@@ -21,10 +22,15 @@ import { ConnectionBanner } from "@/components/Layout/connection-banner";
 import { InsetWindowChrome } from "@/components/Layout/window-chrome";
 import { AppSidebar } from "@/components/sidebar/app-sidebar";
 import { SidebarToggleShortcut } from "@/lib/shortcuts";
+import { useSidebarWidth } from "@/state/ui";
 
 export function HomeLayout() {
+  const [sidebarWidth] = useSidebarWidth();
   return (
-    <SidebarProvider className="h-svh overflow-hidden">
+    <SidebarProvider
+      className="h-svh overflow-hidden"
+      style={{ "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties}
+    >
       <TooltipProvider delay={300}>
         <SidebarToggleShortcut />
         <AppSidebar />

@@ -114,9 +114,7 @@ export function SidebarWindowChrome() {
   return (
     <div className={cn(chromeRowClass, "hidden gap-1 pr-2 md:flex")}>
       <TrafficLightsGap />
-      {/* Fullscreen with the sidebar hidden is a focus mode: only the way
-          back to the sidebar stays. The desktop preload sets the attribute. */}
-      <ChromeActions navigationClassName="[html[data-fullscreen]_&]:hidden" />
+      <ChromeActions />
     </div>
   );
 }
@@ -131,11 +129,24 @@ export function InsetWindowChrome() {
   return (
     <header className={cn(chromeRowClass, "gap-1 pr-2", isMobile && "px-2")}>
       <TrafficLightsGap />
-      <ChromeActions />
+      {/* Fullscreen with the sidebar hidden is a focus mode: only the way
+          back to the sidebar stays. The desktop preload sets the attribute. */}
+      <ChromeActions navigationClassName="[html[data-fullscreen]_&]:hidden" />
     </header>
   );
 }
 
+/** Settings' sidebar cannot collapse, so its chrome drops the toggle. */
 export function SettingsWindowChrome() {
-  return <div className={cn(chromeRowClass, "hidden md:flex")} />;
+  return (
+    <div className={cn(chromeRowClass, "hidden gap-1 pr-2 md:flex")}>
+      <TrafficLightsGap />
+      <div className="ml-auto flex items-center gap-0.5">
+        <NoDrag>
+          <SearchTrigger />
+        </NoDrag>
+        <ChromeHistoryButtons />
+      </div>
+    </div>
+  );
 }

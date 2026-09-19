@@ -3,7 +3,7 @@
  *
  * Row disclosure lives in a single override map keyed by itemId so expanding a
  * tool row survives virtualization (the row unmounts, the state does not).
- * Dock width and the per-thread dock tab persist through localStorage —
+ * Sidebar and dock widths and the per-thread dock tab persist through localStorage —
  * durable layout, nothing more.
  */
 
@@ -87,6 +87,30 @@ export const useDockWidth = () => {
         Math.min(available * DOCK_WIDTH_MAX_FRACTION, available - THREAD_COLUMN_MIN),
       );
       writeStoredWidth(DOCK_WIDTH_KEY, clamped);
+      setWidth(clamped);
+    },
+    [setWidth],
+  );
+  return [width, setPersistedWidth] as const;
+};
+
+const SIDEBAR_WIDTH_KEY = "openade:sidebar-width";
+const SIDEBAR_WIDTH_DEFAULT = 260;
+const SIDEBAR_WIDTH_MIN = 220;
+const SIDEBAR_WIDTH_MAX = 480;
+
+/** Left-sidebar width in px; mirrored to localStorage on every write. */
+const sidebarWidthAtom = Atom.make<number>(
+  readStoredWidth(SIDEBAR_WIDTH_KEY, SIDEBAR_WIDTH_DEFAULT, SIDEBAR_WIDTH_MIN, SIDEBAR_WIDTH_MAX),
+);
+
+export const useSidebarWidth = () => {
+  const width = useAtomValue(sidebarWidthAtom);
+  const setWidth = useAtomSet(sidebarWidthAtom);
+  const setPersistedWidth = React.useCallback(
+    (next: number) => {
+      const clamped = clampWidth(next, SIDEBAR_WIDTH_MIN, SIDEBAR_WIDTH_MAX);
+      writeStoredWidth(SIDEBAR_WIDTH_KEY, clamped);
       setWidth(clamped);
     },
     [setWidth],
@@ -290,4 +314,67 @@ export const useLastProject = () => {
     [setLastProject],
   );
   return [lastProject, remember] as const;
+};
+
+const COLLAPSED_PROJECTS_KEY = "openade:collapsed-projects";
+
+/** Absent, unparseable or foreign-shaped storage all mean "nothing collapsed". */
+export const parseCollapsedProjects = (raw: string | null | undefined): ReadonlySet<string> => {
+  if (raw === null || raw === undefined) {
+    return new Set();
+  }
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? new Set(parsed.filter((entry): entry is string => typeof entry === "string"))
+      : new Set();
+  } catch {
+    return new Set();
+  }
+};
+
+const readCollapsedProjects = (): ReadonlySet<string> => {
+  try {
+    return parseCollapsedProjects(globalThis.localStorage?.getItem(COLLAPSED_PROJECTS_KEY));
+  } catch {
+    return new Set();
+  }
+};
+
+/**
+ * Sidebar projects whose thread list is folded away. Stored as the collapsed
+ * set rather than the expanded one, so a newly added project starts open.
+ * Persisted: a folded sidebar is layout, and should survive a relaunch.
+ */
+const collapsedProjectsAtom = Atom.make<ReadonlySet<string>>(readCollapsedProjects());
+
+/** `[collapsed, setCollapsed]` for one project's section in the sidebar. */
+export const useProjectCollapsed = (projectId: string) => {
+  const collapsed = useAtomValue(
+    collapsedProjectsAtom,
+    React.useCallback((ids: ReadonlySet<string>) => ids.has(projectId), [projectId]),
+  );
+  const setIds = useAtomSet(collapsedProjectsAtom);
+  const setCollapsed = React.useCallback(
+    (next: boolean) =>
+      setIds((current) => {
+        if (current.has(projectId) === next) {
+          return current;
+        }
+        const ids = new Set(current);
+        if (next) {
+          ids.add(projectId);
+        } else {
+          ids.delete(projectId);
+        }
+        try {
+          globalThis.localStorage?.setItem(COLLAPSED_PROJECTS_KEY, JSON.stringify([...ids]));
+        } catch {
+          // localStorage can throw (private mode, quota); the atom still updates.
+        }
+        return ids;
+      }),
+    [setIds, projectId],
+  );
+  return [collapsed, setCollapsed] as const;
 };

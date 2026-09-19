@@ -9,6 +9,10 @@
  * into `thread-seen`, and any other thread that has moved past its own stamp
  * is marked. That is renderer state by design — see `./thread-seen`.
  *
+ * A project row folds its threads away on click; the folded set persists
+ * through `useProjectCollapsed`. The open thread stays listed under a folded
+ * project, so the sidebar never loses track of where you are.
+ *
  * Every row has an overflow menu, revealed on hover: rename/archive/delete for
  * a thread, remove for a project. Those four commands existed end to end —
  * decider, reactors, tests — with nothing in the UI that could send them, so
@@ -37,6 +41,7 @@ import { Icon } from "@/lib/icon";
 import { useCreateThread } from "@/lib/use-create-thread";
 import { cn } from "@/lib/utils";
 import { useConnectionState, useProjects, useThreadList } from "@/state/hooks";
+import { useProjectCollapsed } from "@/state/ui";
 
 function ThreadStatusDot({ thread }: { thread: ThreadSummary }) {
   const mark = threadStatusMark(thread);
@@ -75,15 +80,16 @@ function ThreadLink({ thread }: { thread: ThreadSummary }) {
 
   // The row is a link plus an overflow menu overlaid at its right edge. The
   // status and unread marks fade out under it on hover, so the two never share
-  // the same few pixels.
+  // the same few pixels. The row's own `pl-2` starts the highlight under the
+  // project's folder icon; the title still lines up with the project name.
   return (
-    <div className="group/thread relative flex min-w-0 items-center">
+    <div className="group/thread relative flex min-w-0 items-center pl-2">
       <Link
         to="/t/$threadId"
         params={{ threadId: thread.threadId }}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg py-1.5 pr-2 pl-8.5 text-left type-body text-sidebar-foreground outline-none transition-colors duration-150 ease-out hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+          "flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg py-1.5 pr-0 pl-6.5 text-left type-body text-sidebar-foreground outline-none transition-colors duration-150 ease-out hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
           active && "bg-sidebar-accent text-sidebar-accent-foreground",
         )}
       >
@@ -121,7 +127,13 @@ function ThreadLink({ thread }: { thread: ThreadSummary }) {
   );
 }
 
-function NewThreadButton({ projectId }: { projectId: ProjectId }) {
+function NewThreadButton({
+  projectId,
+  onCreated,
+}: {
+  projectId: ProjectId;
+  onCreated: () => void;
+}) {
   const connection = useConnectionState();
   const { create, pending } = useCreateThread();
 
@@ -135,7 +147,13 @@ function NewThreadButton({ projectId }: { projectId: ProjectId }) {
             size="icon-sm"
             aria-label="New thread"
             disabled={pending || connection.status !== "connected"}
-            onClick={() => void create(projectId)}
+            onClick={() => {
+              void create(projectId).then((accepted) => {
+                if (accepted) {
+                  onCreated();
+                }
+              });
+            }}
           />
         }
       >
@@ -217,17 +235,45 @@ function ProjectSection({
   project: ProjectSummary;
   threads: ReadonlyArray<ThreadSummary>;
 }) {
+  const [collapsed, setCollapsed] = useProjectCollapsed(project.projectId);
+  const matchRoute = useMatchRoute();
+  const shown = collapsed
+    ? threads.filter((thread) =>
+        Boolean(matchRoute({ to: "/t/$threadId", params: { threadId: thread.threadId } })),
+      )
+    : threads;
+
   return (
     <React.Fragment>
-      <div className="group/project flex h-8 items-center gap-1 rounded-lg px-2 text-sm text-sidebar-foreground">
-        <Icon icon="hugeicons:folder-01" className="size-4 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1 truncate">{project.name}</span>
+      <div className="group/project flex h-8 items-center gap-1 rounded-lg text-sm text-sidebar-foreground">
+        <button
+          type="button"
+          aria-expanded={!collapsed}
+          onClick={() => setCollapsed(!collapsed)}
+          className="flex h-full min-w-0 flex-1 items-center gap-1 rounded-lg px-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+        >
+          {/* The folder turns into the disclosure chevron under the pointer. */}
+          <span className="relative flex size-4 shrink-0 items-center justify-center text-muted-foreground">
+            <Icon
+              icon={collapsed ? "hugeicons:folder-01" : "hugeicons:folder-open"}
+              className="size-4 transition-opacity duration-150 ease-out group-hover/project:opacity-0"
+            />
+            <Icon
+              icon="hugeicons:arrow-right-01"
+              className={cn(
+                "absolute size-4 opacity-0 transition-all duration-150 ease-out group-hover/project:opacity-100",
+                !collapsed && "rotate-90",
+              )}
+            />
+          </span>
+          <span className="ml-1.5 min-w-0 flex-1 truncate">{project.name}</span>
+        </button>
         <span className="flex items-center opacity-0 transition-opacity duration-150 ease-out group-hover/project:opacity-100 group-focus-within/project:opacity-100 [&:has([data-popup-open])]:opacity-100">
-          <NewThreadButton projectId={project.projectId} />
           <ProjectRowMenu project={project} threadCount={threads.length} />
+          <NewThreadButton projectId={project.projectId} onCreated={() => setCollapsed(false)} />
         </span>
       </div>
-      {threads.map((thread) => (
+      {shown.map((thread) => (
         <ThreadLink key={thread.threadId} thread={thread} />
       ))}
     </React.Fragment>
