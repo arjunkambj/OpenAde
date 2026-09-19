@@ -29,11 +29,12 @@ import type * as RpcClientError from "effect/unstable/rpc/RpcClientError";
 import { Composer } from "@/components/composer/composer";
 import { isDockTab, RightDock, type DockTab } from "@/components/dock/right-dock";
 import { HeaderControls } from "@/components/header-controls";
+import { ThreadGreeting } from "@/components/thread/thread-greeting";
 import { Timeline } from "@/components/timeline/timeline";
 import { Icon } from "@/lib/icon";
 import { useKeybindingCommand } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
-import { useConnectionState, useThreadDetail } from "@/state/hooks";
+import { useConnectionState, useProjects, useThreadDetail } from "@/state/hooks";
 import { useDockTabMemory } from "@/state/ui";
 
 const STATUS_LABEL: Record<ThreadStatus, string> = {
@@ -142,17 +143,17 @@ const snapshotOf = (result: ThreadDetailResult): ThreadDetailSnapshot | null => 
   return null;
 };
 
+/** A fresh thread: the greeting, for the project the thread belongs to. */
+function EmptyThread({ projectId }: { projectId: ThreadDetailSnapshot["projectId"] }) {
+  const project = useProjects().find((entry) => entry.projectId === projectId);
+  return <ThreadGreeting project={project} />;
+}
+
 function ThreadBody({ result, connected }: { result: ThreadDetailResult; connected: boolean }) {
   const snapshot = snapshotOf(result);
   if (snapshot !== null) {
     if (snapshot.items.length === 0) {
-      return (
-        <div className="flex flex-1 items-center justify-center px-6 text-center">
-          <p className="type-body text-muted-foreground">
-            No messages yet — send one to start the turn.
-          </p>
-        </div>
-      );
+      return <EmptyThread projectId={snapshot.projectId} />;
     }
     return <Timeline snapshot={snapshot} />;
   }

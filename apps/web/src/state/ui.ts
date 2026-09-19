@@ -257,3 +257,37 @@ export const useDockTabMemory = () => {
   );
   return [tabs, remember] as const;
 };
+
+const LAST_PROJECT_KEY = "openade:last-project";
+
+const readLastProject = (): string | null => {
+  try {
+    return globalThis.localStorage?.getItem(LAST_PROJECT_KEY) ?? null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * The project a thread was last started in — what the home composer's picker
+ * opens on. Persisted so a relaunch lands on the same project. Kept as a plain
+ * string; the caller checks it still names a project before using it.
+ */
+const lastProjectAtom = Atom.make<string | null>(readLastProject());
+
+export const useLastProject = () => {
+  const lastProject = useAtomValue(lastProjectAtom);
+  const setLastProject = useAtomSet(lastProjectAtom);
+  const remember = React.useCallback(
+    (projectId: string) => {
+      try {
+        globalThis.localStorage?.setItem(LAST_PROJECT_KEY, projectId);
+      } catch {
+        // localStorage can throw (private mode, quota); the atom still updates.
+      }
+      setLastProject(projectId);
+    },
+    [setLastProject],
+  );
+  return [lastProject, remember] as const;
+};

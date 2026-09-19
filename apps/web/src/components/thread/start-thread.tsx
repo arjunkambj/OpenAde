@@ -1,117 +1,269 @@
 /**
- * What `/` shows: the real starting point for a thread.
+ * What `/` shows: laid out like an empty thread — the greeting in the middle
+ * and a composer pinned underneath, with the project it runs in picked beside
+ * the send button.
  *
- * There is no such thing as a thread without a project, so the screen is a
- * project pick — one click per project, dispatching the same `thread.create`
- * the sidebar button does and landing on the new thread. With no server it
- * says so and points at /welcome, which is the connection diagnostic.
+ * There is no such thing as a thread without a project, so the picker always
+ * holds one — the project a thread was last started in (`useLastProject`),
+ * else the first. Sending creates the thread through `useCreateThread`, sends
+ * the message as its first turn, and lands on it. The id is minted when this
+ * screen mounts and the draft is keyed by it, so a first message that fails
+ * after the thread exists is still in the thread's own composer when the user
+ * gets there.
  *
- * With a server and no projects the route redirects to /welcome, but this
- * screen still carries its own empty state, because that redirect cannot be
- * relied on: without it a fresh install lands on a heading, a subtitle about
- * picking a project, and nothing to pick — no link, no add action, no way
- * forward at all. The empty state below is what makes that a recoverable
- * screen rather than a dead end.
+ * With no server it says so. A fresh install lands here with no projects, so
+ * the empty state carries the same Add project dialog the sidebar does —
+ * without it the screen would be an input with nowhere to send it.
  */
 
-import { Link } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
+import * as React from "react";
+import { toast } from "sonner";
 
 import { Button } from "@OpenAde/ui/components/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@OpenAde/ui/components/select";
+import { cn } from "@OpenAde/ui/lib/utils";
+import { makeThreadId, type ProjectId } from "@OpenAde/contracts/ids";
 import type { ProjectSummary } from "@OpenAde/contracts/orchestration";
 
+import { ATTACHMENT_ACCEPT } from "@/components/composer/attachment-rules";
+import { ComposerChips } from "@/components/composer/composer-chips";
+import { useAttachments } from "@/components/composer/use-attachments";
+import { useSendDraft } from "@/components/composer/use-send-draft";
+import { AddProjectDialog } from "@/components/sidebar/add-project-dialog";
+import { ThreadGreeting } from "@/components/thread/thread-greeting";
 import { Icon } from "@/lib/icon";
 import { useCreateThread } from "@/lib/use-create-thread";
-import { useConnectionState, useProjects, useThreadList } from "@/state/hooks";
+import { useConnectionState, useProjects } from "@/state/hooks";
+import { useComposerDraft, useLastProject } from "@/state/ui";
 
-function ProjectRow({
-  project,
-  threadCount,
-  disabled,
+function ProjectPicker({
+  projects,
+  value,
   onPick,
 }: {
-  readonly project: ProjectSummary;
-  readonly threadCount: number;
-  readonly disabled: boolean;
-  readonly onPick: () => void;
+  readonly projects: ReadonlyArray<ProjectSummary>;
+  readonly value: ProjectId;
+  readonly onPick: (projectId: ProjectId) => void;
 }) {
   return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onPick}
-      className="flex w-full min-w-0 items-center gap-3 rounded-lg border border-border px-3 py-2.5 text-left outline-none transition-colors duration-150 ease-out hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+    <Select
+      value={value}
+      onValueChange={(next) => {
+        const project = projects.find((entry) => entry.projectId === next);
+        if (project !== undefined) {
+          onPick(project.projectId);
+        }
+      }}
+      items={projects.map((project) => ({ value: project.projectId, label: project.name }))}
     >
-      <Icon icon="hugeicons:folder-01" className="size-4 shrink-0 text-muted-foreground" />
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm font-medium text-foreground">{project.name}</span>
-        <span className="truncate font-mono text-xs text-muted-foreground">
-          {project.workspaceRoot}
+      <SelectTrigger aria-label="Project" size="sm" variant="ghost" className="min-w-0">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <Icon icon="hugeicons:folder-01" className="size-3.5 shrink-0 text-muted-foreground" />
+          <SelectValue />
         </span>
-      </span>
-      <span className="shrink-0 type-micro text-muted-foreground">
-        {threadCount === 1 ? "1 thread" : `${threadCount} threads`}
-      </span>
-      <Icon icon="hugeicons:add-01" className="size-4 shrink-0 text-muted-foreground" />
-    </button>
+      </SelectTrigger>
+      <SelectContent align="start" alignItemWithTrigger={false} className="min-w-56">
+        {projects.map((project) => (
+          <SelectItem key={project.projectId} value={project.projectId}>
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate">{project.name}</span>
+              <span className="truncate font-mono text-xs text-muted-foreground">
+                {project.workspaceRoot}
+              </span>
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function StartComposer({
+  projects,
+  project,
+  onPickProject,
+}: {
+  readonly projects: ReadonlyArray<ProjectSummary>;
+  readonly project: ProjectSummary | undefined;
+  readonly onPickProject: (projectId: ProjectId) => void;
+}) {
+  const navigate = useNavigate();
+  const { create, pending } = useCreateThread();
+
+  const [threadId] = React.useState(makeThreadId);
+  const { text, files, setText, setMentions, setFiles } = useComposerDraft(threadId);
+  const attachments = useAttachments(threadId, files, setFiles);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const open = () => void navigate({ to: "/t/$threadId", params: { threadId } });
+  const { sending, send: sendDraft } = useSendDraft(
+    threadId,
+    attachments,
+    (message) => {
+      // The thread exists by now; the draft waits for a retry in its composer.
+      if (message !== null) {
+        toast.error(`The message was not sent: ${message}`);
+        open();
+      }
+    },
+    () => {
+      setText("");
+      setMentions([]);
+      open();
+    },
+  );
+
+  const busy = pending || sending;
+  const canSend = text.trim().length > 0 || attachments.files.length > 0;
+
+  // `pending` is state, so a second Enter before the re-render would create
+  // the same thread twice; the ref closes that window.
+  const startingRef = React.useRef(false);
+  const send = async () => {
+    if (project === undefined || !canSend || busy || startingRef.current) {
+      return;
+    }
+    startingRef.current = true;
+    try {
+      if (await create(project.projectId, { threadId, navigate: false })) {
+        sendDraft({ text: text.trim(), mentions: [], queued: false });
+      }
+    } finally {
+      startingRef.current = false;
+    }
+  };
+
+  return (
+    <form
+      className={cn(
+        "relative flex w-full min-w-0 max-w-[760px] flex-col gap-2 rounded-2xl border border-border bg-card px-4 py-3",
+        attachments.dragging && "border-primary ring-1 ring-primary",
+      )}
+      onSubmit={(event) => {
+        event.preventDefault();
+        void send();
+      }}
+      {...attachments.dropHandlers}
+      aria-label="New thread"
+    >
+      <ComposerChips
+        mentions={[]}
+        files={attachments.files}
+        onRemoveMention={() => {}}
+        onRemoveFile={attachments.removeAt}
+      />
+      <textarea
+        aria-label="Message"
+        data-context="composer"
+        placeholder="Ask anything"
+        rows={2}
+        autoFocus
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+            event.preventDefault();
+            void send();
+          }
+        }}
+        onPaste={attachments.onPaste}
+        className="field-sizing-content block max-h-48 min-h-10 w-full resize-none bg-transparent text-sm leading-normal text-foreground outline-none placeholder:text-muted-foreground"
+      />
+      <div className="flex min-w-0 items-center gap-1.5">
+        <input
+          key={attachments.files.length}
+          ref={fileInputRef}
+          type="file"
+          hidden
+          multiple
+          accept={ATTACHMENT_ACCEPT}
+          onChange={(event) => {
+            attachments.add([...(event.target.files ?? [])]);
+            event.target.value = "";
+          }}
+        />
+        <Button
+          type="button"
+          variant="ghost"
+          tone="muted"
+          size="icon-sm"
+          aria-label="Attach files"
+          title="Attach files"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <Icon icon="hugeicons:add-01" />
+        </Button>
+        {project === undefined ? null : (
+          <ProjectPicker projects={projects} value={project.projectId} onPick={onPickProject} />
+        )}
+        <Button
+          type="submit"
+          size="icon-sm"
+          shape="pill"
+          className="ml-auto shrink-0"
+          aria-label="Start thread"
+          title="Start thread (⏎)"
+          disabled={!canSend || busy}
+        >
+          <Icon icon={busy ? "hugeicons:loading-03" : "hugeicons:arrow-up-02"} />
+        </Button>
+      </div>
+      {attachments.rejected === null ? null : (
+        <p className="text-xs text-destructive" role="alert">
+          {attachments.rejected}
+        </p>
+      )}
+    </form>
   );
 }
 
 export function StartThread() {
   const projects = useProjects();
-  const threads = useThreadList();
   const connection = useConnectionState();
-  const { create, pending } = useCreateThread();
   const connected = connection.status === "connected";
-
-  const threadCount = (project: ProjectSummary): number =>
-    threads.filter((thread) => thread.projectId === project.projectId).length;
-
   const empty = connected && projects.length === 0;
 
-  return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-10">
-      <div className="flex w-full max-w-lg flex-col gap-5">
-        <div className="flex flex-col gap-1.5 text-center">
-          <h1 className="text-base font-medium text-foreground">
-            {empty ? "No projects yet" : "Start a thread"}
-          </h1>
-          <p className="type-body text-muted-foreground">
-            {!connected
-              ? "No server is connected, so there is nothing to start a thread on yet."
-              : empty
-                ? "A thread belongs to a project — a directory on this machine the agent works in. Add one to start."
-                : "Pick the project to work in. Everything the thread does happens in its workspace root."}
-          </p>
-        </div>
+  // A pick is remembered straight away, not only once a thread is created:
+  // the picker should open where the user left it.
+  const [lastProject, rememberProject] = useLastProject();
+  // A remembered project that has since been removed falls back to the first.
+  const project = projects.find((entry) => entry.projectId === lastProject) ?? projects[0];
 
-        {!connected ? (
-          <div className="flex justify-center">
-            <Button type="button" variant="outline" render={<Link to="/welcome" />}>
-              <Icon icon="hugeicons:wifi-off-01" className="size-4" />
-              Connection details
-            </Button>
-          </div>
-        ) : empty ? (
-          <div className="flex justify-center">
-            <Button type="button" render={<Link to="/welcome" />}>
-              <Icon icon="hugeicons:folder-add" className="size-4" />
-              Add a project
-            </Button>
-          </div>
-        ) : (
+  if (!connected || empty) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-10">
+        <div className="flex w-full max-w-[760px] flex-col items-center gap-5 text-center">
           <div className="flex flex-col gap-1.5">
-            {projects.map((project) => (
-              <ProjectRow
-                key={project.projectId}
-                project={project}
-                threadCount={threadCount(project)}
-                disabled={pending}
-                onPick={() => void create(project.projectId)}
-              />
-            ))}
+            <h1 className="text-base font-medium text-foreground">
+              {empty ? "No projects yet" : "Start a thread"}
+            </h1>
+            <p className="type-body text-muted-foreground">
+              {!connected
+                ? "No server is connected, so there is nothing to start a thread on yet."
+                : "A thread belongs to a project — a directory on this machine the agent works in. Add one to start."}
+            </p>
           </div>
-        )}
+          {empty ? <AddProjectDialog trigger="button" /> : null}
+        </div>
       </div>
-    </div>
+    );
+  }
+
+  // Laid out like an open thread with no messages: the greeting in the
+  // middle, the composer pinned to the bottom.
+  return (
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <ThreadGreeting project={project} />
+      <div className="flex w-full shrink-0 justify-center px-4 pb-4">
+        <StartComposer projects={projects} project={project} onPickProject={rememberProject} />
+      </div>
+    </section>
   );
 }
