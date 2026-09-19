@@ -5,7 +5,7 @@
  * It claims exactly one keybinding, `sidebar.toggle`, because that is the one
  * whose target — this sidebar — exists only here. The route-independent
  * commands are claimed by `SearchProvider` at the app root, so they work on
- * `/settings/*` and `/welcome` too; thread-scoped bindings
+ * `/settings/*` too; thread-scoped bindings
  * (`thread.interrupt`, `composer.queue`, `browserPane.toggle`) belong to the
  * thread view, which is the only component that knows which thread they act
  * on. None of them listens for keys itself — the one listener lives in

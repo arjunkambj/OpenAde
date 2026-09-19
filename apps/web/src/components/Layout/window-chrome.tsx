@@ -1,4 +1,4 @@
-import { Link, useCanGoBack, useRouter } from "@tanstack/react-router";
+import { useCanGoBack, useRouter } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 import { Button } from "@OpenAde/ui/components/button";
@@ -138,34 +138,4 @@ export function InsetWindowChrome() {
 
 export function SettingsWindowChrome() {
   return <div className={cn(chromeRowClass, "hidden md:flex")} />;
-}
-
-/**
- * `/welcome`'s own chrome row.
- *
- * The route is a top-level one — its parent is the root route — so it renders
- * neither `HomeLayout` nor `SettingsLayout` and used to get none of this. The
- * desktop window is created with `titleBarStyle: "hiddenInset"` and only a
- * chrome row reserves `--traffic-lights-width`, so on macOS the traffic lights
- * sat on top of the page and the window could not be dragged at all while this
- * route was open. Its only in-page exit was "Create project", which on an
- * install that already has projects makes a duplicate.
- *
- * So: the drag strip, the spacer the traffic lights need, and an explicit way
- * back for anyone who did not arrive here from a fresh install.
- */
-export function WelcomeWindowChrome({ canGoBack }: { readonly canGoBack: boolean }) {
-  return (
-    <div className={cn(chromeRowClass, "gap-1 px-2")}>
-      <TrafficLightsGap />
-      {canGoBack ? (
-        <NoDrag>
-          <Button type="button" variant="ghost" tone="subtle" size="sm" render={<Link to="/" />}>
-            <Icon icon="hugeicons:arrow-left-01" className="size-4 scale-90" />
-            Back
-          </Button>
-        </NoDrag>
-      ) : null}
-    </div>
-  );
 }

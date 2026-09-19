@@ -72,8 +72,8 @@ const searchItems = [
 /**
  * Mounted once at the app root, not inside a layout: these commands are
  * route-independent, and while they were claimed inside `HomeLayout` the
- * palette, New task and Settings chords all did nothing on `/settings/*` and
- * `/welcome`. `sidebar.toggle` is the exception — it belongs to whichever
+ * palette, New task and Settings chords all did nothing on `/settings/*`.
+ * `sidebar.toggle` is the exception — it belongs to whichever
  * sidebar is on screen, so each layout claims it through
  * `SidebarToggleShortcut` and this file only *fires* it.
  */

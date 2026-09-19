@@ -105,9 +105,6 @@ export const installAppAtoms = (resolved: ResolvedConnection | null): AppAtoms =
   return appAtoms;
 };
 
-/** What `resolveConnection` found at boot — the /welcome page displays it. */
-export const getResolvedConnection = (): ResolvedConnection | null => resolvedConnection;
-
 /**
  * The server's http(s) origin, derived from the socket url. Loopback routes
  * that are not RPC live on it — the browser pane's attach marker, which the

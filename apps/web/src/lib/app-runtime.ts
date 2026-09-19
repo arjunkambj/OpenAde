@@ -3,7 +3,7 @@
  *
  * `@/state/app-runtime` owns the one `makeRuntime` instance (and the offline
  * layer that keeps atoms mountable without a server). This module adds the
- * query/mutation atoms the settings pages and the welcome flow need that the
+ * query/mutation atoms the settings pages need that the
  * shared client runtime does not carry, built once on top of that instance.
  * Atoms the shared runtime already publishes — `skillsAtom`,
  * `connectorModelsAtom`, `keybindingsAtom`, `keybindingsUpdateAtom` — are
