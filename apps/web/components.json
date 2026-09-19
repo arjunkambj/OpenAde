@@ -1,6 +1,6 @@
 {
   "$schema": "https://ui.shadcn.com/schema.json",
-  "style": "base-rhea",
+  "style": "base-nova",
   "rsc": false,
   "tsx": true,
   "tailwind": {
@@ -10,7 +10,8 @@
     "cssVariables": true,
     "prefix": ""
   },
-  "iconLibrary": "lucide",
+  "iconLibrary": "hugeicons",
+  "rtl": false,
   "aliases": {
     "components": "@/components",
     "utils": "@OpenAde/ui/lib/utils",
@@ -20,6 +21,5 @@
   },
   "menuColor": "default",
   "menuAccent": "subtle",
-  "rtl": false,
   "registries": {}
 }
