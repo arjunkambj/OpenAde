@@ -48,7 +48,7 @@ describe("defaultSettings", () => {
 });
 
 describe("DEFAULT_KEYBINDINGS", () => {
-  it.effect("binds the five shortcuts the shell promises", () =>
+  it.effect("binds every shortcut the shell promises", () =>
     Effect.gen(function* () {
       const bindings = yield* Effect.succeed(DEFAULT_KEYBINDINGS);
       const byCommand = new Map(bindings.map((binding) => [binding.command, binding.shortcut]));
@@ -57,6 +57,17 @@ describe("DEFAULT_KEYBINDINGS", () => {
       expect(byCommand.get("composer.queue")).toBe("Cmd+Enter");
       expect(byCommand.get("thread.interrupt")).toBe("Escape");
       expect(byCommand.get("browserPane.toggle")).toBe("Cmd+Shift+B");
+      expect(byCommand.get("sidebar.toggle")).toBe("Cmd+B");
+      expect(byCommand.get("skills.open")).toBe("Cmd+Shift+S");
+      expect(byCommand.get("settings.open")).toBe("Cmd+,");
+    }),
+  );
+
+  it.effect("binds each command once", () =>
+    Effect.gen(function* () {
+      const bindings = yield* Effect.succeed(DEFAULT_KEYBINDINGS);
+      const commands = bindings.map((binding) => binding.command);
+      expect(new Set(commands).size).toBe(commands.length);
     }),
   );
 

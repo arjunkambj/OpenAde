@@ -8,7 +8,8 @@
     "build": "vite build",
     "serve": "vite preview",
     "start": "vite",
-    "check-types": "vite build && tsc --noEmit"
+    "check-types": "vite build && tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@OpenAde/client-runtime": "workspace:*",
@@ -44,6 +45,7 @@
     "postcss": "^8.5.24",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
-    "vite": "^8.1.5"
+    "vite": "^8.1.5",
+    "vitest": "catalog:"
   }
 }

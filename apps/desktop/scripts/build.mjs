@@ -10,11 +10,13 @@ export const outDir = join(root, "out");
 export const rendererDist = join(root, "..", "web", "dist");
 export const rendererOut = join(outDir, "renderer");
 
-/** @param {{ watch?: boolean }} [options] */
-export function bundleOptions({ watch = false } = {}) {
+/** @param {{ watch?: boolean, channel?: "stable" | "canary" }} [options] */
+export function bundleOptions({ watch = false, channel = "stable" } = {}) {
   return [
     { entry: "src/main/index.ts", outfile: "out/main/index.cjs" },
     { entry: "src/preload/index.ts", outfile: "out/preload/index.cjs" },
+    // The server ships inside the app; spawned under ELECTRON_RUN_AS_NODE.
+    { entry: "../server/src/main.ts", outfile: "out/server/main.cjs" },
   ].map(({ entry, outfile }) => ({
     entryPoints: [join(root, entry)],
     outfile: join(root, outfile),
@@ -28,6 +30,10 @@ export function bundleOptions({ watch = false } = {}) {
     logLevel: "info",
     define: {
       "process.env.NODE_ENV": JSON.stringify(watch ? "development" : "production"),
+      // `src/platform/channel.ts` derives the product name and the Windows
+      // app-user-model id from this, so it has to be the channel
+      // electron-builder is packaging with.
+      "process.env.OPENADE_CHANNEL": JSON.stringify(channel),
     },
   }));
 }
@@ -41,9 +47,10 @@ export async function copyRenderer() {
   await cp(rendererDist, rendererOut, { recursive: true });
 }
 
-export async function build() {
+/** @param {{ channel?: "stable" | "canary" }} [options] */
+export async function build({ channel = "stable" } = {}) {
   await rm(outDir, { recursive: true, force: true });
-  await Promise.all(bundleOptions().map((options) => esbuild.build(options)));
+  await Promise.all(bundleOptions({ channel }).map((options) => esbuild.build(options)));
   await copyRenderer();
 }
 

@@ -1,16 +1,24 @@
 /**
- * Entry point of the OpenAde server.
+ * The OpenAde server entrypoint.
  *
- * W10 composes the real Layers here and prints the handshake
- * `{ url, token, serverInstanceId }` on fd 3 (decision D3). Until then this
- * prints one placeholder JSON line so the dev and build scripts are exercised
- * end to end.
+ * Only what belongs to a process lives here: reading the arguments and the
+ * environment, handing them to `boot`, and staying alive until the runtime
+ * tears the scope down. The graph itself is `./boot`, so a test can build the
+ * real server without a child process.
  */
 
-const line = JSON.stringify({
-  name: "server",
-  status: "placeholder",
-  pid: process.pid,
-});
+import * as Effect from "effect/Effect";
+import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 
-process.stdout.write(`${line}\n`);
+import { boot } from "./boot";
+
+const DEV = process.env.OPENADE_DEV === "1" || process.argv.includes("--dev");
+const PORT = Number.parseInt(process.env.OPENADE_PORT ?? "0", 10);
+
+NodeRuntime.runMain(
+  Effect.scoped(
+    // `home` is left to the environment: `OPENADE_HOME` is what the desktop
+    // shell, the dev scripts and the tests all set.
+    Effect.andThen(boot({ dev: DEV, port: Number.isNaN(PORT) ? 0 : PORT }), Effect.never),
+  ),
+);

@@ -3,6 +3,8 @@ import * as Effect from "effect/Effect";
 import * as RpcSchema from "effect/unstable/rpc/RpcSchema";
 
 import {
+  FS_BROWSE_ENTRY_LIMIT,
+  FsBrowseFailure,
   OpenAdeRpcGroup,
   PROTOCOL_VERSION,
   RPC_METHODS,
@@ -60,8 +62,31 @@ describe("PROTOCOL_VERSION", () => {
   );
 });
 
+describe("fs.browse", () => {
+  it.effect("caps a listing, so one directory can never be an unbounded frame", () =>
+    Effect.gen(function* () {
+      const limit = yield* Effect.succeed(FS_BROWSE_ENTRY_LIMIT);
+      expect(Number.isInteger(limit)).toBe(true);
+      expect(limit).toBeGreaterThan(0);
+    }),
+  );
+
+  it.effect("names every failure the picker has a different answer for", () =>
+    Effect.gen(function* () {
+      const reasons = yield* Effect.succeed([...FsBrowseFailure.literals].sort());
+      expect(reasons).toEqual([
+        "internal",
+        "not-a-directory",
+        "not-absolute",
+        "not-found",
+        "permission-denied",
+      ]);
+    }),
+  );
+});
+
 describe("the stream budget", () => {
-  it.effect("is the one the spec names, so server and client cannot drift", () =>
+  it.effect("is the one the contract names, so server and client cannot drift", () =>
     Effect.gen(function* () {
       const budget = yield* Effect.succeed({
         items: STREAM_BUDGET_ITEMS,

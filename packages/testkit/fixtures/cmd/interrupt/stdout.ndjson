@@ -1,0 +1,7 @@
+{"type":"event","event":{"type":"run_start","sessionId":"b2cc0fb6-569c-4005-8e3a-08a2ac9ec5e0"}}
+{"type":"event","event":{"type":"turn_start","turnNumber":1}}
+{"type":"event","event":{"type":"message_start"}}
+{"type":"event","event":{"type":"model_request_start","model":"meta/muse-spark-1.3-contributor"}}
+{"type":"event","event":{"type":"model_trace","traceId":"71b43d49d7ce33a3d7d452e3d9cffdb3"}}
+{"type":"event","event":{"type":"thinking_start"}}
+{"type":"event","event":{"type":"thinking_delta","delta":"Counting from 1 to 200 with per-line comments under abstract output constraints."}}

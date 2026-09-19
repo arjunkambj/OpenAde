@@ -1,0 +1,269 @@
+{
+  "scenario": "shell-deny",
+  "description": "shell_command denied through the PreToolUse hook (no --yolo)",
+  "cli": "/opt/homebrew/bin/cmd",
+  "cliVersion": "1.55.1",
+  "recordedOn": "2026-09-18",
+  "model": "meta/muse-spark-1.3-contributor",
+  "real": true,
+  "turns": [
+    {
+      "index": 0,
+      "prompt": "Run the shell command `cat note.txt` and tell me the output. Use the shell tool.",
+      "connectorArgs": [
+        "-p",
+        "Run the shell command `cat note.txt` and tell me the output. Use the shell tool.",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--max-turns",
+        "3"
+      ],
+      "argv": [
+        "-p",
+        "Run the shell command `cat note.txt` and tell me the output. Use the shell tool.",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--max-turns",
+        "3"
+      ],
+      "envKeys": [
+        "HOME",
+        "OPENADE_RECORD_HOOK_LOG",
+        "OPENADE_RECORD_HOOK_POLICY",
+        "OPENADE_THREAD_ID",
+        "PATH",
+        "SHELL",
+        "SSH_AUTH_SOCK",
+        "TMPDIR",
+        "USER"
+      ],
+      "sessionId": "a2ec1746-355b-4f1d-b8ba-7536194c7162",
+      "exitCode": 0,
+      "signal": null,
+      "interrupted": false,
+      "durationMs": 23020,
+      "stdoutChunks": [
+        {
+          "at": 486,
+          "chars": 97
+        },
+        {
+          "at": 521,
+          "chars": 62
+        },
+        {
+          "at": 587,
+          "chars": 50
+        },
+        {
+          "at": 587,
+          "chars": 98
+        },
+        {
+          "at": 657,
+          "chars": 93
+        },
+        {
+          "at": 4937,
+          "chars": 231
+        },
+        {
+          "at": 4971,
+          "chars": 231
+        },
+        {
+          "at": 4971,
+          "chars": 228
+        },
+        {
+          "at": 4972,
+          "chars": 208
+        },
+        {
+          "at": 5156,
+          "chars": 260
+        },
+        {
+          "at": 5156,
+          "chars": 282
+        },
+        {
+          "at": 5157,
+          "chars": 172
+        },
+        {
+          "at": 5158,
+          "chars": 62
+        },
+        {
+          "at": 5158,
+          "chars": 50
+        },
+        {
+          "at": 5158,
+          "chars": 98
+        },
+        {
+          "at": 5159,
+          "chars": 93
+        },
+        {
+          "at": 11444,
+          "chars": 308
+        },
+        {
+          "at": 11501,
+          "chars": 231
+        },
+        {
+          "at": 11501,
+          "chars": 305
+        },
+        {
+          "at": 11501,
+          "chars": 285
+        },
+        {
+          "at": 11590,
+          "chars": 252
+        },
+        {
+          "at": 11590,
+          "chars": 278
+        },
+        {
+          "at": 11590,
+          "chars": 172
+        },
+        {
+          "at": 11590,
+          "chars": 62
+        },
+        {
+          "at": 11591,
+          "chars": 50
+        },
+        {
+          "at": 11591,
+          "chars": 98
+        },
+        {
+          "at": 11591,
+          "chars": 93
+        },
+        {
+          "at": 17367,
+          "chars": 51
+        },
+        {
+          "at": 17367,
+          "chars": 162
+        },
+        {
+          "at": 19575,
+          "chars": 163
+        },
+        {
+          "at": 22967,
+          "chars": 260
+        },
+        {
+          "at": 22967,
+          "chars": 77
+        },
+        {
+          "at": 22967,
+          "chars": 358
+        },
+        {
+          "at": 22983,
+          "chars": 129
+        },
+        {
+          "at": 22984,
+          "chars": 429
+        },
+        {
+          "at": 22984,
+          "chars": 59
+        },
+        {
+          "at": 22984,
+          "chars": 430
+        },
+        {
+          "at": 23001,
+          "chars": 226
+        },
+        {
+          "at": 23001,
+          "chars": 427
+        },
+        {
+          "at": 23002,
+          "chars": 174
+        },
+        {
+          "at": 23007,
+          "chars": 3373
+        },
+        {
+          "at": 23008,
+          "chars": 331
+        }
+      ],
+      "transcriptPath": "<HOME>/.commandcode/projects/private-tmp-claude-501-volumes-main-code-open-ade-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-shell-deny-82e27d30-repo/a2ec1746-355b-4f1d-b8ba-7536194c7162.jsonl",
+      "guessedTranscriptPath": "<HOME>/.commandcode/projects/private-tmp-claude-501--volumes-main-code-openade-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-shell-deny-82e27d30-repo/a2ec1746-355b-4f1d-b8ba-7536194c7162.jsonl",
+      "transcriptDirMatchesConnectorSlug": false,
+      "projectDirListing": [
+        "a2ec1746-355b-4f1d-b8ba-7536194c7162.checkpoints.jsonl",
+        "a2ec1746-355b-4f1d-b8ba-7536194c7162.jsonl",
+        "a2ec1746-355b-4f1d-b8ba-7536194c7162.meta.json"
+      ],
+      "transcriptGrowth": [
+        {
+          "at": 5165,
+          "bytes": 1638,
+          "lines": 4
+        },
+        {
+          "at": 11615,
+          "bytes": 2767,
+          "lines": 6
+        },
+        {
+          "at": 23020,
+          "bytes": 3562,
+          "lines": 7
+        }
+      ],
+      "transcriptBytes": 3556,
+      "checkpointGrowth": [
+        {
+          "at": 491,
+          "bytes": 270,
+          "lines": 1
+        }
+      ],
+      "transcriptMeta": "{\n  \"entrypoint\": \"print\",\n  \"traceIds\": [\n    \"5c0492146bda92a64db706f423d3ea0b\",\n    \"f630223f6decd550af1ba86902eaa780\",\n    \"693d6cb07367cc8196613b1820b8018b\"\n  ]\n}",
+      "hookCount": 2,
+      "plans": [],
+      "touchedFiles": [],
+      "files": {
+        "stdout": "stdout.ndjson",
+        "stderr": "stderr.txt",
+        "transcript": "transcript.jsonl",
+        "checkpoints": "checkpoints.jsonl",
+        "hooks": "hooks.json"
+      }
+    }
+  ]
+}

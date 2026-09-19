@@ -1,0 +1,6 @@
+{
+  "_tag": "FsBrowseError",
+  "reason": "permission-denied",
+  "path": "/Users/dev/Library/Application Support/MobileSync",
+  "message": "That folder cannot be opened."
+}

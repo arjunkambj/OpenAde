@@ -35,18 +35,22 @@ import {
   ThreadSummary,
 } from "../src/orchestration";
 import {
+  AttachmentBytes,
   BrowserHumanInput,
   BrowserState,
   ConnectorProbe,
   ConnectorSummary,
   FileContent,
   FileSearchResult,
+  FsBrowseError,
+  FsListing,
   GitDiff,
   GitStatus,
   McpServerConfig,
   ModelOption,
   ServerHello,
   SkillSummary,
+  StagedAttachment,
 } from "../src/rpc";
 import { ItemSnapshot, RuntimeEvent, RuntimeEventType } from "../src/runtime";
 import { Settings } from "../src/settings";
@@ -158,6 +162,10 @@ const families: ReadonlyArray<Family> = [
 /** A schema with a single fixture: a read model, an RPC result, a document. */
 const singles: ReadonlyArray<{ readonly path: string; readonly schema: FixtureSchema }> = [
   { path: "thread-detail-snapshot.json", schema: ThreadDetailSnapshot },
+  // The same thread with a checkpoint restore in flight: `restoring` is what a
+  // client reads to keep the spinner up and the Restore button disabled across
+  // a reload, so the populated shape needs its own round-trip.
+  { path: "thread-detail-snapshot.restoring.json", schema: ThreadDetailSnapshot },
   { path: "settings.json", schema: Settings },
   { path: "read-models/project-summary.json", schema: ProjectSummary },
   { path: "read-models/thread-summary.json", schema: ThreadSummary },
@@ -166,11 +174,19 @@ const singles: ReadonlyArray<{ readonly path: string; readonly schema: FixtureSc
   { path: "rpc/server-hello.json", schema: ServerHello },
   { path: "rpc/model-option.json", schema: ModelOption },
   { path: "rpc/connector-probe.json", schema: ConnectorProbe },
+  { path: "rpc/connector-probe.probing.json", schema: ConnectorProbe },
   { path: "rpc/connector-summary.json", schema: ConnectorSummary },
   { path: "rpc/file-search-result.json", schema: FileSearchResult },
   { path: "rpc/file-content.json", schema: FileContent },
+  { path: "rpc/fs-listing.json", schema: FsListing },
+  { path: "rpc/fs-listing.root.json", schema: FsListing },
+  { path: "rpc/fs-browse-error.json", schema: FsBrowseError },
+  { path: "rpc/staged-attachment.json", schema: StagedAttachment },
+  { path: "rpc/attachment-bytes.json", schema: AttachmentBytes },
   { path: "rpc/git-status.json", schema: GitStatus },
+  { path: "rpc/git-status.not-a-repository.json", schema: GitStatus },
   { path: "rpc/git-diff.json", schema: GitDiff },
+  { path: "rpc/git-diff.not-a-repository.json", schema: GitDiff },
   { path: "rpc/browser-state.json", schema: BrowserState },
   { path: "rpc/mcp-server-config.json", schema: McpServerConfig },
   { path: "rpc/skill-summary.json", schema: SkillSummary },
@@ -249,6 +265,35 @@ describe("the thread snapshot fixture", () => {
       expect(snapshot.items).toHaveLength(20);
       const covered = new Set(snapshot.items.map((snapshotItem) => snapshotItem.kind));
       expect([...covered].sort()).toEqual([...ItemKind.literals].sort());
+    }),
+  );
+
+  it.effect("reports a restore in flight, and the absence of one", () =>
+    Effect.gen(function* () {
+      const idle = yield* Effect.sync(() =>
+        Schema.decodeUnknownSync(ThreadDetailSnapshot)(read("thread-detail-snapshot.json")),
+      );
+      expect(idle.restoring ?? null).toBeNull();
+      const restoring = yield* Effect.sync(() =>
+        Schema.decodeUnknownSync(ThreadDetailSnapshot)(
+          read("thread-detail-snapshot.restoring.json"),
+        ),
+      );
+      // The checkpoint it names is one the thread actually holds, which is what
+      // the Changes pane needs to label the row it is restoring to.
+      expect(restoring.restoring?.checkpointId).toBe(restoring.checkpoints[0]?.checkpointId);
+    }),
+  );
+
+  it.effect("decodes a snapshot written before `restoring` existed", () =>
+    Effect.gen(function* () {
+      const { restoring: _restoring, ...older } = yield* Effect.sync(
+        () => read("thread-detail-snapshot.json") as Record<string, unknown>,
+      );
+      const decoded = yield* Effect.sync(() =>
+        Schema.decodeUnknownSync(ThreadDetailSnapshot)(older),
+      );
+      expect(decoded.restoring).toBeUndefined();
     }),
   );
 

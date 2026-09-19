@@ -13,11 +13,20 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@OpenAde/ui/components/command";
-import { useSidebar } from "@OpenAde/ui/components/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+import type { ProjectId } from "@OpenAde/contracts/ids";
 
 import { Icon } from "@/lib/icon";
-import { matchShortcut, ShortcutKbd, type ShortcutId } from "@/lib/shortcuts";
+import {
+  SHORTCUT_COMMANDS,
+  ShortcutKbd,
+  useKeybindingCommand,
+  useKeybindingDispatch,
+  useKeybindingHandled,
+  type ShortcutId,
+} from "@/lib/shortcuts";
+import { useCreateThread } from "@/lib/use-create-thread";
+import { useProjects, useThreadList } from "@/state/hooks";
 
 type SearchContextValue = {
   setOpen: (open: boolean) => void;
@@ -25,6 +34,11 @@ type SearchContextValue = {
 
 const SearchContext = React.createContext<SearchContextValue | null>(null);
 
+/**
+ * The palette handle. Deliberately not exported: `SearchProvider` claims
+ * `commandPalette.toggle` itself, so no surface outside this file needs to
+ * reach in and open the palette.
+ */
 function useSearch() {
   const context = React.useContext(SearchContext);
   if (!context) {
@@ -33,6 +47,10 @@ function useSearch() {
   return context;
 }
 
+/**
+ * Every entry here has to land on something real — a palette that navigates to
+ * a blank pane is worse than one that is missing the entry.
+ */
 const searchItems = [
   {
     to: "/",
@@ -40,18 +58,9 @@ const searchItems = [
     label: "New task",
     shortcut: "newChat",
   },
-  {
-    to: "/review",
-    icon: "hugeicons:git-compare",
-    label: "Review work",
-  },
-  {
-    to: "/skills",
-    icon: "hugeicons:dashboard-circle-add",
-    label: "Skill & Plugins",
-    shortcut: "skills",
-  },
-  { to: "/settings/uses", icon: "hugeicons:flash", label: "Uses" },
+  { to: "/customize/skills", icon: "hugeicons:magic-wand-01", label: "Skills" },
+  { to: "/customize/mcp", icon: "hugeicons:server-stack-01", label: "MCP servers" },
+  { to: "/settings/connectors", icon: "hugeicons:plug-01", label: "Connectors" },
   {
     to: "/settings",
     icon: "hugeicons:settings-01",
@@ -60,43 +69,34 @@ const searchItems = [
   },
 ] as const;
 
+/**
+ * Mounted once at the app root, not inside a layout: these commands are
+ * route-independent, and while they were claimed inside `HomeLayout` the
+ * palette, New task and Settings chords all did nothing on `/settings/*`.
+ * `sidebar.toggle` is the exception — it belongs to whichever
+ * sidebar is on screen, so each layout claims it through
+ * `SidebarToggleShortcut` and this file only *fires* it.
+ */
 export function SearchProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = React.useState(false);
   const navigate = useNavigate();
   const value = React.useMemo(() => ({ setOpen }), []);
 
-  React.useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (matchShortcut("search", event)) {
-        event.preventDefault();
-        setOpen((current) => !current);
-        return;
-      }
+  // Handlers only — the chords come from the settings-owned keybinding table
+  // and the one listener above the routes (@/lib/shortcuts). The palette is a
+  // modal dialog over the route, so every navigating handler closes it first.
+  const go = React.useCallback(
+    (to: "/" | "/customize/skills" | "/settings") => () => {
+      setOpen(false);
+      void navigate({ to });
+    },
+    [navigate],
+  );
 
-      if (matchShortcut("newChat", event)) {
-        event.preventDefault();
-        setOpen(false);
-        void navigate({ to: "/" });
-        return;
-      }
-
-      if (matchShortcut("skills", event)) {
-        event.preventDefault();
-        setOpen(false);
-        void navigate({ to: "/skills" });
-        return;
-      }
-
-      if (matchShortcut("settings", event)) {
-        event.preventDefault();
-        setOpen(false);
-        void navigate({ to: "/settings" });
-      }
-    }
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [navigate]);
+  useKeybindingCommand(SHORTCUT_COMMANDS.search, () => setOpen((current) => !current));
+  useKeybindingCommand(SHORTCUT_COMMANDS.newChat, go("/"));
+  useKeybindingCommand(SHORTCUT_COMMANDS.skills, go("/customize/skills"));
+  useKeybindingCommand(SHORTCUT_COMMANDS.settings, go("/settings"));
 
   return (
     <SearchContext.Provider value={value}>
@@ -144,6 +144,69 @@ function ItemShortcut({ id }: { id?: ShortcutId }) {
   );
 }
 
+/**
+ * The threads and projects the palette can reach. A palette in a multi-thread
+ * app that cannot find a thread is a menu, so both lists come from the live
+ * atoms; picking a project starts a thread through the one create flow.
+ */
+function LiveGroups({ onDone }: { onDone: () => void }) {
+  const navigate = useNavigate();
+  const threads = useThreadList();
+  const projects = useProjects();
+  const { create } = useCreateThread();
+
+  const projectName = (projectId: ProjectId): string =>
+    projects.find((project) => project.projectId === projectId)?.name ?? "Other threads";
+
+  return (
+    <>
+      {threads.length === 0 ? null : (
+        <>
+          <CommandSeparator />
+          <CommandGroup heading="Threads">
+            {threads.map((thread) => (
+              <CommandItem
+                key={thread.threadId}
+                value={`${thread.title} ${projectName(thread.projectId)} ${thread.threadId}`}
+                onSelect={() => {
+                  onDone();
+                  void navigate({ to: "/t/$threadId", params: { threadId: thread.threadId } });
+                }}
+              >
+                <Icon icon="hugeicons:message-01" />
+                <span className="min-w-0 flex-1 truncate">{thread.title}</span>
+                <span className="shrink-0 type-micro text-muted-foreground">
+                  {projectName(thread.projectId)}
+                </span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </>
+      )}
+      {projects.length === 0 ? null : (
+        <>
+          <CommandSeparator />
+          <CommandGroup heading="Start a thread">
+            {projects.map((project) => (
+              <CommandItem
+                key={project.projectId}
+                value={`New thread in ${project.name}`}
+                onSelect={() => {
+                  onDone();
+                  void create(project.projectId);
+                }}
+              >
+                <Icon icon="hugeicons:add-01" />
+                New thread in {project.name}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </>
+      )}
+    </>
+  );
+}
+
 function SearchDialog({
   open,
   onOpenChange,
@@ -152,18 +215,22 @@ function SearchDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const navigate = useNavigate();
-  const { toggleSidebar } = useSidebar();
+  const fire = useKeybindingDispatch();
+  // Read on mount, and this content mounts on every open: a route whose
+  // layout has no collapsible sidebar gets no row for it, instead of a row
+  // that quietly does nothing.
+  const canToggleSidebar = useKeybindingHandled(SHORTCUT_COMMANDS.toggle);
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange} title="Search">
       <Command>
-        <CommandInput placeholder="Search..." />
+        <CommandInput placeholder="Search threads and commands…" />
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
           <CommandGroup heading="Navigation">
             {searchItems.map((item) => (
               <CommandItem
-                key={item.to}
+                key={item.label}
                 value={item.label}
                 onSelect={() => {
                   onOpenChange(false);
@@ -176,20 +243,25 @@ function SearchDialog({
               </CommandItem>
             ))}
           </CommandGroup>
-          <CommandSeparator />
-          <CommandGroup heading="View">
-            <CommandItem
-              value="Toggle sidebar"
-              onSelect={() => {
-                onOpenChange(false);
-                toggleSidebar();
-              }}
-            >
-              <Icon icon="hugeicons:layout-left" />
-              Toggle sidebar
-              <ItemShortcut id="toggle" />
-            </CommandItem>
-          </CommandGroup>
+          {canToggleSidebar ? (
+            <>
+              <CommandSeparator />
+              <CommandGroup heading="View">
+                <CommandItem
+                  value="Toggle sidebar"
+                  onSelect={() => {
+                    onOpenChange(false);
+                    fire(SHORTCUT_COMMANDS.toggle);
+                  }}
+                >
+                  <Icon icon="hugeicons:layout-left" />
+                  Toggle sidebar
+                  <ItemShortcut id="toggle" />
+                </CommandItem>
+              </CommandGroup>
+            </>
+          ) : null}
+          <LiveGroups onDone={() => onOpenChange(false)} />
         </CommandList>
       </Command>
     </CommandDialog>

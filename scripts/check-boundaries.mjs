@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Package boundary check (spec section 4, decision D4).
+ * Package boundary check.
  *
  * Two guardrails in one pass over the workspace sources:
  *
@@ -10,7 +10,7 @@
  *     may always import itself; anything else has to be listed. A package with
  *     no rule may not import any workspace package. A relative specifier that
  *     climbs out of its own workspace directory is a violation whatever it
- *     lands on: packages are consumed through their `exports` map (D1), so
+ *     lands on: packages are consumed through their `exports` map, so
  *     `../../../packages/testkit/src/receipts` is a boundary crossing wearing a
  *     path.
  *  2. The renderer connector-neutrality grep. Connector identity never reaches
@@ -19,7 +19,7 @@
  *     Every file counts, not only the source ones — a connector name reads the
  *     same in a CSS class, an SVG title, a JSON label or a file name.
  *  3. No barrel files. A package exports one entry per module through its
- *     `exports` map (spec section 4, D1), so an `index.ts` anywhere under a
+ *     `exports` map, so an `index.ts` anywhere under a
  *     `packages/` workspace is refused. Apps are not covered: the router's
  *     `routes/settings/index.tsx` is a route, not a barrel, and the Electron
  *     entry points are named by electron-builder.
@@ -36,10 +36,9 @@ const ROOT = NodePath.resolve(NodeURL.fileURLToPath(new URL("..", import.meta.ur
 /**
  * Workspace package short names each workspace directory may import.
  *
- * Spec section 4 writes the renderer rule as "web imports only contracts,
- * client-runtime, shared". `ui` is added because the pre-existing design system
- * stays and apps/web renders through it (00-plan-adaptation, "Root and layout";
- * 02-w0-contract-notes, N4). This list is the enforced rule.
+ * The renderer's rule is contracts, client-runtime and shared, plus `ui`:
+ * the design system predates this app and apps/web renders through it. This
+ * list is the enforced rule (docs/architecture.md, "Boundaries").
  */
 const IMPORT_ALLOWLIST = new Map([
   ["apps/web", ["ui", "contracts", "client-runtime", "shared"]],
@@ -63,16 +62,36 @@ const IMPORT_ALLOWLIST = new Map([
  *
  * `@OpenAde/testkit` is the fakes and the receipt helpers; the server drives
  * them from its tests and must never ship them, because apps/server is bundled
- * to `out/main.cjs` for packaging (D1). Keeping it out of the production list
- * is what makes an accidental import in `src/main.ts` fail the gate.
+ * to `out/main.cjs` for packaging. `@OpenAde/client-runtime` joins in
+ * tests for the transport suite, which exercises the real client against the
+ * real server over a WebSocket. Keeping both out of the production list is
+ * what makes an accidental import in `src/main.ts` fail the gate.
  */
-const TEST_ONLY_ALLOWLIST = new Map([["apps/server", ["testkit"]]]);
+const TEST_ONLY_ALLOWLIST = new Map([["apps/server", ["testkit", "client-runtime"]]]);
 
-const isTestFile = (file) => /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(file);
+/**
+ * A `*.test.ts` file, or anything under a workspace's `test/` directory.
+ *
+ * The second half is for suites too big to live in one file: the end-to-end
+ * scenarios under `apps/server/test/e2e/` share a harness that dials the
+ * server with the real client runtime, and a harness is not a `.test.ts`. The
+ * directory is the statement of intent — nothing under it is bundled, because
+ * `apps/server`'s esbuild entry is `src/main.ts` — so it carries the same
+ * allowance the test files themselves do.
+ */
+const isTestFile = (file) =>
+  /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(file) || file.split("/").includes("test");
 
-/** Decision D4: the exact patterns, and the one directory they do not apply to. */
+/**
+ * The exact patterns, and the one directory they do not apply to.
+ *
+ * `commandcode` matches the spaced spelling too. The one-word form was the
+ * only thing the pattern caught, so "Command Code" walked straight through it
+ * — and did, in the Skills page's own description, which named one connector
+ * on a page that renders whichever connector is configured.
+ */
 const RENDERER_FORBIDDEN = [
-  { name: "commandcode", pattern: /\bcommandcode\b/i },
+  { name: "commandcode", pattern: /\bcommand\s*code\b/i },
   { name: '"cmd"', pattern: /"cmd"/ },
   { name: "claude", pattern: /\bclaude\b/i },
 ];
@@ -205,7 +224,7 @@ const WORKSPACE_DIRECTORIES = [...listDirectories("apps"), ...listDirectories("p
 /**
  * Published package name -> workspace directory, for every workspace.
  *
- * Apps are unscoped (D1), so `web`, `desktop` and `server` are import targets
+ * Apps are unscoped, so `web`, `desktop` and `server` are import targets
  * that no `@OpenAde/` prefix would ever reveal.
  */
 const WORKSPACE_BY_PACKAGE_NAME = new Map(
@@ -308,7 +327,7 @@ for (const workspaceDirectory of WORKSPACE_DIRECTORIES) {
   }
 }
 
-// ------------------------------------------------- renderer neutrality (D4)
+// ----------------------------------------------------- renderer neutrality
 
 for (const file of walkAllFiles(RENDERER_ROOT)) {
   if (RENDERER_EXCLUDED.some((excluded) => file.startsWith(excluded))) {
@@ -343,7 +362,7 @@ for (const workspaceDirectory of WORKSPACE_DIRECTORIES) {
       report(
         file,
         1,
-        `barrel file: ${workspaceDirectory} exports one entry per module through package.json "exports" (spec section 4)`,
+        `barrel file: ${workspaceDirectory} exports one entry per module through package.json "exports"`,
       );
     }
   }

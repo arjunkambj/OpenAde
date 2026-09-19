@@ -1,6 +1,16 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
+  // `OPENADE_HOME` moves every path the app owns, including the dev handshake
+  // file the server writes and the web plugin serves at
+  // `/__openade/connection` (docs/development.md, "OPENADE_HOME"). Both
+  // resolve it through
+  // `devConnectionPath()`, but turbo hands a task a filtered environment, so
+  // without this the variable reached neither of them: a developer pointing a
+  // dev loop at another home got a server writing to it and a renderer reading
+  // the default one, and the two never met. It is passed rather than hashed
+  // because it names where the app keeps state, not what a build produces.
+  "globalPassThroughEnv": ["OPENADE_HOME"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -12,6 +22,15 @@
     },
     "check-types": {
       "dependsOn": ["^check-types"]
+    },
+    // apps/web type-checks through `vite build`, which is also the only thing
+    // that writes the gitignored src/routeTree.gen.ts. Declaring it as this
+    // task's output means a replay from cache puts it back: root-level `knip`
+    // is not a turbo task, so without it a warm cache over a tree that has
+    // never built leaves the import unresolved and fails a green gate.
+    "web#check-types": {
+      "dependsOn": ["^check-types"],
+      "outputs": ["src/routeTree.gen.ts"]
     },
     "test": {
       "dependsOn": ["^test"],

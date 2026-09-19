@@ -1,0 +1,510 @@
+{
+  "scenario": "file-edit-twice",
+  "description": "two editing turns in one session — what checkpoints need: two turns that each leave the worktree different, so there is a real diff between the two snapshots and something for a restore to undo",
+  "cli": "/opt/homebrew/bin/cmd",
+  "cliVersion": "1.56.0",
+  "recordedOn": "2026-09-18",
+  "model": "meta/muse-spark-1.3-contributor",
+  "modelRequested": null,
+  "real": true,
+  "turns": [
+    {
+      "index": 0,
+      "prompt": "Edit greeting.txt so it says `hello there` instead of `hello world`.",
+      "connectorArgs": [
+        "-p",
+        "Edit greeting.txt so it says `hello there` instead of `hello world`.",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--yolo",
+        "--max-turns",
+        "3",
+        "--tools-enable",
+        "ask_user_question"
+      ],
+      "argv": [
+        "-p",
+        "Edit greeting.txt so it says `hello there` instead of `hello world`.",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--yolo",
+        "--max-turns",
+        "3",
+        "--tools-enable",
+        "ask_user_question"
+      ],
+      "envKeys": [
+        "HOME",
+        "OPENADE_RECORD_HOOK_LOG",
+        "OPENADE_RECORD_HOOK_POLICY",
+        "OPENADE_THREAD_ID",
+        "PATH",
+        "SHELL",
+        "SSH_AUTH_SOCK",
+        "TMPDIR",
+        "USER"
+      ],
+      "sessionId": "e117ad38-de8b-4620-88a3-9cb3580905f2",
+      "exitCode": 0,
+      "signal": null,
+      "interrupted": false,
+      "durationMs": 11794,
+      "stdoutChunks": [
+        {
+          "at": 468,
+          "chars": 97
+        },
+        {
+          "at": 501,
+          "chars": 62
+        },
+        {
+          "at": 554,
+          "chars": 50
+        },
+        {
+          "at": 554,
+          "chars": 98
+        },
+        {
+          "at": 605,
+          "chars": 93
+        },
+        {
+          "at": 4548,
+          "chars": 283
+        },
+        {
+          "at": 4549,
+          "chars": 231
+        },
+        {
+          "at": 4549,
+          "chars": 280
+        },
+        {
+          "at": 4550,
+          "chars": 260
+        },
+        {
+          "at": 4796,
+          "chars": 144
+        },
+        {
+          "at": 4798,
+          "chars": 218
+        },
+        {
+          "at": 4798,
+          "chars": 172
+        },
+        {
+          "at": 4799,
+          "chars": 62
+        },
+        {
+          "at": 4800,
+          "chars": 50
+        },
+        {
+          "at": 4800,
+          "chars": 98
+        },
+        {
+          "at": 4800,
+          "chars": 93
+        },
+        {
+          "at": 7980,
+          "chars": 337
+        },
+        {
+          "at": 8038,
+          "chars": 232
+        },
+        {
+          "at": 8038,
+          "chars": 334
+        },
+        {
+          "at": 8038,
+          "chars": 314
+        },
+        {
+          "at": 8129,
+          "chars": 144
+        },
+        {
+          "at": 8131,
+          "chars": 365
+        },
+        {
+          "at": 8131,
+          "chars": 173
+        },
+        {
+          "at": 8131,
+          "chars": 62
+        },
+        {
+          "at": 8132,
+          "chars": 50
+        },
+        {
+          "at": 8132,
+          "chars": 98
+        },
+        {
+          "at": 8132,
+          "chars": 93
+        },
+        {
+          "at": 11672,
+          "chars": 91
+        },
+        {
+          "at": 11673,
+          "chars": 328
+        },
+        {
+          "at": 11776,
+          "chars": 224
+        },
+        {
+          "at": 11776,
+          "chars": 132
+        },
+        {
+          "at": 11776,
+          "chars": 172
+        },
+        {
+          "at": 11781,
+          "chars": 2735
+        },
+        {
+          "at": 11783,
+          "chars": 286
+        }
+      ],
+      "transcriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg-czzrjh0000gn-t-openade-rec-file-edit-twice-b8a96fd9-repo/e117ad38-de8b-4620-88a3-9cb3580905f2.jsonl",
+      "guessedTranscriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg_czzrjh0000gn-t-openade-rec-file-edit-twice-b8a96fd9-repo/e117ad38-de8b-4620-88a3-9cb3580905f2.jsonl",
+      "transcriptDirMatchesConnectorSlug": false,
+      "projectDirListing": [
+        "e117ad38-de8b-4620-88a3-9cb3580905f2.checkpoints.jsonl",
+        "e117ad38-de8b-4620-88a3-9cb3580905f2.jsonl",
+        "e117ad38-de8b-4620-88a3-9cb3580905f2.meta.json"
+      ],
+      "transcriptGrowth": [
+        {
+          "at": 4824,
+          "bytes": 1542,
+          "lines": 4
+        },
+        {
+          "at": 8145,
+          "bytes": 2741,
+          "lines": 6
+        },
+        {
+          "at": 11791,
+          "bytes": 3227,
+          "lines": 7
+        }
+      ],
+      "transcriptBytes": 3227,
+      "checkpointGrowth": [
+        {
+          "at": 492,
+          "bytes": 258,
+          "lines": 1
+        },
+        {
+          "at": 8145,
+          "bytes": 454,
+          "lines": 1
+        }
+      ],
+      "transcriptMeta": "{\n  \"entrypoint\": \"print\",\n  \"traceIds\": [\n    \"9684c1021142f4ba01c7f90c204b3661\",\n    \"e4ca6ca5202c077a16f305a4d9c66fde\",\n    \"3e2eaae0787802923ab6a8f95e27f639\"\n  ]\n}",
+      "hookCount": 2,
+      "plans": [],
+      "touchedFiles": [
+        {
+          "name": "greeting.txt",
+          "content": "hello there\n"
+        }
+      ],
+      "files": {
+        "stdout": "turn1.stdout.ndjson",
+        "stderr": "turn1.stderr.txt",
+        "transcript": "turn1.transcript.jsonl",
+        "checkpoints": "turn1.checkpoints.jsonl",
+        "hooks": "turn1.hooks.json"
+      }
+    },
+    {
+      "index": 1,
+      "prompt": "Now edit farewell.txt so it says `bye there` instead of `bye world`.",
+      "connectorArgs": [
+        "-p",
+        "Now edit farewell.txt so it says `bye there` instead of `bye world`.",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--session",
+        "e117ad38-de8b-4620-88a3-9cb3580905f2",
+        "--yolo",
+        "--max-turns",
+        "3",
+        "--tools-enable",
+        "ask_user_question"
+      ],
+      "argv": [
+        "-p",
+        "Now edit farewell.txt so it says `bye there` instead of `bye world`.",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--session",
+        "e117ad38-de8b-4620-88a3-9cb3580905f2",
+        "--yolo",
+        "--max-turns",
+        "3",
+        "--tools-enable",
+        "ask_user_question"
+      ],
+      "envKeys": [
+        "HOME",
+        "OPENADE_RECORD_HOOK_LOG",
+        "OPENADE_RECORD_HOOK_POLICY",
+        "OPENADE_THREAD_ID",
+        "PATH",
+        "SHELL",
+        "SSH_AUTH_SOCK",
+        "TMPDIR",
+        "USER"
+      ],
+      "sessionId": "e117ad38-de8b-4620-88a3-9cb3580905f2",
+      "exitCode": 0,
+      "signal": null,
+      "interrupted": false,
+      "durationMs": 14089,
+      "stdoutChunks": [
+        {
+          "at": 558,
+          "chars": 97
+        },
+        {
+          "at": 597,
+          "chars": 62
+        },
+        {
+          "at": 703,
+          "chars": 50
+        },
+        {
+          "at": 703,
+          "chars": 98
+        },
+        {
+          "at": 769,
+          "chars": 93
+        },
+        {
+          "at": 6193,
+          "chars": 283
+        },
+        {
+          "at": 6457,
+          "chars": 231
+        },
+        {
+          "at": 6457,
+          "chars": 280
+        },
+        {
+          "at": 6458,
+          "chars": 260
+        },
+        {
+          "at": 6532,
+          "chars": 144
+        },
+        {
+          "at": 6535,
+          "chars": 216
+        },
+        {
+          "at": 6535,
+          "chars": 172
+        },
+        {
+          "at": 6536,
+          "chars": 62
+        },
+        {
+          "at": 6537,
+          "chars": 50
+        },
+        {
+          "at": 6537,
+          "chars": 98
+        },
+        {
+          "at": 6537,
+          "chars": 93
+        },
+        {
+          "at": 9859,
+          "chars": 333
+        },
+        {
+          "at": 9900,
+          "chars": 231
+        },
+        {
+          "at": 9900,
+          "chars": 330
+        },
+        {
+          "at": 9900,
+          "chars": 310
+        },
+        {
+          "at": 9970,
+          "chars": 144
+        },
+        {
+          "at": 9972,
+          "chars": 363
+        },
+        {
+          "at": 9972,
+          "chars": 172
+        },
+        {
+          "at": 9973,
+          "chars": 62
+        },
+        {
+          "at": 9973,
+          "chars": 50
+        },
+        {
+          "at": 9973,
+          "chars": 98
+        },
+        {
+          "at": 9973,
+          "chars": 93
+        },
+        {
+          "at": 13822,
+          "chars": 80
+        },
+        {
+          "at": 13822,
+          "chars": 324
+        },
+        {
+          "at": 14070,
+          "chars": 226
+        },
+        {
+          "at": 14070,
+          "chars": 130
+        },
+        {
+          "at": 14071,
+          "chars": 174
+        },
+        {
+          "at": 14076,
+          "chars": 4595
+        },
+        {
+          "at": 14077,
+          "chars": 285
+        }
+      ],
+      "transcriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg-czzrjh0000gn-t-openade-rec-file-edit-twice-b8a96fd9-repo/e117ad38-de8b-4620-88a3-9cb3580905f2.jsonl",
+      "guessedTranscriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg_czzrjh0000gn-t-openade-rec-file-edit-twice-b8a96fd9-repo/e117ad38-de8b-4620-88a3-9cb3580905f2.jsonl",
+      "transcriptDirMatchesConnectorSlug": false,
+      "projectDirListing": [
+        "e117ad38-de8b-4620-88a3-9cb3580905f2.checkpoints.jsonl",
+        "e117ad38-de8b-4620-88a3-9cb3580905f2.jsonl",
+        "e117ad38-de8b-4620-88a3-9cb3580905f2.meta.json"
+      ],
+      "transcriptGrowth": [
+        {
+          "at": 543,
+          "bytes": 3227,
+          "lines": 7
+        },
+        {
+          "at": 6544,
+          "bytes": 4552,
+          "lines": 10
+        },
+        {
+          "at": 9987,
+          "bytes": 5744,
+          "lines": 12
+        },
+        {
+          "at": 14077,
+          "bytes": 6230,
+          "lines": 13
+        }
+      ],
+      "transcriptBytes": 6230,
+      "checkpointGrowth": [
+        {
+          "at": 543,
+          "bytes": 454,
+          "lines": 1
+        },
+        {
+          "at": 570,
+          "bytes": 768,
+          "lines": 2
+        },
+        {
+          "at": 9987,
+          "bytes": 964,
+          "lines": 2
+        }
+      ],
+      "transcriptMeta": "{\n  \"entrypoint\": \"print\",\n  \"traceIds\": [\n    \"9684c1021142f4ba01c7f90c204b3661\",\n    \"e4ca6ca5202c077a16f305a4d9c66fde\",\n    \"3e2eaae0787802923ab6a8f95e27f639\",\n    \"4879391502fd67f1b1be21f6ed800abd\",\n    \"935e94cb2a01193b8015f472a4e9ec1d\",\n    \"6c8884913be8cda0ead89f7b92cdee87\"\n  ]\n}",
+      "hookCount": 2,
+      "plans": [],
+      "touchedFiles": [
+        {
+          "name": "farewell.txt",
+          "content": "bye there\n"
+        }
+      ],
+      "files": {
+        "stdout": "turn2.stdout.ndjson",
+        "stderr": "turn2.stderr.txt",
+        "transcript": "turn2.transcript.jsonl",
+        "checkpoints": "turn2.checkpoints.jsonl",
+        "hooks": "turn2.hooks.json"
+      }
+    }
+  ]
+}

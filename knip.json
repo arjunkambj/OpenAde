@@ -17,16 +17,8 @@
         "electron-builder.config.cjs",
         "scripts/*.mjs"
       ],
-      "ignoreDependencies": ["@OpenAde/contracts", "@OpenAde/shared"]
-    },
-    "apps/server": {
-      "ignoreDependencies": [
-        "@OpenAde/connector-cmd",
-        "@OpenAde/connector-sdk",
-        "@OpenAde/contracts",
-        "@OpenAde/testkit",
-        "@effect/platform-node"
-      ]
+      // tsx is resolved through the server package (it is a server devDep).
+      "ignoreDependencies": ["@OpenAde/contracts", "tsx"]
     },
     "apps/site": {
       "entry": ["src/entry-server.tsx!", "scripts/*.mjs"],
@@ -35,27 +27,15 @@
     "apps/web": {
       "entry": ["src/routes/**/*.tsx"],
       "ignoreIssues": {
-        "src/components/header.tsx": ["files"],
         "src/components/mode-toggle.tsx": ["files"],
-        "src/hooks/use-mobile.ts": ["files"],
         "src/lib/icon.tsx": ["exports"],
         "src/lib/shortcuts.tsx": ["exports"]
       },
       "ignoreDependencies": [
-        "@OpenAde/client-runtime",
         "@OpenAde/config",
-        "@OpenAde/contracts",
-        "@OpenAde/shared",
-        "@effect/atom-react",
         "@iconify-json/solar",
-        "@legendapp/list",
-        "@pierre/diffs",
         "clsx",
-        "effect",
         "postcss",
-        "react-markdown",
-        "remark-gfm",
-        "sonner",
         "tailwind-merge",
         "tailwindcss"
       ]
@@ -63,12 +43,13 @@
     "packages/client-runtime": {
       "includeEntryExports": true,
       "ignoreExportsUsedInFile": true,
-      "ignoreDependencies": ["@OpenAde/contracts", "@OpenAde/shared", "@effect/atom-react"]
+      "ignoreDependencies": ["@OpenAde/shared", "@effect/atom-react"]
     },
     "packages/connector-cmd": {
       "includeEntryExports": true,
       "ignoreExportsUsedInFile": true,
-      "ignoreDependencies": ["@OpenAde/connector-sdk", "@OpenAde/contracts", "@OpenAde/shared"]
+      // Spawned via execFileSync — a system tool, not an npm dependency.
+      "ignoreBinaries": ["pgrep"]
     },
     "packages/connector-sdk": {
       "includeEntryExports": true,
@@ -87,7 +68,10 @@
     },
     "packages/testkit": {
       "includeEntryExports": true,
-      "ignoreExportsUsedInFile": true
+      "ignoreExportsUsedInFile": true,
+      // The recorders are run by hand against the real CLI (they spend the
+      // operator's plan), so nothing imports them — they are entry points.
+      "entry": ["src/**/*.ts", "scripts/*.mjs", "bin/*.mjs"]
     }
   }
 }

@@ -15,6 +15,7 @@
  * connector's own schema on the way in.
  */
 
+import type { InteractionMode, RuntimeMode } from "@OpenAde/contracts/enums";
 import type { ApprovalRequest, ConnectorCapabilities } from "@OpenAde/contracts/runtime";
 import type {
   ConnectorInstanceId,
@@ -102,15 +103,18 @@ export interface ConnectorProbe extends WireConnectorProbe {
 
 /**
  * Drops the server-only fields, leaving the shape `ConnectorSummary.probe` carries.
- *
- * @public Called by W1's connector registry when it answers `connectors.list`;
- * nothing on this branch has a consumer yet.
+ * `auth`, `account` and the model count cross the wire — the connectors page
+ * renders them; `models` and `warnings` stay server-side.
  */
 export const toWireProbe = (probe: ConnectorProbe): WireConnectorProbe => ({
   status: probe.status,
   probedAt: probe.probedAt,
+  auth: probe.auth,
+  modelCount: probe.models.length,
   ...(probe.binaryPath === undefined ? {} : { binaryPath: probe.binaryPath }),
   ...(probe.version === undefined ? {} : { version: probe.version }),
+  ...(probe.account === undefined ? {} : { account: probe.account }),
+  ...(probe.helpUrl === undefined ? {} : { helpUrl: probe.helpUrl }),
   ...(probe.message === undefined ? {} : { message: probe.message }),
 });
 
@@ -125,8 +129,19 @@ export interface ConnectorEndpoint {
 /** What the permission engine answers for one tool call. */
 export type PermissionDecision = "allow" | "prompt" | "deny";
 
+/**
+ * `decide` gets the thread's live modes along with the request: the ladder's
+ * outcome depends on `runtimeMode`/`interactionMode`, and the server scopes
+ * rules by `threadId` — a per-instance `services` object cannot know which
+ * thread asked.
+ */
 export interface ConnectorPermissions {
-  readonly decide: (request: ApprovalRequest) => Effect.Effect<PermissionDecision>;
+  readonly decide: (input: {
+    readonly request: ApprovalRequest;
+    readonly threadId: ThreadId;
+    readonly runtimeMode: RuntimeMode;
+    readonly interactionMode: InteractionMode;
+  }) => Effect.Effect<PermissionDecision>;
 }
 
 export type ConnectorLogLevel = "debug" | "info" | "warn" | "error";
@@ -153,6 +168,16 @@ export interface ConnectorLogger {
 export interface ConnectorServices {
   readonly mcpEndpoint: (threadId: ThreadId) => Effect.Effect<ConnectorEndpoint>;
   readonly hookEndpoint: (threadId: ThreadId) => Effect.Effect<ConnectorEndpoint>;
+  /**
+   * Registers the function that answers hook posts for a thread's session.
+   * Optional: a services implementation without a hook bridge (tests, fakes)
+   * simply leaves it out and the connector skips registration.
+   */
+  readonly registerHookHandler?: (
+    threadId: ThreadId,
+    handler: (body: unknown) => Effect.Effect<unknown>,
+  ) => Effect.Effect<void>;
+  readonly unregisterHookHandler?: (threadId: ThreadId) => Effect.Effect<void>;
   readonly permissions: ConnectorPermissions;
   readonly attachmentsDir: string;
   readonly logger: ConnectorLogger;

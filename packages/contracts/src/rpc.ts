@@ -21,6 +21,7 @@ import { IsoDateTime, NonEmptyString, NonNegativeInt } from "./base";
 import { Effort } from "./enums";
 import { ConnectorInstanceId, ConnectorKind, ProjectId, ThreadId, UuidV7 } from "./ids";
 import {
+  CheckpointSummary,
   Command,
   CommandReceipt,
   ProjectSummary,
@@ -61,7 +62,7 @@ export type ServerHello = typeof ServerHello.Type;
 export const PROTOCOL_VERSION = 1;
 
 /**
- * The server-side budget on every stream RPC (spec section 6).
+ * The server-side budget on every stream RPC.
  *
  * A subscription that exceeds either limit fails with `resnapshot-required`
  * rather than growing a backlog the client will never catch up with. The
@@ -101,13 +102,28 @@ export type ModelOption = typeof ModelOption.Type;
  * than folded into a message string.
  */
 export const ConnectorProbe = Schema.Struct({
-  status: Schema.Literals(["ready", "not-installed", "not-authenticated", "error"]),
+  status: Schema.Literals(["ready", "not-installed", "not-authenticated", "error", "probing"]),
   binaryPath: Schema.optional(NonEmptyString),
   version: Schema.optional(NonEmptyString),
+  /** Whether the harness reported usable credentials: present, absent, unknown. */
+  auth: Schema.optional(Schema.Literals(["present", "absent", "unknown"])),
+  /** The account the probe saw, e.g. the login email — for the settings page. */
+  account: Schema.optional(Schema.String),
+  /** How many models the probe reported — the settings page's "N models" line. */
+  modelCount: Schema.optional(NonNegativeInt),
+  /** A link that fixes what the probe found, e.g. the billing page on auth/credit failures. */
+  helpUrl: Schema.optional(NonEmptyString),
   message: Schema.optional(Schema.String),
   probedAt: IsoDateTime,
 });
 export type ConnectorProbe = typeof ConnectorProbe.Type;
+
+/**
+ * Where an auth-or-credits probe failure is resolved. A connector's probe can
+ * point `helpUrl` somewhere more specific; the renderer falls back here, which
+ * is also what keeps the connector's own domain name out of `apps/web`.
+ */
+export const ACCOUNT_HELP_URL = "https://commandcode.ai/billing";
 
 /** A configured connector as the settings page and the model picker see it. */
 export const ConnectorSummary = Schema.Struct({
@@ -140,6 +156,103 @@ export const FileContent = Schema.Struct({
 });
 export type FileContent = typeof FileContent.Type;
 
+/**
+ * One subdirectory inside a browsed directory. Files are never listed: this
+ * surface exists to choose a *folder*, and the picker that reads it has nothing
+ * to do with a file.
+ *
+ * `isGitRepo` is the badge the picker shows beside a repository, and it is
+ * computed only for a real directory. A symlinked entry always reports `false`:
+ * resolving it to look for `.git` would follow the link out of the directory
+ * that was asked for, which is a traversal nobody asked for and a badge is not
+ * worth it.
+ */
+export const FsEntry = Schema.Struct({
+  name: NonEmptyString,
+  path: NonEmptyString,
+  isGitRepo: Schema.Boolean,
+});
+export type FsEntry = typeof FsEntry.Type;
+
+/**
+ * One directory as `fs.browse` answers it.
+ *
+ * `path` is the server's normalized, symlink-resolved absolute path — never the
+ * string the client sent — so a breadcrumb built from it addresses the same
+ * directory on the next call. `parent` is `null` at the root of the filesystem,
+ * which is how the picker knows "up" has run out. `truncated` says the
+ * directory holds more subfolders than `FS_BROWSE_ENTRY_LIMIT`, so the picker
+ * can say so instead of implying the listing is complete.
+ */
+export const FsListing = Schema.Struct({
+  path: NonEmptyString,
+  parent: Schema.NullOr(NonEmptyString),
+  entries: Schema.Array(FsEntry),
+  truncated: Schema.Boolean,
+});
+export type FsListing = typeof FsListing.Type;
+
+/**
+ * The most subfolders one `fs.browse` answer carries. A directory with more
+ * than this comes back truncated rather than turning a home folder full of
+ * build output into a megabyte-sized frame.
+ */
+export const FS_BROWSE_ENTRY_LIMIT = 500;
+
+/** Why a directory could not be listed, in the words the picker shows. */
+export const FsBrowseFailure = Schema.Literals([
+  "not-absolute",
+  "not-found",
+  "not-a-directory",
+  "permission-denied",
+  "internal",
+]);
+export type FsBrowseFailure = typeof FsBrowseFailure.Type;
+
+/**
+ * `fs.browse`'s own error, rather than the shared `OpenAdeRpcError`: the picker
+ * renders four of these five as a message *about the path the user typed* and
+ * offers a different next step for each, which a single `invalid` code cannot
+ * carry. `path` is the path the client asked for, echoed so a late answer can
+ * be matched to the field it belongs to. Nothing else is carried — no cause, no
+ * errno, no server-side path the client did not already name.
+ */
+export class FsBrowseError extends Schema.TaggedError<FsBrowseError>()("FsBrowseError", {
+  reason: FsBrowseFailure,
+  path: Schema.String,
+  message: Schema.String,
+}) {}
+
+/**
+ * One image the composer uploaded, as it now sits under
+ * `<attachments>/<threadId>/`. This is what the composer turns into the
+ * `Attachment` reference it sends with the turn — the bytes stay on disk.
+ *
+ * `mime` is the server's sniff of the file's own magic bytes, not the name or
+ * the type the browser declared; the stored file's extension
+ * comes from the same sniff.
+ */
+export const StagedAttachment = Schema.Struct({
+  path: NonEmptyString,
+  name: NonEmptyString,
+  mime: NonEmptyString,
+  size: NonNegativeInt,
+  sha256: NonEmptyString,
+});
+export type StagedAttachment = typeof StagedAttachment.Type;
+
+/**
+ * A staged image handed back for display. `base64` is the raw file, which the
+ * timeline turns into a `data:` URL — the WebSocket is already authenticated,
+ * so an attachment needs no public route and no second token.
+ */
+export const AttachmentBytes = Schema.Struct({
+  mime: NonEmptyString,
+  size: NonNegativeInt,
+  base64: Schema.String,
+});
+export type AttachmentBytes = typeof AttachmentBytes.Type;
+
 /** One path in `git status`, and whether its change is staged. */
 export const GitFileChange = Schema.Struct({
   path: NonEmptyString,
@@ -149,11 +262,18 @@ export const GitFileChange = Schema.Struct({
 });
 export type GitFileChange = typeof GitFileChange.Type;
 
+/**
+ * `isRepository: false` is the answer for a workspace git does not track: the
+ * empty `files` list then means "there is nothing to show", not "everything is
+ * committed", and the changes pane can say so instead of rendering a clean
+ * repo. It is optional so a producer that predates the field still decodes.
+ */
 export const GitStatus = Schema.Struct({
   branch: Schema.NullOr(NonEmptyString),
   upstream: Schema.NullOr(NonEmptyString),
   ahead: NonNegativeInt,
   behind: NonNegativeInt,
+  isRepository: Schema.optional(Schema.Boolean),
   files: Schema.Array(GitFileChange),
 });
 export type GitStatus = typeof GitStatus.Type;
@@ -169,9 +289,11 @@ export const GitDiffFile = Schema.Struct({
 });
 export type GitDiffFile = typeof GitDiffFile.Type;
 
+/** `isRepository` carries the same meaning it does on `GitStatus`. */
 export const GitDiff = Schema.Struct({
   from: Schema.NullOr(NonEmptyString),
   to: Schema.NullOr(NonEmptyString),
+  isRepository: Schema.optional(Schema.Boolean),
   files: Schema.Array(GitDiffFile),
 });
 export type GitDiff = typeof GitDiff.Type;
@@ -198,6 +320,11 @@ export const BrowserState = Schema.Struct({
   url: Schema.NullOr(NonEmptyString),
   title: Schema.NullOr(Schema.String),
   frame: Schema.NullOr(BrowserFrame),
+  /**
+   * The `browser_*` tool currently executing, if one is — the pane's
+   * "agent is driving" indicator. `null` once the call settles.
+   */
+  activeTool: Schema.optional(Schema.NullOr(NonEmptyString)),
   message: Schema.optional(Schema.String),
 });
 export type BrowserState = typeof BrowserState.Type;
@@ -222,6 +349,20 @@ export const BrowserHumanInput = Schema.Union([
     deltaY: Schema.Number,
   }),
   Schema.Struct({ kind: Schema.Literal("navigate"), url: NonEmptyString }),
+  /** Toolbar back/forward/reload — a human gesture that interrupts the agent. */
+  Schema.Struct({
+    kind: Schema.Literal("history"),
+    direction: Schema.Literals(["back", "forward", "reload"]),
+  }),
+  /**
+   * Passive location sync: the pane observed a navigation (whoever caused it)
+   * and reports where the page actually is. Never marks human control.
+   */
+  Schema.Struct({
+    kind: Schema.Literal("location"),
+    url: NonEmptyString,
+    title: Schema.optional(Schema.String),
+  }),
 ]);
 export type BrowserHumanInput = typeof BrowserHumanInput.Type;
 
@@ -238,6 +379,12 @@ export const McpServerConfig = Schema.Struct({
   name: NonEmptyString,
   scope: McpServerScope,
   enabled: Schema.Boolean,
+  /**
+   * Read-side hint: `true` when the entry carries our `_openade` marker, so
+   * the editor knows upsert/remove will be accepted. The server ignores it on
+   * write — ownership is decided by the marker on disk, not by the payload.
+   */
+  managed: Schema.optional(Schema.Boolean),
   transport: Schema.Literals(["http", "stdio"]),
   url: Schema.optional(NonEmptyString),
   headers: Schema.optional(Schema.Record(Schema.String, Schema.String)),
@@ -256,6 +403,19 @@ export const SkillSummary = Schema.Struct({
 });
 export type SkillSummary = typeof SkillSummary.Type;
 
+/**
+ * A skill in the shared agents folder (`~/.agents/skills`) that the connector
+ * does not load yet. `entry` is its directory or file name there — what a link
+ * points at — and can differ from the frontmatter `name`.
+ */
+export const AgentSkill = Schema.Struct({
+  entry: NonEmptyString,
+  name: NonEmptyString,
+  path: NonEmptyString,
+  description: Schema.optional(Schema.String),
+});
+export type AgentSkill = typeof AgentSkill.Type;
+
 // ── Method names ───────────────────────────────────────────────
 
 /** Every RPC method name in one place, so a rename is a single edit. */
@@ -270,8 +430,12 @@ export const RPC_METHODS = {
   connectorsModels: "connectors.models",
   filesSearch: "files.search",
   filesRead: "files.read",
+  fsBrowse: "fs.browse",
+  attachmentsStage: "attachments.stage",
+  attachmentsRead: "attachments.read",
   gitStatus: "git.status",
   gitDiff: "git.diff",
+  checkpointsList: "checkpoints.list",
   browserSubscribe: "browser.subscribe",
   browserHumanInput: "browser.humanInput",
   settingsGet: "settings.get",
@@ -281,6 +445,8 @@ export const RPC_METHODS = {
   cmdConfigMcpUpsert: "cmdConfig.mcp.upsert",
   cmdConfigMcpRemove: "cmdConfig.mcp.remove",
   cmdConfigSkillsList: "cmdConfig.skills.list",
+  cmdConfigSkillsAgents: "cmdConfig.skills.agents",
+  cmdConfigSkillsLink: "cmdConfig.skills.link",
   keybindingsGet: "keybindings.get",
   keybindingsUpdate: "keybindings.update",
 } as const;
@@ -341,8 +507,13 @@ const ThreadsListSubscribeRpc = Rpc.make(RPC_METHODS.threadsListSubscribe, {
   stream: true,
 });
 
+/**
+ * `refresh: true` re-runs each configured connector's probe before answering —
+ * the settings page's probe button. The default returns the probes cached by
+ * the last reconcile, so listing stays cheap for the model picker.
+ */
 const ConnectorsListRpc = Rpc.make(RPC_METHODS.connectorsList, {
-  payload: empty,
+  payload: Schema.Struct({ refresh: Schema.optional(Schema.Boolean) }),
   success: Schema.Array(ConnectorSummary),
   error: OpenAdeRpcError,
 });
@@ -374,6 +545,45 @@ const FilesReadRpc = Rpc.make(RPC_METHODS.filesRead, {
   error: OpenAdeRpcError,
 });
 
+/**
+ * Lists the subfolders of one directory on the machine the *server* runs on.
+ *
+ * Deliberately not a project RPC: this is what the folder picker browses before
+ * a project exists, and the server is the only side that can see the disk once
+ * the renderer is a browser tab or, later, a remote client. `path` omitted means
+ * the server user's home directory, which is where a picker opens.
+ */
+const FsBrowseRpc = Rpc.make(RPC_METHODS.fsBrowse, {
+  payload: Schema.Struct({
+    path: Schema.optional(NonEmptyString),
+    showHidden: Schema.optional(Schema.Boolean),
+  }),
+  success: FsListing,
+  error: FsBrowseError,
+});
+
+/**
+ * Uploads one composer image and writes it under the thread's attachments
+ * directory. The reply is a reference the turn can carry; the bytes are not
+ * echoed back and never enter the event log.
+ */
+const AttachmentsStageRpc = Rpc.make(RPC_METHODS.attachmentsStage, {
+  payload: Schema.Struct({
+    threadId: ThreadId,
+    name: NonEmptyString,
+    base64: Schema.String,
+  }),
+  success: StagedAttachment,
+  error: OpenAdeRpcError,
+});
+
+/** Reads a staged attachment back, for a timeline thumbnail. */
+const AttachmentsReadRpc = Rpc.make(RPC_METHODS.attachmentsRead, {
+  payload: Schema.Struct({ threadId: ThreadId, path: NonEmptyString }),
+  success: AttachmentBytes,
+  error: OpenAdeRpcError,
+});
+
 const GitStatusRpc = Rpc.make(RPC_METHODS.gitStatus, {
   payload: Schema.Struct({ projectId: ProjectId }),
   success: GitStatus,
@@ -393,6 +603,18 @@ const GitDiffRpc = Rpc.make(RPC_METHODS.gitDiff, {
     path: Schema.optional(NonEmptyString),
   }),
   success: GitDiff,
+  error: OpenAdeRpcError,
+});
+
+/**
+ * The checkpoints that still exist in the repository for one thread. The
+ * timeline's own list is a fold of `thread.checkpoint.created`, which cannot
+ * know about a ref removed outside the app (a prune, a re-clone); intersecting
+ * the two is what stops the pane offering a restore that can only fail.
+ */
+const CheckpointsListRpc = Rpc.make(RPC_METHODS.checkpointsList, {
+  payload: Schema.Struct({ projectId: ProjectId, threadId: ThreadId }),
+  success: Schema.Array(CheckpointSummary),
   error: OpenAdeRpcError,
 });
 
@@ -459,6 +681,19 @@ const CmdConfigSkillsListRpc = Rpc.make(RPC_METHODS.cmdConfigSkillsList, {
   error: OpenAdeRpcError,
 });
 
+const CmdConfigSkillsAgentsRpc = Rpc.make(RPC_METHODS.cmdConfigSkillsAgents, {
+  payload: empty,
+  success: Schema.Array(AgentSkill),
+  error: OpenAdeRpcError,
+});
+
+/** Links one agents-folder skill into the connector's global skills root. */
+const CmdConfigSkillsLinkRpc = Rpc.make(RPC_METHODS.cmdConfigSkillsLink, {
+  payload: Schema.Struct({ entry: NonEmptyString }),
+  success: Schema.Array(AgentSkill),
+  error: OpenAdeRpcError,
+});
+
 const KeybindingsGetRpc = Rpc.make(RPC_METHODS.keybindingsGet, {
   payload: empty,
   success: Schema.Array(Keybinding),
@@ -482,8 +717,12 @@ export const OpenAdeRpcGroup = RpcGroup.make(
   ConnectorsModelsRpc,
   FilesSearchRpc,
   FilesReadRpc,
+  FsBrowseRpc,
+  AttachmentsStageRpc,
+  AttachmentsReadRpc,
   GitStatusRpc,
   GitDiffRpc,
+  CheckpointsListRpc,
   BrowserSubscribeRpc,
   BrowserHumanInputRpc,
   SettingsGetRpc,
@@ -493,6 +732,8 @@ export const OpenAdeRpcGroup = RpcGroup.make(
   CmdConfigMcpUpsertRpc,
   CmdConfigMcpRemoveRpc,
   CmdConfigSkillsListRpc,
+  CmdConfigSkillsAgentsRpc,
+  CmdConfigSkillsLinkRpc,
   KeybindingsGetRpc,
   KeybindingsUpdateRpc,
 );

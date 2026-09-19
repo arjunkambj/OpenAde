@@ -1,0 +1,24 @@
+{"type":"event","event":{"type":"run_start","sessionId":"128e600b-1387-424d-bf60-26ca60427dc1"}}
+{"type":"event","event":{"type":"turn_start","turnNumber":1}}
+{"type":"event","event":{"type":"message_start"}}
+{"type":"event","event":{"type":"model_request_start","model":"meta/muse-spark-1.3-contributor"}}
+{"type":"event","event":{"type":"model_trace","traceId":"69d1ddd5e23cd4df526167b3185d8550"}}
+{"type":"event","event":{"type":"message_update","content":[{"type":"tool_use","id":"call_01a0b3dee46c76178ae4761c95945d9d","name":"shell_command","input":{"command":"cat note.txt","description":"Read note.txt file contents"}}]}}
+{"type":"event","event":{"type":"model_request_end","model":"meta/muse-spark-1.3-contributor","usage":{"inputTokens":20879,"outputTokens":257,"cacheReadTokens":113,"cacheWriteTokens":0},"stopReason":"tool_calls","effort":"xhigh"}}
+{"type":"event","event":{"type":"message_end","content":[{"type":"tool_use","id":"call_01a0b3dee46c76178ae4761c95945d9d","name":"shell_command","input":{"command":"cat note.txt","description":"Read note.txt file contents"}}]}}
+{"type":"event","event":{"type":"tool_queued","toolCallId":"call_01a0b3dee46c76178ae4761c95945d9d","toolName":"shell_command","input":{"command":"cat note.txt","description":"Read note.txt file contents"}}}
+{"type":"event","event":{"type":"tool_running","toolCallId":"call_01a0b3dee46c76178ae4761c95945d9d","toolName":"shell_command","description":null}}
+{"type":"event","event":{"type":"tool_update","toolCallId":"call_01a0b3dee46c76178ae4761c95945d9d","toolName":"shell_command","partial":[{"type":"text","text":"hello\n"}]}}
+{"type":"event","event":{"type":"tool_completed","toolCallId":"call_01a0b3dee46c76178ae4761c95945d9d","toolName":"shell_command","result":[{"type":"text","text":"hello\n"}],"deferred":false}}
+{"type":"event","event":{"type":"turn_end","turnNumber":1,"hadToolCalls":true,"usage":{"inputTokens":20879,"outputTokens":257,"cacheReadTokens":113,"cacheWriteTokens":0}}}
+{"type":"event","event":{"type":"turn_start","turnNumber":2}}
+{"type":"event","event":{"type":"message_start"}}
+{"type":"event","event":{"type":"model_request_start","model":"meta/muse-spark-1.3-contributor"}}
+{"type":"event","event":{"type":"model_trace","traceId":"435eae1337d10d5708933ef82dcc9a25"}}
+{"type":"event","event":{"type":"text_delta","delta":"hello"}}
+{"type":"event","event":{"type":"message_update","content":[{"type":"text","text":"hello"}]}}
+{"type":"event","event":{"type":"model_request_end","model":"meta/muse-spark-1.3-contributor","usage":{"inputTokens":20972,"outputTokens":348,"cacheReadTokens":20849,"cacheWriteTokens":0},"stopReason":"stop","effort":"xhigh"}}
+{"type":"event","event":{"type":"message_end","content":[{"type":"text","text":"hello"}]}}
+{"type":"event","event":{"type":"turn_end","turnNumber":2,"hadToolCalls":false,"usage":{"inputTokens":20972,"outputTokens":348,"cacheReadTokens":20849,"cacheWriteTokens":0}}}
+{"type":"event","event":{"type":"run_end","result":{"finalText":"hello","stopReason":"end_turn","turnCount":2,"usage":{"inputTokens":41851,"outputTokens":605,"cacheReadTokens":20962,"cacheWriteTokens":0},"systemPromptTokens":null,"nextState":{"sessionId":"128e600b-1387-424d-bf60-26ca60427dc1","messages":[{"role":"user","content":[{"type":"text","text":"Run the shell command `cat note.txt` and tell me the output. Use the shell tool."}],"meta":{"source":"user","createdAt":1789724117715,"messageId":"068437fe-9608-4b27-b252-c6446b5d0246"}},{"role":"assistant","content":[{"type":"tool_use","id":"call_01a0b3dee46c76178ae4761c95945d9d","name":"shell_command","input":{"command":"cat note.txt","description":"Read note.txt file contents"}}],"meta":{"source":"model","createdAt":1789724124764,"messageId":"8344d68d-6d41-479d-9e84-09f3f6cea8d9"}},{"role":"user","content":[{"type":"tool_result","tool_use_id":"call_01a0b3dee46c76178ae4761c95945d9d","content":[{"type":"text","text":"hello\n"}]}],"meta":{"source":"tool","messageId":"8bad90e6-95f6-4136-83b9-e78d6a18286a"}},{"role":"assistant","content":[{"type":"text","text":"hello"}],"meta":{"source":"model","createdAt":1789724131877,"messageId":"7a05bc36-d312-4005-9862-ad0ee8dccaad"}}],"interrupted":false,"modState":{"workspace":{"cwd":"<SCRATCH>/repo","platform":"darwin","branch":"main","gitStatus":"?? .commandcode/","recentCommits":["cbf706b seed"],"additionalDirectories":[]},"compaction":{"tokens":20980,"basis":{"role":"assistant","content":[{"type":"text","text":"hello"}],"meta":{"source":"model","createdAt":1789724131877,"messageId":"7a05bc36-d312-4005-9862-ad0ee8dccaad"}}}}}}}}
+{"type":"result","subtype":"success","sessionId":"128e600b-1387-424d-bf60-26ca60427dc1","stopReason":"end_turn","usage":{"inputTokens":41851,"outputTokens":605,"cacheReadTokens":20962,"cacheWriteTokens":0},"durationMs":14225,"finalText":"hello"}

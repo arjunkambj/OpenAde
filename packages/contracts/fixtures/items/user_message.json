@@ -2,5 +2,14 @@
   "itemId": "0199c0de-0005-7000-8000-000000000001",
   "kind": "user_message",
   "status": "completed",
-  "text": "Add a health check endpoint and wire it into the smoke test."
+  "text": "Add a health check endpoint and wire it into the smoke test.",
+  "attachments": [
+    {
+      "path": "/Users/dev/.openade/attachments/0199c0de-0002-7000-8000-000000000001/3f8a1c0d9e2b-design.png",
+      "mime": "image/png",
+      "name": "design.png",
+      "size": 20481,
+      "sha256": "3f8a1c0d9e2b4a76c5d8e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0"
+    }
+  ]
 }

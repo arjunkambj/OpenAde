@@ -1,0 +1,30 @@
+[
+  {
+    "at": 1789687870017,
+    "stdin": {
+      "session_id": "b4535107-1f3d-4516-a26c-81ccd812e422",
+      "transcript_path": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg-czzrjh0000gn-t-openade-rec-image-94c2d1e6-repo/b4535107-1f3d-4516-a26c-81ccd812e422.jsonl",
+      "cwd": "<SCRATCH>/repo",
+      "hook_event_name": "PreToolUse",
+      "permission_mode": "bypass",
+      "tool_use_id": "call_01a0b1b5af6576d4b277ffeacd1d3a8a",
+      "tool_name": "read_file",
+      "tool_display_name": "READ",
+      "tool_input": {
+        "file_path": "<SCRATCH>/attachments/red.png"
+      }
+    },
+    "answer": {
+      "hookSpecificOutput": {
+        "permissionDecision": "allow",
+        "permissionDecisionReason": "recorded allow"
+      }
+    },
+    "env": {
+      "COMMANDCODE_PROJECT_DIR": "<SCRATCH>/repo",
+      "COMMANDCODE_SESSION_ID": "b4535107-1f3d-4516-a26c-81ccd812e422",
+      "COMMANDCODE_HOOK_EVENT": "PreToolUse",
+      "COMMANDCODE_CWD": "<SCRATCH>/repo"
+    }
+  }
+]

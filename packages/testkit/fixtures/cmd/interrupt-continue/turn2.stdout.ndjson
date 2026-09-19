@@ -1,0 +1,12 @@
+{"type":"event","event":{"type":"run_start","sessionId":"919f8f5c-4552-442a-82da-bc64beac045c"}}
+{"type":"event","event":{"type":"turn_start","turnNumber":1}}
+{"type":"event","event":{"type":"message_start"}}
+{"type":"event","event":{"type":"model_request_start","model":"meta/muse-spark-1.3-contributor"}}
+{"type":"event","event":{"type":"model_trace","traceId":"f88973b1c78a9a73c011d1fe2a1f0a5b"}}
+{"type":"event","event":{"type":"text_delta","delta":"ok"}}
+{"type":"event","event":{"type":"message_update","content":[{"type":"text","text":"ok"}]}}
+{"type":"event","event":{"type":"model_request_end","model":"meta/muse-spark-1.3-contributor","usage":{"inputTokens":20874,"outputTokens":40,"cacheReadTokens":113,"cacheWriteTokens":0},"stopReason":"stop","effort":"xhigh"}}
+{"type":"event","event":{"type":"message_end","content":[{"type":"text","text":"ok"}]}}
+{"type":"event","event":{"type":"turn_end","turnNumber":1,"hadToolCalls":false,"usage":{"inputTokens":20874,"outputTokens":40,"cacheReadTokens":113,"cacheWriteTokens":0}}}
+{"type":"event","event":{"type":"run_end","result":{"finalText":"ok","stopReason":"end_turn","turnCount":1,"usage":{"inputTokens":20874,"outputTokens":40,"cacheReadTokens":113,"cacheWriteTokens":0},"systemPromptTokens":null,"nextState":{"sessionId":"919f8f5c-4552-442a-82da-bc64beac045c","messages":[{"role":"user","content":[{"type":"text","text":"Never mind. Reply with exactly: ok"}],"meta":{"source":"user","createdAt":1789725260544,"messageId":"f374ecfd-97b3-459a-9ba6-23acf682bed6"}},{"role":"assistant","content":[{"type":"text","text":"ok"}],"meta":{"source":"model","createdAt":1789725265693,"messageId":"f543b8fb-3869-4e6b-93cf-6f1b80032189"}}],"interrupted":false,"modState":{"workspace":{"cwd":"<SCRATCH>/repo","platform":"darwin","branch":"main","gitStatus":"?? .commandcode/","recentCommits":["0e64931 seed"],"additionalDirectories":[]},"compaction":{"tokens":20881,"basis":{"role":"assistant","content":[{"type":"text","text":"ok"}],"meta":{"source":"model","createdAt":1789725265693,"messageId":"f543b8fb-3869-4e6b-93cf-6f1b80032189"}}}}}}}}
+{"type":"result","subtype":"success","sessionId":"919f8f5c-4552-442a-82da-bc64beac045c","stopReason":"end_turn","usage":{"inputTokens":20874,"outputTokens":40,"cacheReadTokens":113,"cacheWriteTokens":0},"durationMs":5195,"finalText":"ok"}

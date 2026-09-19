@@ -4,8 +4,7 @@ node_modules
 .pnp.js
 plans
 docs/*
-!docs/decisions/
-!docs/specs/
+!docs/*.md
 !docs/launch/
 .claude/worktrees/
 

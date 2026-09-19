@@ -1,7 +1,8 @@
 {
   "extends": "@OpenAde/config/tsconfig.base.json",
   "compilerOptions": {
-    "noEmit": true
+    "noEmit": true,
+    "lib": ["ESNext", "DOM", "DOM.Iterable"]
   },
   "include": ["src/**/*.ts", "vitest.config.ts"],
   "exclude": ["node_modules", "out"]

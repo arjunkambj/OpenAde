@@ -31,7 +31,8 @@
     "./rpc": {
       "types": "./src/rpc.ts",
       "import": "./src/rpc.ts"
-    }
+    },
+    "./fixtures/*": "./fixtures/*"
   },
   "scripts": {
     "check-types": "tsc --noEmit",

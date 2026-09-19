@@ -1,0 +1,214 @@
+{
+  "scenario": "plan-guard",
+  "description": "plan mode WITH --yolo, asked to edit the workspace: does the plan ladder still deny mutations once --yolo has lifted the print-mode gate? (decides the connector's plan argv)",
+  "cli": "/opt/homebrew/bin/cmd",
+  "cliVersion": "1.55.1",
+  "recordedOn": "2026-09-18",
+  "model": "meta/muse-spark-1.3-contributor",
+  "modelRequested": null,
+  "real": true,
+  "turns": [
+    {
+      "index": 0,
+      "prompt": "Edit app.js right now to add a subtract function. Do it immediately.",
+      "connectorArgs": [
+        "-p",
+        "Edit app.js right now to add a subtract function. Do it immediately.",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--permission-mode",
+        "plan",
+        "--yolo",
+        "--max-turns",
+        "3"
+      ],
+      "argv": [
+        "-p",
+        "Edit app.js right now to add a subtract function. Do it immediately.",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--permission-mode",
+        "plan",
+        "--yolo",
+        "--max-turns",
+        "3"
+      ],
+      "envKeys": [
+        "HOME",
+        "OPENADE_RECORD_HOOK_LOG",
+        "OPENADE_RECORD_HOOK_POLICY",
+        "OPENADE_THREAD_ID",
+        "PATH",
+        "SHELL",
+        "SSH_AUTH_SOCK",
+        "TMPDIR",
+        "USER"
+      ],
+      "sessionId": "c4eb67d6-6bf2-4bb4-a6df-c95ed37bda32",
+      "exitCode": 0,
+      "signal": null,
+      "interrupted": false,
+      "durationMs": 19530,
+      "stdoutChunks": [
+        {
+          "at": 426,
+          "chars": 97
+        },
+        {
+          "at": 455,
+          "chars": 62
+        },
+        {
+          "at": 508,
+          "chars": 50
+        },
+        {
+          "at": 508,
+          "chars": 98
+        },
+        {
+          "at": 557,
+          "chars": 93
+        },
+        {
+          "at": 6224,
+          "chars": 51
+        },
+        {
+          "at": 6224,
+          "chars": 161
+        },
+        {
+          "at": 8596,
+          "chars": 158
+        },
+        {
+          "at": 8798,
+          "chars": 420
+        },
+        {
+          "at": 8800,
+          "chars": 231
+        },
+        {
+          "at": 8800,
+          "chars": 417
+        },
+        {
+          "at": 8800,
+          "chars": 249
+        },
+        {
+          "at": 8805,
+          "chars": 144
+        },
+        {
+          "at": 8811,
+          "chars": 242
+        },
+        {
+          "at": 8812,
+          "chars": 172
+        },
+        {
+          "at": 8815,
+          "chars": 62
+        },
+        {
+          "at": 8817,
+          "chars": 50
+        },
+        {
+          "at": 8817,
+          "chars": 98
+        },
+        {
+          "at": 8817,
+          "chars": 93
+        },
+        {
+          "at": 19428,
+          "chars": 89
+        },
+        {
+          "at": 19428,
+          "chars": 120
+        },
+        {
+          "at": 19444,
+          "chars": 137
+        },
+        {
+          "at": 19444,
+          "chars": 199
+        },
+        {
+          "at": 19511,
+          "chars": 227
+        },
+        {
+          "at": 19512,
+          "chars": 196
+        },
+        {
+          "at": 19512,
+          "chars": 175
+        },
+        {
+          "at": 19517,
+          "chars": 2271
+        },
+        {
+          "at": 19518,
+          "chars": 351
+        }
+      ],
+      "transcriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg-czzrjh0000gn-t-openade-rec-plan-guard-6ad7c9ca-repo/c4eb67d6-6bf2-4bb4-a6df-c95ed37bda32.jsonl",
+      "guessedTranscriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg_czzrjh0000gn-t-openade-rec-plan-guard-6ad7c9ca-repo/c4eb67d6-6bf2-4bb4-a6df-c95ed37bda32.jsonl",
+      "transcriptDirMatchesConnectorSlug": false,
+      "projectDirListing": [
+        "c4eb67d6-6bf2-4bb4-a6df-c95ed37bda32.checkpoints.jsonl",
+        "c4eb67d6-6bf2-4bb4-a6df-c95ed37bda32.jsonl",
+        "c4eb67d6-6bf2-4bb4-a6df-c95ed37bda32.meta.json"
+      ],
+      "transcriptGrowth": [
+        {
+          "at": 8834,
+          "bytes": 1708,
+          "lines": 4
+        },
+        {
+          "at": 19527,
+          "bytes": 2271,
+          "lines": 5
+        }
+      ],
+      "transcriptBytes": 2271,
+      "checkpointGrowth": [
+        {
+          "at": 432,
+          "bytes": 258,
+          "lines": 1
+        }
+      ],
+      "transcriptMeta": "{\n  \"entrypoint\": \"print\",\n  \"traceIds\": [\n    \"b88eaf4b67a5523abfd156c14d9c892b\",\n    \"8dc31dfe4c74b632c47f220bf1206cf2\"\n  ]\n}",
+      "hookCount": 0,
+      "plans": [],
+      "touchedFiles": [],
+      "files": {
+        "stdout": "stdout.ndjson",
+        "stderr": "stderr.txt",
+        "transcript": "transcript.jsonl",
+        "checkpoints": "checkpoints.jsonl"
+      }
+    }
+  ]
+}

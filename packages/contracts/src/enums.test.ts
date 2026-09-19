@@ -13,7 +13,7 @@ import {
 } from "./enums";
 
 describe("closed vocabularies", () => {
-  it.effect("carry exactly the members the spec lists", () =>
+  it.effect("carry exactly the members the contract lists", () =>
     Effect.gen(function* () {
       const literals = yield* Effect.succeed({
         runtimeMode: RuntimeMode.literals,

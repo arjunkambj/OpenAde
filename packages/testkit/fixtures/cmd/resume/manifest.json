@@ -1,0 +1,300 @@
+{
+  "scenario": "resume",
+  "description": "second turn resuming the first session id (--session)",
+  "cli": "/opt/homebrew/bin/cmd",
+  "cliVersion": "1.55.1",
+  "recordedOn": "2026-09-18",
+  "model": "meta/muse-spark-1.3-contributor",
+  "real": true,
+  "turns": [
+    {
+      "index": 0,
+      "prompt": "Remember the word `pineapple`. Reply with exactly: stored",
+      "connectorArgs": [
+        "-p",
+        "Remember the word `pineapple`. Reply with exactly: stored",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--yolo",
+        "--max-turns",
+        "1"
+      ],
+      "argv": [
+        "-p",
+        "Remember the word `pineapple`. Reply with exactly: stored",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--yolo",
+        "--max-turns",
+        "1"
+      ],
+      "envKeys": [
+        "HOME",
+        "OPENADE_RECORD_HOOK_LOG",
+        "OPENADE_RECORD_HOOK_POLICY",
+        "OPENADE_THREAD_ID",
+        "PATH",
+        "SHELL",
+        "SSH_AUTH_SOCK",
+        "TMPDIR",
+        "USER"
+      ],
+      "sessionId": "fe08132f-c02b-4223-a350-770b29475b95",
+      "exitCode": 0,
+      "signal": null,
+      "interrupted": false,
+      "durationMs": 6088,
+      "stdoutChunks": [
+        {
+          "at": 429,
+          "chars": 97
+        },
+        {
+          "at": 459,
+          "chars": 62
+        },
+        {
+          "at": 512,
+          "chars": 50
+        },
+        {
+          "at": 512,
+          "chars": 98
+        },
+        {
+          "at": 563,
+          "chars": 93
+        },
+        {
+          "at": 5776,
+          "chars": 64
+        },
+        {
+          "at": 5776,
+          "chars": 95
+        },
+        {
+          "at": 6078,
+          "chars": 225
+        },
+        {
+          "at": 6078,
+          "chars": 92
+        },
+        {
+          "at": 6078,
+          "chars": 173
+        },
+        {
+          "at": 6081,
+          "chars": 1203
+        },
+        {
+          "at": 6082,
+          "chars": 244
+        }
+      ],
+      "transcriptPath": "<HOME>/.commandcode/projects/private-tmp-claude-501-volumes-main-code-open-ade-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-resume-39881b5d-repo/fe08132f-c02b-4223-a350-770b29475b95.jsonl",
+      "guessedTranscriptPath": "<HOME>/.commandcode/projects/private-tmp-claude-501--volumes-main-code-openade-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-resume-39881b5d-repo/fe08132f-c02b-4223-a350-770b29475b95.jsonl",
+      "transcriptDirMatchesConnectorSlug": false,
+      "projectDirListing": [
+        "fe08132f-c02b-4223-a350-770b29475b95.checkpoints.jsonl",
+        "fe08132f-c02b-4223-a350-770b29475b95.jsonl",
+        "fe08132f-c02b-4223-a350-770b29475b95.meta.json"
+      ],
+      "transcriptGrowth": [
+        {
+          "at": 6088,
+          "bytes": 1006,
+          "lines": 3
+        }
+      ],
+      "transcriptBytes": 1006,
+      "checkpointGrowth": [
+        {
+          "at": 443,
+          "bytes": 247,
+          "lines": 1
+        }
+      ],
+      "transcriptMeta": "{\n  \"entrypoint\": \"print\",\n  \"traceIds\": [\n    \"9793c386d1178e0ba4800fc4efe21b34\"\n  ]\n}",
+      "hookCount": 0,
+      "plans": [],
+      "touchedFiles": [],
+      "files": {
+        "stdout": "turn1.stdout.ndjson",
+        "stderr": "turn1.stderr.txt",
+        "transcript": "turn1.transcript.jsonl",
+        "checkpoints": "turn1.checkpoints.jsonl"
+      }
+    },
+    {
+      "index": 1,
+      "prompt": "What word did I ask you to remember? Reply with just the word.",
+      "connectorArgs": [
+        "-p",
+        "What word did I ask you to remember? Reply with just the word.",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--session",
+        "fe08132f-c02b-4223-a350-770b29475b95",
+        "--yolo",
+        "--max-turns",
+        "1"
+      ],
+      "argv": [
+        "-p",
+        "What word did I ask you to remember? Reply with just the word.",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--session",
+        "fe08132f-c02b-4223-a350-770b29475b95",
+        "--yolo",
+        "--max-turns",
+        "1"
+      ],
+      "envKeys": [
+        "HOME",
+        "OPENADE_RECORD_HOOK_LOG",
+        "OPENADE_RECORD_HOOK_POLICY",
+        "OPENADE_THREAD_ID",
+        "PATH",
+        "SHELL",
+        "SSH_AUTH_SOCK",
+        "TMPDIR",
+        "USER"
+      ],
+      "sessionId": "fe08132f-c02b-4223-a350-770b29475b95",
+      "exitCode": 0,
+      "signal": null,
+      "interrupted": false,
+      "durationMs": 5775,
+      "stdoutChunks": [
+        {
+          "at": 527,
+          "chars": 97
+        },
+        {
+          "at": 558,
+          "chars": 62
+        },
+        {
+          "at": 611,
+          "chars": 50
+        },
+        {
+          "at": 611,
+          "chars": 98
+        },
+        {
+          "at": 660,
+          "chars": 93
+        },
+        {
+          "at": 5664,
+          "chars": 51
+        },
+        {
+          "at": 5664,
+          "chars": 135
+        },
+        {
+          "at": 5716,
+          "chars": 132
+        },
+        {
+          "at": 5717,
+          "chars": 67
+        },
+        {
+          "at": 5717,
+          "chars": 220
+        },
+        {
+          "at": 5755,
+          "chars": 227
+        },
+        {
+          "at": 5755,
+          "chars": 217
+        },
+        {
+          "at": 5756,
+          "chars": 175
+        },
+        {
+          "at": 5761,
+          "chars": 1844
+        },
+        {
+          "at": 5763,
+          "chars": 249
+        }
+      ],
+      "transcriptPath": "<HOME>/.commandcode/projects/private-tmp-claude-501-volumes-main-code-open-ade-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-resume-39881b5d-repo/fe08132f-c02b-4223-a350-770b29475b95.jsonl",
+      "guessedTranscriptPath": "<HOME>/.commandcode/projects/private-tmp-claude-501--volumes-main-code-openade-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-resume-39881b5d-repo/fe08132f-c02b-4223-a350-770b29475b95.jsonl",
+      "transcriptDirMatchesConnectorSlug": false,
+      "projectDirListing": [
+        "fe08132f-c02b-4223-a350-770b29475b95.checkpoints.jsonl",
+        "fe08132f-c02b-4223-a350-770b29475b95.jsonl",
+        "fe08132f-c02b-4223-a350-770b29475b95.meta.json"
+      ],
+      "transcriptGrowth": [
+        {
+          "at": 521,
+          "bytes": 1006,
+          "lines": 3
+        },
+        {
+          "at": 5761,
+          "bytes": 1330,
+          "lines": 4
+        },
+        {
+          "at": 5775,
+          "bytes": 1915,
+          "lines": 5
+        }
+      ],
+      "transcriptBytes": 1915,
+      "checkpointGrowth": [
+        {
+          "at": 521,
+          "bytes": 247,
+          "lines": 1
+        },
+        {
+          "at": 546,
+          "bytes": 555,
+          "lines": 2
+        }
+      ],
+      "transcriptMeta": "{\n  \"entrypoint\": \"print\",\n  \"traceIds\": [\n    \"9793c386d1178e0ba4800fc4efe21b34\",\n    \"8aa2f9e2358f3d13d1f716dd30cb4da9\"\n  ]\n}",
+      "hookCount": 0,
+      "plans": [],
+      "touchedFiles": [],
+      "files": {
+        "stdout": "turn2.stdout.ndjson",
+        "stderr": "turn2.stderr.txt",
+        "transcript": "turn2.transcript.jsonl",
+        "checkpoints": "turn2.checkpoints.jsonl"
+      }
+    }
+  ]
+}

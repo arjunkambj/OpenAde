@@ -13,7 +13,8 @@
     "build": "turbo run build -F web && node scripts/package.mjs --dir",
     "build:stable": "turbo run build -F web && node scripts/package.mjs --channel stable",
     "build:canary": "turbo run build -F web && node scripts/package.mjs --channel canary",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@OpenAde/contracts": "workspace:*",
@@ -23,6 +24,7 @@
     "electron": "^44.3.0",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.2",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

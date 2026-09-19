@@ -2,5 +2,6 @@
   "itemId": "0199c0de-0005-7000-8000-000000000002",
   "kind": "assistant_message",
   "status": "completed",
+  "turnId": "0199c0de-0004-7000-8000-000000000001",
   "text": "I added `GET /healthz` and pointed the smoke test at it."
 }

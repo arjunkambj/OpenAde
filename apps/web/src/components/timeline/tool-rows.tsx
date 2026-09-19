@@ -1,0 +1,166 @@
+/**
+ * The compact work rows: reasoning, command_execution, tool_call,
+ * mcp_tool_call and web_search. Each is an icon + one-line label with an
+ * expandable detail body; disclosure state is keyed by item id in
+ * `rowDisclosureAtom`.
+ */
+
+import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
+import type { ReactNode } from "react";
+
+import { DisclosureRow, JsonBlock, MonoBlock } from "@/components/timeline/row-shell";
+import { cn } from "@/lib/utils";
+
+/** First line of a value for a row label — strings verbatim, objects compact. */
+const preview = (value: unknown, max = 80): string | undefined => {
+  if (typeof value === "string") {
+    const line = value.trim().split("\n", 1)[0];
+    return line.length > max ? `${line.slice(0, max)}…` : line;
+  }
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  try {
+    const text = JSON.stringify(value);
+    if (text === undefined) {
+      return undefined;
+    }
+    return text.length > max ? `${text.slice(0, max)}…` : text;
+  } catch {
+    return undefined;
+  }
+};
+
+const field = (input: unknown, key: string): unknown =>
+  typeof input === "object" && input !== null && key in input
+    ? (input as Record<string, unknown>)[key]
+    : undefined;
+
+function ToolPayload({ input, output }: { input: unknown; output: unknown }) {
+  return (
+    <div className="flex flex-col gap-2">
+      {input !== undefined ? (
+        <div>
+          <div className="mb-1 type-micro text-muted-foreground">Input</div>
+          <JsonBlock value={input} />
+        </div>
+      ) : null}
+      {output !== undefined ? (
+        <div>
+          <div className="mb-1 type-micro text-muted-foreground">Output</div>
+          <JsonBlock value={output} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function ReasoningRow({ item }: { item: ItemSnapshot }) {
+  const inProgress = item.status === "in_progress";
+  return (
+    <DisclosureRow
+      rowId={item.itemId}
+      icon="hugeicons:brain"
+      label={inProgress ? "Thinking…" : "Reasoning"}
+      status={item.status}
+    >
+      <p className="whitespace-pre-wrap">{item.text ?? ""}</p>
+    </DisclosureRow>
+  );
+}
+
+function ExitCode({ code }: { code: number | undefined }) {
+  if (code === undefined) {
+    return null;
+  }
+  return (
+    <span
+      className={cn(
+        "ml-1 shrink-0 rounded-sm px-1 font-mono text-xs",
+        code === 0 ? "bg-hover text-muted-foreground" : "bg-removed-bg text-removed",
+      )}
+    >
+      {code === 0 ? "ok" : `exit ${code}`}
+    </span>
+  );
+}
+
+export function CommandExecutionRow({ item }: { item: ItemSnapshot }) {
+  const command = item.command;
+  const cmd = command?.cmd ?? item.text ?? "command";
+  const output = command?.output;
+  return (
+    <DisclosureRow
+      rowId={item.itemId}
+      icon="hugeicons:computer-terminal-01"
+      label={<span className="font-mono text-xs">{cmd}</span>}
+      status={item.status}
+      meta={
+        <>
+          {command?.cwd ? (
+            <span className="shrink-0 type-micro text-muted-foreground">{command.cwd}</span>
+          ) : null}
+          <ExitCode code={command?.exitCode} />
+        </>
+      }
+    >
+      {output !== undefined && output !== "" ? <MonoBlock>{output}</MonoBlock> : null}
+    </DisclosureRow>
+  );
+}
+
+export function ToolCallRow({ item }: { item: ItemSnapshot }) {
+  const tool = item.tool;
+  const name = tool?.name ?? item.text ?? "tool call";
+  const detail = preview(field(tool?.input, "file_path") ?? field(tool?.input, "path"));
+  return (
+    <DisclosureRow
+      rowId={item.itemId}
+      icon="hugeicons:wrench-01"
+      label={
+        <>
+          {name}
+          {detail !== undefined ? <span className="ml-1 font-mono text-xs">{detail}</span> : null}
+        </>
+      }
+      status={item.status}
+    >
+      {tool !== undefined ? <ToolPayload input={tool.input} output={tool.output} /> : undefined}
+    </DisclosureRow>
+  );
+}
+
+export function McpToolCallRow({ item }: { item: ItemSnapshot }) {
+  const tool = item.tool;
+  const name = tool?.name ?? item.text ?? "mcp tool";
+  return (
+    <DisclosureRow
+      rowId={item.itemId}
+      icon="hugeicons:plug-zap"
+      label={
+        <>
+          {tool?.server !== undefined ? (
+            <span className="mr-1 rounded-sm bg-hover px-1 font-mono text-xs">{tool.server}</span>
+          ) : null}
+          {name}
+        </>
+      }
+      status={item.status}
+    >
+      {tool !== undefined ? <ToolPayload input={tool.input} output={tool.output} /> : undefined}
+    </DisclosureRow>
+  );
+}
+
+export function WebSearchRow({ item }: { item: ItemSnapshot }) {
+  const query = preview(field(item.tool?.input, "query")) ?? item.text ?? "web search";
+  const hasPayload = item.tool !== undefined;
+  const body: ReactNode = hasPayload ? (
+    <ToolPayload input={item.tool?.input} output={item.tool?.output} />
+  ) : undefined;
+  return (
+    <DisclosureRow rowId={item.itemId} icon="hugeicons:globe" label={query} status={item.status}>
+      {body}
+    </DisclosureRow>
+  );
+}

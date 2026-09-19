@@ -3,7 +3,11 @@ const isCanary = channel === "canary";
 
 /** @type {import("electron-builder").Configuration} */
 module.exports = {
-  appId: isCanary ? "dev.bettertstack.OpenAde.desktop.canary" : "dev.bettertstack.OpenAde.desktop",
+  // `src/platform/channel.ts` derives `setAppUserModelId` and `setName` from
+  // the same channel (bundled in by scripts/build.mjs) and a test asserts both
+  // sides agree — Windows would otherwise split taskbar grouping and
+  // notifications from the install, and the two channels would share userData.
+  appId: isCanary ? "dev.openade.OpenAde.desktop.canary" : "dev.openade.OpenAde.desktop",
   productName: isCanary ? "OpenAde Canary" : "OpenAde",
   copyright: `Copyright © ${new Date().getFullYear()} OpenAde`,
   directories: {
@@ -12,6 +16,8 @@ module.exports = {
   },
   files: ["out/**/*", "package.json"],
   asar: true,
+  // The server child process cannot spawn from inside the asar archive.
+  asarUnpack: ["out/server/**"],
   npmRebuild: false,
   mac: {
     icon: "assets/AppIcon.icns",

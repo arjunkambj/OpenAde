@@ -32,6 +32,7 @@ import {
 } from "./ids";
 import {
   ApprovalRequest,
+  Attachment,
   ItemSnapshot,
   TurnStopReason,
   UserQuestion,
@@ -41,15 +42,11 @@ import {
 // ── Shared value objects ───────────────────────────────────────
 
 /**
- * A file the user attached to a turn, already written to the attachments dir.
- * `mime` is the spec's field name (section 7) and is optional because a plain
- * path drop carries no declared type.
+ * A file the user attached to a turn. Defined beside the runtime events
+ * because the `user_message` row carries the same references the command does;
+ * re-exported here because the commands are where a reader looks for it.
  */
-export const Attachment = Schema.Struct({
-  path: NonEmptyString,
-  mime: Schema.optional(NonEmptyString),
-});
-export type Attachment = typeof Attachment.Type;
+export { Attachment } from "./runtime";
 
 /** An `@`-mention from the composer: a workspace-relative path. */
 export const Mention = NonEmptyString;
@@ -117,8 +114,21 @@ export const ThreadSession = Schema.Struct({
 });
 export type ThreadSession = typeof ThreadSession.Type;
 
-/** What the sidebar pill shows. */
-export const ThreadStatus = Schema.Literals(["idle", "running", "waiting", "error", "archived"]);
+/**
+ * What the sidebar pill shows. `deleted` is produced by the client fold when a
+ * `thread.deleted` event arrives for a thread that is open — the server never
+ * sends it, because a deleted thread leaves the read model entirely. It exists
+ * so an open timeline can say the thread is gone instead of quietly claiming
+ * it was archived.
+ */
+export const ThreadStatus = Schema.Literals([
+  "idle",
+  "running",
+  "waiting",
+  "error",
+  "archived",
+  "deleted",
+]);
 export type ThreadStatus = typeof ThreadStatus.Type;
 
 /** What the user chose on a proposed plan. */
@@ -209,6 +219,28 @@ const ThreadPlanRespondCommand = command("thread.plan.respond", {
   feedback: Schema.optional(Schema.String),
 });
 
+/**
+ * Take a queued follow-up back out of the queue. Emits
+ * `thread.message.dequeued`, the same event the reactor emits when the next
+ * turn consumes one, so the read model needs nothing new.
+ */
+const ThreadQueueRemoveCommand = command("thread.queue.remove", {
+  threadId: ThreadId,
+  queuedMessageId: ItemId,
+});
+
+/**
+ * Move a queued follow-up to another position. `toIndex` is where the message
+ * ends up once it has been lifted out, so moving the second message to 0 makes
+ * it the next one sent. The decider answers with the whole new order rather
+ * than the move, so a projector never has to replay arithmetic.
+ */
+const ThreadQueueReorderCommand = command("thread.queue.reorder", {
+  threadId: ThreadId,
+  queuedMessageId: ItemId,
+  toIndex: NonNegativeInt,
+});
+
 const ThreadCheckpointRestoreCommand = command("thread.checkpoint.restore", {
   threadId: ThreadId,
   checkpointId: CheckpointId,
@@ -227,6 +259,8 @@ export const Command = Schema.Union([
   ThreadApprovalRespondCommand,
   ThreadUserInputRespondCommand,
   ThreadPlanRespondCommand,
+  ThreadQueueRemoveCommand,
+  ThreadQueueReorderCommand,
   ThreadCheckpointRestoreCommand,
 ]);
 export type Command = typeof Command.Type;
@@ -248,6 +282,8 @@ export const CommandType = Schema.Literals([
   "thread.approval.respond",
   "thread.userInput.respond",
   "thread.plan.respond",
+  "thread.queue.remove",
+  "thread.queue.reorder",
   "thread.checkpoint.restore",
 ]);
 export type CommandType = typeof CommandType.Type;
@@ -391,6 +427,17 @@ const ThreadMessageDequeuedEvent = orchestrationEvent(
   Schema.Struct({ queuedMessageId: ItemId, turnId: Schema.optional(TurnId) }),
 );
 
+/**
+ * The queue's new order, as the full list of `queuedMessageId`s. Carrying the
+ * result rather than the move keeps the projection a lookup: an id the doc no
+ * longer holds is skipped, and anything the order does not mention keeps its
+ * place behind what it does.
+ */
+const ThreadQueueReorderedEvent = orchestrationEvent(
+  "thread.queue.reordered",
+  Schema.Struct({ order: Schema.Array(ItemId) }),
+);
+
 const ThreadItemUpsertedEvent = orchestrationEvent(
   "thread.item.upserted",
   Schema.Struct({ item: ItemSnapshot, turnId: Schema.optional(TurnId) }),
@@ -429,12 +476,20 @@ const ThreadPlanProposedEvent = orchestrationEvent(
   }),
 );
 
+/**
+ * `planPath` is the plan file the answer is about, copied from the pending
+ * plan as it is answered. The accept turn names the file ("Implement the
+ * approved plan at <path>"), and by the time a reactor sees this event the
+ * fold has already cleared `pendingPlan` — carrying it on the event is what
+ * lets that turn survive a restart between proposing a plan and accepting it.
+ */
 const ThreadPlanRespondedEvent = orchestrationEvent(
   "thread.plan.responded",
   Schema.Struct({
     turnId: TurnId,
     action: PlanResponseAction,
     feedback: Schema.optional(Schema.String),
+    planPath: Schema.optional(NonEmptyString),
   }),
 );
 
@@ -453,6 +508,33 @@ const ThreadContextUpdatedEvent = orchestrationEvent("thread.context.updated", C
 const ThreadCheckpointCreatedEvent = orchestrationEvent(
   "thread.checkpoint.created",
   Schema.Struct({ checkpoint: CheckpointSummary }),
+);
+
+/**
+ * The durable work order: an accepted `thread.checkpoint.restore`, recorded
+ * before any git runs. The CheckpointReactor acts on this event, and replays
+ * any that has no `restored`/`restore.failed` successor at boot, so a crash
+ * between command receipt and the git work cannot silently drop the request.
+ */
+const ThreadCheckpointRestoreRequestedEvent = orchestrationEvent(
+  "thread.checkpoint.restore.requested",
+  Schema.Struct({ checkpoint: CheckpointSummary }),
+);
+
+/** The worktree really moved — emitted only after the git work succeeded. */
+const ThreadCheckpointRestoredEvent = orchestrationEvent(
+  "thread.checkpoint.restored",
+  Schema.Struct({ checkpoint: CheckpointSummary }),
+);
+
+/**
+ * The restore did not happen: a locked directory, a garbage-collected ref, a
+ * dirty submodule. Carries the checkpoint it was for, so a client can put the
+ * failure on the right row instead of showing a stray error line.
+ */
+const ThreadCheckpointRestoreFailedEvent = orchestrationEvent(
+  "thread.checkpoint.restore.failed",
+  Schema.Struct({ checkpointId: CheckpointId, message: NonEmptyString }),
 );
 
 const ThreadErrorEvent = orchestrationEvent(
@@ -475,6 +557,7 @@ export const OrchestrationEvent = Schema.Union([
   ThreadTurnInterruptedEvent,
   ThreadMessageQueuedEvent,
   ThreadMessageDequeuedEvent,
+  ThreadQueueReorderedEvent,
   ThreadItemUpsertedEvent,
   ThreadApprovalOpenedEvent,
   ThreadApprovalResolvedEvent,
@@ -486,6 +569,9 @@ export const OrchestrationEvent = Schema.Union([
   ThreadUsageUpdatedEvent,
   ThreadContextUpdatedEvent,
   ThreadCheckpointCreatedEvent,
+  ThreadCheckpointRestoreRequestedEvent,
+  ThreadCheckpointRestoredEvent,
+  ThreadCheckpointRestoreFailedEvent,
   ThreadErrorEvent,
 ]);
 export type OrchestrationEvent = typeof OrchestrationEvent.Type;
@@ -509,6 +595,7 @@ export const OrchestrationEventType = Schema.Literals([
   "thread.turn.interrupted",
   "thread.message.queued",
   "thread.message.dequeued",
+  "thread.queue.reordered",
   "thread.item.upserted",
   "thread.approval.opened",
   "thread.approval.resolved",
@@ -520,6 +607,9 @@ export const OrchestrationEventType = Schema.Literals([
   "thread.usage.updated",
   "thread.context.updated",
   "thread.checkpoint.created",
+  "thread.checkpoint.restore.requested",
+  "thread.checkpoint.restored",
+  "thread.checkpoint.restore.failed",
   "thread.error",
 ]);
 export type OrchestrationEventType = typeof OrchestrationEventType.Type;
@@ -571,6 +661,21 @@ export const ThreadDetailSnapshot = Schema.Struct({
   items: Schema.Array(ItemSnapshot),
   queue: Schema.Array(QueuedMessage),
   checkpoints: Schema.Array(CheckpointSummary),
+  /**
+   * The checkpoint whose restore is running right now.
+   *
+   * A restore is a durable work order: the server accepts it, a reactor runs
+   * git over the whole worktree, and only then does `restored` or
+   * `restore.failed` arrive. The client used to learn about that window only by
+   * folding those three events, so a fresh snapshot forgot it — reload the
+   * window while git is still working and the "Restoring the worktree…" line
+   * was gone, the Restore button was live again, and pressing it was rejected
+   * with "is already restoring a checkpoint".
+   *
+   * Optional, so a snapshot written before this field existed still decodes;
+   * absent and `null` both mean "no restore in flight".
+   */
+  restoring: Schema.optional(Schema.NullOr(CheckpointSummary)),
   session: Schema.NullOr(ThreadSession),
   currentTurnId: Schema.NullOr(TurnId),
   pendingApproval: Schema.NullOr(ApprovalRequest),

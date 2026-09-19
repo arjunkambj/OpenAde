@@ -1,0 +1,195 @@
+{
+  "scenario": "image",
+  "description": "image attachment the way the connector stages one: the file under an attachments dir, that dir in --add-dir, the absolute path named in the prompt",
+  "cli": "/opt/homebrew/bin/cmd",
+  "cliVersion": "1.55.1",
+  "recordedOn": "2026-09-18",
+  "model": "meta/muse-spark-1.3-contributor",
+  "modelRequested": null,
+  "real": true,
+  "turns": [
+    {
+      "index": 0,
+      "prompt": "What colour is the image? Answer with one word.\n\nAttachment (image/png): <SCRATCH>/attachments/red.png",
+      "connectorArgs": [
+        "-p",
+        "What colour is the image? Answer with one word.\n\nAttachment (image/png): <SCRATCH>/attachments/red.png",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--yolo",
+        "--max-turns",
+        "3",
+        "--add-dir",
+        "<SCRATCH>/attachments"
+      ],
+      "argv": [
+        "-p",
+        "What colour is the image? Answer with one word.\n\nAttachment (image/png): <SCRATCH>/attachments/red.png",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--yolo",
+        "--max-turns",
+        "3",
+        "--add-dir",
+        "<SCRATCH>/attachments"
+      ],
+      "envKeys": [
+        "HOME",
+        "OPENADE_RECORD_HOOK_LOG",
+        "OPENADE_RECORD_HOOK_POLICY",
+        "OPENADE_THREAD_ID",
+        "PATH",
+        "SHELL",
+        "SSH_AUTH_SOCK",
+        "TMPDIR",
+        "USER"
+      ],
+      "sessionId": "b4535107-1f3d-4516-a26c-81ccd812e422",
+      "exitCode": 0,
+      "signal": null,
+      "interrupted": false,
+      "durationMs": 12571,
+      "stdoutChunks": [
+        {
+          "at": 418,
+          "chars": 97
+        },
+        {
+          "at": 450,
+          "chars": 62
+        },
+        {
+          "at": 501,
+          "chars": 50
+        },
+        {
+          "at": 502,
+          "chars": 98
+        },
+        {
+          "at": 551,
+          "chars": 93
+        },
+        {
+          "at": 5420,
+          "chars": 275
+        },
+        {
+          "at": 5463,
+          "chars": 231
+        },
+        {
+          "at": 5463,
+          "chars": 272
+        },
+        {
+          "at": 5463,
+          "chars": 252
+        },
+        {
+          "at": 5768,
+          "chars": 144
+        },
+        {
+          "at": 5901,
+          "chars": 1158
+        },
+        {
+          "at": 5901,
+          "chars": 172
+        },
+        {
+          "at": 5908,
+          "chars": 62
+        },
+        {
+          "at": 5909,
+          "chars": 50
+        },
+        {
+          "at": 5909,
+          "chars": 98
+        },
+        {
+          "at": 5910,
+          "chars": 93
+        },
+        {
+          "at": 12475,
+          "chars": 61
+        },
+        {
+          "at": 12475,
+          "chars": 92
+        },
+        {
+          "at": 12554,
+          "chars": 225
+        },
+        {
+          "at": 12554,
+          "chars": 89
+        },
+        {
+          "at": 12554,
+          "chars": 173
+        },
+        {
+          "at": 12559,
+          "chars": 2824
+        },
+        {
+          "at": 12560,
+          "chars": 242
+        }
+      ],
+      "transcriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg-czzrjh0000gn-t-openade-rec-image-94c2d1e6-repo/b4535107-1f3d-4516-a26c-81ccd812e422.jsonl",
+      "guessedTranscriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg_czzrjh0000gn-t-openade-rec-image-94c2d1e6-repo/b4535107-1f3d-4516-a26c-81ccd812e422.jsonl",
+      "transcriptDirMatchesConnectorSlug": false,
+      "projectDirListing": [
+        "b4535107-1f3d-4516-a26c-81ccd812e422.checkpoints.jsonl",
+        "b4535107-1f3d-4516-a26c-81ccd812e422.jsonl",
+        "b4535107-1f3d-4516-a26c-81ccd812e422.meta.json"
+      ],
+      "transcriptGrowth": [
+        {
+          "at": 5934,
+          "bytes": 2584,
+          "lines": 4
+        },
+        {
+          "at": 12570,
+          "bytes": 3038,
+          "lines": 5
+        }
+      ],
+      "transcriptBytes": 3038,
+      "checkpointGrowth": [
+        {
+          "at": 430,
+          "bytes": 237,
+          "lines": 1
+        }
+      ],
+      "transcriptMeta": "{\n  \"entrypoint\": \"print\",\n  \"traceIds\": [\n    \"370586b789766ca960f3a9bd6637bd1f\",\n    \"da7ea7ed7f63613499746a78c09e7a4d\"\n  ]\n}",
+      "hookCount": 1,
+      "plans": [],
+      "touchedFiles": [],
+      "files": {
+        "stdout": "stdout.ndjson",
+        "stderr": "stderr.txt",
+        "transcript": "transcript.jsonl",
+        "checkpoints": "checkpoints.jsonl",
+        "hooks": "hooks.json"
+      }
+    }
+  ]
+}

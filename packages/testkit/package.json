@@ -2,11 +2,14 @@
   "name": "@OpenAde/testkit",
   "version": "0.0.0",
   "private": true,
+  "bin": {
+    "openade-replay-cmd": "./bin/replay-cmd.mjs"
+  },
   "type": "module",
   "exports": {
-    "./fakeCmdProcess": {
-      "types": "./src/fakeCmdProcess.ts",
-      "import": "./src/fakeCmdProcess.ts"
+    "./replayCmdProcess": {
+      "types": "./src/replayCmdProcess.ts",
+      "import": "./src/replayCmdProcess.ts"
     },
     "./fakeConnector": {
       "types": "./src/fakeConnector.ts",

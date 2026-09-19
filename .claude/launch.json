@@ -5,7 +5,18 @@
       "name": "dev",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["run", "dev"],
-      "port": 3000
+      "port": 3001
+    },
+    {
+      "name": "dev:web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["run", "dev:web"],
+      "port": 3001
+    },
+    {
+      "name": "dev:server",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["-F", "server", "run", "dev"]
     }
   ]
 }

@@ -1,0 +1,255 @@
+/**
+ * Per-turn worktree snapshots as hidden git refs:
+ * `refs/openade/checkpoints/<threadId>/<turnId>` points at a commit built from
+ * a temporary index, so capture never disturbs the user's real index or
+ * staging area. Restore is the reverse: `git restore` from the checkpoint
+ * commit plus `git clean -fd` for paths the checkpoint never tracked.
+ */
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import * as nodePath from "node:path";
+import { decodeCheckpointId } from "@OpenAde/contracts/ids";
+import type { CheckpointId } from "@OpenAde/contracts/ids";
+import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
+import type { ThreadId, TurnId } from "@OpenAde/contracts/ids";
+import * as Data from "effect/Data";
+import * as Effect from "effect/Effect";
+
+import { isRepository, run } from "./process";
+
+class CheckpointStoreError extends Data.TaggedError("CheckpointStoreError")<{
+  readonly message: string;
+  /**
+   * The workspace is not a git repository. A named field rather than a
+   * substring of `message`: callers decide what to do about it (capture has
+   * nothing to snapshot, restore has nothing to restore from) and git's
+   * wording is not part of any contract.
+   */
+  readonly notARepository: boolean;
+}> {}
+
+const NOT_A_REPOSITORY = "the project folder is not a git repository";
+
+const REF_PREFIX = "refs/openade/checkpoints";
+const refFor = (threadId: ThreadId, turnId: TurnId) => `${REF_PREFIX}/${threadId}/${turnId}`;
+
+/**
+ * A checkpoint's id is a pure function of its commit: the SHA's first 32
+ * nibbles with the version and variant fields forced to UUIDv7. `capture` and
+ * `list` therefore report the same id — a `checkpointId` taken from a list
+ * response always matches the one `thread.checkpoint.created` recorded.
+ */
+const checkpointIdOf = (commitSha: string): CheckpointId => {
+  const hex = commitSha.toLowerCase();
+  const variant = ((Number.parseInt(hex[16] ?? "0", 16) & 0x3) | 0x8).toString(16);
+  return decodeCheckpointId(
+    `${hex.slice(0, 8)}-${hex.slice(8, 12)}-7${hex.slice(13, 16)}-${variant}${hex.slice(17, 20)}-${hex.slice(20, 32)}`,
+  );
+};
+
+const gitEnv = {
+  GIT_AUTHOR_NAME: "OpenAde",
+  GIT_AUTHOR_EMAIL: "openade@localhost",
+  GIT_COMMITTER_NAME: "OpenAde",
+  GIT_COMMITTER_EMAIL: "openade@localhost",
+} satisfies NodeJS.ProcessEnv;
+
+const wrap = <A>(
+  effect: Effect.Effect<A, import("./process").GitError | CheckpointStoreError>,
+): Effect.Effect<A, CheckpointStoreError> =>
+  effect.pipe(
+    Effect.mapError((error) =>
+      error._tag === "CheckpointStoreError"
+        ? error
+        : new CheckpointStoreError({ message: error.message, notARepository: false }),
+    ),
+  );
+
+/**
+ * Fails with the named `notARepository` error unless `cwd` is a work tree, so
+ * every entry point reports a plain folder the same way instead of surfacing
+ * whatever git happened to print first.
+ */
+const requireRepository = (cwd: string) =>
+  isRepository(cwd).pipe(
+    Effect.flatMap((repo) =>
+      repo
+        ? Effect.void
+        : Effect.fail(
+            new CheckpointStoreError({ message: NOT_A_REPOSITORY, notARepository: true }),
+          ),
+    ),
+  );
+
+const hasHead = (cwd: string) =>
+  run(cwd, ["rev-parse", "--verify", "--quiet", "HEAD^{commit}"], {
+    allowNonZeroExit: true,
+  }).pipe(Effect.map((result) => result.exitCode === 0));
+
+const resolveCommit = (cwd: string, ref: string) =>
+  run(cwd, ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`], {
+    allowNonZeroExit: true,
+  }).pipe(
+    Effect.map((result) => {
+      const sha = result.stdout.trim();
+      return result.exitCode === 0 && sha.length > 0 ? sha : null;
+    }),
+  );
+
+export interface CheckpointStoreShape {
+  readonly capture: (input: {
+    readonly threadId: ThreadId;
+    readonly turnId: TurnId;
+    readonly workspaceRoot: string;
+  }) => Effect.Effect<CheckpointSummary, CheckpointStoreError>;
+  readonly list: (input: {
+    readonly threadId: ThreadId;
+    readonly workspaceRoot: string;
+  }) => Effect.Effect<ReadonlyArray<CheckpointSummary>, CheckpointStoreError>;
+  readonly restore: (input: {
+    readonly workspaceRoot: string;
+    readonly checkpoint: CheckpointSummary;
+  }) => Effect.Effect<void, CheckpointStoreError>;
+  readonly prune: (input: {
+    readonly threadId: ThreadId;
+    readonly workspaceRoot: string;
+  }) => Effect.Effect<void, CheckpointStoreError>;
+}
+
+export const make: CheckpointStoreShape = {
+  /**
+   * Snapshot the worktree into `refs/openade/checkpoints/<thread>/<turn>`:
+   * read HEAD into a temp index, `add -A` every worktree path, write the tree,
+   * commit it with a detached identity, and point the hidden ref at it.
+   */
+  capture: ({ threadId, turnId, workspaceRoot }) =>
+    wrap(
+      Effect.gen(function* () {
+        yield* requireRepository(workspaceRoot);
+        const tempDir = mkdtempSync(nodePath.join(tmpdir(), "openade-checkpoint-"));
+        const tempIndex = nodePath.join(tempDir, "index");
+        const env = { ...gitEnv, GIT_INDEX_FILE: tempIndex };
+        try {
+          if (yield* hasHead(workspaceRoot)) {
+            yield* run(workspaceRoot, ["read-tree", "HEAD"], { env });
+          }
+          yield* run(workspaceRoot, ["add", "-A", "--", "."], { env });
+          const tree = yield* run(workspaceRoot, ["write-tree"], { env });
+          const commit = yield* run(
+            workspaceRoot,
+            ["commit-tree", tree.stdout.trim(), "-m", `openade checkpoint ${turnId}`],
+            { env },
+          );
+          const ref = refFor(threadId, turnId);
+          const sha = commit.stdout.trim();
+          yield* run(workspaceRoot, ["update-ref", ref, sha]);
+          return {
+            checkpointId: checkpointIdOf(sha),
+            turnId,
+            ref,
+            createdAt: new Date().toISOString(),
+          } satisfies CheckpointSummary;
+        } finally {
+          rmSync(tempDir, { recursive: true, force: true });
+        }
+      }),
+    ),
+
+  /** `for-each-ref` on the thread's ref prefix, oldest first. */
+  list: ({ threadId, workspaceRoot }) =>
+    wrap(
+      Effect.gen(function* () {
+        yield* requireRepository(workspaceRoot);
+        const result = yield* run(workspaceRoot, [
+          "for-each-ref",
+          "--format=%(refname)%00%(objectname)%00%(creatordate:iso-strict)",
+          `${REF_PREFIX}/${threadId}`,
+        ]);
+        const summaries: Array<CheckpointSummary> = [];
+        for (const line of result.stdout.split("\n")) {
+          if (line.length === 0) continue;
+          const [ref, objectName, createdAt] = line.split("\0");
+          const turnId = ref!.split("/").pop();
+          if (turnId === undefined || objectName === undefined) continue;
+          summaries.push({
+            checkpointId: checkpointIdOf(objectName),
+            turnId: turnId as TurnId,
+            ref: ref!,
+            createdAt: createdAt ?? new Date(0).toISOString(),
+          });
+        }
+        return summaries;
+      }),
+    ),
+
+  /**
+   * Revert worktree and index to the checkpoint commit, then clean untracked
+   * files the checkpoint did not know about.
+   */
+  restore: ({ workspaceRoot, checkpoint }) =>
+    wrap(
+      Effect.gen(function* () {
+        yield* requireRepository(workspaceRoot);
+        const commit = yield* resolveCommit(workspaceRoot, checkpoint.ref);
+        if (commit === null) {
+          return yield* new CheckpointStoreError({
+            message: `checkpoint ref ${checkpoint.ref} does not resolve`,
+            notARepository: false,
+          });
+        }
+        const tracked = yield* run(workspaceRoot, [
+          "ls-files",
+          "--cached",
+          `--with-tree=${commit}`,
+          "-z",
+          "--",
+          ".",
+        ]);
+        if (tracked.stdout.length > 0) {
+          yield* run(workspaceRoot, [
+            "restore",
+            "--source",
+            commit,
+            "--worktree",
+            "--staged",
+            "--",
+            ".",
+          ]);
+        }
+        // A clean that can't remove a path (e.g. an unwritable directory)
+        // must fail the restore — succeeding here would leave files the
+        // checkpoint never tracked behind and still report success.
+        yield* run(workspaceRoot, ["clean", "-fd", "--", "."]);
+        // Leave the real index pointing at HEAD rather than at the checkpoint
+        // — but only for the paths this restore touched. `read-tree HEAD`
+        // rewrites the whole index, so when the workspace root is a
+        // subdirectory of the repository it threw away hunks the user had
+        // staged elsewhere, outside anything the restore was asked about.
+        if (yield* hasHead(workspaceRoot)) {
+          yield* run(workspaceRoot, ["reset", "--quiet", "HEAD", "--", "."]);
+        }
+      }),
+    ),
+
+  /**
+   * Thread deleted → every checkpoint ref under its prefix goes. A workspace
+   * that is not a repository holds no refs, so there is nothing to fail over.
+   */
+  prune: ({ threadId, workspaceRoot }) =>
+    wrap(
+      Effect.gen(function* () {
+        if (!(yield* isRepository(workspaceRoot))) {
+          return;
+        }
+        const refs = yield* run(workspaceRoot, [
+          "for-each-ref",
+          "--format=%(refname)",
+          `${REF_PREFIX}/${threadId}`,
+        ]);
+        for (const ref of refs.stdout.split("\n")) {
+          if (ref.length === 0) continue;
+          yield* run(workspaceRoot, ["update-ref", "-d", ref]);
+        }
+      }),
+    ),
+};

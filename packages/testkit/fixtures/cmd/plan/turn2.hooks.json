@@ -1,0 +1,62 @@
+[
+  {
+    "at": 1789686569306,
+    "stdin": {
+      "session_id": "3cbf42ea-eb88-452c-8f1d-ff601119860c",
+      "transcript_path": "<HOME>/.commandcode/projects/private-tmp-claude-501-volumes-main-code-open-ade-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-plan-939dcebd-repo/3cbf42ea-eb88-452c-8f1d-ff601119860c.jsonl",
+      "cwd": "<SCRATCH>/repo",
+      "hook_event_name": "PreToolUse",
+      "permission_mode": "bypass",
+      "tool_use_id": "call_01a0b1a1d4ee70ea8241656804b22510",
+      "tool_name": "edit_file",
+      "tool_display_name": "EDIT",
+      "tool_input": {
+        "file_path": "<SCRATCH>/repo/app.js",
+        "new_string": "export const add = (a, b) => a + b;\nexport const subtract = (a, b) => a - b;",
+        "old_string": "export const add = (a, b) => a + b;"
+      }
+    },
+    "answer": {
+      "hookSpecificOutput": {
+        "permissionDecision": "allow",
+        "permissionDecisionReason": "recorded allow"
+      }
+    },
+    "env": {
+      "COMMANDCODE_PROJECT_DIR": "<SCRATCH>/repo",
+      "COMMANDCODE_SESSION_ID": "3cbf42ea-eb88-452c-8f1d-ff601119860c",
+      "COMMANDCODE_HOOK_EVENT": "PreToolUse",
+      "COMMANDCODE_CWD": "<SCRATCH>/repo"
+    }
+  },
+  {
+    "at": 1789686572634,
+    "stdin": {
+      "session_id": "3cbf42ea-eb88-452c-8f1d-ff601119860c",
+      "transcript_path": "<HOME>/.commandcode/projects/private-tmp-claude-501-volumes-main-code-open-ade-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-plan-939dcebd-repo/3cbf42ea-eb88-452c-8f1d-ff601119860c.jsonl",
+      "cwd": "<SCRATCH>/repo",
+      "hook_event_name": "PreToolUse",
+      "permission_mode": "bypass",
+      "tool_use_id": "call_01a0b1a1e27372beb9d6815ae6d02573",
+      "tool_name": "shell_command",
+      "tool_display_name": "SHELL",
+      "tool_input": {
+        "command": "node -e \"import('./app.js').then(m => console.log(m.add(2,3), m.subtract(5,3)))\"",
+        "cwd": "<SCRATCH>/repo",
+        "description": "Verify add and subtract functions work"
+      }
+    },
+    "answer": {
+      "hookSpecificOutput": {
+        "permissionDecision": "allow",
+        "permissionDecisionReason": "recorded allow"
+      }
+    },
+    "env": {
+      "COMMANDCODE_PROJECT_DIR": "<SCRATCH>/repo",
+      "COMMANDCODE_SESSION_ID": "3cbf42ea-eb88-452c-8f1d-ff601119860c",
+      "COMMANDCODE_HOOK_EVENT": "PreToolUse",
+      "COMMANDCODE_CWD": "<SCRATCH>/repo"
+    }
+  }
+]

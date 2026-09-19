@@ -55,7 +55,7 @@
       "fileChange": {
         "path": "apps/server/src/http/health.ts",
         "kind": "create",
-        "diff": "--- /dev/null\n+++ b/apps/server/src/http/health.ts\n@@\n+export const health = () => ({ ok: true });\n"
+        "diff": "--- /dev/null\n+++ b/apps/server/src/http/health.ts\n@@ -0,0 +1 @@\n+export const health = () => ({ ok: true });\n"
       }
     },
     {
@@ -204,7 +204,7 @@
       "fileChange": {
         "path": "apps/server/src/http/router.ts",
         "kind": "edit",
-        "diff": "--- a/apps/server/src/http/router.ts\n+++ b/apps/server/src/http/router.ts\n@@\n+  .get(\"/healthz\", health)\n"
+        "diff": "--- a/apps/server/src/http/router.ts\n+++ b/apps/server/src/http/router.ts\n@@ -12,0 +13 @@\n+  .get(\"/healthz\", health)\n"
       }
     },
     {
@@ -231,6 +231,7 @@
       "createdAt": "2026-09-15T12:00:00.000Z"
     }
   ],
+  "restoring": null,
   "session": {
     "connectorInstanceId": "0199c0de-0003-7000-8000-000000000001",
     "connectorKind": "cmd",

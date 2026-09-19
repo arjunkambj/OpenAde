@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { ChatWorkspace } from "@/components/Chat/chat-workspace";
+import { StartThread } from "@/components/thread/start-thread";
 
 export const Route = createFileRoute("/_home/")({
   component: HomePage,
 });
 
 function HomePage() {
-  return <ChatWorkspace />;
+  return <StartThread />;
 }
