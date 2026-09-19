@@ -118,6 +118,18 @@ export const useSidebarWidth = () => {
   return [width, setPersistedWidth] as const;
 };
 
+/** Puts the sidebar and dock back at their default widths, for Appearance's reset. */
+export const useResetLayoutWidths = () => {
+  const setSidebarWidth = useAtomSet(sidebarWidthAtom);
+  const setDockWidth = useAtomSet(dockWidthAtom);
+  return React.useCallback(() => {
+    writeStoredWidth(SIDEBAR_WIDTH_KEY, SIDEBAR_WIDTH_DEFAULT);
+    writeStoredWidth(DOCK_WIDTH_KEY, DOCK_WIDTH_DEFAULT);
+    setSidebarWidth(SIDEBAR_WIDTH_DEFAULT);
+    setDockWidth(DOCK_WIDTH_DEFAULT);
+  }, [setSidebarWidth, setDockWidth]);
+};
+
 /**
  * What is typed into a thread's composer but not sent yet: the text, the `@`
  * mentions it names, and the files staged against it.
