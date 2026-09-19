@@ -94,16 +94,18 @@ function ChromeHistoryButtons() {
   );
 }
 
-function ChromeActions({ className }: { className?: string }) {
+function ChromeActions({ navigationClassName }: { navigationClassName?: string }) {
   return (
-    <div className={cn("flex min-w-0 flex-1 items-center gap-0.5", className)}>
+    <div className="flex min-w-0 flex-1 items-center gap-0.5">
       <NoDrag>
         <ChromeSidebarTrigger />
       </NoDrag>
-      <NoDrag className="ml-auto">
-        <SearchTrigger />
-      </NoDrag>
-      <ChromeHistoryButtons />
+      <div className={cn("ml-auto flex items-center gap-0.5", navigationClassName)}>
+        <NoDrag>
+          <SearchTrigger />
+        </NoDrag>
+        <ChromeHistoryButtons />
+      </div>
     </div>
   );
 }
@@ -112,7 +114,9 @@ export function SidebarWindowChrome() {
   return (
     <div className={cn(chromeRowClass, "hidden gap-1 pr-2 md:flex")}>
       <TrafficLightsGap />
-      <ChromeActions />
+      {/* Fullscreen with the sidebar hidden is a focus mode: only the way
+          back to the sidebar stays. The desktop preload sets the attribute. */}
+      <ChromeActions navigationClassName="[html[data-fullscreen]_&]:hidden" />
     </div>
   );
 }

@@ -36,5 +36,15 @@ export function applyPlatformDefaults() {
   app.commandLine.appendSwitch("remote-debugging-port", String(cdpPort));
 }
 
-export const titleBarStyle = (): "hiddenInset" | "default" =>
-  process.platform === "darwin" ? "hiddenInset" : "default";
+export const titleBarStyle = (): "hidden" | "default" =>
+  process.platform === "darwin" ? "hidden" : "default";
+
+/**
+ * Where macOS draws the traffic lights. The renderer's chrome row is
+ * `--chrome-height` (3.25rem = 52px) tall and reserves
+ * `--traffic-lights-width` (5rem) for them. A top of 19px lines the lights'
+ * centres up with the row's icons, which sit a point above the row's middle —
+ * measured on screen, not derived, so re-measure if the row changes.
+ */
+export const trafficLightPosition = (): { x: number; y: number } | undefined =>
+  process.platform === "darwin" ? { x: 18, y: 19 } : undefined;

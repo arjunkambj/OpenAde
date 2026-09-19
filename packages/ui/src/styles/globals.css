@@ -186,6 +186,11 @@
     --traffic-lights-width: 5rem;
     --chrome-height: 3.25rem;
   }
+  /* macOS hides the traffic lights in fullscreen; keep only a gutter that
+     matches the chrome row's right padding. */
+  html[data-desktop-mac][data-fullscreen] {
+    --traffic-lights-width: 0.5rem;
+  }
 }
 
 html[data-desktop] [data-slot="sidebar"].peer {

@@ -9,7 +9,11 @@
  */
 import { contextBridge, ipcRenderer } from "electron";
 
-import { desktopAttributes } from "../platform/attributes";
+import {
+  desktopAttributes,
+  FULLSCREEN_ATTRIBUTE,
+  FULLSCREEN_CHANNEL,
+} from "../platform/attributes";
 
 import { makeOpenAdeBridge } from "./bridge";
 
@@ -27,3 +31,7 @@ function markDesktop(): boolean {
 if (!markDesktop()) {
   window.addEventListener("DOMContentLoaded", markDesktop, { once: true });
 }
+
+ipcRenderer.on(FULLSCREEN_CHANNEL, (_event, fullScreen: unknown) => {
+  document.documentElement?.toggleAttribute(FULLSCREEN_ATTRIBUTE, fullScreen === true);
+});

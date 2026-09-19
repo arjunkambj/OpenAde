@@ -8,3 +8,12 @@
  */
 export const desktopAttributes = (platform: string): ReadonlyArray<string> =>
   platform === "darwin" ? ["data-desktop", "data-desktop-mac"] : ["data-desktop"];
+
+/**
+ * Set on `<html>` while the window is fullscreen. macOS hides the traffic
+ * lights there, so the inset reserved for them has to go too.
+ */
+export const FULLSCREEN_ATTRIBUTE = "data-fullscreen";
+
+/** Main-to-preload channel carrying the window's fullscreen state. */
+export const FULLSCREEN_CHANNEL = "openade:fullscreen";
