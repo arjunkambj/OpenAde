@@ -44,6 +44,9 @@ const IMPORT_ALLOWLIST = new Map([
   ["apps/web", ["ui", "contracts", "client-runtime", "shared"]],
   ["apps/desktop", ["contracts", "shared"]],
   ["apps/server", ["contracts", "connector-sdk", "connector-cmd", "shared"]],
+  // W11: the public site is static — it may share the design system and the
+  // tiny utils but never contracts, the client runtime or server code.
+  ["apps/site", ["ui", "shared"]],
   ["packages/connector-sdk", ["contracts", "shared"]],
   ["packages/connector-*", ["connector-sdk", "contracts", "shared"]],
   ["packages/contracts", ["shared"]],

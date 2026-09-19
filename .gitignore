@@ -5,10 +5,12 @@ node_modules
 plans
 docs/*
 !docs/*.md
+!docs/launch/
 .claude/worktrees/
 
 # Build outputs
 dist
+dist-ssr
 build
 out
 artifacts
