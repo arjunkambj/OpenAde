@@ -8,8 +8,8 @@
  * search params"). Width persists through `dockWidthAtom` (localStorage) —
  * that is presentation, not durable state.
  *
- * Under 768px the dock is an overlay over the thread column rather than a
- * second one: two columns in that width leave neither readable, and simply
+ * With less than 640px beside the sidebar, the dock overlays the thread
+ * column: two columns in that width leave neither readable, and simply
  * hiding the dock (what this used to do) made the changes, browser and files
  * tabs unreachable on a narrow window with no hint that they existed. The
  * resize edge is the one part that stays behind — there is nothing to resize
@@ -115,9 +115,9 @@ export function RightDock({
     <aside
       aria-label="Thread dock"
       className={cn(
-        // Overlay below md, a sibling column at md and up.
+        // Split only when the row fits a 360px thread and a 280px dock.
         "absolute inset-0 z-20 flex min-h-0 w-full border-l border-border bg-sidebar",
-        "md:relative md:inset-auto md:z-auto md:w-(--dock-width) md:shrink-0",
+        "@min-[640px]/thread:relative @min-[640px]/thread:inset-auto @min-[640px]/thread:z-auto @min-[640px]/thread:w-(--dock-width) @min-[640px]/thread:shrink-0",
       )}
       style={
         {
@@ -130,7 +130,7 @@ export function RightDock({
         aria-orientation="vertical"
         aria-label="Resize dock"
         onPointerDown={onPointerDown}
-        className="absolute inset-y-0 -left-1 z-10 hidden w-2 cursor-col-resize md:block"
+        className="absolute inset-y-0 -left-1 z-10 hidden w-2 cursor-col-resize @min-[640px]/thread:block"
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div className="flex h-11 shrink-0 items-center gap-0.5 border-b border-border px-2">

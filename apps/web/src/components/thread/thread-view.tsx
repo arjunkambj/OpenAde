@@ -249,12 +249,12 @@ export function ThreadView({
   );
 
   return (
-    // `relative` is the dock's containing block: below 768px it overlays this
-    // row instead of becoming a second, unreadably narrow column.
-    <div className="relative flex min-h-0 min-w-0 flex-1">
+    // The dock overlays when this row cannot fit both columns, including
+    // when a wide sidebar leaves little space in a desktop window.
+    <div className="@container/thread relative flex min-h-0 min-w-0 flex-1">
       {/* The thread column's floor (`THREAD_COLUMN_MIN`); the dock's width
-          bound yields to it. Below md the dock overlays instead. */}
-      <section className="flex min-h-0 min-w-0 flex-1 flex-col md:min-w-90">
+          bound yields to it when there is room for a 280px dock beside it. */}
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col @min-[640px]/thread:min-w-90">
         {snapshot !== null ? (
           <ThreadHeader
             snapshot={snapshot}

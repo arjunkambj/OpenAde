@@ -208,8 +208,9 @@ unread dot), the thread column (timeline, composer, interaction cards) and a
 right dock with three tabs: **changes** (a turn selector over `git.diff`),
 **browser** (the pane) and **files** (a search over `files.search` that drills
 into directories and previews a file through `files.read`, paged by line offset
-because a window is capped by characters, not lines). Under 768px the dock is an
-overlay rather than a column, so its tabs stay reachable.
+because a window is capped by characters, not lines). When less than 640px
+remains beside the sidebar, the dock overlays the thread so its tabs stay
+reachable. Wider rows fit a thread column of at least 360px beside the dock.
 
 The atom runtime is built once. `apps/web/src/state/app-runtime.tsx` owns the
 single `makeRuntime` instance, the shared registry and the offline layer that
