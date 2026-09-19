@@ -1,16 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { McpPanel } from "@/components/Settings/mcp-panel";
+import { ModelsPanel } from "@/components/Settings/models-panel";
 
-export const Route = createFileRoute("/settings/mcp")({
-  component: McpPage,
+export const Route = createFileRoute("/settings/models")({
+  component: ModelsPage,
 });
 
-function McpPage() {
+function ModelsPage() {
   return (
     <div className="flex flex-1 flex-col overflow-y-auto px-8 py-10">
       <div className="w-full max-w-3xl">
-        <McpPanel />
+        <ModelsPanel />
       </div>
     </div>
   );

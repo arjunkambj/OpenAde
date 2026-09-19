@@ -6,7 +6,7 @@
  * next-themes whenever the settings doc changes, so a toggle that only called
  * `setTheme` was reverted the moment the doc ticked — the fixture pages' theme
  * button did nothing at all against a live server. Writing the setting is what
- * the Appearance page does, and the sync then re-applies the same value.
+ * the theme cards on the General page do, and the sync then re-applies the same value.
  *
  * With no server the update never resolves and `setTheme` alone still holds,
  * because the settings atom never succeeds and the sync never fires.

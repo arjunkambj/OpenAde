@@ -1,5 +1,4 @@
 import * as React from "react";
-
 import { cn } from "@OpenAde/ui/lib/utils";
 
 function MessageGroup({ className, ...props }: React.ComponentProps<"div">) {

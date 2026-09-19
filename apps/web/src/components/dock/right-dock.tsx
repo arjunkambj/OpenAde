@@ -8,8 +8,8 @@
  * search params"). Width persists through `dockWidthAtom` (localStorage) —
  * that is presentation, not durable state.
  *
- * Under 768px the dock is an overlay over the thread column rather than a
- * second one: two columns in that width leave neither readable, and simply
+ * With less than 640px beside the sidebar, the dock overlays the thread
+ * column: two columns in that width leave neither readable, and simply
  * hiding the dock (what this used to do) made the changes, browser and files
  * tabs unreachable on a narrow window with no hint that they existed. The
  * resize edge is the one part that stays behind — there is nothing to resize
@@ -28,7 +28,7 @@ import { FilesPane } from "@/components/panes/files/files-pane";
 import { Icon } from "@/lib/icon";
 import { cn } from "@/lib/utils";
 import { useConnectionState } from "@/state/hooks";
-import { useDockWidth } from "@/state/ui";
+import { DOCK_WIDTH_MAX_FRACTION, THREAD_COLUMN_MIN, useDockWidth } from "@/state/ui";
 
 const DOCK_TABS = ["changes", "browser", "files"] as const;
 export type DockTab = (typeof DOCK_TABS)[number];
@@ -49,10 +49,14 @@ function useDockResize() {
     (event: React.PointerEvent<HTMLDivElement>) => {
       event.preventDefault();
       const startX = event.clientX;
-      const startWidth = width;
+      const dock = event.currentTarget.parentElement;
+      // Start from what is on screen: the CSS bound may be holding the stored
+      // width back on a window narrower than the one it was dragged in.
+      const startWidth = dock?.getBoundingClientRect().width ?? width;
+      const available = dock?.parentElement?.getBoundingClientRect().width ?? window.innerWidth;
       const onMove = (move: PointerEvent) => {
         // The dock sits on the right: dragging left widens it.
-        setWidth(startWidth + (startX - move.clientX));
+        setWidth(startWidth + (startX - move.clientX), available);
       };
       const onUp = () => {
         window.removeEventListener("pointermove", onMove);
@@ -111,18 +115,22 @@ export function RightDock({
     <aside
       aria-label="Thread dock"
       className={cn(
-        // Overlay below md, a sibling column at md and up.
+        // Split only when the row fits a 360px thread and a 280px dock.
         "absolute inset-0 z-20 flex min-h-0 w-full border-l border-border bg-sidebar",
-        "md:relative md:inset-auto md:z-auto md:w-(--dock-width) md:shrink-0",
+        "@min-[640px]/thread:relative @min-[640px]/thread:inset-auto @min-[640px]/thread:z-auto @min-[640px]/thread:w-(--dock-width) @min-[640px]/thread:shrink-0",
       )}
-      style={{ "--dock-width": `${width}px` } as React.CSSProperties}
+      style={
+        {
+          "--dock-width": `min(${width}px, ${DOCK_WIDTH_MAX_FRACTION * 100}%, calc(100% - ${THREAD_COLUMN_MIN}px))`,
+        } as React.CSSProperties
+      }
     >
       <div
         role="separator"
         aria-orientation="vertical"
         aria-label="Resize dock"
         onPointerDown={onPointerDown}
-        className="absolute inset-y-0 -left-1 z-10 hidden w-2 cursor-col-resize md:block"
+        className="absolute inset-y-0 -left-1 z-10 hidden w-2 cursor-col-resize @min-[640px]/thread:block"
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div className="flex h-11 shrink-0 items-center gap-0.5 border-b border-border px-2">
@@ -152,7 +160,7 @@ export function RightDock({
             <TooltipContent>Close dock</TooltipContent>
           </Tooltip>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {tab === "changes" ? <ChangesPane snapshot={snapshot} /> : null}
           {/*
             The browser pane hides rather than unmounts. Unmounting it destroys

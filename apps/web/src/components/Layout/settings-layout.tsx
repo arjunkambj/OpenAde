@@ -11,18 +11,27 @@
  * `sidebar.toggle` is deliberately unclaimed here: these pages have a
  * `collapsible="none"` sidebar, so the chord is better left unanswered than
  * bound to a no-op.
+ *
+ * The sidebar takes the width the main sidebar was dragged to, so moving
+ * between the two never makes the edge jump.
  */
 
 import { Outlet } from "@tanstack/react-router";
+import type * as React from "react";
 
 import { SidebarInset, SidebarProvider } from "@OpenAde/ui/components/sidebar";
 import { TooltipProvider } from "@OpenAde/ui/components/tooltip";
 
 import { SettingsSidebar } from "@/components/Layout/settings-sidebar";
+import { useSidebarWidth } from "@/state/ui";
 
 export function SettingsLayout() {
+  const [sidebarWidth] = useSidebarWidth();
   return (
-    <SidebarProvider className="h-svh overflow-hidden">
+    <SidebarProvider
+      className="h-svh overflow-hidden"
+      style={{ "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties}
+    >
       <TooltipProvider delay={300}>
         <SettingsSidebar />
         <SidebarInset>

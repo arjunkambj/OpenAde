@@ -2,6 +2,9 @@
  * Reads and writes Command Code's own config files on behalf of the settings
  * UI: `~/.commandcode/mcp.json` (user scope) and `<workspaceRoot>/.mcp.json`
  * (project scope), plus skill discovery under the matching `skills` dirs.
+ * Skills in the shared agents folder (`~/.agents/skills`) can be linked into
+ * the user `skills` dir — a relative symlink, the same shape the skills
+ * installer writes — and are never copied or edited.
  *
  * Ownership is per entry, not per file: every server OpenAde writes carries an
  * `_openade` marker object (`{ "enabled": boolean }`), and upsert/remove refuse
@@ -23,11 +26,16 @@
  * `mcpServers`; re-enabling moves it back unchanged.
  */
 
-import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, stat, symlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import * as NodePath from "node:path";
 import type { ProjectId } from "@OpenAde/contracts/ids";
-import type { McpServerConfig, McpServerScope, SkillSummary } from "@OpenAde/contracts/rpc";
+import type {
+  AgentSkill,
+  McpServerConfig,
+  McpServerScope,
+  SkillSummary,
+} from "@OpenAde/contracts/rpc";
 import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -269,7 +277,11 @@ const writeDisabled = (doc: Json, disabled: Record<string, unknown>): void => {
 
 // ── Skills ─────────────────────────────────────────────────────
 
-/** Minimal `---` frontmatter: `name` and `description` only, like the skills dirs use. */
+/**
+ * Minimal `---` frontmatter: `name` and `description` only, like the skills
+ * dirs use. A value may be a YAML block scalar (`>`, `|`, with `-`/`+`), whose
+ * indented lines follow the key — long descriptions are written that way.
+ */
 const parseFrontmatter = (content: string): { name?: string; description?: string } => {
   if (!content.startsWith("---")) {
     return {};
@@ -279,13 +291,22 @@ const parseFrontmatter = (content: string): { name?: string; description?: strin
     return {};
   }
   const out: { name?: string; description?: string } = {};
-  for (const line of content.slice(3, end).split("\n")) {
-    const match = line.match(/^([A-Za-z][A-Za-z0-9_-]*)\s*:\s*(.*)$/);
+  const lines = content.slice(3, end).split("\n");
+  for (let index = 0; index < lines.length; index++) {
+    const match = lines[index]!.match(/^([A-Za-z][A-Za-z0-9_-]*)\s*:\s*(.*)$/);
     if (match === null) {
       continue;
     }
     let value = match[2]!.trim();
-    if (
+    const block = value.match(/^([>|])[-+]?$/);
+    if (block !== null) {
+      const body: Array<string> = [];
+      while (index + 1 < lines.length && /^(\s|$)/.test(lines[index + 1]!)) {
+        index++;
+        body.push(lines[index]!.trim());
+      }
+      value = body.join(block[1] === ">" ? " " : "\n").trim();
+    } else if (
       (value.startsWith('"') && value.endsWith('"')) ||
       (value.startsWith("'") && value.endsWith("'"))
     ) {
@@ -321,14 +342,20 @@ const isDirSafe = (path: string): Effect.Effect<boolean> =>
 const existsSafe = (path: string): Effect.Effect<boolean> =>
   Effect.map(statSafe(path), (info) => info !== null);
 
+/** A skill as found on disk, with the root entry it was found under. */
+interface SkillEntry {
+  readonly entry: string;
+  readonly skill: SkillSummary;
+}
+
 /**
  * One skills root, walked tolerantly. Both `<root>/<name>/SKILL.md` and
  * `<root>/<name>.md` appear in the wild; either is a skill.
  */
-const readSkillsRoot = (root: string): Effect.Effect<ReadonlyArray<SkillSummary>> =>
+const readSkillEntries = (root: string): Effect.Effect<ReadonlyArray<SkillEntry>> =>
   Effect.gen(function* () {
     const entries = yield* listDirSafe(root);
-    const out: Array<SkillSummary> = [];
+    const out: Array<SkillEntry> = [];
     for (const entry of entries) {
       if (entry.startsWith(".")) {
         continue;
@@ -357,14 +384,22 @@ const readSkillsRoot = (root: string): Effect.Effect<ReadonlyArray<SkillSummary>
       }
       const frontmatter = parseFrontmatter(content);
       out.push({
-        name: frontmatter.name ?? name,
-        path: filePath,
-        ...(frontmatter.description === undefined ? {} : { description: frontmatter.description }),
-        enabled: true,
+        entry,
+        skill: {
+          name: frontmatter.name ?? name,
+          path: filePath,
+          ...(frontmatter.description === undefined
+            ? {}
+            : { description: frontmatter.description }),
+          enabled: true,
+        },
       });
     }
     return out;
   });
+
+const readSkillsRoot = (root: string): Effect.Effect<ReadonlyArray<SkillSummary>> =>
+  Effect.map(readSkillEntries(root), (entries) => entries.map((found) => found.skill));
 
 // ── The service ────────────────────────────────────────────────
 
@@ -374,6 +409,8 @@ export interface CmdConfigOptions {
    * a temporary directory so no real user config is touched.
    */
   readonly commandCodeHome?: string;
+  /** The shared agents skills folder — `~/.agents/skills` in production. */
+  readonly agentsSkillsRoot?: string;
 }
 
 const conflict = (message: string) => new OpenAdeRpcError({ code: "conflict", message });
@@ -395,6 +432,8 @@ export const layer = (options: CmdConfigOptions = {}) =>
       const home = options.commandCodeHome ?? NodePath.join(homedir(), ".commandcode");
       const userMcpPath = NodePath.join(home, "mcp.json");
       const userSkillsRoot = NodePath.join(home, "skills");
+      const agentsSkillsRoot =
+        options.agentsSkillsRoot ?? NodePath.join(homedir(), ".agents", "skills");
       // Writers serialise so a concurrent upsert+remove cannot interleave a
       // read-modify-write of the same file.
       const writeMutex = yield* Semaphore.make(1);
@@ -553,6 +592,65 @@ export const layer = (options: CmdConfigOptions = {}) =>
           return out;
         });
 
-      return CmdConfig.of({ mcpList, mcpUpsert, mcpRemove, skillsList });
+      /**
+       * Agents-folder skills the connector does not load yet. One is loaded
+       * when the user root holds its entry (the usual symlink) or a skill of
+       * the same name, which would shadow it anyway.
+       */
+      const skillsAgents = Effect.gen(function* () {
+        const loaded = yield* readSkillEntries(userSkillsRoot);
+        const loadedEntries = new Set(loaded.map((found) => found.entry));
+        const loadedNames = new Set(loaded.map((found) => found.skill.name));
+        const out: Array<AgentSkill> = [];
+        for (const { entry, skill } of yield* readSkillEntries(agentsSkillsRoot)) {
+          if (loadedEntries.has(entry) || loadedNames.has(skill.name)) {
+            continue;
+          }
+          out.push({
+            entry,
+            name: skill.name,
+            path: skill.path,
+            ...(skill.description === undefined ? {} : { description: skill.description }),
+          });
+        }
+        return out;
+      });
+
+      const skillsLink = (entry: string) =>
+        writeMutex.withPermits(1)(
+          Effect.gen(function* () {
+            const available = yield* skillsAgents;
+            // Only a listed entry is linkable, which also keeps `entry` a bare
+            // name — no separators, no `..` — before it reaches the filesystem.
+            if (!available.some((skill) => skill.entry === entry)) {
+              return yield* notFound(
+                `no unlinked skill "${entry}" in ${agentsSkillsRoot}; it may already be linked`,
+              );
+            }
+            const target = NodePath.join(agentsSkillsRoot, entry);
+            const link = NodePath.join(userSkillsRoot, entry);
+            yield* Effect.tryPromise({
+              try: async () => {
+                await mkdir(userSkillsRoot, { recursive: true });
+                await symlink(NodePath.relative(userSkillsRoot, target), link);
+              },
+              catch: (error) =>
+                new OpenAdeRpcError({
+                  code: "internal",
+                  message: `could not link ${link}: ${error instanceof Error ? error.message : String(error)}`,
+                }),
+            });
+            return yield* skillsAgents;
+          }),
+        );
+
+      return CmdConfig.of({
+        mcpList,
+        mcpUpsert,
+        mcpRemove,
+        skillsList,
+        skillsAgents,
+        skillsLink,
+      });
     }),
   );

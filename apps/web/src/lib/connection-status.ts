@@ -36,8 +36,6 @@ export interface ConnectionNotice {
   readonly tone: "pending" | "error";
   readonly icon: string;
   readonly message: string;
-  /** Whether to offer the /welcome link, which shows the resolved channel. */
-  readonly details: boolean;
 }
 
 const SPINNER = "hugeicons:loading-03";
@@ -48,7 +46,6 @@ const pending = (message: string): ConnectionNotice => ({
   tone: "pending",
   icon: SPINNER,
   message,
-  details: false,
 });
 
 /**
@@ -62,7 +59,6 @@ const gaveUp = (reason: string | null | undefined): ConnectionNotice => ({
     reason === null || reason === undefined || reason === ""
       ? "The server stopped and is not being retried. Reopen OpenAde to start it again."
       : `The server stopped and is not being retried (${reason}). Reopen OpenAde to start it again.`,
-  details: true,
 });
 
 export const connectionNotice = (
@@ -74,7 +70,6 @@ export const connectionNotice = (
       tone: "error",
       icon: ALERT,
       message: "The server speaks a different protocol version. Update OpenAde to continue.",
-      details: false,
     };
   }
   if (connection.status === "connected") {
@@ -99,7 +94,6 @@ export const connectionNotice = (
       tone: "error",
       icon: OFFLINE,
       message: "Not connected to a server.",
-      details: true,
     };
   }
   return pending(

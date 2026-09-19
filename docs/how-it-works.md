@@ -247,11 +247,10 @@ Read models with no subscription (`projects.list`, `connectors.list`,
 
 ## 3. First run
 
-A fresh install has no projects. `apps/web/src/components/welcome/first-run.ts`
-decides the redirect to `/welcome`: a successful `projects.list` with zero rows.
-`Initial` — the atom is deliberately unseeded — means "the server has not
-answered yet", so a cold load does not bounce to the welcome page before the
-answer arrives.
+A fresh install has no projects, so `/` shows "No projects yet" and the same
+Add project dialog the sidebar opens
+(`apps/web/src/components/sidebar/add-project-dialog.tsx`). Connectors are
+checked in Settings → Connectors.
 
 ### The probe
 
@@ -290,7 +289,7 @@ Exit codes decide the status (`packages/connector-cmd/src/exitCodes.ts`):
 renderer. `apps/web/src/components/Settings/probe-help.ts` decides which
 failures get a link at all, and `connectorReady` insists on
 `status === "ready" && auth !== "absent"` — an installed, reachable, signed-out
-CLI reports `ready`, and welcome used to wave the user through it.
+CLI reports `ready`, and must not read as usable.
 
 A version below `OLDEST_TESTED_VERSION` (1.54.0) produces a warning and nothing
 else. Nothing is pinned: the connector runs whatever `cmd` the user has.
@@ -325,9 +324,8 @@ being computed client-side.
 `project.create` carries `{ projectId, name, workspaceRoot }` — the id is
 minted by the caller, which is what makes a retry idempotent. The decider
 (`apps/server/src/orchestration/decider.ts`) rejects a duplicate id and a
-workspace root another project already owns. The welcome page keeps a rejected
-path in the field so it can be corrected
-(`apps/web/src/components/welcome/project-directory.ts`).
+workspace root another project already owns. The Add project dialog keeps a
+rejected path in the field so it can be corrected.
 
 ---
 

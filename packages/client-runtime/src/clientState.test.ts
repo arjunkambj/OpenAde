@@ -11,7 +11,11 @@ import {
   makeThreadId,
   makeTurnId,
 } from "@OpenAde/contracts/ids";
-import type { OrchestrationEvent, ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
+import type {
+  OrchestrationEvent,
+  ThreadDetailSnapshot,
+  ThreadSummary,
+} from "@OpenAde/contracts/orchestration";
 
 import { applyThreadEvent, applyThreadListItem, applyThreadStreamItem } from "./clientState";
 
@@ -301,6 +305,47 @@ describe("clientState fold", () => {
     );
     doc = applyThreadEvent(doc, event("thread.turn.completed", { turnId, stopReason: "end_turn" }));
     expect(doc.status).toBe("running");
+  });
+
+  it("keeps the thread list most-recent-first as threads are created and updated", () => {
+    const summary = (id: ThreadSummary["threadId"], at: string): ThreadSummary => ({
+      threadId: id,
+      projectId: makeProjectId(),
+      title: "t",
+      status: "idle",
+      settings: {
+        model: "fake/model",
+        runtimeMode: "auto-accept-edits",
+        interactionMode: "default",
+      },
+      awaitingInput: false,
+      createdAt: at,
+      updatedAt: at,
+    });
+    const older = makeThreadId();
+    const newer = makeThreadId();
+    let threads = applyThreadListItem([], {
+      kind: "snapshot",
+      snapshotSequence: 1,
+      threads: [summary(older, "2026-01-01T00:00:00.000Z")],
+    });
+
+    // A thread created after the snapshot goes on top, not the bottom.
+    threads = applyThreadListItem(threads, {
+      kind: "upserted",
+      thread: summary(newer, "2026-01-02T00:00:00.000Z"),
+    });
+    expect(threads.map((t) => t.threadId)).toEqual([newer, older]);
+
+    // Activity on the older thread moves it back up.
+    threads = applyThreadListItem(threads, {
+      kind: "upserted",
+      thread: {
+        ...summary(older, "2026-01-01T00:00:00.000Z"),
+        updatedAt: "2026-01-03T00:00:00.000Z",
+      },
+    });
+    expect(threads.map((t) => t.threadId)).toEqual([older, newer]);
   });
 
   it("clears the thread list when the server asks for a resnapshot", () => {

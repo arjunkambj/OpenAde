@@ -198,8 +198,8 @@ The renderer. TanStack Router routes under `apps/web/src/routes`, state through
 | --------------------------------- | ---------------------------------------------------------- |
 | `_home/index`                     | start a thread, pick a project                             |
 | `_home/t/$threadId`               | the thread view; `?pane=` carries the dock tab             |
-| `settings`, six pages             | general, connectors, MCP, skills, keybindings, appearance  |
-| `welcome`                         | first run: folder, connector probe, project create         |
+| `_home/customize/{skills,mcp}`    | what extends the agent, one tab per kind                   |
+| `settings`, four pages            | general, models, connectors, keybindings                   |
 | `browser.$threadId`               | the marker page the browser pane's `<webview>` guest loads |
 | `dev/{timeline,composer,changes}` | fixture pages, DEV only                                    |
 
@@ -208,14 +208,15 @@ unread dot), the thread column (timeline, composer, interaction cards) and a
 right dock with three tabs: **changes** (a turn selector over `git.diff`),
 **browser** (the pane) and **files** (a search over `files.search` that drills
 into directories and previews a file through `files.read`, paged by line offset
-because a window is capped by characters, not lines). Under 768px the dock is an
-overlay rather than a column, so its tabs stay reachable.
+because a window is capped by characters, not lines). When less than 640px
+remains beside the sidebar, the dock overlays the thread so its tabs stay
+reachable. Wider rows fit a thread column of at least 360px beside the dock.
 
 The atom runtime is built once. `apps/web/src/state/app-runtime.tsx` owns the
 single `makeRuntime` instance, the shared registry and the offline layer that
 keeps every atom mountable when there is no server;
-`apps/web/src/lib/app-runtime.ts` adds the settings and welcome atoms on top of
-that instance; `apps/web/src/lib/client-runtime.tsx` publishes it to React
+`apps/web/src/lib/app-runtime.ts` adds the settings atoms on top of that
+instance; `apps/web/src/lib/client-runtime.tsx` publishes it to React
 (and lets a fixture page substitute a scripted client). Components read through
 `apps/web/src/state/hooks.ts` and hold no RPC client of their own.
 

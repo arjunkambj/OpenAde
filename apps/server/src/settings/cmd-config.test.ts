@@ -2,10 +2,20 @@
  * `CmdConfig` proven end to end: an upsert lands in Command Code's
  * own `mcp.json` carrying the `_openade` marker, a hand-authored entry without
  * the marker survives a round-trip untouched, remove refuses unmanaged entries,
- * and skills are discovered from the user and project `skills` roots.
+ * skills are discovered from the user and project `skills` roots, and a skill
+ * in the shared agents folder is linked into the user root by symlink.
  */
 
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readlinkSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import { makeProjectId, type ProjectId } from "@OpenAde/contracts/ids";
@@ -24,6 +34,8 @@ import { layer as cmdConfigLayer } from "./CmdConfig";
 interface Fixture {
   /** Temp dir standing in for `~/.commandcode`. */
   readonly home: string;
+  /** Temp dir standing in for `~/.agents/skills`. */
+  readonly agents: string;
   /** Temp dir standing in for the project's workspace root. */
   readonly root: string;
   readonly projectId: ProjectId;
@@ -34,6 +46,7 @@ interface Fixture {
 const fixture = Effect.gen(function* () {
   const home = mkdtempSync(nodePath.join(tmpdir(), "openade-cmd-home-"));
   const root = mkdtempSync(nodePath.join(tmpdir(), "openade-cmd-project-"));
+  const agents = mkdtempSync(nodePath.join(tmpdir(), "openade-agents-skills-"));
   const sqliteContext = yield* Layer.build(sqliteTestLayer());
   const sqlite = Layer.succeedContext(sqliteContext);
   yield* runMigrations.pipe(Effect.provide(sqlite));
@@ -50,9 +63,11 @@ const fixture = Effect.gen(function* () {
     removed: false,
   });
   const ctx = yield* Layer.build(
-    cmdConfigLayer({ commandCodeHome: home }).pipe(Layer.provide(Layer.succeedContext(rmContext))),
+    cmdConfigLayer({ commandCodeHome: home, agentsSkillsRoot: agents }).pipe(
+      Layer.provide(Layer.succeedContext(rmContext)),
+    ),
   );
-  return { home, root, projectId, service: Context.get(ctx, CmdConfig) } satisfies Fixture;
+  return { home, agents, root, projectId, service: Context.get(ctx, CmdConfig) } satisfies Fixture;
 });
 
 const withFixture = <A, E>(run: (fixture: Fixture) => Effect.Effect<A, E>) =>
@@ -295,6 +310,10 @@ describe("CmdConfig", () => {
           nodePath.join(f.home, "skills", "loose.md"),
           "---\ndescription: loose user skill\n---\n",
         );
+        writeFileSync(
+          nodePath.join(f.home, "skills", "folded.md"),
+          "---\ndescription: >-\n  first line\n  second line\nname: folded\n---\n",
+        );
         mkdirSync(nodePath.join(f.root, ".commandcode", "skills", "review"), { recursive: true });
         writeFileSync(
           nodePath.join(f.root, ".commandcode", "skills", "review", "SKILL.md"),
@@ -306,6 +325,39 @@ describe("CmdConfig", () => {
         expect(byName.get("review")?.description).toBe("project copy");
         expect(byName.get("review")?.path).toContain(".commandcode");
         expect(byName.get("loose")?.description).toBe("loose user skill");
+        expect(byName.get("folded")?.description).toBe("first line second line");
+      }),
+    ),
+  );
+
+  it.effect("an agents-folder skill is listed until linked, then loads from the user root", () =>
+    withFixture((f) =>
+      Effect.gen(function* () {
+        for (const name of ["lint", "already"]) {
+          mkdirSync(nodePath.join(f.agents, name), { recursive: true });
+          writeFileSync(
+            nodePath.join(f.agents, name, "SKILL.md"),
+            `---\nname: ${name}\ndescription: ${name} skill\n---\n`,
+          );
+        }
+        mkdirSync(nodePath.join(f.home, "skills"), { recursive: true });
+        symlinkSync(nodePath.join(f.agents, "already"), nodePath.join(f.home, "skills", "already"));
+
+        const before = yield* f.service.skillsAgents;
+        expect(before.map((skill) => skill.entry)).toEqual(["lint"]);
+
+        const after = yield* f.service.skillsLink("lint");
+        expect(after).toEqual([]);
+        const link = nodePath.join(f.home, "skills", "lint");
+        expect(lstatSync(link).isSymbolicLink()).toBe(true);
+        expect(nodePath.isAbsolute(readlinkSync(link))).toBe(false);
+        const skills = yield* f.service.skillsList();
+        expect(skills.find((skill) => skill.name === "lint")?.description).toBe("lint skill");
+
+        const again = yield* Effect.flip(f.service.skillsLink("lint"));
+        expect(again.code).toBe("not-found");
+        const escape = yield* Effect.flip(f.service.skillsLink("../lint"));
+        expect(escape.code).toBe("not-found");
       }),
     ),
   );

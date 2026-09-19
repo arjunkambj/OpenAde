@@ -3,7 +3,7 @@
  *
  * `@/state/app-runtime` owns the one `makeRuntime` instance (and the offline
  * layer that keeps atoms mountable without a server). This module adds the
- * query/mutation atoms the settings pages and the welcome flow need that the
+ * query/mutation atoms the settings pages need that the
  * shared client runtime does not carry, built once on top of that instance.
  * Atoms the shared runtime already publishes — `skillsAtom`,
  * `connectorModelsAtom`, `keybindingsAtom`, `keybindingsUpdateAtom` — are
@@ -12,7 +12,12 @@
 
 import { Connection } from "@OpenAde/client-runtime/connection";
 import type { ProjectId } from "@OpenAde/contracts/ids";
-import type { McpServerConfig, McpServerScope, ModelOption } from "@OpenAde/contracts/rpc";
+import type {
+  AgentSkill,
+  McpServerConfig,
+  McpServerScope,
+  ModelOption,
+} from "@OpenAde/contracts/rpc";
 import type { SettingsPatch } from "@OpenAde/contracts/settings";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
@@ -94,9 +99,30 @@ const makeSettingsAtoms = (base: BaseAppAtoms) => {
       }),
   );
 
+  /** Skills in the shared agents folder the connector does not load yet. */
+  const agentSkillsAtom = runtime.atom(
+    Effect.flatMap(client, (c) => c["cmdConfig.skills.agents"]({})),
+    { initialValue: [] as ReadonlyArray<AgentSkill> },
+  );
+
+  /**
+   * Links one agents-folder skill into the global skills root. `projectId` is
+   * the scope on screen, whose skills list now includes it.
+   */
+  const skillsLinkAtom = runtime.fn((input: { entry: string; projectId: ProjectId | null }, get) =>
+    Effect.gen(function* () {
+      const next = yield* Effect.flatMap(client, (c) =>
+        c["cmdConfig.skills.link"]({ entry: input.entry }),
+      );
+      get.registry.refresh(agentSkillsAtom);
+      get.registry.refresh(base.skillsAtom(input.projectId));
+      return next;
+    }),
+  );
+
   /**
    * Every model every enabled instance advertises — the default-model picker
-   * on the General page. `family` carries the instance name so duplicates
+   * on the Models page. `family` carries the instance name so duplicates
    * across connectors stay distinct.
    */
   const allModelsAtom = runtime.atom(
@@ -125,6 +151,8 @@ const makeSettingsAtoms = (base: BaseAppAtoms) => {
     mcpServersAtom,
     mcpUpsertAtom,
     mcpRemoveAtom,
+    agentSkillsAtom,
+    skillsLinkAtom,
     allModelsAtom,
   };
 };

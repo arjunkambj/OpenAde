@@ -58,7 +58,8 @@ const searchItems = [
     label: "New task",
     shortcut: "newChat",
   },
-  { to: "/settings/skills", icon: "hugeicons:magic-wand-01", label: "Skills" },
+  { to: "/customize/skills", icon: "hugeicons:magic-wand-01", label: "Skills" },
+  { to: "/customize/mcp", icon: "hugeicons:server-stack-01", label: "MCP servers" },
   { to: "/settings/connectors", icon: "hugeicons:plug-01", label: "Connectors" },
   {
     to: "/settings",
@@ -71,8 +72,8 @@ const searchItems = [
 /**
  * Mounted once at the app root, not inside a layout: these commands are
  * route-independent, and while they were claimed inside `HomeLayout` the
- * palette, New task and Settings chords all did nothing on `/settings/*` and
- * `/welcome`. `sidebar.toggle` is the exception — it belongs to whichever
+ * palette, New task and Settings chords all did nothing on `/settings/*`.
+ * `sidebar.toggle` is the exception — it belongs to whichever
  * sidebar is on screen, so each layout claims it through
  * `SidebarToggleShortcut` and this file only *fires* it.
  */
@@ -85,7 +86,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
   // and the one listener above the routes (@/lib/shortcuts). The palette is a
   // modal dialog over the route, so every navigating handler closes it first.
   const go = React.useCallback(
-    (to: "/" | "/settings/skills" | "/settings") => () => {
+    (to: "/" | "/customize/skills" | "/settings") => () => {
       setOpen(false);
       void navigate({ to });
     },
@@ -94,7 +95,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
 
   useKeybindingCommand(SHORTCUT_COMMANDS.search, () => setOpen((current) => !current));
   useKeybindingCommand(SHORTCUT_COMMANDS.newChat, go("/"));
-  useKeybindingCommand(SHORTCUT_COMMANDS.skills, go("/settings/skills"));
+  useKeybindingCommand(SHORTCUT_COMMANDS.skills, go("/customize/skills"));
   useKeybindingCommand(SHORTCUT_COMMANDS.settings, go("/settings"));
 
   return (

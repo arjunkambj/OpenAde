@@ -228,10 +228,7 @@ export function ConnectorsPanel() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-medium">Connectors</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Harness instances threads run on. A disabled instance keeps its configuration but opens
-            no sessions.
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">Harnesses your threads run on.</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => void runProbe()} disabled={probing}>
           <Icon icon="solar:refresh-linear" className={probing ? "animate-spin" : undefined} />

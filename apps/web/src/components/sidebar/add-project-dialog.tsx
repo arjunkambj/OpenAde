@@ -35,7 +35,17 @@ import { Icon } from "@/lib/icon";
 import { projectNameFromPath, workspacePathProblem } from "@/lib/workspace-path";
 import { useDispatchCommand } from "@/state/hooks";
 
-export function AddProjectDialog({ disabled }: { disabled?: boolean }) {
+/**
+ * `icon` is the sidebar's ghost button; `button` is the labelled one the empty
+ * start screen offers.
+ */
+export function AddProjectDialog({
+  disabled,
+  trigger = "icon",
+}: {
+  disabled?: boolean;
+  trigger?: "icon" | "button";
+}) {
   const dispatch = useDispatchCommand();
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState("");
@@ -107,26 +117,33 @@ export function AddProjectDialog({ disabled }: { disabled?: boolean }) {
   return (
     <>
       <Dialog open={open} onOpenChange={setOpen}>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <DialogTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Add project"
-                    disabled={disabled}
-                  />
-                }
-              />
-            }
-          >
-            <Icon icon="hugeicons:folder-add" />
-          </TooltipTrigger>
-          <TooltipContent>Add project</TooltipContent>
-        </Tooltip>
+        {trigger === "button" ? (
+          <DialogTrigger render={<Button type="button" disabled={disabled} />}>
+            <Icon icon="hugeicons:folder-add" className="size-4" />
+            Add a project
+          </DialogTrigger>
+        ) : (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <DialogTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Add project"
+                      disabled={disabled}
+                    />
+                  }
+                />
+              }
+            >
+              <Icon icon="hugeicons:folder-add" />
+            </TooltipTrigger>
+            <TooltipContent>Add project</TooltipContent>
+          </Tooltip>
+        )}
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add project</DialogTitle>

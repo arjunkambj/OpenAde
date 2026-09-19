@@ -1,4 +1,4 @@
-import { Link, useCanGoBack, useRouter } from "@tanstack/react-router";
+import { useCanGoBack, useRouter } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 import { Button } from "@OpenAde/ui/components/button";
@@ -94,16 +94,18 @@ function ChromeHistoryButtons() {
   );
 }
 
-function ChromeActions({ className }: { className?: string }) {
+function ChromeActions({ navigationClassName }: { navigationClassName?: string }) {
   return (
-    <div className={cn("flex min-w-0 flex-1 items-center gap-0.5", className)}>
+    <div className="flex min-w-0 flex-1 items-center gap-0.5">
       <NoDrag>
         <ChromeSidebarTrigger />
       </NoDrag>
-      <NoDrag className="ml-auto">
-        <SearchTrigger />
-      </NoDrag>
-      <ChromeHistoryButtons />
+      <div className={cn("ml-auto flex items-center gap-0.5", navigationClassName)}>
+        <NoDrag>
+          <SearchTrigger />
+        </NoDrag>
+        <ChromeHistoryButtons />
+      </div>
     </div>
   );
 }
@@ -127,41 +129,24 @@ export function InsetWindowChrome() {
   return (
     <header className={cn(chromeRowClass, "gap-1 pr-2", isMobile && "px-2")}>
       <TrafficLightsGap />
-      <ChromeActions />
+      {/* Fullscreen with the sidebar hidden is a focus mode: only the way
+          back to the sidebar stays. The desktop preload sets the attribute. */}
+      <ChromeActions navigationClassName="[html[data-fullscreen]_&]:hidden" />
     </header>
   );
 }
 
+/** Settings' sidebar cannot collapse, so its chrome drops the toggle. */
 export function SettingsWindowChrome() {
-  return <div className={cn(chromeRowClass, "hidden md:flex")} />;
-}
-
-/**
- * `/welcome`'s own chrome row.
- *
- * The route is a top-level one — its parent is the root route — so it renders
- * neither `HomeLayout` nor `SettingsLayout` and used to get none of this. The
- * desktop window is created with `titleBarStyle: "hiddenInset"` and only a
- * chrome row reserves `--traffic-lights-width`, so on macOS the traffic lights
- * sat on top of the page and the window could not be dragged at all while this
- * route was open. Its only in-page exit was "Create project", which on an
- * install that already has projects makes a duplicate.
- *
- * So: the drag strip, the spacer the traffic lights need, and an explicit way
- * back for anyone who did not arrive here from a fresh install.
- */
-export function WelcomeWindowChrome({ canGoBack }: { readonly canGoBack: boolean }) {
   return (
-    <div className={cn(chromeRowClass, "gap-1 px-2")}>
+    <div className={cn(chromeRowClass, "hidden gap-1 pr-2 md:flex")}>
       <TrafficLightsGap />
-      {canGoBack ? (
+      <div className="ml-auto flex items-center gap-0.5">
         <NoDrag>
-          <Button type="button" variant="ghost" tone="subtle" size="sm" render={<Link to="/" />}>
-            <Icon icon="hugeicons:arrow-left-01" className="size-4 scale-90" />
-            Back
-          </Button>
+          <SearchTrigger />
         </NoDrag>
-      ) : null}
+        <ChromeHistoryButtons />
+      </div>
     </div>
   );
 }

@@ -31,8 +31,8 @@ import * as React from "react";
 
 import { describeExitError, useAppAtoms } from "@/lib/app-runtime";
 
-import { CommitInput, KeyValueInput, SettingsRow } from "./schema-form";
-import { MCP_SCOPE_OPTIONS, selectedOptionLabel } from "./select-label";
+import { CommitInput, KeyValueInput, SettingsRow } from "@/components/Settings/schema-form";
+import { MCP_SCOPE_OPTIONS, selectedOptionLabel } from "@/components/Settings/select-label";
 
 interface Draft {
   name: string;
@@ -169,7 +169,7 @@ export function McpServerDialog({
               label: "Scope",
               control: "select",
               description: canUseProjectScope
-                ? "User scope writes the user-level mcp.json; project scope writes the project's .mcp.json."
+                ? "Global writes the user-level mcp.json; project writes the project's .mcp.json."
                 : "Pick a project above to write into a project .mcp.json.",
             }}
           >
@@ -180,9 +180,9 @@ export function McpServerDialog({
               <SelectTrigger className="w-full">
                 {/* base-ui prints the raw value unless it is handed a
                     formatter — the items are portalled away while the popup is
-                    closed, so the trigger read `user` rather than "User". */}
+                    closed, so the trigger read `user` rather than "Global". */}
                 <SelectValue>
-                  {(value) => selectedOptionLabel(MCP_SCOPE_OPTIONS, value) ?? "User"}
+                  {(value) => selectedOptionLabel(MCP_SCOPE_OPTIONS, value) ?? "Global"}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>

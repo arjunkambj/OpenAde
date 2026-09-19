@@ -74,7 +74,7 @@ function SettingsThemeSync() {
  * Swallows a drop that lands on nothing. An uncancelled `drop` is a
  * navigation, and in the desktop shell that replaces the whole app with the
  * dropped file — so the guard has to be above the routes rather than inside
- * the composer, which is not mounted on /welcome, /settings or /skills.
+ * the composer, which is not mounted on /settings or /skills.
  *
  * Anything with its own drop target cancels the event first (the composer's
  * `dropHandlers` do), so this only eats what nothing wanted.
@@ -116,8 +116,7 @@ function RootComponent() {
                 Above the routes on purpose: the palette and the commands it
                 owns — open palette, new task, Settings, Skills — are
                 route-independent, and claiming them inside the home layout is
-                what used to leave Cmd+K and Cmd+, dead on /settings and
-                /welcome.
+                what used to leave Cmd+K and Cmd+, dead on /settings.
               */}
               <SearchProvider>
                 <DiffWorkerPoolProvider>

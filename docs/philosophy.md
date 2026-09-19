@@ -101,7 +101,7 @@ not), the quoted literal `"cmd"` and `claude` anywhere under `apps/web/src`. It
 reads every file, not only sources, and it checks file names as well as
 contents — a connector name reads the same in a CSS class, an SVG title or a
 filename. The spaced spelling was added after "Command Code" walked through a
-one-word pattern and into the Skills page's own description.
+one-word pattern and into the Skills tab's own description.
 
 Capabilities are how the UI adapts without knowing. A connector declares
 `ConnectorCapabilities` — `modelSwitch`, `effortSwitch`, `steering`, `planMode`,
@@ -226,7 +226,7 @@ when a piece of it is missing, and make that answer "deny".
 `apps/web` holds no state the server owns, and no component calls the RPC
 client. The connection is built once, in `apps/web/src/state/app-runtime.tsx`;
 the client is reached only inside atom definitions — those of
-`packages/client-runtime/src/atoms.ts`, plus the settings and welcome atoms in
+`packages/client-runtime/src/atoms.ts`, plus the settings atoms in
 `apps/web/src/lib/app-runtime.ts`. Every component reads through the hooks in
 `apps/web/src/state/hooks.ts` and writes by dispatching a `Command` through
 `dispatchAtom` and awaiting its receipt.

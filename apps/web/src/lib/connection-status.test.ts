@@ -48,7 +48,6 @@ describe("connectionNotice", () => {
       icon: "hugeicons:alert-02",
       message:
         "The server stopped and is not being retried (server exited 3 times). Reopen OpenAde to start it again.",
-      details: true,
     });
   });
 
@@ -83,13 +82,12 @@ describe("connectionNotice", () => {
       tone: "error",
       icon: "hugeicons:wifi-off-01",
       message: "Not connected to a server.",
-      details: true,
     });
   });
 
   it("prefers the supervisor's story over a bare disconnected socket", () => {
     // `disconnected` means no channel resolved at boot. In the shell that is
-    // usually "the server has not finished starting", and the /welcome advice
+    // usually "the server has not finished starting", and "not connected"
     // is wrong until the supervisor actually gives up.
     expect(connectionNotice(socket("disconnected"), server({ status: "starting" }))?.tone).toBe(
       "pending",

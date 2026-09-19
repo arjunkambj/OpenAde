@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { emptyComposerDraft, parseDockTabs, withComposerDraft, type ComposerDraft } from "./ui";
+import {
+  emptyComposerDraft,
+  parseCollapsedProjects,
+  parseDockTabs,
+  withComposerDraft,
+  type ComposerDraft,
+} from "./ui";
 
 describe("parseDockTabs", () => {
   it("reads a thread-to-tab map back", () => {
@@ -63,5 +69,22 @@ describe("withComposerDraft", () => {
     withComposerDraft(before, "a", draft({ text: "more" }));
     withComposerDraft(before, "a", emptyComposerDraft);
     expect(before).toEqual(snapshot);
+  });
+});
+
+describe("parseCollapsedProjects", () => {
+  it("reads the folded project ids back", () => {
+    expect([...parseCollapsedProjects('["p1","p2"]')]).toEqual(["p1", "p2"]);
+  });
+
+  it("is empty when nothing was ever stored, so every project starts open", () => {
+    expect(parseCollapsedProjects(null).size).toBe(0);
+    expect(parseCollapsedProjects(undefined).size).toBe(0);
+  });
+
+  it("survives storage written by something else", () => {
+    expect(parseCollapsedProjects("not json").size).toBe(0);
+    expect(parseCollapsedProjects('{"p1":true}').size).toBe(0);
+    expect([...parseCollapsedProjects('["p1",7,null]')]).toEqual(["p1"]);
   });
 });

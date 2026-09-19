@@ -111,6 +111,8 @@ export const handlersLayer = OpenAdeRpcGroup.toLayer(
       "cmdConfig.mcp.remove": ({ projectId, scope, name }) =>
         cmdConfig.mcpRemove(projectId, scope, name),
       "cmdConfig.skills.list": ({ projectId }) => cmdConfig.skillsList(projectId),
+      "cmdConfig.skills.agents": () => cmdConfig.skillsAgents,
+      "cmdConfig.skills.link": ({ entry }) => cmdConfig.skillsLink(entry),
 
       "keybindings.get": () => Effect.map(settings.get, (doc) => doc.keybindings),
       "keybindings.update": ({ keybindings }) =>

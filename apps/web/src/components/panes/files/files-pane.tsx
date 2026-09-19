@@ -118,12 +118,7 @@ function SearchBody({
     return <PaneMessage icon="hugeicons:search-01" text="No files match this search." />;
   }
   return (
-    <div
-      className={cn(
-        "flex min-h-0 flex-1 flex-col overflow-y-auto [scrollbar-width:thin]",
-        stale && "opacity-60",
-      )}
-    >
+    <div className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto", stale && "opacity-60")}>
       <div className="flex flex-col gap-px p-1.5">
         {results.value.map((result) => (
           <ResultRow key={result.path} result={result} onOpen={onOpen} />

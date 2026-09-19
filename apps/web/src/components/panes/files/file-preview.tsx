@@ -31,7 +31,7 @@ import { looksBinary, PAGE_LINES, pagePosition, previewLines, windowFor } from "
 function LineTable({ offset, content }: { offset: number; content: FileContent }) {
   const lines = previewLines(offset, content);
   return (
-    <div className="min-h-0 flex-1 overflow-auto [scrollbar-width:thin]">
+    <div className="min-h-0 flex-1 overflow-auto">
       <table className="w-full border-collapse font-mono text-xs">
         <tbody>
           {lines.map((line) => (

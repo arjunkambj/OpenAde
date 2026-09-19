@@ -6,8 +6,6 @@
  * This file only draws it. Hidden while there is nothing to say.
  */
 
-import { Link } from "@tanstack/react-router";
-
 import { connectionNotice } from "@/lib/connection-status";
 import { Icon } from "@/lib/icon";
 import { useConnectionState, useDesktopServerState } from "@/state/hooks";
@@ -33,17 +31,7 @@ export function ConnectionBanner() {
       }
     >
       <Icon icon={notice.icon} className={pending ? "size-3.5 animate-spin" : "size-3.5"} />
-      <span>
-        {notice.message}
-        {notice.details ? (
-          <>
-            {" "}
-            <Link to="/welcome" className="underline underline-offset-2">
-              Connection details
-            </Link>
-          </>
-        ) : null}
-      </span>
+      <span>{notice.message}</span>
     </div>
   );
 }

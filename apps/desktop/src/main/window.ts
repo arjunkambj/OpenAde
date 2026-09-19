@@ -9,7 +9,8 @@ import { BrowserWindow, app, screen, shell } from "electron";
 
 import { decideNavigation } from "./navigation";
 import { APP_URL } from "./protocol";
-import { titleBarStyle } from "../platform";
+import { titleBarStyle, trafficLightPosition } from "../platform";
+import { FULLSCREEN_CHANNEL } from "../platform/attributes";
 import { applyWebviewAttachPolicy } from "./webview";
 import {
   captureWindowState,
@@ -48,6 +49,18 @@ const saveWindowState = (win: BrowserWindow) => {
   } catch {
     // best-effort persistence
   }
+};
+
+/**
+ * Tell the renderer whether the window is fullscreen: on every transition, and
+ * after each load, since a reload or a window reopened fullscreen starts with
+ * a fresh `<html>`.
+ */
+const reportFullScreen = (win: BrowserWindow) => {
+  const send = () => win.webContents.send(FULLSCREEN_CHANNEL, win.isFullScreen());
+  win.on("enter-full-screen", send);
+  win.on("leave-full-screen", send);
+  win.webContents.on("did-finish-load", send);
 };
 
 /**
@@ -134,14 +147,18 @@ const waitForDevServer = async (url: string): Promise<boolean> => {
 
 export async function createWindow(): Promise<BrowserWindow> {
   const { maximized, fullScreen, ...bounds } = loadWindowState();
+  const lights = trafficLightPosition();
   const win = new BrowserWindow({
     title: "OpenAde",
     ...bounds,
     minWidth: MIN_WINDOW_WIDTH,
     minHeight: MIN_WINDOW_HEIGHT,
-    fullscreen: fullScreen,
+    // An explicit `fullscreen: false` disables the green traffic light on
+    // macOS, so the option is only passed when the window reopens fullscreen.
+    ...(fullScreen ? { fullscreen: true } : {}),
     show: false,
     titleBarStyle: titleBarStyle(),
+    ...(lights !== undefined ? { trafficLightPosition: lights } : {}),
     webPreferences: {
       preload: join(__dirname, "..", "preload", "index.cjs"),
       sandbox: true,
@@ -155,6 +172,7 @@ export async function createWindow(): Promise<BrowserWindow> {
 
   win.once("ready-to-show", () => win.show());
   trackWindowState(win);
+  reportFullScreen(win);
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith("https://") || url.startsWith("http://")) {
