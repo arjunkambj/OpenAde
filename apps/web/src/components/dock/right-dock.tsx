@@ -28,7 +28,7 @@ import { FilesPane } from "@/components/panes/files/files-pane";
 import { Icon } from "@/lib/icon";
 import { cn } from "@/lib/utils";
 import { useConnectionState } from "@/state/hooks";
-import { useDockWidth } from "@/state/ui";
+import { DOCK_WIDTH_MAX_FRACTION, THREAD_COLUMN_MIN, useDockWidth } from "@/state/ui";
 
 const DOCK_TABS = ["changes", "browser", "files"] as const;
 export type DockTab = (typeof DOCK_TABS)[number];
@@ -49,10 +49,14 @@ function useDockResize() {
     (event: React.PointerEvent<HTMLDivElement>) => {
       event.preventDefault();
       const startX = event.clientX;
-      const startWidth = width;
+      const dock = event.currentTarget.parentElement;
+      // Start from what is on screen: the CSS bound may be holding the stored
+      // width back on a window narrower than the one it was dragged in.
+      const startWidth = dock?.getBoundingClientRect().width ?? width;
+      const available = dock?.parentElement?.getBoundingClientRect().width ?? window.innerWidth;
       const onMove = (move: PointerEvent) => {
         // The dock sits on the right: dragging left widens it.
-        setWidth(startWidth + (startX - move.clientX));
+        setWidth(startWidth + (startX - move.clientX), available);
       };
       const onUp = () => {
         window.removeEventListener("pointermove", onMove);
@@ -115,7 +119,11 @@ export function RightDock({
         "absolute inset-0 z-20 flex min-h-0 w-full border-l border-border bg-sidebar",
         "md:relative md:inset-auto md:z-auto md:w-(--dock-width) md:shrink-0",
       )}
-      style={{ "--dock-width": `${width}px` } as React.CSSProperties}
+      style={
+        {
+          "--dock-width": `min(${width}px, ${DOCK_WIDTH_MAX_FRACTION * 100}%, calc(100% - ${THREAD_COLUMN_MIN}px))`,
+        } as React.CSSProperties
+      }
     >
       <div
         role="separator"

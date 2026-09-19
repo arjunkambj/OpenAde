@@ -32,40 +32,61 @@ export const useRowDisclosure = (rowId: string, defaultOpen = false) => {
   return [isOpen, setOpen] as const;
 };
 
-const DOCK_WIDTH_KEY = "openade:dock-width";
-const DOCK_WIDTH_DEFAULT = 380;
-const DOCK_WIDTH_MIN = 280;
-const DOCK_WIDTH_MAX = 720;
+/** Clamp to `[min, max]`, with `min` winning when a narrow window inverts the two. */
+const clampWidth = (width: number, min: number, max: number): number =>
+  Math.max(min, Math.min(max, Math.round(width)));
 
-const readDockWidth = (): number => {
+const readStoredWidth = (key: string, fallback: number, min: number, max: number): number => {
   try {
-    const stored = globalThis.localStorage?.getItem(DOCK_WIDTH_KEY);
+    const stored = globalThis.localStorage?.getItem(key);
     if (stored === null || stored === undefined) {
-      return DOCK_WIDTH_DEFAULT;
+      return fallback;
     }
     const parsed = Number.parseInt(stored, 10);
-    return Number.isFinite(parsed)
-      ? Math.min(DOCK_WIDTH_MAX, Math.max(DOCK_WIDTH_MIN, parsed))
-      : DOCK_WIDTH_DEFAULT;
+    return Number.isFinite(parsed) ? clampWidth(parsed, min, max) : fallback;
   } catch {
-    return DOCK_WIDTH_DEFAULT;
+    return fallback;
   }
 };
 
+const writeStoredWidth = (key: string, width: number) => {
+  try {
+    globalThis.localStorage?.setItem(key, String(width));
+  } catch {
+    // localStorage can throw (private mode, quota); the atom still updates.
+  }
+};
+
+const DOCK_WIDTH_KEY = "openade:dock-width";
+const DOCK_WIDTH_DEFAULT = 380;
+const DOCK_WIDTH_MIN = 280;
+/**
+ * The dock may take up to this share of the area beside the sidebar, and never
+ * so much that the thread column drops below `THREAD_COLUMN_MIN`. The drag
+ * passes that area's width in; CSS applies the same bounds, so a window shrunk
+ * after the drag still leaves the thread column its room.
+ */
+export const DOCK_WIDTH_MAX_FRACTION = 0.8;
+export const THREAD_COLUMN_MIN = 360;
+
+const DOCK_WIDTH_MAX_FALLBACK = 1600;
+
 /** Right-dock width in px; mirrored to localStorage on every write. */
-const dockWidthAtom = Atom.make<number>(readDockWidth());
+const dockWidthAtom = Atom.make<number>(
+  readStoredWidth(DOCK_WIDTH_KEY, DOCK_WIDTH_DEFAULT, DOCK_WIDTH_MIN, DOCK_WIDTH_MAX_FALLBACK),
+);
 
 export const useDockWidth = () => {
   const width = useAtomValue(dockWidthAtom);
   const setWidth = useAtomSet(dockWidthAtom);
   const setPersistedWidth = React.useCallback(
-    (next: number) => {
-      const clamped = Math.min(DOCK_WIDTH_MAX, Math.max(DOCK_WIDTH_MIN, Math.round(next)));
-      try {
-        globalThis.localStorage?.setItem(DOCK_WIDTH_KEY, String(clamped));
-      } catch {
-        // localStorage can throw (private mode, quota); the atom still updates.
-      }
+    (next: number, available: number) => {
+      const clamped = clampWidth(
+        next,
+        DOCK_WIDTH_MIN,
+        Math.min(available * DOCK_WIDTH_MAX_FRACTION, available - THREAD_COLUMN_MIN),
+      );
+      writeStoredWidth(DOCK_WIDTH_KEY, clamped);
       setWidth(clamped);
     },
     [setWidth],

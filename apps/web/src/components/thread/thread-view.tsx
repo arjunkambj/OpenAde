@@ -251,7 +251,9 @@ export function ThreadView({
     // `relative` is the dock's containing block: below 768px it overlays this
     // row instead of becoming a second, unreadably narrow column.
     <div className="relative flex min-h-0 min-w-0 flex-1">
-      <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+      {/* The thread column's floor (`THREAD_COLUMN_MIN`); the dock's width
+          bound yields to it. Below md the dock overlays instead. */}
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col md:min-w-90">
         {snapshot !== null ? (
           <ThreadHeader
             snapshot={snapshot}
