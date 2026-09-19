@@ -333,19 +333,29 @@ export const applyThreadStreamItem = (
   }
 };
 
-/** The sidebar list fold — keyed by threadId, `snapshot` replaces wholesale. */
+/**
+ * Most recent activity first, as the server's snapshot orders it. A new
+ * thread is the most recent thing there is, so it lands on top too. ISO
+ * timestamps compare correctly as strings.
+ */
+const byRecentActivity = (a: ThreadSummary, b: ThreadSummary): number =>
+  b.updatedAt.localeCompare(a.updatedAt) || b.createdAt.localeCompare(a.createdAt);
+
+/**
+ * The sidebar list fold — keyed by threadId, `snapshot` replaces wholesale.
+ * Every result is re-sorted: an upsert moves `updatedAt`, and a list that
+ * kept its old positions would disagree with the next snapshot.
+ */
 export const applyThreadListItem = (
   threads: ReadonlyArray<ThreadSummary>,
   item: ThreadListStreamItem,
 ): ReadonlyArray<ThreadSummary> => {
   switch (item.kind) {
     case "snapshot":
-      return item.threads;
+      return [...item.threads].sort(byRecentActivity);
     case "upserted": {
-      const index = threads.findIndex((t) => t.threadId === item.thread.threadId);
-      return index === -1
-        ? [...threads, item.thread]
-        : threads.map((t, i) => (i === index ? item.thread : t));
+      const rest = threads.filter((t) => t.threadId !== item.thread.threadId);
+      return [...rest, item.thread].sort(byRecentActivity);
     }
     case "removed":
       return threads.filter((t) => t.threadId !== item.threadId);
