@@ -31,8 +31,8 @@ import { AsyncResult } from "effect/unstable/reactivity";
 
 import { ShortcutRecorder } from "@/components/keybindings/shortcut-recorder";
 import { useClientRuntime } from "@/lib/client-runtime";
-import { Icon } from "@/lib/icon";
 import { effectiveKeybindings } from "@/lib/keybindings";
+import { Add as AddIcon, AlertTriangle, Close, Undo } from "@honeyicons/react";
 
 /** Rows whose (shortcut, when) pair collides with an earlier row. */
 const conflictCommands = (keybindings: ReadonlyArray<Keybinding>): ReadonlySet<string> =>
@@ -161,7 +161,7 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
                             <TooltipTrigger
                               render={<span className="inline-flex text-permission" />}
                             >
-                              <Icon icon="hugeicons:alert-02" className="size-3.5" />
+                              <AlertTriangle className="size-3.5" />
                             </TooltipTrigger>
                             <TooltipContent>
                               Another binding on this chord wins — only the first match fires.
@@ -202,7 +202,7 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
                           title="Reset to default"
                           onClick={() => resetRow(index)}
                         >
-                          <Icon icon="hugeicons:rotate-left-01" />
+                          <Undo />
                         </Button>
                         <Button
                           type="button"
@@ -215,7 +215,7 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
                             setDraft((current) => current.filter((_, i) => i !== index))
                           }
                         >
-                          <Icon icon="hugeicons:cancel-01" />
+                          <Close />
                         </Button>
                       </span>
                     </td>
@@ -257,7 +257,7 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
                       disabled={added.command.trim() === "" || added.shortcut === ""}
                       onClick={addRow}
                     >
-                      <Icon icon="hugeicons:add-01" />
+                      <AddIcon />
                       Add binding
                     </Button>
                   </span>

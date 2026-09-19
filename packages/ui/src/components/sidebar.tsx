@@ -19,8 +19,7 @@ import {
 } from "@OpenAde/ui/components/sheet";
 import { Skeleton } from "@OpenAde/ui/components/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import { HugeiconsIcon } from "@hugeicons/react";
-import { SidebarLeftIcon } from "@hugeicons/core-free-icons";
+import { SidebarLeft } from "@honeyicons/react";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
@@ -253,7 +252,7 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
       }}
       {...props}
     >
-      <HugeiconsIcon icon={SidebarLeftIcon} strokeWidth={2} />
+      <SidebarLeft />
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   );

@@ -25,7 +25,7 @@ import { CardShell } from "@/components/approvals/card-shell";
 import { PatternEditor } from "@/components/approvals/pattern-editor";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
-import { Icon } from "@/lib/icon";
+import { ChevronDown, ChevronUp, Close } from "@honeyicons/react";
 
 /** One-line summary of `request.input`, by approval kind. */
 const subjectSummary = (request: ApprovalRequest): string | null => {
@@ -120,7 +120,7 @@ export function ApprovalCard({
 
   return (
     <CardShell
-      icon="hugeicons:shield-01"
+      icon={Close}
       title={request.description.length > 0 ? request.description : "Approval requested"}
       hint={
         <span className="inline-flex items-center gap-1.5">
@@ -173,10 +173,7 @@ export function ApprovalCard({
           onClick={() => setEditing((open) => !open)}
           aria-expanded={editing}
         >
-          <Icon
-            icon={editing ? "hugeicons:arrow-down-01" : "hugeicons:arrow-up-01"}
-            className="size-3"
-          />
+          {editing ? <ChevronDown className="size-3" /> : <ChevronUp className="size-3" />}
           Rule saved by “Allow for session” / “Always allow”
         </button>
         {editing ? (

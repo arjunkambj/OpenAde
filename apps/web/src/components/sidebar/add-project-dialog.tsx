@@ -31,9 +31,9 @@ import { makeCommandId, makeProjectId } from "@OpenAde/contracts/ids";
 import { FolderPickerDialog } from "@/components/folder-picker/folder-picker-dialog";
 import { hasNativePicker, pickDirectory } from "@/lib/desktop";
 import { isAccepted, rejectionMessage } from "@/lib/dispatch-outcome";
-import { Icon } from "@/lib/icon";
 import { projectNameFromPath, workspacePathProblem } from "@/lib/workspace-path";
 import { useDispatchCommand } from "@/state/hooks";
+import { FolderAdd } from "@honeyicons/react";
 
 /**
  * `icon` is the sidebar's ghost button; `button` is the labelled one the empty
@@ -119,7 +119,7 @@ export function AddProjectDialog({
       <Dialog open={open} onOpenChange={setOpen}>
         {trigger === "button" ? (
           <DialogTrigger render={<Button type="button" disabled={disabled} />}>
-            <Icon icon="hugeicons:folder-add" className="size-4" />
+            <FolderAdd className="size-4" />
             Add a project
           </DialogTrigger>
         ) : (
@@ -139,7 +139,7 @@ export function AddProjectDialog({
                 />
               }
             >
-              <Icon icon="hugeicons:folder-add" />
+              <FolderAdd />
             </TooltipTrigger>
             <TooltipContent>Add project</TooltipContent>
           </Tooltip>

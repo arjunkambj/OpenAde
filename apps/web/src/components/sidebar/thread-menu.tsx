@@ -42,8 +42,8 @@ import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { isAccepted, rejectionMessage } from "@/lib/dispatch-outcome";
-import { Icon } from "@/lib/icon";
 import { useDispatchCommand } from "@/state/hooks";
+import { Archive as ArchiveIcon, Edit, MoreHorizontal, Trash } from "@honeyicons/react";
 
 /** Which of the two dialogs this row currently has open. */
 type OpenDialog = "rename" | "delete" | null;
@@ -161,11 +161,11 @@ export function ThreadRowMenu({ thread }: { readonly thread: ThreadSummary }) {
             />
           }
         >
-          <Icon icon="hugeicons:more-horizontal" />
+          <MoreHorizontal />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuItem onClick={() => setDialog("rename")}>
-            <Icon icon="hugeicons:pencil-edit-02" />
+            <Edit />
             Rename
           </DropdownMenuItem>
           <DropdownMenuItem
@@ -178,12 +178,12 @@ export function ThreadRowMenu({ thread }: { readonly thread: ThreadSummary }) {
               )
             }
           >
-            <Icon icon="hugeicons:archive-02" />
+            <ArchiveIcon />
             Archive
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onClick={() => setDialog("delete")}>
-            <Icon icon="hugeicons:delete-02" />
+            <Trash />
             Delete
           </DropdownMenuItem>
         </DropdownMenuContent>

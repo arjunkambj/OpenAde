@@ -40,7 +40,7 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { routedConnectorInstanceId } from "@/lib/connector-routing";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
-import { Icon } from "@/lib/icon";
+import { type HoneyIcon, Close, Lightning } from "@honeyicons/react";
 
 interface HeaderOption {
   readonly value: string;
@@ -71,14 +71,14 @@ const NEXT_TURN_HINT = "applies next turn";
  * start, which is exactly the per-turn contract — so the hint stays.
  */
 function HeaderSelect({
-  icon,
+  icon: Glyph,
   label,
   value,
   options,
   capability,
   onPick,
 }: {
-  readonly icon: string;
+  readonly icon: HoneyIcon;
   readonly label: string;
   readonly value: string;
   readonly options: ReadonlyArray<HeaderOption>;
@@ -106,7 +106,7 @@ function HeaderSelect({
     >
       <SelectTrigger aria-label={label} size="sm" variant="ghost">
         <span className="flex items-center gap-1.5">
-          <Icon icon={icon} className="size-3.5 shrink-0 text-muted-foreground" />
+          <Glyph className="size-3.5 shrink-0 text-muted-foreground" />
           <SelectValue />
         </span>
       </SelectTrigger>
@@ -214,7 +214,7 @@ export function HeaderControls({
     <TooltipProvider>
       <div className={cn("flex min-w-0 flex-wrap items-center gap-1", className)}>
         <HeaderSelect
-          icon="hugeicons:ai-chat-02"
+          icon={Close}
           label="Model"
           value={doc.settings.model}
           options={modelOptions}
@@ -222,7 +222,7 @@ export function HeaderControls({
           onPick={(model) => update({ model })}
         />
         <HeaderSelect
-          icon="hugeicons:zap"
+          icon={Lightning}
           label="Effort"
           value={doc.settings.effort ?? "medium"}
           options={effortOptions}
@@ -230,7 +230,7 @@ export function HeaderControls({
           onPick={(effort) => update({ effort: effort as Effort })}
         />
         <HeaderSelect
-          icon="hugeicons:shield-01"
+          icon={Close}
           label="Runtime mode"
           value={doc.settings.runtimeMode}
           options={RUNTIME_MODE_OPTIONS}
@@ -238,7 +238,7 @@ export function HeaderControls({
           onPick={(mode) => update({ runtimeMode: mode as RuntimeMode })}
         />
         <HeaderSelect
-          icon="hugeicons:check-list"
+          icon={Close}
           label="Interaction mode"
           value={doc.settings.interactionMode}
           options={interactionOptions}

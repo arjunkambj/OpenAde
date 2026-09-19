@@ -12,7 +12,7 @@ import {
 
 import { useAppAtoms } from "@/lib/app-runtime";
 import { applyFontSizes } from "@/lib/font-size";
-import { Icon } from "@/lib/icon";
+import { Add, Minus } from "@honeyicons/react";
 
 function PxStepper({
   label,
@@ -43,7 +43,7 @@ function PxStepper({
           disabled={value <= MIN_FONT_SIZE}
           onClick={() => onChange(value - FONT_SIZE_STEP)}
         >
-          <Icon icon="hugeicons:minus-sign" />
+          <Minus />
         </Button>
         <span aria-live="polite" className="w-16 text-center text-sm tabular-nums">
           {value} px
@@ -55,7 +55,7 @@ function PxStepper({
           disabled={value >= MAX_FONT_SIZE}
           onClick={() => onChange(value + FONT_SIZE_STEP)}
         >
-          <Icon icon="hugeicons:add-01" />
+          <Add />
         </Button>
       </div>
     </div>

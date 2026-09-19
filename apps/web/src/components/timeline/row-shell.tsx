@@ -15,21 +15,16 @@ import {
 } from "@OpenAde/ui/components/collapsible";
 import type { ItemStatus } from "@OpenAde/contracts/runtime";
 
-import { Icon } from "@/lib/icon";
 import { cn } from "@/lib/utils";
 import { useRowDisclosure } from "@/state/ui";
+import { type HoneyIcon, ChevronRight, Close, Spinner } from "@honeyicons/react";
 
 function ItemStatusIcon({ status }: { status: ItemStatus }) {
   if (status === "in_progress") {
-    return (
-      <Icon
-        icon="hugeicons:loading-03"
-        className="size-3.5 shrink-0 animate-spin text-muted-foreground"
-      />
-    );
+    return <Spinner className="size-3.5 shrink-0 text-muted-foreground" />;
   }
   if (status === "failed") {
-    return <Icon icon="hugeicons:alert-circle" className="size-3.5 shrink-0 text-destructive" />;
+    return <Close className="size-3.5 shrink-0 text-destructive" />;
   }
   return null;
 }
@@ -38,7 +33,7 @@ const triggerIconClass = "size-3.5 text-muted-foreground transition-opacity dura
 
 export function DisclosureRow({
   rowId,
-  icon,
+  icon: Glyph,
   label,
   meta,
   status,
@@ -46,7 +41,7 @@ export function DisclosureRow({
   children,
 }: {
   rowId: string;
-  icon: string;
+  icon: HoneyIcon;
   label: ReactNode;
   meta?: ReactNode;
   status?: ItemStatus;
@@ -59,7 +54,7 @@ export function DisclosureRow({
   if (!expandable) {
     return (
       <div className="flex min-h-6 items-center gap-2 py-0.5 type-body leading-compact text-muted-foreground">
-        <Icon icon={icon} className={triggerIconClass} />
+        <Glyph className={triggerIconClass} />
         <span className="min-w-0 flex-1 truncate">{label}</span>
         <ItemStatusIcon status={status ?? "completed"} />
         {meta}
@@ -71,15 +66,13 @@ export function DisclosureRow({
     <Collapsible open={open} onOpenChange={setOpen} className="group/row">
       <CollapsibleTrigger variant="summary">
         <span className="relative size-3.5 shrink-0">
-          <Icon
-            icon="hugeicons:arrow-right-01"
+          <ChevronRight
             className={cn(
               triggerIconClass,
               "absolute inset-0 opacity-0 transition-reveal group-hover/summary:opacity-100 group-focus-visible/summary:opacity-100 group-data-open/row:rotate-90 group-data-open/row:opacity-100",
             )}
           />
-          <Icon
-            icon={icon}
+          <Glyph
             className={cn(
               triggerIconClass,
               "group-hover/summary:opacity-0 group-focus-visible/summary:opacity-0 group-data-open/row:opacity-0",

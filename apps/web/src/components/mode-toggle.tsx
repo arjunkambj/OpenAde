@@ -24,7 +24,7 @@ import {
 
 import { useTheme } from "@/components/theme-provider";
 import { useAppAtoms } from "@/lib/app-runtime";
-import { Icon } from "@/lib/icon";
+import { Moon, Sun } from "@honeyicons/react";
 
 const THEMES = [
   { value: "light", label: "Light" },
@@ -45,14 +45,8 @@ export function ModeToggle() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button variant="outline" size="icon" />}>
-        <Icon
-          icon="solar:sun-2-linear"
-          className="size-[1.2rem] scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90"
-        />
-        <Icon
-          icon="solar:moon-linear"
-          className="absolute size-[1.2rem] scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0"
-        />
+        <Sun className="size-[1.2rem] scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
+        <Moon className="absolute size-[1.2rem] scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
         <span className="sr-only">Toggle theme</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

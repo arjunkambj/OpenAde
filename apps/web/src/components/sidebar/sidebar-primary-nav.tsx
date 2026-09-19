@@ -2,11 +2,11 @@ import { Link, useMatchRoute } from "@tanstack/react-router";
 
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@OpenAde/ui/components/sidebar";
 
-import { Icon } from "@/lib/icon";
+import { Add, Close } from "@honeyicons/react";
 
 const navItems = [
-  { to: "/", icon: "hugeicons:add-01", label: "New task", fuzzy: false },
-  { to: "/customize", icon: "hugeicons:dashboard-square-setting", label: "Customize", fuzzy: true },
+  { to: "/", icon: Add, label: "New task", fuzzy: false },
+  { to: "/customize", icon: Close, label: "Customize", fuzzy: true },
 ] as const;
 
 /**
@@ -27,7 +27,7 @@ export function SidebarPrimaryNav({ onNavigate }: { onNavigate?: () => void }) {
               isActive={Boolean(matchRoute({ to: item.to, fuzzy: item.fuzzy }))}
               onClick={onNavigate}
             >
-              <Icon icon={item.icon} />
+              <item.icon />
               {item.label}
             </SidebarMenuButton>
           </SidebarMenuItem>

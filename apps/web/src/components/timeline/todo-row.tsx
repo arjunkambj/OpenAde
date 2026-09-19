@@ -5,17 +5,17 @@
 
 import type { ItemSnapshot, Todo } from "@OpenAde/contracts/runtime";
 
-import { Icon } from "@/lib/icon";
 import { cn } from "@/lib/utils";
+import { Close } from "@honeyicons/react";
 
 function TodoIcon({ status }: { status: Todo["status"] }) {
   if (status === "completed") {
-    return <Icon icon="hugeicons:checkmark-circle-02" className="size-3.5 text-added" />;
+    return <Close className="size-3.5 text-added" />;
   }
   if (status === "in_progress") {
-    return <Icon icon="hugeicons:record" className="size-3.5 text-permission" />;
+    return <Close className="size-3.5 text-permission" />;
   }
-  return <Icon icon="hugeicons:circle" className="size-3.5 text-muted-foreground" />;
+  return <Close className="size-3.5 text-muted-foreground" />;
 }
 
 export function TodoRow({ item }: { item: ItemSnapshot }) {

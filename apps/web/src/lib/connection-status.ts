@@ -30,21 +30,18 @@
 
 import type { ConnectionState } from "@OpenAde/client-runtime/connection";
 import type { DesktopServerState } from "@OpenAde/client-runtime/resolver";
+import { type HoneyIcon, AlertTriangle, Close, Spinner } from "@honeyicons/react";
 
 export interface ConnectionNotice {
   /** `pending` is a quiet strip with a spinner; `error` is the loud one. */
   readonly tone: "pending" | "error";
-  readonly icon: string;
+  readonly icon: HoneyIcon;
   readonly message: string;
 }
 
-const SPINNER = "hugeicons:loading-03";
-const ALERT = "hugeicons:alert-02";
-const OFFLINE = "hugeicons:wifi-off-01";
-
 const pending = (message: string): ConnectionNotice => ({
   tone: "pending",
-  icon: SPINNER,
+  icon: Spinner,
   message,
 });
 
@@ -54,7 +51,7 @@ const pending = (message: string): ConnectionNotice => ({
  */
 const gaveUp = (reason: string | null | undefined): ConnectionNotice => ({
   tone: "error",
-  icon: ALERT,
+  icon: AlertTriangle,
   message:
     reason === null || reason === undefined || reason === ""
       ? "The server stopped and is not being retried. Reopen OpenAde to start it again."
@@ -68,7 +65,7 @@ export const connectionNotice = (
   if (connection.status === "incompatible") {
     return {
       tone: "error",
-      icon: ALERT,
+      icon: AlertTriangle,
       message: "The server speaks a different protocol version. Update OpenAde to continue.",
     };
   }
@@ -92,7 +89,7 @@ export const connectionNotice = (
   if (connection.status === "disconnected") {
     return {
       tone: "error",
-      icon: OFFLINE,
+      icon: Close,
       message: "Not connected to a server.",
     };
   }

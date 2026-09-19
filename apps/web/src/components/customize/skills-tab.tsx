@@ -17,7 +17,6 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { toast } from "sonner";
 
 import { describeExitError, useAppAtoms } from "@/lib/app-runtime";
-import { Icon } from "@/lib/icon";
 
 import { useCustomizeScope } from "./customize-layout";
 import {
@@ -28,6 +27,7 @@ import {
   CustomizeTag,
   matchesQuery,
 } from "./customize-list";
+import { Add as AddIcon, Close, Spinner } from "@honeyicons/react";
 
 export function SkillsTab() {
   const atoms = useAppAtoms();
@@ -77,7 +77,7 @@ export function SkillsTab() {
           shown.map((skill) => (
             <CustomizeCard
               key={skill.path}
-              icon="hugeicons:magic-wand-01"
+              icon={Close}
               title={skill.name}
               muted={!skill.enabled}
               tags={
@@ -107,7 +107,7 @@ export function SkillsTab() {
             agentShown.map((skill) => (
               <CustomizeCard
                 key={skill.entry}
-                icon="hugeicons:magic-wand-01"
+                icon={Close}
                 title={skill.name}
                 actions={
                   <Button
@@ -116,9 +116,7 @@ export function SkillsTab() {
                     disabled={linking !== null}
                     onClick={() => void addSkill(skill.entry)}
                   >
-                    <Icon
-                      icon={linking === skill.entry ? "hugeicons:loading-03" : "hugeicons:add-01"}
-                    />
+                    {linking === skill.entry ? <Spinner /> : <AddIcon />}
                     Add
                   </Button>
                 }

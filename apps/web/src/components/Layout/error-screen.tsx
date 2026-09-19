@@ -14,7 +14,7 @@
 import { Button } from "@OpenAde/ui/components/button";
 import { Link } from "@tanstack/react-router";
 
-import { Icon } from "@/lib/icon";
+import { AlertTriangle, Repeat } from "@honeyicons/react";
 
 /** The first line of a thrown value, whatever it turned out to be. */
 export const errorSummary = (error: unknown): string => {
@@ -36,7 +36,7 @@ export function ErrorScreen({ error, reset }: { error: unknown; reset?: () => vo
       role="alert"
       className="flex h-svh flex-col items-center justify-center gap-3 bg-background px-6 text-center"
     >
-      <Icon icon="hugeicons:alert-02" className="size-6 text-destructive" />
+      <AlertTriangle className="size-6 text-destructive" />
       <p className="type-body text-foreground">This screen could not be rendered.</p>
       <p className="max-w-lg font-mono text-xs break-words text-muted-foreground">
         {errorSummary(error)}
@@ -44,7 +44,7 @@ export function ErrorScreen({ error, reset }: { error: unknown; reset?: () => vo
       <div className="mt-1 flex items-center gap-2">
         {reset === undefined ? null : (
           <Button type="button" variant="outline" onClick={reset}>
-            <Icon icon="hugeicons:refresh" className="size-3.5" />
+            <Repeat className="size-3.5" />
             Try again
           </Button>
         )}

@@ -13,7 +13,7 @@ import * as React from "react";
 
 import { ATTACHMENT_ACCEPT } from "@/components/composer/attachment-rules";
 
-import { Icon } from "@/lib/icon";
+import { Add, ArrowUp, Close, Spinner, Stop as StopIcon } from "@honeyicons/react";
 
 export function ComposerToolbar({
   running,
@@ -69,7 +69,7 @@ export function ComposerToolbar({
         title="Attach files"
         onClick={() => fileInputRef.current?.click()}
       >
-        <Icon icon="hugeicons:add-01" />
+        <Add />
       </Button>
       <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
         {running ? "Turn running — messages queue" : null}
@@ -91,7 +91,7 @@ export function ComposerToolbar({
           disabled={interrupting}
           onClick={onInterrupt}
         >
-          <Icon icon={interrupting ? "hugeicons:loading-03" : "hugeicons:stop"} />
+          {interrupting ? <Spinner /> : <StopIcon />}
         </Button>
       ) : null}
       <Button
@@ -104,15 +104,7 @@ export function ComposerToolbar({
         disabled={!canSend || sending}
         onClick={onSend}
       >
-        <Icon
-          icon={
-            sending
-              ? "hugeicons:loading-03"
-              : running
-                ? "hugeicons:queue-02"
-                : "hugeicons:arrow-up-02"
-          }
-        />
+        {sending ? <Spinner /> : running ? <Close /> : <ArrowUp />}
       </Button>
     </div>
   );

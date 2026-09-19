@@ -21,7 +21,6 @@ import { toast } from "sonner";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { describeExitError, useAppAtoms } from "@/lib/app-runtime";
-import { Icon } from "@/lib/icon";
 
 import { useCustomizeScope } from "./customize-layout";
 import {
@@ -33,6 +32,7 @@ import {
   matchesQuery,
 } from "./customize-list";
 import { McpServerDialog } from "./mcp-server-dialog";
+import { Add as AddIcon, Close, Edit as EditIcon, MoreVertical, Trash } from "@honeyicons/react";
 
 const describeServer = (server: McpServerConfig): string =>
   server.transport === "stdio"
@@ -67,7 +67,7 @@ export function McpTab() {
       <div className="flex items-center gap-2">
         <CustomizeSearch value={query} onChange={setQuery} placeholder="Search MCP servers" />
         <Button variant="outline" onClick={() => setDialog({ open: true, editing: null })}>
-          <Icon icon="hugeicons:add-01" />
+          <AddIcon />
           Add server
         </Button>
       </div>
@@ -83,7 +83,7 @@ export function McpTab() {
           shown.map((server) => (
             <CustomizeCard
               key={`${server.scope}:${server.name}`}
-              icon="hugeicons:server-stack-01"
+              icon={Close}
               title={server.name}
               muted={!server.enabled}
               tags={
@@ -106,15 +106,15 @@ export function McpTab() {
                         />
                       }
                     >
-                      <Icon icon="hugeicons:more-vertical" />
+                      <MoreVertical />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => setDialog({ open: true, editing: server })}>
-                        <Icon icon="hugeicons:edit-02" />
+                        <EditIcon />
                         Edit
                       </DropdownMenuItem>
                       <DropdownMenuItem variant="destructive" onClick={() => setRemoving(server)}>
-                        <Icon icon="hugeicons:delete-02" />
+                        <Trash />
                         Remove
                       </DropdownMenuItem>
                     </DropdownMenuContent>

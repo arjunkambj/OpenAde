@@ -9,6 +9,7 @@ import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
 
 import { DisclosureRow } from "@/components/timeline/row-shell";
 import { TimelineItemView } from "@/components/timeline/timeline-item";
+import { Close } from "@honeyicons/react";
 
 export function TaskRow({
   item,
@@ -22,7 +23,7 @@ export function TaskRow({
   return (
     <DisclosureRow
       rowId={item.itemId}
-      icon="hugeicons:bot"
+      icon={Close}
       label={item.text ?? "Subagent task"}
       status={item.status}
       meta={

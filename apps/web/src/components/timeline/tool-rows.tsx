@@ -10,6 +10,7 @@ import type { ReactNode } from "react";
 
 import { DisclosureRow, JsonBlock, MonoBlock } from "@/components/timeline/row-shell";
 import { cn } from "@/lib/utils";
+import { Brain, Close, Terminal } from "@honeyicons/react";
 
 /** First line of a value for a row label — strings verbatim, objects compact. */
 const preview = (value: unknown, max = 80): string | undefined => {
@@ -60,7 +61,7 @@ export function ReasoningRow({ item }: { item: ItemSnapshot }) {
   return (
     <DisclosureRow
       rowId={item.itemId}
-      icon="hugeicons:brain"
+      icon={Brain}
       label={inProgress ? "Thinking…" : "Reasoning"}
       status={item.status}
     >
@@ -92,7 +93,7 @@ export function CommandExecutionRow({ item }: { item: ItemSnapshot }) {
   return (
     <DisclosureRow
       rowId={item.itemId}
-      icon="hugeicons:computer-terminal-01"
+      icon={Terminal}
       label={<span className="font-mono text-xs">{cmd}</span>}
       status={item.status}
       meta={
@@ -116,7 +117,7 @@ export function ToolCallRow({ item }: { item: ItemSnapshot }) {
   return (
     <DisclosureRow
       rowId={item.itemId}
-      icon="hugeicons:wrench-01"
+      icon={Close}
       label={
         <>
           {name}
@@ -136,7 +137,7 @@ export function McpToolCallRow({ item }: { item: ItemSnapshot }) {
   return (
     <DisclosureRow
       rowId={item.itemId}
-      icon="hugeicons:plug-zap"
+      icon={Close}
       label={
         <>
           {tool?.server !== undefined ? (
@@ -159,7 +160,7 @@ export function WebSearchRow({ item }: { item: ItemSnapshot }) {
     <ToolPayload input={item.tool?.input} output={item.tool?.output} />
   ) : undefined;
   return (
-    <DisclosureRow rowId={item.itemId} icon="hugeicons:globe" label={query} status={item.status}>
+    <DisclosureRow rowId={item.itemId} icon={Close} label={query} status={item.status}>
       {body}
     </DisclosureRow>
   );

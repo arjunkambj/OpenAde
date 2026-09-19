@@ -12,9 +12,9 @@ import { DiffWorkerPoolProvider } from "@/components/timeline/diff-pool";
 import { useAppAtoms } from "@/lib/app-runtime";
 import { ClientRuntimeBridge } from "@/lib/client-runtime";
 import { applyFontSizes } from "@/lib/font-size";
-import { Icon } from "@/lib/icon";
 import { KeybindingsProvider } from "@/lib/shortcuts";
 import { AppAtomRegistryProvider, getAppAtoms } from "@/state/app-runtime";
+import { Close } from "@honeyicons/react";
 
 import "../index.css";
 
@@ -28,7 +28,7 @@ export interface RouterAppContext {}
 function NotFound() {
   return (
     <div className="flex h-svh flex-col items-center justify-center gap-3 bg-background px-6 text-center">
-      <Icon icon="hugeicons:link-broken-01" className="size-6 text-muted-foreground" />
+      <Close className="size-6 text-muted-foreground" />
       <p className="type-body text-muted-foreground">
         That page does not exist — the link may point at a thread that was deleted.
       </p>

@@ -27,7 +27,7 @@ import {
 import { CardShell } from "@/components/approvals/card-shell";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
-import { Icon } from "@/lib/icon";
+import { Close } from "@honeyicons/react";
 
 function QuestionBlock({
   question,
@@ -152,9 +152,9 @@ export function QuestionCard({
 
   return (
     <CardShell
-      icon="hugeicons:message-question"
+      icon={Close}
       title={questions.length === 1 ? "Question" : `${questions.length} questions`}
-      hint={<Icon icon="hugeicons:hourglass" className="size-3.5" />}
+      hint={<Close className="size-3.5" />}
       actions={
         <Button size="sm" disabled={pending || !answered} onClick={submit}>
           Submit answers

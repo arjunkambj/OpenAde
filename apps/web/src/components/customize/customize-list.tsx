@@ -8,7 +8,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@OpenAde/ui/compon
 import { cn } from "@OpenAde/ui/lib/utils";
 import type * as React from "react";
 
-import { Icon } from "@/lib/icon";
+import { type HoneyIcon, Search } from "@honeyicons/react";
 
 export function CustomizeSearch({
   value,
@@ -22,7 +22,7 @@ export function CustomizeSearch({
   return (
     <InputGroup className="flex-1">
       <InputGroupAddon>
-        <Icon icon="hugeicons:search-01" />
+        <Search />
       </InputGroupAddon>
       <InputGroupInput
         type="search"
@@ -57,7 +57,7 @@ export function CustomizeSection({
 }
 
 export function CustomizeCard({
-  icon,
+  icon: Glyph,
   title,
   tags,
   actions,
@@ -65,7 +65,7 @@ export function CustomizeCard({
   detail,
   muted = false,
 }: {
-  readonly icon: string;
+  readonly icon: HoneyIcon;
   readonly title: string;
   readonly tags?: React.ReactNode;
   readonly actions?: React.ReactNode;
@@ -80,7 +80,7 @@ export function CustomizeCard({
       className={cn("flex flex-col gap-1.5 rounded-2xl bg-card px-4 py-3", muted && "opacity-60")}
     >
       <div className="flex items-center gap-2.5">
-        <Icon icon={icon} className="size-4 shrink-0 text-muted-foreground" />
+        <Glyph className="size-4 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate text-sm font-medium">{title}</span>
         {tags === undefined ? null : <div className="flex items-center gap-1.5">{tags}</div>}
         {actions}

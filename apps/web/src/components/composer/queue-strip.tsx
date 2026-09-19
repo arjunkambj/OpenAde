@@ -21,7 +21,7 @@ import * as React from "react";
 
 import { useClientRuntime } from "@/lib/client-runtime";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
-import { Icon } from "@/lib/icon";
+import { ChevronDown, ChevronUp, Close } from "@honeyicons/react";
 
 export function QueueStrip({
   threadId,
@@ -87,7 +87,7 @@ export function QueueStrip({
       aria-label="Queued messages"
     >
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <Icon icon="hugeicons:queue-02" className="size-3.5" />
+        <Close className="size-3.5" />
         <span>
           {queue.length} queued {queue.length === 1 ? "message" : "messages"} — sent in order when
           the turn ends
@@ -117,7 +117,7 @@ export function QueueStrip({
               disabled={busy !== null || index === 0}
               onClick={() => move(message.queuedMessageId, index - 1)}
             >
-              <Icon icon="hugeicons:arrow-up-01" />
+              <ChevronUp />
             </Button>
             <Button
               type="button"
@@ -130,7 +130,7 @@ export function QueueStrip({
               disabled={busy !== null || index === queue.length - 1}
               onClick={() => move(message.queuedMessageId, index + 1)}
             >
-              <Icon icon="hugeicons:arrow-down-01" />
+              <ChevronDown />
             </Button>
             <Button
               type="button"
@@ -143,7 +143,7 @@ export function QueueStrip({
               disabled={busy !== null}
               onClick={() => remove(message.queuedMessageId)}
             >
-              <Icon icon="hugeicons:cancel-01" />
+              <Close />
             </Button>
           </li>
         ))}

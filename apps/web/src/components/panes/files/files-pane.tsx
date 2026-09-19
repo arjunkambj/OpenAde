@@ -23,13 +23,22 @@ import { Input } from "@OpenAde/ui/components/input";
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 
-import { Icon } from "@/lib/icon";
 import { cn } from "@/lib/utils";
 
 import { FilePreview } from "./file-preview";
 import { useFileAtoms } from "./file-atoms";
 import { PaneMessage } from "./pane-message";
 import { splitPath } from "./preview";
+import {
+  AlertTriangle,
+  ChevronLeft,
+  Close,
+  File as FileIcon,
+  Folder,
+  Repeat,
+  Search as SearchIcon,
+  Spinner,
+} from "@honeyicons/react";
 
 /** The server's own ceiling (`MAX_SEARCH_LIMIT`), asked for explicitly so the
  * pane can tell "these are all the matches" from "this is the first page". */
@@ -55,10 +64,11 @@ function ResultRow({
         "hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring",
       )}
     >
-      <Icon
-        icon={result.isDirectory ? "hugeicons:folder-01" : "hugeicons:file-01"}
-        className="size-3.5 shrink-0 text-muted-foreground"
-      />
+      {result.isDirectory ? (
+        <Folder className="size-3.5 shrink-0 text-muted-foreground" />
+      ) : (
+        <FileIcon className="size-3.5 shrink-0 text-muted-foreground" />
+      )}
       <span className="min-w-0 truncate type-body text-foreground">{name}</span>
       {directory === "" ? null : (
         <span className="ml-auto min-w-0 shrink truncate type-micro text-muted-foreground">
@@ -86,12 +96,12 @@ function SearchBody({
   readonly connected: boolean;
 }) {
   if (!connected) {
-    return <PaneMessage icon="hugeicons:wifi-off-01" text="Not connected to the server." />;
+    return <PaneMessage icon={Close} text="Not connected to the server." />;
   }
   if (query === "") {
     return (
       <PaneMessage
-        icon="hugeicons:search-01"
+        icon={SearchIcon}
         text="Search this project's files."
         detail="Anything .gitignore excludes is left out."
       />
@@ -99,23 +109,23 @@ function SearchBody({
   }
   const retry = (
     <Button type="button" variant="ghost" size="sm" onClick={onRetry}>
-      <Icon icon="hugeicons:refresh" className="size-3.5" />
+      <Repeat className="size-3.5" />
       Try again
     </Button>
   );
   if (results === null) {
-    return <PaneMessage icon="hugeicons:loading-03" text="Searching…" />;
+    return <PaneMessage icon={Spinner} text="Searching…" />;
   }
   if (results === "broken") {
     return (
-      <PaneMessage icon="hugeicons:alert-02" text="Could not search this project." action={retry} />
+      <PaneMessage icon={AlertTriangle} text="Could not search this project." action={retry} />
     );
   }
   if (results._tag === "error") {
-    return <PaneMessage icon="hugeicons:alert-02" text={results.message} action={retry} />;
+    return <PaneMessage icon={AlertTriangle} text={results.message} action={retry} />;
   }
   if (results.value.length === 0) {
-    return <PaneMessage icon="hugeicons:search-01" text="No files match this search." />;
+    return <PaneMessage icon={SearchIcon} text="No files match this search." />;
   }
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto", stale && "opacity-60")}>
@@ -214,7 +224,7 @@ export function FilesPane({
               aria-label="Back to results"
               onClick={() => setOpenPath(null)}
             >
-              <Icon icon="hugeicons:arrow-left-01" className="size-3.5" />
+              <ChevronLeft className="size-3.5" />
             </Button>
             <span className="min-w-0 truncate font-mono text-xs text-foreground" title={openPath}>
               {openPath}

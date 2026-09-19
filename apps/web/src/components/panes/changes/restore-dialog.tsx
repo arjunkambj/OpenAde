@@ -34,8 +34,8 @@ import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
 import type { ThreadId } from "@OpenAde/contracts/ids";
 import * as Exit from "effect/Exit";
 
-import { Icon } from "@/lib/icon";
 import { useDispatchCommand } from "@/state/hooks";
+import { Undo } from "@honeyicons/react";
 
 export function RestoreCheckpointDialog({
   threadId,
@@ -103,7 +103,7 @@ export function RestoreCheckpointDialog({
         title={disabledReason ?? `Restore the worktree to ${label}`}
         onClick={() => setOpen(true)}
       >
-        <Icon icon="hugeicons:rotate-left-01" className="size-3.5" />
+        <Undo className="size-3.5" />
         Restore
       </Button>
       <DialogContent>

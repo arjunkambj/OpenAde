@@ -37,7 +37,6 @@ import { AsyncResult } from "effect/unstable/reactivity";
 
 import { InlineDiff } from "@/components/timeline/diff-pool";
 import { DisclosureRow } from "@/components/timeline/row-shell";
-import { Icon } from "@/lib/icon";
 import { turnInFlight } from "@/lib/turn";
 import { useConnectionState } from "@/state/hooks";
 import { useRowDisclosure } from "@/state/ui";
@@ -46,25 +45,35 @@ import { useGitAtoms } from "./git-atoms";
 import { RestoreCheckpointDialog } from "./restore-dialog";
 import { HEAD_VALUE, WORKTREE_VALUE, checkpointLabel, diffRangeFor, resolveRef } from "./selection";
 import { TurnSelector } from "./turn-selector";
+import {
+  type HoneyIcon,
+  AlertTriangle,
+  Close,
+  File as FileIcon,
+  GitBranch,
+  Repeat,
+  Spinner,
+  Trash,
+} from "@honeyicons/react";
 
-const KIND_ICON: Record<GitDiffFile["kind"], string> = {
-  create: "hugeicons:file-01",
-  edit: "hugeicons:file-edit",
-  delete: "hugeicons:delete-02",
+const KIND_ICON: Record<GitDiffFile["kind"], HoneyIcon> = {
+  create: FileIcon,
+  edit: Close,
+  delete: Trash,
 };
 
 function PaneMessage({
-  icon,
+  icon: Glyph,
   text,
   action,
 }: {
-  icon: string;
+  icon: HoneyIcon;
   text: string;
   action?: React.ReactNode;
 }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-12 text-center">
-      <Icon icon={icon} className="size-6 text-muted-foreground" />
+      <Glyph className="size-6 text-muted-foreground" />
       <p className="type-body text-muted-foreground">{text}</p>
       {action}
     </div>
@@ -107,7 +116,7 @@ function FileRow({ file, rangeKey }: { file: GitDiffFile; rangeKey: string }) {
 function BranchLine({ status, onRefresh }: { status: GitStatus | null; onRefresh: () => void }) {
   return (
     <div className="flex h-7 items-center gap-1.5 type-micro text-muted-foreground">
-      <Icon icon="hugeicons:git-branch" className="size-3.5 shrink-0" />
+      <GitBranch className="size-3.5 shrink-0" />
       <span className="min-w-0 truncate">{status?.branch ?? "no branch"}</span>
       {status !== null && status.ahead > 0 ? <span>↑{status.ahead}</span> : null}
       {status !== null && status.behind > 0 ? <span>↓{status.behind}</span> : null}
@@ -119,7 +128,7 @@ function BranchLine({ status, onRefresh }: { status: GitStatus | null; onRefresh
         className="ml-auto"
         onClick={onRefresh}
       >
-        <Icon icon="hugeicons:refresh" className="size-3.5" />
+        <Repeat className="size-3.5" />
       </Button>
     </div>
   );
@@ -161,7 +170,7 @@ function RestoreProgress({
   if (restoring !== null) {
     return (
       <div role="status" className="flex items-center gap-2 type-micro text-muted-foreground">
-        <Icon icon="hugeicons:loading-03" className="size-3.5 animate-spin" />
+        <Spinner className="size-3.5" />
         <span className="min-w-0 truncate">Restoring the worktree…</span>
       </div>
     );
@@ -169,7 +178,7 @@ function RestoreProgress({
   if (failure !== null) {
     return (
       <div role="alert" className="flex items-start gap-2 type-micro text-removed">
-        <Icon icon="hugeicons:alert-02" className="mt-px size-3.5 shrink-0" />
+        <AlertTriangle className="mt-px size-3.5 shrink-0" />
         <span className="min-w-0">Restore failed: {failure.message}</span>
       </div>
     );
@@ -316,25 +325,25 @@ function ChangesBody({
 }) {
   const retry = (
     <Button type="button" variant="ghost" size="sm" onClick={onRetry}>
-      <Icon icon="hugeicons:refresh" className="size-3.5" />
+      <Repeat className="size-3.5" />
       Try again
     </Button>
   );
 
   if (diff === null) {
     return connected ? (
-      <PaneMessage icon="hugeicons:loading-03" text="Loading changes…" />
+      <PaneMessage icon={Spinner} text="Loading changes…" />
     ) : (
-      <PaneMessage icon="hugeicons:wifi-off-01" text="Not connected to the server." />
+      <PaneMessage icon={Close} text="Not connected to the server." />
     );
   }
   if (diff._tag === "error") {
-    return <PaneMessage icon="hugeicons:alert-02" text={diff.message} action={retry} />;
+    return <PaneMessage icon={AlertTriangle} text={diff.message} action={retry} />;
   }
   if (diff._tag === "broken") {
     return (
       <PaneMessage
-        icon="hugeicons:alert-02"
+        icon={AlertTriangle}
         text="Could not read the changes for this comparison."
         action={retry}
       />
@@ -343,13 +352,13 @@ function ChangesBody({
   if (status?._tag === "ok" && isRepoless(status.value)) {
     return (
       <PaneMessage
-        icon="hugeicons:git-compare"
+        icon={Close}
         text="This workspace is not a git repository, so there is nothing to compare."
       />
     );
   }
   if (diff.value.files.length === 0) {
-    return <PaneMessage icon="hugeicons:git-compare" text="No changes in this comparison." />;
+    return <PaneMessage icon={Close} text="No changes in this comparison." />;
   }
   return (
     <div className="flex flex-col gap-1 p-2">

@@ -25,11 +25,11 @@ import { AsyncResult } from "effect/unstable/reactivity";
 
 import { scopeLabel, USER_SCOPE, USER_SCOPE_LABEL } from "@/components/Settings/select-label";
 import { useAppAtoms } from "@/lib/app-runtime";
-import { Icon } from "@/lib/icon";
+import { Close } from "@honeyicons/react";
 
 const CUSTOMIZE_TABS = [
-  { to: "/customize/skills", label: "Skills", icon: "hugeicons:magic-wand-01", count: "skills" },
-  { to: "/customize/mcp", label: "MCP", icon: "hugeicons:server-stack-01", count: "mcp" },
+  { to: "/customize/skills", label: "Skills", icon: Close, count: "skills" },
+  { to: "/customize/mcp", label: "MCP", icon: Close, count: "mcp" },
 ] as const;
 
 const CustomizeScopeContext = React.createContext<ProjectId | null>(null);
@@ -73,7 +73,7 @@ export function CustomizeLayout() {
                       : "border-transparent text-muted-foreground hover:text-foreground",
                   )}
                 >
-                  <Icon icon={tab.icon} className="size-4" />
+                  <tab.icon className="size-4" />
                   {tab.label}
                   {count === null ? null : (
                     <span className="text-xs text-muted-foreground tabular-nums">{count}</span>

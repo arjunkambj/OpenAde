@@ -1,3 +1,4 @@
+import type { HoneyIcon } from "@honeyicons/react";
 /**
  * The floating list the `@` and `/` triggers open. It is a plain positioned
  * `listbox` — the composer owns the query and the active index, so both menus
@@ -6,13 +7,11 @@
 
 import { cn } from "@OpenAde/ui/lib/utils";
 
-import { Icon } from "@/lib/icon";
-
 export interface TriggerMenuItem {
   readonly id: string;
   readonly label: string;
   readonly description?: string;
-  readonly icon?: string;
+  readonly icon?: HoneyIcon;
 }
 
 export function TriggerMenu<T extends TriggerMenuItem>({
@@ -58,7 +57,7 @@ export function TriggerMenu<T extends TriggerMenuItem>({
             }}
           >
             {item.icon === undefined ? null : (
-              <Icon icon={item.icon} className="size-4 shrink-0 text-muted-foreground" />
+              <item.icon className="size-4 shrink-0 text-muted-foreground" />
             )}
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
             {item.description === undefined ? null : (

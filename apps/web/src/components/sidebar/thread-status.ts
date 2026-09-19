@@ -15,15 +15,15 @@
  */
 
 import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
+import { type HoneyIcon, Close, Spinner } from "@honeyicons/react";
 
 /** What the row draws, or `null` for a thread with nothing to report. */
 export interface ThreadStatusMark {
-  readonly icon: string;
+  readonly icon: HoneyIcon;
   /** Both the tooltip and the accessible name. */
   readonly label: string;
   /** Text colour class for the icon. */
   readonly tone: string;
-  readonly spin: boolean;
 }
 
 export const threadStatusMark = (
@@ -31,26 +31,23 @@ export const threadStatusMark = (
 ): ThreadStatusMark | null => {
   if (thread.awaitingInput || thread.status === "waiting") {
     return {
-      icon: "hugeicons:circle-dot",
+      icon: Close,
       label: "Waiting for you",
       tone: "text-permission",
-      spin: false,
     };
   }
   switch (thread.status) {
     case "running":
       return {
-        icon: "hugeicons:loading-03",
+        icon: Spinner,
         label: "Running",
         tone: "text-muted-foreground",
-        spin: true,
       };
     case "error":
       return {
-        icon: "hugeicons:alert-circle",
+        icon: Close,
         label: "Error",
         tone: "text-destructive",
-        spin: false,
       };
     default:
       // idle, archived and deleted rows say nothing here; the row's own text

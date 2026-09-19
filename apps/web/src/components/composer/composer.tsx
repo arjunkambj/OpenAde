@@ -45,6 +45,7 @@ import { turnInFlight } from "@/lib/turn";
 import { useKeybindingCommand, useKeybindingFlag } from "@/lib/shortcuts";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
 import { useComposerDraft } from "@/state/ui";
+import { File as FileIcon, Folder } from "@honeyicons/react";
 
 const ALL_EFFORTS: ReadonlyArray<Effort> = ["low", "medium", "high", "xhigh", "max"];
 
@@ -53,7 +54,7 @@ const mentionItems = (files: ReadonlyArray<FileSearchResult>): ReadonlyArray<Tri
     id: `file:${file.path}`,
     label: file.name,
     description: file.path === file.name ? undefined : file.path,
-    icon: file.isDirectory ? "hugeicons:folder-01" : "hugeicons:file-02",
+    icon: file.isDirectory ? Folder : FileIcon,
   }));
 
 /** The level-2 slash query: everything after the command word. */

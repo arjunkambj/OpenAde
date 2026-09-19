@@ -38,10 +38,10 @@ import { useAttachments } from "@/components/composer/use-attachments";
 import { useSendDraft } from "@/components/composer/use-send-draft";
 import { AddProjectDialog } from "@/components/sidebar/add-project-dialog";
 import { ThreadGreeting } from "@/components/thread/thread-greeting";
-import { Icon } from "@/lib/icon";
 import { useCreateThread } from "@/lib/use-create-thread";
 import { useConnectionState, useProjects } from "@/state/hooks";
 import { useComposerDraft, useLastProject } from "@/state/ui";
+import { Add as AddIcon, ArrowUp, Folder, Spinner } from "@honeyicons/react";
 
 function ProjectPicker({
   projects,
@@ -65,7 +65,7 @@ function ProjectPicker({
     >
       <SelectTrigger aria-label="Project" size="sm" variant="ghost" className="min-w-0">
         <span className="flex min-w-0 items-center gap-1.5">
-          <Icon icon="hugeicons:folder-01" className="size-3.5 shrink-0 text-muted-foreground" />
+          <Folder className="size-3.5 shrink-0 text-muted-foreground" />
           <SelectValue />
         </span>
       </SelectTrigger>
@@ -198,7 +198,7 @@ function StartComposer({
           title="Attach files"
           onClick={() => fileInputRef.current?.click()}
         >
-          <Icon icon="hugeicons:add-01" />
+          <AddIcon />
         </Button>
         {project === undefined ? null : (
           <ProjectPicker projects={projects} value={project.projectId} onPick={onPickProject} />
@@ -212,7 +212,7 @@ function StartComposer({
           title="Start thread (⏎)"
           disabled={!canSend || busy}
         >
-          <Icon icon={busy ? "hugeicons:loading-03" : "hugeicons:arrow-up-02"} />
+          {busy ? <Spinner /> : <ArrowUp />}
         </Button>
       </div>
       {attachments.rejected === null ? null : (

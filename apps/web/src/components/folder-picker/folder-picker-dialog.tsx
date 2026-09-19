@@ -38,7 +38,6 @@ import { Label } from "@OpenAde/ui/components/label";
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 
-import { Icon } from "@/lib/icon";
 import { useConnectionState } from "@/state/hooks";
 
 import { Breadcrumb, FolderList } from "./folder-list";
@@ -56,12 +55,13 @@ import {
   typed,
   type PickerLocation,
 } from "./picker-state";
+import { type HoneyIcon, AlertTriangle, Close, Folder, Repeat, Spinner } from "@honeyicons/react";
 
 /** A block for every state that is not a folder full of folders. */
-function PickerMessage({ icon, text }: { readonly icon: string; readonly text: string }) {
+function PickerMessage({ icon: Glyph, text }: { readonly icon: HoneyIcon; readonly text: string }) {
   return (
     <div className="flex h-64 flex-col items-center justify-center gap-2 rounded-lg bg-muted/50 px-6 text-center">
-      <Icon icon={icon} className="size-6 text-muted-foreground" />
+      <Glyph className="size-6 text-muted-foreground" />
       <p className="type-body text-muted-foreground">{text}</p>
     </div>
   );
@@ -211,19 +211,19 @@ export function FolderPickerDialog({
           />
 
           {!connected ? (
-            <PickerMessage icon="hugeicons:wifi-off-01" text="Not connected to the server." />
+            <PickerMessage icon={Close} text="Not connected to the server." />
           ) : query === null ? (
-            <PickerMessage icon="hugeicons:loading-03" text="Listing…" />
+            <PickerMessage icon={Spinner} text="Listing…" />
           ) : query._tag === "error" ? (
             <div className="flex flex-col items-center gap-2">
-              <PickerMessage icon="hugeicons:alert-02" text={query.message} />
+              <PickerMessage icon={AlertTriangle} text={query.message} />
               <Button type="button" variant="ghost" size="sm" onClick={retry}>
-                <Icon icon="hugeicons:refresh" className="size-3.5" />
+                <Repeat className="size-3.5" />
                 Try again
               </Button>
             </div>
           ) : entries.length === 0 ? (
-            <PickerMessage icon="hugeicons:folder-01" text="No folders in here." />
+            <PickerMessage icon={Folder} text="No folders in here." />
           ) : (
             <FolderList
               entries={entries}

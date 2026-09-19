@@ -26,10 +26,10 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useAppAtoms } from "@/lib/app-runtime";
 import { openExternal } from "@/lib/desktop";
-import { Icon } from "@/lib/icon";
 
 import { helpUrlFor } from "./probe-help";
 import { SchemaForm, type SelectOption } from "./schema-form";
+import { Add as AddIcon, Repeat, Trash } from "@honeyicons/react";
 
 const PROBE_LABEL: Record<ConnectorProbe["status"], string> = {
   ready: "Ready",
@@ -140,7 +140,7 @@ function ConnectorCard({
             aria-label={`Remove ${conn.displayName}`}
             onClick={onRemove}
           >
-            <Icon icon="hugeicons:delete-02" />
+            <Trash />
           </Button>
         </div>
         <Separator />
@@ -231,7 +231,7 @@ export function ConnectorsPanel() {
           <p className="mt-1 text-sm text-muted-foreground">Harnesses your threads run on.</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => void runProbe()} disabled={probing}>
-          <Icon icon="solar:refresh-linear" className={probing ? "animate-spin" : undefined} />
+          <Repeat className={probing ? "animate-spin" : undefined} />
           {probing ? "Probing…" : "Probe all"}
         </Button>
       </div>
@@ -288,7 +288,7 @@ export function ConnectorsPanel() {
             size="sm"
             onClick={() => void addInstance(kind, entry.displayName)}
           >
-            <Icon icon="hugeicons:add-01" />
+            <AddIcon />
             Add {entry.displayName}
           </Button>
         ))}

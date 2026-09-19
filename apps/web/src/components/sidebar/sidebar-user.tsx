@@ -9,8 +9,8 @@ import { buttonVariants } from "@OpenAde/ui/components/button";
 import { SidebarFooter } from "@OpenAde/ui/components/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 
-import { Icon } from "@/lib/icon";
 import { cn } from "@/lib/utils";
+import { Settings as SettingsIcon } from "@honeyicons/react";
 
 export function SidebarUser({ onNavigate }: { onNavigate?: () => void }) {
   return (
@@ -27,7 +27,7 @@ export function SidebarUser({ onNavigate }: { onNavigate?: () => void }) {
               />
             }
           >
-            <Icon icon="hugeicons:settings-01" />
+            <SettingsIcon />
           </TooltipTrigger>
           <TooltipContent>Settings</TooltipContent>
         </Tooltip>

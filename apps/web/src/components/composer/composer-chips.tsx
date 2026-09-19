@@ -13,7 +13,7 @@
 
 import * as React from "react";
 
-import { Icon } from "@/lib/icon";
+import { Close, File as FileIcon } from "@honeyicons/react";
 
 /** A blob URL for `file` that is revoked when the component unmounts. */
 function useObjectUrl(file: File): string {
@@ -45,7 +45,7 @@ function AttachmentChip({
         className="absolute top-0.5 right-0.5 rounded-full bg-background/80 p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-foreground"
         onClick={onRemove}
       >
-        <Icon icon="hugeicons:cancel-01" className="size-3" />
+        <Close className="size-3" />
       </button>
     </span>
   );
@@ -72,7 +72,7 @@ export function ComposerChips({
           key={path}
           className="inline-flex max-w-56 items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs"
         >
-          <Icon icon="hugeicons:file-02" className="size-3 shrink-0 text-muted-foreground" />
+          <FileIcon className="size-3 shrink-0 text-muted-foreground" />
           <span className="truncate">{path}</span>
           <button
             type="button"
@@ -80,7 +80,7 @@ export function ComposerChips({
             className="text-muted-foreground hover:text-foreground"
             onClick={() => onRemoveMention(path)}
           >
-            <Icon icon="hugeicons:cancel-01" className="size-3" />
+            <Close className="size-3" />
           </button>
         </span>
       ))}
