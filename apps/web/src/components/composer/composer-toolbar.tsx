@@ -13,9 +13,10 @@ import * as React from "react";
 
 import { ATTACHMENT_ACCEPT } from "@/components/composer/attachment-rules";
 
-import { Icon } from "@/lib/icon";
+import { Add, ArrowUp, Close, Spinner, Stop as StopIcon } from "@honeyicons/react";
 
 export function ComposerToolbar({
+  settings,
   running,
   canSend,
   contextUsed,
@@ -27,6 +28,7 @@ export function ComposerToolbar({
   onSend,
   onInterrupt,
 }: {
+  readonly settings?: React.ReactNode;
   readonly running: boolean;
   readonly canSend: boolean;
   readonly contextUsed?: number;
@@ -43,7 +45,7 @@ export function ComposerToolbar({
 }) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   return (
-    <div className="flex min-w-0 items-center gap-1.5">
+    <div className="flex min-w-0 flex-wrap items-center gap-2">
       <input
         key={filesKey}
         ref={fileInputRef}
@@ -64,15 +66,15 @@ export function ComposerToolbar({
         type="button"
         variant="ghost"
         tone="muted"
-        size="icon-sm"
+        size="icon"
         aria-label="Attach files"
         title="Attach files"
         onClick={() => fileInputRef.current?.click()}
       >
-        <Icon icon="hugeicons:add-01" />
+        <Add />
       </Button>
+      {settings}
       <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-        {running ? "Turn running — messages queue" : null}
         {contextUsed !== undefined && contextLimit !== undefined ? (
           <span className="tabular-nums" title="Context window used">
             {Math.round((contextUsed / Math.max(1, contextLimit)) * 100)}%
@@ -83,7 +85,7 @@ export function ComposerToolbar({
         <Button
           type="button"
           variant="secondary"
-          size="icon-sm"
+          size="icon"
           shape="pill"
           className="shrink-0"
           aria-label="Stop turn"
@@ -91,12 +93,12 @@ export function ComposerToolbar({
           disabled={interrupting}
           onClick={onInterrupt}
         >
-          <Icon icon={interrupting ? "hugeicons:loading-03" : "hugeicons:stop"} />
+          {interrupting ? <Spinner /> : <StopIcon />}
         </Button>
       ) : null}
       <Button
         type="button"
-        size="icon-sm"
+        size="icon"
         shape="pill"
         className="shrink-0"
         aria-label={running ? "Queue message" : "Send message"}
@@ -104,15 +106,7 @@ export function ComposerToolbar({
         disabled={!canSend || sending}
         onClick={onSend}
       >
-        <Icon
-          icon={
-            sending
-              ? "hugeicons:loading-03"
-              : running
-                ? "hugeicons:queue-02"
-                : "hugeicons:arrow-up-02"
-          }
-        />
+        {sending ? <Spinner /> : running ? <Close /> : <ArrowUp />}
       </Button>
     </div>
   );

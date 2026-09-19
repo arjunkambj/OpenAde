@@ -1,3 +1,4 @@
+import type { HoneyIcon } from "@honeyicons/react";
 /**
  * The floating list the `@` and `/` triggers open. It is a plain positioned
  * `listbox` — the composer owns the query and the active index, so both menus
@@ -6,13 +7,11 @@
 
 import { cn } from "@OpenAde/ui/lib/utils";
 
-import { Icon } from "@/lib/icon";
-
 export interface TriggerMenuItem {
   readonly id: string;
   readonly label: string;
   readonly description?: string;
-  readonly icon?: string;
+  readonly icon?: HoneyIcon;
 }
 
 export function TriggerMenu<T extends TriggerMenuItem>({
@@ -35,7 +34,7 @@ export function TriggerMenu<T extends TriggerMenuItem>({
 }) {
   return (
     <div
-      className="absolute inset-x-0 bottom-full z-40 mb-2 overflow-hidden rounded-xl border border-border bg-popover shadow-lg"
+      className="absolute inset-x-0 bottom-full z-40 mb-2 overflow-hidden rounded-xl bg-popover shadow-lg"
       role="listbox"
       aria-label={label}
     >
@@ -47,7 +46,7 @@ export function TriggerMenu<T extends TriggerMenuItem>({
             role="option"
             aria-selected={index === activeIndex}
             className={cn(
-              "flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm",
+              "flex w-full min-w-0 items-center gap-2 rounded-xl px-2 py-1 text-left text-sm",
               index === activeIndex && "bg-hover",
             )}
             onMouseEnter={() => onHover(index)}
@@ -58,7 +57,7 @@ export function TriggerMenu<T extends TriggerMenuItem>({
             }}
           >
             {item.icon === undefined ? null : (
-              <Icon icon={item.icon} className="size-4 shrink-0 text-muted-foreground" />
+              <item.icon className="size-4 shrink-0 text-muted-foreground" />
             )}
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
             {item.description === undefined ? null : (

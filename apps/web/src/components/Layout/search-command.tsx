@@ -16,7 +16,6 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import type { ProjectId } from "@OpenAde/contracts/ids";
 
-import { Icon } from "@/lib/icon";
 import {
   SHORTCUT_COMMANDS,
   ShortcutKbd,
@@ -27,6 +26,13 @@ import {
 } from "@/lib/shortcuts";
 import { useCreateThread } from "@/lib/use-create-thread";
 import { useProjects, useThreadList } from "@/state/hooks";
+import {
+  Add,
+  Close,
+  Search as SearchIcon,
+  Settings as SettingsIcon,
+  SidebarLeft,
+} from "@honeyicons/react";
 
 type SearchContextValue = {
   setOpen: (open: boolean) => void;
@@ -54,16 +60,16 @@ function useSearch() {
 const searchItems = [
   {
     to: "/",
-    icon: "hugeicons:add-01",
+    icon: Add,
     label: "New task",
     shortcut: "newChat",
   },
-  { to: "/customize/skills", icon: "hugeicons:magic-wand-01", label: "Skills" },
-  { to: "/customize/mcp", icon: "hugeicons:server-stack-01", label: "MCP servers" },
-  { to: "/settings/connectors", icon: "hugeicons:plug-01", label: "Connectors" },
+  { to: "/customize/skills", icon: Close, label: "Skills" },
+  { to: "/customize/mcp", icon: Close, label: "MCP servers" },
+  { to: "/settings/connectors", icon: Close, label: "Connectors" },
   {
     to: "/settings",
-    icon: "hugeicons:settings-01",
+    icon: SettingsIcon,
     label: "Settings",
     shortcut: "settings",
   },
@@ -121,7 +127,7 @@ export function SearchTrigger({ className }: { className?: string }) {
           />
         }
       >
-        <Icon icon="hugeicons:search-01" />
+        <SearchIcon />
         <span className="sr-only">Search</span>
       </TooltipTrigger>
       <TooltipContent>
@@ -173,7 +179,7 @@ function LiveGroups({ onDone }: { onDone: () => void }) {
                   void navigate({ to: "/t/$threadId", params: { threadId: thread.threadId } });
                 }}
               >
-                <Icon icon="hugeicons:message-01" />
+                <Close />
                 <span className="min-w-0 flex-1 truncate">{thread.title}</span>
                 <span className="shrink-0 type-micro text-muted-foreground">
                   {projectName(thread.projectId)}
@@ -196,7 +202,7 @@ function LiveGroups({ onDone }: { onDone: () => void }) {
                   void create(project.projectId);
                 }}
               >
-                <Icon icon="hugeicons:add-01" />
+                <Add />
                 New thread in {project.name}
               </CommandItem>
             ))}
@@ -237,7 +243,7 @@ function SearchDialog({
                   void navigate({ to: item.to });
                 }}
               >
-                <Icon icon={item.icon} />
+                <item.icon />
                 {item.label}
                 <ItemShortcut id={"shortcut" in item ? item.shortcut : undefined} />
               </CommandItem>
@@ -254,7 +260,7 @@ function SearchDialog({
                     fire(SHORTCUT_COMMANDS.toggle);
                   }}
                 >
-                  <Icon icon="hugeicons:layout-left" />
+                  <SidebarLeft />
                   Toggle sidebar
                   <ItemShortcut id="toggle" />
                 </CommandItem>

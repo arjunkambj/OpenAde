@@ -31,8 +31,8 @@ import { AsyncResult } from "effect/unstable/reactivity";
 
 import { ShortcutRecorder } from "@/components/keybindings/shortcut-recorder";
 import { useClientRuntime } from "@/lib/client-runtime";
-import { Icon } from "@/lib/icon";
 import { effectiveKeybindings } from "@/lib/keybindings";
+import { Add as AddIcon, AlertTriangle, Close, Undo } from "@honeyicons/react";
 
 /** Rows whose (shortcut, when) pair collides with an earlier row. */
 const conflictCommands = (keybindings: ReadonlyArray<Keybinding>): ReadonlySet<string> =>
@@ -137,10 +137,10 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
             </Button>
           </span>
         </div>
-        <div className="min-w-0 overflow-x-auto rounded-xl border border-border">
+        <div className="min-w-0 overflow-x-auto rounded-xl bg-card">
           <table className="w-full min-w-[480px] border-collapse text-sm">
             <thead>
-              <tr className="border-b border-border text-left text-xs text-muted-foreground">
+              <tr className="text-left text-xs text-muted-foreground">
                 <th className="px-3 py-2 font-medium">Command</th>
                 <th className="px-3 py-2 font-medium">Shortcut</th>
                 <th className="px-3 py-2 font-medium">When</th>
@@ -152,10 +152,7 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
                 const conflicted = conflicts.has(row.command);
                 const shortcutValid = parseShortcut(row.shortcut) !== null;
                 return (
-                  <tr
-                    key={`${row.command}-${index}`}
-                    className="border-b border-border/60 last:border-0"
-                  >
+                  <tr key={`${row.command}-${index}`}>
                     <td className="px-3 py-1.5">
                       <span className="flex items-center gap-1.5 font-mono text-xs">
                         {row.command}
@@ -164,7 +161,7 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
                             <TooltipTrigger
                               render={<span className="inline-flex text-permission" />}
                             >
-                              <Icon icon="hugeicons:alert-02" className="size-3.5" />
+                              <AlertTriangle className="size-3.5" />
                             </TooltipTrigger>
                             <TooltipContent>
                               Another binding on this chord wins — only the first match fires.
@@ -205,7 +202,7 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
                           title="Reset to default"
                           onClick={() => resetRow(index)}
                         >
-                          <Icon icon="hugeicons:rotate-left-01" />
+                          <Undo />
                         </Button>
                         <Button
                           type="button"
@@ -218,7 +215,7 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
                             setDraft((current) => current.filter((_, i) => i !== index))
                           }
                         >
-                          <Icon icon="hugeicons:cancel-01" />
+                          <Close />
                         </Button>
                       </span>
                     </td>
@@ -233,7 +230,7 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
                   </td>
                 </tr>
               ) : null}
-              <tr className="border-t border-border">
+              <tr>
                 <td className="px-3 py-1.5">
                   <Input
                     value={added.command}
@@ -260,7 +257,7 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
                       disabled={added.command.trim() === "" || added.shortcut === ""}
                       onClick={addRow}
                     >
-                      <Icon icon="hugeicons:add-01" />
+                      <AddIcon />
                       Add binding
                     </Button>
                   </span>

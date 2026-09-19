@@ -25,11 +25,11 @@ import { AsyncResult } from "effect/unstable/reactivity";
 
 import { scopeLabel, USER_SCOPE, USER_SCOPE_LABEL } from "@/components/Settings/select-label";
 import { useAppAtoms } from "@/lib/app-runtime";
-import { Icon } from "@/lib/icon";
+import { Close } from "@honeyicons/react";
 
 const CUSTOMIZE_TABS = [
-  { to: "/customize/skills", label: "Skills", icon: "hugeicons:magic-wand-01", count: "skills" },
-  { to: "/customize/mcp", label: "MCP", icon: "hugeicons:server-stack-01", count: "mcp" },
+  { to: "/customize/skills", label: "Skills", icon: Close, count: "skills" },
+  { to: "/customize/mcp", label: "MCP", icon: Close, count: "mcp" },
 ] as const;
 
 const CustomizeScopeContext = React.createContext<ProjectId | null>(null);
@@ -56,7 +56,7 @@ export function CustomizeLayout() {
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
         <h1 className="text-2xl font-medium">Customize</h1>
 
-        <div className="flex items-center justify-between gap-4 border-b border-border/60">
+        <div className="flex items-center justify-between gap-4">
           <nav className="-mb-px flex items-center gap-1" aria-label="Customize">
             {CUSTOMIZE_TABS.map((tab) => {
               const active = Boolean(matchRoute({ to: tab.to }));
@@ -73,7 +73,7 @@ export function CustomizeLayout() {
                       : "border-transparent text-muted-foreground hover:text-foreground",
                   )}
                 >
-                  <Icon icon={tab.icon} className="size-4" />
+                  <tab.icon className="size-4" />
                   {tab.label}
                   {count === null ? null : (
                     <span className="text-xs text-muted-foreground tabular-nums">{count}</span>

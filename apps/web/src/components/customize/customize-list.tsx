@@ -8,7 +8,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@OpenAde/ui/compon
 import { cn } from "@OpenAde/ui/lib/utils";
 import type * as React from "react";
 
-import { Icon } from "@/lib/icon";
+import { type HoneyIcon, Search } from "@honeyicons/react";
 
 export function CustomizeSearch({
   value,
@@ -22,7 +22,7 @@ export function CustomizeSearch({
   return (
     <InputGroup className="flex-1">
       <InputGroupAddon>
-        <Icon icon="hugeicons:search-01" />
+        <Search />
       </InputGroupAddon>
       <InputGroupInput
         type="search"
@@ -57,7 +57,7 @@ export function CustomizeSection({
 }
 
 export function CustomizeCard({
-  icon,
+  icon: Glyph,
   title,
   tags,
   actions,
@@ -65,7 +65,7 @@ export function CustomizeCard({
   detail,
   muted = false,
 }: {
-  readonly icon: string;
+  readonly icon: HoneyIcon;
   readonly title: string;
   readonly tags?: React.ReactNode;
   readonly actions?: React.ReactNode;
@@ -77,13 +77,10 @@ export function CustomizeCard({
 }) {
   return (
     <div
-      className={cn(
-        "flex flex-col gap-1.5 rounded-2xl border border-border/60 bg-card px-4 py-3",
-        muted && "opacity-60",
-      )}
+      className={cn("flex flex-col gap-1.5 rounded-2xl bg-card px-4 py-3", muted && "opacity-60")}
     >
       <div className="flex items-center gap-2.5">
-        <Icon icon={icon} className="size-4 shrink-0 text-muted-foreground" />
+        <Glyph className="size-4 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate text-sm font-medium">{title}</span>
         {tags === undefined ? null : <div className="flex items-center gap-1.5">{tags}</div>}
         {actions}
@@ -108,7 +105,7 @@ export function CustomizeTag({
   return (
     <span
       className={cn(
-        "rounded-full border border-border/60 px-2 py-0.5 text-xs text-muted-foreground",
+        "rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground",
         mono && "font-mono",
       )}
     >
@@ -120,7 +117,7 @@ export function CustomizeTag({
 /** The one-line message a list shows in place of cards. */
 export function CustomizeEmpty({ children }: { readonly children: React.ReactNode }) {
   return (
-    <p className="rounded-2xl border border-dashed border-border/60 px-4 py-6 text-center text-sm text-muted-foreground">
+    <p className="rounded-2xl bg-muted/50 px-4 py-6 text-center text-sm text-muted-foreground">
       {children}
     </p>
   );

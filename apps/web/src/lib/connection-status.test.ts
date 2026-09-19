@@ -4,6 +4,7 @@ import type { ConnectionState } from "@OpenAde/client-runtime/connection";
 import type { DesktopServerState } from "@OpenAde/client-runtime/resolver";
 
 import { connectionNotice } from "./connection-status";
+import { AlertTriangle, Close } from "@honeyicons/react";
 
 const socket = (status: ConnectionState["status"]): ConnectionState => ({
   status,
@@ -45,7 +46,7 @@ describe("connectionNotice", () => {
     );
     expect(notice).toEqual({
       tone: "error",
-      icon: "hugeicons:alert-02",
+      icon: AlertTriangle,
       message:
         "The server stopped and is not being retried (server exited 3 times). Reopen OpenAde to start it again.",
     });
@@ -80,7 +81,7 @@ describe("connectionNotice", () => {
     );
     expect(connectionNotice(socket("disconnected"), null)).toEqual({
       tone: "error",
-      icon: "hugeicons:wifi-off-01",
+      icon: Close,
       message: "Not connected to a server.",
     });
   });

@@ -10,9 +10,9 @@ import type { BrowserHumanInput, BrowserState } from "@OpenAde/contracts/rpc";
 import { Button } from "@OpenAde/ui/components/button";
 import { Input } from "@OpenAde/ui/components/input";
 
-import { Icon } from "@/lib/icon";
 import { cn } from "@/lib/utils";
 import { browserStatus } from "./status";
+import { ChevronLeft, ChevronRight, Repeat } from "@honeyicons/react";
 
 export interface AddressBarProps {
   readonly state: BrowserState | null;
@@ -47,15 +47,15 @@ export function AddressBar({ state, onAction }: AddressBarProps) {
     onAction({ kind: "history", direction });
 
   return (
-    <div className="flex items-center gap-1.5 border-b px-2 py-1.5">
+    <div className="flex items-center gap-1.5 px-2 py-1.5">
       <Button variant="ghost" size="icon-sm" onClick={history("back")} aria-label="Back">
-        <Icon icon="hugeicons:arrow-left-01" className="size-4" />
+        <ChevronLeft className="size-4" />
       </Button>
       <Button variant="ghost" size="icon-sm" onClick={history("forward")} aria-label="Forward">
-        <Icon icon="hugeicons:arrow-right-01" className="size-4" />
+        <ChevronRight className="size-4" />
       </Button>
       <Button variant="ghost" size="icon-sm" onClick={history("reload")} aria-label="Reload">
-        <Icon icon="hugeicons:refresh" className="size-4" />
+        <Repeat className="size-4" />
       </Button>
       <Input
         value={draft}

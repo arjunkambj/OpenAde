@@ -7,7 +7,6 @@
  */
 
 import { connectionNotice } from "@/lib/connection-status";
-import { Icon } from "@/lib/icon";
 import { useConnectionState, useDesktopServerState } from "@/state/hooks";
 
 export function ConnectionBanner() {
@@ -30,7 +29,7 @@ export function ConnectionBanner() {
           : "flex h-8 shrink-0 items-center justify-center gap-2 bg-removed-bg px-3 type-micro text-removed"
       }
     >
-      <Icon icon={notice.icon} className={pending ? "size-3.5 animate-spin" : "size-3.5"} />
+      <notice.icon className="size-3.5" />
       <span>{notice.message}</span>
     </div>
   );

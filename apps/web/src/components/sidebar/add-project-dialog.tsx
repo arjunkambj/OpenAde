@@ -16,24 +16,23 @@ import { toast } from "sonner";
 import { Button } from "@OpenAde/ui/components/button";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@OpenAde/ui/components/dialog";
-import { Input } from "@OpenAde/ui/components/input";
-import { Label } from "@OpenAde/ui/components/label";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@OpenAde/ui/components/input-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import { makeCommandId, makeProjectId } from "@OpenAde/contracts/ids";
 
 import { FolderPickerDialog } from "@/components/folder-picker/folder-picker-dialog";
 import { hasNativePicker, pickDirectory } from "@/lib/desktop";
 import { isAccepted, rejectionMessage } from "@/lib/dispatch-outcome";
-import { Icon } from "@/lib/icon";
 import { projectNameFromPath, workspacePathProblem } from "@/lib/workspace-path";
 import { useDispatchCommand } from "@/state/hooks";
+import { Close, Folder, FolderAdd } from "@honeyicons/react";
 
 /**
  * `icon` is the sidebar's ghost button; `button` is the labelled one the empty
@@ -119,7 +118,7 @@ export function AddProjectDialog({
       <Dialog open={open} onOpenChange={setOpen}>
         {trigger === "button" ? (
           <DialogTrigger render={<Button type="button" disabled={disabled} />}>
-            <Icon icon="hugeicons:folder-add" className="size-4" />
+            <FolderAdd className="size-4" />
             Add a project
           </DialogTrigger>
         ) : (
@@ -139,44 +138,79 @@ export function AddProjectDialog({
                 />
               }
             >
-              <Icon icon="hugeicons:folder-add" />
+              <FolderAdd />
             </TooltipTrigger>
             <TooltipContent>Add project</TooltipContent>
           </Tooltip>
         )}
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add project</DialogTitle>
-            <DialogDescription>
+            <DialogTitle>Create project</DialogTitle>
+            <DialogDescription className="sr-only">
               A project groups threads around one workspace root on this machine.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={(event) => void submit(event)} className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="project-name">Name</Label>
-              <Input
-                id="project-name"
+          <form onSubmit={(event) => void submit(event)} className="flex flex-col gap-5">
+            <InputGroup className="h-10">
+              <InputGroupAddon>
+                <Folder />
+              </InputGroupAddon>
+              <InputGroupInput
+                aria-label="Project name"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                placeholder="my-app"
+                placeholder="Project name"
                 autoFocus
               />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="project-root">Workspace root</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="project-root"
-                  className="flex-1"
-                  value={workspaceRoot}
-                  onChange={(event) => setWorkspaceRoot(event.target.value)}
-                  placeholder="/Users/you/code/my-app"
-                  aria-invalid={pathProblem !== null}
-                  aria-describedby={pathProblem === null ? undefined : "project-root-problem"}
-                />
-                <Button type="button" variant="outline" onClick={() => void choose()}>
-                  Choose…
-                </Button>
+            </InputGroup>
+
+            <div className="flex flex-col gap-2">
+              <span id="project-root-label" className="text-sm font-medium">
+                Source folder
+              </span>
+              <div className="rounded-xl border border-border">
+                {workspaceRoot === "" ? (
+                  <div className="flex flex-col items-center gap-3 px-4 py-8">
+                    <p className="text-sm text-muted-foreground">
+                      Add a folder on <span className="text-foreground">this computer</span>
+                    </p>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      shape="pill"
+                      onClick={() => void choose()}
+                    >
+                      <FolderAdd />
+                      Add
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 py-2 pr-2 pl-3.5">
+                    <Folder className="size-4 shrink-0 text-muted-foreground" />
+                    {/* Still typeable: the pickers fill it, a person can fix it. */}
+                    <input
+                      aria-labelledby="project-root-label"
+                      className="min-w-0 flex-1 bg-transparent font-mono text-xs outline-none"
+                      value={workspaceRoot}
+                      onChange={(event) => setWorkspaceRoot(event.target.value)}
+                      spellCheck={false}
+                      aria-invalid={pathProblem !== null}
+                      aria-describedby={pathProblem === null ? undefined : "project-root-problem"}
+                    />
+                    <Button type="button" variant="ghost" size="sm" onClick={() => void choose()}>
+                      Change
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Remove folder"
+                      onClick={() => setWorkspaceRoot("")}
+                    >
+                      <Close />
+                    </Button>
+                  </div>
+                )}
               </div>
               {pathProblem === null ? null : (
                 <p id="project-root-problem" className="type-micro text-destructive" role="alert">
@@ -184,11 +218,15 @@ export function AddProjectDialog({
                 </p>
               )}
             </div>
-            <DialogFooter>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <DialogClose render={<Button type="button" variant="ghost" tone="muted" />}>
+                Cancel
+              </DialogClose>
               <Button type="submit" disabled={!canSubmit}>
-                Add project
+                Create project
               </Button>
-            </DialogFooter>
+            </div>
           </form>
         </DialogContent>
       </Dialog>

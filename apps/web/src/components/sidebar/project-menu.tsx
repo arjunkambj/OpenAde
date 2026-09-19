@@ -26,8 +26,8 @@ import type { ProjectSummary } from "@OpenAde/contracts/orchestration";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { projectRemovalWarning } from "@/components/sidebar/removal-copy";
 import { isAccepted, rejectionMessage } from "@/lib/dispatch-outcome";
-import { Icon } from "@/lib/icon";
 import { useDispatchCommand } from "@/state/hooks";
+import { MoreHorizontal, Trash } from "@honeyicons/react";
 
 export function ProjectRowMenu({
   project,
@@ -64,11 +64,11 @@ export function ProjectRowMenu({
             />
           }
         >
-          <Icon icon="hugeicons:more-horizontal" />
+          <MoreHorizontal />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuItem variant="destructive" onClick={() => setConfirming(true)}>
-            <Icon icon="hugeicons:delete-02" />
+            <Trash />
             Remove project
           </DropdownMenuItem>
         </DropdownMenuContent>

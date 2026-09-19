@@ -12,10 +12,10 @@ import type { FsEntry } from "@OpenAde/contracts/rpc";
 import { Button } from "@OpenAde/ui/components/button";
 import * as React from "react";
 
-import { Icon } from "@/lib/icon";
 import { cn } from "@/lib/utils";
 
 import { breadcrumbFor } from "./picker-state";
+import { ChevronUp, Folder } from "@honeyicons/react";
 
 export function Breadcrumb({
   path,
@@ -38,7 +38,7 @@ export function Breadcrumb({
         disabled={!canGoUp}
         onClick={onGoUp}
       >
-        <Icon icon="hugeicons:arrow-up-01" />
+        <ChevronUp />
       </Button>
       <div className="flex min-w-0 flex-1 items-center overflow-x-auto">
         {path === null
@@ -91,7 +91,7 @@ function EntryRow({
         selected && "bg-hover",
       )}
     >
-      <Icon icon="hugeicons:folder-01" className="size-3.5 shrink-0 text-muted-foreground" />
+      <Folder className="size-3.5 shrink-0 text-muted-foreground" />
       <span className="min-w-0 truncate type-body text-foreground">{entry.name}</span>
       {entry.isGitRepo ? (
         <span className="ml-auto shrink-0 rounded-lg bg-hover px-1 type-micro text-muted-foreground">
@@ -141,7 +141,7 @@ export function FolderList({
       aria-activedescendant={active === undefined ? undefined : `${idPrefix}-${cursor}`}
       tabIndex={0}
       onKeyDown={onKeyDown}
-      className="flex h-64 flex-col gap-px overflow-y-auto rounded-lg border border-border p-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="flex h-64 flex-col gap-px overflow-y-auto rounded-lg bg-muted/50 p-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       {entries.map((entry, index) => (
         <EntryRow

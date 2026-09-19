@@ -37,11 +37,11 @@ import { ProjectRowMenu } from "@/components/sidebar/project-menu";
 import { ThreadRowMenu } from "@/components/sidebar/thread-menu";
 import { isUnread, useThreadSeen } from "@/components/sidebar/thread-seen";
 import { threadStatusMark } from "@/components/sidebar/thread-status";
-import { Icon } from "@/lib/icon";
 import { useCreateThread } from "@/lib/use-create-thread";
 import { cn } from "@/lib/utils";
 import { useConnectionState, useProjects, useThreadList } from "@/state/hooks";
 import { useProjectCollapsed } from "@/state/ui";
+import { Add, ChevronRight, Folder, FolderOpen } from "@honeyicons/react";
 
 function ThreadStatusDot({ thread }: { thread: ThreadSummary }) {
   const mark = threadStatusMark(thread);
@@ -55,10 +55,7 @@ function ThreadStatusDot({ thread }: { thread: ThreadSummary }) {
       role="img"
       className="flex shrink-0 items-center"
     >
-      <Icon
-        icon={mark.icon}
-        className={cn("size-3.5 shrink-0", mark.tone, mark.spin && "animate-spin")}
-      />
+      <mark.icon className={cn("size-3.5 shrink-0", mark.tone)} />
     </span>
   );
 }
@@ -89,7 +86,7 @@ function ThreadLink({ thread }: { thread: ThreadSummary }) {
         params={{ threadId: thread.threadId }}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg py-1.5 pr-0 pl-6.5 text-left type-body text-sidebar-foreground outline-none transition-colors duration-150 ease-out hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+          "flex h-8 min-w-0 flex-1 items-center gap-2 rounded-xl py-1 pr-0 pl-6.5 text-left type-body text-sidebar-foreground outline-none transition-colors duration-150 ease-out hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
           active && "bg-sidebar-accent text-sidebar-accent-foreground",
         )}
       >
@@ -157,7 +154,7 @@ function NewThreadButton({
           />
         }
       >
-        <Icon icon="hugeicons:add-01" />
+        <Add />
       </TooltipTrigger>
       <TooltipContent>New thread</TooltipContent>
     </Tooltip>
@@ -210,11 +207,8 @@ export function ProjectTree() {
           ))}
           {orphanThreads.length > 0 ? (
             <>
-              <div className="flex h-8 items-center gap-2.5 rounded-lg px-2 text-sm text-sidebar-foreground">
-                <Icon
-                  icon="hugeicons:folder-01"
-                  className="size-4 shrink-0 text-muted-foreground"
-                />
+              <div className="flex h-8 items-center gap-2.5 rounded-xl px-2 text-sm text-sidebar-foreground">
+                <Folder className="size-4 shrink-0" />
                 <span className="min-w-0 truncate">Other threads</span>
               </div>
               {orphanThreads.map((thread) => (
@@ -245,21 +239,21 @@ function ProjectSection({
 
   return (
     <React.Fragment>
-      <div className="group/project flex h-8 items-center gap-1 rounded-lg text-sm text-sidebar-foreground">
+      <div className="group/project flex h-8 items-center gap-1 rounded-xl text-sm text-sidebar-foreground">
         <button
           type="button"
           aria-expanded={!collapsed}
           onClick={() => setCollapsed(!collapsed)}
-          className="flex h-full min-w-0 flex-1 items-center gap-1 rounded-lg px-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+          className="flex h-full min-w-0 flex-1 items-center gap-1 rounded-xl px-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
         >
           {/* The folder turns into the disclosure chevron under the pointer. */}
-          <span className="relative flex size-4 shrink-0 items-center justify-center text-muted-foreground">
-            <Icon
-              icon={collapsed ? "hugeicons:folder-01" : "hugeicons:folder-open"}
-              className="size-4 transition-opacity duration-150 ease-out group-hover/project:opacity-0"
-            />
-            <Icon
-              icon="hugeicons:arrow-right-01"
+          <span className="relative flex size-4 shrink-0 items-center justify-center">
+            {collapsed ? (
+              <Folder className="size-4 transition-opacity duration-150 ease-out group-hover/project:opacity-0" />
+            ) : (
+              <FolderOpen className="size-4 transition-opacity duration-150 ease-out group-hover/project:opacity-0" />
+            )}
+            <ChevronRight
               className={cn(
                 "absolute size-4 opacity-0 transition-all duration-150 ease-out group-hover/project:opacity-100",
                 !collapsed && "rotate-90",

@@ -1,3 +1,4 @@
+import type { HoneyIcon } from "@honeyicons/react";
 /**
  * Shared chrome for the interaction cards that occupy the composer slot:
  * title row with icon, content area, and a footer row of actions. The cards
@@ -18,17 +19,15 @@ import {
 } from "@OpenAde/ui/components/card";
 import { cn } from "@OpenAde/ui/lib/utils";
 
-import { Icon } from "@/lib/icon";
-
 export function CardShell({
-  icon,
+  icon: Glyph,
   title,
   hint,
   actions,
   children,
   className,
 }: {
-  readonly icon: string;
+  readonly icon: HoneyIcon;
   readonly title: string;
   /** Small muted text on the right of the title, e.g. the tool name. */
   readonly hint?: React.ReactNode;
@@ -41,7 +40,7 @@ export function CardShell({
       <CardHeader>
         <CardTitle>
           <span className="flex items-center gap-2">
-            <Icon icon={icon} className="size-4 shrink-0 text-muted-foreground" />
+            <Glyph className="size-4 shrink-0 text-muted-foreground" />
             <span className="truncate">{title}</span>
           </span>
         </CardTitle>

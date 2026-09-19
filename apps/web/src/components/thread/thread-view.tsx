@@ -28,14 +28,13 @@ import type * as RpcClientError from "effect/unstable/rpc/RpcClientError";
 
 import { Composer } from "@/components/composer/composer";
 import { isDockTab, RightDock, type DockTab } from "@/components/dock/right-dock";
-import { HeaderControls } from "@/components/header-controls";
 import { ThreadGreeting } from "@/components/thread/thread-greeting";
 import { Timeline } from "@/components/timeline/timeline";
-import { Icon } from "@/lib/icon";
 import { useKeybindingCommand } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import { useConnectionState, useProjects, useThreadDetail } from "@/state/hooks";
 import { useDockTabMemory } from "@/state/ui";
+import { AlertTriangle, Close, SidebarRight, Spinner } from "@honeyicons/react";
 
 const STATUS_LABEL: Record<ThreadStatus, string> = {
   idle: "Idle",
@@ -56,9 +55,7 @@ function StatusPill({ status }: { status: ThreadStatus }) {
         (status === "idle" || status === "archived") && "text-muted-foreground",
       )}
     >
-      {status === "running" ? (
-        <Icon icon="hugeicons:loading-03" className="size-3 animate-spin" />
-      ) : null}
+      {status === "running" ? <Spinner className="size-3" /> : null}
       {STATUS_LABEL[status]}
     </span>
   );
@@ -74,18 +71,11 @@ function ThreadHeader({
   onDockToggle: () => void;
 }) {
   return (
-    <header className="flex min-h-11 shrink-0 items-center gap-2 border-b border-border px-4 py-1.5">
+    <header className="flex min-h-11 shrink-0 items-center gap-2 px-4 py-1.5">
       <h1 className="min-w-0 max-w-56 shrink truncate text-sm font-medium text-foreground">
         {snapshot.title}
       </h1>
-      {/* The pickers carry their own "applies next turn" hints, so the row can
-          be wider than the header — especially with the dock open. Scroll it
-          instead of letting the pickers wrap into the title or squeeze their
-          labels to nothing. */}
-      <HeaderControls
-        threadId={snapshot.threadId}
-        className="min-w-0 flex-1 flex-nowrap overflow-x-auto [scrollbar-width:none] [&>*]:shrink-0"
-      />
+      <div className="flex-1" />
       <StatusPill status={snapshot.status} />
       <span className="inline-flex shrink-0">
         <Tooltip>
@@ -101,10 +91,7 @@ function ThreadHeader({
               />
             }
           >
-            <Icon
-              icon="hugeicons:layout-right"
-              className={cn(dockTab !== undefined && "text-foreground")}
-            />
+            <SidebarRight className={cn(dockTab !== undefined && "text-foreground")} />
           </TooltipTrigger>
           <TooltipContent>{dockTab === undefined ? "Open dock" : "Close dock"}</TooltipContent>
         </Tooltip>
@@ -160,7 +147,7 @@ function ThreadBody({ result, connected }: { result: ThreadDetailResult; connect
   if (AsyncResult.isFailure(result)) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
-        <Icon icon="hugeicons:alert-02" className="size-5 text-destructive" />
+        <AlertTriangle className="size-5 text-destructive" />
         <p className="type-body text-muted-foreground">{failureMessage(result)}</p>
       </div>
     );
@@ -170,14 +157,14 @@ function ThreadBody({ result, connected }: { result: ThreadDetailResult; connect
   if (!connected) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
-        <Icon icon="hugeicons:wifi-off-01" className="size-5 text-muted-foreground" />
+        <Close className="size-5 text-muted-foreground" />
         <p className="type-body text-muted-foreground">Not connected to a server.</p>
       </div>
     );
   }
   return (
     <div className="flex flex-1 items-center justify-center gap-2 type-body text-muted-foreground">
-      <Icon icon="hugeicons:loading-03" className="size-4 animate-spin" />
+      <Spinner className="size-4" />
       Loading thread…
     </div>
   );

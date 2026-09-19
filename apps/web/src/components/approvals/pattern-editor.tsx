@@ -12,7 +12,7 @@ import {
   type PatternSubject,
 } from "@OpenAde/shared/permissionPattern";
 
-import { Icon } from "@/lib/icon";
+import { AlertTriangle, Close } from "@honeyicons/react";
 
 export function PatternEditor({
   value,
@@ -53,7 +53,7 @@ export function PatternEditor({
       >
         {parsed === null ? (
           <>
-            <Icon icon="hugeicons:alert-02" className="size-3.5 shrink-0" />
+            <AlertTriangle className="size-3.5 shrink-0" />
             <span>
               Not a valid pattern — use Shell(cmd *), Edit(/path/**), Read(...), WebFetch(...) or
               mcp__server__tool.
@@ -61,12 +61,12 @@ export function PatternEditor({
           </>
         ) : matches ? (
           <>
-            <Icon icon="hugeicons:checkmark-circle-02" className="size-3.5 shrink-0" />
+            <Close className="size-3.5 shrink-0" />
             <span>Matches this request.</span>
           </>
         ) : (
           <>
-            <Icon icon="hugeicons:alert-02" className="size-3.5 shrink-0" />
+            <AlertTriangle className="size-3.5 shrink-0" />
             <span>Parses, but would not have matched this request.</span>
           </>
         )}

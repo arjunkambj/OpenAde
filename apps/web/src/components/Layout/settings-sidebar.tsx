@@ -1,7 +1,5 @@
 import { Link, useMatchRoute } from "@tanstack/react-router";
 
-import { Icon } from "@/lib/icon";
-
 import {
   Sidebar,
   SidebarContent,
@@ -16,12 +14,13 @@ import {
 
 import { SettingsWindowChrome } from "@/components/Layout/window-chrome";
 import { SidebarPrimaryNav } from "@/components/sidebar/sidebar-primary-nav";
+import { Close } from "@honeyicons/react";
 
 const ITEMS = [
-  { to: "/settings", label: "General", icon: "hugeicons:sliders-horizontal" },
-  { to: "/settings/models", label: "Models", icon: "hugeicons:ai-chat-02" },
-  { to: "/settings/connectors", label: "Connectors", icon: "hugeicons:plug-01" },
-  { to: "/settings/keybindings", label: "Keybindings", icon: "hugeicons:keyboard" },
+  { to: "/settings", label: "General", icon: Close },
+  { to: "/settings/models", label: "Models", icon: Close },
+  { to: "/settings/connectors", label: "Connectors", icon: Close },
+  { to: "/settings/keybindings", label: "Keybindings", icon: Close },
 ] as const;
 
 export function SettingsSidebar() {
@@ -44,7 +43,7 @@ export function SettingsSidebar() {
                     render={<Link to={item.to} />}
                     isActive={Boolean(matchRoute({ to: item.to, fuzzy: false }))}
                   >
-                    <Icon icon={item.icon} />
+                    <item.icon />
                     {item.label}
                   </SidebarMenuButton>
                 </SidebarMenuItem>

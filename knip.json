@@ -28,17 +28,9 @@
       "entry": ["src/routes/**/*.tsx"],
       "ignoreIssues": {
         "src/components/mode-toggle.tsx": ["files"],
-        "src/lib/icon.tsx": ["exports"],
         "src/lib/shortcuts.tsx": ["exports"]
       },
-      "ignoreDependencies": [
-        "@OpenAde/config",
-        "@iconify-json/solar",
-        "clsx",
-        "postcss",
-        "tailwind-merge",
-        "tailwindcss"
-      ]
+      "ignoreDependencies": ["@OpenAde/config", "clsx", "postcss", "tailwind-merge", "tailwindcss"]
     },
     "packages/client-runtime": {
       "includeEntryExports": true,
@@ -65,6 +57,11 @@
     "packages/shared": {
       "includeEntryExports": true,
       "ignoreExportsUsedInFile": true
+    },
+    "packages/ui": {
+      // Kept for the shadcn CLI (components.json iconLibrary); the app renders
+      // @honeyicons/react.
+      "ignoreDependencies": ["@hugeicons/core-free-icons", "@hugeicons/react"]
     },
     "packages/testkit": {
       "includeEntryExports": true,

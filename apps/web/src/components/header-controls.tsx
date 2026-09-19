@@ -14,11 +14,13 @@
  * thread would route to (`@/lib/connector-routing`).
  */
 
+import { Button } from "@OpenAde/ui/components/button";
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import {
   Select,
   SelectContent,
   SelectItem,
+  SelectGroup,
   SelectTrigger,
   SelectValue,
 } from "@OpenAde/ui/components/select";
@@ -28,11 +30,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@OpenAde/ui/components/tooltip";
-import { cn } from "@OpenAde/ui/lib/utils";
-import type { Effort, InteractionMode, RuntimeMode } from "@OpenAde/contracts/enums";
+import type { Effort, RuntimeMode } from "@OpenAde/contracts/enums";
 import { makeCommandId } from "@OpenAde/contracts/ids";
 import type { ThreadId } from "@OpenAde/contracts/ids";
 import type { ThreadSettingsPatch } from "@OpenAde/contracts/orchestration";
+import type { ModelOption } from "@OpenAde/contracts/rpc";
 import type { CapabilitySwitch } from "@OpenAde/contracts/runtime";
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
@@ -40,7 +42,7 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { routedConnectorInstanceId } from "@/lib/connector-routing";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
-import { Icon } from "@/lib/icon";
+import { type HoneyIcon, Layers, Edit, Lightning } from "@honeyicons/react";
 
 interface HeaderOption {
   readonly value: string;
@@ -57,11 +59,6 @@ const RUNTIME_MODE_OPTIONS: ReadonlyArray<HeaderOption> = [
   { value: "full-access", label: "Full access" },
 ];
 
-const INTERACTION_OPTIONS: ReadonlyArray<HeaderOption> = [
-  { value: "default", label: "Execute" },
-  { value: "plan", label: "Plan first" },
-];
-
 const RESTART_TOOLTIP = "Applies only on session restart — the running session keeps its settings";
 const NEXT_TURN_HINT = "applies next turn";
 
@@ -71,14 +68,14 @@ const NEXT_TURN_HINT = "applies next turn";
  * start, which is exactly the per-turn contract — so the hint stays.
  */
 function HeaderSelect({
-  icon,
+  icon: Glyph,
   label,
   value,
   options,
   capability,
   onPick,
 }: {
-  readonly icon: string;
+  readonly icon: HoneyIcon;
   readonly label: string;
   readonly value: string;
   readonly options: ReadonlyArray<HeaderOption>;
@@ -104,23 +101,30 @@ function HeaderSelect({
       }}
       items={items.map((item) => ({ value: item.value, label: item.label }))}
     >
-      <SelectTrigger aria-label={label} size="sm" variant="ghost">
+      <SelectTrigger
+        aria-label={label}
+        title={nextTurn ? NEXT_TURN_HINT : label}
+        size="sm"
+        variant="composer"
+      >
         <span className="flex items-center gap-1.5">
-          <Icon icon={icon} className="size-3.5 shrink-0 text-muted-foreground" />
-          <SelectValue />
+          <Glyph className="size-3.5 shrink-0 text-muted-foreground" />
+          <SelectValue className="max-w-52" />
         </span>
       </SelectTrigger>
       <SelectContent align="start" alignItemWithTrigger={false} className="min-w-44">
-        {items.map((item) => (
-          <SelectItem key={item.value} value={item.value} disabled={item.disabled}>
-            <span className="flex min-w-0 flex-col">
-              <span className="truncate">{item.label}</span>
-              {item.description === undefined ? null : (
-                <span className="truncate text-xs text-muted-foreground">{item.description}</span>
-              )}
-            </span>
-          </SelectItem>
-        ))}
+        <SelectGroup>
+          {items.map((item) => (
+            <SelectItem key={item.value} value={item.value} disabled={item.disabled}>
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate">{item.label}</span>
+                {item.description === undefined ? null : (
+                  <span className="truncate text-xs text-muted-foreground">{item.description}</span>
+                )}
+              </span>
+            </SelectItem>
+          ))}
+        </SelectGroup>
       </SelectContent>
     </Select>
   );
@@ -135,9 +139,6 @@ function HeaderSelect({
       ) : (
         select
       )}
-      {nextTurn ? (
-        <span className="shrink-0 text-xs text-muted-foreground/70">{NEXT_TURN_HINT}</span>
-      ) : null}
     </span>
   );
 }
@@ -193,63 +194,99 @@ export function HeaderControls({
     return null;
   }
 
+  return (
+    <div className={className}>
+      <ThreadSettingsControls
+        settings={doc.settings}
+        models={models}
+        modelSwitch={capabilities?.modelSwitch ?? "per-turn"}
+        effortSwitch={capabilities?.effortSwitch ?? "per-turn"}
+        canPlan={capabilities?.planMode ?? true}
+        onChange={update}
+      />
+      {error === null ? null : (
+        <p className="text-xs text-destructive" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function ThreadSettingsControls({
+  settings,
+  models,
+  modelSwitch = "next-turn",
+  effortSwitch = "next-turn",
+  canPlan = true,
+  onChange,
+}: {
+  readonly settings: ThreadSettingsPatch;
+  readonly models: ReadonlyArray<ModelOption>;
+  readonly modelSwitch?: CapabilitySwitch | "next-turn";
+  readonly effortSwitch?: CapabilitySwitch | "next-turn";
+  readonly canPlan?: boolean;
+  readonly onChange: (patch: ThreadSettingsPatch) => void;
+}) {
   const modelOptions: ReadonlyArray<HeaderOption> = models.map((model) => ({
     value: model.id,
     label: model.label,
     description: model.family === "" ? undefined : model.family,
   }));
 
-  const currentModel = models.find((model) => model.id === doc.settings.model);
+  const currentModel = models.find((model) => model.id === settings.model);
   const effortOptions: ReadonlyArray<HeaderOption> = (currentModel?.efforts ?? ALL_EFFORTS).map(
     (effort) => ({ value: effort, label: effort }),
   );
 
-  const interactionOptions: ReadonlyArray<HeaderOption> = INTERACTION_OPTIONS.map((option) =>
-    option.value === "plan" && capabilities !== null && !capabilities.planMode
-      ? { ...option, disabled: true }
-      : option,
-  );
+  const planning = settings.interactionMode === "plan";
 
   return (
     <TooltipProvider>
-      <div className={cn("flex min-w-0 flex-wrap items-center gap-1", className)}>
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
         <HeaderSelect
-          icon="hugeicons:ai-chat-02"
-          label="Model"
-          value={doc.settings.model}
-          options={modelOptions}
-          capability={capabilities?.modelSwitch ?? "per-turn"}
-          onPick={(model) => update({ model })}
-        />
-        <HeaderSelect
-          icon="hugeicons:zap"
-          label="Effort"
-          value={doc.settings.effort ?? "medium"}
-          options={effortOptions}
-          capability={capabilities?.effortSwitch ?? "per-turn"}
-          onPick={(effort) => update({ effort: effort as Effort })}
-        />
-        <HeaderSelect
-          icon="hugeicons:shield-01"
+          icon={Edit}
           label="Runtime mode"
-          value={doc.settings.runtimeMode}
+          value={settings.runtimeMode ?? "approval-required"}
           options={RUNTIME_MODE_OPTIONS}
           capability="next-turn"
-          onPick={(mode) => update({ runtimeMode: mode as RuntimeMode })}
+          onPick={(mode) => onChange({ runtimeMode: mode as RuntimeMode })}
         />
-        <HeaderSelect
-          icon="hugeicons:check-list"
-          label="Interaction mode"
-          value={doc.settings.interactionMode}
-          options={interactionOptions}
-          capability="next-turn"
-          onPick={(mode) => update({ interactionMode: mode as InteractionMode })}
-        />
-        {error === null ? null : (
-          <span className="text-xs text-destructive" role="alert">
-            {error}
-          </span>
-        )}
+        {canPlan || planning ? (
+          <Button
+            type="button"
+            variant={planning ? "default" : "ghost"}
+            tone={planning ? "default" : "muted"}
+            size={planning ? "default" : "icon"}
+            aria-label="Plan mode"
+            aria-pressed={planning}
+            title={planning ? "Turn off plan mode" : "Plan before making changes"}
+            onClick={() => onChange({ interactionMode: planning ? "default" : "plan" })}
+          >
+            <Layers data-icon={planning ? "inline-start" : undefined} />
+            {planning ? "Plan" : null}
+          </Button>
+        ) : null}
+        <div className="ml-auto flex min-w-0 flex-wrap items-center rounded-full bg-muted">
+          {settings.model ? (
+            <HeaderSelect
+              icon={Layers}
+              label="Model"
+              value={settings.model}
+              options={modelOptions}
+              capability={modelSwitch}
+              onPick={(model) => onChange({ model })}
+            />
+          ) : null}
+          <HeaderSelect
+            icon={Lightning}
+            label="Effort"
+            value={settings.effort ?? "medium"}
+            options={effortOptions}
+            capability={effortSwitch}
+            onPick={(effort) => onChange({ effort: effort as Effort })}
+          />
+        </div>
       </div>
     </TooltipProvider>
   );

@@ -8,6 +8,7 @@
  * schema from drifting apart as fields are added.
  */
 
+import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
 import { IsoDateTime, NonEmptyString } from "./base";
@@ -203,6 +204,20 @@ export const Theme = Schema.Literals(["system", "light", "dark"]);
 export type Theme = typeof Theme.Type;
 
 /**
+ * A region's base text size in px, in half-px steps. Every text step in that
+ * region scales by `size / DEFAULT_FONT_SIZE`; spacing and layout stay as they are.
+ */
+export const MIN_FONT_SIZE = 11;
+export const MAX_FONT_SIZE = 20;
+export const DEFAULT_FONT_SIZE = 14;
+export const FONT_SIZE_STEP = 0.5;
+export const FontSize = Schema.Finite.check(
+  Schema.isBetween({ minimum: MIN_FONT_SIZE, maximum: MAX_FONT_SIZE }),
+  Schema.isMultipleOf(FONT_SIZE_STEP),
+);
+export type FontSize = typeof FontSize.Type;
+
+/**
  * What a new thread starts with. `model` is null until a connector has been
  * probed and reported its models — writing a guessed model id here would make
  * the first turn fail in a way the user cannot read.
@@ -240,6 +255,24 @@ export const Settings = Schema.Struct({
   theme: Theme.pipe(
     settingsForm({ label: "Theme", description: "Appearance.", control: "select" }),
   ),
+  // The font sizes are defaulted on decode: rows written before they existed
+  // would otherwise fail to decode and be served as defaults.
+  mainFontSize: FontSize.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(DEFAULT_FONT_SIZE)),
+    settingsForm({
+      label: "Main font size",
+      description: "Text size in the thread and everywhere outside the sidebars.",
+      control: "select",
+    }),
+  ),
+  sidebarFontSize: FontSize.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(DEFAULT_FONT_SIZE)),
+    settingsForm({
+      label: "Sidebar font size",
+      description: "Text size in the left sidebar and the right dock.",
+      control: "select",
+    }),
+  ),
   keybindings: Schema.Array(Keybinding).pipe(
     settingsForm({ label: "Keybindings", control: "hidden" }),
   ),
@@ -254,6 +287,8 @@ export const SettingsPatch = Schema.Struct({
   connectors: Schema.optional(Schema.Array(ConnectorInstanceConfig)),
   defaults: Schema.optional(SettingsDefaults),
   theme: Schema.optional(Theme),
+  mainFontSize: Schema.optional(FontSize),
+  sidebarFontSize: Schema.optional(FontSize),
   keybindings: Schema.optional(Schema.Array(Keybinding)),
   permissions: Schema.optional(Schema.Array(PermissionRule)),
 });
@@ -267,6 +302,8 @@ export const defaultSettings = (): Settings => ({
   connectors: [],
   defaults: { model: null, effort: "medium", runtimeMode: DEFAULT_RUNTIME_MODE },
   theme: "system",
+  mainFontSize: DEFAULT_FONT_SIZE,
+  sidebarFontSize: DEFAULT_FONT_SIZE,
   keybindings: DEFAULT_KEYBINDINGS,
   permissions: [],
 });

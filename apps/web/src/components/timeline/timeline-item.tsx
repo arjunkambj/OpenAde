@@ -27,7 +27,7 @@ import {
   WebSearchRow,
 } from "@/components/timeline/tool-rows";
 import { WorkGroupRow } from "@/components/timeline/work-group-row";
-import { Icon } from "@/lib/icon";
+import { Spinner } from "@honeyicons/react";
 
 export const TimelineItemView = memo(function TimelineItemView({
   item,
@@ -80,7 +80,7 @@ export const TimelineItemView = memo(function TimelineItemView({
 function WorkingRow() {
   return (
     <div className="flex min-h-6 items-center gap-2 py-0.5 type-body text-muted-foreground">
-      <Icon icon="hugeicons:loading-03" className="size-3.5 animate-spin" />
+      <Spinner className="size-3.5" />
       Working…
     </div>
   );

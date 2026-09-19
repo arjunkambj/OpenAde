@@ -22,11 +22,18 @@ import { Button } from "@OpenAde/ui/components/button";
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 
-import { Icon } from "@/lib/icon";
-
 import { useFileAtoms } from "./file-atoms";
 import { PaneMessage } from "./pane-message";
 import { looksBinary, PAGE_LINES, pagePosition, previewLines, windowFor } from "./preview";
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  Close,
+  File as FileIcon,
+  Repeat,
+  Spinner,
+} from "@honeyicons/react";
 
 function LineTable({ offset, content }: { offset: number; content: FileContent }) {
   const lines = previewLines(offset, content);
@@ -76,22 +83,22 @@ export function FilePreview({
 
   const retry = (
     <Button type="button" variant="ghost" size="sm" onClick={refresh}>
-      <Icon icon="hugeicons:refresh" className="size-3.5" />
+      <Repeat className="size-3.5" />
       Try again
     </Button>
   );
 
   if (query === null) {
     return connected ? (
-      <PaneMessage icon="hugeicons:loading-03" text="Loading file…" detail={path} />
+      <PaneMessage icon={Spinner} text="Loading file…" detail={path} />
     ) : (
-      <PaneMessage icon="hugeicons:wifi-off-01" text="Not connected to the server." />
+      <PaneMessage icon={Close} text="Not connected to the server." />
     );
   }
   if (query === "broken") {
     return (
       <PaneMessage
-        icon="hugeicons:alert-02"
+        icon={AlertTriangle}
         text="Could not read this file."
         detail={path}
         action={retry}
@@ -99,16 +106,14 @@ export function FilePreview({
     );
   }
   if (query._tag === "error") {
-    return (
-      <PaneMessage icon="hugeicons:alert-02" text={query.message} detail={path} action={retry} />
-    );
+    return <PaneMessage icon={AlertTriangle} text={query.message} detail={path} action={retry} />;
   }
 
   const content = query.value;
   if (looksBinary(content.text)) {
     return (
       <PaneMessage
-        icon="hugeicons:file-01"
+        icon={FileIcon}
         text="This looks like a binary file, so there is nothing to show."
         detail={path}
       />
@@ -117,13 +122,13 @@ export function FilePreview({
 
   const position = pagePosition(offset, content);
   if (position.firstLine === 0 && !position.hasPrevious) {
-    return <PaneMessage icon="hugeicons:file-01" text="This file is empty." detail={path} />;
+    return <PaneMessage icon={FileIcon} text="This file is empty." detail={path} />;
   }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <LineTable offset={offset} content={content} />
-      <div className="flex h-8 shrink-0 items-center gap-1.5 border-t border-border px-2 type-micro text-muted-foreground">
+      <div className="flex h-8 shrink-0 items-center gap-1.5 px-2 type-micro text-muted-foreground">
         <span className="min-w-0 truncate">{position.label}</span>
         {position.capped || (content.truncated && !position.hasNext) ? (
           <span className="shrink-0">· capped by the server</span>
@@ -140,7 +145,7 @@ export function FilePreview({
               setVisited((stack) => stack.slice(0, -1));
             }}
           >
-            <Icon icon="hugeicons:arrow-up-01" className="size-3.5" />
+            <ChevronUp className="size-3.5" />
           </Button>
           <Button
             type="button"
@@ -153,7 +158,7 @@ export function FilePreview({
               setOffset(position.nextOffset);
             }}
           >
-            <Icon icon="hugeicons:arrow-down-01" className="size-3.5" />
+            <ChevronDown className="size-3.5" />
           </Button>
         </div>
       </div>

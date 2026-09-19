@@ -14,6 +14,7 @@ import type { Effort, InteractionMode, RuntimeMode } from "@OpenAde/contracts/en
 import type { ModelOption, SkillSummary } from "@OpenAde/contracts/rpc";
 
 import { TriggerMenu, type TriggerMenuItem } from "@/components/composer/trigger-menu";
+import { Close, Lightning, Play } from "@honeyicons/react";
 
 export type SlashLevel = "root" | "model" | "effort" | "mode";
 
@@ -78,7 +79,7 @@ export const slashMenuItems = (input: {
         id: `model:${model.id}`,
         label: model.label,
         description: model.family,
-        icon: "hugeicons:ai-chat-02",
+        icon: Close,
         action: { type: "settings", patch: { model: model.id } },
       }));
   }
@@ -89,7 +90,7 @@ export const slashMenuItems = (input: {
       .map((effort) => ({
         id: `effort:${effort}`,
         label: effort,
-        icon: "hugeicons:zap",
+        icon: Lightning,
         action: { type: "settings", patch: { effort } },
       }));
   }
@@ -99,7 +100,7 @@ export const slashMenuItems = (input: {
       id: `mode:${mode.value}`,
       label: mode.label,
       description: mode.description,
-      icon: "hugeicons:shield-01",
+      icon: Close,
       action: { type: "settings", patch: { runtimeMode: mode.value } },
     }));
   }
@@ -109,42 +110,42 @@ export const slashMenuItems = (input: {
       id: "builtin:model",
       label: "/model",
       description: "Switch the response model",
-      icon: "hugeicons:ai-chat-02",
+      icon: Close,
       action: { type: "level", level: "model" },
     },
     {
       id: "builtin:effort",
       label: "/effort",
       description: "Switch reasoning effort",
-      icon: "hugeicons:zap",
+      icon: Lightning,
       action: { type: "level", level: "effort" },
     },
     {
       id: "builtin:mode",
       label: "/mode",
       description: "Switch the runtime permission mode",
-      icon: "hugeicons:shield-01",
+      icon: Close,
       action: { type: "level", level: "mode" },
     },
     {
       id: "builtin:plan",
       label: "/plan",
       description: "Plan first — propose instead of executing",
-      icon: "hugeicons:check-list",
+      icon: Close,
       action: { type: "settings", patch: { interactionMode: "plan" } },
     },
     {
       id: "builtin:default",
       label: "/default",
       description: "Back to normal execution",
-      icon: "hugeicons:play",
+      icon: Play,
       action: { type: "settings", patch: { interactionMode: "default" } },
     },
     {
       id: "builtin:clear-draft",
       label: "/clear-draft",
       description: "Empty the message you are writing",
-      icon: "hugeicons:cancel-01",
+      icon: Close,
       action: { type: "clear-draft" },
     },
   ];
@@ -157,7 +158,7 @@ export const slashMenuItems = (input: {
       id: `skill:${skill.name}`,
       label: `/${skill.name}`,
       description: skill.description,
-      icon: "hugeicons:magic-wand-01",
+      icon: Close,
       action: { type: "insert", text: `/${skill.name} ` },
     }));
 

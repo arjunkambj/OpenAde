@@ -9,7 +9,7 @@ const collapsibleVariants = cva("", {
   variants: {
     variant: {
       default: "",
-      card: "group/row overflow-hidden rounded-xl border border-border bg-card",
+      card: "group/row overflow-hidden rounded-xl bg-card",
     },
   },
   defaultVariants: {

@@ -11,9 +11,10 @@ import { SearchProvider } from "@/components/Layout/search-command";
 import { DiffWorkerPoolProvider } from "@/components/timeline/diff-pool";
 import { useAppAtoms } from "@/lib/app-runtime";
 import { ClientRuntimeBridge } from "@/lib/client-runtime";
-import { Icon } from "@/lib/icon";
+import { applyFontSizes } from "@/lib/font-size";
 import { KeybindingsProvider } from "@/lib/shortcuts";
 import { AppAtomRegistryProvider, getAppAtoms } from "@/state/app-runtime";
+import { Close } from "@honeyicons/react";
 
 import "../index.css";
 
@@ -27,7 +28,7 @@ export interface RouterAppContext {}
 function NotFound() {
   return (
     <div className="flex h-svh flex-col items-center justify-center gap-3 bg-background px-6 text-center">
-      <Icon icon="hugeicons:link-broken-01" className="size-6 text-muted-foreground" />
+      <Close className="size-6 text-muted-foreground" />
       <p className="type-body text-muted-foreground">
         That page does not exist — the link may point at a thread that was deleted.
       </p>
@@ -57,7 +58,10 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   }),
 });
 
-/** Pushes the persisted `settings.theme` into next-themes whenever the doc changes. */
+/**
+ * Pushes the persisted `settings.theme` into next-themes, and the font sizes
+ * onto the document, whenever the doc changes.
+ */
 function SettingsThemeSync() {
   const atoms = useAppAtoms();
   const result = useAtomValue(atoms.settingsAtom);
@@ -65,6 +69,10 @@ function SettingsThemeSync() {
   React.useEffect(() => {
     if (AsyncResult.isSuccess(result) && result.value !== null) {
       setTheme(result.value.theme);
+      applyFontSizes({
+        main: result.value.mainFontSize,
+        sidebar: result.value.sidebarFontSize,
+      });
     }
   }, [result, setTheme]);
   return null;

@@ -10,8 +10,8 @@ import * as React from "react";
 
 import { Button } from "@OpenAde/ui/components/button";
 
-import { Icon } from "@/lib/icon";
 import { INSTALL_COMMANDS } from "./install";
+import { Check, Close, Copy as CopyIcon } from "@honeyicons/react";
 
 function CommandRow({ command, note }: { command: string; note: string }) {
   const [copied, setCopied] = React.useState(false);
@@ -44,7 +44,7 @@ function CommandRow({ command, note }: { command: string; note: string }) {
         onClick={copy}
         aria-label={`Copy ${command}`}
       >
-        <Icon icon={copied ? "hugeicons:tick-02" : "hugeicons:copy-01"} className="size-4" />
+        {copied ? <Check className="size-4" /> : <CopyIcon className="size-4" />}
       </Button>
     </div>
   );
@@ -55,7 +55,7 @@ export function InstallPrompt({ onRetry }: { readonly onRetry: () => void }) {
     <div className="flex flex-1 items-center justify-center overflow-y-auto p-6">
       <div className="flex w-full max-w-md flex-col gap-3">
         <div className="flex items-center gap-2">
-          <Icon icon="hugeicons:globe-02" className="size-5 text-muted-foreground" />
+          <Close className="size-5 text-muted-foreground" />
           <h2 className="type-body font-medium">The browser tool is not installed</h2>
         </div>
         <p className="type-body text-muted-foreground">

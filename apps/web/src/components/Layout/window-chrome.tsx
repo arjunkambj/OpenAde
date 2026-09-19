@@ -6,9 +6,9 @@ import { useSidebar } from "@OpenAde/ui/components/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 
 import { SearchTrigger } from "@/components/Layout/search-command";
-import { Icon } from "@/lib/icon";
 import { ShortcutKbd } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
+import { ChevronLeft, ChevronRight, SidebarLeft } from "@honeyicons/react";
 
 const chromeRowClass = "app-region-drag flex h-[var(--chrome-height)] shrink-0 items-center";
 
@@ -41,7 +41,7 @@ function ChromeSidebarTrigger() {
           />
         }
       >
-        <Icon icon="hugeicons:layout-left" />
+        <SidebarLeft />
         <span className="sr-only">Toggle sidebar</span>
       </TooltipTrigger>
       <TooltipContent>
@@ -75,7 +75,7 @@ function ChromeHistoryButtons() {
           disabled={!canGoBack}
           onClick={() => router.history.back()}
         >
-          <Icon icon="hugeicons:arrow-left-01" className="scale-90" />
+          <ChevronLeft className="scale-90" />
         </Button>
       </NoDrag>
       <NoDrag>
@@ -87,7 +87,7 @@ function ChromeHistoryButtons() {
           aria-label="Go forward"
           onClick={() => router.history.forward()}
         >
-          <Icon icon="hugeicons:arrow-right-01" className="scale-90" />
+          <ChevronRight className="scale-90" />
         </Button>
       </NoDrag>
     </>

@@ -1,7 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/inter";
 @source "../../../apps/**/*.{ts,tsx}";
 @source "../**/*.{ts,tsx}";
 
@@ -15,7 +14,7 @@
   --card-foreground: oklch(0.141 0.005 285.823);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.21 0.006 285.885);
+  --primary: oklch(0.274 0.006 286.033);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.967 0.001 286.375);
   --secondary-foreground: oklch(0.21 0.006 285.885);
@@ -32,10 +31,10 @@
   --chart-3: oklch(0.442 0.017 285.786);
   --chart-4: oklch(0.37 0.013 285.805);
   --chart-5: oklch(0.274 0.006 286.033);
-  --radius: 0.625rem;
+  --radius: 0.5rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-primary: oklch(0.21 0.006 285.885);
+  --sidebar-primary: oklch(0.274 0.006 286.033);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.967 0.001 286.375);
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
@@ -55,35 +54,35 @@
 
 .dark {
   color-scheme: dark;
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.92 0.004 286.32);
+  --background: oklch(0.217 0.002 106.558);
+  --foreground: oklch(0.952 0.004 91.447);
+  --card: oklch(0.243 0.002 106.538);
+  --card-foreground: oklch(0.952 0.004 91.447);
+  --popover: oklch(0.243 0.002 106.538);
+  --popover-foreground: oklch(0.952 0.004 91.447);
+  --primary: oklch(0.967 0.001 286.375);
   --primary-foreground: oklch(0.21 0.006 285.885);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
+  --secondary: oklch(0.292 0.004 106.618);
+  --secondary-foreground: oklch(0.952 0.004 91.447);
+  --muted: oklch(0.292 0.004 106.618);
+  --muted-foreground: oklch(0.623 0.009 91.533);
+  --accent: oklch(0.292 0.004 106.618);
+  --accent-foreground: oklch(0.952 0.004 91.447);
+  --destructive: oklch(0.623 0.191 24.912);
   --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
+  --input: oklch(1 0 0 / 20%);
   --ring: oklch(0.552 0.016 285.938);
-  --chart-1: oklch(0.871 0.006 286.286);
-  --chart-2: oklch(0.552 0.016 285.938);
-  --chart-3: oklch(0.442 0.017 285.786);
-  --chart-4: oklch(0.37 0.013 285.805);
-  --chart-5: oklch(0.274 0.006 286.033);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --chart-1: oklch(0.622 0.161 255.053);
+  --chart-2: oklch(0.622 0.173 40.112);
+  --chart-3: oklch(0.621 0.128 163.115);
+  --chart-4: oklch(0.67 0.143 73.227);
+  --chart-5: oklch(0.622 0.171 0.838);
+  --sidebar: oklch(0.178 0 0);
+  --sidebar-foreground: oklch(0.952 0.004 91.447);
+  --sidebar-primary: oklch(0.967 0.001 286.375);
+  --sidebar-primary-foreground: oklch(0.21 0.006 285.885);
+  --sidebar-accent: oklch(0.292 0.004 106.618);
+  --sidebar-accent-foreground: oklch(0.952 0.004 91.447);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.552 0.016 285.938);
   --hover: #27272a;
@@ -99,7 +98,7 @@
 }
 
 @theme inline {
-  --font-sans: "Inter Variable", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   --color-hover: var(--hover);
   --color-strong: var(--strong);
@@ -163,6 +162,29 @@
 }
 
 @layer base {
+  /* The Appearance font sizes. The renderer sets --main-font-scale and
+     --sidebar-font-scale on html; each region redeclares the text steps so
+     they resolve against its own scale (a custom property's var() resolves on
+     the element that declares it). The sidebars are the left sidebar and the
+     right dock. */
+  :root,
+  [data-slot="sidebar"],
+  [data-font-scope="sidebar"] {
+    --font-scale: var(--main-font-scale, 1);
+    --text-xs: calc(0.75rem * var(--font-scale));
+    --text-sm: calc(0.875rem * var(--font-scale));
+    --text-base: calc(1rem * var(--font-scale));
+    --text-lg: calc(1.125rem * var(--font-scale));
+    --text-xl: calc(1.25rem * var(--font-scale));
+    --text-2xl: calc(1.5rem * var(--font-scale));
+    --text-3xl: calc(1.875rem * var(--font-scale));
+    --text-4xl: calc(2.25rem * var(--font-scale));
+  }
+  [data-slot="sidebar"],
+  [data-font-scope="sidebar"] {
+    --font-scale: var(--sidebar-font-scale, 1);
+  }
+
   * {
     @apply border-border outline-ring/50;
   }
@@ -242,9 +264,9 @@ html[data-desktop] [data-slot="sidebar-container"] {
 }
 
 @utility type-body {
-  font-size: 0.8125rem;
+  font-size: calc(0.8125rem * var(--font-scale));
 }
 
 @utility type-micro {
-  font-size: 0.6875rem;
+  font-size: calc(0.6875rem * var(--font-scale));
 }
