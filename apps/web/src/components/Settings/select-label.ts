@@ -38,10 +38,10 @@ export const selectedOptionLabel = (
  * Where an MCP server's entry is written. The options live here rather than
  * inline in the dialog so the items and the closed trigger read from one list:
  * the trigger was showing the bare `user` / `project` value while the items
- * said "User" and "Project".
+ * said "Global" and "Project".
  */
 export const MCP_SCOPE_OPTIONS: ReadonlyArray<LabelledOption> = [
-  { value: "user", label: "User" },
+  { value: "user", label: "Global" },
   { value: "project", label: "Project" },
 ];
 
@@ -51,9 +51,9 @@ export const MCP_SCOPE_OPTIONS: ReadonlyArray<LabelledOption> = [
  */
 export const USER_SCOPE = "__user__";
 
-export const USER_SCOPE_LABEL = "User scope";
+export const USER_SCOPE_LABEL = "Global";
 
-/** The scope picker's trigger text: the project's name, or "User scope". */
+/** The scope picker's trigger text: the project's name, or "Global". */
 export const scopeLabel = (
   value: unknown,
   projects: ReadonlyArray<{ readonly projectId: string; readonly name: string }>,
