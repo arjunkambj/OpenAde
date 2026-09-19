@@ -1,8 +1,9 @@
 /**
- * The General page: the theme cards. New-thread defaults (model, effort,
- * runtime mode) live on the Models page.
+ * The General page: the theme cards and the main and sidebar font sizes.
+ * New-thread defaults (model, effort, runtime mode) live on the Models page.
  */
 
+import { FontSizeSteppers } from "./font-size-steppers";
 import { ThemeCards } from "./theme-cards";
 
 export function GeneralPanel() {
@@ -14,6 +15,7 @@ export function GeneralPanel() {
       </div>
 
       <ThemeCards />
+      <FontSizeSteppers />
     </div>
   );
 }

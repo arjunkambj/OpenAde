@@ -6,8 +6,10 @@ import { DEFAULT_RUNTIME_MODE } from "./enums";
 import {
   CmdConnectorConfig,
   ConnectorInstanceConfig,
+  DEFAULT_FONT_SIZE,
   DEFAULT_KEYBINDINGS,
   Keybinding,
+  MAX_FONT_SIZE,
   PermissionRule,
   Settings,
   defaultSettings,
@@ -109,9 +111,34 @@ describe("settingsForm annotations", () => {
         "connectors",
         "defaults",
         "keybindings",
+        "mainFontSize",
         "permissions",
+        "sidebarFontSize",
         "theme",
       ]);
+    }),
+  );
+});
+
+describe("font sizes", () => {
+  it.effect("default to 14 px when a stored document predates them", () =>
+    Effect.gen(function* () {
+      const {
+        mainFontSize: _main,
+        sidebarFontSize: _sidebar,
+        ...older
+      } = Schema.encodeUnknownSync(Settings)(defaultSettings()) as Record<string, unknown>;
+      const decoded = yield* Schema.decodeUnknownEffect(Settings)(older);
+      expect(decoded.mainFontSize).toBe(DEFAULT_FONT_SIZE);
+      expect(decoded.sidebarFontSize).toBe(DEFAULT_FONT_SIZE);
+    }),
+  );
+
+  it.effect("reject a size outside the px range", () =>
+    Effect.gen(function* () {
+      const tooBig = { ...defaultSettings(), mainFontSize: MAX_FONT_SIZE + 1 };
+      const exit = yield* Effect.exit(Schema.decodeUnknownEffect(Settings)(tooBig));
+      expect(exit._tag).toBe("Failure");
     }),
   );
 });

@@ -114,6 +114,7 @@ export function RightDock({
   return (
     <aside
       aria-label="Thread dock"
+      data-font-scope="sidebar"
       className={cn(
         // Split only when the row fits a 360px thread and a 280px dock.
         "absolute inset-0 z-20 flex min-h-0 w-full border-l border-border bg-sidebar",

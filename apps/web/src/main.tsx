@@ -5,8 +5,11 @@ import { resolveConnection } from "@OpenAde/client-runtime/resolver";
 
 import Loader from "./components/loader";
 import { ErrorScreen } from "./components/Layout/error-screen";
+import { applyCachedFontSizes } from "./lib/font-size";
 import { routeTree } from "./routeTree.gen";
 import { installAppAtoms } from "./state/app-runtime";
+
+applyCachedFontSizes();
 
 const router = createRouter({
   routeTree,

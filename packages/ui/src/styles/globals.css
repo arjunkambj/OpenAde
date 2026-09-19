@@ -162,6 +162,29 @@
 }
 
 @layer base {
+  /* The Appearance font sizes. The renderer sets --main-font-scale and
+     --sidebar-font-scale on html; each region redeclares the text steps so
+     they resolve against its own scale (a custom property's var() resolves on
+     the element that declares it). The sidebars are the left sidebar and the
+     right dock. */
+  :root,
+  [data-slot="sidebar"],
+  [data-font-scope="sidebar"] {
+    --font-scale: var(--main-font-scale, 1);
+    --text-xs: calc(0.75rem * var(--font-scale));
+    --text-sm: calc(0.875rem * var(--font-scale));
+    --text-base: calc(1rem * var(--font-scale));
+    --text-lg: calc(1.125rem * var(--font-scale));
+    --text-xl: calc(1.25rem * var(--font-scale));
+    --text-2xl: calc(1.5rem * var(--font-scale));
+    --text-3xl: calc(1.875rem * var(--font-scale));
+    --text-4xl: calc(2.25rem * var(--font-scale));
+  }
+  [data-slot="sidebar"],
+  [data-font-scope="sidebar"] {
+    --font-scale: var(--sidebar-font-scale, 1);
+  }
+
   * {
     @apply border-border outline-ring/50;
   }
@@ -241,9 +264,9 @@ html[data-desktop] [data-slot="sidebar-container"] {
 }
 
 @utility type-body {
-  font-size: 0.8125rem;
+  font-size: calc(0.8125rem * var(--font-scale));
 }
 
 @utility type-micro {
-  font-size: 0.6875rem;
+  font-size: calc(0.6875rem * var(--font-scale));
 }
