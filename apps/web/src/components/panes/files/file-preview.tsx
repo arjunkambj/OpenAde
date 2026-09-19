@@ -123,7 +123,7 @@ export function FilePreview({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <LineTable offset={offset} content={content} />
-      <div className="flex h-8 shrink-0 items-center gap-1.5 border-t border-border px-2 type-micro text-muted-foreground">
+      <div className="flex h-8 shrink-0 items-center gap-1.5 px-2 type-micro text-muted-foreground">
         <span className="min-w-0 truncate">{position.label}</span>
         {position.capped || (content.truncated && !position.hasNext) ? (
           <span className="shrink-0">· capped by the server</span>

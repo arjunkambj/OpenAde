@@ -184,7 +184,7 @@ export function FilesPane({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 border-b border-border p-2">
+      <div className="shrink-0 p-2">
         <Input
           value={query}
           placeholder="Search files…"
@@ -206,7 +206,7 @@ export function FilesPane({
         />
       ) : (
         <>
-          <div className="flex h-8 shrink-0 items-center gap-1 border-b border-border px-1.5">
+          <div className="flex h-8 shrink-0 items-center gap-1 px-1.5">
             <Button
               type="button"
               variant="ghost"

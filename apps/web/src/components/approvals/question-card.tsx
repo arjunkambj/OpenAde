@@ -79,8 +79,8 @@ function QuestionBlock({
               ) : (
                 <span
                   className={cn(
-                    "mt-1 inline-block size-2.5 shrink-0 rounded-full border border-border",
-                    selected && "border-primary bg-primary",
+                    "mt-1 inline-block size-2.5 shrink-0 rounded-full bg-input",
+                    selected && "bg-primary",
                   )}
                   aria-hidden
                 />

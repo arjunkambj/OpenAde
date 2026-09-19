@@ -134,7 +134,7 @@ export function RightDock({
         className="absolute inset-y-0 -left-1 z-10 hidden w-2 cursor-col-resize @min-[640px]/thread:block"
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div className="flex h-11 shrink-0 items-center gap-0.5 border-b border-border px-2">
+        <div className="flex h-11 shrink-0 items-center gap-0.5 px-2">
           {DOCK_TABS.map((dockTab) => (
             <DockTabButton
               key={dockTab}

@@ -56,7 +56,7 @@ export function CustomizeLayout() {
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
         <h1 className="text-2xl font-medium">Customize</h1>
 
-        <div className="flex items-center justify-between gap-4 border-b border-border/60">
+        <div className="flex items-center justify-between gap-4">
           <nav className="-mb-px flex items-center gap-1" aria-label="Customize">
             {CUSTOMIZE_TABS.map((tab) => {
               const active = Boolean(matchRoute({ to: tab.to }));

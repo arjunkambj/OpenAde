@@ -35,7 +35,7 @@ function AttachmentChip({
 }) {
   const url = useObjectUrl(file);
   return (
-    <span className="group relative inline-flex size-14 overflow-hidden rounded-md border border-border bg-muted">
+    <span className="group relative inline-flex size-14 overflow-hidden rounded-md bg-muted">
       {url === "" ? null : (
         <img src={url} alt={file.name} title={file.name} className="size-full object-cover" />
       )}

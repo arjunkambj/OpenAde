@@ -137,10 +137,10 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
             </Button>
           </span>
         </div>
-        <div className="min-w-0 overflow-x-auto rounded-xl border border-border">
+        <div className="min-w-0 overflow-x-auto rounded-xl bg-card">
           <table className="w-full min-w-[480px] border-collapse text-sm">
             <thead>
-              <tr className="border-b border-border text-left text-xs text-muted-foreground">
+              <tr className="text-left text-xs text-muted-foreground">
                 <th className="px-3 py-2 font-medium">Command</th>
                 <th className="px-3 py-2 font-medium">Shortcut</th>
                 <th className="px-3 py-2 font-medium">When</th>
@@ -152,10 +152,7 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
                 const conflicted = conflicts.has(row.command);
                 const shortcutValid = parseShortcut(row.shortcut) !== null;
                 return (
-                  <tr
-                    key={`${row.command}-${index}`}
-                    className="border-b border-border/60 last:border-0"
-                  >
+                  <tr key={`${row.command}-${index}`}>
                     <td className="px-3 py-1.5">
                       <span className="flex items-center gap-1.5 font-mono text-xs">
                         {row.command}
@@ -233,7 +230,7 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
                   </td>
                 </tr>
               ) : null}
-              <tr className="border-t border-border">
+              <tr>
                 <td className="px-3 py-1.5">
                   <Input
                     value={added.command}

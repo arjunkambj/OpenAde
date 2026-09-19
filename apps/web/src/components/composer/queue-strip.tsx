@@ -83,7 +83,7 @@ export function QueueStrip({
   }
   return (
     <div
-      className="flex w-full min-w-0 flex-col gap-1 rounded-xl border border-border bg-card px-3 py-2"
+      className="flex w-full min-w-0 flex-col gap-1 rounded-xl bg-card px-3 py-2"
       aria-label="Queued messages"
     >
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">

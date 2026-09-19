@@ -37,7 +37,7 @@ function AttachmentThumbnail({
   if (AsyncResult.isFailure(result)) {
     return (
       <span
-        className="inline-flex size-20 items-center justify-center overflow-hidden rounded-md border border-dashed border-border bg-muted px-1 text-center text-xs leading-tight break-all text-muted-foreground"
+        className="inline-flex size-20 items-center justify-center overflow-hidden rounded-md bg-muted px-1 text-center text-xs leading-tight break-all text-muted-foreground"
         title={`${label} is no longer available`}
       >
         {label}
@@ -46,7 +46,7 @@ function AttachmentThumbnail({
   }
   return (
     <span
-      className="inline-flex size-20 overflow-hidden rounded-md border border-border bg-muted"
+      className="inline-flex size-20 overflow-hidden rounded-md bg-muted"
       title={bytes === null ? label : undefined}
     >
       {bytes === null ? null : (

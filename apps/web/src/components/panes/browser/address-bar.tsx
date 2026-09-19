@@ -47,7 +47,7 @@ export function AddressBar({ state, onAction }: AddressBarProps) {
     onAction({ kind: "history", direction });
 
   return (
-    <div className="flex items-center gap-1.5 border-b px-2 py-1.5">
+    <div className="flex items-center gap-1.5 px-2 py-1.5">
       <Button variant="ghost" size="icon-sm" onClick={history("back")} aria-label="Back">
         <Icon icon="hugeicons:arrow-left-01" className="size-4" />
       </Button>

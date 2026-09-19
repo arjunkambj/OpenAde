@@ -261,7 +261,7 @@ export function ChangesPane({ snapshot }: { snapshot: ThreadDetailView }) {
   // put; the dock's own scroller then never has anything to scroll.
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 flex-col gap-2 border-b border-border p-2">
+      <div className="flex shrink-0 flex-col gap-2 p-2">
         <BranchLine status={status?._tag === "ok" ? status.value : null} onRefresh={refresh} />
         <TurnSelector
           checkpoints={checkpoints}

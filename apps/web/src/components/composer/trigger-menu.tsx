@@ -35,7 +35,7 @@ export function TriggerMenu<T extends TriggerMenuItem>({
 }) {
   return (
     <div
-      className="absolute inset-x-0 bottom-full z-40 mb-2 overflow-hidden rounded-xl border border-border bg-popover shadow-lg"
+      className="absolute inset-x-0 bottom-full z-40 mb-2 overflow-hidden rounded-xl bg-popover shadow-lg"
       role="listbox"
       aria-label={label}
     >

@@ -237,7 +237,7 @@ export function ConnectorsPanel() {
       </div>
 
       {settings.connectors.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
+        <p className="rounded-lg bg-muted/50 px-4 py-6 text-sm text-muted-foreground">
           No connectors configured yet.
         </p>
       ) : (

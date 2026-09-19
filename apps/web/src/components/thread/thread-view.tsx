@@ -74,7 +74,7 @@ function ThreadHeader({
   onDockToggle: () => void;
 }) {
   return (
-    <header className="flex min-h-11 shrink-0 items-center gap-2 border-b border-border px-4 py-1.5">
+    <header className="flex min-h-11 shrink-0 items-center gap-2 px-4 py-1.5">
       <h1 className="min-w-0 max-w-56 shrink truncate text-sm font-medium text-foreground">
         {snapshot.title}
       </h1>

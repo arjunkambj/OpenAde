@@ -253,7 +253,7 @@ export interface SchemaFormProps {
 /** Every annotated, non-hidden field of the struct, in declaration order. */
 export function SchemaForm({ schema, value, onFieldChange, optionsFor, skip }: SchemaFormProps) {
   return (
-    <div className="divide-y divide-border/60">
+    <div>
       {Object.entries(schema.fields).map(([key, fieldSchema]) => {
         if (skip !== undefined && skip.includes(key)) {
           return null;

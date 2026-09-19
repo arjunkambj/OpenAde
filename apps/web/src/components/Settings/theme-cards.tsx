@@ -112,7 +112,7 @@ export function ThemeCards() {
               <div
                 className={cn(
                   "aspect-[16/10] w-full rounded-xl p-0.5",
-                  isSelected ? "ring-2 ring-foreground" : "ring-1 ring-border",
+                  isSelected && "ring-2 ring-foreground",
                 )}
               >
                 <div className="h-full overflow-hidden rounded-nested">

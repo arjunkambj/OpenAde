@@ -60,7 +60,7 @@ import {
 /** A block for every state that is not a folder full of folders. */
 function PickerMessage({ icon, text }: { readonly icon: string; readonly text: string }) {
   return (
-    <div className="flex h-64 flex-col items-center justify-center gap-2 rounded-lg border border-border px-6 text-center">
+    <div className="flex h-64 flex-col items-center justify-center gap-2 rounded-lg bg-muted/50 px-6 text-center">
       <Icon icon={icon} className="size-6 text-muted-foreground" />
       <p className="type-body text-muted-foreground">{text}</p>
     </div>
