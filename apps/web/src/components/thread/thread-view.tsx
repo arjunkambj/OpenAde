@@ -28,7 +28,6 @@ import type * as RpcClientError from "effect/unstable/rpc/RpcClientError";
 
 import { Composer } from "@/components/composer/composer";
 import { isDockTab, RightDock, type DockTab } from "@/components/dock/right-dock";
-import { HeaderControls } from "@/components/header-controls";
 import { ThreadGreeting } from "@/components/thread/thread-greeting";
 import { Timeline } from "@/components/timeline/timeline";
 import { useKeybindingCommand } from "@/lib/shortcuts";
@@ -76,14 +75,7 @@ function ThreadHeader({
       <h1 className="min-w-0 max-w-56 shrink truncate text-sm font-medium text-foreground">
         {snapshot.title}
       </h1>
-      {/* The pickers carry their own "applies next turn" hints, so the row can
-          be wider than the header — especially with the dock open. Scroll it
-          instead of letting the pickers wrap into the title or squeeze their
-          labels to nothing. */}
-      <HeaderControls
-        threadId={snapshot.threadId}
-        className="min-w-0 flex-1 flex-nowrap overflow-x-auto [scrollbar-width:none] [&>*]:shrink-0"
-      />
+      <div className="flex-1" />
       <StatusPill status={snapshot.status} />
       <span className="inline-flex shrink-0">
         <Tooltip>

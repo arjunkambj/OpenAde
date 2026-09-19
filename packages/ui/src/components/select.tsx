@@ -31,6 +31,8 @@ const selectTriggerVariants = cva(
   {
     variants: {
       variant: {
+        composer:
+          "h-8 max-w-full min-w-0 rounded-full border-0 bg-transparent px-2 py-1 text-xs text-foreground shadow-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/50",
         default:
           "w-fit rounded-lg bg-input/50 py-2 pr-2 pl-2.5 transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 data-[size=default]:h-8 data-[size=sm]:h-7 dark:bg-input/30 dark:hover:bg-input/50",
         // Inline in a toolbar: no box, no chevron — the value is the control.
@@ -70,7 +72,13 @@ function SelectTrigger({
       {children}
       <SelectPrimitive.Icon
         data-slot="select-icon"
-        render={<UnfoldMore className="pointer-events-none size-4 text-muted-foreground" />}
+        render={
+          variant === "composer" ? (
+            <ChevronDown className="pointer-events-none size-4 text-muted-foreground" />
+          ) : (
+            <UnfoldMore className="pointer-events-none size-4 text-muted-foreground" />
+          )
+        }
       />
     </SelectPrimitive.Trigger>
   );

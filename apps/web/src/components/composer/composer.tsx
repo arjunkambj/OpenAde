@@ -27,9 +27,11 @@ import {
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 
+import { HeaderControls } from "@/components/header-controls";
+import { useProjects } from "@/state/hooks";
+import { ComposerSurface, composerInputClassName } from "@/components/composer/composer-surface";
 import { ComposerChips } from "@/components/composer/composer-chips";
 import { composerEnter } from "@/components/composer/composer-keys";
-import { ComposerHints } from "@/components/composer/composer-hints";
 import { ComposerToolbar } from "@/components/composer/composer-toolbar";
 import { PendingCard } from "@/components/composer/pending-card";
 import { QueueStrip } from "@/components/composer/queue-strip";
@@ -72,6 +74,7 @@ export function Composer({
   readonly projectId: ProjectId;
   readonly className?: string;
 }) {
+  const project = useProjects().find((entry) => entry.projectId === projectId);
   const {
     threadDetailAtom,
     dispatchAtom,
@@ -313,11 +316,18 @@ export function Composer({
     <div className={cn("flex w-full min-w-0 max-w-[760px] shrink-0 flex-col gap-2", className)}>
       <PendingCard threadId={threadId} doc={doc} />
       {doc === null ? null : <QueueStrip threadId={threadId} queue={doc.queue} />}
-      <form
-        className={cn(
-          "relative flex min-w-0 flex-col gap-2 rounded-2xl border border-border bg-card px-4 py-3",
-          attachments.dragging && "border-primary ring-1 ring-primary",
-        )}
+      <ComposerSurface
+        dragging={attachments.dragging}
+        context={
+          project ? (
+            <>
+              <Folder size={16} className="shrink-0" />
+              <span className="truncate" title={project.workspaceRoot}>
+                {project.name}
+              </span>
+            </>
+          ) : undefined
+        }
         onSubmit={(event) => event.preventDefault()}
         {...attachments.dropHandlers}
         aria-label="Message composer"
@@ -353,7 +363,6 @@ export function Composer({
           ref={textareaRef}
           aria-label="Message"
           data-context="composer"
-          placeholder="Ask anything — @ for files, / for commands"
           rows={2}
           value={text}
           onChange={onChangeText}
@@ -361,9 +370,10 @@ export function Composer({
           onPaste={attachments.onPaste}
           onSelect={refreshTrigger}
           onClick={refreshTrigger}
-          className="field-sizing-content block max-h-48 min-h-10 w-full resize-none bg-transparent text-sm leading-normal text-foreground outline-none placeholder:text-muted-foreground"
+          className={composerInputClassName}
         />
         <ComposerToolbar
+          settings={<HeaderControls threadId={threadId} className="min-w-0 flex-1" />}
           running={running}
           canSend={canSend}
           contextUsed={doc?.context?.used}
@@ -380,8 +390,7 @@ export function Composer({
             {notice}
           </p>
         )}
-      </form>
-      <ComposerHints />
+      </ComposerSurface>
     </div>
   );
 }
