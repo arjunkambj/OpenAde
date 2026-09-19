@@ -211,10 +211,7 @@ export function ProjectTree() {
           {orphanThreads.length > 0 ? (
             <>
               <div className="flex h-8 items-center gap-2.5 rounded-lg px-2 text-sm text-sidebar-foreground">
-                <Icon
-                  icon="hugeicons:folder-01"
-                  className="size-4 shrink-0 text-muted-foreground"
-                />
+                <Icon icon="hugeicons:folder-01" className="size-4 shrink-0" />
                 <span className="min-w-0 truncate">Other threads</span>
               </div>
               {orphanThreads.map((thread) => (
@@ -253,7 +250,7 @@ function ProjectSection({
           className="flex h-full min-w-0 flex-1 items-center gap-1 rounded-lg px-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
         >
           {/* The folder turns into the disclosure chevron under the pointer. */}
-          <span className="relative flex size-4 shrink-0 items-center justify-center text-muted-foreground">
+          <span className="relative flex size-4 shrink-0 items-center justify-center">
             <Icon
               icon={collapsed ? "hugeicons:folder-01" : "hugeicons:folder-open"}
               className="size-4 transition-opacity duration-150 ease-out group-hover/project:opacity-0"
