@@ -40,7 +40,7 @@ export function Breadcrumb({
       >
         <Icon icon="hugeicons:arrow-up-01" />
       </Button>
-      <div className="flex min-w-0 flex-1 items-center overflow-x-auto [scrollbar-width:thin]">
+      <div className="flex min-w-0 flex-1 items-center overflow-x-auto">
         {path === null
           ? null
           : breadcrumbFor(path).map((crumb, index) => (
@@ -141,7 +141,7 @@ export function FolderList({
       aria-activedescendant={active === undefined ? undefined : `${idPrefix}-${cursor}`}
       tabIndex={0}
       onKeyDown={onKeyDown}
-      className="flex h-64 flex-col gap-px overflow-y-auto rounded-lg border border-border p-1.5 outline-none [scrollbar-width:thin] focus-visible:ring-2 focus-visible:ring-ring"
+      className="flex h-64 flex-col gap-px overflow-y-auto rounded-lg border border-border p-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       {entries.map((entry, index) => (
         <EntryRow

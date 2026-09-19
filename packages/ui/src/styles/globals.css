@@ -191,6 +191,29 @@
   html[data-desktop-mac][data-fullscreen] {
     --traffic-lights-width: 0.5rem;
   }
+
+  /* One scrollbar for the whole app: no track box, just a thin rounded thumb.
+     The transparent border insets the thumb, so it draws 6px wide inside a
+     10px gutter. Chromium ignores these pseudo-elements on any element that
+     sets `scrollbar-width` or `scrollbar-color`, so only `none` is used
+     elsewhere. */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+    background: transparent;
+  }
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 9999px;
+    background: color-mix(in oklab, var(--foreground) 20%, transparent) padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--foreground) 35%, transparent) padding-box;
+  }
 }
 
 html[data-desktop] [data-slot="sidebar"].peer {

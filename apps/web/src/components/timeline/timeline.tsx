@@ -39,7 +39,7 @@ export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
         initialScrollAtEnd
         maintainScrollAtEnd
         extraData={projection.childrenByParent}
-        className="min-h-0 flex-1 [scrollbar-width:thin]"
+        className="min-h-0 flex-1"
         // The row gap has to be a value, not a class: the virtualizer measures
         // rows itself and a Tailwind `gap-*` it cannot read throws off
         // `estimatedItemSize`, the draw distance and the scroll anchoring — which

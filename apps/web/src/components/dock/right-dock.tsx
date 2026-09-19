@@ -152,7 +152,7 @@ export function RightDock({
             <TooltipContent>Close dock</TooltipContent>
           </Tooltip>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {tab === "changes" ? <ChangesPane snapshot={snapshot} /> : null}
           {/*
             The browser pane hides rather than unmounts. Unmounting it destroys

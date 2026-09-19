@@ -288,7 +288,7 @@ export function ChangesPane({ snapshot }: { snapshot: ThreadDetailView }) {
         </div>
         <RestoreProgress restoring={restoring} failure={restoreFailure} />
       </div>
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto [scrollbar-width:thin]">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <ChangesBody
           diff={diff}
           status={status}
