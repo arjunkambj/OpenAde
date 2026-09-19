@@ -4,6 +4,7 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { Button } from "@OpenAde/ui/components/button";
 import {
   DEFAULT_FONT_SIZE,
+  FONT_SIZE_STEP,
   MAX_FONT_SIZE,
   MIN_FONT_SIZE,
   type FontSize,
@@ -40,11 +41,11 @@ function PxStepper({
           size="icon-sm"
           aria-label={`Decrease ${label.toLowerCase()} font size`}
           disabled={value <= MIN_FONT_SIZE}
-          onClick={() => onChange(value - 1)}
+          onClick={() => onChange(value - FONT_SIZE_STEP)}
         >
           <Icon icon="hugeicons:minus-sign" />
         </Button>
-        <span aria-live="polite" className="w-14 text-center text-sm tabular-nums">
+        <span aria-live="polite" className="w-16 text-center text-sm tabular-nums">
           {value} px
         </span>
         <Button
@@ -52,7 +53,7 @@ function PxStepper({
           size="icon-sm"
           aria-label={`Increase ${label.toLowerCase()} font size`}
           disabled={value >= MAX_FONT_SIZE}
-          onClick={() => onChange(value + 1)}
+          onClick={() => onChange(value + FONT_SIZE_STEP)}
         >
           <Icon icon="hugeicons:add-01" />
         </Button>

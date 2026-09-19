@@ -141,4 +141,15 @@ describe("font sizes", () => {
       expect(exit._tag).toBe("Failure");
     }),
   );
+
+  it.effect("accept half-px steps and reject anything finer", () =>
+    Effect.gen(function* () {
+      const half = { ...defaultSettings(), mainFontSize: 14.5 };
+      const decoded = yield* Schema.decodeUnknownEffect(Settings)(half);
+      expect(decoded.mainFontSize).toBe(14.5);
+      const finer = { ...defaultSettings(), sidebarFontSize: 14.25 };
+      const exit = yield* Effect.exit(Schema.decodeUnknownEffect(Settings)(finer));
+      expect(exit._tag).toBe("Failure");
+    }),
+  );
 });

@@ -204,14 +204,16 @@ export const Theme = Schema.Literals(["system", "light", "dark"]);
 export type Theme = typeof Theme.Type;
 
 /**
- * A region's base text size in px. Every text step in that region scales by
- * `size / DEFAULT_FONT_SIZE`; spacing and layout stay as they are.
+ * A region's base text size in px, in half-px steps. Every text step in that
+ * region scales by `size / DEFAULT_FONT_SIZE`; spacing and layout stay as they are.
  */
 export const MIN_FONT_SIZE = 11;
 export const MAX_FONT_SIZE = 20;
 export const DEFAULT_FONT_SIZE = 14;
-export const FontSize = Schema.Int.check(
+export const FONT_SIZE_STEP = 0.5;
+export const FontSize = Schema.Finite.check(
   Schema.isBetween({ minimum: MIN_FONT_SIZE, maximum: MAX_FONT_SIZE }),
+  Schema.isMultipleOf(FONT_SIZE_STEP),
 );
 export type FontSize = typeof FontSize.Type;
 
