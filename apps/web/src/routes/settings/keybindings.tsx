@@ -22,9 +22,7 @@ function KeybindingsPage() {
         <div>
           <h1 className="text-2xl font-medium">Keybindings</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Command-to-shortcut bindings. The notation is <Kbd>Cmd+Shift+B</Kbd> — Cmd is the
-            platform modifier. Two bindings on one chord are flagged, and edits are a draft until
-            you save.
+            <Kbd>Cmd</Kbd> is your platform's modifier. Changes apply when you save.
           </p>
         </div>
         <KeybindingsEditor />

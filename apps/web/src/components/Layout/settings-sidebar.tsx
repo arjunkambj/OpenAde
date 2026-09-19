@@ -17,9 +17,9 @@ import { SettingsWindowChrome } from "@/components/Layout/window-chrome";
 
 const ITEMS = [
   { to: "/settings", label: "General", icon: "hugeicons:sliders-horizontal" },
+  { to: "/settings/models", label: "Models", icon: "hugeicons:ai-chat-02" },
   { to: "/settings/connectors", label: "Connectors", icon: "hugeicons:plug-01" },
   { to: "/settings/keybindings", label: "Keybindings", icon: "hugeicons:keyboard" },
-  { to: "/settings/appearance", label: "Appearance", icon: "hugeicons:colors" },
 ] as const;
 
 export function SettingsSidebar() {

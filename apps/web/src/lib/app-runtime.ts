@@ -122,7 +122,7 @@ const makeSettingsAtoms = (base: BaseAppAtoms) => {
 
   /**
    * Every model every enabled instance advertises — the default-model picker
-   * on the General page. `family` carries the instance name so duplicates
+   * on the Models page. `family` carries the instance name so duplicates
    * across connectors stay distinct.
    */
   const allModelsAtom = runtime.atom(
