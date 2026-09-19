@@ -45,7 +45,7 @@ export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
         // `estimatedItemSize`, the draw distance and the scroll anchoring — which
         // is what left blank stretches mid-scroll. LegendList warns about it too.
         contentContainerClassName="mx-auto flex w-full max-w-[760px] flex-col px-4 py-6"
-        contentContainerStyle={{ gap: 8 }}
+        contentContainerStyle={{ gap: 16 }}
       />
     </TimelineThreadProvider>
   );

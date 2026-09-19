@@ -77,13 +77,17 @@ function Attachments({ item }: { readonly item: ItemSnapshot }) {
 }
 
 export function UserMessageRow({ item }: { item: ItemSnapshot }) {
+  // LegendList wraps every row in its own container, so `self-end` on the
+  // bubble cannot reach the list's flex column; the row right-aligns itself.
   return (
-    <div
-      aria-label="User message"
-      className="max-w-[min(400px,85%)] self-end rounded-xl rounded-br-md bg-hover px-4 py-2 text-sm leading-normal whitespace-pre-wrap text-foreground"
-    >
-      <Attachments item={item} />
-      {item.text ?? ""}
+    <div className="flex justify-end">
+      <div
+        aria-label="User message"
+        className="max-w-[min(400px,85%)] rounded-xl rounded-tr-sm bg-hover px-4 py-2 text-sm leading-normal whitespace-pre-wrap text-foreground"
+      >
+        <Attachments item={item} />
+        {item.text ?? ""}
+      </div>
     </div>
   );
 }
