@@ -23,7 +23,7 @@ import * as React from "react";
 import { toast } from "sonner";
 
 import { makeCommandId, makeThreadId, type ProjectId, type ThreadId } from "@OpenAde/contracts/ids";
-import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
+import type { ThreadSettingsPatch, ThreadSummary } from "@OpenAde/contracts/orchestration";
 
 import { isAccepted, rejectionMessage } from "@/lib/dispatch-outcome";
 import { useDispatchCommand, useThreadList } from "@/state/hooks";
@@ -64,7 +64,11 @@ export const useCreateThread = () => {
   const create = React.useCallback(
     async (
       projectId: ProjectId,
-      options: { readonly threadId?: ThreadId; readonly navigate?: boolean } = {},
+      options: {
+        readonly threadId?: ThreadId;
+        readonly navigate?: boolean;
+        readonly settings?: ThreadSettingsPatch;
+      } = {},
     ): Promise<boolean> => {
       const blank =
         options.threadId === undefined ? blankLatestThread(threads, projectId) : undefined;
@@ -83,6 +87,7 @@ export const useCreateThread = () => {
         type: "thread.create",
         threadId,
         projectId,
+        settings: options.settings,
       });
       setPending(false);
       if (isAccepted(exit)) {

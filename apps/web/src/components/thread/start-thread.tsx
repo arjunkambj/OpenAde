@@ -20,19 +20,23 @@ import { useNavigate } from "@tanstack/react-router";
 import * as React from "react";
 import { toast } from "sonner";
 
-import { Button } from "@OpenAde/ui/components/button";
 import {
   Select,
   SelectContent,
   SelectItem,
+  SelectGroup,
   SelectTrigger,
   SelectValue,
 } from "@OpenAde/ui/components/select";
-import { cn } from "@OpenAde/ui/lib/utils";
+import { useAtomValue } from "@effect/atom-react";
+import { AsyncResult } from "effect/unstable/reactivity";
+import { useAppAtoms } from "@/lib/app-runtime";
+import { ComposerSurface, composerInputClassName } from "@/components/composer/composer-surface";
+import { ComposerToolbar } from "@/components/composer/composer-toolbar";
+import { ThreadSettingsControls } from "@/components/header-controls";
 import { makeThreadId, type ProjectId } from "@OpenAde/contracts/ids";
-import type { ProjectSummary } from "@OpenAde/contracts/orchestration";
+import type { ProjectSummary, ThreadSettingsPatch } from "@OpenAde/contracts/orchestration";
 
-import { ATTACHMENT_ACCEPT } from "@/components/composer/attachment-rules";
 import { ComposerChips } from "@/components/composer/composer-chips";
 import { useAttachments } from "@/components/composer/use-attachments";
 import { useSendDraft } from "@/components/composer/use-send-draft";
@@ -41,7 +45,7 @@ import { ThreadGreeting } from "@/components/thread/thread-greeting";
 import { useCreateThread } from "@/lib/use-create-thread";
 import { useConnectionState, useProjects } from "@/state/hooks";
 import { useComposerDraft, useLastProject } from "@/state/ui";
-import { Add as AddIcon, ArrowUp, Folder, Spinner } from "@honeyicons/react";
+import { Folder } from "@honeyicons/react";
 
 function ProjectPicker({
   projects,
@@ -63,23 +67,25 @@ function ProjectPicker({
       }}
       items={projects.map((project) => ({ value: project.projectId, label: project.name }))}
     >
-      <SelectTrigger aria-label="Project" size="sm" variant="ghost" className="min-w-0">
+      <SelectTrigger aria-label="Project" size="sm" variant="composer" className="min-w-0">
         <span className="flex min-w-0 items-center gap-1.5">
           <Folder className="size-3.5 shrink-0 text-muted-foreground" />
           <SelectValue />
         </span>
       </SelectTrigger>
       <SelectContent align="start" alignItemWithTrigger={false} className="min-w-56">
-        {projects.map((project) => (
-          <SelectItem key={project.projectId} value={project.projectId}>
-            <span className="flex min-w-0 flex-col">
-              <span className="truncate">{project.name}</span>
-              <span className="truncate font-mono text-xs text-muted-foreground">
-                {project.workspaceRoot}
+        <SelectGroup>
+          {projects.map((project) => (
+            <SelectItem key={project.projectId} value={project.projectId}>
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate">{project.name}</span>
+                <span className="truncate font-mono text-xs text-muted-foreground">
+                  {project.workspaceRoot}
+                </span>
               </span>
-            </span>
-          </SelectItem>
-        ))}
+            </SelectItem>
+          ))}
+        </SelectGroup>
       </SelectContent>
     </Select>
   );
@@ -100,7 +106,18 @@ function StartComposer({
   const [threadId] = React.useState(makeThreadId);
   const { text, files, setText, setMentions, setFiles } = useComposerDraft(threadId);
   const attachments = useAttachments(threadId, files, setFiles);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const atoms = useAppAtoms();
+  const defaultsResult = useAtomValue(atoms.settingsAtom);
+  const modelsResult = useAtomValue(atoms.allModelsAtom);
+  const models = AsyncResult.isSuccess(modelsResult) ? modelsResult.value : [];
+  const defaults = AsyncResult.isSuccess(defaultsResult) ? defaultsResult.value?.defaults : null;
+  const [settings, setSettings] = React.useState<ThreadSettingsPatch>({});
+  const initialModel = defaults?.model ?? models[0]?.id;
+  const shownSettings: ThreadSettingsPatch = {
+    ...(initialModel ? { model: initialModel } : {}),
+    ...(defaults ? { effort: defaults.effort, runtimeMode: defaults.runtimeMode } : {}),
+    ...settings,
+  };
 
   const open = () => void navigate({ to: "/t/$threadId", params: { threadId } });
   const { sending, send: sendDraft } = useSendDraft(
@@ -132,7 +149,7 @@ function StartComposer({
     }
     startingRef.current = true;
     try {
-      if (await create(project.projectId, { threadId, navigate: false })) {
+      if (await create(project.projectId, { threadId, navigate: false, settings: shownSettings })) {
         sendDraft({ text: text.trim(), mentions: [], queued: false });
       }
     } finally {
@@ -141,86 +158,69 @@ function StartComposer({
   };
 
   return (
-    <form
-      className={cn(
-        "relative flex w-full min-w-0 max-w-[760px] flex-col gap-2 rounded-2xl border border-border bg-card px-4 py-3",
-        attachments.dragging && "border-primary ring-1 ring-primary",
-      )}
-      onSubmit={(event) => {
-        event.preventDefault();
-        void send();
-      }}
-      {...attachments.dropHandlers}
-      aria-label="New thread"
-    >
-      <ComposerChips
-        mentions={[]}
-        files={attachments.files}
-        onRemoveMention={() => {}}
-        onRemoveFile={attachments.removeAt}
-      />
-      <textarea
-        aria-label="Message"
-        data-context="composer"
-        placeholder="Ask anything"
-        rows={2}
-        autoFocus
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-            event.preventDefault();
-            void send();
-          }
+    <div className="flex w-full min-w-0 max-w-[760px] flex-col gap-2">
+      <ComposerSurface
+        dragging={attachments.dragging}
+        context={
+          project ? (
+            <ProjectPicker projects={projects} value={project.projectId} onPick={onPickProject} />
+          ) : undefined
+        }
+        onSubmit={(event) => {
+          event.preventDefault();
+          void send();
         }}
-        onPaste={attachments.onPaste}
-        className="field-sizing-content block max-h-48 min-h-10 w-full resize-none bg-transparent text-sm leading-normal text-foreground outline-none placeholder:text-muted-foreground"
-      />
-      <div className="flex min-w-0 items-center gap-1.5">
-        <input
-          key={attachments.files.length}
-          ref={fileInputRef}
-          type="file"
-          hidden
-          multiple
-          accept={ATTACHMENT_ACCEPT}
-          onChange={(event) => {
-            attachments.add([...(event.target.files ?? [])]);
-            event.target.value = "";
-          }}
+        {...attachments.dropHandlers}
+        aria-label="New thread"
+      >
+        <ComposerChips
+          mentions={[]}
+          files={attachments.files}
+          onRemoveMention={() => {}}
+          onRemoveFile={attachments.removeAt}
         />
-        <Button
-          type="button"
-          variant="ghost"
-          tone="muted"
-          size="icon-sm"
-          aria-label="Attach files"
-          title="Attach files"
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <AddIcon />
-        </Button>
-        {project === undefined ? null : (
-          <ProjectPicker projects={projects} value={project.projectId} onPick={onPickProject} />
+        <textarea
+          aria-label="Message"
+          data-context="composer"
+          rows={2}
+          autoFocus
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+              event.preventDefault();
+              void send();
+            }
+          }}
+          onPaste={attachments.onPaste}
+          className={composerInputClassName}
+        />
+        <ComposerToolbar
+          running={false}
+          canSend={canSend && project !== undefined}
+          interrupting={false}
+          sending={busy}
+          filesKey={attachments.files.length}
+          onFilesPicked={attachments.add}
+          onSend={() => void send()}
+          onInterrupt={() => {}}
+          settings={
+            defaults ? (
+              <ThreadSettingsControls
+                settings={shownSettings}
+                models={models}
+                onChange={(patch) => setSettings((current) => ({ ...current, ...patch }))}
+              />
+            ) : undefined
+          }
+        />
+        {attachments.rejected === null ? null : (
+          <p className="text-xs text-destructive" role="alert">
+            {attachments.rejected}
+          </p>
         )}
-        <Button
-          type="submit"
-          size="icon-sm"
-          shape="pill"
-          className="ml-auto shrink-0"
-          aria-label="Start thread"
-          title="Start thread (⏎)"
-          disabled={!canSend || busy}
-        >
-          {busy ? <Spinner /> : <ArrowUp />}
-        </Button>
-      </div>
-      {attachments.rejected === null ? null : (
-        <p className="text-xs text-destructive" role="alert">
-          {attachments.rejected}
-        </p>
-      )}
-    </form>
+      </ComposerSurface>
+    </div>
   );
 }
 
