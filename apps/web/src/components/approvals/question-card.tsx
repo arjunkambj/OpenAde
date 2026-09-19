@@ -69,7 +69,7 @@ function QuestionBlock({
               role={multi ? undefined : "radio"}
               aria-checked={selected}
               className={cn(
-                "flex min-w-0 items-start gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors hover:bg-hover",
+                "flex min-w-0 items-start gap-2 rounded-xl px-2 py-1 text-left text-sm transition-colors hover:bg-hover",
                 selected && "bg-hover",
               )}
               onClick={() => toggle(option.optionId)}

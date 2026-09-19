@@ -86,7 +86,7 @@ function ThreadLink({ thread }: { thread: ThreadSummary }) {
         params={{ threadId: thread.threadId }}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg py-1.5 pr-0 pl-6.5 text-left type-body text-sidebar-foreground outline-none transition-colors duration-150 ease-out hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+          "flex h-8 min-w-0 flex-1 items-center gap-2 rounded-xl py-1 pr-0 pl-6.5 text-left type-body text-sidebar-foreground outline-none transition-colors duration-150 ease-out hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
           active && "bg-sidebar-accent text-sidebar-accent-foreground",
         )}
       >
@@ -207,7 +207,7 @@ export function ProjectTree() {
           ))}
           {orphanThreads.length > 0 ? (
             <>
-              <div className="flex h-8 items-center gap-2.5 rounded-lg px-2 text-sm text-sidebar-foreground">
+              <div className="flex h-8 items-center gap-2.5 rounded-xl px-2 text-sm text-sidebar-foreground">
                 <Folder className="size-4 shrink-0" />
                 <span className="min-w-0 truncate">Other threads</span>
               </div>
@@ -239,12 +239,12 @@ function ProjectSection({
 
   return (
     <React.Fragment>
-      <div className="group/project flex h-8 items-center gap-1 rounded-lg text-sm text-sidebar-foreground">
+      <div className="group/project flex h-8 items-center gap-1 rounded-xl text-sm text-sidebar-foreground">
         <button
           type="button"
           aria-expanded={!collapsed}
           onClick={() => setCollapsed(!collapsed)}
-          className="flex h-full min-w-0 flex-1 items-center gap-1 rounded-lg px-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+          className="flex h-full min-w-0 flex-1 items-center gap-1 rounded-xl px-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
         >
           {/* The folder turns into the disclosure chevron under the pointer. */}
           <span className="relative flex size-4 shrink-0 items-center justify-center">

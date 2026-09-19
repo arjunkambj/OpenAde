@@ -46,7 +46,7 @@ export function TriggerMenu<T extends TriggerMenuItem>({
             role="option"
             aria-selected={index === activeIndex}
             className={cn(
-              "flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm",
+              "flex w-full min-w-0 items-center gap-2 rounded-xl px-2 py-1 text-left text-sm",
               index === activeIndex && "bg-hover",
             )}
             onMouseEnter={() => onHover(index)}
