@@ -403,6 +403,19 @@ export const SkillSummary = Schema.Struct({
 });
 export type SkillSummary = typeof SkillSummary.Type;
 
+/**
+ * A skill in the shared agents folder (`~/.agents/skills`) that the connector
+ * does not load yet. `entry` is its directory or file name there — what a link
+ * points at — and can differ from the frontmatter `name`.
+ */
+export const AgentSkill = Schema.Struct({
+  entry: NonEmptyString,
+  name: NonEmptyString,
+  path: NonEmptyString,
+  description: Schema.optional(Schema.String),
+});
+export type AgentSkill = typeof AgentSkill.Type;
+
 // ── Method names ───────────────────────────────────────────────
 
 /** Every RPC method name in one place, so a rename is a single edit. */
@@ -432,6 +445,8 @@ export const RPC_METHODS = {
   cmdConfigMcpUpsert: "cmdConfig.mcp.upsert",
   cmdConfigMcpRemove: "cmdConfig.mcp.remove",
   cmdConfigSkillsList: "cmdConfig.skills.list",
+  cmdConfigSkillsAgents: "cmdConfig.skills.agents",
+  cmdConfigSkillsLink: "cmdConfig.skills.link",
   keybindingsGet: "keybindings.get",
   keybindingsUpdate: "keybindings.update",
 } as const;
@@ -666,6 +681,19 @@ const CmdConfigSkillsListRpc = Rpc.make(RPC_METHODS.cmdConfigSkillsList, {
   error: OpenAdeRpcError,
 });
 
+const CmdConfigSkillsAgentsRpc = Rpc.make(RPC_METHODS.cmdConfigSkillsAgents, {
+  payload: empty,
+  success: Schema.Array(AgentSkill),
+  error: OpenAdeRpcError,
+});
+
+/** Links one agents-folder skill into the connector's global skills root. */
+const CmdConfigSkillsLinkRpc = Rpc.make(RPC_METHODS.cmdConfigSkillsLink, {
+  payload: Schema.Struct({ entry: NonEmptyString }),
+  success: Schema.Array(AgentSkill),
+  error: OpenAdeRpcError,
+});
+
 const KeybindingsGetRpc = Rpc.make(RPC_METHODS.keybindingsGet, {
   payload: empty,
   success: Schema.Array(Keybinding),
@@ -704,6 +732,8 @@ export const OpenAdeRpcGroup = RpcGroup.make(
   CmdConfigMcpUpsertRpc,
   CmdConfigMcpRemoveRpc,
   CmdConfigSkillsListRpc,
+  CmdConfigSkillsAgentsRpc,
+  CmdConfigSkillsLinkRpc,
   KeybindingsGetRpc,
   KeybindingsUpdateRpc,
 );

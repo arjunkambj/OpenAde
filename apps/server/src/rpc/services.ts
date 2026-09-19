@@ -7,6 +7,7 @@
  */
 
 import type {
+  AgentSkill,
   BrowserHumanInput,
   BrowserState,
   ConnectorSummary,
@@ -213,6 +214,10 @@ export class CmdConfig extends Context.Service<
     readonly skillsList: (
       projectId?: ProjectId,
     ) => Effect.Effect<ReadonlyArray<SkillSummary>, OpenAdeRpcError>;
+    readonly skillsAgents: Effect.Effect<ReadonlyArray<AgentSkill>, OpenAdeRpcError>;
+    readonly skillsLink: (
+      entry: string,
+    ) => Effect.Effect<ReadonlyArray<AgentSkill>, OpenAdeRpcError>;
   }
 >()("server/rpc/CmdConfig") {
   static readonly empty = Layer.succeed(
@@ -222,6 +227,8 @@ export class CmdConfig extends Context.Service<
       mcpUpsert: () => Effect.succeed([]),
       mcpRemove: () => Effect.succeed([]),
       skillsList: () => Effect.succeed([]),
+      skillsAgents: Effect.succeed([]),
+      skillsLink: () => Effect.succeed([]),
     }),
   );
 }
