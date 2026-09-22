@@ -17,14 +17,14 @@ import type { ItemStatus } from "@OpenAde/contracts/runtime";
 
 import { cn } from "@/lib/utils";
 import { useRowDisclosure } from "@/state/ui";
-import { type HoneyIcon, ChevronRight, Close, Spinner } from "@honeyicons/react";
+import { type HoneyIcon, AlertTriangle, ChevronRight, Spinner } from "@honeyicons/react";
 
 function ItemStatusIcon({ status }: { status: ItemStatus }) {
   if (status === "in_progress") {
     return <Spinner className="size-3.5 shrink-0 text-muted-foreground" />;
   }
   if (status === "failed") {
-    return <Close className="size-3.5 shrink-0 text-destructive" />;
+    return <AlertTriangle className="size-3.5 shrink-0 text-destructive" />;
   }
   return null;
 }

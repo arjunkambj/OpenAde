@@ -49,17 +49,19 @@ import {
   type HoneyIcon,
   AlertTriangle,
   Close,
-  File as FileIcon,
+  Edit,
+  FileAdd,
+  FileRemove,
   GitBranch,
+  GitDiff as GitDiffIcon,
   Repeat,
   Spinner,
-  Trash,
 } from "@honeyicons/react";
 
 const KIND_ICON: Record<GitDiffFile["kind"], HoneyIcon> = {
-  create: FileIcon,
-  edit: Close,
-  delete: Trash,
+  create: FileAdd,
+  edit: Edit,
+  delete: FileRemove,
 };
 
 function PaneMessage({
@@ -352,13 +354,13 @@ function ChangesBody({
   if (status?._tag === "ok" && isRepoless(status.value)) {
     return (
       <PaneMessage
-        icon={Close}
+        icon={GitDiffIcon}
         text="This workspace is not a git repository, so there is nothing to compare."
       />
     );
   }
   if (diff.value.files.length === 0) {
-    return <PaneMessage icon={Close} text="No changes in this comparison." />;
+    return <PaneMessage icon={GitDiffIcon} text="No changes in this comparison." />;
   }
   return (
     <div className="flex flex-col gap-1 p-2">

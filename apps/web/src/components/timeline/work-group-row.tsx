@@ -11,7 +11,7 @@ import { DisclosureRow } from "@/components/timeline/row-shell";
 import type { TimelineWorkGroupRow } from "@/components/timeline/fold";
 import { TimelineItemView } from "@/components/timeline/timeline-item";
 import { workGroupLabel } from "@/lib/format";
-import { Close } from "@honeyicons/react";
+import { Layers } from "@honeyicons/react";
 
 export function WorkGroupRow({
   group,
@@ -23,7 +23,7 @@ export function WorkGroupRow({
   return (
     <DisclosureRow
       rowId={group.id}
-      icon={Close}
+      icon={Layers}
       label={workGroupLabel(group)}
       meta={
         group.failedCount > 0 ? (

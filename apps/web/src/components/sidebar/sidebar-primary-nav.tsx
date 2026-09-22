@@ -2,11 +2,11 @@ import { Link, useMatchRoute } from "@tanstack/react-router";
 
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@OpenAde/ui/components/sidebar";
 
-import { Add, Close } from "@honeyicons/react";
+import { SquarePen, Widget } from "@honeyicons/react";
 
 const navItems = [
-  { to: "/", icon: Add, label: "New task", fuzzy: false },
-  { to: "/customize", icon: Close, label: "Customize", fuzzy: true },
+  { to: "/", icon: SquarePen, label: "New task", fuzzy: false },
+  { to: "/customize", icon: Widget, label: "Customize", fuzzy: true },
 ] as const;
 
 /**

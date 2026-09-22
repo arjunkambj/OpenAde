@@ -24,7 +24,7 @@ import { cardKeyContext, planCardKey } from "@/components/approvals/card-keys";
 import { CardShell } from "@/components/approvals/card-shell";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
-import { Close } from "@honeyicons/react";
+import { ListChecks } from "@honeyicons/react";
 
 /** The elements a plan actually uses, styled against theme tokens. */
 const markdownComponents = {
@@ -138,7 +138,7 @@ export function PlanCard({
 
   return (
     <CardShell
-      icon={Close}
+      icon={ListChecks}
       title="Proposed plan"
       hint={
         plan.planPath === undefined ? null : (

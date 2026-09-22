@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { threadStatusMark } from "./thread-status";
-import { Close, Spinner } from "@honeyicons/react";
+import { AlertTriangle, Bell, Spinner } from "@honeyicons/react";
 
 describe("threadStatusMark", () => {
   it("a thread waiting on the user looks waiting even while a turn runs", () => {
@@ -10,7 +10,7 @@ describe("threadStatusMark", () => {
     // label, not the status, or the row spins grey while it says "Waiting".
     const mark = threadStatusMark({ status: "running", awaitingInput: true });
     expect(mark).toEqual({
-      icon: Close,
+      icon: Bell,
       label: "Waiting for you",
       tone: "text-permission",
     });
@@ -30,7 +30,7 @@ describe("threadStatusMark", () => {
 
   it("an error outranks nothing but is reported", () => {
     const mark = threadStatusMark({ status: "error", awaitingInput: false });
-    expect(mark?.icon).toBe(Close);
+    expect(mark?.icon).toBe(AlertTriangle);
     expect(mark?.tone).toBe("text-destructive");
     // A thread that errored while an approval was pending still needs the user.
     expect(threadStatusMark({ status: "error", awaitingInput: true })?.label).toBe(

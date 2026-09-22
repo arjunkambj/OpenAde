@@ -28,7 +28,7 @@ import { FilesPane } from "@/components/panes/files/files-pane";
 import { cn } from "@/lib/utils";
 import { useConnectionState } from "@/state/hooks";
 import { DOCK_WIDTH_MAX_FRACTION, THREAD_COLUMN_MIN, useDockWidth } from "@/state/ui";
-import { type HoneyIcon, Close as CloseIcon, Folder } from "@honeyicons/react";
+import { type HoneyIcon, Close as CloseIcon, Folder, GitDiff, Globe } from "@honeyicons/react";
 
 const DOCK_TABS = ["changes", "browser", "files"] as const;
 export type DockTab = (typeof DOCK_TABS)[number];
@@ -37,8 +37,8 @@ export const isDockTab = (value: unknown): value is DockTab =>
   typeof value === "string" && (DOCK_TABS as ReadonlyArray<string>).includes(value);
 
 const TAB_META: Record<DockTab, { icon: HoneyIcon; label: string }> = {
-  changes: { icon: CloseIcon, label: "Changes" },
-  browser: { icon: CloseIcon, label: "Browser" },
+  changes: { icon: GitDiff, label: "Changes" },
+  browser: { icon: Globe, label: "Browser" },
   files: { icon: Folder, label: "Files" },
 };
 

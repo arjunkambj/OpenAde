@@ -14,13 +14,13 @@ import {
 
 import { SettingsWindowChrome } from "@/components/Layout/window-chrome";
 import { SidebarPrimaryNav } from "@/components/sidebar/sidebar-primary-nav";
-import { Close } from "@honeyicons/react";
+import { Brain, Connect, Keyboard, SlidersHorizontal } from "@honeyicons/react";
 
 const ITEMS = [
-  { to: "/settings", label: "General", icon: Close },
-  { to: "/settings/models", label: "Models", icon: Close },
-  { to: "/settings/connectors", label: "Connectors", icon: Close },
-  { to: "/settings/keybindings", label: "Keybindings", icon: Close },
+  { to: "/settings", label: "General", icon: SlidersHorizontal },
+  { to: "/settings/models", label: "Models", icon: Brain },
+  { to: "/settings/connectors", label: "Connectors", icon: Connect },
+  { to: "/settings/keybindings", label: "Keybindings", icon: Keyboard },
 ] as const;
 
 export function SettingsSidebar() {

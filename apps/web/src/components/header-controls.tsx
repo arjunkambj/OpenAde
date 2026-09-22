@@ -42,7 +42,7 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { routedConnectorInstanceId } from "@/lib/connector-routing";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
-import { type HoneyIcon, Layers, Edit, Lightning } from "@honeyicons/react";
+import { type HoneyIcon, Brain, Lightning, ListChecks, Lock } from "@honeyicons/react";
 
 interface HeaderOption {
   readonly value: string;
@@ -245,7 +245,7 @@ export function ThreadSettingsControls({
     <TooltipProvider>
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
         <HeaderSelect
-          icon={Edit}
+          icon={Lock}
           label="Runtime mode"
           value={settings.runtimeMode ?? "approval-required"}
           options={RUNTIME_MODE_OPTIONS}
@@ -263,14 +263,14 @@ export function ThreadSettingsControls({
             title={planning ? "Turn off plan mode" : "Plan before making changes"}
             onClick={() => onChange({ interactionMode: planning ? "default" : "plan" })}
           >
-            <Layers data-icon={planning ? "inline-start" : undefined} />
+            <ListChecks data-icon={planning ? "inline-start" : undefined} />
             {planning ? "Plan" : null}
           </Button>
         ) : null}
         <div className="ml-auto flex min-w-0 flex-wrap items-center rounded-full bg-muted">
           {settings.model ? (
             <HeaderSelect
-              icon={Layers}
+              icon={Brain}
               label="Model"
               value={settings.model}
               options={modelOptions}

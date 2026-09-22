@@ -25,11 +25,11 @@ import { AsyncResult } from "effect/unstable/reactivity";
 
 import { scopeLabel, USER_SCOPE, USER_SCOPE_LABEL } from "@/components/Settings/select-label";
 import { useAppAtoms } from "@/lib/app-runtime";
-import { Close } from "@honeyicons/react";
+import { Server, Sparkles } from "@honeyicons/react";
 
 const CUSTOMIZE_TABS = [
-  { to: "/customize/skills", label: "Skills", icon: Close, count: "skills" },
-  { to: "/customize/mcp", label: "MCP", icon: Close, count: "mcp" },
+  { to: "/customize/skills", label: "Skills", icon: Sparkles, count: "skills" },
+  { to: "/customize/mcp", label: "MCP", icon: Server, count: "mcp" },
 ] as const;
 
 const CustomizeScopeContext = React.createContext<ProjectId | null>(null);

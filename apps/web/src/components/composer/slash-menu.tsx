@@ -14,7 +14,7 @@ import type { Effort, InteractionMode, RuntimeMode } from "@OpenAde/contracts/en
 import type { ModelOption, SkillSummary } from "@OpenAde/contracts/rpc";
 
 import { TriggerMenu, type TriggerMenuItem } from "@/components/composer/trigger-menu";
-import { Close, Lightning, Play } from "@honeyicons/react";
+import { Brain, Close, Lightning, ListChecks, Lock, Play, Sparkles } from "@honeyicons/react";
 
 export type SlashLevel = "root" | "model" | "effort" | "mode";
 
@@ -79,7 +79,7 @@ export const slashMenuItems = (input: {
         id: `model:${model.id}`,
         label: model.label,
         description: model.family,
-        icon: Close,
+        icon: Brain,
         action: { type: "settings", patch: { model: model.id } },
       }));
   }
@@ -100,7 +100,7 @@ export const slashMenuItems = (input: {
       id: `mode:${mode.value}`,
       label: mode.label,
       description: mode.description,
-      icon: Close,
+      icon: Lock,
       action: { type: "settings", patch: { runtimeMode: mode.value } },
     }));
   }
@@ -110,7 +110,7 @@ export const slashMenuItems = (input: {
       id: "builtin:model",
       label: "/model",
       description: "Switch the response model",
-      icon: Close,
+      icon: Brain,
       action: { type: "level", level: "model" },
     },
     {
@@ -124,14 +124,14 @@ export const slashMenuItems = (input: {
       id: "builtin:mode",
       label: "/mode",
       description: "Switch the runtime permission mode",
-      icon: Close,
+      icon: Lock,
       action: { type: "level", level: "mode" },
     },
     {
       id: "builtin:plan",
       label: "/plan",
       description: "Plan first — propose instead of executing",
-      icon: Close,
+      icon: ListChecks,
       action: { type: "settings", patch: { interactionMode: "plan" } },
     },
     {
@@ -158,7 +158,7 @@ export const slashMenuItems = (input: {
       id: `skill:${skill.name}`,
       label: `/${skill.name}`,
       description: skill.description,
-      icon: Close,
+      icon: Sparkles,
       action: { type: "insert", text: `/${skill.name} ` },
     }));
 

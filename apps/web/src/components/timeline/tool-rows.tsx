@@ -10,7 +10,7 @@ import type { ReactNode } from "react";
 
 import { DisclosureRow, JsonBlock, MonoBlock } from "@/components/timeline/row-shell";
 import { cn } from "@/lib/utils";
-import { Brain, Close, Terminal } from "@honeyicons/react";
+import { Close, Globe, Lightbulb, Server, Terminal } from "@honeyicons/react";
 
 /** First line of a value for a row label — strings verbatim, objects compact. */
 const preview = (value: unknown, max = 80): string | undefined => {
@@ -61,7 +61,7 @@ export function ReasoningRow({ item }: { item: ItemSnapshot }) {
   return (
     <DisclosureRow
       rowId={item.itemId}
-      icon={Brain}
+      icon={Lightbulb}
       label={inProgress ? "Thinking…" : "Reasoning"}
       status={item.status}
     >
@@ -137,7 +137,7 @@ export function McpToolCallRow({ item }: { item: ItemSnapshot }) {
   return (
     <DisclosureRow
       rowId={item.itemId}
-      icon={Close}
+      icon={Server}
       label={
         <>
           {tool?.server !== undefined ? (
@@ -160,7 +160,7 @@ export function WebSearchRow({ item }: { item: ItemSnapshot }) {
     <ToolPayload input={item.tool?.input} output={item.tool?.output} />
   ) : undefined;
   return (
-    <DisclosureRow rowId={item.itemId} icon={Close} label={query} status={item.status}>
+    <DisclosureRow rowId={item.itemId} icon={Globe} label={query} status={item.status}>
       {body}
     </DisclosureRow>
   );

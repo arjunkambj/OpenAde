@@ -25,7 +25,7 @@ import { CardShell } from "@/components/approvals/card-shell";
 import { PatternEditor } from "@/components/approvals/pattern-editor";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
-import { ChevronDown, ChevronUp, Close } from "@honeyicons/react";
+import { ChevronDown, ChevronUp, Lock } from "@honeyicons/react";
 
 /** One-line summary of `request.input`, by approval kind. */
 const subjectSummary = (request: ApprovalRequest): string | null => {
@@ -120,7 +120,7 @@ export function ApprovalCard({
 
   return (
     <CardShell
-      icon={Close}
+      icon={Lock}
       title={request.description.length > 0 ? request.description : "Approval requested"}
       hint={
         <span className="inline-flex items-center gap-1.5">

@@ -11,7 +11,7 @@ import * as React from "react";
 import { Button } from "@OpenAde/ui/components/button";
 
 import { INSTALL_COMMANDS } from "./install";
-import { Check, Close, Copy as CopyIcon } from "@honeyicons/react";
+import { Check, Copy as CopyIcon, Globe } from "@honeyicons/react";
 
 function CommandRow({ command, note }: { command: string; note: string }) {
   const [copied, setCopied] = React.useState(false);
@@ -55,7 +55,7 @@ export function InstallPrompt({ onRetry }: { readonly onRetry: () => void }) {
     <div className="flex flex-1 items-center justify-center overflow-y-auto p-6">
       <div className="flex w-full max-w-md flex-col gap-3">
         <div className="flex items-center gap-2">
-          <Close className="size-5 text-muted-foreground" />
+          <Globe className="size-5 text-muted-foreground" />
           <h2 className="type-body font-medium">The browser tool is not installed</h2>
         </div>
         <p className="type-body text-muted-foreground">

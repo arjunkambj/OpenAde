@@ -28,10 +28,14 @@ import { useCreateThread } from "@/lib/use-create-thread";
 import { useProjects, useThreadList } from "@/state/hooks";
 import {
   Add,
-  Close,
+  Chat,
+  Connect,
   Search as SearchIcon,
+  Server,
   Settings as SettingsIcon,
   SidebarLeft,
+  Sparkles,
+  SquarePen,
 } from "@honeyicons/react";
 
 type SearchContextValue = {
@@ -60,13 +64,13 @@ function useSearch() {
 const searchItems = [
   {
     to: "/",
-    icon: Add,
+    icon: SquarePen,
     label: "New task",
     shortcut: "newChat",
   },
-  { to: "/customize/skills", icon: Close, label: "Skills" },
-  { to: "/customize/mcp", icon: Close, label: "MCP servers" },
-  { to: "/settings/connectors", icon: Close, label: "Connectors" },
+  { to: "/customize/skills", icon: Sparkles, label: "Skills" },
+  { to: "/customize/mcp", icon: Server, label: "MCP servers" },
+  { to: "/settings/connectors", icon: Connect, label: "Connectors" },
   {
     to: "/settings",
     icon: SettingsIcon,
@@ -179,7 +183,7 @@ function LiveGroups({ onDone }: { onDone: () => void }) {
                   void navigate({ to: "/t/$threadId", params: { threadId: thread.threadId } });
                 }}
               >
-                <Close />
+                <Chat />
                 <span className="min-w-0 flex-1 truncate">{thread.title}</span>
                 <span className="shrink-0 type-micro text-muted-foreground">
                   {projectName(thread.projectId)}

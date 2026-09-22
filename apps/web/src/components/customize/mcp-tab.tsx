@@ -32,7 +32,7 @@ import {
   matchesQuery,
 } from "./customize-list";
 import { McpServerDialog } from "./mcp-server-dialog";
-import { Add as AddIcon, Close, Edit as EditIcon, MoreVertical, Trash } from "@honeyicons/react";
+import { Add as AddIcon, Edit as EditIcon, MoreVertical, Server, Trash } from "@honeyicons/react";
 
 const describeServer = (server: McpServerConfig): string =>
   server.transport === "stdio"
@@ -83,7 +83,7 @@ export function McpTab() {
           shown.map((server) => (
             <CustomizeCard
               key={`${server.scope}:${server.name}`}
-              icon={Close}
+              icon={Server}
               title={server.name}
               muted={!server.enabled}
               tags={

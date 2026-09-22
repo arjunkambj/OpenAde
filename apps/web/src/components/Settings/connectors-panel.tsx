@@ -29,7 +29,7 @@ import { openExternal } from "@/lib/desktop";
 
 import { helpUrlFor } from "./probe-help";
 import { SchemaForm, type SelectOption } from "./schema-form";
-import { Add as AddIcon, Repeat, Trash } from "@honeyicons/react";
+import { Add as AddIcon, Repeat, Spinner, Trash } from "@honeyicons/react";
 
 const PROBE_LABEL: Record<ConnectorProbe["status"], string> = {
   ready: "Ready",
@@ -231,7 +231,7 @@ export function ConnectorsPanel() {
           <p className="mt-1 text-sm text-muted-foreground">Harnesses your threads run on.</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => void runProbe()} disabled={probing}>
-          <Repeat className={probing ? "animate-spin" : undefined} />
+          {probing ? <Spinner /> : <Repeat />}
           {probing ? "Probing…" : "Probe all"}
         </Button>
       </div>

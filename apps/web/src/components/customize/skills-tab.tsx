@@ -27,7 +27,7 @@ import {
   CustomizeTag,
   matchesQuery,
 } from "./customize-list";
-import { Add as AddIcon, Close, Spinner } from "@honeyicons/react";
+import { Add as AddIcon, Sparkles, Spinner } from "@honeyicons/react";
 
 export function SkillsTab() {
   const atoms = useAppAtoms();
@@ -77,7 +77,7 @@ export function SkillsTab() {
           shown.map((skill) => (
             <CustomizeCard
               key={skill.path}
-              icon={Close}
+              icon={Sparkles}
               title={skill.name}
               muted={!skill.enabled}
               tags={
@@ -107,7 +107,7 @@ export function SkillsTab() {
             agentShown.map((skill) => (
               <CustomizeCard
                 key={skill.entry}
-                icon={Close}
+                icon={Sparkles}
                 title={skill.name}
                 actions={
                   <Button

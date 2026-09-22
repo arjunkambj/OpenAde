@@ -41,3 +41,6 @@ catalog:
   remark-gfm: ^4.0.1
   # Dead-export audit.
   knip: ^6.35.1
+
+minimumReleaseAgeExclude:
+  - "@honeyicons/react@0.0.5"

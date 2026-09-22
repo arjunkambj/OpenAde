@@ -6,13 +6,13 @@
 
 import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
 
-import { AlertTriangle, Close, Minimize } from "@honeyicons/react";
+import { AlertTriangle, InfoSquare, Minimize, Sparkles } from "@honeyicons/react";
 
 export function SkillRow({ item }: { item: ItemSnapshot }) {
   return (
     <div className="flex min-h-6 items-center py-0.5">
       <span className="inline-flex items-center gap-1.5 rounded-full bg-file-bg px-2.5 py-0.5 type-body text-file">
-        <Close className="size-3.5" />
+        <Sparkles className="size-3.5" />
         {item.text ?? "skill"}
       </span>
     </div>
@@ -49,7 +49,7 @@ export function ContextCompactionRow({ item }: { item: ItemSnapshot }) {
 export function UnknownRow({ item }: { item: ItemSnapshot }) {
   return (
     <div className="flex min-h-6 items-center gap-2 py-0.5 type-body italic text-muted-foreground">
-      <Close className="size-3.5 shrink-0" />
+      <InfoSquare className="size-3.5 shrink-0" />
       <span className="min-w-0 truncate">{item.text ?? "Unrecognized timeline item"}</span>
     </div>
   );

@@ -15,7 +15,7 @@
  */
 
 import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
-import { type HoneyIcon, Close, Spinner } from "@honeyicons/react";
+import { type HoneyIcon, AlertTriangle, Bell, Spinner } from "@honeyicons/react";
 
 /** What the row draws, or `null` for a thread with nothing to report. */
 export interface ThreadStatusMark {
@@ -31,7 +31,7 @@ export const threadStatusMark = (
 ): ThreadStatusMark | null => {
   if (thread.awaitingInput || thread.status === "waiting") {
     return {
-      icon: Close,
+      icon: Bell,
       label: "Waiting for you",
       tone: "text-permission",
     };
@@ -45,7 +45,7 @@ export const threadStatusMark = (
       };
     case "error":
       return {
-        icon: Close,
+        icon: AlertTriangle,
         label: "Error",
         tone: "text-destructive",
       };

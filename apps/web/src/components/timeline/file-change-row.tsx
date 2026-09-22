@@ -11,7 +11,7 @@ import { DisclosureRow } from "@/components/timeline/row-shell";
 import { diffStats } from "@/lib/diff-stats";
 import { cn } from "@/lib/utils";
 import { useRowDisclosure } from "@/state/ui";
-import { Close } from "@honeyicons/react";
+import { Edit } from "@honeyicons/react";
 
 const KIND_LABEL = {
   create: "created",
@@ -50,7 +50,7 @@ export function FileChangeRow({ item }: { item: ItemSnapshot }) {
     return (
       <DisclosureRow
         rowId={item.itemId}
-        icon={Close}
+        icon={Edit}
         label={<span className="font-mono text-xs">{fileChangeFallbackLabel(item.text)}</span>}
         status={item.status}
       />
@@ -59,7 +59,7 @@ export function FileChangeRow({ item }: { item: ItemSnapshot }) {
   return (
     <DisclosureRow
       rowId={item.itemId}
-      icon={Close}
+      icon={Edit}
       label={
         <>
           <span className="font-mono text-xs">{fileChange.path}</span>

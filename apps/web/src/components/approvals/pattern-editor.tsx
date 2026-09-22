@@ -12,7 +12,7 @@ import {
   type PatternSubject,
 } from "@OpenAde/shared/permissionPattern";
 
-import { AlertTriangle, Close } from "@honeyicons/react";
+import { AlertTriangle, Check } from "@honeyicons/react";
 
 export function PatternEditor({
   value,
@@ -61,7 +61,7 @@ export function PatternEditor({
           </>
         ) : matches ? (
           <>
-            <Close className="size-3.5 shrink-0" />
+            <Check className="size-3.5 shrink-0" />
             <span>Matches this request.</span>
           </>
         ) : (

@@ -1,6 +1,6 @@
 import { useTheme } from "next-themes";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
-import { AlertTriangle, Close, Spinner } from "@honeyicons/react";
+import { AlertTriangle, Check, InfoSquare, OctagonX, Spinner } from "@honeyicons/react";
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme();
@@ -10,10 +10,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme={theme as ToasterProps["theme"]}
       className="group"
       icons={{
-        success: <Close className="size-4" />,
-        info: <Close className="size-4" />,
+        success: <Check className="size-4" />,
+        info: <InfoSquare className="size-4" />,
         warning: <AlertTriangle className="size-4" />,
-        error: <Close className="size-4" />,
+        error: <OctagonX className="size-4" />,
         loading: <Spinner className="size-4" />,
       }}
       style={

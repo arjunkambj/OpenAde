@@ -6,11 +6,11 @@
 import type { ItemSnapshot, Todo } from "@OpenAde/contracts/runtime";
 
 import { cn } from "@/lib/utils";
-import { Close } from "@honeyicons/react";
+import { Check, Close } from "@honeyicons/react";
 
 function TodoIcon({ status }: { status: Todo["status"] }) {
   if (status === "completed") {
-    return <Close className="size-3.5 text-added" />;
+    return <Check className="size-3.5 text-added" />;
   }
   if (status === "in_progress") {
     return <Close className="size-3.5 text-permission" />;
