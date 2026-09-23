@@ -28,8 +28,8 @@
  * only once the turn has actually settled, so the caller that interrupted a
  * turn can act on a thread that is genuinely idle.
  *
- * Semantics follow zuse's `kernel/turn-protocol.ts`, adapted to our flat
- * `RuntimeEvent` union: it uses a scope/envelope split, we tag the envelope.
+ * Every event is stamped on the flat `RuntimeEvent` union itself rather than
+ * wrapped in a separate scope envelope.
  */
 
 import { makeEventId } from "@OpenAde/contracts/ids";
