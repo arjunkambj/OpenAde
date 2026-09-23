@@ -9,6 +9,7 @@ import {
   CommandInput,
   CommandList,
 } from "@OpenAde/ui/components/command";
+import { Kbd, KbdGroup } from "@OpenAde/ui/components/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 
 import {
@@ -17,6 +18,7 @@ import {
   SettingsGroup,
   ThreadsGroup,
 } from "@/components/Layout/palette-groups";
+import { paletteFilter, paletteQuery } from "@/lib/palette-query";
 import { SHORTCUT_COMMANDS, ShortcutKbd, useKeybindingCommand } from "@/lib/shortcuts";
 import { Search as SearchIcon } from "@honeyicons/react";
 
@@ -109,20 +111,55 @@ function SearchDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const done = () => onOpenChange(false);
-
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange} title="Search">
-      <Command>
-        <CommandInput placeholder="Search threads and commands…" />
-        <CommandList>
-          <CommandEmpty>No results found.</CommandEmpty>
-          <NavigationGroup onDone={done} />
-          <ActionsGroup onDone={done} />
-          <SettingsGroup onDone={done} />
-          <ThreadsGroup onDone={done} />
-        </CommandList>
-      </Command>
+      <PaletteContent onDone={() => onOpenChange(false)} />
     </CommandDialog>
+  );
+}
+
+/**
+ * The palette itself. It mounts on every open, so the input starts empty each
+ * time. A leading ">" narrows it to commands: the thread list steps aside and
+ * the entries match against the text after the ">" (@/lib/palette-query).
+ */
+function PaletteContent({ onDone }: { onDone: () => void }) {
+  const [search, setSearch] = React.useState("");
+  const { commandsOnly } = paletteQuery(search);
+
+  return (
+    <Command filter={paletteFilter}>
+      <CommandInput
+        value={search}
+        onValueChange={setSearch}
+        placeholder="Search threads, or type > for commands…"
+      />
+      <CommandList>
+        <CommandEmpty>No results found.</CommandEmpty>
+        <NavigationGroup onDone={onDone} />
+        <ActionsGroup onDone={onDone} />
+        <SettingsGroup onDone={onDone} />
+        {commandsOnly ? null : <ThreadsGroup onDone={onDone} />}
+      </CommandList>
+      <div className="-mx-1 -mb-1 mt-1 flex items-center gap-3 border-t px-3 py-2 type-micro text-muted-foreground">
+        <KeyHint keys={["↑", "↓"]} label="navigate" />
+        <KeyHint keys={["↵"]} label="open" />
+        <KeyHint keys={["esc"]} label="close" />
+        <KeyHint keys={[">"]} label="commands" />
+      </div>
+    </Command>
+  );
+}
+
+function KeyHint({ keys, label }: { keys: ReadonlyArray<string>; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <KbdGroup>
+        {keys.map((key) => (
+          <Kbd key={key}>{key}</Kbd>
+        ))}
+      </KbdGroup>
+      {label}
+    </span>
   );
 }
