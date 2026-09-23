@@ -69,7 +69,7 @@ import * as SubscriptionRef from "effect/SubscriptionRef";
 
 import { watchThread, type ThreadWatch, type ViewMark, type Watch } from "./watch";
 
-import { boot, type BootedServer } from "../../src/boot";
+import { boot, type BootedServer, type BootOptions } from "../../src/boot";
 import { layer as sqliteLayer } from "../../src/persistence/Sqlite";
 import { SettingsStore } from "../../src/rpc/services";
 
@@ -120,16 +120,20 @@ const initWorkspace = (workspace: string, seed: Readonly<Record<string, string>>
 /**
  * A fresh home bound to the calling scope. `seed` is written into the
  * workspace and committed, so a checkpoint diff has something to be a diff of.
+ * `parent` is where it is made — the system temp directory unless a recording
+ * says otherwise.
  */
 export const makeHome = (
   label: string,
   seed: Readonly<Record<string, string>> = {},
+  parent: string = NodeOS.tmpdir(),
 ): Effect.Effect<E2EHome, never, import("effect/Scope").Scope> =>
   Effect.gen(function* () {
     const root = yield* Effect.acquireRelease(
-      Effect.sync(() =>
-        NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), `openade-e2e-${label}-`)),
-      ),
+      Effect.sync(() => {
+        NodeFS.mkdirSync(parent, { recursive: true });
+        return NodeFS.mkdtempSync(NodePath.join(parent, `openade-e2e-${label}-`));
+      }),
       (path) => Effect.sync(() => NodeFS.rmSync(path, { recursive: true, force: true })),
     );
     const home: E2EHome = {
@@ -269,7 +273,10 @@ export const seedSettings = (
  * spawned children inherit it, and a test must not leave it pointing at a
  * directory it is about to delete.
  */
-export const bootServer = (home: E2EHome, options: { readonly dev?: boolean } = {}) =>
+export const bootServer = (
+  home: E2EHome,
+  options: { readonly dev?: boolean; readonly claudeCode?: BootOptions["claudeCode"] } = {},
+) =>
   Effect.acquireRelease(
     Effect.sync(() => process.env.OPENADE_HOME),
     (previous) =>
@@ -290,6 +297,7 @@ export const bootServer = (home: E2EHome, options: { readonly dev?: boolean } = 
         // cannot move it — it is the user's `~/.commandcode` — so without this
         // the settings scenario would edit the operator's real one.
         commandCodeHome: NodePath.join(home.cmdHome, ".commandcode"),
+        ...(options.claudeCode === undefined ? {} : { claudeCode: options.claudeCode }),
       }),
     ),
     Effect.orDie,
