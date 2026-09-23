@@ -86,7 +86,7 @@ export function ComposerToolbar({
             disabled={attachDisabled}
             onClick={() => fileInputRef.current?.click()}
           >
-            <Add />
+            <Add variant="bold" />
           </Button>
         </TooltipTrigger>
         <TooltipContent>{attachDisabledReason ?? "Attach files"}</TooltipContent>
@@ -115,7 +115,7 @@ export function ComposerToolbar({
               />
             }
           >
-            {interrupting ? <Spinner /> : <StopIcon />}
+            {interrupting ? <Spinner variant="bold" /> : <StopIcon variant="bold" />}
           </TooltipTrigger>
           <TooltipContent>
             Stop turn
@@ -137,7 +137,13 @@ export function ComposerToolbar({
             />
           }
         >
-          {sending ? <Spinner /> : running ? <Close /> : <ArrowUp />}
+          {sending ? (
+            <Spinner variant="bold" />
+          ) : running ? (
+            <Close variant="bold" />
+          ) : (
+            <ArrowUp variant="bold" />
+          )}
         </TooltipTrigger>
         <TooltipContent>
           {running ? (

@@ -74,9 +74,15 @@ function SelectTrigger({
         data-slot="select-icon"
         render={
           variant === "composer" ? (
-            <ChevronDown className="pointer-events-none size-4 text-muted-foreground" />
+            <ChevronDown
+              variant="bold"
+              className="pointer-events-none size-4 text-muted-foreground"
+            />
           ) : (
-            <UnfoldMore className="pointer-events-none size-4 text-muted-foreground" />
+            <UnfoldMore
+              variant="bold"
+              className="pointer-events-none size-4 text-muted-foreground"
+            />
           )
         }
       />
@@ -154,7 +160,7 @@ function SelectItem({ className, children, ...props }: SelectPrimitive.Item.Prop
           <span className="pointer-events-none absolute right-2 flex size-4 items-center justify-center" />
         }
       >
-        <Check className="pointer-events-none" />
+        <Check variant="bold" className="pointer-events-none" />
       </SelectPrimitive.ItemIndicator>
     </SelectPrimitive.Item>
   );
@@ -183,7 +189,7 @@ function SelectScrollUpButton({
       )}
       {...props}
     >
-      <ChevronUp />
+      <ChevronUp variant="bold" />
     </SelectPrimitive.ScrollUpArrow>
   );
 }
@@ -201,7 +207,7 @@ function SelectScrollDownButton({
       )}
       {...props}
     >
-      <ChevronDown />
+      <ChevronDown variant="bold" />
     </SelectPrimitive.ScrollDownArrow>
   );
 }

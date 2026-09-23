@@ -45,7 +45,7 @@ export function CopyCommand({ command }: { readonly command: string }) {
             />
           }
         >
-          {copied ? <Check /> : <CopyIcon />}
+          {copied ? <Check variant="bold" /> : <CopyIcon variant="bold" />}
         </TooltipTrigger>
         <TooltipContent>{copied ? "Copied" : "Copy command"}</TooltipContent>
       </Tooltip>

@@ -65,7 +65,7 @@ export function HarnessHealthBanner({
 
   return (
     <Alert className={cn("w-full", className)}>
-      <AlertTriangle />
+      <AlertTriangle variant="bold" />
       <AlertTitle>{health.message}</AlertTitle>
       <AlertDescription>
         {health.command === null ? (
@@ -102,7 +102,7 @@ export function HarnessHealthBanner({
           disabled={checking}
           onClick={() => void checkAgain()}
         >
-          {checking ? <Spinner /> : null}
+          {checking ? <Spinner variant="bold" /> : null}
           Check again
         </Button>
       </AlertAction>

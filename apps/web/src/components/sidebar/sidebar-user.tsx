@@ -27,7 +27,7 @@ export function SidebarUser({ onNavigate }: { onNavigate?: () => void }) {
               />
             }
           >
-            <SettingsIcon />
+            <SettingsIcon variant="bold" />
           </TooltipTrigger>
           <TooltipContent>Settings</TooltipContent>
         </Tooltip>

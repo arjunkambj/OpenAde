@@ -57,7 +57,7 @@ export function TriggerMenu<T extends TriggerMenuItem>({
             }}
           >
             {item.icon === undefined ? null : (
-              <item.icon className="size-4 shrink-0 text-muted-foreground" />
+              <item.icon variant="bold" className="size-4 shrink-0 text-muted-foreground" />
             )}
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
             {item.description === undefined ? null : (

@@ -10,12 +10,12 @@ import { Check, Close } from "@honeyicons/react";
 
 function TodoIcon({ status }: { status: Todo["status"] }) {
   if (status === "completed") {
-    return <Check className="size-3.5 text-added" />;
+    return <Check variant="bold" className="size-3.5 text-added" />;
   }
   if (status === "in_progress") {
-    return <Close className="size-3.5 text-permission" />;
+    return <Close variant="bold" className="size-3.5 text-permission" />;
   }
-  return <Close className="size-3.5 text-muted-foreground" />;
+  return <Close variant="bold" className="size-3.5 text-muted-foreground" />;
 }
 
 export function TodoRow({ item }: { item: ItemSnapshot }) {

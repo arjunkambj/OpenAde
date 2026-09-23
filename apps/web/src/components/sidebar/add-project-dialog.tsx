@@ -132,7 +132,7 @@ export function AddProjectDialog({
       <Dialog open={open} onOpenChange={setOpen}>
         {trigger === "button" ? (
           <DialogTrigger render={<Button type="button" disabled={disabled} />}>
-            <FolderAdd />
+            <FolderAdd variant="bold" />
             Add a project
           </DialogTrigger>
         ) : (
@@ -152,7 +152,7 @@ export function AddProjectDialog({
                 />
               }
             >
-              <FolderAdd />
+              <FolderAdd variant="bold" />
             </TooltipTrigger>
             <TooltipContent>Add project</TooltipContent>
           </Tooltip>
@@ -167,7 +167,7 @@ export function AddProjectDialog({
           <form onSubmit={(event) => void submit(event)} className="flex flex-col gap-5">
             <InputGroup className="h-10">
               <InputGroupAddon>
-                <Folder />
+                <Folder variant="bold" />
               </InputGroupAddon>
               <InputGroupInput
                 aria-label="Project name"
@@ -194,13 +194,13 @@ export function AddProjectDialog({
                       shape="pill"
                       onClick={() => void choose()}
                     >
-                      <FolderAdd />
+                      <FolderAdd variant="bold" />
                       Add
                     </Button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 py-2 pr-2 pl-3.5">
-                    <Folder className="size-4 shrink-0 text-muted-foreground" />
+                    <Folder variant="bold" className="size-4 shrink-0 text-muted-foreground" />
                     {/* Still typeable: the pickers fill it, a person can fix it. */}
                     <input
                       aria-labelledby="project-root-label"
@@ -226,7 +226,7 @@ export function AddProjectDialog({
                           />
                         }
                       >
-                        <Close />
+                        <Close variant="bold" />
                       </TooltipTrigger>
                       <TooltipContent>Remove folder</TooltipContent>
                     </Tooltip>

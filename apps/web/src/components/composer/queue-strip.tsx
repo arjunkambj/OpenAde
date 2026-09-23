@@ -88,7 +88,7 @@ export function QueueStrip({
       aria-label="Queued messages"
     >
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <Close className="size-3.5" />
+        <Close variant="bold" className="size-3.5" />
         <span>
           {queue.length} queued {queue.length === 1 ? "message" : "messages"} — sent in order when
           the turn ends
@@ -122,7 +122,7 @@ export function QueueStrip({
                   />
                 }
               >
-                <ChevronUp />
+                <ChevronUp variant="bold" />
               </TooltipTrigger>
               <TooltipContent>Send this one sooner</TooltipContent>
             </Tooltip>
@@ -141,7 +141,7 @@ export function QueueStrip({
                   />
                 }
               >
-                <ChevronDown />
+                <ChevronDown variant="bold" />
               </TooltipTrigger>
               <TooltipContent>Send this one later</TooltipContent>
             </Tooltip>
@@ -160,7 +160,7 @@ export function QueueStrip({
                   />
                 }
               >
-                <Close />
+                <Close variant="bold" />
               </TooltipTrigger>
               <TooltipContent>Remove from the queue</TooltipContent>
             </Tooltip>

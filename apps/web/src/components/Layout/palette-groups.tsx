@@ -70,7 +70,7 @@ export function NavigationGroup({ onDone }: GroupProps) {
             void navigate({ to: item.to });
           }}
         >
-          <item.icon />
+          <item.icon variant="bold" />
           {item.label}
           <ItemShortcut id={"shortcut" in item ? item.shortcut : undefined} />
         </CommandItem>
@@ -100,7 +100,7 @@ export function SettingsGroup({ onDone }: GroupProps) {
               void navigate({ to: page.to });
             }}
           >
-            <page.icon />
+            <page.icon variant="bold" />
             {page.label}
             <ItemShortcut id={page.to === "/settings" ? "settings" : undefined} />
           </CommandItem>
@@ -139,7 +139,7 @@ export function ActionsGroup({ onDone }: GroupProps) {
       <CommandGroup heading="Actions">
         {canAddProject ? (
           <CommandItem value="Add project" onSelect={run(SHORTCUT_COMMANDS.addProject)}>
-            <FolderAdd />
+            <FolderAdd variant="bold" />
             Add project
             <ItemShortcut id="addProject" />
           </CommandItem>
@@ -153,13 +153,13 @@ export function ActionsGroup({ onDone }: GroupProps) {
               void create(project.projectId);
             }}
           >
-            <Add />
+            <Add variant="bold" />
             New thread in {project.name}
           </CommandItem>
         ))}
         {canToggleSidebar ? (
           <CommandItem value="Toggle sidebar" onSelect={run(SHORTCUT_COMMANDS.toggle)}>
-            <SidebarLeft />
+            <SidebarLeft variant="bold" />
             Toggle sidebar
             <ItemShortcut id="toggle" />
           </CommandItem>
@@ -203,7 +203,7 @@ export function ThreadsGroup({ onDone }: GroupProps) {
                 void navigate({ to: "/t/$threadId", params: { threadId: thread.threadId } });
               }}
             >
-              {archived ? <Archive /> : <Chat />}
+              {archived ? <Archive variant="bold" /> : <Chat variant="bold" />}
               <span className="min-w-0 flex-1 truncate">{thread.title}</span>
               <span className="shrink-0 type-micro text-muted-foreground">
                 {archived

@@ -49,7 +49,7 @@ function PxStepper({
               />
             }
           >
-            <Minus />
+            <Minus variant="bold" />
           </TooltipTrigger>
           <TooltipContent>Smaller</TooltipContent>
         </Tooltip>
@@ -68,7 +68,7 @@ function PxStepper({
               />
             }
           >
-            <Add />
+            <Add variant="bold" />
           </TooltipTrigger>
           <TooltipContent>Larger</TooltipContent>
         </Tooltip>

@@ -91,7 +91,7 @@ function NewThreadButton({
           />
         }
       >
-        <Add />
+        <Add variant="bold" />
       </TooltipTrigger>
       <TooltipContent>New thread</TooltipContent>
     </Tooltip>
@@ -151,7 +151,7 @@ export function ProjectTree() {
           <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                <FolderAdd />
+                <FolderAdd variant="bold" />
               </EmptyMedia>
               <EmptyTitle>
                 {connection.status === "connected" ? "No projects yet" : "Not connected"}
@@ -177,7 +177,7 @@ export function ProjectTree() {
           {orphanThreads.length > 0 ? (
             <>
               <div className="flex h-8 items-center gap-2.5 rounded-xl px-2 text-sm text-sidebar-foreground">
-                <Folder className="size-4 shrink-0" />
+                <Folder variant="bold" className="size-4 shrink-0" />
                 <span className="min-w-0 truncate">Other threads</span>
               </div>
               <SidebarMenu>
@@ -224,11 +224,18 @@ function ProjectSection({
           {/* The folder turns into the disclosure chevron under the pointer. */}
           <span className="relative flex size-4 shrink-0 items-center justify-center">
             {collapsed ? (
-              <Folder className="size-4 transition-opacity duration-150 ease-out group-hover/project:opacity-0" />
+              <Folder
+                variant="bold"
+                className="size-4 transition-opacity duration-150 ease-out group-hover/project:opacity-0"
+              />
             ) : (
-              <FolderOpen className="size-4 transition-opacity duration-150 ease-out group-hover/project:opacity-0" />
+              <FolderOpen
+                variant="bold"
+                className="size-4 transition-opacity duration-150 ease-out group-hover/project:opacity-0"
+              />
             )}
             <ChevronRight
+              variant="bold"
               className={cn(
                 "absolute size-4 opacity-0 transition-all duration-150 ease-out group-hover/project:opacity-100",
                 !collapsed && "rotate-90",

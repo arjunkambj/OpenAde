@@ -36,7 +36,7 @@ export function ErrorScreen({ error, reset }: { error: unknown; reset?: () => vo
       role="alert"
       className="flex h-svh flex-col items-center justify-center gap-3 bg-background px-6 text-center"
     >
-      <AlertTriangle className="size-6 text-destructive" />
+      <AlertTriangle variant="bold" className="size-6 text-destructive" />
       <p className="type-body text-foreground">This screen could not be rendered.</p>
       <p className="max-w-lg font-mono text-xs break-words text-muted-foreground">
         {errorSummary(error)}
@@ -44,7 +44,7 @@ export function ErrorScreen({ error, reset }: { error: unknown; reset?: () => vo
       <div className="mt-1 flex items-center gap-2">
         {reset === undefined ? null : (
           <Button type="button" variant="outline" onClick={reset}>
-            <Repeat />
+            <Repeat variant="bold" />
             Try again
           </Button>
         )}

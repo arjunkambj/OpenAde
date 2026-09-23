@@ -41,7 +41,7 @@ function ChromeSidebarTrigger() {
           />
         }
       >
-        <SidebarLeft />
+        <SidebarLeft variant="bold" />
         <span className="sr-only">Toggle sidebar</span>
       </TooltipTrigger>
       <TooltipContent>
@@ -80,7 +80,7 @@ function ChromeHistoryButtons() {
               />
             }
           >
-            <ChevronLeft className="scale-90" />
+            <ChevronLeft variant="bold" className="scale-90" />
           </TooltipTrigger>
           <TooltipContent>Back</TooltipContent>
         </Tooltip>
@@ -99,7 +99,7 @@ function ChromeHistoryButtons() {
               />
             }
           >
-            <ChevronRight className="scale-90" />
+            <ChevronRight variant="bold" className="scale-90" />
           </TooltipTrigger>
           <TooltipContent>Forward</TooltipContent>
         </Tooltip>

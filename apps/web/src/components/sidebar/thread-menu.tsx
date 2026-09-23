@@ -155,13 +155,13 @@ export function ThreadRowMenu({ thread }: { readonly thread: ThreadSummary }) {
               />
             }
           >
-            <MoreHorizontal />
+            <MoreHorizontal variant="bold" />
           </TooltipTrigger>
           <TooltipContent>More actions</TooltipContent>
         </Tooltip>
         <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuItem onClick={() => setDialog("rename")}>
-            <Edit />
+            <Edit variant="bold" />
             Rename
           </DropdownMenuItem>
           {thread.status === "archived" ? (
@@ -174,7 +174,7 @@ export function ThreadRowMenu({ thread }: { readonly thread: ThreadSummary }) {
                 )
               }
             >
-              <ArchiveUp />
+              <ArchiveUp variant="bold" />
               Unarchive
             </DropdownMenuItem>
           ) : (
@@ -187,13 +187,13 @@ export function ThreadRowMenu({ thread }: { readonly thread: ThreadSummary }) {
                 )
               }
             >
-              <ArchiveIcon />
+              <ArchiveIcon variant="bold" />
               Archive
             </DropdownMenuItem>
           )}
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onClick={() => setDialog("delete")}>
-            <Trash />
+            <Trash variant="bold" />
             Delete
           </DropdownMenuItem>
         </DropdownMenuContent>

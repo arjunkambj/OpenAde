@@ -52,7 +52,7 @@ export function PermissionRuleRow({
               />
             }
           >
-            <Edit />
+            <Edit variant="bold" />
           </TooltipTrigger>
           <TooltipContent>Edit rule</TooltipContent>
         </Tooltip>
@@ -68,7 +68,7 @@ export function PermissionRuleRow({
               />
             }
           >
-            <Trash />
+            <Trash variant="bold" />
           </TooltipTrigger>
           <TooltipContent>Delete rule</TooltipContent>
         </Tooltip>

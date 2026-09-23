@@ -126,7 +126,7 @@ export function PermissionsPanel() {
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <Lock />
+              <Lock variant="bold" />
             </EmptyMedia>
             <EmptyTitle>No saved rules</EmptyTitle>
             <EmptyDescription>

@@ -27,7 +27,7 @@ export function SidebarPrimaryNav({ onNavigate }: { onNavigate?: () => void }) {
               isActive={Boolean(matchRoute({ to: item.to, fuzzy: item.fuzzy }))}
               onClick={onNavigate}
             >
-              <item.icon />
+              <item.icon variant="bold" />
               {item.label}
             </SidebarMenuButton>
           </SidebarMenuItem>

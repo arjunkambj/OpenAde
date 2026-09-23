@@ -74,7 +74,7 @@ function ArchivedRow({
         Updated {UPDATED_AT.format(new Date(thread.updatedAt))}
       </time>
       <Button variant="outline" size="sm" disabled={disabled} onClick={onUnarchive}>
-        <ArchiveUp />
+        <ArchiveUp variant="bold" />
         Unarchive
       </Button>
       <Button
@@ -84,7 +84,7 @@ function ArchivedRow({
         aria-label={`Delete ${thread.title}`}
         onClick={onDelete}
       >
-        <Trash />
+        <Trash variant="bold" />
         Delete
       </Button>
     </li>
@@ -125,7 +125,9 @@ export function ArchivedThreadsPanel() {
         // would claim an answer the server has not given.
         <Empty>
           <EmptyHeader>
-            <EmptyMedia variant="icon">{disabled ? <Archive /> : <Spinner />}</EmptyMedia>
+            <EmptyMedia variant="icon">
+              {disabled ? <Archive variant="bold" /> : <Spinner variant="bold" />}
+            </EmptyMedia>
             <EmptyTitle>{disabled ? "Not connected" : "Loading archived threads…"}</EmptyTitle>
             {disabled ? (
               <EmptyDescription>Connect to a server to see archived threads.</EmptyDescription>
@@ -136,7 +138,7 @@ export function ArchivedThreadsPanel() {
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <Archive />
+              <Archive variant="bold" />
             </EmptyMedia>
             <EmptyTitle>No archived threads</EmptyTitle>
             <EmptyDescription>

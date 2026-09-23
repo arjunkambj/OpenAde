@@ -58,7 +58,7 @@ function OpenChanges() {
         });
       }}
     >
-      <GitDiff data-icon="inline-start" />
+      <GitDiff variant="bold" data-icon="inline-start" />
       Open in Changes
     </Button>
   );

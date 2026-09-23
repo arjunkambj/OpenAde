@@ -168,7 +168,7 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
                             <TooltipTrigger
                               render={<span className="inline-flex text-permission" />}
                             >
-                              <AlertTriangle className="size-3.5" />
+                              <AlertTriangle variant="bold" className="size-3.5" />
                             </TooltipTrigger>
                             <TooltipContent>
                               Another binding on this chord wins — only the first match fires.
@@ -213,7 +213,7 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
                               />
                             }
                           >
-                            <Undo />
+                            <Undo variant="bold" />
                           </TooltipTrigger>
                           <TooltipContent>Reset to default</TooltipContent>
                         </Tooltip>
@@ -232,7 +232,7 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
                               />
                             }
                           >
-                            <Close />
+                            <Close variant="bold" />
                           </TooltipTrigger>
                           <TooltipContent>Remove binding</TooltipContent>
                         </Tooltip>
@@ -247,7 +247,7 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
                     <Empty>
                       <EmptyHeader>
                         <EmptyMedia variant="icon">
-                          <Keyboard />
+                          <Keyboard variant="bold" />
                         </EmptyMedia>
                         <EmptyTitle>Nothing is bound</EmptyTitle>
                         <EmptyDescription>
@@ -285,7 +285,7 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
                       disabled={added.command.trim() === "" || added.shortcut === ""}
                       onClick={addRow}
                     >
-                      <AddIcon />
+                      <AddIcon variant="bold" />
                       Add binding
                     </Button>
                   </span>

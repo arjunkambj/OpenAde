@@ -34,7 +34,7 @@ function ThreadStatusSlot({ thread, unread }: { thread: ThreadSummary; unread: b
     <span className="flex size-4 shrink-0 items-center justify-center">
       {mark !== null ? (
         <span title={mark.label} aria-label={mark.label} role="img" className="flex">
-          <mark.icon className={mark.tone} />
+          <mark.icon variant="bold" className={mark.tone} />
         </span>
       ) : unread ? (
         <span

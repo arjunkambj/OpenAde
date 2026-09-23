@@ -70,13 +70,13 @@ export function ProjectRowMenu({
               />
             }
           >
-            <MoreHorizontal />
+            <MoreHorizontal variant="bold" />
           </TooltipTrigger>
           <TooltipContent>More actions</TooltipContent>
         </Tooltip>
         <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuItem variant="destructive" onClick={() => setConfirming(true)}>
-            <Trash />
+            <Trash variant="bold" />
             Remove project
           </DropdownMenuItem>
         </DropdownMenuContent>

@@ -40,7 +40,7 @@ export function ThreadArchiveAction({ thread }: { readonly thread: ThreadSummary
           />
         }
       >
-        <Archive />
+        <Archive variant="bold" />
       </TooltipTrigger>
       <TooltipContent>Archive</TooltipContent>
     </Tooltip>

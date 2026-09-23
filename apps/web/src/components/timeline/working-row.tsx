@@ -12,7 +12,7 @@ import { Spinner } from "@honeyicons/react";
 export function WorkingRow({ row }: { row: TimelineWorkingRow }) {
   return (
     <div className="flex min-h-6 items-center gap-2 py-0.5 type-body text-muted-foreground">
-      <Spinner className="size-3.5" />
+      <Spinner variant="bold" className="size-3.5" />
       Working…
       {row.startedAt === undefined ? null : <Elapsed startedAt={row.startedAt} />}
     </div>

@@ -58,7 +58,7 @@ export function PatternEditor({
       >
         {parsed === null ? (
           <>
-            <AlertTriangle className="size-3.5 shrink-0" />
+            <AlertTriangle variant="bold" className="size-3.5 shrink-0" />
             <span>
               Not a valid pattern — use Shell(cmd *), Edit(/path/**), Read(...), Fetch(...) or
               Mcp(server.tool).
@@ -66,12 +66,12 @@ export function PatternEditor({
           </>
         ) : matches ? (
           <>
-            <Check className="size-3.5 shrink-0" />
+            <Check variant="bold" className="size-3.5 shrink-0" />
             <span>{subject === undefined ? "Valid pattern." : "Matches this request."}</span>
           </>
         ) : (
           <>
-            <AlertTriangle className="size-3.5 shrink-0" />
+            <AlertTriangle variant="bold" className="size-3.5 shrink-0" />
             <span>Parses, but would not have matched this request.</span>
           </>
         )}

@@ -66,9 +66,9 @@ function ResultRow({
       )}
     >
       {result.isDirectory ? (
-        <Folder className="size-3.5 shrink-0 text-muted-foreground" />
+        <Folder variant="bold" className="size-3.5 shrink-0 text-muted-foreground" />
       ) : (
-        <FileIcon className="size-3.5 shrink-0 text-muted-foreground" />
+        <FileIcon variant="bold" className="size-3.5 shrink-0 text-muted-foreground" />
       )}
       <span className="min-w-0 truncate type-body text-foreground">{name}</span>
       {directory === "" ? null : (
@@ -110,7 +110,7 @@ function SearchBody({
   }
   const retry = (
     <Button type="button" variant="ghost" size="sm" onClick={onRetry}>
-      <Repeat />
+      <Repeat variant="bold" />
       Try again
     </Button>
   );
@@ -230,7 +230,7 @@ export function FilesPane({
                   />
                 }
               >
-                <ChevronLeft />
+                <ChevronLeft variant="bold" />
               </TooltipTrigger>
               <TooltipContent>Back to results</TooltipContent>
             </Tooltip>

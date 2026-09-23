@@ -30,7 +30,7 @@ export function PaneMessage({
     <Empty>
       <EmptyHeader>
         <EmptyMedia variant="icon">
-          <Glyph />
+          <Glyph variant="bold" />
         </EmptyMedia>
         <EmptyTitle>{text}</EmptyTitle>
         {detail === undefined ? null : (

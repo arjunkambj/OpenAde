@@ -55,7 +55,7 @@ export function AddressBar({ state, onAction }: AddressBarProps) {
             <Button variant="ghost" size="icon-sm" onClick={history("back")} aria-label="Back" />
           }
         >
-          <ChevronLeft />
+          <ChevronLeft variant="bold" />
         </TooltipTrigger>
         <TooltipContent>Back</TooltipContent>
       </Tooltip>
@@ -70,7 +70,7 @@ export function AddressBar({ state, onAction }: AddressBarProps) {
             />
           }
         >
-          <ChevronRight />
+          <ChevronRight variant="bold" />
         </TooltipTrigger>
         <TooltipContent>Forward</TooltipContent>
       </Tooltip>
@@ -85,7 +85,7 @@ export function AddressBar({ state, onAction }: AddressBarProps) {
             />
           }
         >
-          <Repeat />
+          <Repeat variant="bold" />
         </TooltipTrigger>
         <TooltipContent>Reload</TooltipContent>
       </Tooltip>

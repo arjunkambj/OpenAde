@@ -67,7 +67,7 @@ export function McpTab() {
               setDialog({ open: true, instanceId: instance.connectorInstanceId, editing: null })
             }
           >
-            <AddIcon />
+            <AddIcon variant="bold" />
             Add server
           </Button>
         )}
@@ -164,17 +164,17 @@ function InstanceServers({
                           />
                         }
                       >
-                        <MoreVertical />
+                        <MoreVertical variant="bold" />
                       </TooltipTrigger>
                       <TooltipContent>More actions</TooltipContent>
                     </Tooltip>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => onEdit(server)}>
-                        <EditIcon />
+                        <EditIcon variant="bold" />
                         Edit
                       </DropdownMenuItem>
                       <DropdownMenuItem variant="destructive" onClick={() => setRemoving(server)}>
-                        <Trash />
+                        <Trash variant="bold" />
                         Remove
                       </DropdownMenuItem>
                     </DropdownMenuContent>

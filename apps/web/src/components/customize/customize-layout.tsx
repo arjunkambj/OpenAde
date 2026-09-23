@@ -73,7 +73,7 @@ export function CustomizeLayout() {
                       : "border-transparent text-muted-foreground hover:text-foreground",
                   )}
                 >
-                  <tab.icon className="size-4" />
+                  <tab.icon variant="bold" className="size-4" />
                   {tab.label}
                   {count === null ? null : (
                     <span className="text-xs text-muted-foreground tabular-nums">{count}</span>

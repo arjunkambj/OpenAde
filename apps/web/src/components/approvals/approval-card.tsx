@@ -176,7 +176,7 @@ export function ApprovalCard({
           onClick={() => setEditing((open) => !open)}
           aria-expanded={editing}
         >
-          {editing ? <ChevronDown /> : <ChevronUp />}
+          {editing ? <ChevronDown variant="bold" /> : <ChevronUp variant="bold" />}
           Rule saved by “Allow for session” / “Always allow”
         </Button>
         {editing ? (

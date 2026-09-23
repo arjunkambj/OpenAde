@@ -63,7 +63,7 @@ function StatusPill({ status }: { status: ThreadStatus }) {
         (status === "idle" || status === "archived") && "text-muted-foreground",
       )}
     >
-      {status === "running" ? <Spinner className="size-3" /> : null}
+      {status === "running" ? <Spinner variant="bold" className="size-3" /> : null}
       {STATUS_LABEL[status]}
     </span>
   );
@@ -99,7 +99,10 @@ function ThreadHeader({
               />
             }
           >
-            <SidebarRight className={cn(dockTab !== undefined && "text-foreground")} />
+            <SidebarRight
+              variant="bold"
+              className={cn(dockTab !== undefined && "text-foreground")}
+            />
           </TooltipTrigger>
           <TooltipContent>{dockTab === undefined ? "Open dock" : "Close dock"}</TooltipContent>
         </Tooltip>
@@ -158,7 +161,7 @@ function ThreadBody({ result, connected }: { result: ThreadDetailResult; connect
       <Empty>
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            <AlertTriangle className="text-destructive" />
+            <AlertTriangle variant="bold" className="text-destructive" />
           </EmptyMedia>
           <EmptyTitle>Could not load this thread</EmptyTitle>
           {message === null ? null : <EmptyDescription>{message}</EmptyDescription>}
@@ -173,7 +176,7 @@ function ThreadBody({ result, connected }: { result: ThreadDetailResult; connect
       <Empty>
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            <Close />
+            <Close variant="bold" />
           </EmptyMedia>
           <EmptyTitle>Not connected to a server</EmptyTitle>
         </EmptyHeader>
@@ -182,7 +185,7 @@ function ThreadBody({ result, connected }: { result: ThreadDetailResult; connect
   }
   return (
     <div className="flex flex-1 items-center justify-center gap-2 type-body text-muted-foreground">
-      <Spinner className="size-4" />
+      <Spinner variant="bold" className="size-4" />
       Loading thread…
     </div>
   );

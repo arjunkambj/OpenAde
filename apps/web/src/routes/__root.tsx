@@ -28,7 +28,7 @@ export interface RouterAppContext {}
 function NotFound() {
   return (
     <div className="flex h-svh flex-col items-center justify-center gap-3 bg-background px-6 text-center">
-      <Close className="size-6 text-muted-foreground" />
+      <Close variant="bold" className="size-6 text-muted-foreground" />
       <p className="type-body text-muted-foreground">
         That page does not exist — the link may point at a thread that was deleted.
       </p>

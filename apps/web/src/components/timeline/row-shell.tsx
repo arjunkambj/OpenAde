@@ -21,10 +21,10 @@ import { type HoneyIcon, AlertTriangle, ChevronRight, Spinner } from "@honeyicon
 
 function ItemStatusIcon({ status }: { status: ItemStatus }) {
   if (status === "in_progress") {
-    return <Spinner className="size-3.5 shrink-0 text-muted-foreground" />;
+    return <Spinner variant="bold" className="size-3.5 shrink-0 text-muted-foreground" />;
   }
   if (status === "failed") {
-    return <AlertTriangle className="size-3.5 shrink-0 text-destructive" />;
+    return <AlertTriangle variant="bold" className="size-3.5 shrink-0 text-destructive" />;
   }
   return null;
 }
@@ -54,7 +54,7 @@ export function DisclosureRow({
   if (!expandable) {
     return (
       <div className="flex min-h-6 items-center gap-2 py-0.5 type-body leading-compact text-muted-foreground">
-        <Glyph className={triggerIconClass} />
+        <Glyph variant="bold" className={triggerIconClass} />
         <span className="min-w-0 flex-1 truncate">{label}</span>
         <ItemStatusIcon status={status ?? "completed"} />
         {meta}
@@ -67,12 +67,14 @@ export function DisclosureRow({
       <CollapsibleTrigger variant="summary">
         <span className="relative size-3.5 shrink-0">
           <ChevronRight
+            variant="bold"
             className={cn(
               triggerIconClass,
               "absolute inset-0 opacity-0 transition-reveal group-hover/summary:opacity-100 group-focus-visible/summary:opacity-100 group-data-open/row:rotate-90 group-data-open/row:opacity-100",
             )}
           />
           <Glyph
+            variant="bold"
             className={cn(
               triggerIconClass,
               "group-hover/summary:opacity-0 group-focus-visible/summary:opacity-0 group-data-open/row:opacity-0",

@@ -89,7 +89,7 @@ function ConnectorCard({
     <Card size="sm">
       <CardContent className="flex flex-col">
         <div className="flex items-center gap-3 pb-2">
-          <Icon className="size-4 text-muted-foreground" />
+          <Icon variant="bold" className="size-4 text-muted-foreground" />
           <span className="text-sm font-medium">{conn.displayName}</span>
           <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
             {conn.kind}
@@ -107,7 +107,7 @@ function ConnectorCard({
                 />
               }
             >
-              <Trash />
+              <Trash variant="bold" />
             </TooltipTrigger>
             <TooltipContent>Remove connector</TooltipContent>
           </Tooltip>
@@ -205,7 +205,7 @@ export function ConnectorsPanel() {
           <p className="mt-1 text-sm text-muted-foreground">Harnesses your threads run on.</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => void runProbe()} disabled={probing}>
-          {probing ? <Spinner /> : <Repeat />}
+          {probing ? <Spinner variant="bold" /> : <Repeat variant="bold" />}
           {probing ? "Probing…" : "Probe all"}
         </Button>
       </div>
@@ -214,7 +214,7 @@ export function ConnectorsPanel() {
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <Connect />
+              <Connect variant="bold" />
             </EmptyMedia>
             <EmptyTitle>No connectors yet</EmptyTitle>
             <EmptyDescription>Add one below to run threads on it.</EmptyDescription>
@@ -269,7 +269,7 @@ export function ConnectorsPanel() {
             size="sm"
             onClick={() => void addInstance(descriptor.kind, descriptor.metadata.displayName)}
           >
-            <AddIcon />
+            <AddIcon variant="bold" />
             Add {descriptor.metadata.displayName}
           </Button>
         ))}

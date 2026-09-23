@@ -31,7 +31,7 @@ export function ConnectorStatusBadge({ summary }: { readonly summary: ConnectorS
     <Badge
       variant={state === "ready" ? "secondary" : state === "probing" ? "outline" : "destructive"}
     >
-      {state === "probing" ? <Spinner /> : null}
+      {state === "probing" ? <Spinner variant="bold" /> : null}
       {HEALTH_LABEL[state]}
     </Badge>
   );

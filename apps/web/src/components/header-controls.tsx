@@ -109,7 +109,7 @@ function HeaderSelect({
         variant="composer"
       >
         <span className="flex items-center gap-1.5">
-          <Glyph className="size-3.5 shrink-0 text-muted-foreground" />
+          <Glyph variant="bold" className="size-3.5 shrink-0 text-muted-foreground" />
           <SelectValue className="max-w-52" />
         </span>
       </SelectTrigger>
@@ -296,7 +296,7 @@ export function ThreadSettingsControls({
                 />
               }
             >
-              <ListChecks data-icon={planning ? "inline-start" : undefined} />
+              <ListChecks variant="bold" data-icon={planning ? "inline-start" : undefined} />
               {planning ? "Plan" : null}
             </TooltipTrigger>
             <TooltipContent>

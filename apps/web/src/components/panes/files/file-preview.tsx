@@ -84,7 +84,7 @@ export function FilePreview({
 
   const retry = (
     <Button type="button" variant="ghost" size="sm" onClick={refresh}>
-      <Repeat />
+      <Repeat variant="bold" />
       Try again
     </Button>
   );
@@ -151,7 +151,7 @@ export function FilePreview({
                 />
               }
             >
-              <ChevronUp />
+              <ChevronUp variant="bold" />
             </TooltipTrigger>
             <TooltipContent>Previous page</TooltipContent>
           </Tooltip>
@@ -171,7 +171,7 @@ export function FilePreview({
                 />
               }
             >
-              <ChevronDown />
+              <ChevronDown variant="bold" />
             </TooltipTrigger>
             <TooltipContent>Next page</TooltipContent>
           </Tooltip>

@@ -56,7 +56,7 @@ function AttachmentChip({
               />
             }
           >
-            <Close />
+            <Close variant="bold" />
           </TooltipTrigger>
           <TooltipContent>Remove attachment</TooltipContent>
         </Tooltip>
@@ -86,7 +86,7 @@ export function ComposerChips({
           key={path}
           className="inline-flex h-6 max-w-56 items-center gap-1 rounded-md bg-muted pl-1.5 font-mono text-xs"
         >
-          <FileIcon className="size-3 shrink-0 text-muted-foreground" />
+          <FileIcon variant="bold" className="size-3 shrink-0 text-muted-foreground" />
           <span className="truncate">{path}</span>
           <Tooltip>
             <TooltipTrigger
@@ -101,7 +101,7 @@ export function ComposerChips({
                 />
               }
             >
-              <Close />
+              <Close variant="bold" />
             </TooltipTrigger>
             <TooltipContent>Remove mention</TooltipContent>
           </Tooltip>

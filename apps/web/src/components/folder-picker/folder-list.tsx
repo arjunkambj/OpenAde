@@ -62,7 +62,7 @@ export function Breadcrumb({
             />
           }
         >
-          <ChevronUp />
+          <ChevronUp variant="bold" />
         </TooltipTrigger>
         <TooltipContent>Folder above</TooltipContent>
       </Tooltip>
@@ -119,7 +119,7 @@ function EntryRow({
         selected && "bg-hover",
       )}
     >
-      <Folder className="size-3.5 shrink-0 text-muted-foreground" />
+      <Folder variant="bold" className="size-3.5 shrink-0 text-muted-foreground" />
       <span className="min-w-0 truncate type-body text-foreground">{entry.name}</span>
       {entry.isGitRepo ? (
         <span className="ml-auto shrink-0 rounded-lg bg-hover px-1 type-micro text-muted-foreground">
@@ -204,7 +204,7 @@ export function FolderListMessage({
       <Empty>
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            <Glyph />
+            <Glyph variant="bold" />
           </EmptyMedia>
           <EmptyTitle>{text}</EmptyTitle>
         </EmptyHeader>

@@ -89,7 +89,7 @@ function DockTabButton({
       tone={active ? "default" : "muted"}
       onClick={() => onSelect(tab)}
     >
-      <meta.icon />
+      <meta.icon variant="bold" />
       {meta.label}
     </Button>
   );
@@ -152,7 +152,7 @@ export function RightDock({
                 />
               }
             >
-              <CloseIcon />
+              <CloseIcon variant="bold" />
             </TooltipTrigger>
             <TooltipContent>Close dock</TooltipContent>
           </Tooltip>

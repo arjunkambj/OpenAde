@@ -24,7 +24,7 @@ export function CustomizeSearch({
   return (
     <InputGroup className="flex-1">
       <InputGroupAddon>
-        <Search />
+        <Search variant="bold" />
       </InputGroupAddon>
       <InputGroupInput
         type="search"
@@ -82,7 +82,7 @@ export function CustomizeCard({
       className={cn("flex flex-col gap-1.5 rounded-2xl bg-card px-4 py-3", muted && "opacity-60")}
     >
       <div className="flex items-center gap-2.5">
-        <Glyph className="size-4 shrink-0 text-muted-foreground" />
+        <Glyph variant="bold" className="size-4 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate text-sm font-medium">{title}</span>
         {tags === undefined ? null : <div className="flex items-center gap-1.5">{tags}</div>}
         {actions}

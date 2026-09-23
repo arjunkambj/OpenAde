@@ -321,7 +321,7 @@ export function Composer({
         context={
           project ? (
             <>
-              <Folder size={16} className="shrink-0" />
+              <Folder variant="bold" size={16} className="shrink-0" />
               <span className="truncate" title={project.workspaceRoot}>
                 {project.name}
               </span>

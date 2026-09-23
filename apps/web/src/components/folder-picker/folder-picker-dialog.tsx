@@ -214,7 +214,7 @@ export function FolderPickerDialog({
               text={query.message}
               action={
                 <Button type="button" variant="ghost" size="sm" onClick={retry}>
-                  <Repeat />
+                  <Repeat variant="bold" />
                   Try again
                 </Button>
               }

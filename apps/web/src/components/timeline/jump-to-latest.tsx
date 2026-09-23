@@ -37,7 +37,7 @@ export function JumpToLatest({ listRef }: { listRef: React.RefObject<LegendListR
             />
           }
         >
-          <ArrowDown />
+          <ArrowDown variant="bold" />
         </TooltipTrigger>
         <TooltipContent>Jump to latest</TooltipContent>
       </Tooltip>

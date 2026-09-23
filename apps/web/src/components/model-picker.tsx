@@ -100,7 +100,7 @@ export function ModelPicker({
     >
       <SelectTrigger aria-label="Model" title={title} size="sm" variant="composer">
         <span className="flex items-center gap-1.5">
-          <Brain className="size-3.5 shrink-0 text-muted-foreground" />
+          <Brain variant="bold" className="size-3.5 shrink-0 text-muted-foreground" />
           <SelectValue className="max-w-52" />
         </span>
       </SelectTrigger>
@@ -118,7 +118,7 @@ export function ModelPicker({
             <>
               <SelectLabel>
                 <span className="flex min-w-0 items-center gap-1.5">
-                  <Icon className="size-3.5 shrink-0" />
+                  <Icon variant="bold" className="size-3.5 shrink-0" />
                   <span className="truncate">{group.connector.displayName}</span>
                 </span>
               </SelectLabel>

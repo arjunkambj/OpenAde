@@ -102,7 +102,7 @@ function FileRow({ file, rangeKey }: { file: GitDiffFile; rangeKey: string }) {
 function BranchLine({ status, onRefresh }: { status: GitStatus | null; onRefresh: () => void }) {
   return (
     <div className="flex h-7 items-center gap-1.5 type-micro text-muted-foreground">
-      <GitBranch className="size-3.5 shrink-0" />
+      <GitBranch variant="bold" className="size-3.5 shrink-0" />
       <span className="min-w-0 truncate">{status?.branch ?? "no branch"}</span>
       {status !== null && status.ahead > 0 ? <span>↑{status.ahead}</span> : null}
       {status !== null && status.behind > 0 ? <span>↓{status.behind}</span> : null}
@@ -119,7 +119,7 @@ function BranchLine({ status, onRefresh }: { status: GitStatus | null; onRefresh
             />
           }
         >
-          <Repeat />
+          <Repeat variant="bold" />
         </TooltipTrigger>
         <TooltipContent>Refresh changes</TooltipContent>
       </Tooltip>
@@ -163,7 +163,7 @@ function RestoreProgress({
   if (restoring !== null) {
     return (
       <div role="status" className="flex items-center gap-2 type-micro text-muted-foreground">
-        <Spinner className="size-3.5" />
+        <Spinner variant="bold" className="size-3.5" />
         <span className="min-w-0 truncate">Restoring the worktree…</span>
       </div>
     );
@@ -171,7 +171,7 @@ function RestoreProgress({
   if (failure !== null) {
     return (
       <div role="alert" className="flex items-start gap-2 type-micro text-removed">
-        <AlertTriangle className="mt-px size-3.5 shrink-0" />
+        <AlertTriangle variant="bold" className="mt-px size-3.5 shrink-0" />
         <span className="min-w-0">Restore failed: {failure.message}</span>
       </div>
     );
@@ -318,7 +318,7 @@ function ChangesBody({
 }) {
   const retry = (
     <Button type="button" variant="ghost" size="sm" onClick={onRetry}>
-      <Repeat />
+      <Repeat variant="bold" />
       Try again
     </Button>
   );

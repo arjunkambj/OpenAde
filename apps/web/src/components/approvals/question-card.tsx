@@ -154,7 +154,7 @@ export function QuestionCard({
     <CardShell
       icon={Chat}
       title={questions.length === 1 ? "Question" : `${questions.length} questions`}
-      hint={<Clock className="size-3.5" />}
+      hint={<Clock variant="bold" className="size-3.5" />}
       actions={
         <Button size="sm" disabled={pending || !answered} onClick={submit}>
           Submit answers

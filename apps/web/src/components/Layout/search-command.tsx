@@ -93,7 +93,7 @@ export function SearchTrigger({ className }: { className?: string }) {
           />
         }
       >
-        <SearchIcon />
+        <SearchIcon variant="bold" />
         <span className="sr-only">Search</span>
       </TooltipTrigger>
       <TooltipContent>

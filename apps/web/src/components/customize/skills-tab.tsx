@@ -135,7 +135,11 @@ function InstanceSkills({
                     disabled={linking !== null}
                     onClick={() => void addSkill(skill.entry)}
                   >
-                    {linking === skill.entry ? <Spinner /> : <AddIcon />}
+                    {linking === skill.entry ? (
+                      <Spinner variant="bold" />
+                    ) : (
+                      <AddIcon variant="bold" />
+                    )}
                     Add
                   </Button>
                 }

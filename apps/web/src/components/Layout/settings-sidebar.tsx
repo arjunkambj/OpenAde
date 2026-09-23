@@ -48,7 +48,7 @@ export function SettingsSidebar() {
                     render={<Link to={item.to} />}
                     isActive={Boolean(matchRoute({ to: item.to, fuzzy: false }))}
                   >
-                    <item.icon />
+                    <item.icon variant="bold" />
                     {item.label}
                   </SidebarMenuButton>
                 </SidebarMenuItem>

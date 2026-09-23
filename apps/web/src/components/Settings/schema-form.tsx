@@ -181,7 +181,7 @@ export function KeyValueInput({
                 />
               }
             >
-              <Close />
+              <Close variant="bold" />
             </TooltipTrigger>
             <TooltipContent>Remove variable</TooltipContent>
           </Tooltip>
