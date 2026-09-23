@@ -230,16 +230,27 @@ The renderer. TanStack Router routes under `apps/web/src/routes`, state through
 | `browser.$threadId`               | the marker page the browser pane's `<webview>` guest loads              |
 | `dev/{timeline,composer,changes}` | fixture pages, DEV only                                                 |
 
-The shell is a left sidebar (projects → threads, with a status icon and an
-unread dot), the thread column (timeline, composer, interaction cards) and a
-right dock with three tabs: **changes** (a turn selector over `git.diff`),
-**browser** (the pane) and **files** (a search over `files.search` that drills
-into directories and previews a file through `files.read`, paged by line offset
-because a window is capped by characters, not lines). When less than 640px
-remains beside the sidebar, the dock overlays the thread so its tabs stay
-reachable. Wider rows fit a thread column of at least 360px beside the dock.
+The shell is a left sidebar (projects → threads), the thread column (timeline,
+composer, interaction cards) and a right dock with three tabs: **changes** (a
+turn selector over `git.diff`), **browser** (the pane) and **files** (a search
+over `files.search` that drills into directories and previews a file through
+`files.read`, paged by line offset because a window is capped by characters,
+not lines). When less than 640px remains beside the sidebar, the dock overlays
+the thread so its tabs stay reachable. Wider rows fit a thread column of at least 360px beside the dock.
 Archived threads leave the sidebar tree for the archived threads settings page,
 which unarchives or deletes them.
+
+A thread row is built on the stock sidebar menu parts
+(`apps/web/src/components/sidebar/thread-row.tsx`). A fixed status slot sits
+left of the title and holds one mark, from `ThreadSummary.awaiting` and
+`status`: "Needs you" for an open approval or question, "Plan ready" for a plan
+awaiting review, a spinner while a turn runs, a warning on error — and, only
+when none of those applies, the unread dot. The right edge shows how long ago
+the thread last moved ("now", "5m", "3h", "2d", "4w", then the month), from
+`updatedAt` on a single one-minute tick the tree owns. On hover the time gives
+way to two actions: archive, and the overflow menu (rename, archive or
+unarchive, delete). An archived row, listed only while it is open, offers the
+menu alone.
 
 The atom runtime is built once. `apps/web/src/state/app-runtime.tsx` owns the
 single `makeRuntime` instance, the shared registry and the offline layer that

@@ -1,13 +1,16 @@
 /**
  * The projects → threads tree: projects from `projectsAtom`, threads from
  * `threadListAtom(null)` grouped client-side by `projectId`. Each thread row
- * links to `/t/$threadId` and shows its status dot; anything waiting on the
- * user outranks a turn in flight and gets the permission accent, icon and
- * label together — see `./thread-status`.
+ * links to `/t/$threadId` with a status slot, the title and a relative time —
+ * see `./thread-row`. Anything waiting on the user outranks a turn in flight
+ * and gets the icon and label together — see `./thread-status`.
  *
  * A row also carries the unread dot: the open thread stamps its `updatedAt`
  * into `thread-seen`, and any other thread that has moved past its own stamp
  * is marked. That is renderer state by design — see `./thread-seen`.
+ *
+ * The tree owns the one-minute tick behind every row's relative time, so a
+ * long list runs one interval rather than one per row.
  *
  * A project row folds its threads away on click; the folded set persists
  * through `useProjectCollapsed`. The open thread stays listed under a folded
@@ -19,12 +22,13 @@
  * `./visible-threads`.
  *
  * Every row has an overflow menu, revealed on hover: rename/archive/delete for
- * a thread, remove for a project. Those four commands existed end to end —
- * decider, reactors, tests — with nothing in the UI that could send them, so
- * the sidebar only ever grew and a mistyped project root could not be dropped.
+ * a thread, remove for a project. A thread row also offers archive on its own.
+ * Those four commands existed end to end — decider, reactors, tests — with
+ * nothing in the UI that could send them, so the sidebar only ever grew and a
+ * mistyped project root could not be dropped.
  */
 
-import { Link, useMatchRoute } from "@tanstack/react-router";
+import { useMatchRoute } from "@tanstack/react-router";
 import * as React from "react";
 
 import { Button } from "@OpenAde/ui/components/button";
@@ -32,6 +36,7 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
+  SidebarMenu,
 } from "@OpenAde/ui/components/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import type { ProjectId } from "@OpenAde/contracts/ids";
@@ -39,97 +44,14 @@ import type { ProjectSummary, ThreadSummary } from "@OpenAde/contracts/orchestra
 
 import { AddProjectDialog } from "@/components/sidebar/add-project-dialog";
 import { ProjectRowMenu } from "@/components/sidebar/project-menu";
-import { ThreadRowMenu } from "@/components/sidebar/thread-menu";
-import { isUnread, useThreadSeen } from "@/components/sidebar/thread-seen";
-import { threadStatusMark } from "@/components/sidebar/thread-status";
+import { ThreadRow } from "@/components/sidebar/thread-row";
 import { sidebarThreads } from "@/components/sidebar/visible-threads";
 import { useCreateThread } from "@/lib/use-create-thread";
+import { useNow } from "@/lib/use-now";
 import { cn } from "@/lib/utils";
 import { useConnectionState, useProjects, useThreadList } from "@/state/hooks";
 import { useProjectCollapsed } from "@/state/ui";
 import { Add, ChevronRight, Folder, FolderOpen } from "@honeyicons/react";
-
-function ThreadStatusDot({ thread }: { thread: ThreadSummary }) {
-  const mark = threadStatusMark(thread);
-  if (mark === null) {
-    return null;
-  }
-  return (
-    <span
-      title={mark.label}
-      aria-label={mark.label}
-      role="img"
-      className="flex shrink-0 items-center"
-    >
-      <mark.icon className={cn("size-3.5 shrink-0", mark.tone)} />
-    </span>
-  );
-}
-
-function ThreadLink({ thread }: { thread: ThreadSummary }) {
-  const matchRoute = useMatchRoute();
-  const active = Boolean(matchRoute({ to: "/t/$threadId", params: { threadId: thread.threadId } }));
-  const [seen, remember] = useThreadSeen();
-  const { threadId, updatedAt } = thread;
-
-  // The open thread is being read right now, so every event it takes is seen.
-  React.useEffect(() => {
-    if (active) {
-      remember(threadId, updatedAt);
-    }
-  }, [active, threadId, updatedAt, remember]);
-
-  const unread = !active && isUnread(seen, thread);
-
-  // The row is a link plus an overflow menu overlaid at its right edge. The
-  // status and unread marks fade out under it on hover, so the two never share
-  // the same few pixels. The row's own `pl-2` starts the highlight under the
-  // project's folder icon; the title still lines up with the project name.
-  return (
-    <div className="group/thread relative flex min-w-0 items-center pl-2">
-      <Link
-        to="/t/$threadId"
-        params={{ threadId: thread.threadId }}
-        aria-current={active ? "page" : undefined}
-        className={cn(
-          "flex h-8 min-w-0 flex-1 items-center gap-2 rounded-xl py-1 pr-0 pl-6.5 text-left type-body text-sidebar-foreground outline-none transition-colors duration-150 ease-out hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-          active && "bg-sidebar-accent text-sidebar-accent-foreground",
-        )}
-      >
-        <span
-          className={cn(
-            "min-w-0 flex-1 truncate",
-            unread && "font-medium text-foreground",
-            // Archiving is a real state change that the row otherwise showed
-            // nothing for: `threadStatusMark` has no mark for it by design.
-            // Only the open thread can be listed while archived.
-            thread.status === "archived" && "text-muted-foreground italic",
-          )}
-          title={thread.status === "archived" ? `${thread.title} (archived)` : undefined}
-        >
-          {thread.title}
-        </span>
-        <span className="flex shrink-0 items-center gap-2 transition-opacity duration-150 ease-out group-hover/thread:opacity-0">
-          {unread ? (
-            <span
-              title="Updated since you last opened it"
-              aria-label="Updated since you last opened it"
-              role="img"
-              className="size-1.5 shrink-0 rounded-full bg-primary"
-            />
-          ) : null}
-          <ThreadStatusDot thread={thread} />
-        </span>
-      </Link>
-      {/* Same reveal as the project row's "New thread" button, plus a hold
-          while its own popup is open — base-ui moves focus into the portalled
-          menu, so `focus-within` on this row is false the whole time it is. */}
-      <span className="absolute right-0.5 opacity-0 transition-opacity duration-150 ease-out group-hover/thread:opacity-100 group-focus-within/thread:opacity-100 [&:has([data-popup-open])]:opacity-100">
-        <ThreadRowMenu thread={thread} />
-      </span>
-    </div>
-  );
-}
 
 function NewThreadButton({
   projectId,
@@ -184,6 +106,7 @@ export function ProjectTree() {
   const projects = useProjects();
   const threads = useThreadList();
   const connection = useConnectionState();
+  const now = useNow(60_000);
   const openRoute = useMatchRoute()({ to: "/t/$threadId" });
   const openThreadId = openRoute === false ? null : openRoute.threadId;
   const shown = React.useMemo(() => sidebarThreads(threads, openThreadId), [threads, openThreadId]);
@@ -227,6 +150,7 @@ export function ProjectTree() {
               project={project}
               threads={threadsByProject.get(project.projectId) ?? []}
               threadCount={threadCounts.get(project.projectId) ?? 0}
+              now={now}
             />
           ))}
           {orphanThreads.length > 0 ? (
@@ -235,9 +159,11 @@ export function ProjectTree() {
                 <Folder className="size-4 shrink-0" />
                 <span className="min-w-0 truncate">Other threads</span>
               </div>
-              {orphanThreads.map((thread) => (
-                <ThreadLink key={thread.threadId} thread={thread} />
-              ))}
+              <SidebarMenu>
+                {orphanThreads.map((thread) => (
+                  <ThreadRow key={thread.threadId} thread={thread} now={now} />
+                ))}
+              </SidebarMenu>
             </>
           ) : null}
         </div>
@@ -250,10 +176,12 @@ function ProjectSection({
   project,
   threads,
   threadCount,
+  now,
 }: {
   project: ProjectSummary;
   threads: ReadonlyArray<ThreadSummary>;
   threadCount: number;
+  now: number;
 }) {
   const [collapsed, setCollapsed] = useProjectCollapsed(project.projectId);
   const matchRoute = useMatchRoute();
@@ -293,9 +221,13 @@ function ProjectSection({
           <NewThreadButton projectId={project.projectId} onCreated={() => setCollapsed(false)} />
         </span>
       </div>
-      {shown.map((thread) => (
-        <ThreadLink key={thread.threadId} thread={thread} />
-      ))}
+      {shown.length > 0 ? (
+        <SidebarMenu>
+          {shown.map((thread) => (
+            <ThreadRow key={thread.threadId} thread={thread} now={now} />
+          ))}
+        </SidebarMenu>
+      ) : null}
     </React.Fragment>
   );
 }

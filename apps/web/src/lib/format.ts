@@ -96,3 +96,43 @@ export const formatElapsed = (ms: number): string => {
   }
   return `${seconds}s`;
 };
+
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+const WEEK = 7 * DAY;
+const YEAR = 365 * DAY;
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * How long ago `iso` was, for a sidebar row: "now" under a minute, then "5m",
+ * "3h", "2d", "4w", and past a year the month it happened, "Mar 2025". Each
+ * unit rounds down, so a label never claims more time than has passed. A time
+ * ahead of `nowMs` (clock skew) reads as "now"; an unparseable one reads as
+ * nothing.
+ */
+export const relativeTime = (nowMs: number, iso: string): string => {
+  const then = Date.parse(iso);
+  if (Number.isNaN(then)) {
+    return "";
+  }
+  const ago = nowMs - then;
+  if (ago < MINUTE) {
+    return "now";
+  }
+  if (ago < HOUR) {
+    return `${Math.floor(ago / MINUTE)}m`;
+  }
+  if (ago < DAY) {
+    return `${Math.floor(ago / HOUR)}h`;
+  }
+  if (ago < WEEK) {
+    return `${Math.floor(ago / DAY)}d`;
+  }
+  if (ago < YEAR) {
+    return `${Math.floor(ago / WEEK)}w`;
+  }
+  const date = new Date(then);
+  return `${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+};

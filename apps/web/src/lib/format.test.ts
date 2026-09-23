@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { formatElapsed, turnSummaryLabel, turnSummaryLead, workGroupLabel } from "./format";
+import {
+  formatElapsed,
+  relativeTime,
+  turnSummaryLabel,
+  turnSummaryLead,
+  workGroupLabel,
+} from "./format";
 
 describe("workGroupLabel", () => {
   it("reports the tool count and the duration", () => {
@@ -84,5 +90,46 @@ describe("formatElapsed", () => {
 
   it("reads a negative span from clock skew as zero", () => {
     expect(formatElapsed(-5_000)).toBe("0s");
+  });
+});
+
+describe("relativeTime", () => {
+  const now = Date.parse("2026-06-15T12:00:00.000Z");
+  const ago = (ms: number) => new Date(now - ms).toISOString();
+  const MIN = 60_000;
+  const HOUR = 60 * MIN;
+  const DAY = 24 * HOUR;
+
+  it("reads anything under a minute as now", () => {
+    expect(relativeTime(now, ago(0))).toBe("now");
+    expect(relativeTime(now, ago(59_999))).toBe("now");
+  });
+
+  it("counts minutes, then hours, rounding down", () => {
+    expect(relativeTime(now, ago(MIN))).toBe("1m");
+    expect(relativeTime(now, ago(5 * MIN + 59_000))).toBe("5m");
+    expect(relativeTime(now, ago(HOUR - 1))).toBe("59m");
+    expect(relativeTime(now, ago(HOUR))).toBe("1h");
+    expect(relativeTime(now, ago(3 * HOUR + 59 * MIN))).toBe("3h");
+    expect(relativeTime(now, ago(DAY - 1))).toBe("23h");
+  });
+
+  it("counts days under a week, then weeks under a year", () => {
+    expect(relativeTime(now, ago(DAY))).toBe("1d");
+    expect(relativeTime(now, ago(7 * DAY - 1))).toBe("6d");
+    expect(relativeTime(now, ago(7 * DAY))).toBe("1w");
+    expect(relativeTime(now, ago(30 * DAY))).toBe("4w");
+    expect(relativeTime(now, ago(365 * DAY - 1))).toBe("52w");
+  });
+
+  it("falls back to the month past a year", () => {
+    // Mid-month, so the local time zone cannot move it across a boundary.
+    expect(relativeTime(now, "2025-03-14T12:00:00.000Z")).toBe("Mar 2025");
+    expect(relativeTime(now, "2019-11-14T12:00:00.000Z")).toBe("Nov 2019");
+  });
+
+  it("reads a time in the future as now and garbage as nothing", () => {
+    expect(relativeTime(now, ago(-5 * MIN))).toBe("now");
+    expect(relativeTime(now, "not a date")).toBe("");
   });
 });

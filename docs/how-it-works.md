@@ -759,7 +759,8 @@ the same record between snapshots, writes the same words.
 While any card is up, the thread's `ThreadSummary` says so: `awaitingInput` is
 true and `awaiting` names the most urgent open card — `approval`, then
 `question`, then `plan` (§6) — so the sidebar row can show what the thread
-waits on without subscribing to it.
+waits on without subscribing to it: a bell reading "Needs you" for an approval
+or a question, a quieter "Plan ready" mark for a plan.
 
 The patterns are OpenAde's own vocabulary — `Shell(npm run *)`,
 `Edit(/src/**)`, `Fetch(…)`, `Mcp(server.tool)` and the rest — whichever
