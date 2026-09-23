@@ -118,6 +118,7 @@ const helloTurn = (driver: Driver) => {
         const summary = threads.find((t) => t.threadId === threadId)!;
         expect(summary.status).toBe("idle");
         expect(summary.awaitingInput).toBe(false);
+        expect(summary.awaiting).toBeUndefined();
       }),
     ),
   );

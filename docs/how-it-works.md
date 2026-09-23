@@ -740,6 +740,11 @@ first, which still finds the request open, is recorded. The subject comes from
 `packages/shared/src/decisionSubject.ts`, so the client's fold, which appends
 the same record between snapshots, writes the same words.
 
+While any card is up, the thread's `ThreadSummary` says so: `awaitingInput` is
+true and `awaiting` names the most urgent open card — `approval`, then
+`question`, then `plan` (§6) — so the sidebar row can show what the thread
+waits on without subscribing to it.
+
 The patterns are OpenAde's own vocabulary — `Shell(npm run *)`,
 `Edit(/src/**)`, `Fetch(…)`, `Mcp(server.tool)` and the rest — whichever
 harness proposed them, matched by `packages/shared/src/permissionPattern.ts`

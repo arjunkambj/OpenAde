@@ -19,7 +19,13 @@ import {
 } from "@OpenAde/contracts/ids";
 import type { CheckpointSummary, OrchestrationEvent } from "@OpenAde/contracts/orchestration";
 
-import { foldThread, projectThreadEvent, threadSnapshotOf, type ThreadDoc } from "./state";
+import {
+  foldThread,
+  projectThreadEvent,
+  threadSnapshotOf,
+  threadSummaryOf,
+  type ThreadDoc,
+} from "./state";
 
 const NOW = "2026-01-02T03:04:05.000Z";
 
@@ -536,5 +542,46 @@ describe("the decision record", () => {
       event("thread.approval.resolved", { requestId, decision: "allow-once" }),
     );
     expect(next?.decisions.map((decision) => decision.id)).toEqual([requestId]);
+  });
+});
+
+describe("what a thread is waiting on", () => {
+  it("names the most urgent open card: approval, then question, then plan", () => {
+    const turnId = makeTurnId();
+    const approvalId = makeRequestId();
+    const questionId = makeRequestId();
+    const events = [
+      created(),
+      turnRequested(turnId),
+      event("thread.plan.proposed", { turnId, planMarkdown: "# plan" }),
+      event("thread.userInput.requested", {
+        requestId: questionId,
+        questions: [{ questionId: "q", question: "Which port?", options: [] }],
+      }),
+      event("thread.approval.opened", {
+        request: {
+          requestId: approvalId,
+          kind: "command",
+          toolName: "shell_command",
+          input: { command: "ls" },
+          description: "Run ls",
+        },
+      }),
+    ];
+    const summaryAfter = (count: number) => threadSummaryOf(foldThread(events.slice(0, count))!);
+
+    expect(summaryAfter(2).awaitingInput).toBe(false);
+    expect(summaryAfter(2)).not.toHaveProperty("awaiting");
+    expect(summaryAfter(3).awaiting).toBe("plan");
+    expect(summaryAfter(4).awaiting).toBe("question");
+    expect(summaryAfter(5).awaiting).toBe("approval");
+    expect(summaryAfter(5).awaitingInput).toBe(true);
+
+    // Answering the approval hands the row back to the question behind it.
+    const answered = foldThread([
+      ...events,
+      event("thread.approval.resolved", { requestId: approvalId, decision: "allow-once" }),
+    ])!;
+    expect(threadSummaryOf(answered).awaiting).toBe("question");
   });
 });

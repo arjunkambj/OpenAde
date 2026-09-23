@@ -701,6 +701,12 @@ export const ThreadSummary = Schema.Struct({
   preview: Schema.optional(Schema.String),
   /** True while something is waiting on the user: an approval, a question, a plan. */
   awaitingInput: Schema.Boolean,
+  /**
+   * Which of those it is — the most urgent when more than one is open: an
+   * approval, then a question, then a plan. Absent when nothing waits, and
+   * optional so a summary written before this field existed still decodes.
+   */
+  awaiting: Schema.optional(DecisionKind),
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
 });

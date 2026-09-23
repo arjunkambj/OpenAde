@@ -491,6 +491,11 @@ payloads carry nothing new; the fold reads the subject off the open request
 before it clears it. The field is optional on `ThreadDetailSnapshot`, so a
 snapshot from before it existed still decodes as "none".
 
+The sidebar's `ThreadSummary` says whether anything waits on the user
+(`awaitingInput`) and which card it is (`awaiting`): the most urgent open one,
+`approval` before `question` before `plan`, and absent when nothing waits. A
+row can tell "needs you" from "plan ready" without subscribing to the thread.
+
 `projection_state` holds one row per projector: `last_applied_sequence`,
 `updated_at` and `projector_version`. Projections are written inside the
 command's transaction, so a projection can never get ahead of its events.

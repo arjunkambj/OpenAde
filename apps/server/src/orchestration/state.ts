@@ -11,6 +11,7 @@
 import type {
   Attachment,
   CheckpointSummary,
+  DecisionKind,
   Mention,
   OrchestrationEvent,
   ProjectSummary,
@@ -590,18 +591,36 @@ export const threadSnapshotOf = (doc: ThreadDoc): ThreadDetailSnapshot => ({
   updatedAt: doc.updatedAt,
 });
 
+/**
+ * The card a thread is waiting on, most urgent first: an approval holds a
+ * tool call mid-turn, a question holds the model, a plan waits for the
+ * user's next move.
+ */
+const awaitingOf = (doc: ThreadDoc): DecisionKind | undefined =>
+  doc.approvals.length > 0
+    ? "approval"
+    : doc.userInputs.length > 0
+      ? "question"
+      : doc.pendingPlan !== null
+        ? "plan"
+        : undefined;
+
 /** The `ThreadSummary` the sidebar lists. */
-export const threadSummaryOf = (doc: ThreadDoc): ThreadSummary => ({
-  threadId: doc.threadId,
-  projectId: doc.projectId,
-  title: doc.title,
-  status: doc.status,
-  settings: doc.settings,
-  ...(doc.preview === undefined ? {} : { preview: doc.preview }),
-  awaitingInput: doc.approvals.length > 0 || doc.userInputs.length > 0 || doc.pendingPlan !== null,
-  createdAt: doc.createdAt,
-  updatedAt: doc.updatedAt,
-});
+export const threadSummaryOf = (doc: ThreadDoc): ThreadSummary => {
+  const awaiting = awaitingOf(doc);
+  return {
+    threadId: doc.threadId,
+    projectId: doc.projectId,
+    title: doc.title,
+    status: doc.status,
+    settings: doc.settings,
+    ...(doc.preview === undefined ? {} : { preview: doc.preview }),
+    awaitingInput: awaiting !== undefined,
+    ...(awaiting === undefined ? {} : { awaiting }),
+    createdAt: doc.createdAt,
+    updatedAt: doc.updatedAt,
+  };
+};
 
 export const projectSummaryOf = (doc: ProjectDoc, threadCount: number): ProjectSummary => ({
   projectId: doc.projectId,
