@@ -19,7 +19,7 @@ import * as React from "react";
 import { ATTACHMENT_ACCEPT } from "@/components/composer/attachment-rules";
 import { ShortcutKbd } from "@/lib/shortcuts";
 
-import { Add, ArrowUp, Close, Spinner, Stop as StopIcon } from "@honeyicons/react";
+import { Add, ArrowUp, ListOrdered, Spinner, Stop as StopIcon } from "@honeyicons/react";
 
 export function ComposerToolbar({
   settings,
@@ -140,7 +140,7 @@ export function ComposerToolbar({
           {sending ? (
             <Spinner variant="bold" />
           ) : running ? (
-            <Close variant="bold" />
+            <ListOrdered variant="bold" />
           ) : (
             <ArrowUp variant="bold" />
           )}

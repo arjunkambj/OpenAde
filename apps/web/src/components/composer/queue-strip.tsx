@@ -22,7 +22,7 @@ import * as React from "react";
 
 import { useClientRuntime } from "@/lib/client-runtime";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
-import { ChevronDown, ChevronUp, Close } from "@honeyicons/react";
+import { ChevronDown, ChevronUp, Close, ListOrdered } from "@honeyicons/react";
 
 export function QueueStrip({
   threadId,
@@ -88,7 +88,7 @@ export function QueueStrip({
       aria-label="Queued messages"
     >
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <Close variant="bold" className="size-3.5" />
+        <ListOrdered variant="bold" className="size-3.5" />
         <span>
           {queue.length} queued {queue.length === 1 ? "message" : "messages"} — sent in order when
           the turn ends
