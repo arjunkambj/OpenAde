@@ -15,13 +15,15 @@
  * The home composer passes its own id and `navigate: false`: it has a first
  * message to send before leaving, and the draft it holds is keyed by that id,
  * so an unsent draft follows the user into the thread's own composer. It
- * always creates, because the message it sends is what fills the thread.
+ * always creates, because the message it sends is what fills the thread —
+ * and passes the `worktree` it cut when the thread starts in one.
  */
 
 import { useNavigate } from "@tanstack/react-router";
 import * as React from "react";
 import { toast } from "sonner";
 
+import type { ThreadWorktree } from "@OpenAde/contracts/git";
 import { makeCommandId, makeThreadId, type ProjectId, type ThreadId } from "@OpenAde/contracts/ids";
 import type { ThreadSettingsPatch, ThreadSummary } from "@OpenAde/contracts/orchestration";
 
@@ -68,6 +70,8 @@ export const useCreateThread = () => {
         readonly threadId?: ThreadId;
         readonly navigate?: boolean;
         readonly settings?: ThreadSettingsPatch;
+        /** The worktree the thread works in instead of the project's folder. */
+        readonly worktree?: ThreadWorktree;
       } = {},
     ): Promise<boolean> => {
       const blank =
@@ -88,6 +92,7 @@ export const useCreateThread = () => {
         threadId,
         projectId,
         settings: options.settings,
+        ...(options.worktree === undefined ? {} : { worktree: options.worktree }),
       });
       setPending(false);
       if (isAccepted(exit)) {

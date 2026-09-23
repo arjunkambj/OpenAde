@@ -1,6 +1,6 @@
 /**
- * The center column of `/t/$threadId`: a slim header (title, status, the model
- * / effort / mode controls, dock toggle) over the virtualized `Timeline`, with
+ * The center column of `/t/$threadId`: a slim header (`thread-header.tsx`:
+ * title, worktree, status, dock toggle) over the virtualized `Timeline`, with
  * the composer — and the interaction cards it carries — pinned underneath and
  * the right dock alongside. Data comes from `useThreadDetail` — an
  * `AsyncResult` that carries its own loading/failure states, so the view never
@@ -18,7 +18,6 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import * as Cause from "effect/Cause";
 import * as React from "react";
 
-import { Button } from "@OpenAde/ui/components/button";
 import {
   Empty,
   EmptyDescription,
@@ -26,90 +25,21 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@OpenAde/ui/components/empty";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import type { ThreadId } from "@OpenAde/contracts/ids";
 import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
-import type { ThreadStatus } from "@OpenAde/contracts/orchestration";
 import type * as OpenAdeRpcError from "@OpenAde/contracts/rpc";
 import type * as RpcClientError from "effect/unstable/rpc/RpcClientError";
 
 import { Composer } from "@/components/composer/composer";
 import { isDockTab, RightDock, type DockTab } from "@/components/dock/right-dock";
 import { ThreadHarnessBanner } from "@/components/thread/harness-health-banner";
+import { ThreadHeader } from "@/components/thread/thread-header";
 import { ThreadGreeting } from "@/components/thread/thread-greeting";
 import { Timeline } from "@/components/timeline/timeline";
 import { useKeybindingCommand } from "@/lib/shortcuts";
-import { cn } from "@/lib/utils";
 import { useConnectionState, useProjects, useThreadDetail } from "@/state/hooks";
 import { useDockTabMemory } from "@/state/ui";
-import { AlertTriangle, SidebarRight, Spinner, WifiOff } from "@honeyicons/react";
-
-const STATUS_LABEL: Record<ThreadStatus, string> = {
-  idle: "Idle",
-  running: "Running",
-  waiting: "Waiting",
-  error: "Error",
-  archived: "Archived",
-  deleted: "Deleted",
-};
-
-function StatusPill({ status }: { status: ThreadStatus }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 rounded-full bg-hover px-2 py-0.5 type-micro",
-        (status === "error" || status === "deleted") && "bg-removed-bg text-removed",
-        status === "waiting" && "text-permission",
-        (status === "idle" || status === "archived") && "text-muted-foreground",
-      )}
-    >
-      {status === "running" ? <Spinner variant="bold" className="size-3" /> : null}
-      {STATUS_LABEL[status]}
-    </span>
-  );
-}
-
-function ThreadHeader({
-  snapshot,
-  dockTab,
-  onDockToggle,
-}: {
-  snapshot: ThreadDetailSnapshot;
-  dockTab: DockTab | undefined;
-  onDockToggle: () => void;
-}) {
-  return (
-    <header className="flex min-h-11 shrink-0 items-center gap-2 px-4 py-1.5">
-      <h1 className="min-w-0 max-w-56 shrink truncate text-sm font-medium text-foreground">
-        {snapshot.title}
-      </h1>
-      <div className="flex-1" />
-      <StatusPill status={snapshot.status} />
-      <span className="inline-flex shrink-0">
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={dockTab === undefined ? "Open dock" : "Close dock"}
-                aria-pressed={dockTab !== undefined}
-                onClick={onDockToggle}
-              />
-            }
-          >
-            <SidebarRight
-              variant="bold"
-              className={cn(dockTab !== undefined && "text-foreground")}
-            />
-          </TooltipTrigger>
-          <TooltipContent>{dockTab === undefined ? "Open dock" : "Close dock"}</TooltipContent>
-        </Tooltip>
-      </span>
-    </header>
-  );
-}
+import { AlertTriangle, Spinner, WifiOff } from "@honeyicons/react";
 
 type ThreadDetailResult = AsyncResult.AsyncResult<
   ThreadDetailSnapshot,

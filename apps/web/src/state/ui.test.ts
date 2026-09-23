@@ -4,7 +4,9 @@ import {
   emptyComposerDraft,
   parseCollapsedProjects,
   parseDockTabs,
+  parseWorkspaceModes,
   withComposerDraft,
+  withWorkspaceMode,
   type ComposerDraft,
 } from "./ui";
 
@@ -86,5 +88,37 @@ describe("parseCollapsedProjects", () => {
     expect(parseCollapsedProjects("not json").size).toBe(0);
     expect(parseCollapsedProjects('{"p1":true}').size).toBe(0);
     expect([...parseCollapsedProjects('["p1",7,null]')]).toEqual(["p1"]);
+  });
+});
+
+describe("workspace mode memory", () => {
+  it("reads each project's remembered mode back", () => {
+    expect(parseWorkspaceModes('{"p1":"worktree"}')).toEqual({ p1: "worktree" });
+  });
+
+  it("is local everywhere when nothing was stored or storage is foreign", () => {
+    expect(parseWorkspaceModes(null)).toEqual({});
+    expect(parseWorkspaceModes("not json")).toEqual({});
+    expect(parseWorkspaceModes('["worktree"]')).toEqual({});
+    expect(parseWorkspaceModes('{"p1":"cloud","p2":7}')).toEqual({});
+  });
+
+  it("remembers a project's mode without touching the others", () => {
+    const one = withWorkspaceMode({}, "p1", "worktree");
+    const both = withWorkspaceMode(one, "p2", "worktree");
+    expect(both).toEqual({ p1: "worktree", p2: "worktree" });
+    expect(one).toEqual({ p1: "worktree" });
+  });
+
+  it("drops a project that goes back to local, and round-trips through storage", () => {
+    const modes = withWorkspaceMode({ p1: "worktree", p2: "worktree" }, "p1", "local");
+    expect(modes).toEqual({ p2: "worktree" });
+    expect(parseWorkspaceModes(JSON.stringify(modes))).toEqual(modes);
+  });
+
+  it("returns the same map when nothing changes, so nothing is written", () => {
+    const modes = { p1: "worktree" as const };
+    expect(withWorkspaceMode(modes, "p1", "worktree")).toBe(modes);
+    expect(withWorkspaceMode(modes, "p2", "local")).toBe(modes);
   });
 });

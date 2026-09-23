@@ -19,6 +19,13 @@
  * allowed come from that instance's capabilities, and when that instance
  * cannot run a turn the harness banner sits above the composer.
  *
+ * Beside the project sits where the thread will work (`WorkspaceModePicker`):
+ * the project's own folder, or a new worktree cut from a base branch. A
+ * worktree start runs `start-in-worktree.ts` — create the worktree, run the
+ * project's setup script with its output in the panel above the composer,
+ * then create the thread with that `worktree` and send — and a failed setup
+ * stops there until the user starts anyway or discards the worktree.
+ *
  * With no server it says so. A fresh install lands here with no projects, so
  * the empty state carries the same Add project dialog the sidebar does —
  * without it the screen would be an input with nowhere to send it.
@@ -28,14 +35,6 @@ import { useNavigate } from "@tanstack/react-router";
 import * as React from "react";
 import { toast } from "sonner";
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectGroup,
-  SelectTrigger,
-  SelectValue,
-} from "@OpenAde/ui/components/select";
 import { useAtomValue } from "@effect/atom-react";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { useAppAtoms } from "@/lib/app-runtime";
@@ -49,6 +48,11 @@ import { ComposerChips } from "@/components/composer/composer-chips";
 import { useAttachments } from "@/components/composer/use-attachments";
 import { useSendDraft } from "@/components/composer/use-send-draft";
 import { HarnessHealthBanner } from "@/components/thread/harness-health-banner";
+import { ProjectPicker } from "@/components/thread/project-picker";
+import { worktreeName } from "@/components/thread/start-in-worktree";
+import { useStartInWorktree } from "@/components/thread/use-start-in-worktree";
+import { useWorkspaceChoice, WorkspaceModePicker } from "@/components/thread/workspace-mode-picker";
+import { WorktreeSetupPanel } from "@/components/thread/worktree-setup-panel";
 import { AddProjectDialog } from "@/components/sidebar/add-project-dialog";
 import { ThreadGreeting } from "@/components/thread/thread-greeting";
 import { attachmentRefusal } from "@/lib/attachment-support";
@@ -58,51 +62,6 @@ import { runtimeModeOptions } from "@/lib/runtime-modes";
 import { useCreateThread } from "@/lib/use-create-thread";
 import { useConnectionState, useProjects } from "@/state/hooks";
 import { useComposerDraft, useLastProject } from "@/state/ui";
-import { Folder } from "@honeyicons/react";
-
-function ProjectPicker({
-  projects,
-  value,
-  onPick,
-}: {
-  readonly projects: ReadonlyArray<ProjectSummary>;
-  readonly value: ProjectId;
-  readonly onPick: (projectId: ProjectId) => void;
-}) {
-  return (
-    <Select
-      value={value}
-      onValueChange={(next) => {
-        const project = projects.find((entry) => entry.projectId === next);
-        if (project !== undefined) {
-          onPick(project.projectId);
-        }
-      }}
-      items={projects.map((project) => ({ value: project.projectId, label: project.name }))}
-    >
-      <SelectTrigger aria-label="Project" size="sm" variant="composer" className="min-w-0">
-        <span className="flex min-w-0 items-center gap-1.5">
-          <Folder variant="bold" className="size-3.5 shrink-0 text-muted-foreground" />
-          <SelectValue />
-        </span>
-      </SelectTrigger>
-      <SelectContent align="start" alignItemWithTrigger={false} className="min-w-56">
-        <SelectGroup>
-          {projects.map((project) => (
-            <SelectItem key={project.projectId} value={project.projectId}>
-              <span className="flex min-w-0 flex-col">
-                <span className="truncate">{project.name}</span>
-                <span className="truncate font-mono text-xs text-muted-foreground">
-                  {project.workspaceRoot}
-                </span>
-              </span>
-            </SelectItem>
-          ))}
-        </SelectGroup>
-      </SelectContent>
-    </Select>
-  );
-}
 
 function StartComposer({
   projects,
@@ -110,7 +69,7 @@ function StartComposer({
   onPickProject,
 }: {
   readonly projects: ReadonlyArray<ProjectSummary>;
-  readonly project: ProjectSummary | undefined;
+  readonly project: ProjectSummary;
   readonly onPickProject: (projectId: ProjectId) => void;
 }) {
   const navigate = useNavigate();
@@ -158,20 +117,36 @@ function StartComposer({
     },
   );
 
-  const busy = pending || sending;
+  const sendFirstMessage = () => sendDraft({ text: text.trim(), mentions: [], mode: "start" });
+  const choice = useWorkspaceChoice(project.projectId);
+  const worktreeStart = useStartInWorktree(project.projectId, {
+    createThread: (worktree) =>
+      create(project.projectId, { threadId, navigate: false, settings: shownSettings, worktree }),
+    send: sendFirstMessage,
+  });
+  const { state: worktreeState } = worktreeStart;
+  // From creating the worktree until the thread is started or the worktree
+  // discarded, the draft and the pickers wait.
+  const inWorktreeFlow = worktreeState.step !== "idle";
+
+  const busy = pending || sending || inWorktreeFlow;
   const canSend = text.trim().length > 0 || attachments.files.length > 0;
 
   // `pending` is state, so a second Enter before the re-render would create
   // the same thread twice; the ref closes that window.
   const startingRef = React.useRef(false);
   const send = async () => {
-    if (project === undefined || !canSend || busy || startingRef.current) {
+    if (!canSend || busy || startingRef.current) {
       return;
     }
     startingRef.current = true;
     try {
-      if (await create(project.projectId, { threadId, navigate: false, settings: shownSettings })) {
-        sendDraft({ text: text.trim(), mentions: [], mode: "start" });
+      if (choice.mode === "worktree") {
+        await worktreeStart.start(worktreeName(text), choice.baseBranch);
+      } else if (
+        await create(project.projectId, { threadId, navigate: false, settings: shownSettings })
+      ) {
+        sendFirstMessage();
       }
     } finally {
       startingRef.current = false;
@@ -183,12 +158,33 @@ function StartComposer({
       <HarnessHealthBanner
         summary={connectors.find((connector) => connector.connectorInstanceId === instanceId)}
       />
+      <WorktreeSetupPanel
+        state={worktreeState}
+        liveOutput={worktreeStart.liveOutput}
+        onStop={worktreeStart.stop}
+        onStartAnyway={async () => {
+          if (worktreeState.step === "failed") {
+            await worktreeStart.startAnyway(worktreeState.worktree);
+          }
+        }}
+        onDiscard={async () => {
+          if (worktreeState.step === "failed") {
+            await worktreeStart.discard(worktreeState.worktree);
+          }
+        }}
+      />
       <ComposerSurface
         dragging={attachments.dragging}
         context={
-          project ? (
-            <ProjectPicker projects={projects} value={project.projectId} onPick={onPickProject} />
-          ) : undefined
+          <>
+            <ProjectPicker
+              projects={projects}
+              value={project.projectId}
+              disabled={inWorktreeFlow}
+              onPick={onPickProject}
+            />
+            <WorkspaceModePicker choice={choice} disabled={inWorktreeFlow} />
+          </>
         }
         onSubmit={(event) => {
           event.preventDefault();
@@ -222,7 +218,7 @@ function StartComposer({
         <ComposerToolbar
           running={false}
           steerable={false}
-          canSend={canSend && project !== undefined}
+          canSend={canSend}
           interrupting={false}
           sending={busy}
           filesKey={attachments.files.length}
@@ -264,7 +260,7 @@ export function StartThread() {
   // A remembered project that has since been removed falls back to the first.
   const project = projects.find((entry) => entry.projectId === lastProject) ?? projects[0];
 
-  if (!connected || empty) {
+  if (!connected || empty || project === undefined) {
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-10">
         <div className="flex w-full max-w-[760px] flex-col items-center gap-5 text-center">

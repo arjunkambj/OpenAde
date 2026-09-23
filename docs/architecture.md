@@ -452,6 +452,9 @@ Everything a client needs that is not React.
   it appends the same decision records the server keeps, and the next snapshot
   is authoritative.
 - `atoms.ts`, `gitAtoms.ts`, `fileAtoms.ts`, `fsAtoms.ts` — the atom factories.
+- `gitCommands.ts` — the worktree writes: create, the setup script (a stream
+  atom whose value is the run so far, so the output shows as it arrives) and
+  remove. Built on `gitAtoms`, so each refreshes the project's branch list.
 - `connectorAtoms.ts` — `modelCatalogAtom`, every enabled connector instance
   with its models in `connectors.list` order, which the model pickers and the
   Models settings page read. It follows `connectorsAtom`, and an instance whose
@@ -602,7 +605,10 @@ settings row written before them still reads. Both are edited on the Git &
 worktrees settings page (`apps/web/src/components/Settings/git-panel.tsx`,
 also reached from a project's overflow menu). Removing a worktree and running
 the script in one both take the path only when it is a registered, non-main
-worktree of the project's repository.
+worktree of the project's repository. The start screen is where a thread gets
+one: its Local / New worktree picker runs create, setup and `thread.create`
+in that order (`apps/web/src/components/thread/start-in-worktree.ts`), and the
+thread header and sidebar row mark a worktree thread with its branch.
 
 `decisions` is on the wire: one `ResolvedDecision` per settled approval,
 question or plan, oldest first — its kind, the request id (the turn id for a

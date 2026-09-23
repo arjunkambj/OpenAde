@@ -3,8 +3,9 @@
  *
  * Row disclosure lives in a single override map keyed by itemId so expanding a
  * tool row survives virtualization (the row unmounts, the state does not).
- * Sidebar and dock widths and the per-thread dock tab persist through localStorage —
- * durable layout, nothing more.
+ * Sidebar and dock widths, the per-thread dock tab and the start screen's
+ * per-project workspace mode persist through localStorage — durable layout,
+ * nothing more.
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
@@ -389,4 +390,97 @@ export const useProjectCollapsed = (projectId: string) => {
     [setIds, projectId],
   );
   return [collapsed, setCollapsed] as const;
+};
+
+/** Where the start screen runs a new thread: the project's own folder, or a new worktree. */
+export type WorkspaceMode = "local" | "worktree";
+
+const WORKSPACE_MODES_KEY = "openade:workspace-modes";
+
+/** Absent, unparseable or foreign-shaped storage all mean "local everywhere". */
+export const parseWorkspaceModes = (
+  raw: string | null | undefined,
+): Readonly<Record<string, WorkspaceMode>> => {
+  if (raw === null || raw === undefined) {
+    return {};
+  }
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return {};
+    }
+    const modes: Record<string, WorkspaceMode> = {};
+    for (const [projectId, mode] of Object.entries(parsed)) {
+      if (mode === "worktree") {
+        modes[projectId] = mode;
+      }
+    }
+    return modes;
+  } catch {
+    return {};
+  }
+};
+
+/**
+ * The map with one project's mode set. Local is the default, so it is stored
+ * as the key's absence and a project that goes back to local drops out.
+ */
+export const withWorkspaceMode = (
+  modes: Readonly<Record<string, WorkspaceMode>>,
+  projectId: string,
+  mode: WorkspaceMode,
+): Readonly<Record<string, WorkspaceMode>> => {
+  if ((modes[projectId] ?? "local") === mode) {
+    return modes;
+  }
+  const next = { ...modes };
+  if (mode === "local") {
+    delete next[projectId];
+  } else {
+    next[projectId] = mode;
+  }
+  return next;
+};
+
+const readWorkspaceModes = (): Readonly<Record<string, WorkspaceMode>> => {
+  try {
+    return parseWorkspaceModes(globalThis.localStorage?.getItem(WORKSPACE_MODES_KEY));
+  } catch {
+    return {};
+  }
+};
+
+/**
+ * The mode each project's last thread was started in, so the start screen
+ * opens on it again. Persisted: someone who works in worktrees on one project
+ * should not have to pick it every time.
+ */
+const workspaceModesAtom = Atom.make<Readonly<Record<string, WorkspaceMode>>>(readWorkspaceModes());
+
+/** `[mode, setMode]` for one project on the start screen. */
+export const useWorkspaceMode = (projectId: string) => {
+  const mode = useAtomValue(
+    workspaceModesAtom,
+    React.useCallback(
+      (modes: Readonly<Record<string, WorkspaceMode>>) => modes[projectId] ?? "local",
+      [projectId],
+    ),
+  );
+  const setModes = useAtomSet(workspaceModesAtom);
+  const setMode = React.useCallback(
+    (next: WorkspaceMode) =>
+      setModes((current) => {
+        const modes = withWorkspaceMode(current, projectId, next);
+        if (modes !== current) {
+          try {
+            globalThis.localStorage?.setItem(WORKSPACE_MODES_KEY, JSON.stringify(modes));
+          } catch {
+            // localStorage can throw (private mode, quota); the atom still updates.
+          }
+        }
+        return modes;
+      }),
+    [setModes, projectId],
+  );
+  return [mode, setMode] as const;
 };

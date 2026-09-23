@@ -1303,6 +1303,43 @@ and an `exit` frame carries the exit code (or the signal) last. A stream that
 ends first — the client went away — kills the whole group, SIGTERM and then
 SIGKILL, so nothing the script started outlives it.
 
+### Starting a thread in a worktree
+
+The start screen's composer has a second picker beside the project's
+(`apps/web/src/components/thread/workspace-mode-picker.tsx`): **Local**, the
+project's own folder that its other local threads share, or **New worktree**.
+The choice is remembered per project in localStorage (`useWorkspaceMode`). New
+worktree is disabled, with a tooltip saying why, when `git.branches` answers
+that the folder is not a repository. With it picked, a second select offers
+the base branch — local branches, then remote ones — opening on the list's
+`defaultBranch`.
+
+Sending in that mode runs `start-in-worktree.ts`, a sequence of injected steps:
+
+1. `git.worktree.create` with the first non-blank line of the message as the
+   name. The branch is the prefix and its slug (`openade/fix-login-redirect`),
+   the directory `~/.openade/worktrees/<project slug>/<slug>`. A refusal —
+   not a repository, a bad prefix, an unknown base — is a toast with the
+   server's message, and nothing exists yet.
+2. `git.worktree.setup`, the project's setup script in the new directory.
+   `worktreeSetupAtom` (`packages/client-runtime/src/gitCommands.ts`) folds
+   the stream's frames into the run so far, so the panel above the composer
+   (`worktree-setup-panel.tsx`) shows the output as it arrives. Its Stop
+   button interrupts the atom, which ends the stream and kills the script.
+3. When the script exited 0, or the project has none, `thread.create` with the
+   `worktree`, then the draft is sent as the first turn and the screen moves
+   to the thread.
+4. Otherwise the sequence stops before the thread exists. The panel names how
+   the script ended (`Setup script exited 3`, killed, stopped) and keeps its
+   output. **Start anyway** runs step 3 in the worktree as it is; **Discard
+   worktree** asks first, then removes the directory with `force` — whatever
+   the script wrote there goes, and the branch stays.
+
+The pickers and the composer wait from step 1 until the thread starts or the
+worktree is discarded, and the draft stays put throughout, so a discarded
+attempt can be sent again. Once the thread exists, its header shows the branch
+with the path in a tooltip, and its sidebar row carries a fork mark.
+
 ---
 
 ## 9. Attachments

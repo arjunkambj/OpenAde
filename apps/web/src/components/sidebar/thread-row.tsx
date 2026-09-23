@@ -1,8 +1,8 @@
 /**
  * One thread in the projects → threads tree, on the stock sidebar menu parts.
  *
- * Left to right: a fixed status slot, the title, and how long ago the thread
- * last moved. The slot holds the status mark from `./thread-status` — needs
+ * Left to right: a fixed status slot, the title, a fork mark when the thread
+ * works in its own worktree, and how long ago the thread last moved. The slot holds the status mark from `./thread-status` — needs
  * you, plan ready, running, error — and, only when there is none, the unread
  * dot; a thread that is running or waiting says so louder than "unread" can,
  * and the title's weight still carries the unread emphasis. The slot sits
@@ -25,6 +25,7 @@ import { isUnread, useThreadSeen } from "@/components/sidebar/thread-seen";
 import { threadStatusMark } from "@/components/sidebar/thread-status";
 import { relativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { GitFork } from "@honeyicons/react";
 
 const UNREAD_LABEL = "Updated since you last opened it";
 
@@ -90,6 +91,16 @@ export function ThreadRow({ thread, now }: { thread: ThreadSummary; now: number 
         >
           {thread.title}
         </span>
+        {thread.worktree === undefined ? null : (
+          <span
+            title={`Worktree ${thread.worktree.branch}`}
+            aria-label={`Worktree ${thread.worktree.branch}`}
+            role="img"
+            className="flex shrink-0 text-muted-foreground"
+          >
+            <GitFork className="size-3.5" />
+          </span>
+        )}
         <time
           dateTime={updatedAt}
           title={new Date(updatedAt).toLocaleString()}
