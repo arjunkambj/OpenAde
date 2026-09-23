@@ -290,6 +290,11 @@ the transport boundary rather than deep inside a projection. `ConnectorKind` is
 deliberately an unconstrained string: adding a connector must not touch this
 package.
 
+`Effort` is the canonical reasoning ladder, `minimal`, `low`, `medium`, `high`,
+`xhigh`, `max`, exported in that order as `EFFORT_ORDER`. It is a superset: which
+rungs a model accepts is `ModelOption.efforts`, and a harness maps its own names
+onto these. The union only grows, so a stored thread's effort always decodes.
+
 Public seam: its `exports` map. May import `shared` only.
 
 ### packages/connector-sdk
@@ -696,7 +701,25 @@ kind. The schema itself never leaves the server. `registry.describe` lists one
 ships, in declaration order, and `connectors.describe` answers it.
 
 A `ConnectorInstance` is one _configured_ connector, live —
-`startSession`, `resumeSession`, `listModels`, plus its capabilities. Instances
+`startSession`, `resumeSession`, `listModels`, plus its capabilities.
+`ConnectorCapabilities` is what the harness can do, and the renderer reads it
+instead of the kind:
+
+| Capability                   | Values                               | Read by                                              |
+| ---------------------------- | ------------------------------------ | ---------------------------------------------------- |
+| `modelSwitch`/`effortSwitch` | `per-turn`, `in-session`, `restart`  | the header pickers: applies now, next turn, or never |
+| `planMode`                   | boolean                              | the plan toggle                                      |
+| `runtimeModes`               | the `RuntimeMode`s a session honours | the mode picker, which offers only these             |
+| `images`                     | boolean                              | the composer, which refuses attachments when false   |
+| `attachments`                | `images` or `files`                  | not yet: `attachments.stage` stages images only      |
+| `interrupt`                  | `turn` or `session`                  | what stopping cancels                                |
+| `rollback`                   | boolean                              | whether the harness can rewind its own conversation  |
+| `compaction`                 | boolean                              | whether compaction can be asked for on demand        |
+| `questions`                  | boolean                              | whether a turn can put a question to the user        |
+| `subagents`, `resume`        | boolean                              | declared                                             |
+| `steering`, `fork`           | boolean                              | declared; read once a harness supports them          |
+
+`steering` also decides `TurnInProgress`, below. Instances
 are per configuration, not per thread. The registry (`registry.ts`) routes by
 **instance id, never by kind**: two instances of the same harness with different
 binaries, credentials or default models are a normal configuration, and a thread

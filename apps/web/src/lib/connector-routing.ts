@@ -34,9 +34,24 @@
 
 import type { ConnectorInstanceId } from "@OpenAde/contracts/ids";
 import type { ConnectorSummary } from "@OpenAde/contracts/rpc";
+import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
 
 export const routedConnectorInstanceId = (
   bound: ConnectorInstanceId | null | undefined,
   connectors: ReadonlyArray<ConnectorSummary>,
 ): ConnectorInstanceId | null =>
   bound ?? connectors.find((connector) => connector.enabled)?.connectorInstanceId ?? null;
+
+/**
+ * The capabilities of the instance a thread runs on — or would, before its
+ * first turn. What the harness *is* able to do (which runtime modes it honours,
+ * whether it takes images) does not wait for a session, unlike the switch
+ * behaviour above. `null` until that instance has opened and reported them.
+ */
+export const routedCapabilities = (
+  bound: ConnectorInstanceId | null | undefined,
+  connectors: ReadonlyArray<ConnectorSummary>,
+): ConnectorCapabilities | null => {
+  const routed = routedConnectorInstanceId(bound, connectors);
+  return connectors.find((c) => c.connectorInstanceId === routed)?.capabilities ?? null;
+};

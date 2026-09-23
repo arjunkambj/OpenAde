@@ -6,9 +6,13 @@
  * Stop only exists while a turn is running and is the visible half of the
  * `thread.interrupt` binding: a user who never learns the chord still has a
  * way to end a turn that is going wrong.
+ *
+ * Attach is disabled, with the reason as its tooltip, when the thread's
+ * connector cannot take attachments (`@/lib/attachment-support`).
  */
 
 import { Button } from "@OpenAde/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import * as React from "react";
 
 import { ATTACHMENT_ACCEPT } from "@/components/composer/attachment-rules";
@@ -27,6 +31,7 @@ export function ComposerToolbar({
   onFilesPicked,
   onSend,
   onInterrupt,
+  attachDisabledReason,
 }: {
   readonly settings?: React.ReactNode;
   readonly running: boolean;
@@ -42,8 +47,25 @@ export function ComposerToolbar({
   readonly onFilesPicked: (files: ReadonlyArray<File>) => void;
   readonly onSend: () => void;
   readonly onInterrupt: () => void;
+  /** Why attaching is refused; the button is disabled when it is set. */
+  readonly attachDisabledReason?: string;
 }) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const attachDisabled = attachDisabledReason !== undefined;
+  const attach = (
+    <Button
+      type="button"
+      variant="ghost"
+      tone="muted"
+      size="icon"
+      aria-label="Attach files"
+      title={attachDisabled ? undefined : "Attach files"}
+      disabled={attachDisabled}
+      onClick={() => fileInputRef.current?.click()}
+    >
+      <Add />
+    </Button>
+  );
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-2">
       <input
@@ -62,17 +84,14 @@ export function ComposerToolbar({
           event.target.value = "";
         }}
       />
-      <Button
-        type="button"
-        variant="ghost"
-        tone="muted"
-        size="icon"
-        aria-label="Attach files"
-        title="Attach files"
-        onClick={() => fileInputRef.current?.click()}
-      >
-        <Add />
-      </Button>
+      {attachDisabled ? (
+        <Tooltip>
+          <TooltipTrigger render={<span className="inline-flex" />}>{attach}</TooltipTrigger>
+          <TooltipContent>{attachDisabledReason}</TooltipContent>
+        </Tooltip>
+      ) : (
+        attach
+      )}
       {settings}
       <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
         {contextUsed !== undefined && contextLimit !== undefined ? (

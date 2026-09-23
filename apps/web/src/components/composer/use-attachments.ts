@@ -63,11 +63,16 @@ export interface Attachments {
  * part of the per-thread draft (`@/state/ui`), so that a thread switch — which
  * unmounts the composer — does not throw a pasted screenshot away. Everything
  * about *this* round of picking, dropping and refusing stays local.
+ *
+ * `refusal` is set when the thread's connector cannot take attachments at all
+ * (`@/lib/attachment-support`): the picker is disabled by the toolbar, and a
+ * paste or a drop is refused here with the same reason.
  */
 export function useAttachments(
   threadId: ThreadId,
   files: ReadonlyArray<File>,
   setFiles: React.Dispatch<React.SetStateAction<ReadonlyArray<File>>>,
+  refusal: string | null = null,
 ): Attachments {
   const { stageAttachmentAtom } = useClientRuntime();
   const stageOne = useAtomSet(stageAttachmentAtom, { mode: "promise" });
@@ -76,13 +81,17 @@ export function useAttachments(
 
   const add = React.useCallback(
     (added: ReadonlyArray<File>) => {
+      if (refusal !== null) {
+        setRejected(refusal);
+        return;
+      }
       const triage = triageAttachments(added);
       setRejected(rejectionMessage(triage.rejected));
       if (triage.accepted.length > 0) {
         setFiles((current) => [...current, ...triage.accepted]);
       }
     },
-    [setFiles],
+    [setFiles, refusal],
   );
 
   const stage = React.useCallback(async (): Promise<StagedAttachments> => {

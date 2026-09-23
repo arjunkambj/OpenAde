@@ -18,6 +18,7 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { toast } from "sonner";
 
 import { describeExitError, useAppAtoms } from "@/lib/app-runtime";
+import { RUNTIME_MODE_LABELS } from "@/lib/runtime-modes";
 
 import { StructForm, type SelectOption } from "./schema-form";
 
@@ -83,7 +84,10 @@ export function ModelsPanel() {
                 case "effort":
                   return enumOptions(Effort.literals);
                 case "runtimeMode":
-                  return enumOptions(RuntimeMode.literals);
+                  return RuntimeMode.literals.map((value) => ({
+                    value,
+                    label: RUNTIME_MODE_LABELS[value],
+                  }));
                 default:
                   return [];
               }

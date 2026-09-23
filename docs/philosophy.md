@@ -105,8 +105,12 @@ one-word pattern and into the Skills tab's own description.
 
 Capabilities are how the UI adapts without knowing. A connector declares
 `ConnectorCapabilities` — `modelSwitch`, `effortSwitch`, `steering`, `planMode`,
-`subagents`, `images`, `resume`, `fork` — and the renderer branches on those
-(`packages/connector-cmd/src/capabilities.ts`).
+`subagents`, `images`, `resume`, `fork`, `interrupt`, `rollback`, `compaction`,
+`questions`, `runtimeModes`, `attachments` — and the renderer branches on those
+(`packages/connector-cmd/src/capabilities.ts`). The mode picker offers the
+connector's `runtimeModes`, the composer refuses attachments when `images` is
+false. `steering` and `fork` are declared ahead of any UI for them and read once
+a harness supports them.
 
 **To honour it:** if the UI needs to behave differently for one harness, add a
 capability flag to the contract and let the connector declare it. Never add a

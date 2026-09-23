@@ -358,6 +358,15 @@ that, and binding it to emptying the textarea would throw away the sentence the
 user was writing while keeping every token they meant to drop. `@` searches the
 project's files through `files.search` and inserts a chip.
 
+`/effort` and `/mode` offer what the header pickers offer. Efforts are the
+current model's `efforts`, or the whole ladder when it states none, always
+lowest first in the contract's `EFFORT_ORDER` (`apps/web/src/lib/efforts.ts`).
+Runtime modes are the connector's `capabilities.runtimeModes`, named from one
+label table (`apps/web/src/lib/runtime-modes.ts`). Both read the capabilities of
+the instance the thread runs on, or would run on before its first turn. When
+that instance reports `images: false`, the attach button is disabled with the
+reason as its tooltip and a paste or drop is refused with the same sentence.
+
 ### Command to events
 
 ```
@@ -856,6 +865,11 @@ so the pane never offers a restore that can only fail.
 ---
 
 ## 9. Attachments
+
+Only images are staged: the server refuses any other bytes, so the composer
+gates attaching on `capabilities.images` alone. A connector's
+`capabilities.attachments: "files"` says it could carry any file, and is read
+once staging accepts more than images.
 
 Print mode has no image flag. The path around it:
 

@@ -11,7 +11,9 @@
  * thread with no bound session reports no capabilities, in which case model
  * and effort behave as per-turn — that is what a fresh session consumes. The
  * model *list* does not wait for that binding: it comes from the instance the
- * thread would route to (`@/lib/connector-routing`).
+ * thread would route to (`@/lib/connector-routing`), and so do the runtime
+ * modes on offer (`@/lib/runtime-modes`). Efforts read lowest first in the
+ * contract's order (`@/lib/efforts`).
  */
 
 import { Button } from "@OpenAde/ui/components/button";
@@ -30,7 +32,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@OpenAde/ui/components/tooltip";
-import type { Effort, RuntimeMode } from "@OpenAde/contracts/enums";
+import { DEFAULT_RUNTIME_MODE, type Effort, RuntimeMode } from "@OpenAde/contracts/enums";
 import { makeCommandId } from "@OpenAde/contracts/ids";
 import type { ThreadId } from "@OpenAde/contracts/ids";
 import type { ThreadSettingsPatch } from "@OpenAde/contracts/orchestration";
@@ -40,8 +42,10 @@ import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 
 import { useClientRuntime } from "@/lib/client-runtime";
-import { routedConnectorInstanceId } from "@/lib/connector-routing";
+import { routedCapabilities, routedConnectorInstanceId } from "@/lib/connector-routing";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
+import { orderEfforts } from "@/lib/efforts";
+import { RUNTIME_MODE_LABELS, runtimeModeOptions } from "@/lib/runtime-modes";
 import { type HoneyIcon, Brain, Lightning, ListChecks, Lock } from "@honeyicons/react";
 
 interface HeaderOption {
@@ -50,14 +54,6 @@ interface HeaderOption {
   readonly description?: string;
   readonly disabled?: boolean;
 }
-
-const ALL_EFFORTS: ReadonlyArray<Effort> = ["low", "medium", "high", "xhigh", "max"];
-
-const RUNTIME_MODE_OPTIONS: ReadonlyArray<HeaderOption> = [
-  { value: "approval-required", label: "Ask first" },
-  { value: "auto-accept-edits", label: "Auto-accept edits" },
-  { value: "full-access", label: "Full access" },
-];
 
 const RESTART_TOOLTIP = "Applies only on session restart — the running session keeps its settings";
 const NEXT_TURN_HINT = "applies next turn";
@@ -170,6 +166,8 @@ export function HeaderControls({
     connectorModelsAtom(routedConnectorInstanceId(boundInstanceId, connectors)),
   );
   const models = AsyncResult.isSuccess(modelsResult) ? modelsResult.value : [];
+  // What the harness can honour is known before any session is bound.
+  const runtimeModes = runtimeModeOptions(routedCapabilities(boundInstanceId, connectors));
 
   const [error, setError] = React.useState<string | null>(null);
 
@@ -202,6 +200,7 @@ export function HeaderControls({
         modelSwitch={capabilities?.modelSwitch ?? "per-turn"}
         effortSwitch={capabilities?.effortSwitch ?? "per-turn"}
         canPlan={capabilities?.planMode ?? true}
+        runtimeModes={runtimeModes}
         onChange={update}
       />
       {error === null ? null : (
@@ -219,6 +218,7 @@ export function ThreadSettingsControls({
   modelSwitch = "next-turn",
   effortSwitch = "next-turn",
   canPlan = true,
+  runtimeModes = RuntimeMode.literals,
   onChange,
 }: {
   readonly settings: ThreadSettingsPatch;
@@ -226,6 +226,8 @@ export function ThreadSettingsControls({
   readonly modelSwitch?: CapabilitySwitch | "next-turn";
   readonly effortSwitch?: CapabilitySwitch | "next-turn";
   readonly canPlan?: boolean;
+  /** The modes the thread's connector can honour; every mode when unknown. */
+  readonly runtimeModes?: ReadonlyArray<RuntimeMode>;
   readonly onChange: (patch: ThreadSettingsPatch) => void;
 }) {
   const modelOptions: ReadonlyArray<HeaderOption> = models.map((model) => ({
@@ -235,9 +237,24 @@ export function ThreadSettingsControls({
   }));
 
   const currentModel = models.find((model) => model.id === settings.model);
-  const effortOptions: ReadonlyArray<HeaderOption> = (currentModel?.efforts ?? ALL_EFFORTS).map(
+  const effortOptions: ReadonlyArray<HeaderOption> = orderEfforts(currentModel?.efforts).map(
     (effort) => ({ value: effort, label: effort }),
   );
+  // A mode the connector cannot honour stays visible while it is the current
+  // one — under its own name, not picked again — so the picker never lies.
+  const currentMode = settings.runtimeMode ?? DEFAULT_RUNTIME_MODE;
+  const runtimeModeItems: ReadonlyArray<HeaderOption> = RuntimeMode.literals
+    .filter((mode) => runtimeModes.includes(mode) || mode === currentMode)
+    .map((mode) =>
+      runtimeModes.includes(mode)
+        ? { value: mode, label: RUNTIME_MODE_LABELS[mode] }
+        : {
+            value: mode,
+            label: RUNTIME_MODE_LABELS[mode],
+            description: "Not supported by this connector",
+            disabled: true,
+          },
+    );
 
   const planning = settings.interactionMode === "plan";
 
@@ -247,8 +264,8 @@ export function ThreadSettingsControls({
         <HeaderSelect
           icon={Lock}
           label="Runtime mode"
-          value={settings.runtimeMode ?? "approval-required"}
-          options={RUNTIME_MODE_OPTIONS}
+          value={currentMode}
+          options={runtimeModeItems}
           capability="next-turn"
           onPick={(mode) => onChange({ runtimeMode: mode as RuntimeMode })}
         />

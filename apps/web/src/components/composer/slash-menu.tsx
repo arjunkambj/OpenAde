@@ -2,7 +2,9 @@
  * The `/` popover. Level one lists the built-in commands plus the connector's
  * skills; `model`, `effort` and `mode` open a second level whose pick becomes
  * a `thread.settings.update` patch. Everything the menu can do is expressed as
- * a `SlashAction` so the composer keeps one `onSelect` path.
+ * a `SlashAction` so the composer keeps one `onSelect` path. `/effort` and
+ * `/mode` offer what the header pickers offer: the model's rungs in the
+ * contract's order, and the modes the connector can honour.
  *
  * There is deliberately no `/clear`: in the harnesses this menu stands in for
  * that name clears the session context, and no command in the union does that
@@ -12,8 +14,11 @@
 
 import type { Effort, InteractionMode, RuntimeMode } from "@OpenAde/contracts/enums";
 import type { ModelOption, SkillSummary } from "@OpenAde/contracts/rpc";
+import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
 
 import { TriggerMenu, type TriggerMenuItem } from "@/components/composer/trigger-menu";
+import { orderEfforts } from "@/lib/efforts";
+import { RUNTIME_MODE_LABELS, runtimeModeOptions } from "@/lib/runtime-modes";
 import { Brain, Close, Lightning, ListChecks, Lock, Play, Sparkles } from "@honeyicons/react";
 
 export type SlashLevel = "root" | "model" | "effort" | "mode";
@@ -36,23 +41,11 @@ export interface SlashMenuItem extends TriggerMenuItem {
   readonly action: SlashAction;
 }
 
-const RUNTIME_MODES: ReadonlyArray<{ value: RuntimeMode; label: string; description: string }> = [
-  {
-    value: "approval-required",
-    label: "Ask before acting",
-    description: "Prompt for everything that mutates or reaches out",
-  },
-  {
-    value: "auto-accept-edits",
-    label: "Auto-accept edits",
-    description: "Edits inside the project run free, shell and web still ask",
-  },
-  {
-    value: "full-access",
-    label: "Full access",
-    description: "Everything except sensitive paths and deny rules",
-  },
-];
+const RUNTIME_MODE_DESCRIPTIONS: Readonly<Record<RuntimeMode, string>> = {
+  "approval-required": "Prompt for everything that mutates or reaches out",
+  "auto-accept-edits": "Edits inside the project run free, shell and web still ask",
+  "full-access": "Everything except sensitive paths and deny rules",
+};
 
 const match = (query: string, ...text: ReadonlyArray<string>) => {
   const needle = query.trim().toLowerCase();
@@ -61,16 +54,18 @@ const match = (query: string, ...text: ReadonlyArray<string>) => {
 
 /**
  * The items for one menu level, filtered by the trigger query. `efforts` is
- * the ladder the bound model accepts — the composer computes it.
+ * the ladder the current model states, if it states one; `capabilities` are
+ * the thread's connector's, `null` while unknown.
  */
 export const slashMenuItems = (input: {
   readonly level: SlashLevel;
   readonly query: string;
   readonly skills: ReadonlyArray<SkillSummary>;
   readonly models: ReadonlyArray<ModelOption>;
-  readonly efforts: ReadonlyArray<Effort>;
+  readonly efforts: ReadonlyArray<Effort> | undefined;
+  readonly capabilities: ConnectorCapabilities | null;
 }): ReadonlyArray<SlashMenuItem> => {
-  const { level, query, skills, models, efforts } = input;
+  const { level, query, skills, models, efforts, capabilities } = input;
 
   if (level === "model") {
     return models
@@ -85,7 +80,7 @@ export const slashMenuItems = (input: {
   }
 
   if (level === "effort") {
-    return efforts
+    return orderEfforts(efforts)
       .filter((effort) => match(query, effort))
       .map((effort) => ({
         id: `effort:${effort}`,
@@ -96,13 +91,15 @@ export const slashMenuItems = (input: {
   }
 
   if (level === "mode") {
-    return RUNTIME_MODES.filter((mode) => match(query, mode.label, mode.value)).map((mode) => ({
-      id: `mode:${mode.value}`,
-      label: mode.label,
-      description: mode.description,
-      icon: Lock,
-      action: { type: "settings", patch: { runtimeMode: mode.value } },
-    }));
+    return runtimeModeOptions(capabilities)
+      .filter((mode) => match(query, RUNTIME_MODE_LABELS[mode], mode))
+      .map((mode) => ({
+        id: `mode:${mode}`,
+        label: RUNTIME_MODE_LABELS[mode],
+        description: RUNTIME_MODE_DESCRIPTIONS[mode],
+        icon: Lock,
+        action: { type: "settings", patch: { runtimeMode: mode } },
+      }));
   }
 
   const builtinList: ReadonlyArray<SlashMenuItem> = [

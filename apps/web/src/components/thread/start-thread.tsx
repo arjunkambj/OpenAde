@@ -11,6 +11,9 @@
  * after the thread exists is still in the thread's own composer when the user
  * gets there.
  *
+ * The runtime modes offered and whether attaching is allowed come from the
+ * capabilities of the connector the new thread would route to.
+ *
  * With no server it says so. A fresh install lands here with no projects, so
  * the empty state carries the same Add project dialog the sidebar does —
  * without it the screen would be an input with nowhere to send it.
@@ -42,6 +45,9 @@ import { useAttachments } from "@/components/composer/use-attachments";
 import { useSendDraft } from "@/components/composer/use-send-draft";
 import { AddProjectDialog } from "@/components/sidebar/add-project-dialog";
 import { ThreadGreeting } from "@/components/thread/thread-greeting";
+import { attachmentRefusal } from "@/lib/attachment-support";
+import { routedCapabilities } from "@/lib/connector-routing";
+import { runtimeModeOptions } from "@/lib/runtime-modes";
 import { useCreateThread } from "@/lib/use-create-thread";
 import { useConnectionState, useProjects } from "@/state/hooks";
 import { useComposerDraft, useLastProject } from "@/state/ui";
@@ -105,8 +111,12 @@ function StartComposer({
 
   const [threadId] = React.useState(makeThreadId);
   const { text, files, setText, setMentions, setFiles } = useComposerDraft(threadId);
-  const attachments = useAttachments(threadId, files, setFiles);
   const atoms = useAppAtoms();
+  const connectorsResult = useAtomValue(atoms.connectorsAtom);
+  const connectors = AsyncResult.isSuccess(connectorsResult) ? connectorsResult.value : [];
+  const capabilities = routedCapabilities(null, connectors);
+  const attachRefusal = attachmentRefusal(capabilities);
+  const attachments = useAttachments(threadId, files, setFiles, attachRefusal);
   const defaultsResult = useAtomValue(atoms.settingsAtom);
   const modelsResult = useAtomValue(atoms.allModelsAtom);
   const models = AsyncResult.isSuccess(modelsResult) ? modelsResult.value : [];
@@ -204,11 +214,13 @@ function StartComposer({
           onFilesPicked={attachments.add}
           onSend={() => void send()}
           onInterrupt={() => {}}
+          attachDisabledReason={attachRefusal ?? undefined}
           settings={
             defaults ? (
               <ThreadSettingsControls
                 settings={shownSettings}
                 models={models}
+                runtimeModes={runtimeModeOptions(capabilities)}
                 onChange={(patch) => setSettings((current) => ({ ...current, ...patch }))}
               />
             ) : undefined
