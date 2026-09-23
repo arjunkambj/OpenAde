@@ -84,8 +84,9 @@ Stdout and stderr are the server's log; **fd 3 carries the handshake**.
 - the orchestration engine (`orchestration/Engine.ts`), the session manager
   and the reactors (`ProviderCommandReactor`, `CheckpointReactor`,
   `AttachmentReactor`, `makeSessionSupervisor`);
-- the connector registry, seeded with the Command Code definition
-  (`packages/connector-cmd/src/definition.ts`), and the `ConnectorManager`
+- the connector registry, seeded with the Command Code and Claude Code
+  definitions in that order (`packages/connector-cmd/src/definition.ts`,
+  `packages/connector-claude/src/definition.ts`), and the `ConnectorManager`
   that reconciles it against the settings document;
 - permissions, git/files, attachments, the browser service and the MCP
   gateway;
@@ -255,7 +256,9 @@ checked in Settings → Connectors.
 ### The probe
 
 `ConnectorManager` (`apps/server/src/settings/ConnectorManager.ts`) seeds one
-enabled instance per registered definition on a fresh install, then probes it.
+enabled instance per registered definition on a fresh install, in the
+registry's order, then probes each. Command Code is registered first, so a
+thread that names no instance still routes to it. For Command Code,
 `packages/connector-cmd/src/probe.ts` does the work:
 
 1. resolve the binary (`packages/connector-cmd/src/binary.ts`): the configured
@@ -298,6 +301,31 @@ renderer: it receives the first as `ConnectorProbe.helpUrl` and the second over
 `connectors.describe`. `apps/web/src/components/Settings/probe-help.ts` decides
 which failures get a link at all — the probe's own `helpUrl`, or else the
 connector's docs link for an account-shaped failure.
+
+The Claude Code probe (`packages/connector-claude/src/probe.ts`) resolves
+`claude` the same way — the configured `binaryPath`, then `PATH`, then the
+directories its installers use (`/opt/homebrew/bin`, `/usr/local/bin`,
+`~/.local/bin`, `~/.claude/local`, and the npm, pnpm and bun global bins) —
+with no runner to fall back on, and asks three questions under the
+environment a session gets:
+
+1. `claude --version`, which prints `2.1.280 (Claude Code)`. Below
+   `OLDEST_TESTED_VERSION`, the release the recordings were made at, the probe
+   warns; it never refuses a version.
+2. `claude auth status --json`: `loggedIn` true is `auth: present`, false is
+   `absent` and the status `not-authenticated`. The CLI exits 1 when signed out
+   and still prints the document, so the output is read whatever the exit
+   code. `loginCommand` is `claude auth login` spelled against the resolved
+   binary, prefixed with `CLAUDE_CONFIG_DIR=…` when the instance has an account
+   directory of its own.
+3. The model list, which only the SDK handshake carries: a `query()` whose
+   prompt never yields starts the CLI, reads the initialize response's
+   `models` — the CLI's own rows, `default` first, each with its effort levels
+   — and stops the CLI's process group again. No message is sent, so nothing
+   reaches the API. An instance keeps its list, so the model picker does not
+   start a CLI each time it opens.
+
+`fixtures/claude/probe/` is that probe recorded, signed out.
 
 `apps/web/src/lib/connector-health.ts` reads a `ConnectorSummary` into one of
 five states — `ready`, `probing`, `not-installed`, `signed-out`, `error` — plus

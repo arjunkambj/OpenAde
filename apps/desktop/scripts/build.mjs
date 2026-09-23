@@ -10,14 +10,30 @@ export const outDir = join(root, "out");
 export const rendererDist = join(root, "..", "web", "dist");
 export const rendererOut = join(outDir, "renderer");
 
+/**
+ * `import.meta.url` for a bundle esbuild turns into CommonJS, where it would
+ * otherwise be undefined. The Claude Agent SDK calls
+ * `createRequire(import.meta.url)` when its module loads, so a server bundle
+ * without this throws before it starts. Only the server gets it: the preload
+ * runs sandboxed, where `require("node:url")` does not exist.
+ */
+export const IMPORT_META_URL = {
+  define: { "import.meta.url": "__importMetaUrl" },
+  // The directive goes first again: a banner ahead of esbuild's own "use strict"
+  // would demote it to an ordinary string and the bundle to sloppy mode.
+  banner: {
+    js: '"use strict"; const __importMetaUrl = require("node:url").pathToFileURL(__filename).href;',
+  },
+};
+
 /** @param {{ watch?: boolean, channel?: "stable" | "canary" }} [options] */
 export function bundleOptions({ watch = false, channel = "stable" } = {}) {
   return [
     { entry: "src/main/index.ts", outfile: "out/main/index.cjs" },
     { entry: "src/preload/index.ts", outfile: "out/preload/index.cjs" },
     // The server ships inside the app; spawned under ELECTRON_RUN_AS_NODE.
-    { entry: "../server/src/main.ts", outfile: "out/server/main.cjs" },
-  ].map(({ entry, outfile }) => ({
+    { entry: "../server/src/main.ts", outfile: "out/server/main.cjs", importMetaUrl: true },
+  ].map(({ entry, outfile, importMetaUrl = false }) => ({
     entryPoints: [join(root, entry)],
     outfile: join(root, outfile),
     bundle: true,
@@ -34,7 +50,9 @@ export function bundleOptions({ watch = false, channel = "stable" } = {}) {
       // app-user-model id from this, so it has to be the channel
       // electron-builder is packaging with.
       "process.env.OPENADE_CHANNEL": JSON.stringify(channel),
+      ...(importMetaUrl ? IMPORT_META_URL.define : {}),
     },
+    ...(importMetaUrl ? { banner: IMPORT_META_URL.banner } : {}),
   }));
 }
 

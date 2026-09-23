@@ -605,6 +605,13 @@ The server is bundled into the app and spawned as a child under
 `ELECTRON_RUN_AS_NODE`, so `out/server` is listed in `asarUnpack` — a child
 process cannot spawn from inside the asar archive.
 
+Both server bundles define `import.meta.url` — a banner derives it from
+`__filename` — because CommonJS has none, and the Claude Agent SDK calls
+`createRequire(import.meta.url)` when its module loads: without it the bundled
+server throws before it starts. The banner restates `"use strict"` first, so
+the bundle stays in strict mode. The preload does not get it; it runs
+sandboxed, where `require("node:url")` does not exist.
+
 `apps/desktop` lists `@OpenAde/contracts` and `@OpenAde/shared` as
 _devDependencies_ on purpose: esbuild inlines them into the bundle, and
 electron-builder packs only `dependencies`, so declaring them as runtime

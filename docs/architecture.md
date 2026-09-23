@@ -7,8 +7,10 @@ approval cards, a diff pane, a browser pane, a file pane, settings.
 Nothing above the connector boundary knows which CLI is running. A _connector_
 owns a harness — how to find its binary, how to spawn it, how to translate what
 it emits into the `RuntimeEvent` vocabulary — and everything else is written
-against that vocabulary. One connector ships today:
-`packages/connector-cmd`, for the Command Code CLI (`cmd`).
+against that vocabulary. Two connectors ship today:
+`packages/connector-cmd`, for the Command Code CLI (`cmd`), and
+`packages/connector-claude`, for the Claude Code CLI (`claude`) driven through
+the Claude Agent SDK.
 
 This document describes the pieces and how they connect, written against the
 code as it stands. Its companions:
@@ -92,19 +94,20 @@ persists between invocations.
 A pnpm workspace driven by turbo. Packages are scoped `@OpenAde/*` and consumed
 through their `exports` map, one entry per module; apps are unscoped.
 
-| Directory                 | Package name              | What it is                                                 |
-| ------------------------- | ------------------------- | ---------------------------------------------------------- |
-| `apps/desktop`            | `desktop`                 | Electron main, preload, server supervisor, platform glue   |
-| `apps/web`                | `web`                     | The renderer: routes, atoms, timeline, composer, panes     |
-| `apps/server`             | `server`                  | The Effect server: store, orchestration, RPC, gateways     |
-| `packages/contracts`      | `@OpenAde/contracts`      | Schemas: ids, enums, runtime, orchestration, settings, rpc |
-| `packages/connector-sdk`  | `@OpenAde/connector-sdk`  | What a connector is, and the suite every one must pass     |
-| `packages/connector-cmd`  | `@OpenAde/connector-cmd`  | The Command Code connector                                 |
-| `packages/client-runtime` | `@OpenAde/client-runtime` | Connection, folds and atoms shared by any client           |
-| `packages/shared`         | `@OpenAde/shared`         | Ids, paths, permission patterns, image sniffing            |
-| `packages/ui`             | `@OpenAde/ui`             | The base component set and its styles                      |
-| `packages/testkit`        | `@OpenAde/testkit`        | Recordings, the replayer, the fake connector, test helpers |
-| `packages/config`         | `@OpenAde/config`         | The shared `tsconfig.base.json`                            |
+| Directory                   | Package name                | What it is                                                 |
+| --------------------------- | --------------------------- | ---------------------------------------------------------- |
+| `apps/desktop`              | `desktop`                   | Electron main, preload, server supervisor, platform glue   |
+| `apps/web`                  | `web`                       | The renderer: routes, atoms, timeline, composer, panes     |
+| `apps/server`               | `server`                    | The Effect server: store, orchestration, RPC, gateways     |
+| `packages/contracts`        | `@OpenAde/contracts`        | Schemas: ids, enums, runtime, orchestration, settings, rpc |
+| `packages/connector-sdk`    | `@OpenAde/connector-sdk`    | What a connector is, and the suite every one must pass     |
+| `packages/connector-cmd`    | `@OpenAde/connector-cmd`    | The Command Code connector                                 |
+| `packages/connector-claude` | `@OpenAde/connector-claude` | The Claude Code connector                                  |
+| `packages/client-runtime`   | `@OpenAde/client-runtime`   | Connection, folds and atoms shared by any client           |
+| `packages/shared`           | `@OpenAde/shared`           | Ids, paths, permission patterns, image sniffing            |
+| `packages/ui`               | `@OpenAde/ui`               | The base component set and its styles                      |
+| `packages/testkit`          | `@OpenAde/testkit`          | Recordings, the replayer, the fake connector, test helpers |
+| `packages/config`           | `@OpenAde/config`           | The shared `tsconfig.base.json`                            |
 
 ## Boundaries
 
@@ -133,16 +136,18 @@ package segment.
 | `packages/ui`             | nothing                                       |
 | `packages/config`         | nothing                                       |
 
-Test files under `apps/server` get three extras: `testkit`, `client-runtime`
-and `connector-cmd`. A file counts as a test when `.test.`/`.spec.` precedes its
-extension, or when any path segment is `test` — which is how the end-to-end
-harness under `apps/server/test/e2e/` qualifies. Keeping them out of the
-production list is what makes an accidental import in `apps/server/src/main.ts`
-fail: `apps/server` is bundled to a single file for packaging, and testkit must
-never ship. One production file has an extra of its own:
-`apps/server/src/boot.ts`, the composition root, may import `connector-cmd` to
-build the registry. Every other server file reaches a connector through the
-registry.
+Test files under `apps/server` get four extras: `testkit`, `client-runtime`,
+`connector-cmd` and `connector-claude`. Test files under
+`packages/connector-claude` get `testkit`, for the `sdk-stream` replayer and
+tee their recordings go through. A file counts as a test when `.test.`/`.spec.`
+precedes its extension, or when any path segment is `test` — which is how the
+end-to-end harness under `apps/server/test/e2e/` qualifies. Keeping them out of
+the production list is what makes an accidental import in
+`apps/server/src/main.ts` fail: `apps/server` is bundled to a single file for
+packaging, and testkit must never ship. One production file has extras of its
+own: `apps/server/src/boot.ts`, the composition root, may import
+`connector-cmd` and `connector-claude` to build the registry. Every other
+server file reaches a connector through the registry.
 
 A relative specifier that climbs out of its own workspace directory is a
 violation whatever it lands on. `../../../packages/testkit/src/receipts` is a
@@ -327,9 +332,15 @@ Directories, relative to `apps/server/`:
 | `src/attachments/`   | the staging store and its reactor                                                  |
 
 Public seam: the RPC group in `packages/contracts/src/rpc.ts` and the three
-loopback HTTP routes. May import `contracts`, `connector-sdk`, `connector-cmd`,
-`shared`; `testkit` and `client-runtime` in tests only. Must never import
-`apps/web` or `apps/desktop`.
+loopback HTTP routes. May import `contracts`, `connector-sdk` and `shared`;
+`connector-cmd` and `connector-claude` in `boot.ts` and in tests only;
+`testkit` and `client-runtime` in tests only. Must never import `apps/web` or
+`apps/desktop`.
+
+`boot.ts` registers Command Code first and Claude Code second. The order is
+routing order on a fresh install: every definition is seeded as an enabled
+instance in that order, and a thread that names no instance runs on the first
+enabled one.
 
 ### packages/contracts
 
@@ -389,6 +400,26 @@ takes the harness's config home, so a test can move it.
 May import `connector-sdk`, `contracts`, `shared`. It is the only place in the
 tree that knows `cmd` exists, apart from the one line in `boot.ts` that
 registers it.
+
+### packages/connector-claude
+
+The Claude Code connector, over `@anthropic-ai/claude-agent-sdk`.
+`definition.ts` wires the pieces: `binary.ts` (find `claude`), `env.ts` (the
+default-deny child environment), `probe.ts` (version, `auth status`, and the
+zero-turn SDK handshake that lists the models), `models.ts`, `capabilities.ts`,
+`configSchema.ts` (`binaryPath`, `configDir` for `CLAUDE_CONFIG_DIR`,
+`defaultModel`), `spawn.ts` (the SDK's `spawnClaudeCodeProcess`: its own
+process group, and the proof it is gone), `inputQueue.ts` (the streaming-input
+prompt), `queryOptions.ts`, `toolGate.ts` (the PreToolUse hook and
+`canUseTool`, both through the permission ladder), `userMessage.ts`,
+`sessionRef.ts`, `session.ts` (one long-lived CLI process per thread), and
+`translate/` (SDK messages → `RuntimeEvent`). `makeClaudeConnectorDefinition`
+takes the turn and budget caps a recording puts on every session; production
+passes none.
+
+May import `connector-sdk` and `contracts`; its tests also import `testkit`.
+It is the only place in the tree that knows `claude` exists, apart from the
+line in `boot.ts` that registers it.
 
 ### packages/client-runtime
 
@@ -1034,6 +1065,40 @@ project has closed; and the `openade` MCP entry in the CLI's local scope,
 written and removed _through the CLI_ (`cmd mcp add-json` / `cmd mcp remove`)
 because the directory it lives in is a slug of the workspace path that only the
 CLI knows how to spell.
+
+## The Claude Code connector
+
+The same seam over a different shape of harness.
+
+**One process per session.** The SDK's `query()` runs in streaming-input mode:
+its prompt is the session's input queue, and each turn is one more user
+message written to the same CLI process. `startSession` waits for the CLI's
+initialize handshake, so a CLI that cannot start, or no longer has the
+conversation a resume names, fails there rather than leaving a thread that
+never answers. A resume whose conversation is gone starts a new session and
+says so with `session.warning`.
+
+**The binary and its environment.** The SDK is always handed the user's own
+`claude` (`pathToClaudeCodeExecutable`) and a spawn function of the
+connector's, which starts it `detached`, signals its whole process group, and
+proves the group gone on close. The environment is default deny: a short
+allowlist, the locales, and `CLAUDE_CONFIG_DIR` from the instance. Every
+`CLAUDECODE`, `CLAUDE_CODE_*`, `CLAUDE_AGENT_SDK_*` and `ANTHROPIC_*` variable
+the server inherited is dropped — OpenAde may itself run inside a Claude Code
+session — and `HOME` is never moved, because the CLI's keychain login is found
+under it.
+
+**The user's harness.** Sessions load the user's, project and local settings
+— their CLAUDE.md, skills, MCP servers and hooks — under the CLI's own system
+prompt, and add OpenAde's MCP server as `openade` with the per-thread bearer.
+The SDK passes MCP configuration on the CLI's command line, so that bearer is
+visible to `ps` on the machine while the session runs; it is minted per
+session and revoked with it.
+
+**Approvals.** A PreToolUse hook asks the permission ladder about every call
+and answers allow, deny, or — for "prompt" — ask, which routes the call to
+`canUseTool` and the shared approval gate's card. The hook runs in every
+permission mode, so "ask" outranks the CLI's own allow rules too.
 
 ## The RPC surface
 

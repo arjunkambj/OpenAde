@@ -137,6 +137,9 @@ importers:
 
   apps/server:
     dependencies:
+      '@OpenAde/connector-claude':
+        specifier: workspace:*
+        version: link:../../packages/connector-claude
       '@OpenAde/connector-cmd':
         specifier: workspace:*
         version: link:../../packages/connector-cmd

@@ -135,11 +135,18 @@ describe("boot", () => {
         // What the build ships is answered with no connector configured, and
         // without probing anything: the form comes from the definition alone.
         const described = yield* rpc["connectors.describe"]({});
-        expect(described.map((descriptor) => descriptor.kind)).toEqual(["cmd"]);
+        // Command Code first: on a fresh install the order is routing order.
+        expect(described.map((descriptor) => descriptor.kind)).toEqual(["cmd", "claude"]);
         expect(described[0]?.metadata.displayName).toBe("Command Code");
         expect(described[0]?.configFields.map((field) => field.key)).toEqual([
           "binaryPath",
           "extraEnv",
+          "defaultModel",
+        ]);
+        expect(described[1]?.metadata.displayName).toBe("Claude Code");
+        expect(described[1]?.configFields.map((field) => field.key)).toEqual([
+          "binaryPath",
+          "configDir",
           "defaultModel",
         ]);
       }),

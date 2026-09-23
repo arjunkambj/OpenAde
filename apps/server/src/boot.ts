@@ -15,6 +15,7 @@
 
 import { createServer } from "node:http";
 import { NodeHttpServer } from "@effect/platform-node";
+import { claudeConnectorDefinition } from "@OpenAde/connector-claude/definition";
 import { makeCmdConnectorDefinition } from "@OpenAde/connector-cmd/definition";
 import { eraseConnectorDefinition } from "@OpenAde/connector-sdk/definition";
 import { makeRegistry } from "@OpenAde/connector-sdk/registry";
@@ -120,12 +121,17 @@ export const boot = (options: BootOptions) =>
       sqlite,
       Layer.mergeAll(EventStore.layer, ReadModelStore.layer).pipe(Layer.provide(sqlite)),
     );
+    // Order is routing order on a fresh install: every definition is seeded as
+    // an instance in this order, and a thread that names none runs on the first
+    // enabled one. Command Code stays first, so adding Claude Code changes no
+    // existing default.
     const registry = yield* makeRegistry([
       eraseConnectorDefinition(
         makeCmdConnectorDefinition(
           options.commandCodeHome === undefined ? {} : { commandCodeHome: options.commandCodeHome },
         ),
       ),
+      eraseConnectorDefinition(claudeConnectorDefinition),
     ]);
     // Routing follows the connectors page's own order, not the order instances
     // happened to be opened in — the same reading the engine seeds a new
