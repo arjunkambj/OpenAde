@@ -12,7 +12,14 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { afterEach, describe, expect, it } from "@effect/vitest";
 
-import { BARE_CMD, extraBinDirs, NPX_PACKAGE, resolveBinary, resolveForSession } from "./binary";
+import {
+  BARE_CMD,
+  extraBinDirs,
+  NPX_PACKAGE,
+  resolveBinary,
+  resolveForSession,
+  terminalCommand,
+} from "./binary";
 
 /**
  * The operator's own machine has a real `cmd` in `/opt/homebrew/bin`, which is
@@ -94,5 +101,24 @@ describe("resolveBinary", () => {
   it("searches the global bin dirs a GUI launch does not inherit", () => {
     expect(extraBinDirs()).toContain("/opt/homebrew/bin");
     expect(extraBinDirs()).toContain("/usr/local/bin");
+  });
+});
+
+describe("terminalCommand", () => {
+  it("spells a found cmd by the path that was found", () => {
+    const dir = tempBinDir(["cmd"]);
+    const resolved = resolveBinary({}, { PATH: dir }, NO_GLOBAL_DIRS)!;
+    expect(terminalCommand(resolved, ["login"])).toBe(`${NodePath.join(dir, "cmd")} login`);
+  });
+
+  it("spells the npx fallback as an npx call, never as a bare cmd", () => {
+    // npx only runs when no `cmd` was found, so `cmd login` would not exist.
+    const resolved = resolveBinary({}, { PATH: tempBinDir(["npx"]) }, NO_GLOBAL_DIRS)!;
+    expect(terminalCommand(resolved, ["login"])).toBe(`npx -y ${NPX_PACKAGE} login`);
+  });
+
+  it("quotes a configured path a shell would split", () => {
+    const resolved = resolveBinary({ binaryPath: "/Users/a b/it's/cmd" }, {}, NO_GLOBAL_DIRS)!;
+    expect(terminalCommand(resolved, ["login"])).toBe(`'/Users/a b/it'\\''s/cmd' login`);
   });
 });

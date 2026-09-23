@@ -98,6 +98,26 @@ export const resolveBinary = (
   return null;
 };
 
+/** POSIX single-quoting, only when the word needs it. */
+const shellWord = (word: string): string =>
+  /^[\w@%+=:,./-]+$/.test(word) ? word : `'${word.replaceAll("'", `'\\''`)}'`;
+
+/**
+ * The line a user types in their own terminal to run `args` against this
+ * resolution — what a probe hands the UI as a fixing command.
+ *
+ * It is spelled from the binary that was actually found, never from the bare
+ * name: the npx fallback runs exactly when no `cmd` is on PATH, so telling
+ * that user to run `cmd …` sends them to a command that does not exist. The
+ * npx runner is written by name (`npx -y command-code@latest …`) because it
+ * is a user's shell that will look it up, and any shell with node has it; a
+ * found or configured `cmd` keeps its full path, which works from any shell.
+ */
+export const terminalCommand = (binary: ResolvedBinary, args: ReadonlyArray<string>): string => {
+  const runner = binary.prefixArgs.length > 0 ? NodePath.basename(binary.command) : binary.command;
+  return [runner, ...binary.prefixArgs, ...args].map(shellWord).join(" ");
+};
+
 /**
  * The resolution a session falls back on when nothing resolves: the bare name,
  * against whatever PATH the server inherited. It is what the connector used to

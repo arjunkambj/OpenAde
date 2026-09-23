@@ -111,12 +111,15 @@ authenticated" while turns work fine.
 `installed` is true once `resolveBinary` found something to run, whatever the
 probe then saw; nothing resolvable reports `not-installed` with `installed:
 false`. A signed-out CLI — exit 3, or `authenticated: false` in the status
-JSON — reports `loginCommand: "cmd login"` (`CMD_LOGIN_COMMAND`), the
+JSON — reports a `loginCommand` that runs `login` (`CMD_LOGIN_SUBCOMMAND`), the
 subcommand the recorded `cmd --help`
 (`packages/testkit/fixtures/cmd/probe/help.stdout.txt`) lists for signing in
-and the exit-3 message names. No `installCommand` is reported: nothing resolves
-only when `npx` is missing too, and no recording or doc names another way to
-install.
+and the exit-3 message names. `terminalCommand` in `binary.ts` spells it against
+the resolved binary: the configured or found path (`/opt/homebrew/bin/cmd
+login`), or `npx -y command-code@latest login` for the npx fallback, which only
+runs when no `cmd` was found and so must not be told to run one. No
+`installCommand` is reported: nothing resolves only when `npx` is missing too,
+and no recording or doc names another way to install.
 
 ### `status --json`
 

@@ -276,15 +276,18 @@ operator's `COMMAND_CODE_API_KEY` set through `extraEnv` is not reported as
 "not authenticated" while turns work fine.
 
 Every probe that found a binary reports `installed: true`; a signed-out one
-also carries `loginCommand: "cmd login"`, which is what the renderer shows the
-user to run. The wire probe adds `authenticated`, derived from `auth`.
+also carries `loginCommand`, which is what the renderer shows the user to run.
+It is spelled against the binary the probe resolved — `/opt/homebrew/bin/cmd
+login` for a found `cmd`, `npx -y command-code@latest login` for the npx
+fallback — so a machine without a `cmd` on PATH is never told to run one. The
+wire probe adds `authenticated`, derived from `auth`.
 
 Exit codes decide the status (`packages/connector-cmd/src/exitCodes.ts`):
 
 | exit   | probe status             | what the user is told                                        |
 | ------ | ------------------------ | ------------------------------------------------------------ |
 | 0      | `ready`                  | binary path, version, account, model count                   |
-| 3      | `not-authenticated`      | not logged in — run `cmd login`                              |
+| 3      | `not-authenticated`      | not logged in — run the `loginCommand`                       |
 | 10     | `error`, `auth: present` | insufficient credits, with `helpUrl` to the billing page     |
 | 1, 4–9 | `error`                  | the sentence from `EXIT_MESSAGES`, plus the harness's detail |
 
@@ -312,8 +315,9 @@ model count, the probe's message and the fixing command in a copyable code span
 on an open thread and on the start screen — `harness-health-banner.tsx` shows an
 alert when the thread's instance (`threadConnectorInstanceId`: the bound one,
 else the chosen one, else the routing fallback) is neither ready nor still
-probing: "Command Code is not signed in", then "Run `cmd login` in a terminal,
-then check again", with a Check again button that re-probes every connector.
+probing: "Command Code is not signed in", then "Run `<loginCommand>` in a
+terminal, then check again", with a Check again button that re-probes every
+connector.
 The banner is rendered by `thread-view.tsx` and `start-thread.tsx`, outside the
 composer itself.
 

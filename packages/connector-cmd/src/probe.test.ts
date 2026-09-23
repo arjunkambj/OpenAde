@@ -19,10 +19,11 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import type * as Scope from "effect/Scope";
 
+import { NPX_PACKAGE, resolveBinary } from "./binary";
 import { EXIT_MESSAGES } from "./exitCodes";
 import {
   CMD_ACCOUNT_HELP_URL,
-  CMD_LOGIN_COMMAND,
+  CMD_LOGIN_SUBCOMMAND,
   isBelowOldestTested,
   OLDEST_TESTED_VERSION,
   parseModelList,
@@ -220,17 +221,19 @@ describe("probe", () => {
   it.effect("reports not-authenticated on exit 3 without even reading stdout", () =>
     Effect.gen(function* () {
       const fake = yield* fakes();
-      const result = yield* probe({ binaryPath: fake.binary(statusBinary("not json", 3)) });
+      const binaryPath = fake.binary(statusBinary("not json", 3));
+      const result = yield* probe({ binaryPath });
       expect(result.status).toBe("not-authenticated");
       expect(result.auth).toBe("absent");
       // Found and ran, only signed out.
       expect(result.installed).toBe(true);
-      expect(result.loginCommand).toBe(CMD_LOGIN_COMMAND);
-      expect(result.message).toContain(CMD_LOGIN_COMMAND);
-      // The command is the one the CLI's own help lists and its exit-3
+      // Spelled against the configured binary, not the bare `cmd`.
+      expect(result.loginCommand).toBe(`${binaryPath} ${CMD_LOGIN_SUBCOMMAND}`);
+      expect(result.message).toContain(`\`${binaryPath} ${CMD_LOGIN_SUBCOMMAND}\``);
+      // The subcommand is the one the CLI's own help lists and its exit-3
       // message names, not one we made up.
-      expect(recordedHelp).toMatch(new RegExp(`^\\s+${CMD_LOGIN_COMMAND}\\s{2,}Login`, "m"));
-      expect(EXIT_MESSAGES[3]!.message).toContain(`\`${CMD_LOGIN_COMMAND}\``);
+      expect(recordedHelp).toMatch(new RegExp(`^\\s+cmd ${CMD_LOGIN_SUBCOMMAND}\\s{2,}Login`, "m"));
+      expect(EXIT_MESSAGES[3]!.message).toContain(`\`cmd ${CMD_LOGIN_SUBCOMMAND}\``);
       // No recording names an install command, so none is offered.
       expect(result.installCommand).toBeUndefined();
       // Exit 3 short-circuits: no point listing models for a logged-out CLI.
@@ -241,17 +244,36 @@ describe("probe", () => {
   it.effect("reports not-authenticated when the status json says so", () =>
     Effect.gen(function* () {
       const fake = yield* fakes();
-      const result = yield* probe({
-        binaryPath: fake.binary(
-          statusBinary(JSON.stringify({ authenticated: false, version: "1.54.0" }), 0, "a/b\n"),
-        ),
-      });
+      const binaryPath = fake.binary(
+        statusBinary(JSON.stringify({ authenticated: false, version: "1.54.0" }), 0, "a/b\n"),
+      );
+      const result = yield* probe({ binaryPath });
       expect(result.status).toBe("not-authenticated");
       expect(result.auth).toBe("absent");
       expect(result.installed).toBe(true);
-      expect(result.loginCommand).toBe(CMD_LOGIN_COMMAND);
+      expect(result.loginCommand).toBe(`${binaryPath} ${CMD_LOGIN_SUBCOMMAND}`);
       // The model list still came back, so the picker has something to show.
       expect(result.models).toHaveLength(1);
+    }),
+  );
+
+  it.effect("tells an npx-fallback user to sign in through npx, not a cmd they lack", () =>
+    Effect.gen(function* () {
+      // The first-run machine: node installed, no global `cmd`, signed out.
+      // npm exec passes the child's exit 3 straight through.
+      const fake = yield* fakes();
+      NodeFS.writeFileSync(
+        NodePath.join(fake.dir, "npx"),
+        `#!/usr/bin/env node\n${statusBinary("", 3)}\n`,
+        {
+          mode: 0o755,
+        },
+      );
+      const result = yield* probe({}, (config) => resolveBinary(config, { PATH: fake.dir }, []));
+      expect(result.status).toBe("not-authenticated");
+      expect(result.binaryPath).toBe(`npx ${NPX_PACKAGE}`);
+      expect(result.loginCommand).toBe(`npx -y ${NPX_PACKAGE} ${CMD_LOGIN_SUBCOMMAND}`);
+      expect(result.message).toContain(`\`npx -y ${NPX_PACKAGE} ${CMD_LOGIN_SUBCOMMAND}\``);
     }),
   );
 

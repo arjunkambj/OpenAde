@@ -26,7 +26,7 @@ import type { ConnectorProbe } from "@OpenAde/connector-sdk/definition";
 import { ProbeFailed } from "@OpenAde/connector-sdk/definition";
 import * as Effect from "effect/Effect";
 
-import { resolveBinary, type ResolvedBinary } from "./binary";
+import { resolveBinary, type ResolvedBinary, terminalCommand } from "./binary";
 import type { CmdConnectorConfig } from "./configSchema";
 import { EXIT_MESSAGES } from "./exitCodes";
 import { envAllowlist } from "./spawn";
@@ -40,10 +40,12 @@ export const CMD_ACCOUNT_HELP_URL = "https://commandcode.ai/billing";
 /**
  * How a signed-out `cmd` is signed in: the subcommand the CLI's own `--help`
  * lists for it (`fixtures/cmd/probe/help.stdout.txt`) and its exit-3 message
- * names (`exitCodes.ts`). There is no install command beside it: when nothing
+ * names (`exitCodes.ts`). The probe reports it spelled against the binary it
+ * resolved (`terminalCommand`), so an npx fallback or a configured path gets a
+ * line that runs. There is no install command beside it: when nothing
  * resolves, `npx` is missing too, and no recording or doc names another way.
  */
-export const CMD_LOGIN_COMMAND = "cmd login";
+export const CMD_LOGIN_SUBCOMMAND = "login";
 
 /**
  * The oldest release the connector has been recorded against — the floor the
@@ -289,10 +291,15 @@ const INSUFFICIENT_CREDITS = 10;
 /** The detail line a failing `status` left behind, if it left one. */
 const detailOf = (result: RunResult): string => result.stderr.trim() || result.stdout.trim();
 
-export const probe = (config: CmdConnectorConfig): Effect.Effect<ConnectorProbe, ProbeFailed> =>
+export const probe = (
+  config: CmdConnectorConfig,
+  /** How the binary is found; a test swaps in a narrower search. */
+  resolve: (config: CmdConnectorConfig) => ResolvedBinary | null = (options) =>
+    resolveBinary(options, process.env),
+): Effect.Effect<ConnectorProbe, ProbeFailed> =>
   Effect.gen(function* () {
     const probedAt = new Date().toISOString();
-    const binary = resolveBinary(config, process.env);
+    const binary = resolve(config);
     // The probe's children get the same leak guard the turns do: no
     // OPENADE_SERVER_*, ANTHROPIC_* or OPENAI_* reaches them — and the
     // operator's extraEnv does, so a COMMAND_CODE_API_KEY supplied there is
@@ -310,6 +317,7 @@ export const probe = (config: CmdConnectorConfig): Effect.Effect<ConnectorProbe,
       };
     }
 
+    const loginCommand = terminalCommand(binary, [CMD_LOGIN_SUBCOMMAND]);
     const status = yield* runBinary(binary, ["status", "--json"], { timeoutMs: 30_000, env });
     if (status.code === 3) {
       return {
@@ -317,9 +325,9 @@ export const probe = (config: CmdConnectorConfig): Effect.Effect<ConnectorProbe,
         probedAt,
         binaryPath: binary.display,
         installed: true,
-        message: `not logged in — run \`${CMD_LOGIN_COMMAND}\``,
+        message: `not logged in — run \`${loginCommand}\``,
         auth: "absent" as const,
-        loginCommand: CMD_LOGIN_COMMAND,
+        loginCommand,
         models: [],
         warnings: [],
       };
@@ -411,8 +419,8 @@ export const probe = (config: CmdConnectorConfig): Effect.Effect<ConnectorProbe,
       ...(parsed.version === undefined ? {} : { version: parsed.version }),
       ...(parsed.authenticated === false
         ? {
-            message: `not logged in — run \`${CMD_LOGIN_COMMAND}\``,
-            loginCommand: CMD_LOGIN_COMMAND,
+            message: `not logged in — run \`${loginCommand}\``,
+            loginCommand,
           }
         : {}),
       auth: parsed.authenticated === false ? ("absent" as const) : ("present" as const),
