@@ -37,7 +37,7 @@ import { Archive, ArchiveUp, Trash } from "@honeyicons/react";
 
 import { archivedGroups } from "./archived-groups";
 
-const ARCHIVED_AT = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
+const UPDATED_AT = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
 
 function ArchivedRow({
   thread,
@@ -64,12 +64,14 @@ function ArchivedRow({
           <span className="truncate text-xs text-muted-foreground">{thread.preview}</span>
         )}
       </div>
+      {/* The last update, not the archive time: a rename or a late turn
+          settlement after archiving moves it, and no archive time is stored. */}
       <time
         dateTime={thread.updatedAt}
-        title="Archived"
+        title="Last updated"
         className="shrink-0 text-xs text-muted-foreground tabular-nums"
       >
-        {ARCHIVED_AT.format(new Date(thread.updatedAt))}
+        Updated {UPDATED_AT.format(new Date(thread.updatedAt))}
       </time>
       <Button variant="outline" size="sm" disabled={disabled} onClick={onUnarchive}>
         <ArchiveUp />
