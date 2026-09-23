@@ -24,7 +24,7 @@
  * built, so these atoms share the one socket with everything else.
  */
 
-import type { ProjectId } from "@OpenAde/contracts/ids";
+import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
 import type { FileContent, FileSearchResult } from "@OpenAde/contracts/rpc";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
@@ -45,9 +45,14 @@ export type FileQuery<A> =
 const ok = <A>(value: A): FileQuery<A> => ({ _tag: "ok", value });
 const failed = <A>(message: string): FileQuery<A> => ({ _tag: "error", message });
 
-/** One `files.search` call. `limit` omitted means the server's own default. */
+/**
+ * One `files.search` call. `limit` omitted means the server's own default;
+ * `threadId` searches that thread's own root (its worktree, when it has one)
+ * instead of the project's.
+ */
 export interface FileSearchKey {
   readonly projectId: ProjectId;
+  readonly threadId?: ThreadId | undefined;
   readonly query: string;
   readonly limit?: number | undefined;
 }
@@ -55,6 +60,7 @@ export interface FileSearchKey {
 /** One `files.read` window: lines `[offset, offset + limit)` of `path`. */
 export interface FileWindowKey {
   readonly projectId: ProjectId;
+  readonly threadId?: ThreadId | undefined;
   readonly path: string;
   readonly offset: number;
   readonly limit: number;
@@ -66,24 +72,35 @@ export interface FileWindowKey {
  * the atom decodes the key back into the RPC payload it sends.
  */
 export const encodeFileSearch = (key: FileSearchKey): string =>
-  JSON.stringify([key.projectId, key.query, key.limit ?? null]);
+  JSON.stringify([key.projectId, key.threadId ?? null, key.query, key.limit ?? null]);
 
 export const decodeFileSearch = (encoded: string): FileSearchKey => {
-  const [projectId, query, limit] = JSON.parse(encoded) as [ProjectId, string, number | null];
-  return { projectId, query, ...(limit === null ? {} : { limit }) };
+  const [projectId, threadId, query, limit] = JSON.parse(encoded) as [
+    ProjectId,
+    ThreadId | null,
+    string,
+    number | null,
+  ];
+  return {
+    projectId,
+    ...(threadId === null ? {} : { threadId }),
+    query,
+    ...(limit === null ? {} : { limit }),
+  };
 };
 
 export const encodeFileWindow = (key: FileWindowKey): string =>
-  JSON.stringify([key.projectId, key.path, key.offset, key.limit]);
+  JSON.stringify([key.projectId, key.threadId ?? null, key.path, key.offset, key.limit]);
 
 export const decodeFileWindow = (encoded: string): FileWindowKey => {
-  const [projectId, path, offset, limit] = JSON.parse(encoded) as [
+  const [projectId, threadId, path, offset, limit] = JSON.parse(encoded) as [
     ProjectId,
+    ThreadId | null,
     string,
     number,
     number,
   ];
-  return { projectId, path, offset, limit };
+  return { projectId, ...(threadId === null ? {} : { threadId }), path, offset, limit };
 };
 
 export const makeFileAtoms = (runtime: Atom.AtomRuntime<Connection | ConnectionStateRef>) => {
@@ -112,6 +129,7 @@ export const makeFileAtoms = (runtime: Atom.AtomRuntime<Connection | ConnectionS
             const client = yield* (yield* Connection).client;
             return yield* client["files.search"]({
               projectId: key.projectId,
+              ...(key.threadId === undefined ? {} : { threadId: key.threadId }),
               query: key.query,
               ...(key.limit === undefined ? {} : { limit: key.limit }),
             });
@@ -135,6 +153,7 @@ export const makeFileAtoms = (runtime: Atom.AtomRuntime<Connection | ConnectionS
             const client = yield* (yield* Connection).client;
             return yield* client["files.read"]({
               projectId: key.projectId,
+              ...(key.threadId === undefined ? {} : { threadId: key.threadId }),
               path: key.path,
               offset: key.offset,
               limit: key.limit,

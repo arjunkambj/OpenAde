@@ -33,6 +33,7 @@ import type { PlannedEvent } from "../persistence/EventStore";
 import { EventStore } from "../persistence/EventStore";
 import { OrchestrationEngine, type EngineError } from "./Engine";
 import { foldProject, foldThread, type ThreadDoc } from "./state";
+import { threadWorkspaceRoot } from "./workspaceRoot";
 
 export class CheckpointHookError extends Data.TaggedError("CheckpointHookError")<{
   readonly message: string;
@@ -106,10 +107,17 @@ export const CheckpointReactor: Layer.Layer<
         } satisfies PlannedEvent,
       ]);
 
+    /**
+     * Capture and restore run in the thread's own root: HEAD and the index are
+     * per worktree, so a worktree thread's snapshot has to be taken there.
+     * Prune stays on the project root (see `workspaceRoot.ts`).
+     */
     const workspaceRootFor = (doc: ThreadDoc) =>
       engine
         .projectDoc(doc.projectId)
-        .pipe(Effect.map((project) => project?.workspaceRoot ?? null));
+        .pipe(
+          Effect.map((project) => (project === null ? null : threadWorkspaceRoot(doc, project))),
+        );
 
     /**
      * The outcome write is what takes a thread out of `restoring`, and a

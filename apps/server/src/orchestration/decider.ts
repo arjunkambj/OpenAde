@@ -10,6 +10,8 @@
  * `rejected` and nothing is appended.
  */
 
+import { isAbsolute } from "node:path";
+
 import { DEFAULT_RUNTIME_MODE } from "@OpenAde/contracts/enums";
 import type { Effort, RuntimeMode } from "@OpenAde/contracts/enums";
 import type { EventId, ItemId, ProjectId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
@@ -60,11 +62,14 @@ export interface DeciderContext {
   readonly projectExists: (projectId: ProjectId) => boolean;
   readonly workspaceRootTaken: (root: string, exceptProjectId?: ProjectId) => boolean;
   /**
-   * Whether a sibling thread of this project has a checkpoint restore in
-   * flight. The git work runs over the project's whole workspace root, so the
-   * exclusion has to be project-wide even though `restoring` is per-thread.
+   * Whether a sibling thread that shares this thread's workspace root has a
+   * checkpoint restore in flight. The git work runs over that whole directory,
+   * so the exclusion covers every thread writing there even though
+   * `restoring` is per-thread: all the project's local threads share the
+   * project's root, and all the threads of one worktree share that. A thread
+   * in another directory is not held up.
    */
-  readonly restoreInFlight: (projectId: ProjectId, exceptThreadId: ThreadId) => boolean;
+  readonly restoreInFlight: (thread: ThreadDoc) => boolean;
   /** Settings defaults for a thread whose create command did not choose them. */
   readonly defaultModel: string | null;
   readonly defaultEffort: Effort | null;
@@ -123,12 +128,12 @@ const turnBarred = (thread: ThreadDoc, ctx: DeciderContext): string | null => {
     return `thread ${thread.threadId} is archived`;
   }
   // A restore is rewriting the worktree right now: `git clean -fd` would
-  // delete whatever the turn wrote while it ran. The worktree belongs to the
-  // project, not the thread, so a sibling's restore bars this turn too.
+  // delete whatever the turn wrote while it ran. The directory is shared by
+  // every thread working in it, so a sibling's restore bars this turn too.
   if (thread.restoring) {
     return `thread ${thread.threadId} is restoring a checkpoint`;
   }
-  if (ctx.restoreInFlight(thread.projectId, thread.threadId)) {
+  if (ctx.restoreInFlight(thread)) {
     return `another thread in project ${thread.projectId} is restoring a checkpoint`;
   }
   return null;
@@ -218,6 +223,12 @@ export const decide = (
       if (thread !== null && !thread.deleted) {
         return rejected(`thread ${command.threadId} already exists`);
       }
+      // The worktree becomes the thread's workspace root: its session, its
+      // checkpoints and its diff run there, so it must name one place however
+      // the server's own working directory changes.
+      if (command.worktree !== undefined && !isAbsolute(command.worktree.path)) {
+        return rejected(`worktree path ${command.worktree.path} is not absolute`);
+      }
       const patch = command.settings ?? {};
       const model = patch.model ?? ctx.defaultModel;
       if (model === null) {
@@ -244,6 +255,7 @@ export const decide = (
               ? {}
               : { connectorInstanceId: patch.connectorInstanceId }),
           },
+          ...(command.worktree === undefined ? {} : { worktree: command.worktree }),
         }),
       ]);
     }
@@ -525,7 +537,7 @@ export const decide = (
       }
       // Two restores in one worktree race each other's `git restore` and
       // `git clean -fd` (and each other's index.lock).
-      if (ctx.restoreInFlight(thread.projectId, thread.threadId)) {
+      if (ctx.restoreInFlight(thread)) {
         return rejected(
           `another thread in project ${thread.projectId} is already restoring a checkpoint`,
         );

@@ -29,6 +29,7 @@ import {
   CheckpointHook,
   CheckpointHookError,
   CheckpointReactor,
+  type CheckpointCaptureInput,
   type CheckpointPruneInput,
   type CheckpointRestoreInput,
 } from "./CheckpointReactor";
@@ -95,6 +96,7 @@ const planned = (type: string, payload: Record<string, unknown>): PlannedEvent =
   }) as PlannedEvent;
 
 interface HookStub {
+  readonly capture?: (input: CheckpointCaptureInput) => Effect.Effect<null>;
   readonly restore?: (input: CheckpointRestoreInput) => Effect.Effect<void, CheckpointHookError>;
   readonly prune?: (input: CheckpointPruneInput) => Effect.Effect<void, CheckpointHookError>;
 }
@@ -109,7 +111,7 @@ const stackOver = (persistence: ReturnType<typeof persistenceLayer>, hook: HookS
         Layer.succeed(
           CheckpointHook,
           CheckpointHook.of({
-            capture: () => Effect.succeed(null),
+            capture: hook.capture ?? (() => Effect.succeed(null)),
             restore: hook.restore ?? (() => Effect.void),
             prune: hook.prune ?? (() => Effect.void),
           }),
@@ -292,7 +294,7 @@ describe("CheckpointReactor", () => {
     }),
   );
 
-  it.effect("a restore locks out the whole project, not just its own thread", () =>
+  it.effect("a restore locks out every local thread of the project, not just its own", () =>
     Effect.gen(function* () {
       const sibling = makeThreadId();
       const running = yield* Deferred.make<void>();
@@ -432,5 +434,68 @@ describe("CheckpointReactor", () => {
         expect(seen.every((input) => input.workspaceRoot === "/repo")).toBe(true);
       }).pipe(Effect.provide(layer));
     }),
+  );
+
+  it.effect(
+    "a worktree thread captures and restores in its worktree, and prunes from the project",
+    () =>
+      Effect.gen(function* () {
+        const worktreeThread = makeThreadId();
+        const worktree = { path: "/worktrees/demo/fix", branch: "openade/fix" };
+        const captured = yield* Deferred.make<CheckpointCaptureInput>();
+        const restored = yield* Deferred.make<CheckpointRestoreInput>();
+        const pruned = yield* Deferred.make<CheckpointPruneInput>();
+        const layer = stack({
+          capture: (input) => Deferred.succeed(captured, input).pipe(Effect.as(null)),
+          restore: (input) => Deferred.succeed(restored, input).pipe(Effect.asVoid),
+          prune: (input) => Deferred.succeed(pruned, input).pipe(Effect.asVoid),
+        });
+        yield* Effect.gen(function* () {
+          const engine = yield* OrchestrationEngine;
+          yield* engine.dispatch(createProject);
+          yield* engine.dispatch({
+            commandId: makeCommandId(),
+            createdAt: NOW,
+            type: "thread.create",
+            threadId: worktreeThread,
+            projectId,
+            settings: { model: "fake/model" },
+            worktree,
+          });
+          const onThread = (event: PlannedEvent): PlannedEvent => ({
+            ...event,
+            streamId: worktreeThread,
+          });
+          const turnId = makeTurnId();
+          yield* engine.appendThreadEvents(worktreeThread, [
+            onThread(planned("thread.turn.completed", { turnId, stopReason: "end_turn" })),
+          ]);
+          // HEAD and the index are per worktree: the snapshot is taken there.
+          const capture = yield* Deferred.await(captured).pipe(Effect.timeout("5 seconds"));
+          expect(capture.workspaceRoot).toBe(worktree.path);
+
+          yield* engine.appendThreadEvents(worktreeThread, [
+            onThread(planned("thread.checkpoint.created", { checkpoint })),
+          ]);
+          const receipt = yield* engine.dispatch({
+            ...restoreCommand(checkpoint.checkpointId),
+            threadId: worktreeThread,
+          } as Command);
+          expect(receipt.status).toBe("accepted");
+          const restore = yield* Deferred.await(restored).pipe(Effect.timeout("5 seconds"));
+          expect(restore.workspaceRoot).toBe(worktree.path);
+
+          // The hidden refs are shared by every worktree of the repository, and
+          // the thread's worktree may be gone by now: prune runs from the project.
+          yield* engine.dispatch({
+            commandId: makeCommandId(),
+            createdAt: NOW,
+            type: "thread.delete",
+            threadId: worktreeThread,
+          });
+          const prune = yield* Deferred.await(pruned).pipe(Effect.timeout("5 seconds"));
+          expect(prune.workspaceRoot).toBe("/repo");
+        }).pipe(Effect.provide(layer));
+      }),
   );
 });

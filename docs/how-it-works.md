@@ -426,7 +426,8 @@ project. `/clear` is deliberately not offered:
 in Command Code it drops the session's context, no command in the union does
 that, and binding it to emptying the textarea would throw away the sentence the
 user was writing while keeping every token they meant to drop. `@` searches the
-project's files through `files.search` and inserts a chip.
+thread's files — its worktree, or the project's folder — through
+`files.search` and inserts a chip.
 
 The model picker, on the start screen and in the thread header, has one
 section per enabled connector instance (`modelCatalogAtom`), headed by the
@@ -485,7 +486,9 @@ answers and never questions.
 
 `ProviderCommandReactor` (`apps/server/src/orchestration/ProviderCommandReactor.ts`)
 reacts to `thread.turn.requested` by calling `SessionManager.ensure(doc,
-workspaceRoot)` and then `handle.send(turnId, turn)`.
+workspaceRoot)` and then `handle.send(turnId, turn)`. `workspaceRoot` is the
+thread's own root: its worktree when it was created in one, the project's
+folder otherwise (`orchestration/workspaceRoot.ts`).
 
 `SessionManager` (`orchestration/SessionManager.ts`) keeps one driver per
 thread. A thread with no `session` in its document is routed by
@@ -1149,6 +1152,14 @@ id is a pure function of the commit SHA — the first 32 nibbles with the versio
 and variant fields forced to UUIDv7 — so `checkpoints.list` and
 `thread.checkpoint.created` always agree.
 
+Capture and restore run in the **thread's own root**: its worktree when it was
+created in one, the project's folder otherwise. HEAD and the index belong to
+one worktree, so a worktree thread's snapshot has to be taken there. The
+hidden refs, on the other hand, are shared by every worktree of a repository,
+which is why prune — on `thread.deleted` and `project.removed` — keeps running
+from the project's root: it reaches a worktree thread's refs just the same,
+even after that worktree has been removed.
+
 ### Restore
 
 Restore is a durable work order, in three events:
@@ -1165,9 +1176,12 @@ thread.checkpoint.restore.requested   ← recorded before any git runs
 A request with no recorded outcome is replayed at boot, so a crash between the
 receipt and the git work cannot drop it. The decider refuses a restore while a
 turn is running, while this thread is already restoring, and while **any
-sibling thread of the same project** is — the git work rewrites the project's
-whole workspace root, so the exclusion has to be project-wide. For the same
-reason a restore in flight bars a new turn.
+sibling thread that shares its workspace root** is — the git work rewrites
+that whole directory, so the exclusion is per root: every local thread of a
+project shares the project's folder, and every thread of one worktree shares
+that worktree, while a worktree thread's restore holds up nobody working
+elsewhere. For the same reason a restore in flight bars a new turn in the
+same directory.
 
 `ThreadDetailSnapshot.restoring` carries the in-flight checkpoint, so a window
 reloaded mid-restore still says "Restoring the worktree…" instead of offering a
@@ -1181,6 +1195,7 @@ checkpoint, or checkpoint to checkpoint — and `git.diff` answers with the file
 list, because `GitDiff.files` already carries the path, the `+`/`-` counts and
 the per-file patch. `git.status` is read alongside for the branch line and to
 tell "not a git repository" (`isRepository: false`) from "nothing changed".
+Both calls name the thread, so a worktree thread's pane shows its worktree.
 
 Nothing refetches on a command receipt, because both writes that move the
 worktree finish _after_ the command that started them. The pane watches the

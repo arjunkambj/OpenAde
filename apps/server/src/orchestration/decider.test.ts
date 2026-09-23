@@ -57,6 +57,7 @@ const threadDoc = (overrides: Partial<ThreadDoc> = {}): ThreadDoc => ({
     runtimeMode: "approval-required",
     interactionMode: "default",
   },
+  worktree: null,
   snapshotSequence: 1,
   items: [],
   queue: [],
@@ -1260,5 +1261,71 @@ describe("steering a running turn", () => {
       expect.stringContaining("restoring a checkpoint"),
       expect.stringContaining("another thread in project"),
     ]);
+  });
+});
+
+describe("the thread's worktree", () => {
+  const create = (worktree?: { path: string; branch: string; baseBranch?: string }) =>
+    decide(
+      {
+        ...baseCommand,
+        type: "thread.create",
+        threadId: makeThreadId(),
+        projectId: makeProjectId(),
+        ...(worktree === undefined ? {} : { worktree }),
+      } as Command,
+      { project: null, thread: null },
+      ctx(),
+      env,
+    );
+
+  it("carries the worktree a create command names onto thread.created", () => {
+    const worktree = { path: "/home/dev/.openade/worktrees/demo/fix", branch: "openade/fix" };
+    const result = create({ ...worktree, baseBranch: "main" });
+    expect(result.accepted).toBe(true);
+    if (!result.accepted) return;
+    expect(result.events[0]!.payload).toMatchObject({
+      worktree: { ...worktree, baseBranch: "main" },
+    });
+  });
+
+  it("leaves a local thread without one", () => {
+    const result = create();
+    expect(result.accepted).toBe(true);
+    if (!result.accepted) return;
+    expect(result.events[0]!.payload).not.toHaveProperty("worktree");
+  });
+
+  it("refuses a worktree path that is not absolute", () => {
+    const result = create({ path: "worktrees/fix", branch: "openade/fix" });
+    expect(result).toEqual({
+      accepted: false,
+      reason: "worktree path worktrees/fix is not absolute",
+    });
+  });
+
+  it("asks the restore exclusion about the thread itself", () => {
+    const thread = threadDoc({ worktree: { path: "/wt/a", branch: "openade/a" } });
+    const asked: Array<ThreadDoc> = [];
+    decide(
+      {
+        ...baseCommand,
+        type: "thread.turn.start",
+        threadId: thread.threadId,
+        text: "go",
+        attachments: [],
+        mentions: [],
+        queued: false,
+      } as Command,
+      { project: null, thread },
+      ctx({
+        restoreInFlight: (subject) => {
+          asked.push(subject);
+          return false;
+        },
+      }),
+      env,
+    );
+    expect(asked).toEqual([thread]);
   });
 });

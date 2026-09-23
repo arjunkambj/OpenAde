@@ -18,6 +18,7 @@ import * as Schema from "effect/Schema";
 import { IsoDateTime, NonEmptyString, NonNegativeInt } from "./base";
 import { DecisionKind, ResolvedDecision } from "./decisions";
 import { ApprovalDecision } from "./enums";
+import { ThreadWorktree } from "./git";
 import {
   CheckpointId,
   CommandId,
@@ -99,6 +100,8 @@ const ThreadCreateCommand = command("thread.create", {
   projectId: ProjectId,
   title: Schema.optional(NonEmptyString),
   settings: Schema.optional(ThreadSettingsPatch),
+  /** Absent: a local thread on the project's root. Fixed once created. */
+  worktree: Schema.optional(ThreadWorktree),
 });
 
 const ThreadRenameCommand = command("thread.rename", {
@@ -325,6 +328,8 @@ const ThreadCreatedEvent = orchestrationEvent(
     projectId: ProjectId,
     title: NonEmptyString,
     settings: ThreadSettings,
+    // Optional: every event written before threads had worktrees lacks it.
+    worktree: Schema.optional(ThreadWorktree),
   }),
 );
 
@@ -625,6 +630,8 @@ export const ThreadSummary = Schema.Struct({
    * optional so a summary written before this field existed still decodes.
    */
   awaiting: Schema.optional(DecisionKind),
+  /** The thread's own worktree; absent for a local thread. */
+  worktree: Schema.optional(ThreadWorktree),
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
 });
@@ -641,6 +648,8 @@ export const ThreadDetailSnapshot = Schema.Struct({
   title: NonEmptyString,
   status: ThreadStatus,
   settings: ThreadSettings,
+  /** The thread's own worktree; absent for a local thread. */
+  worktree: Schema.optional(ThreadWorktree),
   snapshotSequence: NonNegativeInt,
   items: Schema.Array(ItemSnapshot),
   queue: Schema.Array(QueuedMessage),

@@ -42,6 +42,7 @@ import { OrchestrationEngine } from "./orchestration/Engine";
 import { ProviderCommandReactor } from "./orchestration/ProviderCommandReactor";
 import { ConnectorSelection, SessionManager } from "./orchestration/SessionManager";
 import { makeSessionSupervisor } from "./orchestration/SessionSupervisor";
+import { threadWorkspaceRoot } from "./orchestration/workspaceRoot";
 import { EventStore } from "./persistence/EventStore";
 import { ReadModelStore } from "./persistence/ReadModels";
 import { defaultLayer as sqliteLayer } from "./persistence/Sqlite";
@@ -308,9 +309,9 @@ export const boot = (options: BootOptions) =>
     // services object it already handed those instances is `ConnectorHost`'s
     // façade, and this fills it in: the gateway's per-thread MCP endpoint, the
     // hook bridge's endpoint and handler registry, and a permission ladder that
-    // resolves the thread's project (its rules and its directory) before it
-    // decides. It runs before the
-    // handshake, so no client can start a session against a half-wired host.
+    // resolves the thread's project (its rules) and the thread's own directory
+    // before it decides. It runs before the handshake, so no client can start
+    // a session against a half-wired host.
     const bridge = Context.get(appContext, HookBridge);
     const engineService = Context.get(appContext, OrchestrationEngine);
     const permissionService = Context.get(appContext, PermissionService);
@@ -333,7 +334,11 @@ export const boot = (options: BootOptions) =>
               interactionMode: input.interactionMode,
               threadId: input.threadId,
               ...(doc === null ? {} : { projectId: doc.projectId }),
-              ...(project === null ? {} : { workspaceRoot: project.workspaceRoot }),
+              // The thread's own root: a worktree thread's sensitive paths are
+              // judged against the directory its harness actually runs in.
+              ...(doc === null || project === null
+                ? {}
+                : { workspaceRoot: threadWorkspaceRoot(doc, project) }),
             });
           }).pipe(
             // A permissions failure must never read as allow.

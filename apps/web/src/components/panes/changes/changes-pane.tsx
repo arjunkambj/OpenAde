@@ -190,9 +190,10 @@ export function ChangesPane({ snapshot }: { snapshot: ThreadDetailView }) {
   const base = resolveRef(baseChoice, checkpoints, HEAD_VALUE);
   const target = resolveRef(targetChoice, checkpoints, WORKTREE_VALUE);
 
-  const range = diffRangeFor(snapshot.projectId, base, target);
+  const scope = { projectId: snapshot.projectId, threadId: snapshot.threadId };
+  const range = diffRangeFor(scope, base, target);
 
-  const statusAtom = atoms.gitStatusAtom(snapshot.projectId);
+  const statusAtom = atoms.gitStatusAtom(scope);
   const diffAtom = atoms.gitDiffAtom(range);
   const status = queryValue<GitStatus>(useAtomValue(statusAtom));
   const diff = queryValue<GitDiff>(useAtomValue(diffAtom));

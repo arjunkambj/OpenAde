@@ -21,6 +21,7 @@ import type { PlannedEvent } from "../persistence/EventStore";
 import { OrchestrationEngine, type EngineError } from "./Engine";
 import { SessionManager } from "./SessionManager";
 import type { ThreadDoc } from "./state";
+import { threadWorkspaceRoot } from "./workspaceRoot";
 
 export interface SupervisorOptions {
   /** Resume attempts before giving up and writing `session.lost`. */
@@ -81,7 +82,7 @@ export const makeSessionSupervisor = (
           if (project === null) {
             return;
           }
-          const resumed = yield* sessions.ensure(doc, project.workspaceRoot).pipe(
+          const resumed = yield* sessions.ensure(doc, threadWorkspaceRoot(doc, project)).pipe(
             Effect.as(true),
             // The thread gets `session.lost` when attempts run out — the log
             // is where it finds out why, so every failed attempt is recorded.

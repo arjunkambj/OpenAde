@@ -166,6 +166,35 @@ describe("orchestration with a fake connector", () => {
     }),
   );
 
+  it.effect("starts a worktree thread's session in its worktree", () =>
+    Effect.gen(function* () {
+      const { instance } = yield* openFake();
+      const started: Array<string> = [];
+      // The fake keeps no record of where it was started, so the test does.
+      const recording: ConnectorInstance = {
+        ...instance,
+        startSession: (input) => {
+          started.push(input.workspaceRoot);
+          return instance.startSession(input);
+        },
+      };
+      const worktree = { path: "/worktrees/demo/fix", branch: "openade/fix", baseBranch: "main" };
+      yield* Effect.gen(function* () {
+        const engine = yield* OrchestrationEngine;
+        yield* engine.dispatch(createProject);
+        yield* engine.dispatch({ ...createThread, worktree } as Command);
+
+        const completed = yield* awaitEvent(engine, isType("thread.turn.completed"));
+        yield* engine.dispatch(turnStart("hello"));
+        yield* Fiber.join(completed);
+
+        expect((yield* engine.threadDetail(threadId))?.worktree).toEqual(worktree);
+      }).pipe(Effect.provide(stackLayer({ instance: recording })));
+
+      expect(started).toEqual([worktree.path]);
+    }),
+  );
+
   it.effect("a fatal error leaves a row on the timeline, not just a status", () =>
     Effect.gen(function* () {
       // `thread.error` moves the thread's status and nothing else, so a turn

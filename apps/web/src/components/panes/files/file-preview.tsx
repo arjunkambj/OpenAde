@@ -16,7 +16,7 @@
 
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import type { FileQuery } from "@OpenAde/client-runtime/fileAtoms";
-import type { ProjectId } from "@OpenAde/contracts/ids";
+import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
 import type { FileContent } from "@OpenAde/contracts/rpc";
 import { Button } from "@OpenAde/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
@@ -60,10 +60,12 @@ function LineTable({ offset, content }: { offset: number; content: FileContent }
 
 export function FilePreview({
   projectId,
+  threadId,
   path,
   connected,
 }: {
   readonly projectId: ProjectId;
+  readonly threadId: ThreadId;
   readonly path: string;
   readonly connected: boolean;
 }) {
@@ -72,7 +74,7 @@ export function FilePreview({
   // The offsets Next came from, so Previous lands back on the exact windows the
   // reader saw — a page the server cut short is not PAGE_LINES wide.
   const [visited, setVisited] = React.useState<ReadonlyArray<number>>([]);
-  const atom = atoms.fileContentAtom({ projectId, path, ...windowFor(offset) });
+  const atom = atoms.fileContentAtom({ projectId, threadId, path, ...windowFor(offset) });
   const result = useAtomValue(atom);
   const refresh = useAtomRefresh(atom);
 

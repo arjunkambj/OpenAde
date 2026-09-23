@@ -2,23 +2,24 @@
  * The real `GitService` behind the `git.status`/`git.diff`/`checkpoints.list`
  * RPCs: argv-form git
  * over `process.ts`, porcelain-v2 parsing for status, and unified patches split
- * per file for the changes pane. A missing `projectId` or a non-repository
- * root answers `isRepository: false` with empty results rather than an RPC
- * error, so the pane can say "not a git repository" instead of showing what
- * looks like a clean tree.
+ * per file for the changes pane. Each call runs in the thread's own root when
+ * it names a thread (see `orchestration/workspaceRoot.ts`). A missing
+ * `projectId` or a non-repository root answers `isRepository: false` with
+ * empty results rather than an RPC error, so the pane can say "not a git
+ * repository" instead of showing what looks like a clean tree.
  */
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
-import type { ProjectId } from "@OpenAde/contracts/ids";
 import type { GitDiff, GitDiffFile, GitFileChange, GitStatus } from "@OpenAde/contracts/rpc";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
 import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
 
+import { resolveWorkspaceRoot } from "../orchestration/workspaceRoot";
 import { ReadModelStore } from "../persistence/ReadModels";
-import { GitService } from "../rpc/services";
+import { GitService, type WorkspaceScope } from "../rpc/services";
 import { make as checkpointStore } from "./CheckpointStore";
 import { GitError, isRepository, run } from "./process";
 
@@ -255,9 +256,9 @@ export const layer = Layer.effect(
   Effect.gen(function* () {
     const readModels = yield* ReadModelStore;
 
-    const workspaceRoot = (projectId: ProjectId) =>
-      readModels.getProjectDoc(projectId).pipe(
-        Effect.map((doc) => doc?.workspaceRoot ?? null),
+    /** The thread's root when the scope names one, the project's otherwise. */
+    const workspaceRoot = (scope: WorkspaceScope) =>
+      resolveWorkspaceRoot(readModels, scope.projectId, scope.threadId).pipe(
         Effect.mapError(
           (error) =>
             new GitError({
@@ -270,9 +271,9 @@ export const layer = Layer.effect(
       );
 
     return GitService.of({
-      status: (projectId) =>
+      status: (scope) =>
         Effect.gen(function* () {
-          const root = yield* workspaceRoot(projectId);
+          const root = yield* workspaceRoot(scope);
           if (root === null || !(yield* isRepository(root))) {
             // Named, not guessed: an empty `files` list with `isRepository`
             // false is what the pane renders as "not a git repository".
@@ -295,11 +296,11 @@ export const layer = Layer.effect(
           return { ...parseStatus(result.stdout), isRepository: true };
         }).pipe(Effect.mapError(toRpcError)),
 
-      diff: (projectId, options) =>
+      diff: (scope, options) =>
         Effect.gen(function* () {
           const from = yield* validRef(options.from ?? "HEAD", "from");
           const to = options.to === undefined ? undefined : yield* validRef(options.to, "to");
-          const root = yield* workspaceRoot(projectId);
+          const root = yield* workspaceRoot(scope);
           if (root === null || !(yield* isRepository(root))) {
             return { ...notRepo, from: options.from ?? null, to: options.to ?? null };
           }
@@ -327,7 +328,7 @@ export const layer = Layer.effect(
        */
       checkpoints: (projectId, threadId) =>
         Effect.gen(function* () {
-          const root = yield* workspaceRoot(projectId);
+          const root = yield* workspaceRoot({ projectId, threadId });
           if (root === null || !(yield* isRepository(root))) {
             return [];
           }

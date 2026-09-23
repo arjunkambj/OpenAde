@@ -354,21 +354,26 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
   );
 
   /**
-   * The composer's `@` search, keyed per project per query. Each key is its
-   * own atom, so typing re-runs the RPC only when the query text changes; the
-   * component supplies a deferred query value for keystroke coalescing.
+   * The composer's `@` search, keyed per thread per query. The thread picks
+   * the directory searched — its worktree, when it has one — so the scope is
+   * part of the key. Each key is its own atom, so typing re-runs the RPC only
+   * when the query text changes; the component supplies a deferred query
+   * value for keystroke coalescing.
    */
-  const fileSearchAtom = Atom.family((projectId: ProjectId) =>
+  const fileSearchByScopeAtom = Atom.family((scope: string) =>
     Atom.family((query: string) =>
       runtime.atom(
         Effect.gen(function* () {
+          const [projectId, threadId] = JSON.parse(scope) as [ProjectId, ThreadId];
           const client = yield* (yield* Connection).client;
-          return yield* client["files.search"]({ projectId, query, limit: 20 });
+          return yield* client["files.search"]({ projectId, threadId, query, limit: 20 });
         }),
         { initialValue: [] as ReadonlyArray<FileSearchResult> },
       ),
     ),
   );
+  const fileSearchAtom = (projectId: ProjectId, threadId: ThreadId) =>
+    fileSearchByScopeAtom(JSON.stringify([projectId, threadId]));
 
   /** The model list a connector instance reported, for the header picker. */
   const connectorModelsAtom = Atom.family((instanceId: ConnectorInstanceId | null) =>

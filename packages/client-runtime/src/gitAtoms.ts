@@ -1,7 +1,8 @@
 /**
  * The git half of the client runtime: the atoms the changes pane reads.
  *
- * - `gitStatusAtom(projectId)` — `git.status` for the project's workspace.
+ * - `gitStatusAtom(scope)` — `git.status` for the project's workspace, or for
+ *   a thread's own root (its worktree) when the scope names the thread.
  * - `gitDiffAtom(range)` — `git.diff` for one comparison. `from`/`to` are the
  *   server's own argument shape: omitting `to` diffs the working tree against
  *   `from` (default `HEAD`), giving both "working tree" and "working tree vs a
@@ -26,7 +27,7 @@
  * atoms share one connection with everything else.
  */
 
-import type { ProjectId } from "@OpenAde/contracts/ids";
+import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
 import type { GitDiff, GitStatus } from "@OpenAde/contracts/rpc";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
@@ -47,9 +48,26 @@ export type GitQuery<A> =
 const ok = <A>(value: A): GitQuery<A> => ({ _tag: "ok", value });
 const failed = <A>(message: string): GitQuery<A> => ({ _tag: "error", message });
 
-/** Which comparison the pane is showing. `undefined` ends mean the defaults. */
-export interface GitDiffRange {
+/**
+ * Which directory a git read runs in: the thread's own root when `threadId`
+ * is set — its worktree, when it has one — and the project's otherwise.
+ */
+export interface GitScope {
   readonly projectId: ProjectId;
+  readonly threadId?: ThreadId | undefined;
+}
+
+/** `Atom.family` keys have to be primitives; a test pins the round trip. */
+export const encodeGitScope = (scope: GitScope): string =>
+  JSON.stringify([scope.projectId, scope.threadId ?? null]);
+
+export const decodeGitScope = (key: string): GitScope => {
+  const [projectId, threadId] = JSON.parse(key) as [ProjectId, ThreadId | null];
+  return { projectId, ...(threadId === null ? {} : { threadId }) };
+};
+
+/** Which comparison the pane is showing. `undefined` ends mean the defaults. */
+export interface GitDiffRange extends GitScope {
   /** Base ref; `undefined` is the server's default, `HEAD`. */
   readonly from?: string | undefined;
   /** Target ref; `undefined` means the working tree. */
@@ -62,12 +80,18 @@ export interface GitDiffRange {
  * payload, and a test pins that encode → decode is the identity.
  */
 export const encodeDiffRange = (range: GitDiffRange): string =>
-  JSON.stringify([range.projectId, range.from ?? null, range.to ?? null]);
+  JSON.stringify([range.projectId, range.threadId ?? null, range.from ?? null, range.to ?? null]);
 
 export const decodeDiffRange = (key: string): GitDiffRange => {
-  const [projectId, from, to] = JSON.parse(key) as [ProjectId, string | null, string | null];
+  const [projectId, threadId, from, to] = JSON.parse(key) as [
+    ProjectId,
+    ThreadId | null,
+    string | null,
+    string | null,
+  ];
   return {
     projectId,
+    ...(threadId === null ? {} : { threadId }),
     ...(from === null ? {} : { from }),
     ...(to === null ? {} : { to }),
   };
@@ -94,13 +118,17 @@ export const makeGitAtoms = (runtime: Atom.AtomRuntime<Connection | ConnectionSt
     );
   }).pipe(Stream.unwrap);
 
-  const gitStatusAtom = Atom.family((projectId: ProjectId) =>
+  const gitStatusByKeyAtom = Atom.family((key: string) =>
     runtime.atom(
       connectedEpochs.pipe(
         Stream.mapEffect(() =>
           Effect.gen(function* () {
+            const scope = decodeGitScope(key);
             const client = yield* (yield* Connection).client;
-            return yield* client["git.status"]({ projectId });
+            return yield* client["git.status"]({
+              projectId: scope.projectId,
+              ...(scope.threadId === undefined ? {} : { threadId: scope.threadId }),
+            });
           }).pipe(
             Effect.map(ok<GitStatus>),
             Effect.catch((error) => Effect.succeed(failed<GitStatus>(error.message))),
@@ -119,6 +147,7 @@ export const makeGitAtoms = (runtime: Atom.AtomRuntime<Connection | ConnectionSt
             const client = yield* (yield* Connection).client;
             return yield* client["git.diff"]({
               projectId: range.projectId,
+              ...(range.threadId === undefined ? {} : { threadId: range.threadId }),
               ...(range.from === undefined ? {} : { from: range.from }),
               ...(range.to === undefined ? {} : { to: range.to }),
             });
@@ -131,7 +160,8 @@ export const makeGitAtoms = (runtime: Atom.AtomRuntime<Connection | ConnectionSt
     ),
   );
 
-  /** The pane's handle: one atom per comparison, shared across mounts. */
+  /** The pane's handles: one atom per scope and per comparison, shared across mounts. */
+  const gitStatusAtom = (scope: GitScope) => gitStatusByKeyAtom(encodeGitScope(scope));
   const gitDiffAtom = (range: GitDiffRange) => gitDiffByKeyAtom(encodeDiffRange(range));
 
   return { gitStatusAtom, gitDiffAtom };

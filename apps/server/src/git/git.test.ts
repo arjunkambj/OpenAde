@@ -133,7 +133,7 @@ describe("w8 git", () => {
 
         // The diff between checkpoints is exactly turn 2's changes.
         const { projectId, git: gitService } = yield* stack(root);
-        const diff = yield* gitService.diff(projectId, { from: cp1.ref, to: cp2.ref });
+        const diff = yield* gitService.diff({ projectId }, { from: cp1.ref, to: cp2.ref });
         const byPath = new Map(diff.files.map((f) => [f.path, f]));
         expect(byPath.get("a.txt")?.additions).toBe(1);
         expect(byPath.get("b.txt")?.kind).toBe("delete");
@@ -266,7 +266,7 @@ describe("w8 git", () => {
         const { projectId, git: gitService } = yield* stack(root);
         writeFileSync(nodePath.join(root, "new.txt"), "untracked\n");
         writeFileSync(nodePath.join(root, "a.txt"), "changed\n");
-        const status = yield* gitService.status(projectId);
+        const status = yield* gitService.status({ projectId });
         expect(status.branch).not.toBeNull();
         const paths = new Map(status.files.map((f) => [f.path, f.status]));
         expect(paths.get("new.txt")).toBe("untracked");
@@ -284,11 +284,11 @@ describe("w8 git", () => {
 
         // `--output=<path>` as `from` would make git write the diff to disk.
         const from = yield* gitService
-          .diff(projectId, { from: `--output=${marker}` })
+          .diff({ projectId }, { from: `--output=${marker}` })
           .pipe(Effect.exit);
         expect(from._tag).toBe("Failure");
         const to = yield* gitService
-          .diff(projectId, { from: "HEAD", to: "--no-ext-diff" })
+          .diff({ projectId }, { from: "HEAD", to: "--no-ext-diff" })
           .pipe(Effect.exit);
         expect(to._tag).toBe("Failure");
         // Nothing was executed — no file materialized.
@@ -313,7 +313,7 @@ describe("w8 git", () => {
         git(root, "mv", "has space.txt", "renamed file.txt");
         writeFileSync(nodePath.join(root, "untracked space.txt"), "new\n");
 
-        const status = yield* gitService.status(projectId);
+        const status = yield* gitService.status({ projectId });
         const byPath = new Map(status.files.map((f) => [f.path, f]));
         const renamed = byPath.get("renamed file.txt");
         expect(renamed?.status).toBe("renamed");
@@ -333,7 +333,7 @@ describe("w8 git", () => {
         const root = makeRepo();
         const { projectId, git: gitService } = yield* stack(root);
         writeFileSync(nodePath.join(root, "fresh.txt"), "brand new\n");
-        const diff = yield* gitService.diff(projectId, {});
+        const diff = yield* gitService.diff({ projectId }, {});
         const fresh = diff.files.find((f) => f.path === "fresh.txt");
         expect(fresh?.kind).toBe("create");
         expect(fresh?.diff).toContain("brand new");
@@ -355,7 +355,7 @@ describe("w8 git", () => {
         // matches no path the patch split produces — the counts used to come
         // back as +0/-0 while the patch plainly had a hunk.
         const before = git(root, "rev-parse", "HEAD^").trim();
-        const between = yield* gitService.diff(projectId, { from: before, to: "HEAD" });
+        const between = yield* gitService.diff({ projectId }, { from: before, to: "HEAD" });
         const renamed = between.files.find((f) => f.path === "b.txt");
         expect(renamed?.oldPath).toBe("a.txt");
         expect(renamed?.additions).toBe(1);
@@ -377,7 +377,7 @@ describe("w8 git", () => {
         git(root, "mv", "a.txt", "b.txt");
         writeFileSync(nodePath.join(root, "b.txt"), "one\ntwo\n");
 
-        const diff = yield* gitService.diff(projectId, {});
+        const diff = yield* gitService.diff({ projectId }, {});
         const byPath = new Map(diff.files.map((f) => [f.path, f]));
         expect(byPath.get("staged.txt")?.kind).toBe("create");
         expect(byPath.get("staged.txt")?.diff).toContain("staged");
@@ -398,7 +398,7 @@ describe("w8 git", () => {
         const tempIndexes = () =>
           readdirSync(tmpdir()).filter((name) => name.startsWith("openade-index-"));
         const before = new Set(tempIndexes());
-        yield* gitService.diff(projectId, {});
+        yield* gitService.diff({ projectId }, {});
         const leaked = tempIndexes().filter((name) => !before.has(name));
         expect(leaked).toEqual([]);
       }),
@@ -418,14 +418,14 @@ describe("w8 git", () => {
         git(root, "commit", "-qm", "add files");
 
         const { projectId, files } = yield* stack(root);
-        const hits = yield* files.search(projectId, "keep");
+        const hits = yield* files.search({ projectId }, "keep");
         expect(hits.map((h) => h.path)).toContain("src/keep-me.ts");
-        const ignored = yield* files.search(projectId, "hidden");
+        const ignored = yield* files.search({ projectId }, "hidden");
         expect(ignored).toEqual([]);
 
-        const content = yield* files.read(projectId, "src/keep-me.ts");
+        const content = yield* files.read({ projectId }, "src/keep-me.ts");
         expect(content.text).toContain("export const a = 1");
-        const outside = yield* files.read(projectId, "../outside").pipe(Effect.exit);
+        const outside = yield* files.read({ projectId }, "../outside").pipe(Effect.exit);
         expect(outside._tag).toBe("Failure");
       }),
     ),
@@ -442,7 +442,7 @@ describe("w8 git", () => {
         git(root, "commit", "-qm", "add widgets");
 
         const { projectId, files } = yield* stack(root);
-        const hits = yield* files.search(projectId, "widgets");
+        const hits = yield* files.search({ projectId }, "widgets");
         const byPath = new Map(hits.map((h) => [h.path, h.isDirectory]));
         expect(byPath.get("widgets")).toBe(true);
         expect(byPath.get("widgets/nested/widgets.ts")).toBe(false);
@@ -459,10 +459,10 @@ describe("w8 git", () => {
         const { projectId, git: gitService } = yield* stack(plain);
 
         // Empty results, but the pane can tell this apart from a clean repo.
-        const status = yield* gitService.status(projectId);
+        const status = yield* gitService.status({ projectId });
         expect(status.isRepository).toBe(false);
         expect(status.files).toEqual([]);
-        const diff = yield* gitService.diff(projectId, {});
+        const diff = yield* gitService.diff({ projectId }, {});
         expect(diff.isRepository).toBe(false);
 
         // Checkpoints report it as a field rather than as git's wording.
@@ -480,8 +480,8 @@ describe("w8 git", () => {
 
         // A real repository says so too.
         const { projectId: repoProject, git: repoGit } = yield* stack(makeRepo());
-        expect((yield* repoGit.status(repoProject)).isRepository).toBe(true);
-        expect((yield* repoGit.diff(repoProject, {})).isRepository).toBe(true);
+        expect((yield* repoGit.status({ projectId: repoProject })).isRepository).toBe(true);
+        expect((yield* repoGit.diff({ projectId: repoProject }, {})).isRepository).toBe(true);
       }),
     ),
   );
@@ -502,11 +502,11 @@ describe("w8 git", () => {
         writeFileSync(nodePath.join(root, "keep-me.log"), "logged\n");
 
         const { projectId, files } = yield* stack(root);
-        const hits = yield* files.search(projectId, "keep-me");
+        const hits = yield* files.search({ projectId }, "keep-me");
         // The walk is ignore-aware: only the one real source file survives.
         expect(hits.map((h) => h.path)).toEqual(["src/keep-me.ts"]);
 
-        const content = yield* files.read(projectId, "src/keep-me.ts");
+        const content = yield* files.read({ projectId }, "src/keep-me.ts");
         expect(content.text).toContain("export const a = 1");
       }),
     ),
@@ -529,7 +529,7 @@ describe("w8 git", () => {
         writeFileSync(nodePath.join(root, "src", "keep-me.ts"), "export const a = 1\n");
 
         const { projectId, files } = yield* stack(root);
-        const hits = yield* files.search(projectId, "keep-me");
+        const hits = yield* files.search({ projectId }, "keep-me");
         expect(hits.map((h) => h.path)).toEqual(["src/keep-me.ts"]);
       }),
     ),
@@ -551,7 +551,7 @@ describe("w8 git", () => {
         symlinkSync(outside, nodePath.join(root, "keep-me-elsewhere"));
 
         const { projectId, files } = yield* stack(root);
-        const hits = yield* files.search(projectId, "keep-me");
+        const hits = yield* files.search({ projectId }, "keep-me");
         expect(hits.map((h) => h.path).sort()).toEqual([
           "keep-me-elsewhere",
           "src/keep-me-link.ts",
@@ -574,16 +574,16 @@ describe("w8 git", () => {
         symlinkSync(outside, nodePath.join(root, "linked"));
 
         const { projectId, files } = yield* stack(root);
-        const viaDir = yield* files.read(projectId, "linked/secret.txt").pipe(Effect.exit);
+        const viaDir = yield* files.read({ projectId }, "linked/secret.txt").pipe(Effect.exit);
         expect(viaDir._tag).toBe("Failure");
-        const viaDirItself = yield* files.read(projectId, "linked").pipe(Effect.exit);
+        const viaDirItself = yield* files.read({ projectId }, "linked").pipe(Effect.exit);
         expect(viaDirItself._tag).toBe("Failure");
 
         // A symlink to an in-repo file still resolves — canonical containment
         // is the check, not the mere presence of a link.
         writeFileSync(nodePath.join(root, "real.txt"), "real\n");
         symlinkSync("real.txt", nodePath.join(root, "alias.txt"));
-        const aliased = yield* files.read(projectId, "alias.txt");
+        const aliased = yield* files.read({ projectId }, "alias.txt");
         expect(aliased.text).toContain("real");
       }),
     ),
@@ -599,7 +599,7 @@ describe("w8 git", () => {
         writeFileSync(nodePath.join(root, "long.txt"), `${lines.join("\n")}\n`);
         const { projectId, files } = yield* stack(root);
 
-        const page = yield* files.read(projectId, "long.txt", 20_000, 3);
+        const page = yield* files.read({ projectId }, "long.txt", 20_000, 3);
         expect(page.text.split("\n")).toEqual([lines[20_000], lines[20_001], lines[20_002]]);
         // The trailing newline makes the last line an empty one, as
         // String.split("\n") would report it.
@@ -607,7 +607,7 @@ describe("w8 git", () => {
         expect(page.truncated).toBe(true);
 
         // The final page reaches the end of the file rather than a window.
-        const tail = yield* files.read(projectId, "long.txt", 39_999, 2);
+        const tail = yield* files.read({ projectId }, "long.txt", 39_999, 2);
         expect(tail.text).toBe(`${lines[39_999]}\n`);
         expect(tail.truncated).toBe(false);
       }),
@@ -621,7 +621,7 @@ describe("w8 git", () => {
         // ~600KB — comfortably over the 512KB cap.
         writeFileSync(nodePath.join(root, "big.txt"), "x".repeat(600 * 1024));
         const { projectId, files } = yield* stack(root);
-        const content = yield* files.read(projectId, "big.txt");
+        const content = yield* files.read({ projectId }, "big.txt");
         expect(content.truncated).toBe(true);
         expect(content.text.length).toBeLessThanOrEqual(512 * 1024);
       }),
@@ -637,9 +637,9 @@ describe("w8 git", () => {
           writeFileSync(nodePath.join(root, `f${i}.txt`), "x\n");
         }
         const { projectId, files } = yield* stack(root);
-        yield* files.search(projectId, "f1"); // populate the cache
+        yield* files.search({ projectId }, "f1"); // populate the cache
         const start = Date.now();
-        yield* files.search(projectId, "f5");
+        yield* files.search({ projectId }, "f5");
         expect(Date.now() - start).toBeLessThan(200);
       }),
     ),

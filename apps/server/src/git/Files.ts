@@ -4,6 +4,9 @@
  * for free; a per-root cache keyed off `.git/index` mtime keeps repeat queries
  * warm (the composer hits this on every `@` keystroke).
  *
+ * Both run in the thread's own root when the call names a thread (its
+ * worktree, when it has one), and in the project's root otherwise.
+ *
  * A project need not be a git repository, so a
  * workspace that is not one (or a machine with no usable `git`) falls back to
  * the ignore-aware filesystem walk in `walk.ts` rather than failing the RPC.
@@ -11,7 +14,6 @@
 import { statSync } from "node:fs";
 import { realpath } from "node:fs/promises";
 import * as nodePath from "node:path";
-import type { ProjectId } from "@OpenAde/contracts/ids";
 import type { FileSearchResult } from "@OpenAde/contracts/rpc";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
@@ -19,8 +21,9 @@ import * as Layer from "effect/Layer";
 
 import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
 
+import { resolveWorkspaceRoot } from "../orchestration/workspaceRoot";
 import { ReadModelStore } from "../persistence/ReadModels";
-import { FileService } from "../rpc/services";
+import { FileService, type WorkspaceScope } from "../rpc/services";
 import { isRepository, run } from "./process";
 import { readFileWindow } from "./read";
 import { walkWorkspace } from "./walk";
@@ -121,9 +124,9 @@ export const layer = Layer.effect(
     const readModels = yield* ReadModelStore;
     const cache = new Map<string, ListingCacheEntry>();
 
-    const workspaceRoot = (projectId: ProjectId) =>
-      readModels.getProjectDoc(projectId).pipe(
-        Effect.map((doc) => doc?.workspaceRoot ?? null),
+    /** The thread's root when the scope names one, the project's otherwise. */
+    const workspaceRoot = (scope: WorkspaceScope) =>
+      resolveWorkspaceRoot(readModels, scope.projectId, scope.threadId).pipe(
         Effect.mapError(
           (error) => new FileServiceError({ message: `project lookup failed: ${error.message}` }),
         ),
@@ -150,9 +153,9 @@ export const layer = Layer.effect(
       });
 
     const service = FileService.of({
-      search: (projectId, query, limit = DEFAULT_SEARCH_LIMIT) =>
+      search: (scope, query, limit = DEFAULT_SEARCH_LIMIT) =>
         Effect.gen(function* () {
-          const root = yield* workspaceRoot(projectId);
+          const root = yield* workspaceRoot(scope);
           if (root === null || query.length === 0) return [];
           const entries = yield* listFiles(root);
           const scored: Array<{ entry: ListingEntry; score: number }> = [];
@@ -176,9 +179,9 @@ export const layer = Layer.effect(
           }));
         }).pipe(Effect.mapError(toRpcError)),
 
-      read: (projectId, path, offset = 0, limit) =>
+      read: (scope, path, offset = 0, limit) =>
         Effect.gen(function* () {
-          const root = yield* workspaceRoot(projectId);
+          const root = yield* workspaceRoot(scope);
           if (root === null) {
             return { path, text: "", totalLines: 0, truncated: false };
           }

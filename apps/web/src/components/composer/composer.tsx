@@ -136,7 +136,7 @@ export function Composer({
   // is what actually reaches files.search.
   const atQuery = trigger?.kind === "at" ? trigger.query : "";
   const deferredQuery = React.useDeferredValue(atQuery);
-  const searchResult = useAtomValue(fileSearchAtom(projectId)(deferredQuery));
+  const searchResult = useAtomValue(fileSearchAtom(projectId, threadId)(deferredQuery));
   const searchFiles = AsyncResult.isSuccess(searchResult) ? searchResult.value : [];
   const searching = !AsyncResult.isSuccess(searchResult);
 

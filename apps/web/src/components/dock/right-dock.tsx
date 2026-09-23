@@ -172,6 +172,7 @@ export function RightDock({
           {tab === "files" ? (
             <FilesPane
               projectId={snapshot.projectId}
+              threadId={snapshot.threadId}
               connected={connection.status === "connected"}
             />
           ) : null}

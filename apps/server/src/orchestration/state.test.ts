@@ -26,6 +26,7 @@ import {
   projectThreadEvent,
   threadSnapshotOf,
   threadSummaryOf,
+  worktreeOf,
   type ThreadDoc,
 } from "./state";
 
@@ -700,5 +701,44 @@ describe("what a thread is waiting on", () => {
       event("thread.approval.resolved", { requestId: approvalId, decision: "allow-once" }),
     ])!;
     expect(threadSummaryOf(answered).awaiting).toBe("question");
+  });
+});
+
+describe("the thread's worktree", () => {
+  const worktree = { path: "/wt/demo/fix", branch: "openade/fix", baseBranch: "main" };
+
+  const createdIn = () =>
+    event("thread.created", {
+      threadId,
+      projectId,
+      title: "Thread",
+      settings: {
+        model: "fake/model",
+        runtimeMode: "approval-required",
+        interactionMode: "default",
+      },
+      worktree,
+    });
+
+  it("folds the worktree from thread.created onto the summary and the snapshot", () => {
+    const doc = foldThread([createdIn(), turnRequested()])!;
+    expect(doc.worktree).toEqual(worktree);
+    expect(threadSummaryOf(doc).worktree).toEqual(worktree);
+    expect(threadSnapshotOf(doc).worktree).toEqual(worktree);
+  });
+
+  it("leaves a local thread without one, on the wire as well", () => {
+    const doc = foldThread([created()])!;
+    expect(doc.worktree).toBeNull();
+    expect(threadSummaryOf(doc)).not.toHaveProperty("worktree");
+    expect(threadSnapshotOf(doc)).not.toHaveProperty("worktree");
+  });
+
+  it("reads a document projected before threads had one as local", () => {
+    const { worktree: _worktree, ...older } = foldThread([created()])!;
+    const stored = JSON.parse(JSON.stringify(older)) as ThreadDoc;
+    expect(worktreeOf(stored)).toBeNull();
+    expect(threadSnapshotOf(stored)).not.toHaveProperty("worktree");
+    expect(threadSummaryOf(stored)).not.toHaveProperty("worktree");
   });
 });

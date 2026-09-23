@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
-import { makeProjectId } from "@OpenAde/contracts/ids";
+import { makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
 import type { GitDiff, GitStatus } from "@OpenAde/contracts/rpc";
 import type * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
@@ -18,11 +18,14 @@ import type * as Atom from "effect/unstable/reactivity/Atom";
 
 import {
   decodeDiffRange,
+  decodeGitScope,
   encodeDiffRange,
+  encodeGitScope,
   isRepoless,
   makeGitAtoms,
   type GitDiffRange,
   type GitQuery,
+  type GitScope,
 } from "./gitAtoms";
 import { makeRuntime } from "./atoms";
 import {
@@ -59,7 +62,7 @@ const diff = (from: string | null, to: string | null): GitDiff => ({
 });
 
 interface Calls {
-  readonly status: Array<string>;
+  readonly status: Array<{ projectId: string; threadId?: string }>;
   readonly diff: Array<{ from?: string; to?: string }>;
 }
 
@@ -71,9 +74,9 @@ const fakeClient = (calls: Calls, failStatus: Ref.Ref<boolean>): OpenAdeRpcClien
   new Proxy({} as OpenAdeRpcClient, {
     get: (_target, key) => {
       if (key === "git.status") {
-        return ({ projectId }: { projectId: string }) =>
+        return (payload: { projectId: string; threadId?: string }) =>
           Effect.gen(function* () {
-            calls.status.push(projectId);
+            calls.status.push({ ...payload });
             if (yield* Ref.get(failStatus)) {
               return yield* Effect.fail({ message: "not a git repository" });
             }
@@ -127,12 +130,26 @@ describe("git atoms", () => {
       { projectId, from: "refs/openade/checkpoints/a" },
       { projectId, from: "refs/openade/checkpoints/a", to: "refs/openade/checkpoints/b" },
       { projectId, to: "refs/openade/checkpoints/b" },
+      { projectId, threadId: makeThreadId() },
+      { projectId, threadId: makeThreadId(), from: "main", to: "refs/openade/checkpoints/b" },
     ];
     for (const range of ranges) {
       expect(decodeDiffRange(encodeDiffRange(range))).toEqual(range);
     }
     // Distinct comparisons must not collide on one atom.
     expect(new Set(ranges.map(encodeDiffRange)).size).toBe(ranges.length);
+  });
+
+  it("a git scope round-trips through its family key", () => {
+    const projectId = makeProjectId();
+    const scopes: ReadonlyArray<GitScope> = [
+      { projectId },
+      { projectId, threadId: makeThreadId() },
+    ];
+    for (const scope of scopes) {
+      expect(decodeGitScope(encodeGitScope(scope))).toEqual(scope);
+    }
+    expect(new Set(scopes.map(encodeGitScope)).size).toBe(scopes.length);
   });
 
   it("a repo-less status is recognised, a real one is not", () => {
@@ -151,7 +168,7 @@ describe("git atoms", () => {
           CONNECTED,
         );
 
-        const atom = gitStatusAtom(projectId);
+        const atom = gitStatusAtom({ projectId });
         registry.mount(atom);
         const failure = yield* Effect.promise(() =>
           awaitValue<GitQuery<GitStatus>, Cause.NoSuchElementError>(
@@ -174,7 +191,7 @@ describe("git atoms", () => {
           ),
         );
         expect(recovered._tag === "ok" && recovered.value.branch).toBe("main");
-        expect(calls.status).toEqual([projectId, projectId]);
+        expect(calls.status).toEqual([{ projectId }, { projectId }]);
       }),
     ),
   );
@@ -209,6 +226,41 @@ describe("git atoms", () => {
         // The working-tree atom sends neither ref; the ranged one sends both.
         expect(calls.diff).toContainEqual({ projectId });
         expect(calls.diff).toContainEqual({ projectId, from: "refs/a", to: "refs/b" });
+      }),
+    ),
+  );
+
+  it.live("a thread's scope sends its id, so the server reads the thread's root", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const projectId = makeProjectId();
+        const threadId = makeThreadId();
+        const calls: Calls = { status: [], diff: [] };
+        const failing = yield* Ref.make(false);
+        const { registry, gitStatusAtom, gitDiffAtom } = yield* runtimeWith(
+          fakeClient(calls, failing),
+          CONNECTED,
+        );
+        const statusAtom = gitStatusAtom({ projectId, threadId });
+        const diffAtom = gitDiffAtom({ projectId, threadId });
+        registry.mount(statusAtom);
+        registry.mount(diffAtom);
+        yield* Effect.promise(() =>
+          awaitValue<GitQuery<GitStatus>, Cause.NoSuchElementError>(
+            registry,
+            statusAtom,
+            (query) => query._tag === "ok",
+          ),
+        );
+        yield* Effect.promise(() =>
+          awaitValue<GitQuery<GitDiff>, Cause.NoSuchElementError>(
+            registry,
+            diffAtom,
+            (query) => query._tag === "ok",
+          ),
+        );
+        expect(calls.status).toEqual([{ projectId, threadId }]);
+        expect(calls.diff).toEqual([{ projectId, threadId }]);
       }),
     ),
   );

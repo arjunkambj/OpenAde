@@ -78,16 +78,25 @@ export class ConnectorCatalog extends Context.Service<
 
 // ── Files ──────────────────────────────────────────────────────
 
+/**
+ * Which directory a workspace read runs in: the named thread's own root (its
+ * worktree, when it has one), or the project's root when no thread is named.
+ */
+export interface WorkspaceScope {
+  readonly projectId: ProjectId;
+  readonly threadId?: ThreadId | undefined;
+}
+
 export class FileService extends Context.Service<
   FileService,
   {
     readonly search: (
-      projectId: ProjectId,
+      scope: WorkspaceScope,
       query: string,
       limit?: number,
     ) => Effect.Effect<ReadonlyArray<FileSearchResult>, OpenAdeRpcError>;
     readonly read: (
-      projectId: ProjectId,
+      scope: WorkspaceScope,
       path: string,
       offset?: number,
       limit?: number,
@@ -97,9 +106,8 @@ export class FileService extends Context.Service<
   static readonly empty = Layer.succeed(
     FileService,
     FileService.of({
-      search: (_projectId, _query, _limit) => Effect.succeed([]),
-      read: (_projectId, path) =>
-        Effect.succeed({ path, text: "", totalLines: 0, truncated: false }),
+      search: (_scope, _query, _limit) => Effect.succeed([]),
+      read: (_scope, path) => Effect.succeed({ path, text: "", totalLines: 0, truncated: false }),
     }),
   );
 }
@@ -128,16 +136,16 @@ export class DirectoryBrowser extends Context.Service<
 export class GitService extends Context.Service<
   GitService,
   {
-    readonly status: (projectId: ProjectId) => Effect.Effect<GitStatus, OpenAdeRpcError>;
+    readonly status: (scope: WorkspaceScope) => Effect.Effect<GitStatus, OpenAdeRpcError>;
     readonly diff: (
-      projectId: ProjectId,
+      scope: WorkspaceScope,
       options: {
         readonly from?: string;
         readonly to?: string;
         readonly path?: string;
       },
     ) => Effect.Effect<GitDiff, OpenAdeRpcError>;
-    /** The checkpoint refs that still exist for a thread, oldest first. */
+    /** The checkpoint refs that still exist for a thread, read in its root, oldest first. */
     readonly checkpoints: (
       projectId: ProjectId,
       threadId: ThreadId,
@@ -147,9 +155,9 @@ export class GitService extends Context.Service<
   static readonly empty = Layer.succeed(
     GitService,
     GitService.of({
-      status: (_projectId) =>
+      status: (_scope) =>
         Effect.succeed({ branch: null, upstream: null, ahead: 0, behind: 0, files: [] }),
-      diff: (_projectId, options) =>
+      diff: (_scope, options) =>
         Effect.succeed({ from: options.from ?? null, to: options.to ?? null, files: [] }),
       checkpoints: () => Effect.succeed([]),
     }),

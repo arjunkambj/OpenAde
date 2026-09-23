@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import {
+  makeCheckpointId,
   makeCommandId,
   makeConnectorInstanceId,
   makeEventId,
@@ -8,6 +9,7 @@ import {
   makeThreadId,
   makeTurnId,
 } from "@OpenAde/contracts/ids";
+import type { ThreadId } from "@OpenAde/contracts/ids";
 import type { Command } from "@OpenAde/contracts/orchestration";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -406,6 +408,82 @@ describe("OrchestrationEngine", () => {
         }).pipe(Effect.provide(OrchestrationEngine.layer.pipe(Layer.provideMerge(persistence))));
       }),
     ),
+  );
+});
+
+describe("the restore exclusion", () => {
+  const create = (id: ThreadId, worktree?: { path: string; branch: string }): Command => ({
+    commandId: makeCommandId(),
+    createdAt: NOW,
+    type: "thread.create",
+    threadId: id,
+    projectId,
+    settings: { model: "fake/model" },
+    ...(worktree === undefined ? {} : { worktree }),
+  });
+
+  const start = (id: ThreadId): Command => ({ ...turnStart("go"), threadId: id }) as Command;
+
+  /** Gives the thread a checkpoint and orders a restore nobody carries out. */
+  const restoreInFlight = (id: ThreadId) =>
+    Effect.gen(function* () {
+      const engine = yield* OrchestrationEngine;
+      const checkpointId = makeCheckpointId();
+      yield* engine.appendThreadEvents(id, [
+        {
+          eventId: makeEventId(),
+          streamKind: "thread",
+          streamId: id,
+          occurredAt: NOW,
+          actor: "system",
+          type: "thread.checkpoint.created",
+          payload: {
+            checkpoint: {
+              checkpointId,
+              turnId: makeTurnId(),
+              ref: `refs/openade/checkpoints/${id}/x`,
+              createdAt: NOW,
+            },
+          },
+        } as unknown as import("../persistence/EventStore").PlannedEvent,
+      ]);
+      const receipt = yield* engine.dispatch({
+        commandId: makeCommandId(),
+        createdAt: NOW,
+        type: "thread.checkpoint.restore",
+        threadId: id,
+        checkpointId,
+      });
+      expect(receipt.status).toBe("accepted");
+    });
+
+  it.effect("covers only the threads that share the restoring thread's directory", () =>
+    Effect.gen(function* () {
+      const engine = yield* OrchestrationEngine;
+      const worktree = { path: "/worktrees/demo/fix", branch: "openade/fix" };
+      const inWorktree = makeThreadId();
+      const sameWorktree = makeThreadId();
+      const local = makeThreadId();
+      const otherLocal = makeThreadId();
+      yield* engine.dispatch(createProject);
+      yield* engine.dispatch(create(inWorktree, worktree));
+      yield* engine.dispatch(create(sameWorktree, worktree));
+      yield* engine.dispatch(create(local));
+      yield* engine.dispatch(create(otherLocal));
+
+      yield* restoreInFlight(inWorktree);
+      // The worktree's restore rewrites the worktree, not the project's root.
+      expect((yield* engine.dispatch(start(local))).status).toBe("accepted");
+      const blocked = yield* engine.dispatch(start(sameWorktree));
+      expect(blocked.status).toBe("rejected");
+      expect(blocked.reason).toContain("restoring a checkpoint");
+
+      // And the other way round: a local restore holds every local thread.
+      yield* restoreInFlight(otherLocal);
+      const held = yield* engine.dispatch({ ...start(local), queued: true } as Command);
+      expect(held.status).toBe("rejected");
+      expect(held.reason).toContain("restoring a checkpoint");
+    }).pipe(Effect.provide(engineLayer())),
   );
 });
 

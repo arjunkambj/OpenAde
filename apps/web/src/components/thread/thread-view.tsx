@@ -141,17 +141,17 @@ const snapshotOf = (result: ThreadDetailResult): ThreadDetailSnapshot | null => 
   return null;
 };
 
-/** A fresh thread: the greeting, for the project the thread belongs to. */
-function EmptyThread({ projectId }: { projectId: ThreadDetailSnapshot["projectId"] }) {
-  const project = useProjects().find((entry) => entry.projectId === projectId);
-  return <ThreadGreeting project={project} />;
+/** A fresh thread: the greeting, for the project and worktree the thread works in. */
+function EmptyThread({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
+  const project = useProjects().find((entry) => entry.projectId === snapshot.projectId);
+  return <ThreadGreeting project={project} worktree={snapshot.worktree} />;
 }
 
 function ThreadBody({ result, connected }: { result: ThreadDetailResult; connected: boolean }) {
   const snapshot = snapshotOf(result);
   if (snapshot !== null) {
     if (snapshot.items.length === 0) {
-      return <EmptyThread projectId={snapshot.projectId} />;
+      return <EmptyThread snapshot={snapshot} />;
     }
     return <Timeline snapshot={snapshot} />;
   }

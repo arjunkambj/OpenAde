@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
-import { makeProjectId } from "@OpenAde/contracts/ids";
+import { makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
 import type { FileContent, FileSearchResult } from "@OpenAde/contracts/rpc";
 import type * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
@@ -39,8 +39,14 @@ const CONNECTED: ConnectionState = { status: "connected", serverInstanceId: null
 const RECONNECTING: ConnectionState = { status: "reconnecting", serverInstanceId: null };
 
 interface Calls {
-  readonly search: Array<{ projectId: string; query: string; limit?: number }>;
-  readonly read: Array<{ projectId: string; path: string; offset?: number; limit?: number }>;
+  readonly search: Array<{ projectId: string; threadId?: string; query: string; limit?: number }>;
+  readonly read: Array<{
+    projectId: string;
+    threadId?: string;
+    path: string;
+    offset?: number;
+    limit?: number;
+  }>;
 }
 
 const hit = (path: string): FileSearchResult => ({
@@ -120,6 +126,7 @@ describe("file atoms", () => {
       { projectId, query: "" },
       { projectId, query: "router" },
       { projectId, query: "router", limit: 200 },
+      { projectId, threadId: makeThreadId(), query: "router" },
     ];
     for (const key of keys) {
       expect(decodeFileSearch(encodeFileSearch(key))).toEqual(key);
@@ -133,6 +140,7 @@ describe("file atoms", () => {
       { projectId, path: "src/app.ts", offset: 0, limit: 500 },
       { projectId, path: "src/app.ts", offset: 500, limit: 500 },
       { projectId, path: "src/other.ts", offset: 0, limit: 500 },
+      { projectId, threadId: makeThreadId(), path: "src/app.ts", offset: 0, limit: 500 },
     ];
     for (const key of keys) {
       expect(decodeFileWindow(encodeFileWindow(key))).toEqual(key);
@@ -233,6 +241,42 @@ describe("file atoms", () => {
           "src/router.ts",
         ]);
         expect(calls.search).toEqual([{ projectId, query: "router", limit: 200 }]);
+      }),
+    ),
+  );
+
+  it.live("a thread's search and read send its id, so the server reads the thread's root", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const projectId = makeProjectId();
+        const threadId = makeThreadId();
+        const calls: Calls = { search: [], read: [] };
+        const failing = yield* Ref.make(false);
+        const { registry, fileSearchAtom, fileContentAtom } = yield* runtimeWith(
+          fakeClient(calls, failing),
+          CONNECTED,
+        );
+
+        const search = fileSearchAtom({ projectId, threadId, query: "router" });
+        const read = fileContentAtom({ projectId, threadId, path: "a.ts", offset: 0, limit: 2 });
+        registry.mount(search);
+        registry.mount(read);
+        yield* Effect.promise(() =>
+          awaitValue<FileQuery<ReadonlyArray<FileSearchResult>>, Cause.NoSuchElementError>(
+            registry,
+            search,
+            (query) => query._tag === "ok",
+          ),
+        );
+        yield* Effect.promise(() =>
+          awaitValue<FileQuery<FileContent>, Cause.NoSuchElementError>(
+            registry,
+            read,
+            (query) => query._tag === "ok",
+          ),
+        );
+        expect(calls.search).toEqual([{ projectId, threadId, query: "router" }]);
+        expect(calls.read).toEqual([{ projectId, threadId, path: "a.ts", offset: 0, limit: 2 }]);
       }),
     ),
   );

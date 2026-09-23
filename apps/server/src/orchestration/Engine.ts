@@ -80,6 +80,7 @@ import {
   type NewPermissionRule,
 } from "./decider";
 import { makeLiveBuffer, sizeOfJson, threadItemMergeKey, threadListMergeKey } from "./LiveBuffer";
+import { sharesWorkspaceRoot } from "./workspaceRoot";
 
 /**
  * Everything a dispatch can fail with. `InvalidEvent` is here because the
@@ -287,10 +288,11 @@ export class OrchestrationEngine extends Context.Service<
             command.type === "thread.create"
               ? yield* seedThreadDefaults(sql)
               : { effort: null, runtimeMode: null };
-          // A checkpoint restore rewrites the project's whole workspace root,
-          // so the commands it excludes have to see every sibling thread's
-          // `restoring` flag, not just their own stream's. A steer is one of
-          // them: on a thread whose turn just ended it starts the next one.
+          // A checkpoint restore rewrites the thread's whole workspace root,
+          // so the commands it excludes have to see the `restoring` flag of
+          // every sibling working in that directory, not just their own
+          // stream's. A steer is one of them: on a thread whose turn just
+          // ended it starts the next one.
           const guardsRestore =
             command.type === "thread.turn.start" ||
             command.type === "thread.turn.steer" ||
@@ -301,8 +303,10 @@ export class OrchestrationEngine extends Context.Service<
           return {
             projectExists: (id) => id === projectId && exists,
             workspaceRootTaken: (root) => roots.includes(root),
-            restoreInFlight: (id, exceptThreadId) =>
-              restoring.some((doc) => doc.projectId === id && doc.threadId !== exceptThreadId),
+            restoreInFlight: (thread) =>
+              restoring.some(
+                (doc) => doc.threadId !== thread.threadId && sharesWorkspaceRoot(doc, thread),
+              ),
             defaultModel: model,
             defaultEffort: defaults.effort,
             defaultRuntimeMode: defaults.runtimeMode,

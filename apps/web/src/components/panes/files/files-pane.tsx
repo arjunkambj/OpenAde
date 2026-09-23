@@ -9,6 +9,9 @@
  * filesystem walk for a plain folder, so a project that is not a repository
  * behaves the same here — there is no git state on this tab at all.
  *
+ * The thread picks the directory: its worktree, when it has one, and the
+ * project's folder otherwise.
+ *
  * Opening a row swaps the list for `FilePreview`; the breadcrumb goes back.
  * Everything else — loading, an empty query, no matches, a server error, an
  * offline socket — has its own honest block rather than an empty list.
@@ -16,7 +19,7 @@
 
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import type { FileQuery } from "@OpenAde/client-runtime/fileAtoms";
-import type { ProjectId } from "@OpenAde/contracts/ids";
+import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
 import type { FileSearchResult } from "@OpenAde/contracts/rpc";
 import { Button } from "@OpenAde/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
@@ -146,9 +149,11 @@ function SearchBody({
 
 export function FilesPane({
   projectId,
+  threadId,
   connected,
 }: {
   readonly projectId: ProjectId;
+  readonly threadId: ThreadId;
   readonly connected: boolean;
 }) {
   const atoms = useFileAtoms();
@@ -162,7 +167,12 @@ export function FilesPane({
   // member, which starts in `Initial`: the list would blank to "Searching…"
   // and redraw on each letter instead of narrowing.
   const trimmed = React.useDeferredValue(query.trim());
-  const searchAtom = atoms.fileSearchAtom({ projectId, query: trimmed, limit: SEARCH_LIMIT });
+  const searchAtom = atoms.fileSearchAtom({
+    projectId,
+    threadId,
+    query: trimmed,
+    limit: SEARCH_LIMIT,
+  });
   const result = useAtomValue(searchAtom);
   const refresh = useAtomRefresh(searchAtom);
 
@@ -174,11 +184,11 @@ export function FilesPane({
 
   // Hold the previous query's matches while the next atom is still `Initial`,
   // so the list narrows instead of blanking to "Searching…" between letters.
-  // The project is part of what is held: another project's matches are not a
-  // stale view of this one.
-  const held = React.useRef<{ projectId: ProjectId; results: Query }>({ projectId, results: null });
-  if (results !== null || held.current.projectId !== projectId) {
-    held.current = { projectId, results };
+  // The thread is part of what is held: another thread's directory — another
+  // project, or another worktree — is not a stale view of this one.
+  const held = React.useRef<{ threadId: ThreadId; results: Query }>({ threadId, results: null });
+  if (results !== null || held.current.threadId !== threadId) {
+    held.current = { threadId, results };
   }
   const shown = results ?? held.current.results;
 
@@ -238,7 +248,13 @@ export function FilesPane({
               {openPath}
             </span>
           </div>
-          <FilePreview key={openPath} projectId={projectId} path={openPath} connected={connected} />
+          <FilePreview
+            key={openPath}
+            projectId={projectId}
+            threadId={threadId}
+            path={openPath}
+            connected={connected}
+          />
         </>
       )}
     </div>

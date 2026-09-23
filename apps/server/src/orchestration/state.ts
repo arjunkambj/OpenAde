@@ -10,6 +10,7 @@
 
 import type { DecisionKind, ResolvedDecision } from "@OpenAde/contracts/decisions";
 import { UNANSWERED_OUTCOME } from "@OpenAde/contracts/decisions";
+import type { ThreadWorktree } from "@OpenAde/contracts/git";
 import type {
   Attachment,
   CheckpointSummary,
@@ -55,6 +56,13 @@ export interface ThreadDoc {
   readonly title: string;
   readonly status: ThreadStatus;
   readonly settings: ThreadSettings;
+  /**
+   * The git worktree the thread works in, or `null` for a local thread on the
+   * project's root. Set by `thread.created` and never changed. A document
+   * projected before the field existed has none, so read it through
+   * `worktreeOf`.
+   */
+  readonly worktree: ThreadWorktree | null;
   readonly snapshotSequence: number;
   readonly items: ReadonlyArray<ItemSnapshot>;
   readonly queue: ReadonlyArray<QueuedMessage>;
@@ -133,6 +141,10 @@ const previewOf = (item: ItemSnapshot): string | undefined =>
     ? item.text.slice(0, PREVIEW_LENGTH)
     : undefined;
 
+/** The thread's worktree, tolerating a document written before threads had one. */
+export const worktreeOf = (doc: ThreadDoc): ThreadWorktree | null =>
+  (doc.worktree as ThreadWorktree | null | undefined) ?? null;
+
 /** The stored decisions, tolerating a document written before they were kept. */
 const decisionsOf = (doc: ThreadDoc): ReadonlyArray<ResolvedDecision> =>
   (doc.decisions as ReadonlyArray<ResolvedDecision> | undefined) ?? [];
@@ -208,6 +220,7 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
       title: payload.title as string,
       status: "idle",
       settings: payload.settings as ThreadSettings,
+      worktree: (payload.worktree as ThreadWorktree | undefined) ?? null,
       snapshotSequence: event.sequence,
       items: [],
       queue: [],
@@ -583,6 +596,12 @@ export const projectProjectEvent = applyProjectEvent;
 
 // ── Wire shapes ───────────────────────────────────────────────
 
+/** The wire's optional `worktree`: present only for a thread that has one. */
+const worktreeField = (doc: ThreadDoc): { readonly worktree?: ThreadWorktree } => {
+  const worktree = worktreeOf(doc);
+  return worktree === null ? {} : { worktree };
+};
+
 /** The `ThreadDetailSnapshot` a subscription's `snapshot` item carries. */
 export const threadSnapshotOf = (doc: ThreadDoc): ThreadDetailSnapshot => ({
   threadId: doc.threadId,
@@ -590,6 +609,7 @@ export const threadSnapshotOf = (doc: ThreadDoc): ThreadDetailSnapshot => ({
   title: doc.title,
   status: doc.status,
   settings: doc.settings,
+  ...worktreeField(doc),
   snapshotSequence: doc.snapshotSequence,
   items: doc.items,
   queue: doc.queue,
@@ -636,6 +656,7 @@ export const threadSummaryOf = (doc: ThreadDoc): ThreadSummary => {
     ...(doc.preview === undefined ? {} : { preview: doc.preview }),
     awaitingInput: awaiting !== undefined,
     ...(awaiting === undefined ? {} : { awaiting }),
+    ...worktreeField(doc),
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };

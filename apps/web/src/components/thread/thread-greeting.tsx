@@ -3,13 +3,24 @@
  * before its first message: one line asking what to build, naming the
  * project the agent will work in. Both screens pin the composer underneath,
  * so starting a thread and opening an empty one look the same.
+ *
+ * A thread with its own worktree says so underneath, with the branch and the
+ * path, because the agent will work there rather than in the project's folder.
  */
 
+import type { ThreadWorktree } from "@OpenAde/contracts/git";
 import type { ProjectSummary } from "@OpenAde/contracts/orchestration";
+import { GitBranch } from "@honeyicons/react";
 
-export function ThreadGreeting({ project }: { readonly project: ProjectSummary | undefined }) {
+export function ThreadGreeting({
+  project,
+  worktree,
+}: {
+  readonly project: ProjectSummary | undefined;
+  readonly worktree?: ThreadWorktree | undefined;
+}) {
   return (
-    <div className="flex flex-1 items-center justify-center px-6 text-center">
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
       <h2 className="text-2xl font-medium tracking-tight text-foreground">
         {project === undefined ? (
           "What are we cooking today?"
@@ -26,6 +37,16 @@ export function ThreadGreeting({ project }: { readonly project: ProjectSummary |
           </>
         )}
       </h2>
+      {worktree === undefined ? null : (
+        <p className="flex max-w-full min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
+          <GitBranch className="size-4 shrink-0" />
+          <span className="shrink-0 font-mono">{worktree.branch}</span>
+          <span className="shrink-0">in</span>
+          <span className="min-w-0 truncate font-mono" title={worktree.path}>
+            {worktree.path}
+          </span>
+        </p>
+      )}
     </div>
   );
 }

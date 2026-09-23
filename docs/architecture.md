@@ -327,7 +327,7 @@ Directories, relative to `apps/server/`:
 | `src/hooks/`         | the PreToolUse bridge                                                              |
 | `src/mcp/`           | the MCP gateway and its HTTP routes                                                |
 | `src/browser/`       | browser service, agent-browser CLI, driver, tool catalogue                         |
-| `src/git/`           | status/diff, file search and read, checkpoint store and hook                       |
+| `src/git/`           | status/diff, file search and read, checkpoint store and hook, in a thread's root   |
 | `src/fs/`            | `fs.browse`                                                                        |
 | `src/settings/`      | settings store users, connector manager and host, connector extension routing      |
 | `src/attachments/`   | the staging store and its reactor                                                  |
@@ -346,7 +346,8 @@ enabled one.
 ### packages/contracts
 
 Every wire shape, as `effect/Schema` codecs. Modules: `base`, `ids`, `enums`,
-`runtime`, `orchestration`, `decisions`, `settings`, `connectors`, `rpc`.
+`runtime`, `orchestration`, `decisions`, `git`, `settings`, `connectors`,
+`rpc`. `git` holds `ThreadWorktree`, the worktree a thread was created in.
 `thread.ts` holds the value objects of a thread and is reached through
 `orchestration`, which re-exports it, rather than as a module of its own.
 `decisions` holds the record a thread keeps of each settled approval, question
@@ -559,6 +560,26 @@ and a rebuild is a pure fold. `ThreadDoc`
 plus the bookkeeping the decider needs and the wire never sees: the full open
 approval set, pending user inputs, the list preview, the `deleted` flag.
 
+`worktree` is on the wire too, on `ThreadDetailSnapshot` and `ThreadSummary`:
+the git worktree a thread works in — its absolute `path`, its `branch` and the
+`baseBranch` it was cut from — or absent for a local thread on the project's
+root. `thread.create` names it, `thread.created` records it and nothing
+changes it afterwards; the decider refuses a path that is not absolute. The
+field is optional on the command, the event and both read models, so every
+event and snapshot written before it existed decodes as a local thread, and
+the document reads a `doc_json` without it as `null` (`worktreeOf`).
+
+The thread's **workspace root** is its worktree's path when it has one and the
+project's `workspaceRoot` otherwise (`orchestration/workspaceRoot.ts`). The
+session starts there, the permission gate judges sensitive paths against it,
+checkpoints are captured and restored there, and `git.status`, `git.diff`,
+`files.search`, `files.read` and `checkpoints.list` read it when the call
+names the thread (`threadId` is optional on their payloads; without it they
+read the project's root, and a thread of another project is ignored).
+Checkpoint prune is the one exception and stays on the project's root: the
+hidden refs are shared by every worktree of a repository, and a deleted
+thread's worktree may already be gone.
+
 `decisions` is on the wire: one `ResolvedDecision` per settled approval,
 question or plan, oldest first — its kind, the request id (the turn id for a
 plan), the outcome (`unanswered` when the runtime released the request as its
@@ -650,10 +671,11 @@ command receipts as `rejected` and nothing is appended.
 
 `DeciderContext` carries the facts the decider may check that are not in its own
 stream, gathered inside the transaction: whether the project exists, whether a
-workspace root is taken, whether a sibling thread of the same project has a
-checkpoint restore in flight (the git work covers the whole worktree, so that
-exclusion has to be project-wide), and the settings defaults a `thread.create`
-without them inherits.
+workspace root is taken, whether a sibling thread that shares this thread's
+workspace root has a checkpoint restore in flight (the git work covers that
+whole directory, so the exclusion covers every thread working there: all of a
+project's local threads, or all the threads of one worktree), and the settings
+defaults a `thread.create` without them inherits.
 
 `appendThreadEvents` accepts a function of the thread document instead of a
 fixed list. The function runs inside the write transaction on the document as it
@@ -1290,14 +1312,14 @@ the client in the terminal `incompatible` state.
 | `connectors.list`             | call   | Configured connectors with their cached probes; `refresh` re-probes                 |
 | `connectors.models`           | call   | The model picker's options for one instance                                         |
 | `connectors.describe`         | call   | Every connector the build ships: metadata and config form, configured or not        |
-| `files.search`                | call   | The composer's `@` file search                                                      |
+| `files.search`                | call   | The composer's `@` file search; `threadId` searches the thread's root               |
 | `files.read`                  | call   | A window of one file, with a `truncated` flag                                       |
 | `fs.browse`                   | call   | Subfolders of one directory on the server's machine, for the folder picker          |
 | `attachments.stage`           | call   | Uploads one composer image; returns a reference, never echoes bytes                 |
 | `attachments.read`            | call   | Reads a staged image back for a thumbnail                                           |
-| `git.status`                  | call   | Branch, ahead/behind and changed paths                                              |
+| `git.status`                  | call   | Branch, ahead/behind and changed paths; `threadId` reads the thread's root          |
 | `git.diff`                    | call   | Worktree against HEAD, or between two checkpoint refs                               |
-| `checkpoints.list`            | call   | Checkpoints that still exist as refs, intersected with the log's list               |
+| `checkpoints.list`            | call   | Checkpoints that still exist as refs, read in the thread's root                     |
 | `browser.subscribe`           | stream | The browser pane's state, and frames when the browser is ours                       |
 | `browser.humanInput`          | call   | A human gesture into the browser the agent is driving                               |
 | `settings.get`                | call   | The settings document                                                               |

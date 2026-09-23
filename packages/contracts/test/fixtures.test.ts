@@ -170,12 +170,15 @@ const singles: ReadonlyArray<{ readonly path: string; readonly schema: FixtureSc
   // client reads to keep the spinner up and the Restore button disabled across
   // a reload, so the populated shape needs its own round-trip.
   { path: "thread-detail-snapshot.restoring.json", schema: ThreadDetailSnapshot },
+  // A thread working in its own git worktree rather than the project's root.
+  { path: "thread-detail-snapshot.worktree.json", schema: ThreadDetailSnapshot },
   { path: "settings.json", schema: Settings },
   { path: "read-models/project-summary.json", schema: ProjectSummary },
   { path: "read-models/thread-summary.json", schema: ThreadSummary },
   // A session bound with the capabilities its harness announced, which is
   // where the decider reads `steering` from.
   { path: "read-models/thread-session.json", schema: ThreadSession },
+  { path: "read-models/thread-summary.worktree.json", schema: ThreadSummary },
   { path: "read-models/command-receipt.accepted.json", schema: CommandReceipt },
   { path: "read-models/command-receipt.rejected.json", schema: CommandReceipt },
   { path: "rpc/server-hello.json", schema: ServerHello },
@@ -372,6 +375,52 @@ describe("the bound session's capabilities", () => {
       expect(bound.type === "thread.session.bound" && bound.payload.capabilities?.steering).toBe(
         true,
       );
+    }),
+  );
+});
+
+describe("a thread's worktree", () => {
+  it.effect("is absent from a local thread and present on a worktree thread", () =>
+    Effect.gen(function* () {
+      const local = yield* Effect.sync(() =>
+        Schema.decodeUnknownSync(ThreadSummary)(read("read-models/thread-summary.json")),
+      );
+      expect(local.worktree).toBeUndefined();
+      const own = yield* Effect.sync(() =>
+        Schema.decodeUnknownSync(ThreadDetailSnapshot)(
+          read("thread-detail-snapshot.worktree.json"),
+        ),
+      );
+      expect(own.worktree?.branch).toBe("openade/health-check");
+    }),
+  );
+
+  it.effect("decodes a `thread.created` event written before the field existed", () =>
+    Effect.gen(function* () {
+      const stored = yield* Effect.sync(
+        () => read("orchestration-events/thread.created.json") as Record<string, unknown>,
+      );
+      expect(stored.payload).not.toHaveProperty("worktree");
+      const decoded = yield* Effect.sync(() =>
+        Schema.decodeUnknownSync(OrchestrationEvent)(stored),
+      );
+      expect(decoded.type === "thread.created" && decoded.payload.worktree).toBeUndefined();
+    }),
+  );
+
+  it.effect("decodes a `thread.created` event that carries one", () =>
+    Effect.gen(function* () {
+      const stored = yield* Effect.sync(
+        () => read("orchestration-events/thread.created.json") as Record<string, unknown>,
+      );
+      const worktree = { path: "/tmp/wt", branch: "openade/x" };
+      const decoded = yield* Effect.sync(() =>
+        Schema.decodeUnknownSync(OrchestrationEvent)({
+          ...stored,
+          payload: { ...(stored.payload as object), worktree },
+        }),
+      );
+      expect(decoded.type === "thread.created" ? decoded.payload.worktree : null).toEqual(worktree);
     }),
   );
 });

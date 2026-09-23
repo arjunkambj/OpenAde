@@ -8,7 +8,7 @@
  * tree", "one turn's changes" and "turn to turn" are one code path.
  */
 
-import type { ProjectId } from "@OpenAde/contracts/ids";
+import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
 import type { GitDiffRange } from "@OpenAde/client-runtime/gitAtoms";
 import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
 
@@ -47,9 +47,17 @@ export const resolveRef = (
     ? value
     : fallback;
 
-/** The `git.diff` payload for one selection. Sentinels become omitted ends. */
-export const diffRangeFor = (projectId: ProjectId, base: string, target: string): GitDiffRange => ({
-  projectId,
+/**
+ * The `git.diff` payload for one selection. Sentinels become omitted ends, and
+ * the thread picks the directory — its worktree, when it has one.
+ */
+export const diffRangeFor = (
+  scope: { readonly projectId: ProjectId; readonly threadId: ThreadId },
+  base: string,
+  target: string,
+): GitDiffRange => ({
+  projectId: scope.projectId,
+  threadId: scope.threadId,
   ...(base === HEAD_VALUE ? {} : { from: base }),
   ...(target === WORKTREE_VALUE ? {} : { to: target }),
 });

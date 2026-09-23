@@ -85,9 +85,10 @@ export const handlersLayer = OpenAdeRpcGroup.toLayer(
       "connectors.models": ({ instanceId }) => connectors.models(instanceId),
       "connectors.describe": () => connectors.describe,
 
-      "files.search": ({ projectId, query, limit }) => files.search(projectId, query, limit),
-      "files.read": ({ projectId, path, offset, limit }) =>
-        files.read(projectId, path, offset, limit),
+      "files.search": ({ projectId, threadId, query, limit }) =>
+        files.search({ projectId, threadId }, query, limit),
+      "files.read": ({ projectId, threadId, path, offset, limit }) =>
+        files.read({ projectId, threadId }, path, offset, limit),
 
       "fs.browse": ({ path, showHidden }) => directories.browse({ path, showHidden }),
 
@@ -95,8 +96,9 @@ export const handlersLayer = OpenAdeRpcGroup.toLayer(
         attachments.stage({ threadId, name, base64 }),
       "attachments.read": ({ threadId, path }) => attachments.read(threadId, path),
 
-      "git.status": ({ projectId }) => git.status(projectId),
-      "git.diff": ({ projectId, from, to, path }) => git.diff(projectId, { from, to, path }),
+      "git.status": ({ projectId, threadId }) => git.status({ projectId, threadId }),
+      "git.diff": ({ projectId, threadId, from, to, path }) =>
+        git.diff({ projectId, threadId }, { from, to, path }),
       "checkpoints.list": ({ projectId, threadId }) => git.checkpoints(projectId, threadId),
 
       "browser.subscribe": ({ threadId }) => browser.subscribe(threadId),

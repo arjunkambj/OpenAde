@@ -45,6 +45,7 @@ import type { PlannedEvent } from "../persistence/EventStore";
 import { OrchestrationEngine } from "./Engine";
 import { SessionManager } from "./SessionManager";
 import type { ThreadDoc } from "./state";
+import { threadWorkspaceRoot } from "./workspaceRoot";
 
 const systemEvent = <Type extends OrchestrationEvent["type"]>(
   threadId: ThreadId,
@@ -238,7 +239,7 @@ export const ProviderCommandReactor = Layer.effectDiscard(
               return;
             }
             const turnId = payload.turnId as TurnId;
-            yield* sessions.ensure(doc, project.workspaceRoot).pipe(
+            yield* sessions.ensure(doc, threadWorkspaceRoot(doc, project)).pipe(
               Effect.flatMap((handle) =>
                 handle.send(turnId, {
                   text: payload.text as string,

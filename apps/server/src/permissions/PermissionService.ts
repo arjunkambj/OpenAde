@@ -98,8 +98,9 @@ export interface DecideInput {
   /** Rules whose scope already covers this request. */
   readonly rules: ReadonlyArray<Pick<PermissionRule, "pattern" | "decision">>;
   /**
-   * The thread's project directory. Directories above it are where the user
-   * keeps the project, so they do not make its files sensitive.
+   * The thread's workspace root: its worktree, or its project's directory.
+   * Directories above it are where the user keeps the project, so they do not
+   * make its files sensitive.
    */
   readonly workspaceRoot?: string;
 }
@@ -235,7 +236,7 @@ export class PermissionService extends Context.Service<
       readonly interactionMode: InteractionMode;
       readonly projectId?: ProjectId;
       readonly threadId?: ThreadId;
-      /** The project's directory — see `DecideInput.workspaceRoot`. */
+      /** The thread's directory — see `DecideInput.workspaceRoot`. */
       readonly workspaceRoot?: string;
     }) => Effect.Effect<PermissionDecision, SqlError>;
     readonly rules: (

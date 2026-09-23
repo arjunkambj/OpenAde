@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { makeCheckpointId, makeProjectId, makeTurnId } from "@OpenAde/contracts/ids";
+import { makeCheckpointId, makeProjectId, makeThreadId, makeTurnId } from "@OpenAde/contracts/ids";
 import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
 
 import { HEAD_VALUE, WORKTREE_VALUE, checkpointLabel, diffRangeFor, resolveRef } from "./selection";
@@ -18,17 +18,18 @@ const checkpoint = (ref: string, createdAt = "2026-01-01T09:30:00.000Z"): Checkp
 });
 
 describe("changes pane selection", () => {
-  it("maps the three comparisons onto the git.diff payload", () => {
-    const projectId = makeProjectId();
+  it("maps the three comparisons onto the git.diff payload, in the thread's root", () => {
+    // The thread rides along so the server diffs its worktree, when it has one.
+    const scope = { projectId: makeProjectId(), threadId: makeThreadId() };
     const a = "refs/openade/checkpoints/t/1";
     const b = "refs/openade/checkpoints/t/2";
 
     // Working tree against HEAD — both ends omitted, the server's default.
-    expect(diffRangeFor(projectId, HEAD_VALUE, WORKTREE_VALUE)).toEqual({ projectId });
+    expect(diffRangeFor(scope, HEAD_VALUE, WORKTREE_VALUE)).toEqual(scope);
     // One turn's changes: the checkpoint is the base, the worktree the target.
-    expect(diffRangeFor(projectId, a, WORKTREE_VALUE)).toEqual({ projectId, from: a });
+    expect(diffRangeFor(scope, a, WORKTREE_VALUE)).toEqual({ ...scope, from: a });
     // Turn to turn.
-    expect(diffRangeFor(projectId, a, b)).toEqual({ projectId, from: a, to: b });
+    expect(diffRangeFor(scope, a, b)).toEqual({ ...scope, from: a, to: b });
   });
 
   it("falls back when the selected checkpoint is no longer in the thread", () => {

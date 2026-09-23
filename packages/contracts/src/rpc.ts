@@ -434,9 +434,14 @@ const ConnectorsDescribeRpc = Rpc.make(RPC_METHODS.connectorsDescribe, {
   error: OpenAdeRpcError,
 });
 
+/**
+ * `threadId`, on this and the other workspace reads below, reads the thread's
+ * own root — its worktree, when it has one — instead of the project's.
+ */
 const FilesSearchRpc = Rpc.make(RPC_METHODS.filesSearch, {
   payload: Schema.Struct({
     projectId: ProjectId,
+    threadId: Schema.optional(ThreadId),
     query: Schema.String,
     limit: Schema.optional(NonNegativeInt),
   }),
@@ -447,6 +452,7 @@ const FilesSearchRpc = Rpc.make(RPC_METHODS.filesSearch, {
 const FilesReadRpc = Rpc.make(RPC_METHODS.filesRead, {
   payload: Schema.Struct({
     projectId: ProjectId,
+    threadId: Schema.optional(ThreadId),
     path: NonEmptyString,
     offset: Schema.optional(NonNegativeInt),
     limit: Schema.optional(NonNegativeInt),
@@ -495,7 +501,7 @@ const AttachmentsReadRpc = Rpc.make(RPC_METHODS.attachmentsRead, {
 });
 
 const GitStatusRpc = Rpc.make(RPC_METHODS.gitStatus, {
-  payload: Schema.Struct({ projectId: ProjectId }),
+  payload: Schema.Struct({ projectId: ProjectId, threadId: Schema.optional(ThreadId) }),
   success: GitStatus,
   error: OpenAdeRpcError,
 });
@@ -508,6 +514,7 @@ const GitStatusRpc = Rpc.make(RPC_METHODS.gitStatus, {
 const GitDiffRpc = Rpc.make(RPC_METHODS.gitDiff, {
   payload: Schema.Struct({
     projectId: ProjectId,
+    threadId: Schema.optional(ThreadId),
     from: Schema.optional(NonEmptyString),
     to: Schema.optional(NonEmptyString),
     path: Schema.optional(NonEmptyString),
@@ -517,10 +524,11 @@ const GitDiffRpc = Rpc.make(RPC_METHODS.gitDiff, {
 });
 
 /**
- * The checkpoints that still exist in the repository for one thread. The
- * timeline's own list is a fold of `thread.checkpoint.created`, which cannot
- * know about a ref removed outside the app (a prune, a re-clone); intersecting
- * the two is what stops the pane offering a restore that can only fail.
+ * The checkpoints that still exist in the repository for one thread, read in
+ * that thread's root. The timeline's own list is a fold of
+ * `thread.checkpoint.created`, which cannot know about a ref removed outside
+ * the app (a prune, a re-clone); intersecting the two is what stops the pane
+ * offering a restore that can only fail.
  */
 const CheckpointsListRpc = Rpc.make(RPC_METHODS.checkpointsList, {
   payload: Schema.Struct({ projectId: ProjectId, threadId: ThreadId }),
