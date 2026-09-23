@@ -12,6 +12,10 @@
       "types": "./src/definition.ts",
       "import": "./src/definition.ts"
     },
+    "./extensions": {
+      "types": "./src/extensions.ts",
+      "import": "./src/extensions.ts"
+    },
     "./registry": {
       "types": "./src/registry.ts",
       "import": "./src/registry.ts"

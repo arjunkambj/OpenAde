@@ -28,6 +28,7 @@ import type {
   TurnInput,
 } from "@OpenAde/connector-sdk/definition";
 import { SessionClosed, TurnInProgress } from "@OpenAde/connector-sdk/definition";
+import type { ConnectorExtensions } from "@OpenAde/connector-sdk/extensions";
 import type { SessionHandle } from "@OpenAde/connector-sdk/sessionHandle";
 import { makeBoundedEventQueue } from "@OpenAde/connector-sdk/sessionHandle";
 import { uuidV7 } from "@OpenAde/shared/ids";
@@ -442,6 +443,8 @@ export interface FakeConnectorOptions {
   readonly models?: ReadonlyArray<ModelOption>;
   readonly model?: string;
   readonly script?: FakeTurnScript;
+  /** Handed to every instance as-is; tests supply in-memory ones. */
+  readonly extensions?: ConnectorExtensions;
 }
 
 export interface FakeConnector {
@@ -520,6 +523,7 @@ export const makeFakeConnector = (
           resumeSession: (sessionInput) =>
             startSession(instanceId, sessionInput.threadId, sessionInput.sessionRef),
           listModels: () => Effect.succeed(models),
+          ...(options.extensions === undefined ? {} : { extensions: options.extensions }),
         }),
     };
 

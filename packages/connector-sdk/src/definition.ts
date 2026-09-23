@@ -39,6 +39,7 @@ import type * as Clock from "effect/Clock";
 import type * as Scope from "effect/Scope";
 import * as Schema from "effect/Schema";
 
+import type { ConnectorExtensions } from "./extensions";
 import type { SessionHandle } from "./sessionHandle";
 
 // ── Errors ─────────────────────────────────────────────────────
@@ -239,6 +240,11 @@ export interface ConnectorInstance {
     input: ResumeSessionInput,
   ) => Effect.Effect<SessionHandle, ConnectorError, Scope.Scope>;
   readonly listModels: () => Effect.Effect<ReadonlyArray<ModelOption>, ConnectorError>;
+  /**
+   * The harness configuration this instance manages for the Customize page —
+   * skills, MCP servers. Absent for a harness that keeps none (`extensions.ts`).
+   */
+  readonly extensions?: ConnectorExtensions;
 }
 
 export interface CreateInstanceInput<Config> {
