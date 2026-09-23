@@ -234,6 +234,36 @@ const rows: ReadonlyArray<Row> = [
     rejects: "already archived",
   },
   {
+    name: "thread.unarchive emits thread.unarchived",
+    command: {
+      ...baseCommand,
+      type: "thread.unarchive",
+      threadId: makeThreadId(),
+    } as Command,
+    thread: threadDoc({ status: "archived" }),
+    events: ["thread.unarchived"],
+  },
+  {
+    name: "thread.unarchive rejects a thread that is not archived",
+    command: {
+      ...baseCommand,
+      type: "thread.unarchive",
+      threadId: makeThreadId(),
+    } as Command,
+    thread: threadDoc(),
+    rejects: "not archived",
+  },
+  {
+    name: "thread.unarchive rejects a missing thread",
+    command: {
+      ...baseCommand,
+      type: "thread.unarchive",
+      threadId: makeThreadId(),
+    } as Command,
+    thread: null,
+    rejects: "does not exist",
+  },
+  {
     name: "thread.delete emits thread.deleted",
     command: {
       ...baseCommand,

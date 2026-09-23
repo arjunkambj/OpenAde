@@ -198,6 +198,8 @@ const ThreadRenameCommand = command("thread.rename", {
 
 const ThreadArchiveCommand = command("thread.archive", { threadId: ThreadId });
 
+const ThreadUnarchiveCommand = command("thread.unarchive", { threadId: ThreadId });
+
 const ThreadDeleteCommand = command("thread.delete", { threadId: ThreadId });
 
 /**
@@ -280,6 +282,7 @@ export const Command = Schema.Union([
   ThreadCreateCommand,
   ThreadRenameCommand,
   ThreadArchiveCommand,
+  ThreadUnarchiveCommand,
   ThreadDeleteCommand,
   ThreadTurnStartCommand,
   ThreadTurnInterruptCommand,
@@ -303,6 +306,7 @@ export const CommandType = Schema.Literals([
   "thread.create",
   "thread.rename",
   "thread.archive",
+  "thread.unarchive",
   "thread.delete",
   "thread.turn.start",
   "thread.turn.interrupt",
@@ -403,6 +407,8 @@ const ThreadRenamedEvent = orchestrationEvent(
 );
 
 const ThreadArchivedEvent = orchestrationEvent("thread.archived", Schema.Struct({}));
+
+const ThreadUnarchivedEvent = orchestrationEvent("thread.unarchived", Schema.Struct({}));
 
 const ThreadDeletedEvent = orchestrationEvent("thread.deleted", Schema.Struct({}));
 
@@ -576,6 +582,7 @@ export const OrchestrationEvent = Schema.Union([
   ThreadCreatedEvent,
   ThreadRenamedEvent,
   ThreadArchivedEvent,
+  ThreadUnarchivedEvent,
   ThreadDeletedEvent,
   ThreadSessionBoundEvent,
   ThreadSessionLostEvent,
@@ -614,6 +621,7 @@ export const OrchestrationEventType = Schema.Literals([
   "thread.created",
   "thread.renamed",
   "thread.archived",
+  "thread.unarchived",
   "thread.deleted",
   "thread.session.bound",
   "thread.session.lost",

@@ -197,6 +197,16 @@ export const decide = (
       return accepted([emit("thread.archived", {})]);
     }
 
+    case "thread.unarchive": {
+      if (thread === null || thread.deleted) {
+        return rejected(`thread ${command.threadId} does not exist`);
+      }
+      if (thread.status !== "archived") {
+        return rejected(`thread ${command.threadId} is not archived`);
+      }
+      return accepted([emit("thread.unarchived", {})]);
+    }
+
     case "thread.delete": {
       if (thread === null || thread.deleted) {
         return rejected(`thread ${command.threadId} does not exist`);

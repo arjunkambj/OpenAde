@@ -189,6 +189,21 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
       return { ...next, title: payload.title as string };
     case "thread.archived":
       return { ...next, status: "archived" };
+    case "thread.unarchived":
+      // Archiving closed the session, so an approval or question still open
+      // is a dead process asking — the same reasoning as `session.lost`, and
+      // `currentTurn` goes for the same reason. The session itself stays: the
+      // next turn resumes the conversation through its `sessionRef`. The queue
+      // and a pending plan stay too; the plan waits for its answer and the
+      // queue drains after the next turn completes.
+      return {
+        ...next,
+        approvals: [],
+        userInputs: [],
+        currentTurn: null,
+        interrupting: false,
+        status: waitingOr({ ...doc, approvals: [], userInputs: [] }, "idle"),
+      };
     case "thread.deleted":
       return { ...next, deleted: true };
     case "thread.session.bound":

@@ -172,6 +172,63 @@ describe("the thread fold", () => {
     expect(doc?.status).toBe("idle");
   });
 
+  it("puts an archived idle thread back to idle on unarchive", () => {
+    const doc = foldThread([
+      created(),
+      event("thread.archived", {}),
+      event("thread.unarchived", {}),
+    ]);
+
+    expect(doc?.status).toBe("idle");
+    expect(doc?.currentTurn).toBeNull();
+  });
+
+  it("drops the cards an archive left open when the thread is unarchived", () => {
+    const turnId = makeTurnId();
+    const doc = foldThread([
+      created(),
+      turnRequested(turnId),
+      event("thread.approval.opened", {
+        request: {
+          requestId: makeRequestId(),
+          kind: "command",
+          toolName: "shell_command",
+          input: { command: "npm run build" },
+          description: "Run npm run build",
+        },
+      }),
+      event("thread.userInput.requested", {
+        requestId: makeRequestId(),
+        questions: [{ questionId: "q1", question: "Which one?", options: [] }],
+      }),
+      event("thread.archived", {}),
+      event("thread.turn.completed", { turnId, stopReason: "interrupted" }),
+      event("thread.unarchived", {}),
+    ]);
+
+    // Archiving closed the session, so whoever asked is gone: leaving the
+    // cards up would park the thread on "waiting" with nothing to answer.
+    expect(doc?.approvals).toEqual([]);
+    expect(doc?.userInputs).toEqual([]);
+    expect(doc?.status).toBe("idle");
+  });
+
+  it("keeps a pending plan across an unarchive and waits on it", () => {
+    const turnId = makeTurnId();
+    const doc = foldThread([
+      created(),
+      turnRequested(turnId),
+      event("thread.plan.proposed", { turnId, planMarkdown: "# plan" }),
+      event("thread.turn.completed", { turnId, stopReason: "end_turn" }),
+      event("thread.archived", {}),
+      event("thread.unarchived", {}),
+    ]);
+
+    // Answering the plan starts a new turn, so it still has somewhere to go.
+    expect(doc?.pendingPlan).not.toBeNull();
+    expect(doc?.status).toBe("waiting");
+  });
+
   it("marks a thread as restoring between the work order and its outcome", () => {
     const requested = foldThread([
       created(),

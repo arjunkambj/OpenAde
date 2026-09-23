@@ -565,16 +565,16 @@ and its append.
 
 ### Commands and events
 
-Fifteen commands (`packages/contracts/src/orchestration.ts`):
+Sixteen commands (`packages/contracts/src/orchestration.ts`):
 `project.create`, `project.remove`, `thread.create`, `thread.rename`,
-`thread.archive`, `thread.delete`, `thread.turn.start`, `thread.turn.interrupt`,
-`thread.settings.update`, `thread.approval.respond`,
+`thread.archive`, `thread.unarchive`, `thread.delete`, `thread.turn.start`,
+`thread.turn.interrupt`, `thread.settings.update`, `thread.approval.respond`,
 `thread.userInput.respond`, `thread.plan.respond`, `thread.queue.remove`,
 `thread.queue.reorder`, `thread.checkpoint.restore`.
 
-Thirty events, from `project.created` through `thread.error`. The catalogue is
-kept as data (`commandTypes`, `orchestrationEventTypes`) and a test holds each
-list and its union in lockstep.
+Thirty-one events, from `project.created` through `thread.error`. The catalogue
+is kept as data (`commandTypes`, `orchestrationEventTypes`) and a test holds
+each list and its union in lockstep.
 
 Commands do not appear as individual RPCs: `orchestration.dispatch` takes the
 whole union, which is what keeps the decider the single place a state change is

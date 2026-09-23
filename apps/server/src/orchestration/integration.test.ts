@@ -630,6 +630,37 @@ describe("orchestration with a fake connector", () => {
     }),
   );
 
+  it.effect("unarchiving a thread lets it take a turn again", () =>
+    Effect.gen(function* () {
+      const { instance } = yield* openFake();
+      yield* Effect.gen(function* () {
+        const engine = yield* OrchestrationEngine;
+        yield* engine.dispatch(createProject);
+        yield* engine.dispatch(createThread);
+        yield* engine.dispatch({
+          commandId: makeCommandId(),
+          createdAt: NOW,
+          type: "thread.archive",
+          threadId,
+        });
+
+        const receipt = yield* engine.dispatch({
+          commandId: makeCommandId(),
+          createdAt: NOW,
+          type: "thread.unarchive",
+          threadId,
+        });
+        expect(receipt.status).toBe("accepted");
+        expect((yield* engine.threadDoc(threadId))?.status).toBe("idle");
+
+        const completed = yield* awaitEvent(engine, isType("thread.turn.completed"));
+        yield* engine.dispatch(turnStart("hello again"));
+        const entry = yield* Fiber.join(completed).pipe(Effect.timeout("5 seconds"));
+        expect(Option.isSome(entry)).toBe(true);
+      }).pipe(Effect.provide(stackLayer({ instance })));
+    }),
+  );
+
   it.effect("removing a project deletes its threads and stops their sessions", () =>
     Effect.gen(function* () {
       const { fake, instance } = yield* openFake();
