@@ -49,6 +49,12 @@ pnpm install
 `esbuild`; `msgpackr-extract` is deliberately left unbuilt so a checkout never
 needs a C++ toolchain. CI installs with `--frozen-lockfile`.
 
+The integrated terminal's pty module, `@lydell/node-pty`, needs no build
+either: it ships one prebuilt N-API binary per platform as an optional
+package, and the same binary loads under plain Node and under Electron run as
+Node. The server loads it on the first terminal it opens, not at boot, and
+`apps/server`'s esbuild bundle leaves it external.
+
 ## Running it
 
 ```

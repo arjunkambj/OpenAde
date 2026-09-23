@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/main.ts --dev",
-    "build": "esbuild src/main.ts --bundle --platform=node --format=cjs --target=node22 --outfile=out/main.cjs --define:import.meta.url=__importMetaUrl \"--banner:js='use strict'; const __importMetaUrl = require('node:url').pathToFileURL(__filename).href;\"",
+    "build": "esbuild src/main.ts --bundle --platform=node --format=cjs --target=node22 --outfile=out/main.cjs --external:@lydell/node-pty --define:import.meta.url=__importMetaUrl \"--banner:js='use strict'; const __importMetaUrl = require('node:url').pathToFileURL(__filename).href;\"",
     "check-types": "tsc --noEmit",
     "test": "vitest run"
   },
@@ -16,6 +16,7 @@
     "@OpenAde/contracts": "workspace:*",
     "@OpenAde/shared": "workspace:*",
     "@effect/platform-node": "catalog:",
+    "@lydell/node-pty": "1.2.0-beta.15",
     "effect": "catalog:"
   },
   "devDependencies": {
