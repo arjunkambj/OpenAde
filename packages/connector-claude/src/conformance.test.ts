@@ -12,6 +12,11 @@
  * records it again: the operator's CLI behind the tee, in a scratch repo under
  * `/tmp/openade-h1`, capped at one turn and a few cents a session.
  *
+ * The suite's approval case asks for a file write, which the test ladder
+ * (every call "prompt") stops on a card. It runs whenever the recording has
+ * it — a recording made signed in does, since the case's prompt is in its
+ * manifest — and always when recording.
+ *
  * `isProcessGone` looks from outside, as the suite requires: in a replay, at
  * the pid every replayed process drops; in a recording, at the process groups
  * of the tee processes this file started.
@@ -23,7 +28,11 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { runConnectorConformance } from "@OpenAde/connector-sdk/conformance";
 import { makeConnectorInstanceId, makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
-import { finalizeSdkStreamRecording, makeTeeLauncher } from "@OpenAde/testkit/sdkStreamRecording";
+import {
+  finalizeSdkStreamRecording,
+  loadSdkStreamRecording,
+  makeTeeLauncher,
+} from "@OpenAde/testkit/sdkStreamRecording";
 import * as Effect from "effect/Effect";
 import { afterAll } from "vitest";
 
@@ -36,7 +45,12 @@ import { parseVersion } from "./probe";
 
 const SCENARIO = "conformance";
 const PROMPT = "Reply with exactly: ok";
+const APPROVAL_PROMPT = "Create a file named conformance.txt containing exactly the text: ok";
 const RECORD = process.env.OPENADE_RECORD_CLAUDE === "1";
+/** The approval case is in the recording being replayed, or is being recorded. */
+const WITH_APPROVAL =
+  RECORD ||
+  loadSdkStreamRecording(CLAUDE_KIND, SCENARIO).manifest.prompts.includes(APPROVAL_PROMPT);
 
 /** The operator's CLI behind the tee, and what the manifest needs to say about it. */
 const recorder = () => {
@@ -75,11 +89,11 @@ const recorder = () => {
         scenario: SCENARIO,
         rawDir,
         description:
-          "The connector conformance suite, one session launch per case in the suite's order, each sent the same one-line prompt.",
+          "The connector conformance suite, one session launch per case in the suite's order: each case's one-line prompt, and the approval case's file write stopped on a card and allowed once.",
         cliVersion: cliVersion ?? "unknown",
         sdkVersion: sdkVersion(),
         model: initModelOf(rawDir) ?? "default",
-        prompts: [PROMPT],
+        prompts: [PROMPT, APPROVAL_PROMPT],
         scratch,
       }),
   };
@@ -117,6 +131,9 @@ runConnectorConformance(
       settings: { model: "default", runtimeMode: "approval-required", interactionMode: "default" },
     },
     turn: { text: PROMPT, attachments: [], mentions: [] },
+    ...(WITH_APPROVAL
+      ? { approvalTurn: { text: APPROVAL_PROMPT, attachments: [], mentions: [] } }
+      : {}),
     isProcessGone: () => Effect.sync(driver.isGone),
   },
 );
