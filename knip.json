@@ -35,7 +35,7 @@
     "packages/client-runtime": {
       "includeEntryExports": true,
       "ignoreExportsUsedInFile": true,
-      "ignoreDependencies": ["@OpenAde/shared", "@effect/atom-react"]
+      "ignoreDependencies": ["@effect/atom-react"]
     },
     "packages/connector-cmd": {
       "includeEntryExports": true,

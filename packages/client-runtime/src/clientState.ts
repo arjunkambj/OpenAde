@@ -7,11 +7,13 @@
 import type {
   CheckpointSummary,
   OrchestrationEvent,
+  ResolvedDecision,
   ThreadDetailSnapshot,
   ThreadListStreamItem,
   ThreadStreamItem,
   ThreadSummary,
 } from "@OpenAde/contracts/orchestration";
+import { approvalSubject, planSubject, questionSubject } from "@OpenAde/shared/decisionSubject";
 
 /** A restore git refused, kept until the next restore is ordered. */
 export interface ThreadRestoreFailure {
@@ -66,6 +68,41 @@ const waitingOr = (doc: ThreadDetailView, fallback: ThreadDetailView["status"]) 
  */
 const settledStatus = (doc: ThreadDetailView) =>
   doc.currentTurnId === null ? waitingOr(doc, "idle") : "running";
+
+/**
+ * The server's decision record, appended between snapshots. The snapshot
+ * holds only the head of each open list, so an answer to anything behind it
+ * is recorded without a subject — the server's next snapshot, which knew the
+ * whole list, fills it in.
+ */
+/**
+ * Whether an answer the fold cannot see open was already recorded. The
+ * connector echoes every answer the decider wrote, and the server records
+ * only the first; the client, which sees only the head of each list, tells
+ * the echo apart by the line it already holds.
+ */
+const recorded = (doc: ThreadDetailView, kind: ResolvedDecision["kind"], id: unknown): boolean =>
+  (doc.decisions ?? []).some((decision) => decision.kind === kind && decision.id === id);
+
+const withDecision = (
+  doc: ThreadDetailView,
+  event: OrchestrationEvent,
+  decision: Pick<ResolvedDecision, "kind" | "id" | "outcome" | "subject" | "pattern">,
+): ReadonlyArray<ResolvedDecision> => {
+  const afterItemId = doc.items.at(-1)?.itemId;
+  return [
+    ...(doc.decisions ?? []),
+    {
+      kind: decision.kind,
+      id: decision.id,
+      outcome: decision.outcome,
+      ...(decision.subject === undefined ? {} : { subject: decision.subject }),
+      ...(decision.pattern === undefined ? {} : { pattern: decision.pattern }),
+      resolvedAt: event.occurredAt,
+      ...(afterItemId === undefined ? {} : { afterItemId }),
+    },
+  ];
+};
 
 /**
  * Merges one orchestration event into the snapshot. Payload fields map
@@ -234,15 +271,31 @@ export const applyThreadEvent = (
         status: "waiting",
         updatedAt: event.occurredAt,
       };
-    case "thread.approval.resolved":
-      return doc.pendingApproval?.requestId === payload.requestId
+    // Every first answer is recorded, as the server records it, whether or
+    // not it closes the card this snapshot shows.
+    case "thread.approval.resolved": {
+      const open = doc.pendingApproval?.requestId === payload.requestId;
+      if (!open && recorded(doc, "approval", payload.requestId)) {
+        return doc;
+      }
+      const decisions = withDecision(doc, event, {
+        kind: "approval",
+        id: payload.requestId as string,
+        outcome: payload.decision as string,
+        subject:
+          open && doc.pendingApproval !== null ? approvalSubject(doc.pendingApproval) : undefined,
+        pattern: payload.pattern as string | undefined,
+      });
+      return open
         ? {
             ...doc,
             pendingApproval: null,
+            decisions,
             status: settledStatus({ ...doc, pendingApproval: null }),
             updatedAt: event.occurredAt,
           }
-        : doc;
+        : { ...doc, decisions };
+    }
     case "thread.userInput.requested":
       return {
         ...doc,
@@ -253,15 +306,30 @@ export const applyThreadEvent = (
         status: "waiting",
         updatedAt: event.occurredAt,
       };
-    case "thread.userInput.resolved":
-      return doc.pendingUserInput?.requestId === payload.requestId
+    case "thread.userInput.resolved": {
+      const open = doc.pendingUserInput?.requestId === payload.requestId;
+      if (!open && recorded(doc, "question", payload.requestId)) {
+        return doc;
+      }
+      const decisions = withDecision(doc, event, {
+        kind: "question",
+        id: payload.requestId as string,
+        outcome: "answered",
+        subject:
+          open && doc.pendingUserInput !== null
+            ? questionSubject(doc.pendingUserInput.questions)
+            : undefined,
+      });
+      return open
         ? {
             ...doc,
             pendingUserInput: null,
+            decisions,
             status: settledStatus({ ...doc, pendingUserInput: null }),
             updatedAt: event.occurredAt,
           }
-        : doc;
+        : { ...doc, decisions };
+    }
     case "thread.plan.proposed":
       return {
         ...doc,
@@ -273,15 +341,25 @@ export const applyThreadEvent = (
         status: "waiting",
         updatedAt: event.occurredAt,
       };
-    case "thread.plan.responded":
-      return doc.pendingPlan?.turnId === payload.turnId
+    case "thread.plan.responded": {
+      // A thread has one plan open at most, and the snapshot carries it, so
+      // this answer is recorded exactly when the server records it.
+      const plan = doc.pendingPlan;
+      return plan !== null && plan.turnId === payload.turnId
         ? {
             ...doc,
             pendingPlan: null,
+            decisions: withDecision(doc, event, {
+              kind: "plan",
+              id: plan.turnId,
+              outcome: payload.action as string,
+              subject: planSubject((payload.planPath as string | undefined) ?? plan.planPath),
+            }),
             status: settledStatus({ ...doc, pendingPlan: null }),
             updatedAt: event.occurredAt,
           }
         : doc;
+    }
     case "thread.settings.updated":
       return {
         ...doc,

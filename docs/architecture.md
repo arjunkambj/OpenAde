@@ -372,7 +372,9 @@ Everything a client needs that is not React.
   `incompatible` for a protocol-version mismatch.
 - `clientState.ts` — the client-side fold: `ThreadStreamItem`s onto a
   `ThreadDetailSnapshot`, `ThreadListStreamItem`s onto a summary array. A
-  projection of the server's projection; it decides nothing.
+  projection of the server's projection; it decides nothing. Between snapshots
+  it appends the same decision records the server keeps, and the next snapshot
+  is authoritative.
 - `atoms.ts`, `gitAtoms.ts`, `fileAtoms.ts`, `fsAtoms.ts` — the atom factories.
 - `connectorAtoms.ts` — `modelCatalogAtom`, every enabled connector instance
   with its models in `connectors.list` order, which the model pickers and the
@@ -389,7 +391,8 @@ Dependency-light helpers both sides need: `ids.ts` (UUIDv7), `paths.ts`
 (`~/.openade` and everything under it), `permissionPattern.ts` (the pattern
 parser and matcher, shared so the renderer previews an "allow always" rule with
 the exact semantics the server enforces), `imageBytes.ts` (magic-byte sniffing
-and the attachment size cap). Imports no workspace package at all.
+and the attachment size cap), `decisionSubject.ts` (the one-line subject a
+resolved decision is recorded with, shared so both folds write the same words). Imports no workspace package at all.
 
 ### packages/ui
 
@@ -480,6 +483,14 @@ and a rebuild is a pure fold. `ThreadDoc`
 plus the bookkeeping the decider needs and the wire never sees: the full open
 approval set, pending user inputs, the list preview, the `deleted` flag.
 
+`decisions` is on the wire: one `ResolvedDecision` per answered approval,
+question or plan, oldest first — its kind, the request id (the turn id for a
+plan), the outcome, a one-line subject, the pattern an approval kept, when it
+landed and `afterItemId`, the thread's last item at that moment. The event
+payloads carry nothing new; the fold reads the subject off the open request
+before it clears it. The field is optional on `ThreadDetailSnapshot`, so a
+snapshot from before it existed still decodes as "none".
+
 `projection_state` holds one row per projector: `last_applied_sequence`,
 `updated_at` and `projector_version`. Projections are written inside the
 command's transaction, so a projection can never get ahead of its events.
@@ -504,7 +515,7 @@ provides the migrations layer, so the graph itself says the schema exists first.
 
 `threads.doc_json` is parsed straight back into a `ThreadDoc` with no schema and
 no version, so the first release that adds a field would serve stale rows
-missing it. The engine stamps `PROJECTOR_VERSION` (currently `1`) on every
+missing it. The engine stamps `PROJECTOR_VERSION` (currently `2`) on every
 watermark write and compares it at boot: on a mismatch it clears the projection
 tables inside one transaction, re-folds every stream from `allEvents`, writes
 the documents back and stamps the new version. Rows written before the column

@@ -436,6 +436,7 @@ describe("projection rebuild", () => {
           expect(doc?.threadId).toBe(threadId);
           expect(doc?.currentTurn).not.toBeNull();
           expect(doc?.restoring).toBe(false);
+          expect(doc?.decisions).toEqual([]);
           expect((yield* engine.listProjects()).map((project) => project.projectId)).toEqual([
             projectId,
           ]);

@@ -89,6 +89,9 @@ const questions = (driver: Driver) => {
 
         const done = yield* open.view.awaitValue(isSettled, answered);
         expect(done.pendingUserInput).toBeNull();
+        expect(
+          done.decisions?.map((decision) => [decision.kind, decision.id, decision.outcome]),
+        ).toEqual([["question", pending.requestId, "answered"]]);
         // The turn did not stall on the question it asked.
         expect(done.currentTurnId).toBeNull();
       }),

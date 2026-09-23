@@ -127,6 +127,11 @@ const approvals = (driver: Driver) => {
 
         const done = yield* thread.awaitValue(isSettled, answered);
         expect(done.pendingApproval).toBeNull();
+        // The card is gone, and the timeline keeps a line saying what it was.
+        expect(
+          done.decisions?.map((decision) => [decision.kind, decision.id, decision.outcome]),
+        ).toEqual([["approval", request.requestId, "allow-once"]]);
+        expect(done.decisions?.[0]?.subject?.length).toBeGreaterThan(0);
 
         // The call ran: a command row that completed, and the file it read.
         const shell = done.items.filter((item) => item.kind === "command_execution");

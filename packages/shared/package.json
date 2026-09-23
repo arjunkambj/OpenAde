@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./decisionSubject": {
+      "types": "./src/decisionSubject.ts",
+      "import": "./src/decisionSubject.ts"
+    },
     "./ids": {
       "types": "./src/ids.ts",
       "import": "./src/ids.ts"

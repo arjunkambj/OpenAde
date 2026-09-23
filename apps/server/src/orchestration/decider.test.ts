@@ -66,6 +66,7 @@ const threadDoc = (overrides: Partial<ThreadDoc> = {}): ThreadDoc => ({
   restoring: false,
   restoringCheckpoint: null,
   pendingPlan: null,
+  decisions: [],
   usage: null,
   context: null,
   createdAt: NOW,

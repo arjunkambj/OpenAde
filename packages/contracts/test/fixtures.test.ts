@@ -301,6 +301,35 @@ describe("the thread snapshot fixture", () => {
     }),
   );
 
+  it.effect("decodes a snapshot written before `decisions` existed", () =>
+    Effect.gen(function* () {
+      const { decisions: _decisions, ...older } = yield* Effect.sync(
+        () => read("thread-detail-snapshot.json") as Record<string, unknown>,
+      );
+      const decoded = yield* Effect.sync(() =>
+        Schema.decodeUnknownSync(ThreadDetailSnapshot)(older),
+      );
+      expect(decoded.decisions).toBeUndefined();
+    }),
+  );
+
+  it.effect("places every recorded decision after an item the snapshot holds", () =>
+    Effect.gen(function* () {
+      const snapshot = yield* Effect.sync(() =>
+        Schema.decodeUnknownSync(ThreadDetailSnapshot)(read("thread-detail-snapshot.json")),
+      );
+      const ids = new Set(snapshot.items.map((snapshotItem) => snapshotItem.itemId));
+      expect(snapshot.decisions?.map((decision) => decision.kind).sort()).toEqual([
+        "approval",
+        "plan",
+        "question",
+      ]);
+      for (const decision of snapshot.decisions ?? []) {
+        expect(decision.afterItemId === undefined || ids.has(decision.afterItemId)).toBe(true);
+      }
+    }),
+  );
+
   it.effect("gives every item a distinct id, the way a projection would", () =>
     Effect.gen(function* () {
       const snapshot = yield* Effect.sync(() =>

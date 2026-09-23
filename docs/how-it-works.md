@@ -730,6 +730,16 @@ The rule is inserted inside the dispatch transaction, and the engine then
 invalidates the `permission_rules` reactivity key so an open settings page
 re-reads its list.
 
+Every answer is also kept once the card is gone. The fold appends a
+`ResolvedDecision` to the thread's `decisions`: `approval`, the request id, the
+decision, the pattern it kept, a one-line subject — the input's `command`,
+`path`, `file_path`, `filePath`, `url` or `query`, first line only, else the
+tool's name — the time, and `afterItemId`, the last timeline item as the answer
+landed. The connector echoes each answer back as `request.resolved`; only the
+first, which still finds the request open, is recorded. The subject comes from
+`packages/shared/src/decisionSubject.ts`, so the client's fold, which appends
+the same record between snapshots, writes the same words.
+
 The patterns are OpenAde's own vocabulary — `Shell(npm run *)`,
 `Edit(/src/**)`, `Fetch(…)`, `Mcp(server.tool)` and the rest — whichever
 harness proposed them, matched by `packages/shared/src/permissionPattern.ts`
@@ -802,6 +812,9 @@ reactor's memory: the fold clears `pendingPlan` on that very event, so carrying
 it is what lets the accept turn survive a restart between proposing and
 accepting.
 
+The answer is recorded in the thread's `decisions` as §5 describes: kind
+`plan`, the turn id, the action, and the plan file's name as its subject.
+
 ### Questions
 
 `ask_user_question` is withheld from a headless run, which is why every turn
@@ -812,13 +825,17 @@ channel, so the tool call takes the hook road for a different purpose
 1. the payload's `questions[]` are normalised
    (`packages/connector-cmd/src/questions.ts`) and emitted as
    `user-input.requested`;
-2. the post parks; the timeline shows a question card
-   (`apps/web/src/components/approvals/question-card.tsx`) with radio buttons,
-   checkboxes for `multiSelect`, and a freeform field where allowed;
+2. the post parks; a question card
+   (`apps/web/src/components/approvals/question-card.tsx`) opens above the
+   composer with radio buttons, checkboxes for `multiSelect`, and a freeform
+   field where allowed;
 3. `thread.userInput.respond` releases it;
 4. the tool is **denied**, with the user's answers — in the question's own
    words, not our ids — as `permissionDecisionReason`. The model reads them as
    context instead of waiting for a prompt that will never come.
+
+The answer is recorded in the thread's `decisions` (§5) as `question`,
+`answered`, with the first question's header — else its text — as the subject.
 
 ---
 

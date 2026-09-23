@@ -667,6 +667,30 @@ export const ProjectSummary = Schema.Struct({
 });
 export type ProjectSummary = typeof ProjectSummary.Type;
 
+/** The three things a thread can stop and ask the user about. */
+export const DecisionKind = Schema.Literals(["approval", "question", "plan"]);
+export type DecisionKind = typeof DecisionKind.Type;
+
+/**
+ * One answered approval, question or plan, as the timeline records it after
+ * the card is gone. `id` is the request id, or the turn id for a plan;
+ * `outcome` is the `ApprovalDecision` or `PlanResponseAction` chosen, or
+ * `"answered"` for a question. `subject` is a one-line reminder of what was
+ * asked — the approval's target (else its tool), the first question's header
+ * (else its text), the plan file's name. `afterItemId` is the last timeline
+ * item when the answer landed, so a client can place the record in order.
+ */
+export const ResolvedDecision = Schema.Struct({
+  kind: DecisionKind,
+  id: NonEmptyString,
+  outcome: Schema.String,
+  subject: Schema.optional(Schema.String),
+  pattern: Schema.optional(NonEmptyString),
+  resolvedAt: IsoDateTime,
+  afterItemId: Schema.optional(ItemId),
+});
+export type ResolvedDecision = typeof ResolvedDecision.Type;
+
 /** A thread as the sidebar lists it: enough for the row, never the timeline. */
 export const ThreadSummary = Schema.Struct({
   threadId: ThreadId,
@@ -725,6 +749,12 @@ export const ThreadDetailSnapshot = Schema.Struct({
       planPath: Schema.optional(NonEmptyString),
     }),
   ),
+  /**
+   * Every decision answered in this thread, oldest first. Optional so a
+   * snapshot written before this field existed still decodes; absent means
+   * none.
+   */
+  decisions: Schema.optional(Schema.Array(ResolvedDecision)),
   usage: Schema.NullOr(TurnUsage),
   context: Schema.NullOr(ContextWindowUsage),
   createdAt: IsoDateTime,

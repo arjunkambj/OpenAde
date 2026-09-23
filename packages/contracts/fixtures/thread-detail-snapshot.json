@@ -244,6 +244,33 @@
   "pendingApproval": null,
   "pendingUserInput": null,
   "pendingPlan": null,
+  "decisions": [
+    {
+      "kind": "plan",
+      "id": "0199c0de-0004-7000-8000-000000000001",
+      "outcome": "accept",
+      "subject": "health-check.md",
+      "resolvedAt": "2026-09-15T12:01:00.000Z",
+      "afterItemId": "0199c0de-0005-7000-8000-000000000004"
+    },
+    {
+      "kind": "approval",
+      "id": "0199c0de-0007-7000-8000-000000000001",
+      "outcome": "allow-always",
+      "subject": "pnpm vitest run apps/server",
+      "pattern": "Shell(pnpm vitest *)",
+      "resolvedAt": "2026-09-15T12:01:30.000Z",
+      "afterItemId": "0199c0de-0005-7000-8000-000000000004"
+    },
+    {
+      "kind": "question",
+      "id": "0199c0de-0007-7000-8000-000000000002",
+      "outcome": "answered",
+      "subject": "Readiness",
+      "resolvedAt": "2026-09-15T12:03:00.000Z",
+      "afterItemId": "0199c0de-0005-7000-8000-000000000017"
+    }
+  ],
   "usage": {
     "input": 18240,
     "output": 1320,

@@ -87,6 +87,13 @@ const planMode = (driver: Driver) => {
           accepted,
         );
         expect(implementing.value.pendingPlan).toBeNull();
+        expect(
+          implementing.value.decisions?.map((decision) => [
+            decision.kind,
+            decision.id,
+            decision.outcome,
+          ]),
+        ).toEqual([["plan", plan.turnId, "accept"]]);
 
         // And that turn runs to the end as an ordinary one. Measured from the
         // implementation turn's own start: the plan turn settles first, and a

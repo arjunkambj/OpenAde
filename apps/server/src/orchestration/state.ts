@@ -15,6 +15,7 @@ import type {
   OrchestrationEvent,
   ProjectSummary,
   QueuedMessage,
+  ResolvedDecision,
   ThreadDetailSnapshot,
   ThreadSession,
   ThreadSettings,
@@ -25,6 +26,7 @@ import type {
 } from "@OpenAde/contracts/orchestration";
 import type { ProjectId, RequestId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
 import type { ApprovalRequest, ItemSnapshot, UserQuestion } from "@OpenAde/contracts/runtime";
+import { approvalSubject, planSubject, questionSubject } from "@OpenAde/shared/decisionSubject";
 
 export type { ApprovalRequest, ItemSnapshot, QueuedMessage, UserQuestion };
 
@@ -97,6 +99,12 @@ export interface ThreadDoc {
    */
   readonly restoringCheckpoint: CheckpointSummary | null;
   readonly pendingPlan: PendingPlan | null;
+  /**
+   * Every answered approval, question and plan, oldest first — the record the
+   * timeline keeps once a card is gone. A document projected before the field
+   * existed has none, so read it through `decisionsOf`.
+   */
+  readonly decisions: ReadonlyArray<ResolvedDecision>;
   readonly usage: TurnUsage | null;
   readonly context: ContextWindowUsage | null;
   readonly createdAt: string;
@@ -123,6 +131,38 @@ const previewOf = (item: ItemSnapshot): string | undefined =>
   (item.kind === "user_message" || item.kind === "assistant_message") && item.text !== undefined
     ? item.text.slice(0, PREVIEW_LENGTH)
     : undefined;
+
+/** The stored decisions, tolerating a document written before they were kept. */
+const decisionsOf = (doc: ThreadDoc): ReadonlyArray<ResolvedDecision> =>
+  (doc.decisions as ReadonlyArray<ResolvedDecision> | undefined) ?? [];
+
+/**
+ * Appends one answered decision. `afterItemId` is the thread's last item as
+ * the answer lands, which is where the timeline places the record.
+ *
+ * Callers record only an answer to something still open: the connector
+ * echoes every answer the decider already wrote (`request.resolved`,
+ * `user-input.resolved`), and the echo must not write a second line.
+ */
+const withDecision = (
+  doc: ThreadDoc,
+  event: OrchestrationEvent,
+  decision: Pick<ResolvedDecision, "kind" | "id" | "outcome" | "subject" | "pattern">,
+): ReadonlyArray<ResolvedDecision> => {
+  const afterItemId = doc.items.at(-1)?.itemId;
+  return [
+    ...decisionsOf(doc),
+    {
+      kind: decision.kind,
+      id: decision.id,
+      outcome: decision.outcome,
+      ...(decision.subject === undefined ? {} : { subject: decision.subject }),
+      ...(decision.pattern === undefined ? {} : { pattern: decision.pattern }),
+      resolvedAt: event.occurredAt,
+      ...(afterItemId === undefined ? {} : { afterItemId }),
+    },
+  ];
+};
 
 const waitingOr = (doc: ThreadDoc, fallback: ThreadStatus): ThreadStatus =>
   doc.approvals.length > 0 || doc.userInputs.length > 0 || doc.pendingPlan !== null
@@ -168,6 +208,7 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
       restoring: false,
       restoringCheckpoint: null,
       pendingPlan: null,
+      decisions: [],
       usage: null,
       context: null,
       createdAt: event.occurredAt,
@@ -337,12 +378,24 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
         status: "waiting",
       };
     case "thread.approval.resolved": {
-      const approvals = doc.approvals.filter(
-        (request) => request.requestId !== (payload.requestId as string),
-      );
+      // Read the request before it is filtered out: the record names what
+      // was approved, and nothing else in the document still knows.
+      const requestId = payload.requestId as RequestId;
+      const request = doc.approvals.find((open) => open.requestId === requestId);
+      const approvals = doc.approvals.filter((open) => open.requestId !== requestId);
       return {
         ...next,
         approvals,
+        decisions:
+          request === undefined
+            ? decisionsOf(doc)
+            : withDecision(doc, event, {
+                kind: "approval",
+                id: requestId,
+                outcome: payload.decision as string,
+                subject: approvalSubject(request),
+                pattern: payload.pattern as string | undefined,
+              }),
         status: doc.currentTurn === null ? waitingOr({ ...doc, approvals }, "idle") : "running",
       };
     }
@@ -359,12 +412,21 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
         status: "waiting",
       };
     case "thread.userInput.resolved": {
-      const userInputs = doc.userInputs.filter(
-        (pending) => pending.requestId !== (payload.requestId as string),
-      );
+      const requestId = payload.requestId as RequestId;
+      const asked = doc.userInputs.find((pending) => pending.requestId === requestId);
+      const userInputs = doc.userInputs.filter((pending) => pending.requestId !== requestId);
       return {
         ...next,
         userInputs,
+        decisions:
+          asked === undefined
+            ? decisionsOf(doc)
+            : withDecision(doc, event, {
+                kind: "question",
+                id: requestId,
+                outcome: "answered",
+                subject: questionSubject(asked.questions),
+              }),
         status: doc.currentTurn === null ? waitingOr({ ...doc, userInputs }, "idle") : "running",
       };
     }
@@ -378,17 +440,28 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
         },
         status: "waiting",
       };
-    case "thread.plan.responded":
+    case "thread.plan.responded": {
       // `waitingOr` reads the plan that was just answered, so it has to see
       // the document with that plan already gone — as the two resolve cases
       // above pass their filtered arrays. Passing `doc` left a thread with no
       // turn running parked on "waiting" over its own answered plan.
+      const plan = doc.pendingPlan;
       return {
         ...next,
         pendingPlan: null,
+        decisions:
+          plan !== null && plan.turnId === payload.turnId
+            ? withDecision(doc, event, {
+                kind: "plan",
+                id: plan.turnId,
+                outcome: payload.action as string,
+                subject: planSubject((payload.planPath as string | undefined) ?? plan.planPath),
+              })
+            : decisionsOf(doc),
         status:
           doc.currentTurn === null ? waitingOr({ ...doc, pendingPlan: null }, "idle") : "running",
       };
+    }
     case "thread.settings.updated":
       return {
         ...next,
@@ -510,6 +583,7 @@ export const threadSnapshotOf = (doc: ThreadDoc): ThreadDetailSnapshot => ({
   pendingApproval: doc.approvals[0] ?? null,
   pendingUserInput: doc.userInputs[0] ?? null,
   pendingPlan: doc.pendingPlan,
+  decisions: decisionsOf(doc),
   usage: doc.usage,
   context: doc.context,
   createdAt: doc.createdAt,

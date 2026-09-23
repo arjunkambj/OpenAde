@@ -7,7 +7,9 @@ import { describe, expect, it } from "@effect/vitest";
 import {
   makeCheckpointId,
   makeEventId,
+  makeItemId,
   makeProjectId,
+  makeRequestId,
   makeThreadId,
   makeTurnId,
 } from "@OpenAde/contracts/ids";
@@ -455,5 +457,122 @@ describe("clientState fold", () => {
     expect(applyThreadListItem(threads, { kind: "resnapshot-required", reason: "budget" })).toEqual(
       [],
     );
+  });
+
+  it("records each answer the way the server's fold does", () => {
+    const approvalId = makeRequestId();
+    const questionId = makeRequestId();
+    const turnId = makeTurnId();
+    const itemId = makeItemId();
+    const at = "2026-01-01T00:00:00.000Z";
+    let doc = applyThreadEvent(
+      snapshot(),
+      event("thread.item.upserted", {
+        item: { itemId, kind: "assistant_message", status: "completed", text: "hi" },
+      }),
+    );
+    doc = applyThreadEvent(
+      doc,
+      event("thread.approval.opened", {
+        request: {
+          requestId: approvalId,
+          kind: "file_write",
+          toolName: "write_file",
+          input: { file_path: "src/health.ts" },
+          description: "Write src/health.ts",
+        },
+      }),
+    );
+    doc = applyThreadEvent(
+      doc,
+      event("thread.approval.resolved", { requestId: approvalId, decision: "allow-once" }),
+    );
+    doc = applyThreadEvent(
+      doc,
+      event("thread.userInput.requested", {
+        requestId: questionId,
+        questions: [{ questionId: "q", question: "Which port?", options: [] }],
+      }),
+    );
+    doc = applyThreadEvent(
+      doc,
+      event("thread.userInput.resolved", { requestId: questionId, answers: [] }),
+    );
+    doc = applyThreadEvent(
+      doc,
+      event("thread.plan.proposed", { turnId, planMarkdown: "# plan", planPath: "plans/a.md" }),
+    );
+    doc = applyThreadEvent(doc, event("thread.plan.responded", { turnId, action: "revise" }));
+
+    expect(doc.decisions).toEqual([
+      {
+        kind: "approval",
+        id: approvalId,
+        outcome: "allow-once",
+        subject: "src/health.ts",
+        resolvedAt: at,
+        afterItemId: itemId,
+      },
+      {
+        kind: "question",
+        id: questionId,
+        outcome: "answered",
+        subject: "Which port?",
+        resolvedAt: at,
+        afterItemId: itemId,
+      },
+      {
+        kind: "plan",
+        id: turnId,
+        outcome: "revise",
+        subject: "a.md",
+        resolvedAt: at,
+        afterItemId: itemId,
+      },
+    ]);
+  });
+
+  it("records an answer to a card behind the one it shows, without a subject", () => {
+    // The snapshot carries only the head of the open approvals; the one
+    // answered here is not it, so the client cannot say what it was for.
+    const shown = makeRequestId();
+    const hidden = makeRequestId();
+    let doc = applyThreadEvent(
+      snapshot(),
+      event("thread.approval.opened", {
+        request: {
+          requestId: shown,
+          kind: "command",
+          toolName: "shell_command",
+          input: { command: "ls" },
+          description: "Run ls",
+        },
+      }),
+    );
+    doc = applyThreadEvent(
+      doc,
+      event("thread.approval.resolved", {
+        requestId: hidden,
+        decision: "allow-always",
+        pattern: "Shell(ls)",
+      }),
+    );
+
+    // The connector's echo of the same answer adds nothing.
+    doc = applyThreadEvent(
+      doc,
+      event("thread.approval.resolved", { requestId: hidden, decision: "allow-always" }),
+    );
+
+    expect(doc.pendingApproval?.requestId).toBe(shown);
+    expect(doc.decisions).toEqual([
+      {
+        kind: "approval",
+        id: hidden,
+        outcome: "allow-always",
+        pattern: "Shell(ls)",
+        resolvedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ]);
   });
 });

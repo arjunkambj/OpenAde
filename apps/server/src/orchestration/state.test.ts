@@ -19,7 +19,7 @@ import {
 } from "@OpenAde/contracts/ids";
 import type { CheckpointSummary, OrchestrationEvent } from "@OpenAde/contracts/orchestration";
 
-import { foldThread, threadSnapshotOf } from "./state";
+import { foldThread, projectThreadEvent, threadSnapshotOf, type ThreadDoc } from "./state";
 
 const NOW = "2026-01-02T03:04:05.000Z";
 
@@ -373,5 +373,168 @@ describe("the thread fold", () => {
     const doc = foldThread([created(), event("thread.settings.updated", { effort: "low" })]);
 
     expect(doc?.settings).not.toHaveProperty("connectorInstanceId");
+  });
+});
+
+describe("the decision record", () => {
+  const upserted = (itemId = makeItemId()) =>
+    event("thread.item.upserted", {
+      item: { itemId, kind: "assistant_message", status: "completed", text: "hi" },
+    });
+
+  it("records an answered approval with its target and the pattern kept", () => {
+    const requestId = makeRequestId();
+    const lastItem = makeItemId();
+    const doc = foldThread([
+      created(),
+      turnRequested(),
+      upserted(),
+      event("thread.approval.opened", {
+        request: {
+          requestId,
+          kind: "command",
+          toolName: "shell_command",
+          input: { command: "npm run build\n--verbose" },
+          description: "Run npm run build",
+        },
+      }),
+      upserted(lastItem),
+      event("thread.approval.resolved", {
+        requestId,
+        decision: "allow-always",
+        pattern: "Shell(npm run *)",
+      }),
+    ]);
+
+    expect(doc?.approvals).toEqual([]);
+    expect(doc?.decisions).toEqual([
+      {
+        kind: "approval",
+        id: requestId,
+        outcome: "allow-always",
+        subject: "npm run build",
+        pattern: "Shell(npm run *)",
+        resolvedAt: NOW,
+        afterItemId: lastItem,
+      },
+    ]);
+    expect(threadSnapshotOf(doc!).decisions).toEqual(doc?.decisions);
+  });
+
+  it("records an answered question by its first header", () => {
+    const requestId = makeRequestId();
+    const lastItem = makeItemId();
+    const doc = foldThread([
+      created(),
+      turnRequested(),
+      upserted(lastItem),
+      event("thread.userInput.requested", {
+        requestId,
+        questions: [
+          { questionId: "db", question: "Which database?", header: "Database", options: [] },
+          { questionId: "port", question: "Which port?", options: [] },
+        ],
+      }),
+      event("thread.userInput.resolved", {
+        requestId,
+        answers: [{ questionId: "db", optionIds: [], text: "sqlite" }],
+      }),
+    ]);
+
+    expect(doc?.decisions).toEqual([
+      {
+        kind: "question",
+        id: requestId,
+        outcome: "answered",
+        subject: "Database",
+        resolvedAt: NOW,
+        afterItemId: lastItem,
+      },
+    ]);
+  });
+
+  it("records an answered plan by its file name", () => {
+    const turnId = makeTurnId();
+    const doc = foldThread([
+      created(),
+      turnRequested(turnId),
+      event("thread.plan.proposed", {
+        turnId,
+        planMarkdown: "# plan",
+        planPath: "/work/plans/health-check.md",
+      }),
+      event("thread.turn.completed", { turnId, stopReason: "end_turn" }),
+      event("thread.plan.responded", { turnId, action: "accept-auto" }),
+    ]);
+
+    // No item landed before the answer, so the record has nothing to follow.
+    expect(doc?.decisions).toEqual([
+      {
+        kind: "plan",
+        id: turnId,
+        outcome: "accept-auto",
+        subject: "health-check.md",
+        resolvedAt: NOW,
+      },
+    ]);
+  });
+
+  it("keeps one line per answer when the connector echoes it", () => {
+    const requestId = makeRequestId();
+    const questionId = makeRequestId();
+    const doc = foldThread([
+      created(),
+      turnRequested(),
+      event("thread.approval.opened", {
+        request: {
+          requestId,
+          kind: "command",
+          toolName: "shell_command",
+          input: { command: "ls" },
+          description: "Run ls",
+        },
+      }),
+      event("thread.approval.resolved", { requestId, decision: "deny" }),
+      // The connector's own `request.resolved`, arriving after the decider's.
+      event("thread.approval.resolved", { requestId, decision: "deny" }),
+      event("thread.userInput.requested", {
+        requestId: questionId,
+        questions: [{ questionId: "q", question: "Which port?", options: [] }],
+      }),
+      event("thread.userInput.resolved", { requestId: questionId, answers: [] }),
+      event("thread.userInput.resolved", { requestId: questionId, answers: [] }),
+    ]);
+
+    expect(doc?.decisions.map((decision) => [decision.kind, decision.id])).toEqual([
+      ["approval", requestId],
+      ["question", questionId],
+    ]);
+  });
+
+  it("serves a document projected before decisions were kept", () => {
+    const requestId = makeRequestId();
+    const current = foldThread([
+      created(),
+      turnRequested(),
+      event("thread.approval.opened", {
+        request: {
+          requestId,
+          kind: "command",
+          toolName: "shell_command",
+          input: { command: "ls" },
+          description: "Run ls",
+        },
+      }),
+    ])!;
+    // A row an older projector wrote: the field is simply not there.
+    const { decisions: _decisions, ...older } = current;
+    const stored = older as unknown as ThreadDoc;
+
+    expect(threadSnapshotOf(stored).decisions).toEqual([]);
+    const next = projectThreadEvent(
+      stored,
+      event("thread.approval.resolved", { requestId, decision: "allow-once" }),
+    );
+    expect(next?.decisions.map((decision) => decision.id)).toEqual([requestId]);
   });
 });
