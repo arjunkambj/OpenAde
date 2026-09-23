@@ -18,9 +18,13 @@ import type { Command } from "@OpenAde/contracts/orchestration";
 import { isAccepted, rejectionMessage } from "@/lib/dispatch-outcome";
 import { useDispatchCommand } from "@/state/hooks";
 
-/** The confirmation copy for `thread.delete`: it is durable and has no undo. */
+/**
+ * The confirmation copy for `thread.delete`: it is durable and has no undo.
+ * The delete itself touches no files; a worktree thread's dialog adds the
+ * opt-in to remove its worktree (`./delete-thread-dialog`).
+ */
 export const THREAD_DELETE_DESCRIPTION =
-  "Its transcript, its queue and its turn checkpoints go with it, and the session it is running on is closed. Files in the workspace are left alone.";
+  "Its transcript, its queue and its turn checkpoints go with it, and the session it is running on is closed. Files in the project's folder are left alone, and a thread's worktree is removed only if you ask.";
 
 /**
  * The envelope every thread command carries. A fresh `commandId` per call:
@@ -36,18 +40,20 @@ export const threadCommandBase = (threadId: ThreadId) => ({
 /**
  * `send(command, fallback, done?)`: dispatch, toast the refusal (or
  * `fallback` when the decider gave no reason), and toast `done` on success
- * when there is something worth confirming.
+ * when there is something worth confirming. Resolves with whether the command
+ * was accepted, for a caller with a step that must only follow an accepted one.
  */
 export const useThreadCommand = () => {
   const dispatch = useDispatchCommand();
-  return async (command: Command, fallback: string, done?: string): Promise<void> => {
+  return async (command: Command, fallback: string, done?: string): Promise<boolean> => {
     const exit = await dispatch(command);
     if (!isAccepted(exit)) {
       toast.error(rejectionMessage(exit, fallback));
-      return;
+      return false;
     }
     if (done !== undefined) {
       toast.success(done);
     }
+    return true;
   };
 };

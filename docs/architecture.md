@@ -609,6 +609,10 @@ worktree of the project's repository. The start screen is where a thread gets
 one: its Local / New worktree picker runs create, setup and `thread.create`
 in that order (`apps/web/src/components/thread/start-in-worktree.ts`), and the
 thread header and sidebar row mark a worktree thread with its branch.
+Deleting such a thread is where one goes: the delete confirmation offers to
+remove the worktree after the delete is accepted, never with `force` unless
+the user confirms twice (`apps/web/src/components/sidebar/delete-thread.ts`).
+Removing a project removes no worktrees.
 
 `decisions` is on the wire: one `ResolvedDecision` per settled approval,
 question or plan, oldest first — its kind, the request id (the turn id for a

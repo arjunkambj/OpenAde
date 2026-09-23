@@ -28,4 +28,17 @@ describe("projectRemovalWarning", () => {
       );
     }
   });
+
+  it("says worktrees stay on disk when some threads have one", () => {
+    expect(projectRemovalWarning("proj", 2, "/tmp/proj", 1)).toBe(
+      "proj and its 2 threads are removed from OpenAde, with their transcripts and turn checkpoints. Nothing in /tmp/proj is touched. The worktree one of its threads works in is not removed either: it stays on disk, with its branch.",
+    );
+    expect(projectRemovalWarning("proj", 3, "/tmp/proj", 3)).toContain(
+      "The 3 worktrees its threads work in are not removed either",
+    );
+  });
+
+  it("does not mention worktrees when there are none", () => {
+    expect(projectRemovalWarning("proj", 2, "/tmp/proj", 0)).not.toContain("worktree");
+  });
 });

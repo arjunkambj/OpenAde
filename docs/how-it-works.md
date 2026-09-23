@@ -1340,6 +1340,35 @@ worktree is discarded, and the draft stays put throughout, so a discarded
 attempt can be sent again. Once the thread exists, its header shows the branch
 with the path in a tooltip, and its sidebar row carries a fork mark.
 
+### Deleting a worktree thread
+
+The sidebar row menu and Settings → Archived threads confirm a delete with the
+same dialog (`apps/web/src/components/sidebar/delete-thread-dialog.tsx`). For a
+local thread it is only the delete: the project's folder is left alone. A
+thread with a worktree adds a checkbox, checked by default, **Also remove the
+worktree at `<path>`**, saying the branch is kept with its commits.
+`delete-thread.ts` runs the steps:
+
+1. `thread.delete`. A refusal is the usual toast, and nothing else happens.
+2. Only after an accepted delete, and only with the box checked,
+   `git.worktree.remove` without `force`. Success is a toast, "Worktree
+   removed — branch `<branch>` kept".
+3. git refuses a tree with modified or untracked files, answered as
+   `conflict`. That is a toast with the server's message and **Remove
+   anyway**, which stays until it is answered. Taking it opens a second
+   confirmation saying the uncommitted work will be lost, and only confirming
+   that removes with `force`. Letting the toast go keeps the worktree.
+
+The second confirmation is mounted above the routes
+(`WorktreeForceRemovalHost` in `__root.tsx`), because the sidebar row that
+started the delete is gone once its thread is. The conflict is also the
+expected answer to a race: the session closes asynchronously after
+`thread.delete`, and a harness can still hold an untracked config file in the
+worktree for a moment, so **Remove anyway** is the way through that too.
+
+Removing a project deletes its threads but removes none of their worktrees;
+its confirmation says so when any of them has one (`removal-copy.ts`).
+
 ---
 
 ## 9. Attachments

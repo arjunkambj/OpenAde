@@ -26,12 +26,9 @@ import {
 } from "@OpenAde/ui/components/empty";
 import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
 
-import { ConfirmDialog } from "@/components/confirm-dialog";
-import {
-  THREAD_DELETE_DESCRIPTION,
-  threadCommandBase,
-  useThreadCommand,
-} from "@/components/sidebar/thread-actions";
+import { DeleteThreadDialog } from "@/components/sidebar/delete-thread-dialog";
+import { threadCommandBase, useThreadCommand } from "@/components/sidebar/thread-actions";
+import { useDeleteThread } from "@/components/sidebar/use-delete-thread";
 import { useConnectionState, useLoadedThreadList, useProjects } from "@/state/hooks";
 import { Archive, ArchiveUp, Spinner, Trash } from "@honeyicons/react";
 
@@ -96,6 +93,7 @@ export function ArchivedThreadsPanel() {
   const projects = useProjects();
   const connection = useConnectionState();
   const send = useThreadCommand();
+  const remove = useDeleteThread();
   const [deleting, setDeleting] = React.useState<ThreadSummary | null>(null);
 
   const groups = React.useMemo(
@@ -171,28 +169,15 @@ export function ArchivedThreadsPanel() {
 
       {/* One dialog for the page, not one per row: it names whichever thread
           is pending deletion. Deleting has no undo, so it asks first. */}
-      <ConfirmDialog
+      <DeleteThreadDialog
+        thread={deleting}
         open={deleting !== null}
         onOpenChange={(next) => {
           if (!next) {
             setDeleting(null);
           }
         }}
-        title={deleting === null ? "Delete thread?" : `Delete ${deleting.title}?`}
-        description={THREAD_DELETE_DESCRIPTION}
-        confirmLabel="Delete thread"
-        onConfirm={() => {
-          if (deleting === null) {
-            return;
-          }
-          const { threadId } = deleting;
-          setDeleting(null);
-          void send(
-            { type: "thread.delete", ...threadCommandBase(threadId) },
-            "Thread was not deleted",
-            "Deleted",
-          );
-        }}
+        onConfirm={(thread, removeWorktree) => void remove(thread, removeWorktree)}
       />
     </div>
   );

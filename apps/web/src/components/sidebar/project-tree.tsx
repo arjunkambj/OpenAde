@@ -98,6 +98,14 @@ function NewThreadButton({
   );
 }
 
+/** A project's threads, archived ones included, and how many have a worktree. */
+interface ThreadCounts {
+  readonly threads: number;
+  readonly worktrees: number;
+}
+
+const NO_THREADS: ThreadCounts = { threads: 0, worktrees: 0 };
+
 function groupByProject(
   threads: ReadonlyArray<ThreadSummary>,
 ): ReadonlyMap<ProjectId, ThreadSummary[]> {
@@ -121,11 +129,16 @@ export function ProjectTree() {
 
   const threadsByProject = React.useMemo(() => groupByProject(shown), [shown]);
   // Removing a project deletes its archived threads too, so the removal copy
-  // counts every thread, not only the listed ones.
+  // counts every thread, not only the listed ones — and the worktrees among
+  // them, which it leaves on disk.
   const threadCounts = React.useMemo(() => {
-    const counts = new Map<ProjectId, number>();
+    const counts = new Map<ProjectId, ThreadCounts>();
     for (const thread of threads) {
-      counts.set(thread.projectId, (counts.get(thread.projectId) ?? 0) + 1);
+      const current = counts.get(thread.projectId) ?? NO_THREADS;
+      counts.set(thread.projectId, {
+        threads: current.threads + 1,
+        worktrees: current.worktrees + (thread.worktree === undefined ? 0 : 1),
+      });
     }
     return counts;
   }, [threads]);
@@ -170,7 +183,7 @@ export function ProjectTree() {
               key={project.projectId}
               project={project}
               threads={threadsByProject.get(project.projectId) ?? []}
-              threadCount={threadCounts.get(project.projectId) ?? 0}
+              counts={threadCounts.get(project.projectId) ?? NO_THREADS}
               now={now}
             />
           ))}
@@ -196,12 +209,12 @@ export function ProjectTree() {
 function ProjectSection({
   project,
   threads,
-  threadCount,
+  counts,
   now,
 }: {
   project: ProjectSummary;
   threads: ReadonlyArray<ThreadSummary>;
-  threadCount: number;
+  counts: ThreadCounts;
   now: number;
 }) {
   const [collapsed, setCollapsed] = useProjectCollapsed(project.projectId);
@@ -245,7 +258,11 @@ function ProjectSection({
           <span className="ml-1.5 min-w-0 flex-1 truncate">{project.name}</span>
         </button>
         <span className="flex items-center opacity-0 transition-opacity duration-150 ease-out group-hover/project:opacity-100 group-focus-within/project:opacity-100 [&:has([data-popup-open])]:opacity-100">
-          <ProjectRowMenu project={project} threadCount={threadCount} />
+          <ProjectRowMenu
+            project={project}
+            threadCount={counts.threads}
+            worktreeCount={counts.worktrees}
+          />
           <NewThreadButton projectId={project.projectId} onCreated={() => setCollapsed(false)} />
         </span>
       </div>

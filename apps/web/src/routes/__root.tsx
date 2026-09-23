@@ -8,6 +8,7 @@ import * as React from "react";
 
 import { ThemeProvider, useTheme } from "@/components/theme-provider";
 import { SearchProvider } from "@/components/Layout/search-command";
+import { WorktreeForceRemovalHost } from "@/components/sidebar/delete-thread-dialog";
 import { DiffWorkerPoolProvider } from "@/components/timeline/diff-pool";
 import { useAppAtoms } from "@/lib/app-runtime";
 import { ClientRuntimeBridge } from "@/lib/client-runtime";
@@ -130,6 +131,8 @@ function RootComponent() {
                 <DiffWorkerPoolProvider>
                   <Outlet />
                   <Toaster richColors />
+                  {/* Beside the toasts whose "Remove anyway" opens it. */}
+                  <WorktreeForceRemovalHost />
                 </DiffWorkerPoolProvider>
               </SearchProvider>
             </KeybindingsProvider>

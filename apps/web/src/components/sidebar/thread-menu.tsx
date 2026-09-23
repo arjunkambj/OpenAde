@@ -9,7 +9,9 @@
  * every one of those cleanup behaviours is unreachable from the product.
  *
  * Delete is behind a confirmation, on the precedent `RestoreCheckpointDialog`
- * set: it is durable and there is no undo. Archive is not — the thread stays,
+ * set: it is durable and there is no undo. For a worktree thread the same
+ * dialog offers to remove the worktree too (`./delete-thread-dialog`).
+ * Archive is not — the thread stays,
  * and an archived row offers Unarchive in place of Archive, as the Archived
  * threads settings page does.
  *
@@ -41,12 +43,9 @@ import { Input } from "@OpenAde/ui/components/input";
 import { Label } from "@OpenAde/ui/components/label";
 import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
 
-import { ConfirmDialog } from "@/components/confirm-dialog";
-import {
-  THREAD_DELETE_DESCRIPTION,
-  threadCommandBase,
-  useThreadCommand,
-} from "@/components/sidebar/thread-actions";
+import { DeleteThreadDialog } from "@/components/sidebar/delete-thread-dialog";
+import { threadCommandBase, useThreadCommand } from "@/components/sidebar/thread-actions";
+import { useDeleteThread } from "@/components/sidebar/use-delete-thread";
 import { Archive as ArchiveIcon, ArchiveUp, Edit, MoreHorizontal, Trash } from "@honeyicons/react";
 
 /** Which of the two dialogs this row currently has open. */
@@ -133,6 +132,7 @@ function RenameThreadDialog({
 
 export function ThreadRowMenu({ thread }: { readonly thread: ThreadSummary }) {
   const send = useThreadCommand();
+  const remove = useDeleteThread();
   const [dialog, setDialog] = React.useState<OpenDialog>(null);
 
   const base = () => threadCommandBase(thread.threadId);
@@ -208,15 +208,11 @@ export function ThreadRowMenu({ thread }: { readonly thread: ThreadSummary }) {
         }
       />
 
-      <ConfirmDialog
+      <DeleteThreadDialog
+        thread={thread}
         open={dialog === "delete"}
         onOpenChange={(next) => setDialog(next ? "delete" : null)}
-        title={`Delete ${thread.title}?`}
-        description={THREAD_DELETE_DESCRIPTION}
-        confirmLabel="Delete thread"
-        onConfirm={() =>
-          void send({ ...base(), type: "thread.delete" }, "Thread was not deleted", "Deleted")
-        }
+        onConfirm={(target, removeWorktree) => void remove(target, removeWorktree)}
       />
     </>
   );

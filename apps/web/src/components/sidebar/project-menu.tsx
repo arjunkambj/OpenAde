@@ -8,7 +8,9 @@
  * project whose path was mistyped could only be dropped by editing the sqlite
  * file by hand. What it does is not obvious from its name, either:
  * `ProviderCommandReactor` dispatches a `thread.delete` for every thread under
- * it, so the confirmation says so and counts them — see `./removal-copy`.
+ * it, so the confirmation says so and counts them — see `./removal-copy`. It
+ * removes no worktrees, and the confirmation says that too when any of those
+ * threads has one.
  */
 
 import { useNavigate } from "@tanstack/react-router";
@@ -36,9 +38,12 @@ import { GitBranch, MoreHorizontal, Trash } from "@honeyicons/react";
 export function ProjectRowMenu({
   project,
   threadCount,
+  worktreeCount,
 }: {
   readonly project: ProjectSummary;
   readonly threadCount: number;
+  /** How many of those threads have their own worktree. */
+  readonly worktreeCount: number;
 }) {
   const dispatch = useDispatchCommand();
   const navigate = useNavigate();
@@ -95,7 +100,12 @@ export function ProjectRowMenu({
         open={confirming}
         onOpenChange={setConfirming}
         title={`Remove ${project.name}?`}
-        description={projectRemovalWarning(project.name, threadCount, project.workspaceRoot)}
+        description={projectRemovalWarning(
+          project.name,
+          threadCount,
+          project.workspaceRoot,
+          worktreeCount,
+        )}
         confirmLabel="Remove project"
         onConfirm={() => void remove()}
       />
