@@ -146,7 +146,12 @@ export const converse = (
   };
 };
 
-/** Whether `pid` is a live process — a zombie awaiting its reaper is not. */
+/**
+ * Whether `pid` is a live process. A zombie awaiting its reaper is not, and
+ * neither is one the kernel is already tearing down: `ps` flags it `E` ("trying
+ * to exit") in the moment between a SIGKILL and the zombie, which a loaded
+ * machine can stretch long enough to be seen.
+ */
 export const pidAlive = (pid: number): boolean => {
   try {
     process.kill(pid, 0);
@@ -154,9 +159,10 @@ export const pidAlive = (pid: number): boolean => {
     return false;
   }
   try {
-    return !execFileSync("ps", ["-o", "stat=", "-p", String(pid)], { encoding: "utf8" })
-      .trim()
-      .startsWith("Z");
+    const stat = execFileSync("ps", ["-o", "stat=", "-p", String(pid)], {
+      encoding: "utf8",
+    }).trim();
+    return stat !== "" && !stat.startsWith("Z") && !stat.includes("E");
   } catch {
     return false;
   }
