@@ -15,7 +15,8 @@
  * 3. translates every SDK message the query yields (`translate/translator.ts`)
  *    on one consumer fiber;
  * 4. gates every tool call through OpenAde's permission ladder
- *    (`toolGate.ts`), from the first message on;
+ *    (`toolGate.ts`), from the first message on, and says so with a
+ *    `session.warning` if a turn ran a tool call the gate never saw;
  * 5. closes by releasing open cards, ending the input, closing the query,
  *    stopping the CLI's process group and proving it gone (`spawn.ts`).
  *
@@ -88,7 +89,15 @@ const HANDSHAKE_TIMEOUT = "60 seconds";
 interface ActiveTurn {
   readonly turnId: TurnId;
   readonly interrupted: boolean;
+  /** The translator's count of calls that ran, when the turn began. */
+  readonly ranAtStart: number;
+  /** The gate's count of calls it saw, when the turn began. */
+  readonly sightingsAtStart: number;
 }
+
+/** What the thread is told when a turn's tool calls ran past the gate. */
+export const ungatedWarning = (ran: number): string =>
+  `${ran} tool call(s) ran without reaching OpenAde's approval gate — the PreToolUse hook did not fire, so this turn was not gated`;
 
 const messageOf = (cause: unknown): string =>
   cause instanceof Error ? cause.message : String(cause);
@@ -219,12 +228,27 @@ export const makeClaudeSession = (
       }),
     );
 
+    /**
+     * Every call reaches the hook, and a call the hook passes to `canUseTool`
+     * reaches it too; a turn whose calls ran while the gate saw none was not
+     * gated, and the thread is told before the turn closes.
+     */
+    const checkGated = (turn: ActiveTurn): Effect.Effect<void> =>
+      Effect.gen(function* () {
+        const ran = translator.toolCallsRan() - turn.ranAtStart;
+        if (ran === 0 || toolGate.sightings() > turn.sightingsAtStart) return;
+        const message = ungatedWarning(ran);
+        yield* services.logger.log("warn", message);
+        yield* emit({ type: "session.warning", payload: { message } });
+      });
+
     const handle = (message: unknown): Effect.Effect<void> =>
       Effect.gen(function* () {
         if (yield* Ref.get(closedRef)) return;
         const turn = yield* Ref.get(turnRef);
         let completed = false;
         for (const event of translator.translate(message, turn)) {
+          if (event.type === "turn.completed" && turn !== null) yield* checkGated(turn);
           yield* emit(event);
           if (event.type === "turn.completed") completed = true;
         }
@@ -311,7 +335,12 @@ export const makeClaudeSession = (
           return yield* new TurnInProgress({ threadId, activeTurnId: active.turnId });
         }
         const turnId = makeTurnId();
-        yield* Ref.set(turnRef, { turnId, interrupted: false });
+        yield* Ref.set(turnRef, {
+          turnId,
+          interrupted: false,
+          ranAtStart: translator.toolCallsRan(),
+          sightingsAtStart: toolGate.sightings(),
+        });
         yield* emit({ type: "turn.started", payload: { turnId } });
         if (!input.push(userMessage(turn))) return yield* new SessionClosed({ threadId });
       });

@@ -11,7 +11,9 @@ import type { ThreadSettings } from "@OpenAde/contracts/orchestration";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
-import { DENIED_BY_RULES, DENIED_BY_USER, makeToolGate } from "./toolGate";
+import type { PermissionUpdate } from "@anthropic-ai/claude-agent-sdk";
+
+import { DENIED_BY_RULES, DENIED_BY_USER, makeToolGate, sessionPermissions } from "./toolGate";
 
 const threadId = makeThreadId();
 
@@ -47,7 +49,20 @@ const ladder = (decide: ConnectorPermissions["decide"]) =>
 
 const saying = (decision: PermissionDecision) => () => Effect.succeed(decision);
 const signal = () => new AbortController().signal;
-const hook = (toolName: string) => ({ hook_event_name: "PreToolUse", tool_name: toolName });
+const hook = (toolName: string, toolInput: unknown = {}) => ({
+  hook_event_name: "PreToolUse",
+  tool_name: toolName,
+  tool_input: toolInput,
+});
+
+/** Waits for the gate's first `request.opened`. */
+const firstOpened = (events: ReadonlyArray<ApprovalGateEvent>) =>
+  Effect.sync(() => events.find((event) => event.type === "request.opened")).pipe(
+    Effect.flatMap((event) =>
+      event?.type === "request.opened" ? Effect.succeed(event) : Effect.fail("wait"),
+    ),
+    Effect.eventually,
+  );
 
 describe("the PreToolUse hook", () => {
   it.effect.each([
@@ -81,6 +96,47 @@ describe("the PreToolUse hook", () => {
     }),
   );
 
+  it.effect("asks the ladder in OpenAde's vocabulary, not the CLI's", () =>
+    Effect.gen(function* () {
+      const seen: Array<unknown> = [];
+      const { toolGate } = yield* ladder((input) =>
+        Effect.sync(() => {
+          seen.push(input.request);
+          return "allow" as const;
+        }),
+      );
+      yield* Effect.promise(() =>
+        toolGate.preToolUse(hook("NotebookEdit", { notebook_path: "/r/.ssh/n.ipynb" })),
+      );
+      expect(seen[0]).toMatchObject({
+        kind: "file_write",
+        toolName: "NotebookEdit",
+        input: { file_path: "/r/.ssh/n.ipynb" },
+        patternSuggestion: "Edit(/r/.ssh/n.ipynb)",
+      });
+    }),
+  );
+
+  it.effect.each(["AskUserQuestion", "ExitPlanMode"])(
+    "lets %s past with no verdict, and never asks the ladder",
+    (tool) =>
+      Effect.gen(function* () {
+        const { toolGate } = yield* ladder(() => Effect.die(new Error("asked")));
+        expect(yield* Effect.promise(() => toolGate.preToolUse(hook(tool)))).toEqual({});
+        expect(toolGate.sightings()).toBe(1);
+      }),
+  );
+
+  it.effect("counts every call it sees", () =>
+    Effect.gen(function* () {
+      const { toolGate } = yield* ladder(saying("allow"));
+      yield* Effect.promise(() => toolGate.preToolUse(hook("Bash")));
+      yield* Effect.promise(() => toolGate.preToolUse({ hook_event_name: "PostToolUse" }));
+      yield* Effect.promise(() => toolGate.canUseTool("Bash", {}, { signal: signal() }));
+      expect(toolGate.sightings()).toBe(2);
+    }),
+  );
+
   it.effect("asks rather than allows when the ladder fails", () =>
     Effect.gen(function* () {
       const { toolGate } = yield* ladder(() => Effect.die(new Error("ladder broke")));
@@ -105,17 +161,13 @@ describe("canUseTool", () => {
       const { toolGate, gate, events } = yield* ladder(saying("prompt"));
       const input = { command: "ls" };
       const answer = toolGate.canUseTool("Bash", input, { signal: signal() });
-      const opened = yield* Effect.sync(() => events.find((e) => e.type === "request.opened")).pipe(
-        Effect.flatMap((event) =>
-          event === undefined ? Effect.fail("wait") : Effect.succeed(event),
-        ),
-        Effect.eventually,
-      );
-      expect(opened.type === "request.opened" && opened.payload.request).toMatchObject({
-        kind: "other",
+      const opened = yield* firstOpened(events);
+      expect(opened.payload.request).toMatchObject({
+        kind: "command",
         toolName: "Bash",
         input,
-        patternSuggestion: "Bash",
+        patternSuggestion: "Shell(ls *)",
+        description: "Run ls",
       });
       yield* gate.respond(opened.requestId, "allow-once");
       expect(yield* Effect.promise(() => answer)).toEqual({
@@ -162,4 +214,109 @@ describe("canUseTool", () => {
       expect(events).toEqual([]);
     }),
   );
+  it.effect.each(["allow-once", "allow-always"] as const)(
+    "answers %s with the input alone, writing no CLI rule",
+    (decision) =>
+      Effect.gen(function* () {
+        const { toolGate, gate, events } = yield* ladder(saying("prompt"));
+        const input = { file_path: "/r/a.ts" };
+        const answer = toolGate.canUseTool("Write", input, {
+          signal: signal(),
+          suggestions: [
+            {
+              type: "addRules",
+              rules: [{ toolName: "Write" }],
+              behavior: "allow",
+              destination: "localSettings",
+            },
+          ],
+        });
+        yield* gate.respond((yield* firstOpened(events)).requestId, decision);
+        expect(yield* Effect.promise(() => answer)).toEqual({
+          behavior: "allow",
+          updatedInput: input,
+        });
+      }),
+  );
+
+  it.effect("answers allow-session with the CLI's own rules, kept to the session", () =>
+    Effect.gen(function* () {
+      const { toolGate, gate, events } = yield* ladder(saying("prompt"));
+      const input = { command: "npm test" };
+      const answer = toolGate.canUseTool("Bash", input, {
+        signal: signal(),
+        suggestions: [
+          {
+            type: "addRules",
+            rules: [{ toolName: "Bash", ruleContent: "npm test:*" }],
+            behavior: "allow",
+            destination: "localSettings",
+          },
+        ],
+      });
+      yield* gate.respond((yield* firstOpened(events)).requestId, "allow-session");
+      expect(yield* Effect.promise(() => answer)).toEqual({
+        behavior: "allow",
+        updatedInput: input,
+        updatedPermissions: [
+          {
+            type: "addRules",
+            rules: [{ toolName: "Bash", ruleContent: "npm test:*" }],
+            behavior: "allow",
+            destination: "session",
+          },
+        ],
+      });
+    }),
+  );
+
+  it.effect("answers deny and closes the card when the CLI withdraws the call", () =>
+    Effect.gen(function* () {
+      const { toolGate, events } = yield* ladder(saying("prompt"));
+      const abort = new AbortController();
+      const answer = toolGate.canUseTool("Bash", { command: "ls" }, { signal: abort.signal });
+      const opened = yield* firstOpened(events);
+      abort.abort();
+      expect(yield* Effect.promise(() => answer)).toEqual({
+        behavior: "deny",
+        message: DENIED_BY_USER,
+      });
+      expect(events.map((event) => [event.type, event.requestId])).toEqual([
+        ["request.opened", opened.requestId],
+        ["request.resolved", opened.requestId],
+      ]);
+    }),
+  );
+});
+
+describe("sessionPermissions", () => {
+  it("keeps rules and directories, at the session only, and drops mode changes and denials", () => {
+    const suggestions: Array<PermissionUpdate> = [
+      {
+        type: "addRules",
+        rules: [{ toolName: "Read" }],
+        behavior: "allow",
+        destination: "userSettings",
+      },
+      { type: "addRules", rules: [{ toolName: "Bash" }], behavior: "deny", destination: "session" },
+      { type: "addDirectories", directories: ["/tmp/x"], destination: "projectSettings" },
+      { type: "setMode", mode: "acceptEdits", destination: "session" },
+      {
+        type: "removeRules",
+        rules: [{ toolName: "Read" }],
+        behavior: "allow",
+        destination: "session",
+      },
+    ];
+    expect(sessionPermissions(suggestions)).toEqual([
+      {
+        type: "addRules",
+        rules: [{ toolName: "Read" }],
+        behavior: "allow",
+        destination: "session",
+      },
+      { type: "addDirectories", directories: ["/tmp/x"], destination: "session" },
+    ]);
+    expect(sessionPermissions(undefined)).toEqual([]);
+  });
 });

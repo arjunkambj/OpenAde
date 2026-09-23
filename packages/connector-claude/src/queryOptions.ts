@@ -40,7 +40,15 @@ const OPENADE_MCP_SERVER = "openade";
  * The CLI permission mode for a thread's modes. A plan turn runs in `plan`;
  * otherwise ask, auto-accept edits and full access are the CLI's `default`,
  * `acceptEdits` and `bypassPermissions`. Whichever it is, the PreToolUse hook
- * still puts every call past OpenAde's ladder first.
+ * still puts every call past OpenAde's ladder first, and the ladder reads the
+ * thread's own modes, not the CLI's.
+ *
+ * Full access can be the CLI's `bypassPermissions` because that mode does not
+ * reach a hook's `ask`: the CLI hands a call the hook asked about to
+ * `canUseTool` with that decision already made, and checks no mode on the way
+ * (CLI 2.1.280). So a sensitive path under full access — the ladder's
+ * "prompt" — still opens a card. `fixtures/claude/sensitive-full-access/` is
+ * the recording that pins it.
  */
 export const permissionModeFor = (settings: ThreadSettings): PermissionMode => {
   if (settings.interactionMode === "plan") return "plan";
@@ -105,7 +113,7 @@ export const buildQueryOptions = (input: QueryOptionsInput): Options => {
     permissionMode: permissionModeFor(input.settings),
     // The SDK requires it before `bypassPermissions` — full access — can be
     // used, whether at start or by a switch mid-session. The hook still gates
-    // every call in that mode.
+    // every call in that mode, and its "ask" still reaches `canUseTool`.
     allowDangerouslySkipPermissions: true,
     ...(model === undefined ? {} : { model }),
     ...(effort === undefined ? {} : { effort }),

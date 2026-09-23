@@ -12,28 +12,48 @@
  * - A `PreToolUse` hook runs for every call, in every permission mode.
  *
  * So the hook asks the ladder for every call and answers with its verdict:
- * `allow`, `deny`, or — when the ladder says "prompt" — `ask`, which hands the
- * call to the CLI's permission flow and so to `canUseTool`. `canUseTool` runs
- * the shared approval gate, which asks the ladder again (the same answer) and
- * opens the card. The hook never waits for the user, so no hook timeout can
- * ever decide a call.
+ * `allow`, `deny`, or — when the ladder says "prompt" — `ask`. The CLI hands a
+ * hook's `ask` to `canUseTool` with the decision already made, in every
+ * permission mode, `bypassPermissions` included: its own mode and allow rules
+ * are not consulted again. `canUseTool` runs the shared approval gate, which
+ * asks the ladder again (the same answer) and opens the card. The hook never
+ * waits for the user, so no hook timeout can ever decide a call — and a hook
+ * that times out is a call the CLI does not run.
+ *
+ * Two tools pass the hook with no verdict: AskUserQuestion and ExitPlanMode.
+ * They are how the model talks to the user rather than acts on the machine,
+ * and the ladder, which refuses every non-read in a plan turn, would refuse
+ * the very call that hands the plan over.
  *
  * Both fail closed. A hook that cannot reach a verdict answers `ask`, and a
  * `canUseTool` that cannot answers `deny`; a missing verdict never reads as
  * allow.
  *
- * The request is generic for now — kind `other`, the bare tool name as the
- * "allow always" pattern — a kind the ladder never allows by itself short of
- * full access.
+ * The card's answers read to the CLI as:
+ *
+ * - allow once, allow always → allow, with the input unchanged. "Always" is
+ *   OpenAde's rule, which the server has already saved; nothing is written to
+ *   the CLI's own settings files.
+ * - allow for the session → allow, plus the CLI's own suggested rules for the
+ *   call, every one of them kept to the `session` destination, so the CLI does
+ *   not ask about the same call again this session. The hook still asks the
+ *   ladder first, and the server keeps the session rule that makes it answer
+ *   allow. Suggestions that would change the CLI's permission mode are left
+ *   out: the thread's mode is OpenAde's to set.
+ * - deny → deny, with a line for the model saying who refused.
+ *
+ * A call the CLI withdraws while its card is open — the turn was interrupted
+ * — aborts `canUseTool`'s signal, and the gate answers the card `deny`.
  */
 
+import type { PermissionUpdate } from "@anthropic-ai/claude-agent-sdk";
 import type { ApprovalGate } from "@OpenAde/connector-sdk/approvalGate";
 import type { ConnectorPermissions, PermissionDecision } from "@OpenAde/connector-sdk/definition";
 import type { ThreadId } from "@OpenAde/contracts/ids";
-import { makeRequestId } from "@OpenAde/contracts/ids";
 import type { ThreadSettings } from "@OpenAde/contracts/orchestration";
-import type { ApprovalRequest } from "@OpenAde/contracts/runtime";
 import * as Effect from "effect/Effect";
+
+import { approvalRequestFor, ASK_USER_QUESTION, EXIT_PLAN_MODE } from "./approvals";
 
 /** The PreToolUse output this sends back, in the SDK's shape. */
 export interface PreToolUseOutput {
@@ -46,30 +66,54 @@ export interface PreToolUseOutput {
 
 /** `canUseTool`'s answer, in the SDK's shape. */
 export type ToolPermission =
-  | { readonly behavior: "allow"; readonly updatedInput: Record<string, unknown> }
+  | {
+      readonly behavior: "allow";
+      readonly updatedInput: Record<string, unknown>;
+      readonly updatedPermissions?: Array<PermissionUpdate>;
+    }
   | { readonly behavior: "deny"; readonly message: string };
+
+/** The tools the hook lets past with no verdict — see the header. */
+const UNGATED_BY_HOOK = new Set([ASK_USER_QUESTION, EXIT_PLAN_MODE]);
 
 /** What the model is told when OpenAde's rules refuse a call. */
 export const DENIED_BY_RULES = "Denied by the user's permission rules in OpenAde.";
 /** What the model is told when the user refuses a call. */
 export const DENIED_BY_USER = "The user denied this tool call.";
 
-export const requestFor = (toolName: string, input: unknown): ApprovalRequest => ({
-  requestId: makeRequestId(),
-  kind: "other",
-  toolName: toolName === "" ? "unknown" : toolName,
-  input,
-  patternSuggestion: toolName === "" ? "unknown" : toolName,
-  description: `Use ${toolName === "" ? "a tool" : toolName}`,
-});
+/**
+ * The CLI's suggestions, kept to this session: rules and directories only,
+ * never a mode change, and never a settings file.
+ */
+export const sessionPermissions = (
+  suggestions: ReadonlyArray<PermissionUpdate> | undefined,
+): Array<PermissionUpdate> =>
+  (suggestions ?? []).flatMap((update): Array<PermissionUpdate> => {
+    switch (update.type) {
+      case "addRules":
+        return update.behavior === "allow" ? [{ ...update, destination: "session" }] : [];
+      case "addDirectories":
+        return [{ ...update, destination: "session" }];
+      default:
+        return [];
+    }
+  });
 
 export interface ToolGate {
   readonly preToolUse: (input: unknown) => Promise<PreToolUseOutput>;
   readonly canUseTool: (
     toolName: string,
     input: Record<string, unknown>,
-    options: { readonly signal: AbortSignal },
+    options: {
+      readonly signal: AbortSignal;
+      readonly suggestions?: ReadonlyArray<PermissionUpdate>;
+    },
   ) => Promise<ToolPermission>;
+  /**
+   * How many tool calls have reached the gate so far, by either door — for
+   * the session's check that no call ran without it.
+   */
+  readonly sightings: () => number;
 }
 
 export const makeToolGate = (options: {
@@ -86,6 +130,8 @@ export const makeToolGate = (options: {
     return { runtimeMode: settings.runtimeMode, interactionMode: settings.interactionMode };
   };
 
+  let sightings = 0;
+
   const preToolUse = async (input: unknown): Promise<PreToolUseOutput> => {
     const record = (typeof input === "object" && input !== null ? input : {}) as {
       readonly hook_event_name?: unknown;
@@ -93,12 +139,14 @@ export const makeToolGate = (options: {
       readonly tool_input?: unknown;
     };
     if (record.hook_event_name !== "PreToolUse") return {};
+    sightings += 1;
     const toolName = typeof record.tool_name === "string" ? record.tool_name : "";
+    if (UNGATED_BY_HOOK.has(toolName)) return {};
     const verdict = await options
       .run(
         options.permissions
           .decide({
-            request: requestFor(toolName, record.tool_input),
+            request: approvalRequestFor(toolName, record.tool_input),
             threadId: options.threadId,
             ...modes(),
           })
@@ -114,17 +162,25 @@ export const makeToolGate = (options: {
     };
   };
 
-  const canUseTool: ToolGate["canUseTool"] = async (toolName, input, { signal }) => {
+  const canUseTool: ToolGate["canUseTool"] = async (toolName, input, { signal, suggestions }) => {
+    sightings += 1;
     if (signal.aborted) return { behavior: "deny", message: DENIED_BY_USER };
     try {
       const verdict = await options.run(
         options.gate.decide({
-          request: requestFor(toolName, input),
+          request: approvalRequestFor(toolName, input),
           threadId: options.threadId,
           ...modes(),
+          signal,
         }),
       );
-      if (verdict.allowed) return { behavior: "allow", updatedInput: input };
+      if (verdict.allowed) {
+        const updatedPermissions =
+          verdict.decision === "allow-session" ? sessionPermissions(suggestions) : [];
+        return updatedPermissions.length === 0
+          ? { behavior: "allow", updatedInput: input }
+          : { behavior: "allow", updatedInput: input, updatedPermissions };
+      }
       return {
         behavior: "deny",
         message: verdict.via === "user" ? DENIED_BY_USER : DENIED_BY_RULES,
@@ -134,5 +190,5 @@ export const makeToolGate = (options: {
     }
   };
 
-  return { preToolUse, canUseTool };
+  return { preToolUse, canUseTool, sightings: () => sightings };
 };
