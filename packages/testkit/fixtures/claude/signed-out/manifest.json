@@ -7,7 +7,7 @@
   "cliVersion": "2.1.280",
   "sdkVersion": "0.3.280",
   "recordedOn": "2026-09-23",
-  "model": "default",
+  "model": "claude-opus-5-5[1m]",
   "real": true,
   "prompts": ["Reply with the single word: ok"],
   "invocations": [
@@ -32,8 +32,8 @@
         "--allow-dangerously-skip-permissions",
         "--include-partial-messages",
         "--add-dir",
-        "/var/folders/fk/g7j37kcj0kd6sdfwg_czzrjh0000gn/T/claude-attachments-fs826G/01a0d087-6adf-7000-871a-15792629a5bd",
-        "--session-id=a352e9b4-f546-4a09-b359-d74abb95d57d"
+        "/var/folders/fk/g7j37kcj0kd6sdfwg_czzrjh0000gn/T/claude-attachments-G0dSn0/01a0d0a1-bcca-7000-bdec-046a4e2025bd",
+        "--session-id=514fcdda-0626-4e51-917a-a349254c757e"
       ],
       "cwd": "<SCRATCH>/signed-out",
       "file": "invocation-1.ndjson",

@@ -1,8 +1,8 @@
-{"dir":"from-harness","channel":"stdout","at":289,"data":"{"}
-{"dir":"from-harness","channel":"stdout","at":289,"data":"  \"loggedIn\": false,"}
-{"dir":"from-harness","channel":"stdout","at":289,"data":"  \"authMethod\": \"none\","}
-{"dir":"from-harness","channel":"stdout","at":290,"data":"  \"apiProvider\": \"firstParty\","}
-{"dir":"from-harness","channel":"stdout","at":290,"data":"  \"analyticsDisabled\": false,"}
-{"dir":"from-harness","channel":"stdout","at":290,"data":"  \"projectsDirectory\": \"<HOME>/.claude/projects\","}
-{"dir":"from-harness","channel":"stdout","at":290,"data":"  \"configDirectory\": \"<HOME>/.claude\""}
-{"dir":"from-harness","channel":"stdout","at":293,"data":"}"}
+{"dir":"from-harness","channel":"stdout","at":219,"data":"{"}
+{"dir":"from-harness","channel":"stdout","at":219,"data":"  \"loggedIn\": false,"}
+{"dir":"from-harness","channel":"stdout","at":219,"data":"  \"authMethod\": \"none\","}
+{"dir":"from-harness","channel":"stdout","at":219,"data":"  \"apiProvider\": \"firstParty\","}
+{"dir":"from-harness","channel":"stdout","at":220,"data":"  \"analyticsDisabled\": false,"}
+{"dir":"from-harness","channel":"stdout","at":220,"data":"  \"projectsDirectory\": \"<HOME>/.claude/projects\","}
+{"dir":"from-harness","channel":"stdout","at":220,"data":"  \"configDirectory\": \"<HOME>/.claude\""}
+{"dir":"from-harness","channel":"stdout","at":223,"data":"}"}
