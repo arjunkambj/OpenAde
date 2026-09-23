@@ -604,7 +604,9 @@ turns the flat item list into rows:
   inside that task's row.
 
 `apps/web/src/components/timeline/timeline-item.tsx` dispatches one component
-per `ItemKind`.
+per `ItemKind`. The list opens at its end and follows new rows while it sits
+there; scrolled more than half a screen away, it stops following and shows a
+round "Jump to latest" button at the bottom that scrolls back down.
 
 ### Closing the turn
 
