@@ -39,6 +39,7 @@ import {
 import type { ConnectorInstanceId, ProjectId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
 import { PROTOCOL_VERSION } from "@OpenAde/contracts/rpc";
 import type {
+  ConnectorDescriptor,
   ConnectorSummary,
   FileSearchResult,
   ModelOption,
@@ -388,6 +389,22 @@ export const makeFixtureClient = (): FixtureClient => {
     probe: { status: "ready", probedAt: NOW },
   };
 
+  /** What the fixture build "ships": the one connector kind above, with a form. */
+  const descriptor: ConnectorDescriptor = {
+    kind: connector.kind,
+    metadata: { displayName: "Fixture connector", iconKey: "terminal", accent: "#6b7280" },
+    configFields: [
+      {
+        key: "binaryPath",
+        label: "Binary path",
+        description: "Path to the harness binary. Leave empty to use the discovered one.",
+        control: "path",
+        placeholder: "harness",
+        optional: true,
+      },
+    ],
+  };
+
   const client = new Proxy({} as OpenAdeRpcClient, {
     get: (_target, key) => {
       switch (key) {
@@ -453,6 +470,8 @@ export const makeFixtureClient = (): FixtureClient => {
           return () => Effect.succeed([connector]);
         case "connectors.models":
           return () => Effect.succeed(FIXTURE_MODELS);
+        case "connectors.describe":
+          return () => Effect.succeed([descriptor]);
         case "cmdConfig.skills.list":
           return () => Effect.succeed(FIXTURE_SKILLS.filter((skill) => skill.enabled));
         case "keybindings.get":

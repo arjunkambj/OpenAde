@@ -1,0 +1,32 @@
+{
+  "kind": "fixture",
+  "metadata": {
+    "displayName": "Fixture harness",
+    "iconKey": "terminal",
+    "accent": "#6b7280",
+    "docsUrl": "https://harness.example/docs"
+  },
+  "configFields": [
+    {
+      "key": "binaryPath",
+      "label": "Binary path",
+      "description": "Path to the harness binary. Leave empty to use the discovered one.",
+      "control": "path",
+      "placeholder": "harness",
+      "optional": true
+    },
+    {
+      "key": "extraEnv",
+      "label": "Extra environment",
+      "description": "Variables added to every session this instance spawns.",
+      "control": "keyValue",
+      "optional": true
+    },
+    {
+      "key": "profile",
+      "label": "Profile",
+      "control": "text",
+      "optional": false
+    }
+  ]
+}

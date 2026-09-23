@@ -13,6 +13,7 @@
  */
 
 import type { ConnectorInstanceId, ConnectorKind } from "@OpenAde/contracts/ids";
+import type { ConnectorDescriptor } from "@OpenAde/contracts/rpc";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 import type * as Scope from "effect/Scope";
@@ -35,6 +36,12 @@ export interface OpenConnectorInput {
 export interface ConnectorRegistry {
   /** Every connector this build ships, in declaration order. */
   readonly definitions: ReadonlyArray<AnyConnectorDefinition>;
+  /**
+   * What `connectors.describe` answers: one entry per kind this build ships,
+   * in declaration order, with the metadata and config form the connectors
+   * page renders. A kind claimed twice is described once, like `definitionFor`.
+   */
+  readonly describe: ReadonlyArray<ConnectorDescriptor>;
   readonly definitionFor: (
     kind: ConnectorKind,
   ) => Effect.Effect<AnyConnectorDefinition, ConnectorNotFound>;
@@ -104,8 +111,20 @@ export const makeRegistry = (
         return created;
       });
 
+    const describe = definitions
+      .filter(
+        (definition, index) =>
+          definitions.findIndex((other) => other.kind === definition.kind) === index,
+      )
+      .map((definition): ConnectorDescriptor => ({
+        kind: definition.kind,
+        metadata: definition.metadata,
+        configFields: definition.configFields,
+      }));
+
     return {
       definitions,
+      describe,
       definitionFor,
       open,
       instance,

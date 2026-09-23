@@ -1,10 +1,13 @@
 /**
- * Renders a `Schema.Struct`'s fields from their `settingsForm` key
- * annotations — label, description and control all come from the schema, so a
+ * Renders a settings form from field descriptors — label, description and
+ * control, read off each field's `settingsForm` key annotation — so a
  * connector (or any settings struct) gets a form with zero bespoke JSX. The
- * value in flight is a plain `Record<string, unknown>`; `onFieldChange`
- * receives `undefined` to mean "leave the key absent", which is how optional
- * fields stay unset rather than written back as empty strings.
+ * descriptors come from `settingsFormFields` over a local struct
+ * (`StructForm`), or over the wire for a connector's config, whose schema
+ * never leaves the server (`connectors.describe`). The value in flight is a
+ * plain `Record<string, unknown>`; `onFieldChange` receives `undefined` to
+ * mean "leave the key absent", which is how optional fields stay unset rather
+ * than written back as empty strings.
  *
  * Controls: `text`/`path` commit on blur or Enter, `toggle`/`select` commit on
  * change, `keyValue` edits a `Record<string, string>` row-wise, `shortcut`
@@ -21,23 +24,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@OpenAde/ui/components/select";
-import type { SettingsFormField } from "@OpenAde/contracts/settings";
+import {
+  settingsFormFields,
+  type SettingsFormField,
+  type SettingsFormFieldDescriptor,
+} from "@OpenAde/contracts/settings";
 
 import { selectedOptionLabel } from "./select-label";
 import { isObject, isString } from "effect/Predicate";
-import * as Schema from "effect/Schema";
+import type * as Schema from "effect/Schema";
 import * as React from "react";
 
 export interface SelectOption {
   readonly value: string;
   readonly label: string;
 }
-
-/** The `settingsForm` key annotation on a struct field, when it has one. */
-const formFieldOf = (
-  field: Parameters<typeof Schema.resolveAnnotationsKey>[0],
-): SettingsFormField | undefined =>
-  Schema.resolveAnnotationsKey(field)?.["settingsForm"] as SettingsFormField | undefined;
 
 const stringValue = (value: unknown): string => (isString(value) ? value : "");
 
@@ -240,8 +241,7 @@ function ShortcutInput({
   );
 }
 
-export interface SchemaFormProps {
-  readonly schema: Schema.Struct<Schema.Struct.Fields>;
+interface FormProps {
   readonly value: Record<string, unknown>;
   readonly onFieldChange: (key: string, value: unknown) => void;
   /** Options for `select` controls — the page decides where choices come from. */
@@ -250,16 +250,17 @@ export interface SchemaFormProps {
   readonly skip?: ReadonlyArray<string>;
 }
 
-/** Every annotated, non-hidden field of the struct, in declaration order. */
-export function SchemaForm({ schema, value, onFieldChange, optionsFor, skip }: SchemaFormProps) {
+export interface SchemaFormProps extends FormProps {
+  readonly fields: ReadonlyArray<SettingsFormFieldDescriptor>;
+}
+
+/** Every non-hidden field descriptor, in the order given. */
+export function SchemaForm({ fields, value, onFieldChange, optionsFor, skip }: SchemaFormProps) {
   return (
     <div>
-      {Object.entries(schema.fields).map(([key, fieldSchema]) => {
-        if (skip !== undefined && skip.includes(key)) {
-          return null;
-        }
-        const field = formFieldOf(fieldSchema);
-        if (field === undefined || field.control === "hidden") {
+      {fields.map((field) => {
+        const key = field.key;
+        if (field.control === "hidden" || (skip !== undefined && skip.includes(key))) {
           return null;
         }
         const current = value[key];
@@ -337,4 +338,13 @@ export function SchemaForm({ schema, value, onFieldChange, optionsFor, skip }: S
       })}
     </div>
   );
+}
+
+/** `SchemaForm` over a struct this bundle holds, read through its annotations. */
+export function StructForm({
+  schema,
+  ...props
+}: FormProps & { readonly schema: { readonly fields: Schema.Struct.Fields } }) {
+  const fields = React.useMemo(() => settingsFormFields(schema), [schema]);
+  return <SchemaForm fields={fields} {...props} />;
 }

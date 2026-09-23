@@ -38,7 +38,7 @@ import { ConnectorSelection } from "../orchestration/SessionManager";
 import type { ThreadDoc } from "../orchestration/state";
 import { runMigrations } from "../persistence/Migrations";
 import { layer as sqliteLayer, testLayer as sqliteTestLayer } from "../persistence/Sqlite";
-import { SettingsStore } from "../rpc/services";
+import { ConnectorCatalog, SettingsStore } from "../rpc/services";
 import { ConnectorHost } from "./ConnectorHost";
 import { ConnectorManager, ConnectorRegistryService } from "./ConnectorManager";
 import {
@@ -50,6 +50,8 @@ import {
 
 interface Fixture {
   readonly manager: ConnectorManager["Service"];
+  /** The RPC-facing catalog over the same manager and registry. */
+  readonly catalog: ConnectorCatalog["Service"];
   readonly store: SettingsStore["Service"];
   readonly registry: ConnectorRegistry;
   /** How many times the wrapped definition's probe ran. */
@@ -71,6 +73,8 @@ const fixture = (
   > = sqliteTestLayer,
   /** Lets a test swap in a definition whose probe misbehaves. */
   wrap: (definition: AnyConnectorDefinition) => AnyConnectorDefinition = (definition) => definition,
+  /** Definitions registered after the fake one. */
+  extra: ReadonlyArray<AnyConnectorDefinition> = [],
 ) =>
   Effect.gen(function* () {
     // Anything the host writes — the attachments directory `install` creates —
@@ -88,15 +92,19 @@ const fixture = (
       probe: (config: unknown) =>
         erased.probe(config).pipe(Effect.tap(() => Ref.update(probes, (n) => n + 1))),
     });
-    const registry = yield* makeRegistry([counting]);
+    const registry = yield* makeRegistry([counting, ...extra]);
 
     const ctx = yield* Layer.build(
-      ConnectorManager.layer.pipe(
+      ConnectorManager.catalogLayer.pipe(
         Layer.provideMerge(
-          Layer.mergeAll(
-            SettingsStore.layer,
-            ConnectorHost.layer,
-            Layer.succeed(ConnectorRegistryService, registry),
+          ConnectorManager.layer.pipe(
+            Layer.provideMerge(
+              Layer.mergeAll(
+                SettingsStore.layer,
+                ConnectorHost.layer,
+                Layer.succeed(ConnectorRegistryService, registry),
+              ),
+            ),
           ),
         ),
         Layer.provide(sqlite),
@@ -104,6 +112,7 @@ const fixture = (
     );
     return {
       manager: Context.get(ctx, ConnectorManager),
+      catalog: Context.get(ctx, ConnectorCatalog),
       store: Context.get(ctx, SettingsStore),
       registry,
       probes,
@@ -133,7 +142,8 @@ const withFixture = <A, E>(
   run: (fixture: Fixture) => Effect.Effect<A, E>,
   makeSqliteLayer?: Parameters<typeof fixture>[0],
   wrap?: Parameters<typeof fixture>[1],
-) => Effect.scoped(Effect.flatMap(fixture(makeSqliteLayer, wrap), run));
+  extra?: Parameters<typeof fixture>[2],
+) => Effect.scoped(Effect.flatMap(fixture(makeSqliteLayer, wrap, extra), run));
 
 /** First summaries matching `pred`, replaying the current value — never a timer. */
 const awaitSummaries = (
@@ -165,12 +175,44 @@ describe("ConnectorManager", () => {
         );
         const seeded = summaries[0]!;
         expect(seeded.kind).toBe("fake");
+        // Named after the definition's own metadata.
+        expect(seeded.displayName).toBe("Fake");
         expect(seeded.enabled).toBe(true);
         expect(seeded.capabilities).not.toBeNull();
         expect(seeded.probe.modelCount).toBe(1);
         expect(yield* registry.instances).toHaveLength(1);
       }),
     ),
+  );
+
+  it.effect("describe lists every definition, configured or not", () =>
+    Effect.gen(function* () {
+      const other = yield* makeFakeConnector({
+        kind: "other",
+        metadata: { displayName: "Other", iconKey: "server", accent: "#123456" },
+      });
+      yield* withFixture(
+        ({ catalog }) =>
+          Effect.gen(function* () {
+            const described = yield* catalog.describe;
+            expect(described).toEqual([
+              {
+                kind: "fake",
+                metadata: { displayName: "Fake", iconKey: "terminal", accent: "#808080" },
+                configFields: [{ key: "label", label: "Label", control: "text", optional: true }],
+              },
+              {
+                kind: "other",
+                metadata: { displayName: "Other", iconKey: "server", accent: "#123456" },
+                configFields: [{ key: "label", label: "Label", control: "text", optional: true }],
+              },
+            ]);
+          }),
+        undefined,
+        undefined,
+        [eraseConnectorDefinition(other.definition)],
+      );
+    }),
   );
 
   it.effect("`ready` waits for the open instance, not for its probe", () =>

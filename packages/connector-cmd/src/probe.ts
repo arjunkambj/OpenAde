@@ -21,16 +21,21 @@
  */
 
 import { execFile } from "node:child_process";
-import type { CmdConnectorConfig } from "@OpenAde/contracts/settings";
 import type { ModelOption } from "@OpenAde/contracts/rpc";
-import { ACCOUNT_HELP_URL } from "@OpenAde/contracts/rpc";
 import type { ConnectorProbe } from "@OpenAde/connector-sdk/definition";
 import { ProbeFailed } from "@OpenAde/connector-sdk/definition";
 import * as Effect from "effect/Effect";
 
 import { resolveBinary, type ResolvedBinary } from "./binary";
+import type { CmdConnectorConfig } from "./configSchema";
 import { EXIT_MESSAGES } from "./exitCodes";
 import { envAllowlist } from "./spawn";
+
+/**
+ * Where an insufficient-credits probe sends the user: the page the CLI's own
+ * exit-10 message names (`exitCodes.ts`). Only this connector knows it.
+ */
+export const CMD_ACCOUNT_HELP_URL = "https://commandcode.ai/billing";
 
 /**
  * The oldest release the connector has been recorded against — the floor the
@@ -317,7 +322,7 @@ export const probe = (config: CmdConnectorConfig): Effect.Effect<ConnectorProbe,
         binaryPath: binary.display,
         message: EXIT_MESSAGES[INSUFFICIENT_CREDITS]!.message,
         auth: "present" as const,
-        helpUrl: ACCOUNT_HELP_URL,
+        helpUrl: CMD_ACCOUNT_HELP_URL,
         models: [],
         warnings: [],
       };

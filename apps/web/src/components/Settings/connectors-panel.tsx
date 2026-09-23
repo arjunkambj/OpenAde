@@ -2,8 +2,10 @@
  * The Connectors settings page body. Each configured instance is a card: its
  * `ConnectorSummary` supplies probe state (binary, version, auth, account,
  * model count) and its settings entry supplies the editable config — rendered
- * by `SchemaForm` straight off the connector's `settingsForm` annotations, so
- * this file contains no connector-kind-specific markup.
+ * by `SchemaForm` off the form fields its connector describes over
+ * `connectors.describe`, as are the name and docs link. So this file
+ * contains no connector-kind-specific markup, and a kind the server does not
+ * describe gets a card with no config form.
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
@@ -11,12 +13,8 @@ import { Button } from "@OpenAde/ui/components/button";
 import { Card, CardContent } from "@OpenAde/ui/components/card";
 import { Separator } from "@OpenAde/ui/components/separator";
 import { makeConnectorInstanceId } from "@OpenAde/contracts/ids";
-import type { ConnectorProbe, ConnectorSummary } from "@OpenAde/contracts/rpc";
-import {
-  CONNECTOR_CONFIG_SCHEMAS,
-  connectorConfigSchemaFor,
-  ConnectorInstanceConfig,
-} from "@OpenAde/contracts/settings";
+import type { ConnectorDescriptor, ConnectorProbe, ConnectorSummary } from "@OpenAde/contracts/rpc";
+import { ConnectorInstanceConfig } from "@OpenAde/contracts/settings";
 import * as Exit from "effect/Exit";
 import { isObject } from "effect/Predicate";
 import * as React from "react";
@@ -28,7 +26,7 @@ import { useAppAtoms } from "@/lib/app-runtime";
 import { openExternal } from "@/lib/desktop";
 
 import { helpUrlFor } from "./probe-help";
-import { SchemaForm, type SelectOption } from "./schema-form";
+import { SchemaForm, StructForm, type SelectOption } from "./schema-form";
 import { Add as AddIcon, Repeat, Spinner, Trash } from "@honeyicons/react";
 
 const PROBE_LABEL: Record<ConnectorProbe["status"], string> = {
@@ -49,7 +47,13 @@ const probeTone = (status: ConnectorProbe["status"]): string =>
 const asRecord = (value: unknown): Record<string, unknown> =>
   isObject(value) ? (value as Record<string, unknown>) : {};
 
-function ProbeLine({ probe }: { readonly probe: ConnectorProbe }) {
+function ProbeLine({
+  probe,
+  docsUrl,
+}: {
+  readonly probe: ConnectorProbe;
+  readonly docsUrl: string | null;
+}) {
   const details = [
     probe.binaryPath,
     probe.version === undefined ? undefined : `v${probe.version}`,
@@ -61,7 +65,7 @@ function ProbeLine({ probe }: { readonly probe: ConnectorProbe }) {
         ? "signed in"
         : "signed out",
   ].filter((part): part is string => part !== undefined);
-  const helpUrl = helpUrlFor(probe);
+  const helpUrl = helpUrlFor(probe, docsUrl);
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
@@ -87,11 +91,14 @@ function ProbeLine({ probe }: { readonly probe: ConnectorProbe }) {
 
 function ConnectorCard({
   conn,
+  descriptor,
   summary,
   onChange,
   onRemove,
 }: {
   readonly conn: ConnectorInstanceConfig;
+  /** What the server says about this kind; absent when it ships no such connector. */
+  readonly descriptor: ConnectorDescriptor | undefined;
   readonly summary: ConnectorSummary | undefined;
   readonly onChange: (next: ConnectorInstanceConfig) => void;
   readonly onRemove: () => void;
@@ -122,8 +129,6 @@ function ConnectorCard({
     onChange({ ...conn, config });
   };
 
-  const configSchema = connectorConfigSchemaFor(conn.kind);
-
   return (
     <Card size="sm">
       <CardContent className="flex flex-col">
@@ -133,7 +138,9 @@ function ConnectorCard({
             {conn.kind}
           </span>
           <span className="flex-1" />
-          {summary === undefined ? null : <ProbeLine probe={summary.probe} />}
+          {summary === undefined ? null : (
+            <ProbeLine probe={summary.probe} docsUrl={descriptor?.metadata.docsUrl ?? null} />
+          )}
           <Button
             variant="ghost"
             size="icon-sm"
@@ -144,17 +151,17 @@ function ConnectorCard({
           </Button>
         </div>
         <Separator />
-        <SchemaForm
+        <StructForm
           schema={ConnectorInstanceConfig}
           value={conn as unknown as Record<string, unknown>}
           onFieldChange={setField}
           skip={["kind", "config"]}
         />
-        {configSchema === undefined ? null : (
+        {descriptor === undefined || descriptor.configFields.length === 0 ? null : (
           <>
             <Separator />
             <SchemaForm
-              schema={configSchema}
+              fields={descriptor.configFields}
               value={asRecord(conn.config)}
               onFieldChange={setConfigField}
               optionsFor={() => modelOptions}
@@ -170,6 +177,7 @@ export function ConnectorsPanel() {
   const atoms = useAppAtoms();
   const settingsResult = useAtomValue(atoms.settingsAtom);
   const connectorsResult = useAtomValue(atoms.connectorsAtom);
+  const descriptorsResult = useAtomValue(atoms.connectorDescriptorsAtom);
   const updateSettings = useAtomSet(atoms.settingsUpdateAtom, { mode: "promiseExit" });
   const probeAll = useAtomSet(atoms.probeConnectorsAtom, { mode: "promise" });
   const [probing, setProbing] = React.useState(false);
@@ -179,6 +187,7 @@ export function ConnectorsPanel() {
   const settings = AsyncResult.isSuccess(settingsResult) ? settingsResult.value : null;
   const summaries = AsyncResult.isSuccess(connectorsResult) ? connectorsResult.value : [];
   const byInstanceId = new Map(summaries.map((s) => [s.connectorInstanceId, s]));
+  const descriptors = AsyncResult.isSuccess(descriptorsResult) ? descriptorsResult.value : [];
 
   const runProbe = async () => {
     setProbing(true);
@@ -206,9 +215,9 @@ export function ConnectorsPanel() {
     if (settings === null) {
       return;
     }
-    // Every registered config schema's fields are optional, so the empty
-    // record is a valid starting config; the connector fills defaults when it
-    // opens the instance.
+    // The empty record is the starting config: the connector's definition
+    // decodes it on load and fills its own defaults when it opens the
+    // instance.
     const entry: ConnectorInstanceConfig = {
       connectorInstanceId: makeConnectorInstanceId(),
       kind,
@@ -245,6 +254,7 @@ export function ConnectorsPanel() {
           <ConnectorCard
             key={conn.connectorInstanceId}
             conn={conn}
+            descriptor={descriptors.find((descriptor) => descriptor.kind === conn.kind)}
             summary={byInstanceId.get(conn.connectorInstanceId)}
             onChange={(next) =>
               void write(
@@ -281,15 +291,15 @@ export function ConnectorsPanel() {
       />
 
       <div className="flex flex-wrap gap-2">
-        {Object.entries(CONNECTOR_CONFIG_SCHEMAS).map(([kind, entry]) => (
+        {descriptors.map((descriptor) => (
           <Button
-            key={kind}
+            key={descriptor.kind}
             variant="outline"
             size="sm"
-            onClick={() => void addInstance(kind, entry.displayName)}
+            onClick={() => void addInstance(descriptor.kind, descriptor.metadata.displayName)}
           >
             <AddIcon />
-            Add {entry.displayName}
+            Add {descriptor.metadata.displayName}
           </Button>
         ))}
       </div>

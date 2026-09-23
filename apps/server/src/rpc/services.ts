@@ -10,6 +10,7 @@ import type {
   AgentSkill,
   BrowserHumanInput,
   BrowserState,
+  ConnectorDescriptor,
   ConnectorSummary,
   FileContent,
   FileSearchResult,
@@ -59,6 +60,8 @@ export class ConnectorCatalog extends Context.Service<
     /** `refresh` re-runs each connector's probe before answering. */
     readonly list: (refresh?: boolean) => Effect.Effect<ReadonlyArray<ConnectorSummary>>;
     readonly models: (instanceId: ConnectorInstanceId) => Effect.Effect<ReadonlyArray<ModelOption>>;
+    /** Every connector this build ships, configured or not, with its metadata and form. */
+    readonly describe: Effect.Effect<ReadonlyArray<ConnectorDescriptor>>;
   }
 >()("server/rpc/ConnectorCatalog") {
   static readonly empty = Layer.succeed(
@@ -66,6 +69,7 @@ export class ConnectorCatalog extends Context.Service<
     ConnectorCatalog.of({
       list: () => Effect.succeed([]),
       models: () => Effect.succeed([]),
+      describe: Effect.succeed([]),
     }),
   );
 }

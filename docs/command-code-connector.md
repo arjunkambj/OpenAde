@@ -201,10 +201,10 @@ The probe short-circuits on two of them:
 - Exit `3` returns `not-authenticated` with `auth: "absent"` and skips the
   model list — no turn can run until the user logs in.
 - Exit `10` returns `error` with `auth: "present"` and `helpUrl` set to
-  `ACCOUNT_HELP_URL` (`https://commandcode.ai/billing`, defined in
-  `packages/contracts/src/rpc.ts`). The credentials are good; what fixes this
-  is a billing page, and the connector is the only layer that knows its
-  address.
+  `CMD_ACCOUNT_HELP_URL` (`https://commandcode.ai/billing`, the page the CLI's
+  own exit-10 message names, defined in `packages/connector-cmd/src/probe.ts`).
+  The credentials are good; what fixes this is a billing page, and the
+  connector is the only layer that knows its address.
 
 Any other non-zero code with no `authenticated` field in the output reads as
 the table's sentence with the CLI's own stderr detail in brackets.

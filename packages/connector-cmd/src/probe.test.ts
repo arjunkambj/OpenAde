@@ -15,13 +15,13 @@ import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import * as NodeURL from "node:url";
-import { ACCOUNT_HELP_URL } from "@OpenAde/contracts/rpc";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import type * as Scope from "effect/Scope";
 
 import { EXIT_MESSAGES } from "./exitCodes";
 import {
+  CMD_ACCOUNT_HELP_URL,
   isBelowOldestTested,
   OLDEST_TESTED_VERSION,
   parseModelList,
@@ -340,7 +340,9 @@ process.exit(10);
       // Not "unknown": the login is fine, the balance is not — and the welcome
       // flow needs the difference to be able to offer a way forward.
       expect(result.auth).toBe("present");
-      expect(result.helpUrl).toBe(ACCOUNT_HELP_URL);
+      expect(result.helpUrl).toBe(CMD_ACCOUNT_HELP_URL);
+      // The link is the one the CLI's own message names, not one we made up.
+      expect(recordedCreditsError).toContain(CMD_ACCOUNT_HELP_URL);
       expect(result.message).toBe(EXIT_MESSAGES[10]!.message);
       expect(recordedCreditsError).toContain("insufficient credits");
     }),

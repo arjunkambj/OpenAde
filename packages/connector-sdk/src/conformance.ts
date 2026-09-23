@@ -94,7 +94,7 @@ export const runConnectorConformance = <Config>(
     return { instance, handle, collector };
   });
 
-  describe(`${definition.displayName} connector conformance`, () => {
+  describe(`${definition.metadata.displayName} connector conformance`, () => {
     it.effect("announces the session before it reports any work", () =>
       Effect.gen(function* () {
         const { handle, collector } = yield* open;

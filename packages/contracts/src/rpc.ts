@@ -30,7 +30,7 @@ import {
   ThreadSummary,
 } from "./orchestration";
 import { ConnectorCapabilities, FileChangeKind } from "./runtime";
-import { Keybinding, Settings, SettingsPatch } from "./settings";
+import { Keybinding, Settings, SettingsFormControl, SettingsPatch } from "./settings";
 
 // ── Errors ─────────────────────────────────────────────────────
 
@@ -118,13 +118,6 @@ export const ConnectorProbe = Schema.Struct({
 });
 export type ConnectorProbe = typeof ConnectorProbe.Type;
 
-/**
- * Where an auth-or-credits probe failure is resolved. A connector's probe can
- * point `helpUrl` somewhere more specific; the renderer falls back here, which
- * is also what keeps the connector's own domain name out of `apps/web`.
- */
-export const ACCOUNT_HELP_URL = "https://commandcode.ai/billing";
-
 /** A configured connector as the settings page and the model picker see it. */
 export const ConnectorSummary = Schema.Struct({
   connectorInstanceId: ConnectorInstanceId,
@@ -135,6 +128,48 @@ export const ConnectorSummary = Schema.Struct({
   probe: ConnectorProbe,
 });
 export type ConnectorSummary = typeof ConnectorSummary.Type;
+
+/**
+ * How a connector presents itself, from its own definition. `iconKey` names a
+ * generic icon (`"terminal"`, never a product's logo) the renderer maps to one
+ * it ships; `accent` is a CSS colour; `docsUrl` is where the connector's own
+ * documentation lives, and the fallback help link for a probe that failed on
+ * the account.
+ */
+export const ConnectorMetadata = Schema.Struct({
+  displayName: NonEmptyString,
+  iconKey: NonEmptyString,
+  accent: NonEmptyString,
+  docsUrl: Schema.optional(NonEmptyString),
+});
+export type ConnectorMetadata = typeof ConnectorMetadata.Type;
+
+/**
+ * One field of a connector's config form, read off the `settingsForm`
+ * annotation on its config schema (`settingsFormFields`). The schema itself
+ * stays on the server; this is all the renderer needs to draw the form.
+ */
+export const ConnectorConfigField = Schema.Struct({
+  key: NonEmptyString,
+  label: NonEmptyString,
+  description: Schema.optional(Schema.String),
+  control: SettingsFormControl,
+  placeholder: Schema.optional(Schema.String),
+  optional: Schema.Boolean,
+});
+export type ConnectorConfigField = typeof ConnectorConfigField.Type;
+
+/**
+ * A connector this build ships, whether or not an instance of it is
+ * configured: what the connectors page offers to add, and the form it renders
+ * for an instance of that kind.
+ */
+export const ConnectorDescriptor = Schema.Struct({
+  kind: ConnectorKind,
+  metadata: ConnectorMetadata,
+  configFields: Schema.Array(ConnectorConfigField),
+});
+export type ConnectorDescriptor = typeof ConnectorDescriptor.Type;
 
 /** One hit from the composer's `@` file search. */
 export const FileSearchResult = Schema.Struct({
@@ -428,6 +463,7 @@ export const RPC_METHODS = {
   threadsListSubscribe: "threads.listSubscribe",
   connectorsList: "connectors.list",
   connectorsModels: "connectors.models",
+  connectorsDescribe: "connectors.describe",
   filesSearch: "files.search",
   filesRead: "files.read",
   fsBrowse: "fs.browse",
@@ -521,6 +557,13 @@ const ConnectorsListRpc = Rpc.make(RPC_METHODS.connectorsList, {
 const ConnectorsModelsRpc = Rpc.make(RPC_METHODS.connectorsModels, {
   payload: Schema.Struct({ instanceId: ConnectorInstanceId }),
   success: Schema.Array(ModelOption),
+  error: OpenAdeRpcError,
+});
+
+/** Every connector this build ships, with its metadata and config form. */
+const ConnectorsDescribeRpc = Rpc.make(RPC_METHODS.connectorsDescribe, {
+  payload: empty,
+  success: Schema.Array(ConnectorDescriptor),
   error: OpenAdeRpcError,
 });
 
@@ -715,6 +758,7 @@ export const OpenAdeRpcGroup = RpcGroup.make(
   ThreadsListSubscribeRpc,
   ConnectorsListRpc,
   ConnectorsModelsRpc,
+  ConnectorsDescribeRpc,
   FilesSearchRpc,
   FilesReadRpc,
   FsBrowseRpc,

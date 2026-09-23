@@ -292,7 +292,7 @@ export class ConnectorManager extends Context.Service<
               connectors: registry.definitions.map((definition) => ({
                 connectorInstanceId: makeConnectorInstanceId(),
                 kind: definition.kind,
-                displayName: definition.displayName,
+                displayName: definition.metadata.displayName,
                 enabled: true,
                 config: definition.defaultConfig(),
               })),
@@ -373,14 +373,20 @@ export class ConnectorManager extends Context.Service<
     }),
   );
 
-  /** The RPC-facing catalog, answered from manager state. */
+  /**
+   * The RPC-facing catalog, answered from manager state — and, for
+   * `describe`, straight from the registry: what this build ships does not
+   * depend on what the settings document configures.
+   */
   static readonly catalogLayer = Layer.effect(
     ConnectorCatalog,
     Effect.gen(function* () {
       const manager = yield* ConnectorManager;
+      const registry = yield* ConnectorRegistryService;
       return ConnectorCatalog.of({
         list: (refresh) => manager.list(refresh),
         models: (instanceId) => manager.models(instanceId),
+        describe: Effect.succeed(registry.describe),
       });
     }),
   );

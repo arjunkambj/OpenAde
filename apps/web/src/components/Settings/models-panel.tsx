@@ -1,6 +1,6 @@
 /**
  * The Models page: `defaults` (model, effort, runtime mode) — what a new
- * thread starts with — rendered by `SchemaForm` off the schema's
+ * thread starts with — rendered by `StructForm` off the schema's
  * `settingsForm` annotations. Model options come from every enabled
  * connector's probe, effort and runtime mode from their contract enums.
  *
@@ -19,7 +19,7 @@ import { toast } from "sonner";
 
 import { describeExitError, useAppAtoms } from "@/lib/app-runtime";
 
-import { SchemaForm, type SelectOption } from "./schema-form";
+import { StructForm, type SelectOption } from "./schema-form";
 
 const enumOptions = (literals: ReadonlyArray<string>): ReadonlyArray<SelectOption> =>
   literals.map((value) => ({ value, label: value }));
@@ -69,7 +69,7 @@ export function ModelsPanel() {
 
       <Card size="sm">
         <CardContent>
-          <SchemaForm
+          <StructForm
             schema={SettingsDefaults}
             value={shown as unknown as Record<string, unknown>}
             onFieldChange={(key, value) => void setDefault(key, value)}

@@ -8,6 +8,8 @@
  *   `serverInstanceId` discards the cached snapshot entirely.
  * - `threadListAtom(projectId)` — the sidebar list.
  * - `projectsAtom`, `connectorsAtom`, `settingsAtom` — read models.
+ * - `connectorDescriptorsAtom` — every connector the server ships, with the
+ *   metadata and config form the connectors page renders.
  * - `connectionStateAtom` — the reconnecting banner's source.
  * - `dispatchAtom` — sends a `Command` and resolves with its receipt.
  * - `stageAttachmentAtom` / `attachmentAtom` — upload a composer image, and
@@ -25,6 +27,7 @@ import type {
   AttachmentBytes,
   BrowserHumanInput,
   BrowserState,
+  ConnectorDescriptor,
   ConnectorSummary,
   FileSearchResult,
   ModelOption,
@@ -245,6 +248,20 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
     { initialValue: [] as ReadonlyArray<ConnectorSummary> },
   );
 
+  /**
+   * What the server's build ships, configured or not. Fixed for the life of a
+   * server process, so one fetch per connected epoch is plenty.
+   */
+  const connectorDescriptorsAtom = runtime.atom(
+    perConnection(
+      Effect.gen(function* () {
+        const client = yield* (yield* Connection).client;
+        return yield* client["connectors.describe"]({});
+      }),
+    ),
+    { initialValue: [] as ReadonlyArray<ConnectorDescriptor> },
+  );
+
   const settingsAtom = runtime.atom(
     perConnectionStream(
       Effect.gen(function* () {
@@ -445,6 +462,7 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
     connectionStateAtom,
     projectsAtom,
     connectorsAtom,
+    connectorDescriptorsAtom,
     settingsAtom,
     threadDetailAtom,
     threadListAtom,

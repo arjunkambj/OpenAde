@@ -83,6 +83,7 @@ export const handlersLayer = OpenAdeRpcGroup.toLayer(
 
       "connectors.list": ({ refresh }) => connectors.list(refresh ?? false),
       "connectors.models": ({ instanceId }) => connectors.models(instanceId),
+      "connectors.describe": () => connectors.describe,
 
       "files.search": ({ projectId, query, limit }) => files.search(projectId, query, limit),
       "files.read": ({ projectId, path, offset, limit }) =>

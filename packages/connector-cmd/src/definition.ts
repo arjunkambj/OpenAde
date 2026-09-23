@@ -4,13 +4,12 @@
  * lives in the sibling modules this wires together. Sessions come back raw;
  * the engine's SessionManager adds the turn-scoped wrapper.
  */
-import type { CmdConnectorConfig } from "@OpenAde/contracts/settings";
-import { CmdConnectorConfig as CmdConnectorConfigSchema } from "@OpenAde/contracts/settings";
 import type { ConnectorDefinition, StartSessionInput } from "@OpenAde/connector-sdk/definition";
 import { SpawnFailed } from "@OpenAde/connector-sdk/definition";
 import * as Effect from "effect/Effect";
 
 import { resolveForSession } from "./binary";
+import { CmdConnectorConfig } from "./configSchema";
 import { probe as probeBinary } from "./probe";
 import { CMD_CAPABILITIES } from "./capabilities";
 import { makeCmdSession, type CmdSessionRef } from "./session";
@@ -44,8 +43,14 @@ const asSessionRef = (ref: unknown): CmdSessionRef | undefined => {
 
 export const cmdConnectorDefinition: ConnectorDefinition<CmdConnectorConfig> = {
   kind: CMD_KIND,
-  displayName: "Command Code",
-  configSchema: CmdConnectorConfigSchema as never,
+  metadata: {
+    displayName: "Command Code",
+    iconKey: "terminal",
+    accent: "#6e56cf",
+    // The docs root the CLI's own `--help` points at (fixtures/cmd/probe/help.stdout.txt).
+    docsUrl: "https://commandcode.ai/docs",
+  },
+  configSchema: CmdConnectorConfig,
   defaultConfig: () => ({}),
   probe: (config) => probeBinary(config),
   createInstance: ({ instanceId, config, services }) => {

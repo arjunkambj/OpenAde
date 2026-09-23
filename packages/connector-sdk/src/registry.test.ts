@@ -1,4 +1,5 @@
 import { makeConnectorInstanceId } from "@OpenAde/contracts/ids";
+import { settingsForm } from "@OpenAde/contracts/settings";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
@@ -21,7 +22,14 @@ const makeServices: Effect.Effect<ConnectorServices> = Effect.clockWith((clock) 
   }),
 );
 
-const StubConfig = Schema.Struct({ label: Schema.String });
+const StubConfig = Schema.Struct({
+  label: Schema.String.pipe(settingsForm({ label: "Label", control: "text" })),
+  binaryPath: Schema.optional(Schema.String).pipe(
+    settingsForm({ label: "Binary path", control: "path", placeholder: "stub" }),
+  ),
+  // No annotation, so no form field: nothing says how to render it.
+  retries: Schema.optional(Schema.Number),
+});
 type StubConfig = typeof StubConfig.Type;
 
 const idleHandle: SessionHandle = {
@@ -39,7 +47,7 @@ const idleHandle: SessionHandle = {
 /** A definition whose instances remember the label they were configured with. */
 const stubDefinition = (kind: string): ConnectorDefinition<StubConfig> => ({
   kind,
-  displayName: `Stub ${kind}`,
+  metadata: { displayName: `Stub ${kind}`, iconKey: "terminal", accent: "#808080" },
   configSchema: StubConfig,
   defaultConfig: () => ({ label: "default" }),
   probe: () =>
@@ -134,6 +142,36 @@ describe("makeRegistry", () => {
         })
         .pipe(Effect.flip);
       expect(error._tag).toBe("SpawnFailed");
+    }),
+  );
+
+  it.effect("describes each kind once, with its metadata and config form in order", () =>
+    Effect.gen(function* () {
+      const registry = yield* makeRegistry([
+        eraseConnectorDefinition(stubDefinition("stub")),
+        eraseConnectorDefinition(stubDefinition("other")),
+        // A second claim on a kind loses, here as in `definitionFor`.
+        eraseConnectorDefinition({
+          ...stubDefinition("stub"),
+          metadata: { displayName: "Shadowed", iconKey: "terminal", accent: "#000000" },
+        }),
+      ]);
+
+      expect(registry.describe.map((descriptor) => descriptor.kind)).toEqual(["stub", "other"]);
+      expect(registry.describe[0]).toEqual({
+        kind: "stub",
+        metadata: { displayName: "Stub stub", iconKey: "terminal", accent: "#808080" },
+        configFields: [
+          { key: "label", label: "Label", control: "text", optional: false },
+          {
+            key: "binaryPath",
+            label: "Binary path",
+            control: "path",
+            placeholder: "stub",
+            optional: true,
+          },
+        ],
+      });
     }),
   );
 

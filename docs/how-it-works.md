@@ -284,10 +284,13 @@ Exit codes decide the status (`packages/connector-cmd/src/exitCodes.ts`):
 | 10     | `error`, `auth: present` | insufficient credits, with `helpUrl` to the billing page     |
 | 1, 4–9 | `error`                  | the sentence from `EXIT_MESSAGES`, plus the harness's detail |
 
-`ACCOUNT_HELP_URL` (`https://commandcode.ai/billing`) lives in
-`packages/contracts/src/rpc.ts` so no connector's domain name reaches the
-renderer. `apps/web/src/components/Settings/probe-help.ts` decides which
-failures get a link at all, and `connectorReady` insists on
+The billing link (`CMD_ACCOUNT_HELP_URL`) and the docs link
+(`metadata.docsUrl`, `https://commandcode.ai/docs`) live in
+`packages/connector-cmd`, so no connector's domain name is written into the
+renderer: it receives the first as `ConnectorProbe.helpUrl` and the second over
+`connectors.describe`. `apps/web/src/components/Settings/probe-help.ts` decides
+which failures get a link at all — the probe's own `helpUrl`, or else the
+connector's docs link for an account-shaped failure — and `connectorReady` insists on
 `status === "ready" && auth !== "absent"` — an installed, reachable, signed-out
 CLI reports `ready`, and must not read as usable.
 
@@ -985,9 +988,12 @@ Settings
 ```
 
 Every field carries a `settingsForm` annotation — label, description, control —
-so the settings pages render from the schema and cannot drift from it. A new
-connector registers its config schema in `CONNECTOR_CONFIG_SCHEMAS` and needs no
-connector-specific markup.
+so the settings pages render from the schema and cannot drift from it. A
+connector's `config` is its own document: the connector's definition owns the
+schema, annotates its fields the same way, and the server describes the
+resulting form (with the connector's name, icon key and docs link) over
+`connectors.describe`. A new connector needs no connector-specific markup and
+no change to the contracts package.
 
 `permissions` is a projection, not a second store: the `permission_rules` table
 is the single source of truth, and a settings update that carries a

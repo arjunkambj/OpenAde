@@ -25,7 +25,13 @@ import type {
   TurnId,
 } from "@OpenAde/contracts/ids";
 import type { Attachment, Mention, ThreadSettings } from "@OpenAde/contracts/orchestration";
-import type { ConnectorProbe as WireConnectorProbe, ModelOption } from "@OpenAde/contracts/rpc";
+import type {
+  ConnectorConfigField,
+  ConnectorMetadata,
+  ConnectorProbe as WireConnectorProbe,
+  ModelOption,
+} from "@OpenAde/contracts/rpc";
+import { settingsFormFields } from "@OpenAde/contracts/settings";
 import type { UnknownRecord } from "@OpenAde/contracts/base";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
@@ -237,11 +243,24 @@ export interface CreateInstanceInput<Config> {
   readonly services: ConnectorServices;
 }
 
-/** A connector, as its package exports it. */
+/**
+ * A connector's config schema. It has to be a struct: its fields, through
+ * their `settingsForm` annotations, are the form the connectors page renders
+ * for an instance, so the renderer needs no connector-specific markup.
+ */
+export type ConnectorConfigSchema<Config> = Schema.Codec<Config, unknown> & {
+  readonly fields: Schema.Struct.Fields;
+};
+
+/**
+ * A connector, as its package exports it. `metadata` is how it presents itself
+ * — name, icon key, accent, docs link — so no layer above the connector has to
+ * know any of it.
+ */
 export interface ConnectorDefinition<Config> {
   readonly kind: ConnectorKind;
-  readonly displayName: string;
-  readonly configSchema: Schema.Codec<Config, unknown>;
+  readonly metadata: ConnectorMetadata;
+  readonly configSchema: ConnectorConfigSchema<Config>;
   readonly defaultConfig: () => Config;
   readonly probe: (config: Config) => Effect.Effect<ConnectorProbe, ProbeFailed>;
   readonly createInstance: (
@@ -257,7 +276,9 @@ export interface ConnectorDefinition<Config> {
  */
 export interface AnyConnectorDefinition {
   readonly kind: ConnectorKind;
-  readonly displayName: string;
+  readonly metadata: ConnectorMetadata;
+  /** The config schema's form, read once when the definition is erased. */
+  readonly configFields: ReadonlyArray<ConnectorConfigField>;
   readonly defaultConfig: () => unknown;
   readonly probe: (config: unknown) => Effect.Effect<ConnectorProbe, ProbeFailed>;
   readonly createInstance: (
@@ -277,7 +298,8 @@ export const eraseConnectorDefinition = <Config>(
   const decode = Schema.decodeUnknownEffect(definition.configSchema);
   return {
     kind: definition.kind,
-    displayName: definition.displayName,
+    metadata: definition.metadata,
+    configFields: settingsFormFields(definition.configSchema),
     defaultConfig: () => definition.defaultConfig(),
     probe: (config) =>
       decode(config).pipe(

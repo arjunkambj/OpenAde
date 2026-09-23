@@ -10,89 +10,88 @@
 
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
+import * as SchemaAST from "effect/SchemaAST";
 
 import { IsoDateTime, NonEmptyString } from "./base";
 import { DEFAULT_RUNTIME_MODE, Effort, RuntimeMode } from "./enums";
-import { CMD_CONNECTOR_KIND, ConnectorInstanceId, ConnectorKind, ProjectId, ThreadId } from "./ids";
+import { ConnectorInstanceId, ConnectorKind, ProjectId, ThreadId } from "./ids";
+
+/** Every control a settings field can be rendered with. `hidden` renders nothing. */
+export const SettingsFormControl = Schema.Literals([
+  "text",
+  "path",
+  "select",
+  "toggle",
+  "keyValue",
+  "shortcut",
+  "hidden",
+]);
+export type SettingsFormControl = typeof SettingsFormControl.Type;
 
 /** How one settings field is presented. Read by the settings pages, never by the server. */
 export interface SettingsFormField {
   readonly label: string;
   readonly description?: string;
-  readonly control: "text" | "path" | "select" | "toggle" | "keyValue" | "shortcut" | "hidden";
+  readonly control: SettingsFormControl;
   readonly placeholder?: string;
 }
 
 /**
  * Attaches a `settingsForm` annotation to the field a schema is used as. The
  * returned function stays generic so that piping through it preserves the
- * schema's own type, optionality included.
+ * schema's own type, optionality included. Exported so a connector package can
+ * annotate its own config schema the same way the documents here are.
  */
-const settingsForm =
+export const settingsForm =
   (field: SettingsFormField) =>
   <S extends Schema.Top>(self: S): S["Rebuild"] =>
     self.annotateKey({ settingsForm: field });
 
+/**
+ * One annotated field of a struct, read off its `settingsForm` annotation:
+ * what a form needs to render it without holding the schema. `optional` says
+ * the key may be absent, which is how a form knows that clearing it removes the
+ * key rather than writing an empty value.
+ */
+export interface SettingsFormFieldDescriptor extends SettingsFormField {
+  readonly key: string;
+  readonly optional: boolean;
+}
+
+/**
+ * Every field of `struct` that carries a `settingsForm` annotation, in
+ * declaration order, hidden ones included — the renderer skips those. A field
+ * with no annotation is left out: nothing says how to render it.
+ */
+export const settingsFormFields = (struct: {
+  readonly fields: Schema.Struct.Fields;
+}): ReadonlyArray<SettingsFormFieldDescriptor> =>
+  Object.entries(struct.fields).flatMap(([key, field]) => {
+    const form = Schema.resolveAnnotationsKey(field)?.["settingsForm"] as
+      | SettingsFormField
+      | undefined;
+    if (form === undefined) {
+      return [];
+    }
+    return [
+      {
+        key,
+        label: form.label,
+        ...(form.description === undefined ? {} : { description: form.description }),
+        control: form.control,
+        ...(form.placeholder === undefined ? {} : { placeholder: form.placeholder }),
+        optional: SchemaAST.isOptional(field.ast),
+      },
+    ];
+  });
+
 // ── Connector configuration ────────────────────────────────────
 
 /**
- * Command Code's own knobs. `binaryPath` is empty until the user overrides the
- * probe, `extraEnv` is merged into the allowlisted spawn environment, and
- * `defaultModel` is what a new thread on this instance starts with when the
- * app-wide default is unset — which it is until a probe has reported models.
- */
-export const CmdConnectorConfig = Schema.Struct({
-  binaryPath: Schema.optional(NonEmptyString).pipe(
-    settingsForm({
-      label: "Binary path",
-      description: "Path to the cmd binary. Leave empty to use the discovered one.",
-      control: "path",
-      placeholder: "cmd",
-    }),
-  ),
-  extraEnv: Schema.optional(Schema.Record(Schema.String, Schema.String)).pipe(
-    settingsForm({
-      label: "Extra environment",
-      description: "Variables added to every session this instance spawns.",
-      control: "keyValue",
-    }),
-  ),
-  defaultModel: Schema.optional(NonEmptyString).pipe(
-    settingsForm({
-      label: "Default model",
-      description: "Model new threads on this instance start with.",
-      control: "select",
-    }),
-  ),
-});
-export type CmdConnectorConfig = typeof CmdConnectorConfig.Type;
-
-/**
- * kind → the connector's config schema and the name to offer it under. The
- * settings form renders `schema.fields` through their `settingsForm`
- * annotations, so a connector's page needs zero connector-specific markup —
- * registering a schema here is all a new connector needs on the render side.
- * (The server-side definition validates `unknown` config through this schema.)
- */
-export interface ConnectorConfigSchemaEntry {
-  readonly displayName: string;
-  readonly schema: Schema.Struct<Schema.Struct.Fields>;
-}
-
-export const CONNECTOR_CONFIG_SCHEMAS: Readonly<Record<ConnectorKind, ConnectorConfigSchemaEntry>> =
-  {
-    [CMD_CONNECTOR_KIND]: { displayName: "Command Code", schema: CmdConnectorConfig },
-  };
-
-/** The config schema for a kind, when this build knows one. */
-export const connectorConfigSchemaFor = (
-  kind: ConnectorKind,
-): Schema.Struct<Schema.Struct.Fields> | undefined => CONNECTOR_CONFIG_SCHEMAS[kind]?.schema;
-
-/**
  * One configured connector. `config` is the connector's own settings document,
- * unmodelled here so that adding a connector does not widen this union —
- * the connector's definition owns its schema and validates it on load.
+ * unmodelled here so that adding a connector does not widen this union — the
+ * connector's definition owns its schema, validates it on load, and describes
+ * its form over `connectors.describe`.
  */
 export const ConnectorInstanceConfig = Schema.Struct({
   connectorInstanceId: ConnectorInstanceId.pipe(

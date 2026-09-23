@@ -19,7 +19,8 @@
 import { makeEventId, makeItemId, makeRequestId, makeTurnId } from "@OpenAde/contracts/ids";
 import type { ConnectorInstanceId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
 import type { ConnectorCapabilities, RuntimeEvent } from "@OpenAde/contracts/runtime";
-import type { ModelOption } from "@OpenAde/contracts/rpc";
+import type { ConnectorMetadata, ModelOption } from "@OpenAde/contracts/rpc";
+import { settingsForm } from "@OpenAde/contracts/settings";
 import type {
   ConnectorDefinition,
   ConnectorInstance,
@@ -408,7 +409,7 @@ const makeFakeSession = (input: FakeSessionInput): Effect.Effect<FakeSession, ne
 // ── The connector ──────────────────────────────────────────────
 
 export const FakeConnectorConfig = Schema.Struct({
-  label: Schema.optional(Schema.String),
+  label: Schema.optional(Schema.String).pipe(settingsForm({ label: "Label", control: "text" })),
 });
 export type FakeConnectorConfig = typeof FakeConnectorConfig.Type;
 
@@ -427,6 +428,9 @@ const DEFAULT_CAPABILITIES: ConnectorCapabilities = {
 
 export interface FakeConnectorOptions {
   readonly kind?: string;
+  /** Overrides the default metadata field by field. */
+  readonly metadata?: Partial<ConnectorMetadata>;
+  /** Shorthand for `metadata.displayName`. */
   readonly displayName?: string;
   readonly capabilities?: Partial<ConnectorCapabilities>;
   readonly models?: ReadonlyArray<ModelOption>;
@@ -488,7 +492,12 @@ export const makeFakeConnector = (
 
     const definition: ConnectorDefinition<FakeConnectorConfig> = {
       kind,
-      displayName: options.displayName ?? "Fake",
+      metadata: {
+        displayName: options.displayName ?? "Fake",
+        iconKey: "terminal",
+        accent: "#808080",
+        ...options.metadata,
+      },
       configSchema: FakeConnectorConfig,
       defaultConfig: () => ({}),
       probe: () => Effect.succeed(probe),

@@ -149,9 +149,11 @@ as contents. One path is exempt, `apps/web/src/components/ui/icons`, so a
 connector's own logo can ship under its own name; nothing lives there today.
 The renderer renders whichever connector is configured; a connector's name in a
 CSS class, an SVG title or a JSON label breaks that as surely as one in a string
-literal. This is why `ACCOUNT_HELP_URL` lives in
-`packages/contracts/src/rpc.ts` and why a connector's own help link arrives as
-`ConnectorProbe.helpUrl` rather than being written into a component.
+literal. This is why a connector's name, icon key and docs link arrive as
+`ConnectorMetadata` over `connectors.describe`, and a failing probe's own help
+link as `ConnectorProbe.helpUrl`, rather than being written into a component.
+The contracts package names no connector either: there is no kind constant and
+no connector config schema in it.
 
 **3. No barrels.** An `index` module anywhere under `packages/` is refused —
 `.ts`, `.tsx`, `.js`, `.jsx` or `.mjs`: a package exports one entry per module
@@ -665,8 +667,8 @@ is an idempotent `upserted`.
 ```ts
 interface ConnectorDefinition<Config> {
   kind: ConnectorKind;
-  displayName: string;
-  configSchema: Schema.Codec<Config, unknown>;
+  metadata: ConnectorMetadata; // displayName, iconKey, accent, docsUrl?
+  configSchema: Schema.Codec<Config, unknown> & { fields: Schema.Struct.Fields };
   defaultConfig: () => Config;
   probe: (config: Config) => Effect<ConnectorProbe, ProbeFailed>;
   createInstance: (input) => Effect<ConnectorInstance, ConnectorError, Scope>;
@@ -678,6 +680,20 @@ directly. `eraseConnectorDefinition` is the answer: it decodes the incoming
 `unknown` configuration through the connector's own schema at the boundary where
 the untyped value actually enters, and a configuration that does not fit fails
 as `ProbeFailed` or `SpawnFailed` for whichever operation needed it.
+
+A definition describes itself, so no layer above it has to. `metadata` is how
+it presents itself: `displayName` (what a new instance is named and the
+connectors page offers to add), `iconKey` (a generic glyph such as `terminal`,
+never a product's logo — the renderer maps it to an icon it ships and falls
+back to a generic one), `accent` (a colour, carried as data; the renderer keeps
+to the theme's tokens and does not paint it) and an optional `docsUrl`, which
+is also the renderer's fallback help link for a probe that failed on the
+account. `configSchema` must be a struct whose fields carry `settingsForm`
+annotations: erasure reads them once, with `settingsFormFields`, into
+`configFields`, the form the connectors page renders for an instance of that
+kind. The schema itself never leaves the server. `registry.describe` lists one
+`ConnectorDescriptor` (`kind`, `metadata`, `configFields`) per kind the build
+ships, in declaration order, and `connectors.describe` answers it.
 
 A `ConnectorInstance` is one _configured_ connector, live —
 `startSession`, `resumeSession`, `listModels`, plus its capabilities. Instances
@@ -829,6 +845,7 @@ the client in the terminal `incompatible` state.
 | `threads.listSubscribe`  | stream | The thread list, same shape                                                         |
 | `connectors.list`        | call   | Configured connectors with their cached probes; `refresh` re-probes                 |
 | `connectors.models`      | call   | The model picker's options for one instance                                         |
+| `connectors.describe`    | call   | Every connector the build ships: metadata and config form, configured or not        |
 | `files.search`           | call   | The composer's `@` file search                                                      |
 | `files.read`             | call   | A window of one file, with a `truncated` flag                                       |
 | `fs.browse`              | call   | Subfolders of one directory on the server's machine, for the folder picker          |

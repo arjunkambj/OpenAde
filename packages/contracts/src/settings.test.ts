@@ -4,7 +4,6 @@ import * as Schema from "effect/Schema";
 
 import { DEFAULT_RUNTIME_MODE } from "./enums";
 import {
-  CmdConnectorConfig,
   ConnectorInstanceConfig,
   DEFAULT_FONT_SIZE,
   DEFAULT_KEYBINDINGS,
@@ -13,6 +12,7 @@ import {
   PermissionRule,
   Settings,
   defaultSettings,
+  settingsFormFields,
 } from "./settings";
 
 /** Every field of a struct, with the `settingsForm` annotation it carries. */
@@ -89,7 +89,6 @@ describe("settingsForm annotations", () => {
         ["Settings", Settings],
         ["ConnectorInstanceConfig", ConnectorInstanceConfig],
         ["PermissionRule", PermissionRule],
-        ["CmdConnectorConfig", CmdConnectorConfig],
       ] as const);
       for (const [name, struct] of structs) {
         for (const [field, annotation] of formAnnotations(struct)) {
@@ -99,6 +98,38 @@ describe("settingsForm annotations", () => {
           ).toBeDefined();
         }
       }
+    }),
+  );
+
+  it.effect("settingsFormFields reads them in declaration order, optionality included", () =>
+    Effect.gen(function* () {
+      const fields = yield* Effect.sync(() => settingsFormFields(ConnectorInstanceConfig));
+      expect(fields.map((field) => [field.key, field.control, field.optional])).toEqual([
+        ["connectorInstanceId", "hidden", false],
+        ["kind", "select", false],
+        ["displayName", "text", false],
+        ["enabled", "toggle", false],
+        ["config", "hidden", false],
+      ]);
+      expect(fields[2]).toEqual({
+        key: "displayName",
+        label: "Name",
+        description: "How this instance is listed in the model picker.",
+        control: "text",
+        optional: false,
+      });
+      const rule = settingsFormFields(PermissionRule);
+      expect(rule.find((field) => field.key === "projectId")?.optional).toBe(true);
+      expect(rule.find((field) => field.key === "pattern")?.placeholder).toBe("Shell(npm run *)");
+    }),
+  );
+
+  it.effect("settingsFormFields leaves out a field nothing says how to render", () =>
+    Effect.gen(function* () {
+      const fields = yield* Effect.sync(() =>
+        settingsFormFields(Schema.Struct({ bare: Schema.String })),
+      );
+      expect(fields).toEqual([]);
     }),
   );
 

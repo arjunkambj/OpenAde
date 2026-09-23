@@ -126,9 +126,21 @@ describe("boot", () => {
         expect(written).toEqual(server);
         expect(server.url).not.toContain(":0/");
 
-        const hello = yield* (yield* client(server))["server.hello"]({});
+        const rpc = yield* client(server);
+        const hello = yield* rpc["server.hello"]({});
         expect(hello.serverInstanceId).toBe(server.serverInstanceId);
         expect(hello.protocolVersion).toBe(1);
+
+        // What the build ships is answered with no connector configured, and
+        // without probing anything: the form comes from the definition alone.
+        const described = yield* rpc["connectors.describe"]({});
+        expect(described.map((descriptor) => descriptor.kind)).toEqual(["cmd"]);
+        expect(described[0]?.metadata.displayName).toBe("Command Code");
+        expect(described[0]?.configFields.map((field) => field.key)).toEqual([
+          "binaryPath",
+          "extraEnv",
+          "defaultModel",
+        ]);
       }),
     ),
   );
