@@ -43,4 +43,4 @@ catalog:
   knip: ^6.35.1
 
 minimumReleaseAgeExclude:
-  - "@honeyicons/react@0.0.5"
+  - "@honeyicons/react@0.0.8"

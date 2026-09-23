@@ -17,7 +17,7 @@
     "@OpenAde/shared": "workspace:*",
     "@OpenAde/ui": "workspace:*",
     "@effect/atom-react": "catalog:",
-    "@honeyicons/react": "^0.0.5",
+    "@honeyicons/react": "^0.0.8",
     "@legendapp/list": "catalog:",
     "@pierre/diffs": "catalog:",
     "@tailwindcss/vite": "^4.3.3",

@@ -245,8 +245,8 @@ importers:
         specifier: 'catalog:'
         version: 4.0.0-rc.112(effect@4.0.0-rc.112)(react@19.3.0)(scheduler@0.27.0)
       '@honeyicons/react':
-        specifier: ^0.0.5
-        version: 0.0.5(react@19.3.0)
+        specifier: ^0.0.8
+        version: 0.0.8(react@19.3.0)
       '@legendapp/list':
         specifier: 'catalog:'
         version: 3.3.11(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -493,8 +493,8 @@ importers:
         specifier: ^1.6.0
         version: 1.8.0(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@honeyicons/react':
-        specifier: ^0.0.5
-        version: 0.0.5(react@19.3.0)
+        specifier: ^0.0.8
+        version: 0.0.8(react@19.3.0)
       '@hugeicons/core-free-icons':
         specifier: ^4.3.3
         version: 4.3.3
@@ -1017,8 +1017,8 @@ packages:
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
 
-  '@honeyicons/react@0.0.5':
-    resolution: {integrity: sha512-7b+/n+0hw/IY1R27IdIMwlGKaXy01MDz590Seo+m8FgulPRTCakleVxX9CNHkdj5uzA3E47q9xLNEYCHgzWrAA==}
+  '@honeyicons/react@0.0.8':
+    resolution: {integrity: sha512-3ltYlbmviqG7heNmK9KDdwS98C8PfoqRxUmiuZMZL8ejyw4LpKLIodAd71CdzRkZFn6e7c0pfu42+FaGCOdHZw==}
     engines: {node: '>=18'}
     peerDependencies:
       react: '>=18'
@@ -5880,7 +5880,7 @@ snapshots:
 
   '@floating-ui/utils@0.2.12': {}
 
-  '@honeyicons/react@0.0.5(react@19.3.0)':
+  '@honeyicons/react@0.0.8(react@19.3.0)':
     dependencies:
       react: 19.3.0
 
