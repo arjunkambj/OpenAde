@@ -1498,17 +1498,18 @@ deliberately stopped. A connector whose event stream outlives its close gets
 
 ## Where to look next
 
-| area                                   | start here                                                                                                                                    |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| the pieces, one by one                 | [architecture.md](architecture.md)                                                                                                            |
-| the rules and where they are enforced  | [philosophy.md](philosophy.md)                                                                                                                |
-| running, testing, packaging            | [development.md](development.md)                                                                                                              |
-| the CLI on the far end                 | [command-code-connector.md](command-code-connector.md)                                                                                        |
-| commands, events, read models          | `packages/contracts/src/orchestration.ts`                                                                                                     |
-| the connector-neutral event vocabulary | `packages/contracts/src/runtime.ts`                                                                                                           |
-| the RPC surface                        | `packages/contracts/src/rpc.ts`                                                                                                               |
-| the composition root                   | `apps/server/src/boot.ts`                                                                                                                     |
-| the decider                            | `apps/server/src/orchestration/decider.ts`                                                                                                    |
-| the Command Code session               | `packages/connector-cmd/src/session.ts`                                                                                                       |
-| what the real CLI does                 | `packages/testkit/fixtures/cmd/README.md`                                                                                                     |
-| the product, end to end                | `apps/server/test/e2e/` — ten scenarios over a real server, a real socket and either the real CLI (`OPENADE_LIVE_CMD=1`) or a recording of it |
+| area                                   | start here                                                                                                                                          |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| the pieces, one by one                 | [architecture.md](architecture.md)                                                                                                                  |
+| the rules and where they are enforced  | [philosophy.md](philosophy.md)                                                                                                                      |
+| running, testing, packaging            | [development.md](development.md)                                                                                                                    |
+| the CLI on the far end                 | [command-code-connector.md](command-code-connector.md)                                                                                              |
+| commands, events, read models          | `packages/contracts/src/orchestration.ts`                                                                                                           |
+| the connector-neutral event vocabulary | `packages/contracts/src/runtime.ts`                                                                                                                 |
+| the RPC surface                        | `packages/contracts/src/rpc.ts`                                                                                                                     |
+| the composition root                   | `apps/server/src/boot.ts`                                                                                                                           |
+| the decider                            | `apps/server/src/orchestration/decider.ts`                                                                                                          |
+| the Command Code session               | `packages/connector-cmd/src/session.ts`                                                                                                             |
+| what the real CLI does                 | `packages/testkit/fixtures/cmd/README.md`                                                                                                           |
+| the product, end to end                | `apps/server/test/e2e/` — ten scenarios over a real server, a real socket and either the real CLI (`OPENADE_LIVE_CMD=1`) or a recording of it       |
+| the same, on Claude Code               | `apps/server/test/e2e-claude/` — the Claude connector's scenarios, replayed, live (`OPENADE_LIVE_CLAUDE=1`) or recorded (`OPENADE_RECORD_CLAUDE=1`) |

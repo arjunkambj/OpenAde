@@ -1100,6 +1100,20 @@ and answers allow, deny, or — for "prompt" — ask, which routes the call to
 `canUseTool` and the shared approval gate's card. The hook runs in every
 permission mode, so "ask" outranks the CLI's own allow rules too.
 
+**Signed out.** A CLI that is not signed in answers each message with its own
+"Not logged in" line and an error result, without calling the API. The
+translator turns that into a fatal `runtime.error` naming the login command,
+as Command Code's exit 3 is: a fatal error is a row on the timeline, and
+nothing the thread sends will work until the user signs in. Other failed
+requests stay non-fatal, because the next message may well work.
+
+**Tests.** Every Claude recording is made through a real process boundary
+and replayed under the real SDK: `apps/server/test/e2e-claude/` through the
+whole server (replay, `OPENADE_LIVE_CLAUDE=1`, `OPENADE_RECORD_CLAUDE=1`),
+and the connector's conformance, recorded-frames and recorded-session suites
+without one. [development.md](development.md#the-claude-code-end-to-end-suite)
+has the drivers and the budget rules.
+
 ## The RPC surface
 
 One `RpcGroup` (`OpenAdeRpcGroup` in `packages/contracts/src/rpc.ts`) carried
@@ -1409,7 +1423,9 @@ Unit suites sit beside their subjects in every workspace. Above them:
 The end-to-end suite and the live conformance test have two drivers, differing
 only in the binary: the gate runs recordings through
 `packages/testkit/bin/replay-cmd.mjs`, and `OPENADE_LIVE_CMD=1` runs the
-operator's own `cmd`. [development.md](development.md#the-end-to-end-suite) has
+operator's own `cmd`. `apps/server/test/e2e-claude/` is the same suite on the
+Claude Code connector, over the `sdk-stream` replayer, with a third driver that
+records. [development.md](development.md#the-end-to-end-suite) has
 the commands and how a recording is made.
 
 `pnpm build` produces the server bundle, the web `dist` and the macOS app

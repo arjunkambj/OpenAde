@@ -342,6 +342,62 @@ OPENADE_LIVE_CMD=1 pnpm exec vitest run apps/server/src/hooks/cmdLiveConformance
 output. The browser equivalent is `OPENADE_LIVE_BROWSER=1` over
 `apps/server/src/browser/live.test.ts`, which spawns a real Chromium.
 
+### The Claude Code end-to-end suite
+
+`apps/server/test/e2e-claude/` is the same product-level suite on the Claude
+Code connector. It reuses the Command Code harness's homes, client, commands
+and view readers, and adds three drivers (`apps/server/test/e2e-claude/harness.ts`):
+
+- **replay**, the default and what the gate runs: the instance's `binaryPath`
+  is the `sdk-stream` replayer for the scenario's recording in
+  `packages/testkit/fixtures/claude/`. A green run must also have played its
+  recording out as recorded: the replayer appends any divergence to a log the
+  harness checks after the scenario, so a divergence the connector absorbed
+  still fails it.
+- **live**, `OPENADE_LIVE_CLAUDE=1`: the connector discovers your own `claude`
+  and spends your subscription. `OPENADE_LIVE_CLAUDE_CONFIG_DIR` points the
+  instance at a separate account (its `configDir`, which sets
+  `CLAUDE_CONFIG_DIR`; `HOME` is never redirected).
+- **record**, `OPENADE_RECORD_CLAUDE=1`: live through the stdio tee. When the
+  scenario passes and its scope has closed, the capture is finalised into
+  `fixtures/claude/<scenario>/` with the CLI version from the connector's own
+  probe, the SDK version from the package the connector imports, and the model
+  the CLI's `system/init` named. A recording run runs the record driver only.
+
+```sh
+pnpm exec vitest run apps/server/test/e2e-claude           # replay
+OPENADE_LIVE_CLAUDE=1 pnpm exec vitest run apps/server/test/e2e-claude
+OPENADE_RECORD_CLAUDE=1 pnpm -F server exec vitest run test/e2e-claude/turn.test.ts
+```
+
+| File                 | Recording         | Scenario                                                     |
+| -------------------- | ----------------- | ------------------------------------------------------------ |
+| `signed-out.test.ts` | `signed-out-turn` | a turn against a signed-out CLI: the probe and the error row |
+| `turn.test.ts`       | `plain-reply`     | a turn, from `project.create` to the answer on screen        |
+| `interrupt.test.ts`  | `interrupt`       | Stop after the first text, then the next message             |
+| `resume.test.ts`     | `resume`          | the server restarts and the conversation goes on             |
+
+A scenario whose recording has not been made yet is skipped under replay, and
+its title says so. `packages/testkit/fixtures/claude/README.md` lists which
+those are.
+
+Every driver runs the thread on the CLI's default model (thread model
+`default`, which leaves the SDK's `model` option out) and every session under
+`CLAUDE_LIMITS` (four turns, fifty cents), passed to the connector through
+`BootOptions.claudeCode`. A replay runs under the same caps, so its argv is the
+recorded one. The live and record drivers refuse any other thread model unless
+it is named in `OPENADE_CLAUDE_APPROVED_MODEL`. Replays and live runs make
+their homes under the system temp directory; a recording makes them, and keeps
+its raw capture, under `/tmp/openade-h1`.
+
+The connector's own suites replay the same fixtures without a server:
+`recordedFrames.test.ts` feeds every recorded session through the translator
+and fails on any frame it leaves unmapped; `recordedSession.test.ts` replays
+`plain-reply`'s session launch; `conformance.test.ts` runs
+`runConnectorConformance` against `conformance`, which is the suite itself
+recorded through the tee, one session launch per case
+(`OPENADE_RECORD_CLAUDE=1` on that file re-records it).
+
 ### Which models cost money
 
 `cmd --list-models` offers about seventy and most of them bill the account.
@@ -436,18 +492,21 @@ which lists each launch's scrubbed `argv` and `cwd`, its `file`, `exitCode` and
 `signal`. `loadSdkStreamRecording(kind, scenario)` reads a recording back with
 its frames.
 
-**Replaying.** `sdkStreamReplayer(kind).config(scenario, { tmpDir, pidDir? })`
+**Replaying.** `sdkStreamReplayer(kind).config(scenario, { tmpDir, pidDir?, divergenceLog? })`
 (`packages/testkit/src/replaySdkStream.ts`) returns `{ binaryPath }`: a
 launcher written into `tmpDir` with the scenario baked in, because the
 connector's environment is default-deny and cannot carry it.
 `bin/replay-sdk-stream.mjs` behind it behaves as follows:
 
 - **Choosing an invocation.** Each launch plays the first unplayed recorded
-  invocation of the same argv class: `--version`, `auth status`, a
+  invocation of the same argv class: `--version`, `auth status`, a probe's
+  `stream-json` handshake (a run with `--no-session-persistence`), a session's
   `stream-json` run, or else the exact argv. A counter in `tmpDir` keeps count,
   so the second session of a resume-after-restart test plays the second
-  recorded run. A probe asked again hears the last recorded answer again. A
-  stream launch with no recorded run left is a divergence.
+  recorded run whatever the probes did in between. A probe asked again — a
+  handshake included — hears the last recorded answer again, because how often
+  a server probes is its own business. A session launch with no recorded run
+  left is a divergence.
 - **Simple invocations** print their recorded stdout and stderr and exit with
   the recorded code.
 - **Stream runs** walk the frames in order. A frame from the harness is written
@@ -472,7 +531,10 @@ connector's environment is default-deny and cannot carry it.
   rewritten to carry the live id.
 - **Divergence is loud.** A line the recording does not have, stdin closing
   while the recording still expects input, or input after the recording has
-  ended prints both sides to stderr and exits **97**.
+  ended prints both sides to stderr and exits **97**. With `divergenceLog` it
+  also appends them to that file: a connector keeps its child's stderr to
+  itself, so a test checks the file to know a green run played the recording
+  out as recorded.
 - **Ending.** After the last frame the replay waits for stdin to close, then
   exits the way the recorded run did, by code or by signal. With `pidDir` it
   drops a pid file, so `isProcessGone` checks a real child.
@@ -493,13 +555,16 @@ node packages/testkit/scripts/record-cmd.mjs plan --model poolside/laguna-s-2.1-
 node packages/testkit/scripts/record-probe.mjs      # no model turns at all
 ```
 
-The Claude Code recorders are vitest files in `packages/connector-claude/test/`,
-skipped unless `OPENADE_RECORD_CLAUDE=1`:
+The Claude Code recorders are vitest files, skipped unless
+`OPENADE_RECORD_CLAUDE=1`. Scenarios that go through the server are recorded
+by the end-to-end suite's record driver (see "The Claude Code end-to-end suite"
+above); the connector-level ones are:
 
 ```sh
 OPENADE_RECORD_CLAUDE=1 pnpm -F @OpenAde/connector-claude vitest run test/recordProbe.test.ts
 OPENADE_HOME=/tmp/openade-h1 OPENADE_RECORD_CLAUDE=1 \
   pnpm -F @OpenAde/connector-claude vitest run test/recordSession.test.ts
+OPENADE_RECORD_CLAUDE=1 pnpm -F @OpenAde/connector-claude vitest run src/conformance.test.ts
 ```
 
 Each points the connector's `binaryPath` at the testkit's stdio tee, drives the
@@ -545,7 +610,14 @@ account and the MCP bearer:
   real bearer is; the connector's tests use `openade-test-bearer-0000` so their
   recordings show the redaction too.
 - The scratch root is taken as the parent of the first stream run's working
-  directory, spelled with and without macOS's `/private`.
+  directory, spelled with and without macOS's `/private`. A recorder whose
+  first stream run is a probe's handshake in the temp directory names its
+  scratch root itself.
+- The operator's own skills, commands and agents — every entry of the
+  harness's config directory's `skills/`, `commands/` and `agents/`
+  (`<home>/.claude` unless `configDir` says otherwise) — are listed by name in
+  the CLI's handshake and `system/init`. Each becomes `user-skill-<n>`: as a
+  list item, and as an object's `name`, whose `description` goes with it.
 
 ### When to re-record
 
