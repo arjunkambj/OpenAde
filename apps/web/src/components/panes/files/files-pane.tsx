@@ -109,7 +109,7 @@ function SearchBody({
   }
   const retry = (
     <Button type="button" variant="ghost" size="sm" onClick={onRetry}>
-      <Repeat className="size-3.5" />
+      <Repeat />
       Try again
     </Button>
   );
@@ -224,7 +224,7 @@ export function FilesPane({
               aria-label="Back to results"
               onClick={() => setOpenPath(null)}
             >
-              <ChevronLeft className="size-3.5" />
+              <ChevronLeft />
             </Button>
             <span className="min-w-0 truncate font-mono text-xs text-foreground" title={openPath}>
               {openPath}

@@ -56,13 +56,15 @@ export function Breadcrumb({
                 {index === 0 ? null : (
                   <span className="px-0.5 type-micro text-muted-foreground">/</span>
                 )}
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  tone="muted"
+                  size="xs"
                   onClick={() => onNavigate(crumb.path)}
-                  className="shrink-0 rounded-lg px-1 py-0.5 type-micro text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {crumb.label}
-                </button>
+                </Button>
               </React.Fragment>
             ))}
       </div>

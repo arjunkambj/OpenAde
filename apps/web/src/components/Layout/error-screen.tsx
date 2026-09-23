@@ -44,7 +44,7 @@ export function ErrorScreen({ error, reset }: { error: unknown; reset?: () => vo
       <div className="mt-1 flex items-center gap-2">
         {reset === undefined ? null : (
           <Button type="button" variant="outline" onClick={reset}>
-            <Repeat className="size-3.5" />
+            <Repeat />
             Try again
           </Button>
         )}

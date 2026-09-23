@@ -113,7 +113,7 @@ function BranchLine({ status, onRefresh }: { status: GitStatus | null; onRefresh
         className="ml-auto"
         onClick={onRefresh}
       >
-        <Repeat className="size-3.5" />
+        <Repeat />
       </Button>
     </div>
   );
@@ -310,7 +310,7 @@ function ChangesBody({
 }) {
   const retry = (
     <Button type="button" variant="ghost" size="sm" onClick={onRetry}>
-      <Repeat className="size-3.5" />
+      <Repeat />
       Try again
     </Button>
   );

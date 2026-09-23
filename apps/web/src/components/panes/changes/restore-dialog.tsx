@@ -103,7 +103,7 @@ export function RestoreCheckpointDialog({
         title={disabledReason ?? `Restore the worktree to ${label}`}
         onClick={() => setOpen(true)}
       >
-        <Undo className="size-3.5" />
+        <Undo />
         Restore
       </Button>
       <DialogContent>

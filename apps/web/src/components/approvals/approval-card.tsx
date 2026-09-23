@@ -167,15 +167,18 @@ export function ApprovalCard({
         </pre>
       )}
       <div className="flex min-w-0 flex-col gap-1.5">
-        <button
+        <Button
           type="button"
-          className="inline-flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          variant="ghost"
+          tone="muted"
+          size="xs"
+          className="-ml-2 self-start"
           onClick={() => setEditing((open) => !open)}
           aria-expanded={editing}
         >
-          {editing ? <ChevronDown className="size-3" /> : <ChevronUp className="size-3" />}
+          {editing ? <ChevronDown /> : <ChevronUp />}
           Rule saved by “Allow for session” / “Always allow”
-        </button>
+        </Button>
         {editing ? (
           <PatternEditor value={pattern} onChange={setPattern} subject={request} autoFocus />
         ) : (

@@ -49,13 +49,13 @@ export function AddressBar({ state, onAction }: AddressBarProps) {
   return (
     <div className="flex items-center gap-1.5 px-2 py-1.5">
       <Button variant="ghost" size="icon-sm" onClick={history("back")} aria-label="Back">
-        <ChevronLeft className="size-4" />
+        <ChevronLeft />
       </Button>
       <Button variant="ghost" size="icon-sm" onClick={history("forward")} aria-label="Forward">
-        <ChevronRight className="size-4" />
+        <ChevronRight />
       </Button>
       <Button variant="ghost" size="icon-sm" onClick={history("reload")} aria-label="Reload">
-        <Repeat className="size-4" />
+        <Repeat />
       </Button>
       <Input
         value={draft}

@@ -83,7 +83,7 @@ export function FilePreview({
 
   const retry = (
     <Button type="button" variant="ghost" size="sm" onClick={refresh}>
-      <Repeat className="size-3.5" />
+      <Repeat />
       Try again
     </Button>
   );
@@ -145,7 +145,7 @@ export function FilePreview({
               setVisited((stack) => stack.slice(0, -1));
             }}
           >
-            <ChevronUp className="size-3.5" />
+            <ChevronUp />
           </Button>
           <Button
             type="button"
@@ -158,7 +158,7 @@ export function FilePreview({
               setOffset(position.nextOffset);
             }}
           >
-            <ChevronDown className="size-3.5" />
+            <ChevronDown />
           </Button>
         </div>
       </div>

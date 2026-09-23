@@ -180,14 +180,16 @@ export function FolderPickerDialog({
             {completions.length === 0 ? null : (
               <div className="flex flex-wrap gap-1">
                 {completions.slice(0, 8).map((entry) => (
-                  <button
+                  <Button
                     key={entry.path}
                     type="button"
+                    variant="secondary"
+                    tone="muted"
+                    size="xs"
                     onClick={() => goTo(entry.path)}
-                    className="rounded-lg bg-hover px-1.5 py-0.5 type-micro text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {entry.name}
-                  </button>
+                  </Button>
                 ))}
               </div>
             )}
@@ -210,7 +212,7 @@ export function FolderPickerDialog({
               text={query.message}
               action={
                 <Button type="button" variant="ghost" size="sm" onClick={retry}>
-                  <Repeat className="size-3.5" />
+                  <Repeat />
                   Try again
                 </Button>
               }

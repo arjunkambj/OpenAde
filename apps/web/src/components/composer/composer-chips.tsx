@@ -13,6 +13,8 @@
 
 import * as React from "react";
 
+import { Button } from "@OpenAde/ui/components/button";
+
 import { Close, File as FileIcon } from "@honeyicons/react";
 
 /** A blob URL for `file` that is revoked when the component unmounts. */
@@ -39,14 +41,18 @@ function AttachmentChip({
       {url === "" ? null : (
         <img src={url} alt={file.name} title={file.name} className="size-full object-cover" />
       )}
-      <button
-        type="button"
-        aria-label={`Remove attachment ${file.name}`}
-        className="absolute top-0.5 right-0.5 rounded-full bg-background/80 p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-foreground"
-        onClick={onRemove}
-      >
-        <Close className="size-3" />
-      </button>
+      <span className="absolute top-0.5 right-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+        <Button
+          type="button"
+          variant="secondary"
+          size="icon-xs"
+          shape="pill"
+          aria-label={`Remove attachment ${file.name}`}
+          onClick={onRemove}
+        >
+          <Close />
+        </Button>
+      </span>
     </span>
   );
 }
@@ -70,18 +76,20 @@ export function ComposerChips({
       {mentions.map((path) => (
         <span
           key={path}
-          className="inline-flex max-w-56 items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs"
+          className="inline-flex h-6 max-w-56 items-center gap-1 rounded-md bg-muted pl-1.5 font-mono text-xs"
         >
           <FileIcon className="size-3 shrink-0 text-muted-foreground" />
           <span className="truncate">{path}</span>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            tone="muted"
+            size="icon-xs"
             aria-label={`Remove mention ${path}`}
-            className="text-muted-foreground hover:text-foreground"
             onClick={() => onRemoveMention(path)}
           >
-            <Close className="size-3" />
-          </button>
+            <Close />
+          </Button>
         </span>
       ))}
       {files.map((file, index) => (

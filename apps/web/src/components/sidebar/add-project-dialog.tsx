@@ -132,7 +132,7 @@ export function AddProjectDialog({
       <Dialog open={open} onOpenChange={setOpen}>
         {trigger === "button" ? (
           <DialogTrigger render={<Button type="button" disabled={disabled} />}>
-            <FolderAdd className="size-4" />
+            <FolderAdd />
             Add a project
           </DialogTrigger>
         ) : (

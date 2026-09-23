@@ -81,21 +81,17 @@ function DockTabButton({
 }) {
   const meta = TAB_META[tab];
   return (
-    <button
+    <Button
       type="button"
       role="tab"
       aria-selected={active}
+      variant={active ? "secondary" : "ghost"}
+      tone={active ? "default" : "muted"}
       onClick={() => onSelect(tab)}
-      className={cn(
-        "flex h-8 items-center gap-1.5 rounded-lg px-2.5 type-body outline-none transition-colors duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring",
-        active
-          ? "bg-hover font-medium text-foreground"
-          : "text-muted-foreground hover:text-foreground",
-      )}
     >
-      <meta.icon className="size-3.5" />
+      <meta.icon />
       {meta.label}
-    </button>
+    </Button>
   );
 }
 
