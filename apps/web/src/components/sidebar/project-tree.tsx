@@ -13,6 +13,11 @@
  * through `useProjectCollapsed`. The open thread stays listed under a folded
  * project, so the sidebar never loses track of where you are.
  *
+ * Archived threads are not listed: they live on Settings → Archived threads.
+ * The one exception is the thread that is open, which stays in place and looks
+ * archived, for the same reason and because its menu carries Unarchive — see
+ * `./visible-threads`.
+ *
  * Every row has an overflow menu, revealed on hover: rename/archive/delete for
  * a thread, remove for a project. Those four commands existed end to end —
  * decider, reactors, tests — with nothing in the UI that could send them, so
@@ -37,6 +42,7 @@ import { ProjectRowMenu } from "@/components/sidebar/project-menu";
 import { ThreadRowMenu } from "@/components/sidebar/thread-menu";
 import { isUnread, useThreadSeen } from "@/components/sidebar/thread-seen";
 import { threadStatusMark } from "@/components/sidebar/thread-status";
+import { sidebarThreads } from "@/components/sidebar/visible-threads";
 import { useCreateThread } from "@/lib/use-create-thread";
 import { cn } from "@/lib/utils";
 import { useConnectionState, useProjects, useThreadList } from "@/state/hooks";
@@ -96,6 +102,7 @@ function ThreadLink({ thread }: { thread: ThreadSummary }) {
             unread && "font-medium text-foreground",
             // Archiving is a real state change that the row otherwise showed
             // nothing for: `threadStatusMark` has no mark for it by design.
+            // Only the open thread can be listed while archived.
             thread.status === "archived" && "text-muted-foreground italic",
           )}
           title={thread.status === "archived" ? `${thread.title} (archived)` : undefined}
@@ -161,19 +168,35 @@ function NewThreadButton({
   );
 }
 
+function groupByProject(
+  threads: ReadonlyArray<ThreadSummary>,
+): ReadonlyMap<ProjectId, ThreadSummary[]> {
+  const map = new Map<ProjectId, ThreadSummary[]>();
+  for (const thread of threads) {
+    const list = map.get(thread.projectId) ?? [];
+    list.push(thread);
+    map.set(thread.projectId, list);
+  }
+  return map;
+}
+
 export function ProjectTree() {
   const projects = useProjects();
   const threads = useThreadList();
   const connection = useConnectionState();
+  const openRoute = useMatchRoute()({ to: "/t/$threadId" });
+  const openThreadId = openRoute === false ? null : openRoute.threadId;
+  const shown = React.useMemo(() => sidebarThreads(threads, openThreadId), [threads, openThreadId]);
 
-  const threadsByProject = React.useMemo(() => {
-    const map = new Map<ProjectId, ThreadSummary[]>();
+  const threadsByProject = React.useMemo(() => groupByProject(shown), [shown]);
+  // Removing a project deletes its archived threads too, so the removal copy
+  // counts every thread, not only the listed ones.
+  const threadCounts = React.useMemo(() => {
+    const counts = new Map<ProjectId, number>();
     for (const thread of threads) {
-      const list = map.get(thread.projectId) ?? [];
-      list.push(thread);
-      map.set(thread.projectId, list);
+      counts.set(thread.projectId, (counts.get(thread.projectId) ?? 0) + 1);
     }
-    return map;
+    return counts;
   }, [threads]);
 
   // Threads whose project is gone from the list still get a home.
@@ -181,7 +204,7 @@ export function ProjectTree() {
     () => new Set(projects.map((project) => project.projectId)),
     [projects],
   );
-  const orphanThreads = threads.filter((thread) => !knownProjects.has(thread.projectId));
+  const orphanThreads = shown.filter((thread) => !knownProjects.has(thread.projectId));
 
   return (
     <SidebarGroup padding="section" className="min-h-0 flex-1">
@@ -203,6 +226,7 @@ export function ProjectTree() {
               key={project.projectId}
               project={project}
               threads={threadsByProject.get(project.projectId) ?? []}
+              threadCount={threadCounts.get(project.projectId) ?? 0}
             />
           ))}
           {orphanThreads.length > 0 ? (
@@ -225,9 +249,11 @@ export function ProjectTree() {
 function ProjectSection({
   project,
   threads,
+  threadCount,
 }: {
   project: ProjectSummary;
   threads: ReadonlyArray<ThreadSummary>;
+  threadCount: number;
 }) {
   const [collapsed, setCollapsed] = useProjectCollapsed(project.projectId);
   const matchRoute = useMatchRoute();
@@ -263,7 +289,7 @@ function ProjectSection({
           <span className="ml-1.5 min-w-0 flex-1 truncate">{project.name}</span>
         </button>
         <span className="flex items-center opacity-0 transition-opacity duration-150 ease-out group-hover/project:opacity-100 group-focus-within/project:opacity-100 [&:has([data-popup-open])]:opacity-100">
-          <ProjectRowMenu project={project} threadCount={threads.length} />
+          <ProjectRowMenu project={project} threadCount={threadCount} />
           <NewThreadButton projectId={project.projectId} onCreated={() => setCollapsed(false)} />
         </span>
       </div>

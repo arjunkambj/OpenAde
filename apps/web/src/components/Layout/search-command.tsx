@@ -24,10 +24,12 @@ import {
   useKeybindingHandled,
   type ShortcutId,
 } from "@/lib/shortcuts";
+import { paletteThreads } from "@/components/Layout/palette-threads";
 import { useCreateThread } from "@/lib/use-create-thread";
 import { useProjects, useThreadList } from "@/state/hooks";
 import {
   Add,
+  Archive,
   Chat,
   Connect,
   Search as SearchIcon,
@@ -158,6 +160,9 @@ function ItemShortcut({ id }: { id?: ShortcutId }) {
  * The threads and projects the palette can reach. A palette in a multi-thread
  * app that cannot find a thread is a menu, so both lists come from the live
  * atoms; picking a project starts a thread through the one create flow.
+ *
+ * Archived threads are off the sidebar but stay reachable here, listed after
+ * the live ones, marked, and matched by typing "archived".
  */
 function LiveGroups({ onDone }: { onDone: () => void }) {
   const navigate = useNavigate();
@@ -174,22 +179,27 @@ function LiveGroups({ onDone }: { onDone: () => void }) {
         <>
           <CommandSeparator />
           <CommandGroup heading="Threads">
-            {threads.map((thread) => (
-              <CommandItem
-                key={thread.threadId}
-                value={`${thread.title} ${projectName(thread.projectId)} ${thread.threadId}`}
-                onSelect={() => {
-                  onDone();
-                  void navigate({ to: "/t/$threadId", params: { threadId: thread.threadId } });
-                }}
-              >
-                <Chat />
-                <span className="min-w-0 flex-1 truncate">{thread.title}</span>
-                <span className="shrink-0 type-micro text-muted-foreground">
-                  {projectName(thread.projectId)}
-                </span>
-              </CommandItem>
-            ))}
+            {paletteThreads(threads).map((thread) => {
+              const archived = thread.status === "archived";
+              return (
+                <CommandItem
+                  key={thread.threadId}
+                  value={`${thread.title} ${projectName(thread.projectId)} ${thread.threadId}${archived ? " archived" : ""}`}
+                  onSelect={() => {
+                    onDone();
+                    void navigate({ to: "/t/$threadId", params: { threadId: thread.threadId } });
+                  }}
+                >
+                  {archived ? <Archive /> : <Chat />}
+                  <span className="min-w-0 flex-1 truncate">{thread.title}</span>
+                  <span className="shrink-0 type-micro text-muted-foreground">
+                    {archived
+                      ? `Archived · ${projectName(thread.projectId)}`
+                      : projectName(thread.projectId)}
+                  </span>
+                </CommandItem>
+              );
+            })}
           </CommandGroup>
         </>
       )}
