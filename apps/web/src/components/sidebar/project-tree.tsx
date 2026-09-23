@@ -46,6 +46,7 @@ import { AddProjectDialog } from "@/components/sidebar/add-project-dialog";
 import { ProjectRowMenu } from "@/components/sidebar/project-menu";
 import { ThreadRow } from "@/components/sidebar/thread-row";
 import { sidebarThreads } from "@/components/sidebar/visible-threads";
+import { SHORTCUT_COMMANDS } from "@/lib/shortcuts";
 import { useCreateThread } from "@/lib/use-create-thread";
 import { useNow } from "@/lib/use-now";
 import { cn } from "@/lib/utils";
@@ -133,7 +134,10 @@ export function ProjectTree() {
     <SidebarGroup padding="section" className="min-h-0 flex-1">
       <div className="flex h-8 items-center gap-1">
         <SidebarGroupLabel className="h-auto flex-1">Projects</SidebarGroupLabel>
-        <AddProjectDialog disabled={connection.status !== "connected"} />
+        <AddProjectDialog
+          disabled={connection.status !== "connected"}
+          command={SHORTCUT_COMMANDS.addProject}
+        />
       </div>
       <SidebarGroupContent className="mt-1 min-h-0 overflow-y-auto [scrollbar-width:none]">
         {projects.length === 0 && orphanThreads.length === 0 ? (

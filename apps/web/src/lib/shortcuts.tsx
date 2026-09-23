@@ -43,6 +43,7 @@ export const SHORTCUT_COMMANDS = {
   newChat: "thread.new",
   skills: "skills.open",
   settings: "settings.open",
+  addProject: "project.add",
 } as const;
 
 export type ShortcutId = keyof typeof SHORTCUT_COMMANDS;

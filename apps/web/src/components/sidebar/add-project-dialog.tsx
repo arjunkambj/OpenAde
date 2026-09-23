@@ -30,20 +30,31 @@ import { makeCommandId, makeProjectId } from "@OpenAde/contracts/ids";
 import { FolderPickerDialog } from "@/components/folder-picker/folder-picker-dialog";
 import { hasNativePicker, pickDirectory } from "@/lib/desktop";
 import { isAccepted, rejectionMessage } from "@/lib/dispatch-outcome";
+import { useKeybindingCommand } from "@/lib/shortcuts";
 import { projectNameFromPath, workspacePathProblem } from "@/lib/workspace-path";
 import { useDispatchCommand } from "@/state/hooks";
 import { Close, Folder, FolderAdd } from "@honeyicons/react";
 
+/** Opens the dialog when `command` fires — mounted only while it may. */
+function OpenOnCommand({ command, onFire }: { command: string; onFire: () => void }) {
+  useKeybindingCommand(command, onFire);
+  return null;
+}
+
 /**
  * `icon` is the sidebar's ghost button; `button` is the labelled one the empty
- * start screen offers.
+ * start screen offers. `command` lets a keybinding or the palette open it too:
+ * only the sidebar's instance claims one, and only while it is enabled, so the
+ * palette offers "Add project" exactly where a click on the button would work.
  */
 export function AddProjectDialog({
   disabled,
   trigger = "icon",
+  command,
 }: {
   disabled?: boolean;
   trigger?: "icon" | "button";
+  command?: string;
 }) {
   const dispatch = useDispatchCommand();
   const [open, setOpen] = React.useState(false);
@@ -115,6 +126,9 @@ export function AddProjectDialog({
 
   return (
     <>
+      {command === undefined || disabled ? null : (
+        <OpenOnCommand command={command} onFire={() => setOpen(true)} />
+      )}
       <Dialog open={open} onOpenChange={setOpen}>
         {trigger === "button" ? (
           <DialogTrigger render={<Button type="button" disabled={disabled} />}>

@@ -6,39 +6,19 @@ import {
   Command,
   CommandDialog,
   CommandEmpty,
-  CommandGroup,
   CommandInput,
-  CommandItem,
   CommandList,
-  CommandSeparator,
-  CommandShortcut,
 } from "@OpenAde/ui/components/command";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import type { ProjectId } from "@OpenAde/contracts/ids";
 
 import {
-  SHORTCUT_COMMANDS,
-  ShortcutKbd,
-  useKeybindingCommand,
-  useKeybindingDispatch,
-  useKeybindingHandled,
-  type ShortcutId,
-} from "@/lib/shortcuts";
-import { paletteThreads } from "@/components/Layout/palette-threads";
-import { useCreateThread } from "@/lib/use-create-thread";
-import { useProjects, useThreadList } from "@/state/hooks";
-import {
-  Add,
-  Archive,
-  Chat,
-  Connect,
-  Search as SearchIcon,
-  Server,
-  Settings as SettingsIcon,
-  SidebarLeft,
-  Sparkles,
-  SquarePen,
-} from "@honeyicons/react";
+  ActionsGroup,
+  NavigationGroup,
+  SettingsGroup,
+  ThreadsGroup,
+} from "@/components/Layout/palette-groups";
+import { SHORTCUT_COMMANDS, ShortcutKbd, useKeybindingCommand } from "@/lib/shortcuts";
+import { Search as SearchIcon } from "@honeyicons/react";
 
 type SearchContextValue = {
   setOpen: (open: boolean) => void;
@@ -58,28 +38,6 @@ function useSearch() {
   }
   return context;
 }
-
-/**
- * Every entry here has to land on something real — a palette that navigates to
- * a blank pane is worse than one that is missing the entry.
- */
-const searchItems = [
-  {
-    to: "/",
-    icon: SquarePen,
-    label: "New task",
-    shortcut: "newChat",
-  },
-  { to: "/customize/skills", icon: Sparkles, label: "Skills" },
-  { to: "/customize/mcp", icon: Server, label: "MCP servers" },
-  { to: "/settings/connectors", icon: Connect, label: "Connectors" },
-  {
-    to: "/settings",
-    icon: SettingsIcon,
-    label: "Settings",
-    shortcut: "settings",
-  },
-] as const;
 
 /**
  * Mounted once at the app root, not inside a layout: these commands are
@@ -144,89 +102,6 @@ export function SearchTrigger({ className }: { className?: string }) {
   );
 }
 
-function ItemShortcut({ id }: { id?: ShortcutId }) {
-  if (!id) {
-    return null;
-  }
-
-  return (
-    <CommandShortcut>
-      <ShortcutKbd id={id} />
-    </CommandShortcut>
-  );
-}
-
-/**
- * The threads and projects the palette can reach. A palette in a multi-thread
- * app that cannot find a thread is a menu, so both lists come from the live
- * atoms; picking a project starts a thread through the one create flow.
- *
- * Archived threads are off the sidebar but stay reachable here, listed after
- * the live ones, marked, and matched by typing "archived".
- */
-function LiveGroups({ onDone }: { onDone: () => void }) {
-  const navigate = useNavigate();
-  const threads = useThreadList();
-  const projects = useProjects();
-  const { create } = useCreateThread();
-
-  const projectName = (projectId: ProjectId): string =>
-    projects.find((project) => project.projectId === projectId)?.name ?? "Other threads";
-
-  return (
-    <>
-      {threads.length === 0 ? null : (
-        <>
-          <CommandSeparator />
-          <CommandGroup heading="Threads">
-            {paletteThreads(threads).map((thread) => {
-              const archived = thread.status === "archived";
-              return (
-                <CommandItem
-                  key={thread.threadId}
-                  value={`${thread.title} ${projectName(thread.projectId)} ${thread.threadId}${archived ? " archived" : ""}`}
-                  onSelect={() => {
-                    onDone();
-                    void navigate({ to: "/t/$threadId", params: { threadId: thread.threadId } });
-                  }}
-                >
-                  {archived ? <Archive /> : <Chat />}
-                  <span className="min-w-0 flex-1 truncate">{thread.title}</span>
-                  <span className="shrink-0 type-micro text-muted-foreground">
-                    {archived
-                      ? `Archived · ${projectName(thread.projectId)}`
-                      : projectName(thread.projectId)}
-                  </span>
-                </CommandItem>
-              );
-            })}
-          </CommandGroup>
-        </>
-      )}
-      {projects.length === 0 ? null : (
-        <>
-          <CommandSeparator />
-          <CommandGroup heading="Start a thread">
-            {projects.map((project) => (
-              <CommandItem
-                key={project.projectId}
-                value={`New thread in ${project.name}`}
-                onSelect={() => {
-                  onDone();
-                  void create(project.projectId);
-                }}
-              >
-                <Add />
-                New thread in {project.name}
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        </>
-      )}
-    </>
-  );
-}
-
 function SearchDialog({
   open,
   onOpenChange,
@@ -234,12 +109,7 @@ function SearchDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const navigate = useNavigate();
-  const fire = useKeybindingDispatch();
-  // Read on mount, and this content mounts on every open: a route whose
-  // layout has no collapsible sidebar gets no row for it, instead of a row
-  // that quietly does nothing.
-  const canToggleSidebar = useKeybindingHandled(SHORTCUT_COMMANDS.toggle);
+  const done = () => onOpenChange(false);
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange} title="Search">
@@ -247,41 +117,10 @@ function SearchDialog({
         <CommandInput placeholder="Search threads and commands…" />
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
-          <CommandGroup heading="Navigation">
-            {searchItems.map((item) => (
-              <CommandItem
-                key={item.label}
-                value={item.label}
-                onSelect={() => {
-                  onOpenChange(false);
-                  void navigate({ to: item.to });
-                }}
-              >
-                <item.icon />
-                {item.label}
-                <ItemShortcut id={"shortcut" in item ? item.shortcut : undefined} />
-              </CommandItem>
-            ))}
-          </CommandGroup>
-          {canToggleSidebar ? (
-            <>
-              <CommandSeparator />
-              <CommandGroup heading="View">
-                <CommandItem
-                  value="Toggle sidebar"
-                  onSelect={() => {
-                    onOpenChange(false);
-                    fire(SHORTCUT_COMMANDS.toggle);
-                  }}
-                >
-                  <SidebarLeft />
-                  Toggle sidebar
-                  <ItemShortcut id="toggle" />
-                </CommandItem>
-              </CommandGroup>
-            </>
-          ) : null}
-          <LiveGroups onDone={() => onOpenChange(false)} />
+          <NavigationGroup onDone={done} />
+          <ActionsGroup onDone={done} />
+          <SettingsGroup onDone={done} />
+          <ThreadsGroup onDone={done} />
         </CommandList>
       </Command>
     </CommandDialog>

@@ -25,6 +25,9 @@ const ITEMS = [
   { to: "/settings/archived", label: "Archived threads", icon: Archive },
 ] as const;
 
+/** The settings pages, for the command palette's deep links. */
+export { ITEMS as SETTINGS_PAGES };
+
 export function SettingsSidebar() {
   const matchRoute = useMatchRoute();
 
