@@ -665,7 +665,7 @@ approval gate → PermissionService.decide(...)
    ├─ deny   → { permissionDecision: "deny", reason: "denied by OpenAde permission rules" }
    └─ prompt → emit request.opened, park on a Deferred
                  │
-                 │  thread.approval.opened → card in the timeline
+                 │  thread.approval.opened → card docked above the composer
                  │  user answers → thread.approval.respond
                  │  → thread.approval.resolved → handle.respondToRequest
                  ▼
