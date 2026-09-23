@@ -81,6 +81,21 @@ export const applyThreadEvent = (
       return { ...doc, title: payload.title as string, updatedAt: event.occurredAt };
     case "thread.archived":
       return { ...doc, status: "archived", updatedAt: event.occurredAt };
+    case "thread.unarchived":
+      // Mirrors the server's fold in apps/server/src/orchestration/state.ts.
+      // Archiving closed the session, so an approval or question still open
+      // was asked by a process that is gone — both cards come down, and the
+      // turn with them. The session, the queue and a pending plan stay: the
+      // next turn resumes through the session, and a plan still waits for
+      // its answer.
+      return {
+        ...doc,
+        pendingApproval: null,
+        pendingUserInput: null,
+        currentTurnId: null,
+        status: waitingOr({ ...doc, pendingApproval: null, pendingUserInput: null }, "idle"),
+        updatedAt: event.occurredAt,
+      };
     case "thread.deleted":
       // Not the same as archived: the thread is gone from the server, so an
       // open timeline has to say so (and the route can redirect) instead of

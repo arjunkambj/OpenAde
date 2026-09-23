@@ -117,6 +117,48 @@ describe("clientState fold", () => {
     expect(deleted.currentTurnId).toBeNull();
   });
 
+  it("brings an unarchived thread back as idle", () => {
+    const archived = applyThreadEvent(snapshot(), event("thread.archived", {}));
+    const doc = applyThreadEvent(archived, event("thread.unarchived", {}));
+    expect(doc.status).toBe("idle");
+    expect(doc.currentTurnId).toBeNull();
+  });
+
+  it("drops the open questions when a thread is unarchived", () => {
+    // Archiving closed the session, so the cards were asked by a process
+    // that is gone. The server's fold drops them on unarchive; a client that
+    // kept them would show an unanswerable approval on a revived thread.
+    let doc = applyThreadEvent(
+      snapshot(),
+      event("thread.approval.opened", {
+        request: { requestId: "r1", kind: "file_write", summary: "write" },
+      }),
+    );
+    doc = applyThreadEvent(
+      doc,
+      event("thread.userInput.requested", { requestId: "q1", questions: [] }),
+    );
+    doc = applyThreadEvent(doc, event("thread.archived", {}));
+    expect(doc.pendingApproval).not.toBeNull();
+
+    doc = applyThreadEvent(doc, event("thread.unarchived", {}));
+    expect(doc.pendingApproval).toBeNull();
+    expect(doc.pendingUserInput).toBeNull();
+    expect(doc.status).toBe("idle");
+  });
+
+  it("keeps a pending plan across unarchive and waits on it", () => {
+    const turnId = makeTurnId();
+    let doc = applyThreadEvent(
+      snapshot(),
+      event("thread.plan.proposed", { turnId, planMarkdown: "# plan" }),
+    );
+    doc = applyThreadEvent(doc, event("thread.archived", {}));
+    doc = applyThreadEvent(doc, event("thread.unarchived", {}));
+    expect(doc.pendingPlan?.turnId).toBe(turnId);
+    expect(doc.status).toBe("waiting");
+  });
+
   it("tracks a checkpoint restore from order to outcome", () => {
     // The server's own `restoring` flag is not on the wire, so these three
     // events are the only way the pane can tell "queued" from "running" from
