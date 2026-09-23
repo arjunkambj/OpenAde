@@ -1,5 +1,8 @@
+import { DEFAULT_KEYBINDINGS, Settings, defaultSettings } from "@OpenAde/contracts/settings";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
+import * as Migrator from "effect/unstable/sql/Migrator";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
 import { migrations, runMigrations } from "./Migrations";
@@ -80,5 +83,105 @@ describe("migrations", () => {
       );
       expect(duplicate).toBe("conflict");
     }).pipe(Effect.provide(testLayer())),
+  );
+});
+
+describe("0006_terminal_keybinding", () => {
+  const TOGGLE = { command: "terminal.toggle", shortcut: "Cmd+J" };
+
+  /** Every migration before 0006, so a row can be stored the way an older build left it. */
+  const upTo0005 = Migrator.make({})({
+    loader: Migrator.fromRecord(
+      Object.fromEntries(
+        Object.entries(migrations).filter(([key]) => Number(key.split("_")[0]) < 6),
+      ),
+    ),
+    table: "schema_migrations",
+  });
+
+  /** Stores `row` (or nothing) as the settings document, runs 0006 and returns the document after. */
+  const migrate = (row: string | null) =>
+    Effect.gen(function* () {
+      const sql = yield* SqlClient.SqlClient;
+      yield* upTo0005;
+      if (row !== null) {
+        yield* sql`
+          INSERT INTO settings (key, value_json, updated_at)
+          VALUES ('settings', ${row}, '2026-01-01T00:00:00.000Z')
+        `;
+      }
+      const applied = yield* runMigrations;
+      expect(applied.map(([id]) => id)).toContain(6);
+      const rows = yield* sql<{ readonly value_json: string }>`
+        SELECT value_json FROM settings WHERE key = 'settings'
+      `;
+      return rows[0]?.value_json ?? null;
+    }).pipe(Effect.provide(testLayer()));
+
+  const stored = (keybindings: unknown) =>
+    JSON.stringify({ theme: "dark", keybindings, permissions: [] });
+
+  it.effect("appends the toggle to a table saved before the terminal existed", () =>
+    Effect.gen(function* () {
+      const before = [
+        { command: "thread.new", shortcut: "Cmd+N" },
+        { command: "browserPane.toggle", shortcut: "Cmd+Shift+B", when: "browserPaneAvailable" },
+      ];
+      const after = yield* migrate(stored(before));
+      expect(JSON.parse(after!)).toEqual({
+        theme: "dark",
+        keybindings: [...before, TOGGLE],
+        permissions: [],
+      });
+    }),
+  );
+
+  it.effect("brings a stored default table up to today's defaults", () =>
+    Effect.gen(function* () {
+      const older = {
+        ...defaultSettings(),
+        keybindings: DEFAULT_KEYBINDINGS.filter((binding) => binding.command !== TOGGLE.command),
+      };
+      const after = yield* migrate(JSON.stringify(older));
+      const decoded = Schema.decodeUnknownSync(Schema.fromJsonString(Settings))(after);
+      expect(decoded.keybindings).toEqual(DEFAULT_KEYBINDINGS);
+    }),
+  );
+
+  it.effect("leaves a table alone when Cmd+J already does something else", () =>
+    Effect.gen(function* () {
+      for (const shortcut of ["Cmd+J", " cmd + j ", "Mod+J"]) {
+        const row = stored([{ command: "thread.new", shortcut }]);
+        expect(yield* migrate(row)).toBe(row);
+      }
+    }),
+  );
+
+  it.effect("leaves a table alone when it already binds the toggle", () =>
+    Effect.gen(function* () {
+      const row = stored([{ command: "terminal.toggle", shortcut: "Cmd+Shift+T" }]);
+      expect(yield* migrate(row)).toBe(row);
+    }),
+  );
+
+  it.effect("leaves an empty table to the renderer's defaults", () =>
+    Effect.gen(function* () {
+      const row = stored([]);
+      expect(yield* migrate(row)).toBe(row);
+    }),
+  );
+
+  it.effect("writes nothing on a fresh install", () =>
+    Effect.gen(function* () {
+      expect(yield* migrate(null)).toBeNull();
+    }),
+  );
+
+  it.effect("leaves a row it cannot parse to the unreadable-row path", () =>
+    Effect.gen(function* () {
+      for (const row of ["{not json", "[]", JSON.stringify({ theme: "dark" })]) {
+        expect(yield* migrate(row)).toBe(row);
+      }
+    }),
   );
 });

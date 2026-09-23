@@ -1695,6 +1695,7 @@ fields entirely.
 | `sidebar.toggle`        | `Cmd+B`       |
 | `skills.open`           | `Cmd+Shift+S` |
 | `settings.open`         | `Cmd+,`       |
+| `terminal.toggle`       | `Cmd+J`       |
 
 `Cmd` is the platform modifier — Meta on macOS and iOS, Ctrl elsewhere — so one
 stored binding works on every keyboard; `Ctrl` always means the physical Control
@@ -1721,7 +1722,12 @@ hand it back in order instead of blanking it
 An empty table in the settings document falls back to `DEFAULT_KEYBINDINGS`,
 because a renderer with no shortcuts at all is indistinguishable from a bug;
 once the table holds any row it is authoritative, so a binding the user removed
-stays removed. The editor shows that same effective table rather than the raw
+stays removed. That also means a new default never reaches someone who has saved
+settings once, so a default added later arrives through a one-time migration:
+`0006_terminal_keybinding` appends `terminal.toggle` → `Cmd+J` to a stored,
+non-empty table that neither binds the command nor uses the chord, and leaves
+every other document untouched. Running once is the point — a user who then
+removes the binding keeps it removed. The editor shows that same effective table rather than the raw
 one — showing the empty list would let someone add one row, save, and silently
 unbind everything else.
 

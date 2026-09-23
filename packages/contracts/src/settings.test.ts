@@ -63,6 +63,7 @@ describe("DEFAULT_KEYBINDINGS", () => {
       expect(byCommand.get("sidebar.toggle")).toBe("Cmd+B");
       expect(byCommand.get("skills.open")).toBe("Cmd+Shift+S");
       expect(byCommand.get("settings.open")).toBe("Cmd+,");
+      expect(byCommand.get("terminal.toggle")).toBe("Cmd+J");
     }),
   );
 

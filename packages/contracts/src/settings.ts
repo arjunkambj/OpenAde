@@ -195,6 +195,7 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<Keybinding> = [
   { command: "sidebar.toggle", shortcut: "Cmd+B" },
   { command: "skills.open", shortcut: "Cmd+Shift+S" },
   { command: "settings.open", shortcut: "Cmd+," },
+  { command: "terminal.toggle", shortcut: "Cmd+J" },
 ];
 
 // ── Git and worktrees ──────────────────────────────────────────
