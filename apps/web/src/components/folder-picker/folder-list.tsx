@@ -37,6 +37,16 @@ export function Breadcrumb({
   readonly onGoUp: () => void;
   readonly onNavigate: (path: string) => void;
 }) {
+  // A deep path scrolls inside the row; keep the folder the list shows, the
+  // last crumb, in view rather than the root.
+  const crumbsRef = React.useRef<HTMLDivElement>(null);
+  React.useLayoutEffect(() => {
+    const crumbs = crumbsRef.current;
+    if (crumbs !== null) {
+      crumbs.scrollLeft = crumbs.scrollWidth;
+    }
+  }, [path]);
+
   return (
     <div className="flex min-w-0 items-center gap-1">
       <Tooltip>
@@ -56,7 +66,7 @@ export function Breadcrumb({
         </TooltipTrigger>
         <TooltipContent>Folder above</TooltipContent>
       </Tooltip>
-      <div className="flex min-w-0 flex-1 items-center overflow-x-auto">
+      <div ref={crumbsRef} className="flex min-w-0 flex-1 items-center overflow-x-auto">
         {path === null
           ? null
           : breadcrumbFor(path).map((crumb, index) => (
