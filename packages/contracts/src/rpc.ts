@@ -40,7 +40,7 @@ import {
   GitWorktreeRemoveRpc,
   GitWorktreeSetupRpc,
 } from "./git";
-import { ConnectorInstanceId, ProjectId, ThreadId, UuidV7 } from "./ids";
+import { ConnectorInstanceId, ProjectId, TerminalId, ThreadId, UuidV7 } from "./ids";
 import {
   CheckpointSummary,
   Command,
@@ -53,6 +53,12 @@ import {
 import { FileChangeKind } from "./runtime";
 import { OpenAdeRpcError } from "./rpcError";
 import { Keybinding, Settings, SettingsPatch } from "./settings";
+import {
+  TERMINAL_WRITE_MAX_CHARS,
+  TerminalSize,
+  TerminalStreamItem,
+  TerminalSummary,
+} from "./terminal";
 
 // ── Errors ─────────────────────────────────────────────────────
 
@@ -359,6 +365,12 @@ export const RPC_METHODS = {
   connectorsMcpRemove: "connectors.mcp.remove",
   keybindingsGet: "keybindings.get",
   keybindingsUpdate: "keybindings.update",
+  terminalOpen: "terminal.open",
+  terminalWrite: "terminal.write",
+  terminalResize: "terminal.resize",
+  terminalClose: "terminal.close",
+  terminalList: "terminal.list",
+  terminalSubscribe: "terminal.subscribe",
 } as const;
 
 // ── The RPCs ───────────────────────────────────────────────────
@@ -651,6 +663,66 @@ const KeybindingsUpdateRpc = Rpc.make(RPC_METHODS.keybindingsUpdate, {
   error: OpenAdeRpcError,
 });
 
+/**
+ * The integrated terminal (`./terminal`). Every call names the thread as well
+ * as the terminal, so the server can refuse a terminal that belongs to another
+ * thread. `terminal.write` runs whatever it is sent in the user's shell; it
+ * rides the same authenticated loopback socket as `orchestration.dispatch`.
+ */
+const terminalRef = { threadId: ThreadId, terminalId: TerminalId };
+
+/**
+ * Starts the shell, or answers the one already running under this id — the
+ * client mints the id, so a retried or repeated open never starts a second.
+ */
+const TerminalOpenRpc = Rpc.make(RPC_METHODS.terminalOpen, {
+  payload: Schema.Struct({
+    ...terminalRef,
+    ...TerminalSize.fields,
+    title: Schema.optional(NonEmptyString),
+  }),
+  success: TerminalSummary,
+  error: OpenAdeRpcError,
+});
+
+/** Input for the shell: typed keys, a paste. */
+const TerminalWriteRpc = Rpc.make(RPC_METHODS.terminalWrite, {
+  payload: Schema.Struct({
+    ...terminalRef,
+    data: Schema.String.check(Schema.isMaxLength(TERMINAL_WRITE_MAX_CHARS)),
+  }),
+  success: empty,
+  error: OpenAdeRpcError,
+});
+
+const TerminalResizeRpc = Rpc.make(RPC_METHODS.terminalResize, {
+  payload: Schema.Struct({ ...terminalRef, ...TerminalSize.fields }),
+  success: empty,
+  error: OpenAdeRpcError,
+});
+
+/** Kills the shell and forgets the terminal, output and all. */
+const TerminalCloseRpc = Rpc.make(RPC_METHODS.terminalClose, {
+  payload: Schema.Struct(terminalRef),
+  success: empty,
+  error: OpenAdeRpcError,
+});
+
+/** The thread's terminals, exited ones included, oldest first. */
+const TerminalListRpc = Rpc.make(RPC_METHODS.terminalList, {
+  payload: Schema.Struct({ threadId: ThreadId }),
+  success: Schema.Array(TerminalSummary),
+  error: OpenAdeRpcError,
+});
+
+/** A snapshot with the recent scrollback, then live output; see `TerminalStreamItem`. */
+const TerminalSubscribeRpc = Rpc.make(RPC_METHODS.terminalSubscribe, {
+  payload: Schema.Struct(terminalRef),
+  success: TerminalStreamItem,
+  error: OpenAdeRpcError,
+  stream: true,
+});
+
 export const OpenAdeRpcGroup = RpcGroup.make(
   ServerHelloRpc,
   OrchestrationDispatchRpc,
@@ -692,4 +764,10 @@ export const OpenAdeRpcGroup = RpcGroup.make(
   ConnectorsMcpRemoveRpc,
   KeybindingsGetRpc,
   KeybindingsUpdateRpc,
+  TerminalOpenRpc,
+  TerminalWriteRpc,
+  TerminalResizeRpc,
+  TerminalCloseRpc,
+  TerminalListRpc,
+  TerminalSubscribeRpc,
 );

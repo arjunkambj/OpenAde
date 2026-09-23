@@ -62,6 +62,10 @@ export type ConnectorInstanceId = typeof ConnectorInstanceId.Type;
 export const [CheckpointId, makeCheckpointId, decodeCheckpointId] = defineId("CheckpointId");
 export type CheckpointId = typeof CheckpointId.Type;
 
+/** Minted by the client, so opening a terminal is idempotent and a reattach is by id. */
+export const [TerminalId, makeTerminalId, decodeTerminalId] = defineId("TerminalId");
+export type TerminalId = typeof TerminalId.Type;
+
 /**
  * Which connector a session runs on. Opaque on purpose: never a literal union,
  * and no kind is named here, so adding a connector never touches this package.

@@ -66,6 +66,7 @@ import {
 } from "../src/rpc";
 import { ItemSnapshot, RuntimeEvent, RuntimeEventType } from "../src/runtime";
 import { Settings } from "../src/settings";
+import { TerminalStreamItem, TerminalSummary } from "../src/terminal";
 
 const FIXTURES = NodePath.resolve(NodeURL.fileURLToPath(new URL("../fixtures", import.meta.url)));
 
@@ -175,6 +176,12 @@ const families: ReadonlyArray<Family> = [
     tag: "kind",
     variants: tagsOf(WorktreeSetupFrame.members, "kind"),
   },
+  {
+    directory: "rpc/terminal-stream-item",
+    schema: TerminalStreamItem,
+    tag: "kind",
+    variants: tagsOf(TerminalStreamItem.members, "kind"),
+  },
 ];
 
 /** A schema with a single fixture: a read model, an RPC result, a document. */
@@ -222,6 +229,7 @@ const singles: ReadonlyArray<{ readonly path: string; readonly schema: FixtureSc
   { path: "rpc/browser-state.json", schema: BrowserState },
   { path: "rpc/mcp-server-config.json", schema: McpServerConfig },
   { path: "rpc/skill-summary.json", schema: SkillSummary },
+  { path: "rpc/terminal-summary.json", schema: TerminalSummary },
 ];
 
 describe("fixture round-trips", () => {

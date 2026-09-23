@@ -1,0 +1,4 @@
+{
+  "kind": "resnapshot-required",
+  "reason": "terminal stream fell behind its budget"
+}

@@ -55,7 +55,7 @@ import { GhRunner } from "./git/GitHubCli";
 import { WorktreesRoot } from "./git/Worktrees";
 import { writeHandshake } from "./rpc/bootstrap";
 import { serverLayer, ServerToken } from "./rpc/server";
-import { ServerIdentity, SettingsStore } from "./rpc/services";
+import { ServerIdentity, SettingsStore, TerminalService } from "./rpc/services";
 import { layer as connectorExtensionsLayer } from "./settings/ConnectorExtensions";
 import { ConnectorHost } from "./settings/ConnectorHost";
 import { ConnectorManager, ConnectorRegistryService } from "./settings/ConnectorManager";
@@ -236,6 +236,7 @@ export const boot = (options: BootOptions) =>
       attachments,
       browser,
       mcp,
+      TerminalService.empty,
       connectorExtensionsLayer.pipe(
         Layer.provide(
           Layer.mergeAll(persistence, Layer.succeed(ConnectorRegistryService, registry)),

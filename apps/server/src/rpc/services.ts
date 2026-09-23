@@ -1,7 +1,7 @@
 /**
  * Service interfaces behind the RPC surface. Each surface the orchestration
- * layer does not own itself — connectors, the browser, files and git, the
- * harness's own config — is a Tag with an in-memory implementation here, so
+ * layer does not own itself — connectors, the browser, the terminal, files and
+ * git, the harness's own config — is a Tag with an in-memory implementation here, so
  * the server runs end to end with any of them swapped for a fake. The real
  * implementations provide the layer; none of them touches this contract.
  */
@@ -37,7 +37,8 @@ import type {
 import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
 import { defaultSettings, Settings } from "@OpenAde/contracts/settings";
 import type { SettingsPatch } from "@OpenAde/contracts/settings";
-import type { ConnectorInstanceId, ProjectId, ThreadId } from "@OpenAde/contracts/ids";
+import type { ConnectorInstanceId, ProjectId, TerminalId, ThreadId } from "@OpenAde/contracts/ids";
+import type { TerminalStreamItem, TerminalSummary } from "@OpenAde/contracts/terminal";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -284,6 +285,68 @@ export class BrowserService extends Context.Service<
     }),
   );
 }
+
+// ── Terminal ───────────────────────────────────────────────────
+
+/**
+ * The integrated terminal's per-thread shells. Every call names the thread as
+ * well as the terminal, and an implementation answers `not-found` for a
+ * terminal that belongs to a different thread. `subscribe` is the wire's output
+ * stream (a snapshot with the scrollback, then live output); `teardownThread`
+ * is the thread-close hook that kills every shell the thread still holds.
+ */
+export class TerminalService extends Context.Service<
+  TerminalService,
+  {
+    readonly open: (input: {
+      readonly threadId: ThreadId;
+      readonly terminalId: TerminalId;
+      readonly cols: number;
+      readonly rows: number;
+      readonly title?: string | undefined;
+    }) => Effect.Effect<TerminalSummary, OpenAdeRpcError>;
+    readonly write: (
+      threadId: ThreadId,
+      terminalId: TerminalId,
+      data: string,
+    ) => Effect.Effect<void, OpenAdeRpcError>;
+    readonly resize: (
+      threadId: ThreadId,
+      terminalId: TerminalId,
+      cols: number,
+      rows: number,
+    ) => Effect.Effect<void, OpenAdeRpcError>;
+    readonly close: (
+      threadId: ThreadId,
+      terminalId: TerminalId,
+    ) => Effect.Effect<void, OpenAdeRpcError>;
+    readonly list: (
+      threadId: ThreadId,
+    ) => Effect.Effect<ReadonlyArray<TerminalSummary>, OpenAdeRpcError>;
+    readonly subscribe: (
+      threadId: ThreadId,
+      terminalId: TerminalId,
+    ) => Stream.Stream<TerminalStreamItem, OpenAdeRpcError>;
+    readonly teardownThread: (threadId: ThreadId) => Effect.Effect<void>;
+  }
+>()("server/rpc/TerminalService") {
+  /** No shells at all: reads answer nothing, and anything that would start or touch one fails. */
+  static readonly empty = Layer.succeed(
+    TerminalService,
+    TerminalService.of({
+      open: () => Effect.fail(terminalUnavailable()),
+      write: () => Effect.fail(terminalUnavailable()),
+      resize: () => Effect.fail(terminalUnavailable()),
+      close: () => Effect.fail(terminalUnavailable()),
+      list: () => Effect.succeed([]),
+      subscribe: () => Stream.empty,
+      teardownThread: () => Effect.void,
+    }),
+  );
+}
+
+const terminalUnavailable = () =>
+  new OpenAdeRpcError({ code: "unavailable", message: "terminal service unavailable" });
 
 // ── Connector extensions ───────────────────────────────────────
 

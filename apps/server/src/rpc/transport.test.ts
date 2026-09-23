@@ -22,6 +22,7 @@ import {
   makeThreadId,
   makeConnectorInstanceId,
   makeEventId,
+  makeTerminalId,
 } from "@OpenAde/contracts/ids";
 import type { Command } from "@OpenAde/contracts/orchestration";
 import { OpenAdeRpcError, PROTOCOL_VERSION, STREAM_BUDGET_BYTES } from "@OpenAde/contracts/rpc";
@@ -61,6 +62,7 @@ import {
   GitService,
   ServerIdentity,
   SettingsStore,
+  TerminalService,
 } from "./services";
 
 const TOKEN = "test-token";
@@ -125,6 +127,7 @@ const testStack = (browserLayer: Layer.Layer<BrowserService> = BrowserService.em
       browserLayer,
       McpGateway.layer.pipe(Layer.provide(Layer.mergeAll(browserLayer, engineLayer, managerLayer))),
       ConnectorExtensions.empty,
+      TerminalService.empty,
       AttachmentStore.layerAt(mkdtempSync(NodePath.join(NodeOS.tmpdir(), "openade-transport-"))),
       SettingsStore.layer.pipe(Layer.provide(sqlite)),
     );
@@ -371,6 +374,32 @@ describe("transport", () => {
           // The internal detail must not leak into the wire message.
           expect(error.message).toBe("internal error");
           expect(error.message).not.toContain("cdp");
+        }
+      }),
+    ),
+  );
+
+  it.live("the terminal surface answers over the wire with no shells behind it", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const { url } = yield* testStack();
+        const connection = yield* connect(url, TOKEN);
+        const client = yield* connection.client;
+        const terminalId = makeTerminalId();
+        expect(yield* client["terminal.list"]({ threadId })).toEqual([]);
+        const items = yield* client["terminal.subscribe"]({ threadId, terminalId }).pipe(
+          Stream.runCollect,
+        );
+        expect(items).toEqual([]);
+        const error = yield* client["terminal.open"]({
+          threadId,
+          terminalId,
+          cols: 80,
+          rows: 24,
+        }).pipe(Effect.flip);
+        expect(error).toBeInstanceOf(OpenAdeRpcError);
+        if (error instanceof OpenAdeRpcError) {
+          expect(error.code).toBe("unavailable");
         }
       }),
     ),

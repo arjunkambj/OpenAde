@@ -21,6 +21,7 @@ import {
   GitService,
   ServerIdentity,
   SettingsStore,
+  TerminalService,
 } from "./services";
 
 const toRpcError = (error: unknown): OpenAdeRpcError =>
@@ -48,6 +49,7 @@ export const handlersLayer = OpenAdeRpcGroup.toLayer(
     const settings = yield* SettingsStore;
     const extensions = yield* ConnectorExtensions;
     const attachments = yield* AttachmentStore;
+    const terminals = yield* TerminalService;
 
     return {
       "server.hello": () =>
@@ -142,6 +144,17 @@ export const handlersLayer = OpenAdeRpcGroup.toLayer(
           Effect.map((doc) => doc.keybindings),
           Effect.mapError(toRpcError),
         ),
+
+      "terminal.open": ({ threadId, terminalId, cols, rows, title }) =>
+        terminals.open({ threadId, terminalId, cols, rows, title }),
+      "terminal.write": ({ threadId, terminalId, data }) =>
+        terminals.write(threadId, terminalId, data).pipe(Effect.as({})),
+      "terminal.resize": ({ threadId, terminalId, cols, rows }) =>
+        terminals.resize(threadId, terminalId, cols, rows).pipe(Effect.as({})),
+      "terminal.close": ({ threadId, terminalId }) =>
+        terminals.close(threadId, terminalId).pipe(Effect.as({})),
+      "terminal.list": ({ threadId }) => terminals.list(threadId),
+      "terminal.subscribe": ({ threadId, terminalId }) => terminals.subscribe(threadId, terminalId),
     };
   }),
 );

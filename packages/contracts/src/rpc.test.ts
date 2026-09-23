@@ -19,6 +19,7 @@ const STREAMING_METHODS = [
   RPC_METHODS.browserSubscribe,
   RPC_METHODS.settingsSubscribe,
   RPC_METHODS.gitWorktreeSetup,
+  RPC_METHODS.terminalSubscribe,
 ];
 
 describe("OpenAdeRpcGroup", () => {
@@ -29,7 +30,7 @@ describe("OpenAdeRpcGroup", () => {
     }),
   );
 
-  it.effect("streams the four subscriptions and the setup script, and nothing else", () =>
+  it.effect("streams the five subscriptions and the setup script, and nothing else", () =>
     Effect.gen(function* () {
       const streaming = yield* Effect.succeed(
         [...OpenAdeRpcGroup.requests.values()]

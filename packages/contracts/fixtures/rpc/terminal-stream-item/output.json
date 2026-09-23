@@ -1,0 +1,5 @@
+{
+  "kind": "output",
+  "data": "ls\r\npackage.json  src\r\n$ ",
+  "offset": 50
+}

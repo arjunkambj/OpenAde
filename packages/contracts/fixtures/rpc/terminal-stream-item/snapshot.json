@@ -1,0 +1,17 @@
+{
+  "kind": "snapshot",
+  "terminal": {
+    "terminalId": "0199c0de-0012-7000-8000-000000000001",
+    "threadId": "0199c0de-0002-7000-8000-000000000001",
+    "title": "Terminal 1",
+    "cwd": "/Users/dev/code/openade",
+    "pid": 48213,
+    "cols": 120,
+    "rows": 32,
+    "status": "running",
+    "exitCode": null,
+    "createdAt": "2026-09-24T12:00:00.000Z"
+  },
+  "data": "$ echo $((20+22))\r\n42\r\n$ ",
+  "offset": 25
+}

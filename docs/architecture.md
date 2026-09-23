@@ -350,22 +350,23 @@ enabled one.
 
 Every wire shape, as `effect/Schema` codecs. Modules: `base`, `ids`, `enums`,
 `runtime`, `orchestration`, `decisions`, `git`, `settings`, `connectors`,
-`rpc`. `git` holds `ThreadWorktree`, the worktree a thread was created in,
-and the branch, commit, push, pull-request and worktree RPCs with their
-shapes (`GitBranch`, `GitBranchList`, `GitCommitResult`, `GitPushResult`,
+`terminal`, `rpc`. `git` holds `ThreadWorktree`, the worktree a thread was
+created in, and the branch, commit, push, pull-request and worktree RPCs with
+their shapes (`GitBranch`, `GitBranchList`, `GitCommitResult`, `GitPushResult`,
 `GitPullRequestResult`, `GitWorktreeInfo`, and the `WorktreeSetupFrame` union
-the setup script streams); they are
-defined there rather than in `rpc.ts`, their names are spread into
-`RPC_METHODS`, and `rpc.ts` lists them in the group. `OpenAdeRpcError` lives in
-`rpcError.ts` so `git` can name it without an import cycle, and `rpc`
-re-exports it.
+the setup script streams); they are defined there rather than in `rpc.ts`,
+their names are spread into `RPC_METHODS`, and `rpc.ts` lists them in the
+group. `OpenAdeRpcError` lives in `rpcError.ts` so `git` can name it without an
+import cycle, and `rpc` re-exports it.
 `thread.ts` holds the value objects of a thread and is reached through
 `orchestration`, which re-exports it, rather than as a module of its own.
 `decisions` holds the record a thread keeps of each settled approval, question
 and plan, which the thread read models in `orchestration` carry. `connectors`
 holds what the renderer learns about a connector — models, probe, configured
 instances, metadata and config form, and the skills and MCP servers its
-extensions list — and `rpc` holds the methods that carry them.
+extensions list. `terminal` holds the integrated terminal's summary, its output
+stream frames and the limits both ends share. `rpc` holds the methods that
+carry them.
 
 Ids are branded UUIDv7 strings, so a `ThreadId` cannot be passed where a
 `TurnId` is expected, and they are validated on decode — a malformed id fails at
