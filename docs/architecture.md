@@ -411,9 +411,10 @@ zero-turn SDK handshake that lists the models), `models.ts`, `capabilities.ts`,
 `defaultModel`), `spawn.ts` (the SDK's `spawnClaudeCodeProcess`: its own
 process group, and the proof it is gone), `inputQueue.ts` (the streaming-input
 prompt), `queryOptions.ts`, `toolGate.ts` (the PreToolUse hook and
-`canUseTool`, both through the permission ladder), `userMessage.ts`,
+`canUseTool`, both through the permission ladder), `approvals.ts` (the CLI's
+tools in OpenAde's approval vocabulary), `userMessage.ts`,
 `sessionRef.ts`, `session.ts` (one long-lived CLI process per thread), and
-`translate/` (SDK messages → `RuntimeEvent`). `makeClaudeConnectorDefinition`
+`translate/` (SDK messages → `RuntimeEvent`; `tools.ts` holds the tool rows). `makeClaudeConnectorDefinition`
 takes the turn and budget caps a recording puts on every session; production
 passes none.
 
@@ -1098,7 +1099,38 @@ session and revoked with it.
 **Approvals.** A PreToolUse hook asks the permission ladder about every call
 and answers allow, deny, or — for "prompt" — ask, which routes the call to
 `canUseTool` and the shared approval gate's card. The hook runs in every
-permission mode, so "ask" outranks the CLI's own allow rules too.
+permission mode, so "ask" outranks the CLI's own allow rules too, and the CLI
+hands a hook's ask to `canUseTool` without consulting its mode, which is what
+lets full access run as `bypassPermissions` and still ask about a sensitive
+path. AskUserQuestion and ExitPlanMode pass the hook with no verdict.
+`approvals.ts` maps the CLI's tools onto OpenAde's vocabulary: Bash →
+`command`, `Shell(<first word> *)`; Edit, MultiEdit, Write, NotebookEdit →
+`file_write`, `Edit(<path>)` (NotebookEdit's `notebook_path` is handed to the
+ladder as `file_path`); Read, Glob, Grep, LS → `file_read`, `Read(<path>)`;
+WebFetch and WebSearch → `web`, `Fetch(<url or query>)`; `mcp__<s>__<t>` →
+`mcp_tool`, `Mcp(<s>.<t>)` with `mcpTool`; anything else → `other`, its bare
+name. Allow once and allow always answer allow with the input; "always" is
+OpenAde's rule alone, and nothing is written to the CLI's settings files.
+Allow for the session adds the CLI's own suggested rules and directories at
+its `session` destination, never a mode change. `canUseTool`'s abort signal
+goes to the gate, so a withdrawn call closes its card as `deny`; an interrupt
+and a close release every open card. A turn whose tool calls ran while the
+gate saw none ends with a `session.warning`.
+
+**Runtime modes.** Ask, auto-accept edits and full access run the CLI in
+`default`, `acceptEdits` and `bypassPermissions`, a plan turn in `plan`; a
+change mid-session is `setPermissionMode`. The ladder reads the thread's own
+modes, as they are at each call.
+
+**Tool rows.** Each `tool_use` block opens a row keyed by its id, and the
+`tool_result` the CLI writes back settles it — failed when `is_error`, which is
+how a refused call reads. Bash is a `command_execution` with its output and
+the exit code the CLI names; the edit tools are `file_change` rows whose diff
+comes from the result's structured patch (a created file's from its content);
+WebFetch and WebSearch are `web_search`, MCP tools `mcp_tool_call` naming the
+server, TodoWrite a `todo`, Skill a `skill`, Task and Agent a `task`, and
+anything else a `tool_call`. Output is cut at 64KB. A row still open when its
+turn's result arrives is failed there.
 
 **Signed out.** A CLI that is not signed in answers each message with its own
 "Not logged in" line and an error result, without calling the API. The

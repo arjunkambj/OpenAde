@@ -370,12 +370,20 @@ OPENADE_LIVE_CLAUDE=1 pnpm exec vitest run apps/server/test/e2e-claude
 OPENADE_RECORD_CLAUDE=1 pnpm -F server exec vitest run test/e2e-claude/turn.test.ts
 ```
 
-| File                 | Recording         | Scenario                                                     |
-| -------------------- | ----------------- | ------------------------------------------------------------ |
-| `signed-out.test.ts` | `signed-out-turn` | a turn against a signed-out CLI: the probe and the error row |
-| `turn.test.ts`       | `plain-reply`     | a turn, from `project.create` to the answer on screen        |
-| `interrupt.test.ts`  | `interrupt`       | Stop after the first text, then the next message             |
-| `resume.test.ts`     | `resume`          | the server restarts and the conversation goes on             |
+A replay runs no tool — the recording stands in for the CLI — so what a
+tool did to the workspace (the file an allowed write made, the file a denied
+command did not) is checked by the live and record drivers; a replay checks
+the thread: the cards, their answers, and the rows.
+
+| File                 | Recording               | Scenario                                                     |
+| -------------------- | ----------------------- | ------------------------------------------------------------ |
+| `signed-out.test.ts` | `signed-out-turn`       | a turn against a signed-out CLI: the probe and the error row |
+| `turn.test.ts`       | `plain-reply`           | a turn, from `project.create` to the answer on screen        |
+| `interrupt.test.ts`  | `interrupt`             | Stop after the first text, then the next message             |
+| `resume.test.ts`     | `resume`                | the server restarts and the conversation goes on             |
+| `approval.test.ts`   | `edit-approval`         | a write asked about, then allowed once                       |
+| `approval.test.ts`   | `deny`                  | a command denied, and the file it would have made absent     |
+| `approval.test.ts`   | `sensitive-full-access` | `cat .env` under full access still opens a card              |
 
 A scenario whose recording has not been made yet is skipped under replay, and
 its title says so. `packages/testkit/fixtures/claude/README.md` lists which

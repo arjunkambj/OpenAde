@@ -718,6 +718,41 @@ harness that asks its host directly instead — over an SDK or JSON-RPC — skip
 the script and the bridge and hands its request straight to the same approval
 gate; from the gate down the path is identical.
 
+### The direct path, on Claude Code
+
+```
+model calls a tool
+   │
+   ▼
+the CLI calls the SDK's PreToolUse hook, in-process   (every call, every mode)
+   │     packages/connector-claude/src/toolGate.ts
+   ▼
+PermissionService.decide(...)  — no waiting here
+   │
+   ├─ allow  → { permissionDecision: "allow" }  the call runs
+   ├─ deny   → { permissionDecision: "deny" }   the model is told it was refused
+   └─ prompt → { permissionDecision: "ask" }
+                 │  the CLI hands the call to canUseTool, decision made
+                 ▼
+               approval gate → the same card, the same answers
+                 → { behavior: "allow" | "deny" }
+```
+
+The hook runs for every call in every CLI permission mode, and its "ask"
+reaches `canUseTool` in all of them, `bypassPermissions` — full access —
+included. So a sensitive path asks even under full access, and a rule in the
+user's own `~/.claude` settings can never skip the ladder. AskUserQuestion and
+ExitPlanMode pass the hook with no verdict: they speak to the user rather
+than act on the machine. The connector names each call in OpenAde's
+vocabulary before the ladder reads it (`approvals.ts`): Bash is a `command`
+proposing `Shell(<first word> *)`, the edit tools are `file_write` with
+`Edit(<path>)`, the read tools `file_read` with `Read(<path>)`, WebFetch and
+WebSearch `web` with `Fetch(…)`, and an MCP tool `mcp_tool` with
+`Mcp(<server>.<tool>)`. "Allow for the session" also hands the CLI its own
+suggested rules for the call, kept to the session; "allow always" writes
+only OpenAde's rule, never the CLI's settings files. A call the CLI
+withdraws — the turn was stopped — answers its card `deny`.
+
 ### The script and the ticket
 
 `packages/connector-cmd/src/hookScript.ts` generates
