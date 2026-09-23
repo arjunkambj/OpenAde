@@ -1,6 +1,6 @@
 /**
  * Edit a saved rule's pattern. Only the pattern: the decision and the scope
- * stay what "Allow always" (or a deny) saved them as.
+ * stay what "Allow for session" or "Always allow" (or a deny) saved them as.
  *
  * The field is the approval card's `PatternEditor`, so the syntax help and
  * the parse check read the same in both places. Save stays disabled until

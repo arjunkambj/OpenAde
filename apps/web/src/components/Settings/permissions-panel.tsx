@@ -2,13 +2,15 @@
  * The Permissions page: every saved permission rule, grouped by how far it
  * reaches, with Edit (the pattern only) and Delete.
  *
- * Rules are saved by "Allow always" on an approval card. The server's
+ * Rules are saved by "Allow for session" (a rule for that thread) and "Always
+ * allow" (a rule for the project) on an approval card. The server's
  * `permission_rules` table is their source of truth and `settings.permissions`
  * a projection of it, so this page reads the settings subscription and writes
  * the whole array back through `settings.update`, which replaces the table.
  * Each write is computed from the latest list at the moment of the click, by
- * rule key (`./permission-rules`): an "allow always" can land while the page
- * is open, and the list re-renders from the subscription when it does.
+ * rule key (`./permission-rules`): an approval answered elsewhere can land
+ * while the page is open, and the list re-renders from the subscription when
+ * it does.
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
@@ -114,8 +116,9 @@ export function PermissionsPanel() {
       <div>
         <h1 className="text-2xl font-medium">Permissions</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Rules saved when you answer an approval with Allow always. A deny rule beats an allow
-          rule, and a request that touches a sensitive file always asks, whatever the rules say.
+          Rules saved when you answer an approval with “Allow for session” or “Always allow”. A deny
+          rule beats an allow rule, and a request that touches a sensitive file always asks,
+          whatever the rules say.
         </p>
       </div>
 
@@ -127,7 +130,8 @@ export function PermissionsPanel() {
             </EmptyMedia>
             <EmptyTitle>No saved rules</EmptyTitle>
             <EmptyDescription>
-              Choose Allow always on an approval and the rule shows up here.
+              Answer an approval with “Allow for session” or “Always allow” and the rule shows up
+              here.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
