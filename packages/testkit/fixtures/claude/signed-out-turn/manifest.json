@@ -1,0 +1,108 @@
+{
+  "formatVersion": 1,
+  "kind": "claude",
+  "transport": "sdk-stream",
+  "scenario": "signed-out-turn",
+  "description": "One turn through the real server against a CLI that is not signed in: the probe finds no login, and the CLI answers the message with its own sign-in error and an error result without calling the API.",
+  "cliVersion": "2.1.280",
+  "sdkVersion": "0.3.280",
+  "recordedOn": "2026-09-23",
+  "model": "claude-opus-5-5[1m]",
+  "real": true,
+  "prompts": ["Reply with exactly: pong"],
+  "invocations": [
+    {
+      "argv": ["--version"],
+      "cwd": "/private/var/folders/fk/g7j37kcj0kd6sdfwg_czzrjh0000gn/T",
+      "file": "invocation-1.ndjson",
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "argv": ["auth", "status", "--json"],
+      "cwd": "/private/var/folders/fk/g7j37kcj0kd6sdfwg_czzrjh0000gn/T",
+      "file": "invocation-2.ndjson",
+      "exitCode": 1,
+      "signal": null
+    },
+    {
+      "argv": [
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--input-format",
+        "stream-json",
+        "--setting-sources=",
+        "--permission-mode",
+        "default",
+        "--no-session-persistence"
+      ],
+      "cwd": "/private/var/folders/fk/g7j37kcj0kd6sdfwg_czzrjh0000gn/T",
+      "file": "invocation-3.ndjson",
+      "exitCode": 143,
+      "signal": null
+    },
+    {
+      "argv": ["--version"],
+      "cwd": "/private/var/folders/fk/g7j37kcj0kd6sdfwg_czzrjh0000gn/T",
+      "file": "invocation-4.ndjson",
+      "exitCode": 0,
+      "signal": null
+    },
+    {
+      "argv": ["auth", "status", "--json"],
+      "cwd": "/private/var/folders/fk/g7j37kcj0kd6sdfwg_czzrjh0000gn/T",
+      "file": "invocation-5.ndjson",
+      "exitCode": 1,
+      "signal": null
+    },
+    {
+      "argv": [
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--input-format",
+        "stream-json",
+        "--setting-sources=",
+        "--permission-mode",
+        "default",
+        "--no-session-persistence"
+      ],
+      "cwd": "/private/var/folders/fk/g7j37kcj0kd6sdfwg_czzrjh0000gn/T",
+      "file": "invocation-6.ndjson",
+      "exitCode": 143,
+      "signal": null
+    },
+    {
+      "argv": [
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--input-format",
+        "stream-json",
+        "--effort",
+        "medium",
+        "--max-turns",
+        "4",
+        "--max-budget-usd",
+        "0.5",
+        "--permission-prompt-tool",
+        "stdio",
+        "--mcp-config",
+        "{\"mcpServers\":{\"openade\":{\"type\":\"http\",\"url\":\"http://127.0.0.1:65433/mcp\",\"headers\":{\"Authorization\":\"<REDACTED>\"}}}}",
+        "--setting-sources=user,project,local",
+        "--permission-mode",
+        "default",
+        "--allow-dangerously-skip-permissions",
+        "--include-partial-messages",
+        "--add-dir",
+        "<SCRATCH>/openade-e2e-signed-out-turn-4UqBxO/openade/attachments/01a0d09d-fb05-7001-8cda-749d47fe4147",
+        "--session-id=07dc1824-1f64-49a4-a502-fd18c5161f8e"
+      ],
+      "cwd": "<SCRATCH>/openade-e2e-signed-out-turn-4UqBxO/workspace",
+      "file": "invocation-7.ndjson",
+      "exitCode": 1,
+      "signal": null
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{"dir":"from-harness","channel":"stdout","at":146,"data":"{"}
+{"dir":"from-harness","channel":"stdout","at":146,"data":"  \"loggedIn\": false,"}
+{"dir":"from-harness","channel":"stdout","at":146,"data":"  \"authMethod\": \"none\","}
+{"dir":"from-harness","channel":"stdout","at":146,"data":"  \"apiProvider\": \"firstParty\","}
+{"dir":"from-harness","channel":"stdout","at":146,"data":"  \"analyticsDisabled\": false,"}
+{"dir":"from-harness","channel":"stdout","at":146,"data":"  \"projectsDirectory\": \"<HOME>/.claude/projects\","}
+{"dir":"from-harness","channel":"stdout","at":146,"data":"  \"configDirectory\": \"<HOME>/.claude\""}
+{"dir":"from-harness","channel":"stdout","at":149,"data":"}"}
