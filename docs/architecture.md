@@ -948,7 +948,7 @@ One `RpcGroup` (`OpenAdeRpcGroup` in `packages/contracts/src/rpc.ts`) carried
 over the WebSocket with JSON serialization. Every RPC fails with the single
 `OpenAdeRpcError` — `not-found | invalid | unavailable | conflict | internal` —
 except `fs.browse`, which has its own error because the picker offers a
-different next step for each reason. `PROTOCOL_VERSION` is 1; a mismatch puts
+different next step for each reason. `PROTOCOL_VERSION` is 2; a mismatch puts
 the client in the terminal `incompatible` state.
 
 | Method                        | Kind   | What it does                                                                        |

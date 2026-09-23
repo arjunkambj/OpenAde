@@ -67,7 +67,7 @@ export const ServerHello = Schema.Struct({
 export type ServerHello = typeof ServerHello.Type;
 
 /** The protocol version this build speaks. Bumped when a wire shape changes incompatibly. */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 /**
  * The server-side budget on every stream RPC.

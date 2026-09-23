@@ -24,7 +24,7 @@ import {
   makeEventId,
 } from "@OpenAde/contracts/ids";
 import type { Command } from "@OpenAde/contracts/orchestration";
-import { OpenAdeRpcError, STREAM_BUDGET_BYTES } from "@OpenAde/contracts/rpc";
+import { OpenAdeRpcError, PROTOCOL_VERSION, STREAM_BUDGET_BYTES } from "@OpenAde/contracts/rpc";
 import {
   Connection,
   makeConnection,
@@ -221,7 +221,7 @@ describe("transport", () => {
         const connection = yield* connect(url, TOKEN);
         const client = yield* connection.client;
         const hello = yield* client["server.hello"]({});
-        expect(hello.protocolVersion).toBe(1);
+        expect(hello.protocolVersion).toBe(PROTOCOL_VERSION);
         expect(hello.serverInstanceId).toBe(INSTANCE_ID);
       }),
     ),

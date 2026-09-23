@@ -24,6 +24,7 @@ import {
   makeThreadId,
 } from "@OpenAde/contracts/ids";
 import type { Command } from "@OpenAde/contracts/orchestration";
+import { PROTOCOL_VERSION } from "@OpenAde/contracts/rpc";
 import { defaultSettings } from "@OpenAde/contracts/settings";
 import type { ConnectorInstanceConfig } from "@OpenAde/contracts/settings";
 import { Connection, makeConnection } from "@OpenAde/client-runtime/connection";
@@ -129,7 +130,7 @@ describe("boot", () => {
         const rpc = yield* client(server);
         const hello = yield* rpc["server.hello"]({});
         expect(hello.serverInstanceId).toBe(server.serverInstanceId);
-        expect(hello.protocolVersion).toBe(1);
+        expect(hello.protocolVersion).toBe(PROTOCOL_VERSION);
 
         // What the build ships is answered with no connector configured, and
         // without probing anything: the form comes from the definition alone.

@@ -208,7 +208,7 @@ Every subscription in `packages/client-runtime/src/atoms.ts` is a
 client["server.hello"]({})
   → { protocolVersion, serverInstanceId }
   │
-  ├─ protocolVersion ≠ PROTOCOL_VERSION (1) → markIncompatible, Stream.never
+  ├─ protocolVersion ≠ PROTOCOL_VERSION (2) → markIncompatible, Stream.never
   │
   ├─ serverInstanceId changed → drop the cached snapshot, afterSequence = undefined
   └─ otherwise                → afterSequence = doc.snapshotSequence
