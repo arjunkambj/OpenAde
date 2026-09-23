@@ -45,7 +45,7 @@ export function TimelineFixture() {
 
   return (
     <div className="flex h-svh flex-col bg-background">
-      <header className="flex h-12 shrink-0 flex-wrap items-center gap-2 border-b border-border px-4">
+      <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2">
         <span className="type-body font-medium text-foreground">Timeline fixture</span>
         <span className="type-micro text-muted-foreground">
           {snapshot.items.length} items · every row kind
