@@ -3,10 +3,11 @@
  * offers them.
  *
  * The sidebar row menu and Settings → Archived threads both rename, archive,
- * unarchive and delete threads. They report the outcome the same way — a toast
- * with the decider's reason on a refusal, an optional confirmation on success
- * — and they build the command envelope the same way, so the plumbing lives
- * here once rather than drifting apart between the two.
+ * unarchive and delete threads, and the row's hover action archives one. They
+ * report the outcome the same way — a toast with the decider's reason on a
+ * refusal, an optional confirmation on success — and they build the command
+ * envelope the same way, so the plumbing lives here once rather than drifting
+ * apart between them.
  */
 
 import { toast } from "sonner";
