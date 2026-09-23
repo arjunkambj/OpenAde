@@ -381,6 +381,9 @@ importers:
       '@OpenAde/config':
         specifier: workspace:*
         version: link:../config
+      '@OpenAde/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@OpenAde/testkit':
         specifier: workspace:*
         version: link:../testkit

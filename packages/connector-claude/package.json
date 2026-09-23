@@ -21,6 +21,7 @@
   },
   "devDependencies": {
     "@OpenAde/config": "workspace:*",
+    "@OpenAde/shared": "workspace:*",
     "@OpenAde/testkit": "workspace:*",
     "@effect/vitest": "catalog:",
     "@types/node": "catalog:",
