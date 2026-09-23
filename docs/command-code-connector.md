@@ -8,7 +8,10 @@ Everything here is read off the code as it stands and off the real recordings
 under `packages/testkit/fixtures/cmd/`, which are captures of the actual CLI —
 argv, stdout frames with their arrival chunks, stderr, the transcript as it
 grew, every PreToolUse invocation with both halves of the exchange. Where a
-claim rests on a recording, the recording is named.
+claim rests on a recording, the recording is named. In the shared recording
+format (`packages/testkit/src/recording.ts`) they are the `cmd` kind over the
+`stdio-ndjson` transport; their manifests predate the format's version and
+transport fields, and read as version 1 without being edited.
 
 Its companions: [architecture.md](architecture.md) for the connector boundary
 this fills in, [how-it-works.md](how-it-works.md) for what the rest of the app

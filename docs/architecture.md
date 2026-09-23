@@ -809,7 +809,10 @@ Instances
 are per configuration, not per thread. The registry (`registry.ts`) routes by
 **instance id, never by kind**: two instances of the same harness with different
 binaries, credentials or default models are a normal configuration, and a thread
-bound to one must never be handed the other. A definition is looked up by kind
+bound to one must never be handed the other. A thread names the instance it
+runs on with `ThreadSettings.connectorInstanceId`, fixed once it has run
+anything; without one, the default routing rule picks
+([Commands and events](#commands-and-events)). A definition is looked up by kind
 exactly once, when an instance is opened from the settings document.
 
 `ConnectorServices` is everything the server lends a connector: `mcpEndpoint`
