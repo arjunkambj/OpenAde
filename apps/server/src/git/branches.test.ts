@@ -30,6 +30,7 @@ import { ReadModelStore } from "../persistence/ReadModels";
 import { testLayer as sqliteTestLayer } from "../persistence/Sqlite";
 import { GitService } from "../rpc/services";
 import { layer as gitLayer } from "./Git";
+import { GhRunner } from "./GitHubCli";
 
 const git = (cwd: string, ...args: Array<string>) =>
   execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
@@ -124,7 +125,7 @@ const stack = (root: string) =>
         return threadId;
       });
     const services = yield* Layer.build(
-      gitLayer.pipe(Layer.provide(Layer.succeedContext(rmContext))),
+      gitLayer.pipe(Layer.provide(Layer.mergeAll(Layer.succeedContext(rmContext), GhRunner.layer))),
     );
     return { projectId, addRunningThread, git: Context.get(services, GitService) };
   });

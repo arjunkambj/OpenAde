@@ -26,6 +26,8 @@ export interface RunOptions {
   /** Tolerate a non-zero exit — the caller inspects `exitCode` itself. */
   readonly allowNonZeroExit?: boolean;
   readonly maxOutputBytes?: number;
+  /** Kill git after this long; the call fails saying it timed out. */
+  readonly timeoutMs?: number;
 }
 
 const DEFAULT_MAX_OUTPUT = 32 * 1024 * 1024;
@@ -43,6 +45,7 @@ export const run = (
         cwd,
         env: options.env === undefined ? process.env : { ...process.env, ...options.env },
         maxBuffer: options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT,
+        ...(options.timeoutMs === undefined ? {} : { timeout: options.timeoutMs }),
       },
       (error, stdout, stderr) => {
         // A numeric code is the child's exit status; anything else — a string
@@ -56,7 +59,10 @@ export const run = (
                 command: `git ${args.join(" ")}`,
                 cwd,
                 exitCode: null,
-                message: error.message,
+                message:
+                  error.killed && options.timeoutMs !== undefined
+                    ? `git ${args[0] ?? ""} timed out after ${Math.round(options.timeoutMs / 1000)}s`
+                    : error.message,
               }),
             ),
           );

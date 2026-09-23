@@ -25,7 +25,12 @@ import type {
   GitStatus,
 } from "@OpenAde/contracts/rpc";
 import { FsBrowseError, OpenAdeRpcError } from "@OpenAde/contracts/rpc";
-import type { GitBranchList } from "@OpenAde/contracts/git";
+import type {
+  GitBranchList,
+  GitCommitResult,
+  GitPullRequestResult,
+  GitPushResult,
+} from "@OpenAde/contracts/git";
 import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
 import { defaultSettings, Settings } from "@OpenAde/contracts/settings";
 import type { SettingsPatch } from "@OpenAde/contracts/settings";
@@ -164,6 +169,21 @@ export class GitService extends Context.Service<
       scope: WorkspaceScope,
       branch: string,
     ) => Effect.Effect<GitBranchList, OpenAdeRpcError>;
+    /**
+     * Commits everything, or only `paths`, as the user. `conflict` when nothing
+     * is staged, a hook refuses, or a turn runs in the same root.
+     */
+    readonly commit: (
+      scope: WorkspaceScope,
+      options: { readonly message: string; readonly paths?: ReadonlyArray<string> | undefined },
+    ) => Effect.Effect<GitCommitResult, OpenAdeRpcError>;
+    /** Pushes the current branch, setting its upstream on the first push. */
+    readonly push: (scope: WorkspaceScope) => Effect.Effect<GitPushResult, OpenAdeRpcError>;
+    /** Opens (or finds) the current branch's pull request through the GitHub CLI. */
+    readonly createPullRequest: (
+      scope: WorkspaceScope,
+      options: { readonly title: string; readonly body: string; readonly base?: string },
+    ) => Effect.Effect<GitPullRequestResult, OpenAdeRpcError>;
     /** The checkpoint refs that still exist for a thread, read in its root, oldest first. */
     readonly checkpoints: (
       projectId: ProjectId,
@@ -182,6 +202,9 @@ export class GitService extends Context.Service<
       branches: () => Effect.fail(gitUnavailable),
       createBranch: () => Effect.fail(gitUnavailable),
       checkout: () => Effect.fail(gitUnavailable),
+      commit: () => Effect.fail(gitUnavailable),
+      push: () => Effect.fail(gitUnavailable),
+      createPullRequest: () => Effect.fail(gitUnavailable),
     }),
   );
 }

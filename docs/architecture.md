@@ -327,7 +327,7 @@ Directories, relative to `apps/server/`:
 | `src/hooks/`         | the PreToolUse bridge                                                              |
 | `src/mcp/`           | the MCP gateway and its HTTP routes                                                |
 | `src/browser/`       | browser service, agent-browser CLI, driver, tool catalogue                         |
-| `src/git/`           | status/diff, branches, file search and read, checkpoint store and hook, per root   |
+| `src/git/`           | status/diff, branches, commit/push, gh pull requests, file search, checkpoints     |
 | `src/fs/`            | `fs.browse`                                                                        |
 | `src/settings/`      | settings store users, connector manager and host, connector extension routing      |
 | `src/attachments/`   | the staging store and its reactor                                                  |
@@ -348,7 +348,9 @@ enabled one.
 Every wire shape, as `effect/Schema` codecs. Modules: `base`, `ids`, `enums`,
 `runtime`, `orchestration`, `decisions`, `git`, `settings`, `connectors`,
 `rpc`. `git` holds `ThreadWorktree`, the worktree a thread was created in,
-and the branch RPCs with their shapes (`GitBranch`, `GitBranchList`); they are
+and the branch, commit, push and pull-request RPCs with their shapes
+(`GitBranch`, `GitBranchList`, `GitCommitResult`, `GitPushResult`,
+`GitPullRequestResult`); they are
 defined there rather than in `rpc.ts`, their names are spread into
 `RPC_METHODS`, and `rpc.ts` lists them in the group. `OpenAdeRpcError` lives in
 `rpcError.ts` so `git` can name it without an import cycle, and `rpc`
@@ -1327,6 +1329,9 @@ the client in the terminal `incompatible` state.
 | `git.branches`                | call   | Local and remote branches, the current and default branch, the remotes              |
 | `git.branch.create`           | call   | Cuts an untracked branch, optionally switching to it; answers the new list          |
 | `git.checkout`                | call   | Switches branch; `conflict` on a dirty tracked tree or a running turn in that root  |
+| `git.commit`                  | call   | Commits all changes or chosen paths as the user; `conflict` on nothing staged       |
+| `git.push`                    | call   | Pushes the current branch, `-u` to its remote on the first push                     |
+| `git.pullRequest.create`      | call   | Opens (or finds) the branch's pull request with `gh`; `unavailable` without gh      |
 | `checkpoints.list`            | call   | Checkpoints that still exist as refs, read in the thread's root                     |
 | `browser.subscribe`           | stream | The browser pane's state, and frames when the browser is ours                       |
 | `browser.humanInput`          | call   | A human gesture into the browser the agent is driving                               |

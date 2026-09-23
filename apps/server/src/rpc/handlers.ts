@@ -104,6 +104,11 @@ export const handlersLayer = OpenAdeRpcGroup.toLayer(
         git.createBranch({ projectId, threadId }, { name, from, checkout }),
       "git.checkout": ({ projectId, threadId, branch }) =>
         git.checkout({ projectId, threadId }, branch),
+      "git.commit": ({ projectId, threadId, message, paths }) =>
+        git.commit({ projectId, threadId }, { message, paths }),
+      "git.push": ({ projectId, threadId }) => git.push({ projectId, threadId }),
+      "git.pullRequest.create": ({ projectId, threadId, title, body, base }) =>
+        git.createPullRequest({ projectId, threadId }, { title, body, base }),
       "checkpoints.list": ({ projectId, threadId }) => git.checkpoints(projectId, threadId),
 
       "browser.subscribe": ({ threadId }) => browser.subscribe(threadId),

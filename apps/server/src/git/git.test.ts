@@ -28,6 +28,7 @@ import { ReadModelStore } from "../persistence/ReadModels";
 import { FileService, GitService } from "../rpc/services";
 import { layer as fileLayer } from "./Files";
 import { layer as gitLayer } from "./Git";
+import { GhRunner } from "./GitHubCli";
 import { make as checkpointStore } from "./CheckpointStore";
 import { GitError, run } from "./process";
 
@@ -65,7 +66,9 @@ const stack = (root: string) =>
       removed: false,
     });
     const servicesContext = yield* Layer.build(
-      Layer.mergeAll(gitLayer, fileLayer).pipe(Layer.provide(Layer.succeedContext(rmContext))),
+      Layer.mergeAll(gitLayer, fileLayer).pipe(
+        Layer.provide(Layer.mergeAll(Layer.succeedContext(rmContext), GhRunner.layer)),
+      ),
     );
     return {
       projectId,

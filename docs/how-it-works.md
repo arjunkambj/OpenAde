@@ -1234,6 +1234,38 @@ the workspace. A remote branch is checked out as a local branch tracking it.
 untracked work included, with `git merge-base HEAD <mergeBase>`: the branch's
 own work, without the base's later commits showing up as reverted.
 
+### Commit, push and pull requests
+
+`git.commit` and `git.push` (`apps/server/src/git/Commits.ts`) run in the
+same root, as the user: no author environment (that is the checkpoint store's,
+for its hidden refs only) and never `--no-verify`, so the user's identity,
+signing config and hooks apply. Without `paths` a commit stages everything
+(`git add -A`). With `paths` the index is reset first and only those paths are
+staged (`--literal-pathspecs`), so a file staged earlier in a terminal but left
+unchecked does not ride along; it stays in the working tree, unstaged. Nothing
+staged is `conflict` "Nothing to commit.", a hook's refusal is `conflict` with
+the hook's own output, and a commit is refused like a switch while a turn runs
+in that root.
+
+A push goes to the branch's `branch.<name>.remote`, else `origin`, else the
+only remote; no remote is `unavailable`. A branch with an upstream is pushed
+with a plain `git push`; one without gets `git push -u <remote> <branch>`, so a
+branch cut `--no-track` from `origin/main` lands on its own name. Pushes run
+with `GIT_TERMINAL_PROMPT=0` and a five-minute ceiling: a credential prompt
+fails fast instead of hanging the call.
+
+`git.pullRequest.create` (`apps/server/src/git/GitHubCli.ts`) goes through the
+GitHub CLI behind the `GhRunner` service, which finds `gh` on PATH and in the
+Homebrew directories a Finder launch leaves out. `gh --version` failing is
+`unavailable` "gh not available", `gh auth status` failing is `unavailable`
+(not authenticated), and then `gh pr create --head --base --title --body`, all
+argv, opens the pull request from the current branch. The base is the
+payload's, else the branch the thread's worktree was cut from, else the
+default branch, with a remote prefix (`origin/main`) dropped. When a pull
+request already exists its URL comes from gh's refusal, or from `gh pr view`,
+with `created: false`. Tests swap in a fake runner that answers with gh's own
+wording; nothing talks to GitHub.
+
 ---
 
 ## 9. Attachments

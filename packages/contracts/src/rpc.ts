@@ -27,7 +27,15 @@ import {
   ModelOption,
   SkillSummary,
 } from "./connectors";
-import { GIT_RPC_METHODS, GitBranchCheckoutRpc, GitBranchCreateRpc, GitBranchesRpc } from "./git";
+import {
+  GIT_RPC_METHODS,
+  GitBranchCheckoutRpc,
+  GitBranchCreateRpc,
+  GitBranchesRpc,
+  GitCommitRpc,
+  GitPullRequestCreateRpc,
+  GitPushRpc,
+} from "./git";
 import { ConnectorInstanceId, ProjectId, ThreadId, UuidV7 } from "./ids";
 import {
   CheckpointSummary,
@@ -659,6 +667,9 @@ export const OpenAdeRpcGroup = RpcGroup.make(
   GitBranchesRpc,
   GitBranchCreateRpc,
   GitBranchCheckoutRpc,
+  GitCommitRpc,
+  GitPushRpc,
+  GitPullRequestCreateRpc,
   CheckpointsListRpc,
   BrowserSubscribeRpc,
   BrowserHumanInputRpc,

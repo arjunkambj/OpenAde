@@ -22,7 +22,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
 import { ItemKind } from "../src/enums";
-import { GitBranchList } from "../src/git";
+import { GitBranchList, GitCommitResult, GitPullRequestResult, GitPushResult } from "../src/git";
 import {
   Command,
   CommandReceipt,
@@ -201,6 +201,9 @@ const singles: ReadonlyArray<{ readonly path: string; readonly schema: FixtureSc
   { path: "rpc/git-diff.not-a-repository.json", schema: GitDiff },
   { path: "rpc/git-branch-list.json", schema: GitBranchList },
   { path: "rpc/git-branch-list.not-a-repository.json", schema: GitBranchList },
+  { path: "rpc/git-commit-result.json", schema: GitCommitResult },
+  { path: "rpc/git-push-result.json", schema: GitPushResult },
+  { path: "rpc/git-pull-request-result.json", schema: GitPullRequestResult },
   { path: "rpc/browser-state.json", schema: BrowserState },
   { path: "rpc/mcp-server-config.json", schema: McpServerConfig },
   { path: "rpc/skill-summary.json", schema: SkillSummary },

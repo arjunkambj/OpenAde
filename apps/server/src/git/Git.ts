@@ -1,10 +1,12 @@
 /**
- * The real `GitService` behind the `git.status`/`git.diff`/`checkpoints.list`
- * and branch RPCs: argv-form git over `process.ts`, porcelain-v2 parsing for
- * status, and unified patches split per file for the changes pane. Branch
- * listing, creation and switching live in `Branches.ts`; this layer resolves
- * the root and adds the one guard that needs the read models — no switch
- * while a turn runs in the same root. Each call runs in the thread's own root
+ * The real `GitService` behind the `git.status`/`git.diff`/`checkpoints.list`,
+ * branch, commit, push and pull-request RPCs: argv-form git over
+ * `process.ts`, porcelain-v2 parsing for status, and unified patches split per
+ * file for the changes pane. Branch listing, creation and switching live in
+ * `Branches.ts`, commit and push in `Commits.ts`, pull requests in
+ * `GitHubCli.ts`; this layer resolves the root and adds the one guard that
+ * needs the read models — no switch or commit while a turn runs in the same
+ * root. Each call runs in the thread's own root
  * when it names a thread (see `orchestration/workspaceRoot.ts`). A missing
  * `projectId` or a non-repository root answers `isRepository: false` with
  * empty results rather than an RPC error, so the pane can say "not a git
@@ -19,6 +21,7 @@ import * as Layer from "effect/Layer";
 
 import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
 
+import { worktreeOf } from "../orchestration/state";
 import { resolveWorkspaceRoot, workspaceRootBusy } from "../orchestration/workspaceRoot";
 import { ReadModelStore } from "../persistence/ReadModels";
 import { GitService, type WorkspaceScope } from "../rpc/services";
@@ -31,6 +34,8 @@ import {
   validRef,
 } from "./Branches";
 import { make as checkpointStore } from "./CheckpointStore";
+import { commit, push } from "./Commits";
+import { createPullRequest, GhRunner } from "./GitHubCli";
 import { GitError, isRepository, run } from "./process";
 
 const toRpcError = (error: GitError) =>
@@ -255,6 +260,7 @@ export const layer = Layer.effect(
   GitService,
   Effect.gen(function* () {
     const readModels = yield* ReadModelStore;
+    const gh = yield* GhRunner;
 
     /** The thread's root when the scope names one, the project's otherwise. */
     const workspaceRoot = (scope: WorkspaceScope) =>
@@ -287,8 +293,8 @@ export const layer = Layer.effect(
         return root;
       });
 
-    /** No branch switch under a running turn or a checkpoint restore in the same root. */
-    const requireIdle = (root: string) =>
+    /** No branch switch or commit under a running turn or a checkpoint restore in the same root. */
+    const requireIdle = (root: string, action: string) =>
       Effect.gen(function* () {
         const busy = yield* workspaceRootBusy(readModels, root).pipe(
           Effect.mapError(
@@ -299,11 +305,24 @@ export const layer = Layer.effect(
           return yield* Effect.fail(
             new OpenAdeRpcError({
               code: "conflict",
-              message: "A turn is running in this workspace — stop it before switching branches.",
+              message: `A turn is running in this workspace — stop it before ${action}.`,
             }),
           );
         }
       });
+
+    /** The branch the scope's thread was cut from, when it has a worktree that says. */
+    const worktreeBase = (scope: WorkspaceScope) =>
+      Effect.gen(function* () {
+        if (scope.threadId === undefined) return null;
+        const doc = yield* readModels.getThreadDoc(scope.threadId);
+        if (doc === null || doc.deleted || doc.projectId !== scope.projectId) return null;
+        return worktreeOf(doc)?.baseBranch ?? null;
+      }).pipe(
+        Effect.mapError(
+          (error) => new OpenAdeRpcError({ code: "internal", message: error.message }),
+        ),
+      );
 
     return GitService.of({
       status: (scope) =>
@@ -376,7 +395,7 @@ export const layer = Layer.effect(
         Effect.gen(function* () {
           const root = yield* repositoryRoot(scope);
           if (options.checkout) {
-            yield* requireIdle(root);
+            yield* requireIdle(root, "switching branches");
           }
           yield* createBranch(root, options);
           return yield* listBranches(root);
@@ -385,9 +404,57 @@ export const layer = Layer.effect(
       checkout: (scope, branch) =>
         Effect.gen(function* () {
           const root = yield* repositoryRoot(scope);
-          yield* requireIdle(root);
+          yield* requireIdle(root, "switching branches");
           yield* checkoutBranch(root, branch);
           return yield* listBranches(root);
+        }).pipe(Effect.mapError(asRpcError)),
+
+      commit: (scope, options) =>
+        Effect.gen(function* () {
+          const root = yield* repositoryRoot(scope);
+          yield* requireIdle(root, "committing");
+          return yield* commit(root, options);
+        }).pipe(Effect.mapError(asRpcError)),
+
+      push: (scope) =>
+        Effect.gen(function* () {
+          const root = yield* repositoryRoot(scope);
+          return yield* push(root);
+        }).pipe(Effect.mapError(asRpcError)),
+
+      createPullRequest: (scope, options) =>
+        Effect.gen(function* () {
+          const root = yield* repositoryRoot(scope);
+          const list = yield* listBranches(root);
+          if (list.current === null) {
+            return yield* Effect.fail(
+              new OpenAdeRpcError({
+                code: "invalid",
+                message: "HEAD is detached — check out a branch before opening a pull request.",
+              }),
+            );
+          }
+          const base = options.base ?? (yield* worktreeBase(scope)) ?? list.defaultBranch;
+          if (base === null) {
+            return yield* Effect.fail(
+              new OpenAdeRpcError({
+                code: "invalid",
+                message: "No base branch to open the pull request into.",
+              }),
+            );
+          }
+          // gh wants the base as the remote knows it: `origin/main` is `main` there.
+          const remote = list.remotes.find((name) => base.startsWith(`${name}/`));
+          const baseName = yield* validRef(
+            remote === undefined ? base : base.slice(remote.length + 1),
+            "base",
+          );
+          return yield* createPullRequest(gh, root, {
+            head: list.current,
+            base: baseName,
+            title: options.title,
+            body: options.body,
+          });
         }).pipe(Effect.mapError(asRpcError)),
 
       /**

@@ -51,6 +51,7 @@ import { layer as directoryBrowserLayer } from "./fs/Directories";
 import { layer as gitCheckpointHookLayer } from "./git/CheckpointHook";
 import { layer as fileServiceLayer } from "./git/Files";
 import { layer as gitServiceLayer } from "./git/Git";
+import { GhRunner } from "./git/GitHubCli";
 import { writeHandshake } from "./rpc/bootstrap";
 import { serverLayer, ServerToken } from "./rpc/server";
 import { ServerIdentity, SettingsStore } from "./rpc/services";
@@ -223,7 +224,7 @@ export const boot = (options: BootOptions) =>
       sharedSettings,
       fileServiceLayer.pipe(Layer.provide(persistence)),
       directoryBrowserLayer,
-      gitServiceLayer.pipe(Layer.provide(persistence)),
+      gitServiceLayer.pipe(Layer.provide(Layer.mergeAll(persistence, GhRunner.layer))),
       attachments,
       browser,
       mcp,

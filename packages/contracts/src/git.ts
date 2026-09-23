@@ -1,5 +1,6 @@
 /**
- * The git shapes a thread and the git RPCs share, and the branch RPCs.
+ * The git shapes a thread and the git RPCs share, and the branch, commit,
+ * push and pull-request RPCs.
  *
  * Kept apart from `rpc.ts` so the branch, commit and worktree surface can grow
  * without pushing the RPC group past its size limit: the RPCs are defined
@@ -65,6 +66,40 @@ export const GitBranchList = Schema.Struct({
 });
 export type GitBranchList = typeof GitBranchList.Type;
 
+// ── Commit, push, pull request ─────────────────────────────────
+
+/**
+ * The commit `git.commit` made. `subject` is its first line as git stored it;
+ * `branch` is the branch it landed on, `null` on a detached HEAD.
+ */
+export const GitCommitResult = Schema.Struct({
+  sha: NonEmptyString,
+  subject: Schema.String,
+  branch: Schema.NullOr(NonEmptyString),
+});
+export type GitCommitResult = typeof GitCommitResult.Type;
+
+/**
+ * Where `git.push` pushed the current branch. `setUpstream` is true when the
+ * branch had no upstream yet and this push set one (`git push -u`).
+ */
+export const GitPushResult = Schema.Struct({
+  remote: NonEmptyString,
+  branch: NonEmptyString,
+  setUpstream: Schema.Boolean,
+});
+export type GitPushResult = typeof GitPushResult.Type;
+
+/**
+ * The pull request for the current branch. `created: false` means one was
+ * already open for it, and `url` is that one's.
+ */
+export const GitPullRequestResult = Schema.Struct({
+  url: NonEmptyString,
+  created: Schema.Boolean,
+});
+export type GitPullRequestResult = typeof GitPullRequestResult.Type;
+
 // ── Method names and RPCs ──────────────────────────────────────
 
 /** Spread into `RPC_METHODS`, so the names stay in the one table. */
@@ -72,6 +107,9 @@ export const GIT_RPC_METHODS = {
   gitBranches: "git.branches",
   gitBranchCreate: "git.branch.create",
   gitCheckout: "git.checkout",
+  gitCommit: "git.commit",
+  gitPush: "git.push",
+  gitPullRequestCreate: "git.pullRequest.create",
 } as const;
 
 /** The branches of the thread's root when `threadId` is set, the project's otherwise. */
@@ -110,5 +148,51 @@ export const GitBranchCheckoutRpc = Rpc.make(GIT_RPC_METHODS.gitCheckout, {
     branch: NonEmptyString,
   }),
   success: GitBranchList,
+  error: OpenAdeRpcError,
+});
+
+/**
+ * Commits with the user's own git identity and hooks. Without `paths` every
+ * change is staged (`git add -A`); with them the index is reset first and
+ * only those paths are staged, so nothing else rides along. `conflict` when
+ * nothing ends up staged, when a hook refuses (with its own output), or while
+ * a turn is running in that workspace.
+ */
+export const GitCommitRpc = Rpc.make(GIT_RPC_METHODS.gitCommit, {
+  payload: Schema.Struct({
+    projectId: ProjectId,
+    threadId: Schema.optional(ThreadId),
+    message: NonEmptyString,
+    paths: Schema.optional(Schema.Array(NonEmptyString)),
+  }),
+  success: GitCommitResult,
+  error: OpenAdeRpcError,
+});
+
+/**
+ * Pushes the current branch: plainly when it has an upstream, with `-u` to
+ * its remote (`branch.<name>.remote`, else `origin`, else the only remote)
+ * when it has none. `unavailable` when the repository has no remote.
+ */
+export const GitPushRpc = Rpc.make(GIT_RPC_METHODS.gitPush, {
+  payload: Schema.Struct({ projectId: ProjectId, threadId: Schema.optional(ThreadId) }),
+  success: GitPushResult,
+  error: OpenAdeRpcError,
+});
+
+/**
+ * Opens a pull request for the current branch with the GitHub CLI, into
+ * `base` — else the branch the thread's worktree was cut from, else the
+ * default branch. `unavailable` when `gh` is missing or not signed in.
+ */
+export const GitPullRequestCreateRpc = Rpc.make(GIT_RPC_METHODS.gitPullRequestCreate, {
+  payload: Schema.Struct({
+    projectId: ProjectId,
+    threadId: Schema.optional(ThreadId),
+    title: NonEmptyString,
+    body: Schema.String,
+    base: Schema.optional(NonEmptyString),
+  }),
+  success: GitPullRequestResult,
   error: OpenAdeRpcError,
 });

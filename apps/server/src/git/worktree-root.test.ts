@@ -33,6 +33,7 @@ import { FileService, GitService } from "../rpc/services";
 import { make as checkpointStore } from "./CheckpointStore";
 import { layer as fileLayer } from "./Files";
 import { layer as gitLayer } from "./Git";
+import { GhRunner } from "./GitHubCli";
 
 const git = (cwd: string, ...args: Array<string>) =>
   execFileSync("git", args, { cwd, encoding: "utf8" });
@@ -112,7 +113,9 @@ const stack = (root: string) =>
         return threadId;
       });
     const services = yield* Layer.build(
-      Layer.mergeAll(gitLayer, fileLayer).pipe(Layer.provide(Layer.succeedContext(rmContext))),
+      Layer.mergeAll(gitLayer, fileLayer).pipe(
+        Layer.provide(Layer.mergeAll(Layer.succeedContext(rmContext), GhRunner.layer)),
+      ),
     );
     return {
       projectId: yield* addProject(root),
