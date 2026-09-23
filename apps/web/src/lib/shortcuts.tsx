@@ -44,6 +44,8 @@ export const SHORTCUT_COMMANDS = {
   skills: "skills.open",
   settings: "settings.open",
   addProject: "project.add",
+  interrupt: "thread.interrupt",
+  queue: "composer.queue",
 } as const;
 
 export type ShortcutId = keyof typeof SHORTCUT_COMMANDS;

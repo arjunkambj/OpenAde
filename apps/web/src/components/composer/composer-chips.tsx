@@ -14,6 +14,7 @@
 import * as React from "react";
 
 import { Button } from "@OpenAde/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 
 import { Close, File as FileIcon } from "@honeyicons/react";
 
@@ -42,16 +43,23 @@ function AttachmentChip({
         <img src={url} alt={file.name} title={file.name} className="size-full object-cover" />
       )}
       <span className="absolute top-0.5 right-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-        <Button
-          type="button"
-          variant="secondary"
-          size="icon-xs"
-          shape="pill"
-          aria-label={`Remove attachment ${file.name}`}
-          onClick={onRemove}
-        >
-          <Close />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                type="button"
+                variant="secondary"
+                size="icon-xs"
+                shape="pill"
+                aria-label={`Remove attachment ${file.name}`}
+                onClick={onRemove}
+              />
+            }
+          >
+            <Close />
+          </TooltipTrigger>
+          <TooltipContent>Remove attachment</TooltipContent>
+        </Tooltip>
       </span>
     </span>
   );
@@ -80,16 +88,23 @@ export function ComposerChips({
         >
           <FileIcon className="size-3 shrink-0 text-muted-foreground" />
           <span className="truncate">{path}</span>
-          <Button
-            type="button"
-            variant="ghost"
-            tone="muted"
-            size="icon-xs"
-            aria-label={`Remove mention ${path}`}
-            onClick={() => onRemoveMention(path)}
-          >
-            <Close />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  tone="muted"
+                  size="icon-xs"
+                  aria-label={`Remove mention ${path}`}
+                  onClick={() => onRemoveMention(path)}
+                />
+              }
+            >
+              <Close />
+            </TooltipTrigger>
+            <TooltipContent>Remove mention</TooltipContent>
+          </Tooltip>
         </span>
       ))}
       {files.map((file, index) => (

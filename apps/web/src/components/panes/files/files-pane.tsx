@@ -19,6 +19,7 @@ import type { FileQuery } from "@OpenAde/client-runtime/fileAtoms";
 import type { ProjectId } from "@OpenAde/contracts/ids";
 import type { FileSearchResult } from "@OpenAde/contracts/rpc";
 import { Button } from "@OpenAde/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import { Input } from "@OpenAde/ui/components/input";
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
@@ -217,15 +218,22 @@ export function FilesPane({
       ) : (
         <>
           <div className="flex h-8 shrink-0 items-center gap-1 px-1.5">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Back to results"
-              onClick={() => setOpenPath(null)}
-            >
-              <ChevronLeft />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Back to results"
+                    onClick={() => setOpenPath(null)}
+                  />
+                }
+              >
+                <ChevronLeft />
+              </TooltipTrigger>
+              <TooltipContent>Back to results</TooltipContent>
+            </Tooltip>
             <span className="min-w-0 truncate font-mono text-xs text-foreground" title={openPath}>
               {openPath}
             </span>

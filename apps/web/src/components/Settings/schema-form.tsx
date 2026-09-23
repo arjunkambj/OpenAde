@@ -15,6 +15,7 @@
  */
 
 import { Button } from "@OpenAde/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import { Checkbox } from "@OpenAde/ui/components/checkbox";
 import { Input } from "@OpenAde/ui/components/input";
 import {
@@ -34,6 +35,8 @@ import { selectedOptionLabel } from "./select-label";
 import { isObject, isString } from "effect/Predicate";
 import type * as Schema from "effect/Schema";
 import * as React from "react";
+
+import { Close } from "@honeyicons/react";
 
 export interface SelectOption {
   readonly value: string;
@@ -167,14 +170,21 @@ export function KeyValueInput({
               emit(rows.map((row, i) => (i === index ? ([row[0], nextValue] as const) : row)))
             }
           />
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={key === "" ? "Remove row" : `Remove ${key}`}
-            onClick={() => emit(rows.filter((_, i) => i !== index))}
-          >
-            ×
-          </Button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={key === "" ? "Remove row" : `Remove ${key}`}
+                  onClick={() => emit(rows.filter((_, i) => i !== index))}
+                />
+              }
+            >
+              <Close />
+            </TooltipTrigger>
+            <TooltipContent>Remove variable</TooltipContent>
+          </Tooltip>
         </div>
       ))}
       <div>

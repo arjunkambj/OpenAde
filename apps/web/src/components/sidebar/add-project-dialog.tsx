@@ -214,15 +214,22 @@ export function AddProjectDialog({
                     <Button type="button" variant="ghost" size="sm" onClick={() => void choose()}>
                       Change
                     </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Remove folder"
-                      onClick={() => setWorkspaceRoot("")}
-                    >
-                      <Close />
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label="Remove folder"
+                            onClick={() => setWorkspaceRoot("")}
+                          />
+                        }
+                      >
+                        <Close />
+                      </TooltipTrigger>
+                      <TooltipContent>Remove folder</TooltipContent>
+                    </Tooltip>
                   </div>
                 )}
               </div>

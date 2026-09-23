@@ -2,6 +2,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { AsyncResult } from "effect/unstable/reactivity";
 
 import { Button } from "@OpenAde/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import {
   DEFAULT_FONT_SIZE,
   FONT_SIZE_STEP,
@@ -36,27 +37,41 @@ function PxStepper({
         aria-label={`${label} font size`}
         className="flex shrink-0 items-center gap-1"
       >
-        <Button
-          variant="outline"
-          size="icon-sm"
-          aria-label={`Decrease ${label.toLowerCase()} font size`}
-          disabled={value <= MIN_FONT_SIZE}
-          onClick={() => onChange(value - FONT_SIZE_STEP)}
-        >
-          <Minus />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="outline"
+                size="icon-sm"
+                aria-label={`Decrease ${label.toLowerCase()} font size`}
+                disabled={value <= MIN_FONT_SIZE}
+                onClick={() => onChange(value - FONT_SIZE_STEP)}
+              />
+            }
+          >
+            <Minus />
+          </TooltipTrigger>
+          <TooltipContent>Smaller</TooltipContent>
+        </Tooltip>
         <span aria-live="polite" className="w-16 text-center text-sm tabular-nums">
           {value} px
         </span>
-        <Button
-          variant="outline"
-          size="icon-sm"
-          aria-label={`Increase ${label.toLowerCase()} font size`}
-          disabled={value >= MAX_FONT_SIZE}
-          onClick={() => onChange(value + FONT_SIZE_STEP)}
-        >
-          <Add />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="outline"
+                size="icon-sm"
+                aria-label={`Increase ${label.toLowerCase()} font size`}
+                disabled={value >= MAX_FONT_SIZE}
+                onClick={() => onChange(value + FONT_SIZE_STEP)}
+              />
+            }
+          >
+            <Add />
+          </TooltipTrigger>
+          <TooltipContent>Larger</TooltipContent>
+        </Tooltip>
       </div>
     </div>
   );

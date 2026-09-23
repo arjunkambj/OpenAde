@@ -11,6 +11,7 @@
 
 import type { FsEntry } from "@OpenAde/contracts/rpc";
 import { Button } from "@OpenAde/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import {
   Empty,
   EmptyContent,
@@ -38,16 +39,23 @@ export function Breadcrumb({
 }) {
   return (
     <div className="flex min-w-0 items-center gap-1">
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Go to the folder above"
-        disabled={!canGoUp}
-        onClick={onGoUp}
-      >
-        <ChevronUp />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Go to the folder above"
+              disabled={!canGoUp}
+              onClick={onGoUp}
+            />
+          }
+        >
+          <ChevronUp />
+        </TooltipTrigger>
+        <TooltipContent>Folder above</TooltipContent>
+      </Tooltip>
       <div className="flex min-w-0 flex-1 items-center overflow-x-auto">
         {path === null
           ? null

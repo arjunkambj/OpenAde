@@ -19,6 +19,7 @@ import type { FileQuery } from "@OpenAde/client-runtime/fileAtoms";
 import type { ProjectId } from "@OpenAde/contracts/ids";
 import type { FileContent } from "@OpenAde/contracts/rpc";
 import { Button } from "@OpenAde/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 
@@ -134,32 +135,46 @@ export function FilePreview({
           <span className="shrink-0">· capped by the server</span>
         ) : null}
         <div className="ml-auto flex shrink-0 items-center gap-0.5">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Previous page"
-            disabled={!position.hasPrevious}
-            onClick={() => {
-              setOffset(visited.at(-1) ?? Math.max(0, offset - PAGE_LINES));
-              setVisited((stack) => stack.slice(0, -1));
-            }}
-          >
-            <ChevronUp />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Next page"
-            disabled={!position.hasNext}
-            onClick={() => {
-              setVisited((stack) => [...stack, offset]);
-              setOffset(position.nextOffset);
-            }}
-          >
-            <ChevronDown />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Previous page"
+                  disabled={!position.hasPrevious}
+                  onClick={() => {
+                    setOffset(visited.at(-1) ?? Math.max(0, offset - PAGE_LINES));
+                    setVisited((stack) => stack.slice(0, -1));
+                  }}
+                />
+              }
+            >
+              <ChevronUp />
+            </TooltipTrigger>
+            <TooltipContent>Previous page</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Next page"
+                  disabled={!position.hasNext}
+                  onClick={() => {
+                    setVisited((stack) => [...stack, offset]);
+                    setOffset(position.nextOffset);
+                  }}
+                />
+              }
+            >
+              <ChevronDown />
+            </TooltipTrigger>
+            <TooltipContent>Next page</TooltipContent>
+          </Tooltip>
         </div>
       </div>
     </div>

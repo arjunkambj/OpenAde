@@ -8,6 +8,7 @@ import * as React from "react";
 
 import type { BrowserHumanInput, BrowserState } from "@OpenAde/contracts/rpc";
 import { Button } from "@OpenAde/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import { Input } from "@OpenAde/ui/components/input";
 
 import { cn } from "@/lib/utils";
@@ -48,15 +49,46 @@ export function AddressBar({ state, onAction }: AddressBarProps) {
 
   return (
     <div className="flex items-center gap-1.5 px-2 py-1.5">
-      <Button variant="ghost" size="icon-sm" onClick={history("back")} aria-label="Back">
-        <ChevronLeft />
-      </Button>
-      <Button variant="ghost" size="icon-sm" onClick={history("forward")} aria-label="Forward">
-        <ChevronRight />
-      </Button>
-      <Button variant="ghost" size="icon-sm" onClick={history("reload")} aria-label="Reload">
-        <Repeat />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button variant="ghost" size="icon-sm" onClick={history("back")} aria-label="Back" />
+          }
+        >
+          <ChevronLeft />
+        </TooltipTrigger>
+        <TooltipContent>Back</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={history("forward")}
+              aria-label="Forward"
+            />
+          }
+        >
+          <ChevronRight />
+        </TooltipTrigger>
+        <TooltipContent>Forward</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={history("reload")}
+              aria-label="Reload"
+            />
+          }
+        >
+          <Repeat />
+        </TooltipTrigger>
+        <TooltipContent>Reload</TooltipContent>
+      </Tooltip>
       <Input
         value={draft}
         onChange={(event) => {

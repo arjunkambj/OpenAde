@@ -12,10 +12,12 @@
  */
 
 import { Button } from "@OpenAde/ui/components/button";
+import { Kbd } from "@OpenAde/ui/components/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import * as React from "react";
 
 import { ATTACHMENT_ACCEPT } from "@/components/composer/attachment-rules";
+import { ShortcutKbd } from "@/lib/shortcuts";
 
 import { Add, ArrowUp, Close, Spinner, Stop as StopIcon } from "@honeyicons/react";
 
@@ -52,20 +54,6 @@ export function ComposerToolbar({
 }) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const attachDisabled = attachDisabledReason !== undefined;
-  const attach = (
-    <Button
-      type="button"
-      variant="ghost"
-      tone="muted"
-      size="icon"
-      aria-label="Attach files"
-      title={attachDisabled ? undefined : "Attach files"}
-      disabled={attachDisabled}
-      onClick={() => fileInputRef.current?.click()}
-    >
-      <Add />
-    </Button>
-  );
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-2">
       <input
@@ -84,14 +72,25 @@ export function ComposerToolbar({
           event.target.value = "";
         }}
       />
-      {attachDisabled ? (
-        <Tooltip>
-          <TooltipTrigger render={<span className="inline-flex" />}>{attach}</TooltipTrigger>
-          <TooltipContent>{attachDisabledReason}</TooltipContent>
-        </Tooltip>
-      ) : (
-        attach
-      )}
+      {/* The trigger wraps the button rather than being it: a disabled button
+          takes no pointer events, and the tooltip is where a refused attach
+          says why. */}
+      <Tooltip>
+        <TooltipTrigger render={<span className="inline-flex" />}>
+          <Button
+            type="button"
+            variant="ghost"
+            tone="muted"
+            size="icon"
+            aria-label="Attach files"
+            disabled={attachDisabled}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Add />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{attachDisabledReason ?? "Attach files"}</TooltipContent>
+      </Tooltip>
       {settings}
       <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
         {contextUsed !== undefined && contextLimit !== undefined ? (
@@ -101,32 +100,58 @@ export function ComposerToolbar({
         ) : null}
       </span>
       {running ? (
-        <Button
-          type="button"
-          variant="secondary"
-          size="icon"
-          shape="pill"
-          className="shrink-0"
-          aria-label="Stop turn"
-          title="Stop the running turn (Esc)"
-          disabled={interrupting}
-          onClick={onInterrupt}
-        >
-          {interrupting ? <Spinner /> : <StopIcon />}
-        </Button>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                type="button"
+                variant="secondary"
+                size="icon"
+                shape="pill"
+                className="shrink-0"
+                aria-label="Stop turn"
+                disabled={interrupting}
+                onClick={onInterrupt}
+              />
+            }
+          >
+            {interrupting ? <Spinner /> : <StopIcon />}
+          </TooltipTrigger>
+          <TooltipContent>
+            Stop turn
+            <ShortcutKbd id="interrupt" />
+          </TooltipContent>
+        </Tooltip>
       ) : null}
-      <Button
-        type="button"
-        size="icon"
-        shape="pill"
-        className="shrink-0"
-        aria-label={running ? "Queue message" : "Send message"}
-        title={running ? "Queue message (⌘↵)" : "Send (⏎) · queue (⌘↵)"}
-        disabled={!canSend || sending}
-        onClick={onSend}
-      >
-        {sending ? <Spinner /> : running ? <Close /> : <ArrowUp />}
-      </Button>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              type="button"
+              size="icon"
+              shape="pill"
+              className="shrink-0"
+              aria-label={running ? "Queue message" : "Send message"}
+              disabled={!canSend || sending}
+              onClick={onSend}
+            />
+          }
+        >
+          {sending ? <Spinner /> : running ? <Close /> : <ArrowUp />}
+        </TooltipTrigger>
+        <TooltipContent>
+          {running ? (
+            <>
+              Queue message
+              <ShortcutKbd id="queue" />
+            </>
+          ) : (
+            <>
+              Send<Kbd>↵</Kbd>
+            </>
+          )}
+        </TooltipContent>
+      </Tooltip>
     </div>
   );
 }

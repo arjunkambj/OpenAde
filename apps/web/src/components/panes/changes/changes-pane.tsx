@@ -33,6 +33,7 @@ import { isRepoless, type GitQuery } from "@OpenAde/client-runtime/gitAtoms";
 import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
 import type { GitDiff, GitDiffFile, GitStatus } from "@OpenAde/contracts/rpc";
 import { Button } from "@OpenAde/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import { AsyncResult } from "effect/unstable/reactivity";
 
 import { PaneMessage } from "@/components/panes/files/pane-message";
@@ -105,16 +106,23 @@ function BranchLine({ status, onRefresh }: { status: GitStatus | null; onRefresh
       <span className="min-w-0 truncate">{status?.branch ?? "no branch"}</span>
       {status !== null && status.ahead > 0 ? <span>↑{status.ahead}</span> : null}
       {status !== null && status.behind > 0 ? <span>↓{status.behind}</span> : null}
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Refresh changes"
-        className="ml-auto"
-        onClick={onRefresh}
-      >
-        <Repeat />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Refresh changes"
+              className="ml-auto"
+              onClick={onRefresh}
+            />
+          }
+        >
+          <Repeat />
+        </TooltipTrigger>
+        <TooltipContent>Refresh changes</TooltipContent>
+      </Tooltip>
     </div>
   );
 }

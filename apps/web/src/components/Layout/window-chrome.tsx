@@ -66,29 +66,43 @@ function ChromeHistoryButtons() {
   return (
     <>
       <NoDrag>
-        <Button
-          type="button"
-          variant="ghost"
-          tone="subtle"
-          size="icon-sm"
-          aria-label="Go back"
-          disabled={!canGoBack}
-          onClick={() => router.history.back()}
-        >
-          <ChevronLeft className="scale-90" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                tone="subtle"
+                size="icon-sm"
+                aria-label="Go back"
+                disabled={!canGoBack}
+                onClick={() => router.history.back()}
+              />
+            }
+          >
+            <ChevronLeft className="scale-90" />
+          </TooltipTrigger>
+          <TooltipContent>Back</TooltipContent>
+        </Tooltip>
       </NoDrag>
       <NoDrag>
-        <Button
-          type="button"
-          variant="ghost"
-          tone="subtle"
-          size="icon-sm"
-          aria-label="Go forward"
-          onClick={() => router.history.forward()}
-        >
-          <ChevronRight className="scale-90" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                tone="subtle"
+                size="icon-sm"
+                aria-label="Go forward"
+                onClick={() => router.history.forward()}
+              />
+            }
+          >
+            <ChevronRight className="scale-90" />
+          </TooltipTrigger>
+          <TooltipContent>Forward</TooltipContent>
+        </Tooltip>
       </NoDrag>
     </>
   );

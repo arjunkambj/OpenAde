@@ -9,6 +9,7 @@
 import * as React from "react";
 
 import { Button } from "@OpenAde/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 
 import { INSTALL_COMMANDS } from "./install";
 import { Check, Copy as CopyIcon, Globe } from "@honeyicons/react";
@@ -37,15 +38,22 @@ function CommandRow({ command, note }: { command: string; note: string }) {
         {command}
       </code>
       <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">{note}</span>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        onClick={copy}
-        aria-label={`Copy ${command}`}
-      >
-        {copied ? <Check /> : <CopyIcon />}
-      </Button>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={copy}
+              aria-label={`Copy ${command}`}
+            />
+          }
+        >
+          {copied ? <Check /> : <CopyIcon />}
+        </TooltipTrigger>
+        <TooltipContent>{copied ? "Copied" : "Copy command"}</TooltipContent>
+      </Tooltip>
     </div>
   );
 }

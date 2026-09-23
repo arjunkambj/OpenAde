@@ -200,30 +200,42 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
                     </td>
                     <td className="px-3 py-1.5">
                       <span className="flex items-center justify-end gap-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          tone="muted"
-                          size="icon-sm"
-                          aria-label={`Reset ${row.command} to the default shortcut`}
-                          title="Reset to default"
-                          onClick={() => resetRow(index)}
-                        >
-                          <Undo />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          tone="muted"
-                          size="icon-sm"
-                          aria-label={`Remove binding for ${row.command}`}
-                          title="Remove binding"
-                          onClick={() =>
-                            setDraft((current) => current.filter((_, i) => i !== index))
-                          }
-                        >
-                          <Close />
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                tone="muted"
+                                size="icon-sm"
+                                aria-label={`Reset ${row.command} to the default shortcut`}
+                                onClick={() => resetRow(index)}
+                              />
+                            }
+                          >
+                            <Undo />
+                          </TooltipTrigger>
+                          <TooltipContent>Reset to default</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                tone="muted"
+                                size="icon-sm"
+                                aria-label={`Remove binding for ${row.command}`}
+                                onClick={() =>
+                                  setDraft((current) => current.filter((_, i) => i !== index))
+                                }
+                              />
+                            }
+                          >
+                            <Close />
+                          </TooltipTrigger>
+                          <TooltipContent>Remove binding</TooltipContent>
+                        </Tooltip>
                       </span>
                     </td>
                   </tr>

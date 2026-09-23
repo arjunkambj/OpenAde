@@ -14,6 +14,7 @@
 
 import { useAtomSet } from "@effect/atom-react";
 import { Button } from "@OpenAde/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import { makeCommandId } from "@OpenAde/contracts/ids";
 import type { ItemId, ThreadId } from "@OpenAde/contracts/ids";
 import type { Command, QueuedMessage } from "@OpenAde/contracts/orchestration";
@@ -106,45 +107,63 @@ export function QueueStrip({
                 {message.attachments.length > 0 ? ` +${message.attachments.length} file(s)` : null}
               </span>
             ) : null}
-            <Button
-              type="button"
-              variant="ghost"
-              tone="muted"
-              size="icon-sm"
-              className="shrink-0"
-              aria-label={`Move queued message ${index + 1} up`}
-              title="Send this one sooner"
-              disabled={busy !== null || index === 0}
-              onClick={() => move(message.queuedMessageId, index - 1)}
-            >
-              <ChevronUp />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              tone="muted"
-              size="icon-sm"
-              className="shrink-0"
-              aria-label={`Move queued message ${index + 1} down`}
-              title="Send this one later"
-              disabled={busy !== null || index === queue.length - 1}
-              onClick={() => move(message.queuedMessageId, index + 1)}
-            >
-              <ChevronDown />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              tone="muted"
-              size="icon-sm"
-              className="shrink-0"
-              aria-label={`Remove queued message ${index + 1}`}
-              title="Remove from the queue"
-              disabled={busy !== null}
-              onClick={() => remove(message.queuedMessageId)}
-            >
-              <Close />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    tone="muted"
+                    size="icon-sm"
+                    className="shrink-0"
+                    aria-label={`Move queued message ${index + 1} up`}
+                    disabled={busy !== null || index === 0}
+                    onClick={() => move(message.queuedMessageId, index - 1)}
+                  />
+                }
+              >
+                <ChevronUp />
+              </TooltipTrigger>
+              <TooltipContent>Send this one sooner</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    tone="muted"
+                    size="icon-sm"
+                    className="shrink-0"
+                    aria-label={`Move queued message ${index + 1} down`}
+                    disabled={busy !== null || index === queue.length - 1}
+                    onClick={() => move(message.queuedMessageId, index + 1)}
+                  />
+                }
+              >
+                <ChevronDown />
+              </TooltipTrigger>
+              <TooltipContent>Send this one later</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    tone="muted"
+                    size="icon-sm"
+                    className="shrink-0"
+                    aria-label={`Remove queued message ${index + 1}`}
+                    disabled={busy !== null}
+                    onClick={() => remove(message.queuedMessageId)}
+                  />
+                }
+              >
+                <Close />
+              </TooltipTrigger>
+              <TooltipContent>Remove from the queue</TooltipContent>
+            </Tooltip>
           </li>
         ))}
       </ol>

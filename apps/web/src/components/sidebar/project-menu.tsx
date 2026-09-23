@@ -20,6 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@OpenAde/ui/components/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import { makeCommandId } from "@OpenAde/contracts/ids";
 import type { ProjectSummary } from "@OpenAde/contracts/orchestration";
 
@@ -54,18 +55,25 @@ export function ProjectRowMenu({
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`Actions for ${project.name}`}
-            />
-          }
-        >
-          <MoreHorizontal />
-        </DropdownMenuTrigger>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Actions for ${project.name}`}
+                  />
+                }
+              />
+            }
+          >
+            <MoreHorizontal />
+          </TooltipTrigger>
+          <TooltipContent>More actions</TooltipContent>
+        </Tooltip>
         <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuItem variant="destructive" onClick={() => setConfirming(true)}>
             <Trash />
