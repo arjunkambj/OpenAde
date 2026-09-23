@@ -84,7 +84,7 @@ describe("a Claude Code session", () => {
         // that fixes it, not an assistant row.
         const errors = ofType(events, "runtime.error");
         expect(errors).toHaveLength(1);
-        expect(errors[0]?.payload.fatal).toBe(false);
+        expect(errors[0]?.payload.fatal).toBe(true);
         expect(errors[0]?.payload.message).toContain(`${replayed.binaryPath} auth login`);
         expect(events.some((event) => event.type.startsWith("item."))).toBe(false);
 
@@ -102,13 +102,9 @@ describe("a Claude Code session", () => {
           stopReason: "error",
         });
 
-        // Nothing the session does not map yet is dropped.
-        const unmapped = ofType(events, "event.unmapped").map((event) => event.raw.method);
-        expect(unmapped).toContain("command_lifecycle");
-        expect(unmapped).toContain("system/status");
-        expect(ofType(events, "event.unmapped").every((e) => e.raw.source === "claude.sdk")).toBe(
-          true,
-        );
+        // Every frame of the turn is mapped: the CLI's receipts for the
+        // message and its "requesting" status say nothing the stream does not.
+        expect(ofType(events, "event.unmapped")).toEqual([]);
 
         // The ref is said again once the turn settled, now with the cost total.
         expect(ofType(events, "session.started").at(-1)?.payload.sessionRef).toEqual({
@@ -124,6 +120,7 @@ describe("a Claude Code session", () => {
         expect(all.at(-1)).toMatchObject({ type: "session.ended", payload: { reason: "stopped" } });
         expect(replayed.pids()).toHaveLength(1);
         expect(replayed.pids().every(isPidGone)).toBe(true);
+        replayed.assertPlayedOut();
 
         const refused = yield* Effect.flip(
           handle.send({ text: PROMPT, attachments: [], mentions: [] }),

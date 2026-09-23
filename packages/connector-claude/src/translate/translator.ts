@@ -14,13 +14,18 @@
  *   rows. A snapshot the CLI wrote in place of an answer because the request
  *   failed — it carries `error`, and the text is the CLI's own line, such as
  *   "Not logged in · Please run /login" — becomes a `runtime.error` instead,
- *   naming the login command when the failure is the sign-in;
+ *   fatal and naming the login command when the failure is the sign-in;
  * - `system/init` → `mcp.status.updated`, and the model it reports is kept for
  *   the context window. It is not reported as `model.changed`: the CLI names
  *   the model a choice resolved to (`default` runs as a dated id), and the
  *   thread keeps the id the user picked;
  * - `result` → `usage.updated`, `context.updated` and `turn.completed`
- *   (`result.ts`).
+ *   (`result.ts`);
+ * - `command_lifecycle` and `system/status: requesting` → nothing, on purpose.
+ *   The first is the CLI's receipt for each user message the session wrote
+ *   (queued, started, cancelled); the session already knows its turn from
+ *   what it sent and from the `result` that ends it. The second says a request
+ *   is on its way to the API, which the deltas that follow say again.
  *
  * Everything else — tool calls and results, subagent traffic, status and
  * lifecycle notices — is kept whole as `event.unmapped` until a mapping exists
@@ -52,6 +57,9 @@ const RESTATED_STREAM_EVENTS = new Set([
   "message_stop",
   "ping",
 ]);
+
+/** `system/status` values that only say a request is under way. */
+const REQUEST_STATUSES = new Set(["requesting"]);
 
 /** How the CLI's MCP server states read in the contract's vocabulary. */
 const MCP_STATUS: Readonly<Record<string, McpServerStatus>> = {
@@ -137,7 +145,16 @@ export const makeTranslator = (options: {
         : said === ""
           ? `Claude Code request failed: ${error}`
           : said;
-    return [{ type: "runtime.error", payload: { message: text, fatal: false } }];
+    // Signed out is fatal, as Command Code's exit 3 is: nothing the thread
+    // sends will work until the user signs in, and only a fatal error is a
+    // row on the timeline. A failed request is the turn failing, and the next
+    // message may well work.
+    return [
+      {
+        type: "runtime.error",
+        payload: { message: text, fatal: error === "authentication_failed" },
+      },
+    ];
   };
 
   const assistant = (message: Json): ReadonlyArray<PendingRuntimeEvent> => {
@@ -199,7 +216,13 @@ export const makeTranslator = (options: {
       case "assistant":
         return mainLoop ? assistant(message) : [unmapped(message)];
       case "system":
-        return message.subtype === "init" ? init(message) : [unmapped(message)];
+        if (message.subtype === "init") return init(message);
+        if (message.subtype === "status" && REQUEST_STATUSES.has(asString(message.status) ?? "")) {
+          return [];
+        }
+        return [unmapped(message)];
+      case "command_lifecycle":
+        return [];
       case "result": {
         const { events, totalCost: total } = resultEvents(message, turn, {
           previousTotalCost: totalCost,
