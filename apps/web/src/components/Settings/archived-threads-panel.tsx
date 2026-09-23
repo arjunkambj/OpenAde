@@ -33,7 +33,7 @@ import {
   useThreadCommand,
 } from "@/components/sidebar/thread-actions";
 import { useConnectionState, useLoadedThreadList, useProjects } from "@/state/hooks";
-import { Archive, ArchiveUp, Trash } from "@honeyicons/react";
+import { Archive, ArchiveUp, Spinner, Trash } from "@honeyicons/react";
 
 import { archivedGroups } from "./archived-groups";
 
@@ -123,9 +123,15 @@ export function ArchivedThreadsPanel() {
       {groups === null ? (
         // The list has not arrived yet. Saying "No archived threads" here
         // would claim an answer the server has not given.
-        <p className="text-sm text-muted-foreground">
-          {disabled ? "Connect to a server to see archived threads." : "Loading archived threads…"}
-        </p>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">{disabled ? <Archive /> : <Spinner />}</EmptyMedia>
+            <EmptyTitle>{disabled ? "Not connected" : "Loading archived threads…"}</EmptyTitle>
+            {disabled ? (
+              <EmptyDescription>Connect to a server to see archived threads.</EmptyDescription>
+            ) : null}
+          </EmptyHeader>
+        </Empty>
       ) : groups.length === 0 ? (
         <Empty>
           <EmptyHeader>

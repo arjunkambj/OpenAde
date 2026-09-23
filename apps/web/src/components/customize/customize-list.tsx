@@ -1,9 +1,11 @@
 /**
  * The pieces every Customize tab lists its entries with: the search field, the
- * section header with its count, one card per entry, and the small tag pills
- * on a card. A new tab composes these instead of restyling a list.
+ * section header with its count, one card per entry, the small tag pills on a
+ * card, and the message a list shows in place of cards. A new tab composes
+ * these instead of restyling a list.
  */
 
+import { Empty, EmptyDescription, EmptyHeader } from "@OpenAde/ui/components/empty";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@OpenAde/ui/components/input-group";
 import { cn } from "@OpenAde/ui/lib/utils";
 import type * as React from "react";
@@ -114,12 +116,14 @@ export function CustomizeTag({
   );
 }
 
-/** The one-line message a list shows in place of cards. */
+/** The one-line message a list shows in place of cards, on the stock `Empty`. */
 export function CustomizeEmpty({ children }: { readonly children: React.ReactNode }) {
   return (
-    <p className="rounded-2xl bg-muted/50 px-4 py-6 text-center text-sm text-muted-foreground">
-      {children}
-    </p>
+    <Empty>
+      <EmptyHeader>
+        <EmptyDescription>{children}</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
   );
 }
 

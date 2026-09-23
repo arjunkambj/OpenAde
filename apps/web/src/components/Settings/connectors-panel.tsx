@@ -12,6 +12,13 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { Button } from "@OpenAde/ui/components/button";
 import { Card, CardContent } from "@OpenAde/ui/components/card";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@OpenAde/ui/components/empty";
 import { Separator } from "@OpenAde/ui/components/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import { makeConnectorInstanceId } from "@OpenAde/contracts/ids";
@@ -29,7 +36,7 @@ import { connectorIconFor } from "@/lib/connector-icon";
 
 import { ConnectorStatusBadge, ConnectorStatusLine } from "./connector-status";
 import { SchemaForm, StructForm, type SelectOption } from "./schema-form";
-import { Add as AddIcon, Repeat, Spinner, Trash } from "@honeyicons/react";
+import { Add as AddIcon, Connect, Repeat, Spinner, Trash } from "@honeyicons/react";
 
 const asRecord = (value: unknown): Record<string, unknown> =>
   isObject(value) ? (value as Record<string, unknown>) : {};
@@ -204,9 +211,15 @@ export function ConnectorsPanel() {
       </div>
 
       {settings.connectors.length === 0 ? (
-        <p className="rounded-lg bg-muted/50 px-4 py-6 text-sm text-muted-foreground">
-          No connectors configured yet.
-        </p>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Connect />
+            </EmptyMedia>
+            <EmptyTitle>No connectors yet</EmptyTitle>
+            <EmptyDescription>Add one below to run threads on it.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         settings.connectors.map((conn) => (
           <ConnectorCard
