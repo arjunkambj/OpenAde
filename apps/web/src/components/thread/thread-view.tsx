@@ -10,7 +10,8 @@
  * rest of the thread-scoped bindings — `thread.interrupt`, `composer.queue` and
  * the `threadRunning` flag — belong to the composer, which owns the Stop button
  * and the error line those bindings report through. The layout keeps the
- * bindings that work with no thread open.
+ * bindings that work with no thread open. The terminal drawer sits in the
+ * thread column below the composer and answers `terminal.toggle` itself.
  */
 
 import { useNavigate } from "@tanstack/react-router";
@@ -32,6 +33,7 @@ import type * as RpcClientError from "effect/unstable/rpc/RpcClientError";
 
 import { Composer } from "@/components/composer/composer";
 import { isDockTab, RightDock, type DockTab } from "@/components/dock/right-dock";
+import { ThreadTerminal } from "@/components/terminal/terminal-drawer";
 import { ThreadHarnessBanner } from "@/components/thread/harness-health-banner";
 import { ThreadHeader } from "@/components/thread/thread-header";
 import { ThreadGreeting } from "@/components/thread/thread-greeting";
@@ -207,6 +209,7 @@ export function ThreadView({
             <Composer threadId={threadId} projectId={snapshot.projectId} />
           </div>
         ) : null}
+        {snapshot !== null ? <ThreadTerminal key={threadId} threadId={threadId} /> : null}
       </section>
       {dockTab !== undefined && snapshot !== null ? (
         <RightDock tab={dockTab} onTabChange={setDockTab} snapshot={snapshot} />

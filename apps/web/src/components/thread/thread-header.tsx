@@ -27,6 +27,7 @@ import type { ThreadDetailSnapshot, ThreadStatus } from "@OpenAde/contracts/orch
 import type { DockTab } from "@/components/dock/right-dock";
 import { BranchPicker } from "@/components/git/branch-picker";
 import { GitActionsControl } from "@/components/git/git-actions-control";
+import { TerminalToggleButton } from "@/components/terminal/terminal-toggle-button";
 import { cn } from "@/lib/utils";
 import { SidebarRight, Spinner } from "@honeyicons/react";
 
@@ -73,6 +74,7 @@ export function ThreadHeader({
       <div className="flex-1" />
       <GitActionsControl snapshot={snapshot} />
       <StatusPill status={snapshot.status} />
+      <TerminalToggleButton threadId={snapshot.threadId} />
       <span className="inline-flex shrink-0">
         <Tooltip>
           <TooltipTrigger

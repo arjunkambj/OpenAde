@@ -238,7 +238,7 @@ The renderer. TanStack Router routes under `apps/web/src/routes`, state through
 
 The shell is a left sidebar (projects → threads), the thread column (the
 timeline, then the composer with any open approval, question or plan card
-docked above its input) and a right dock with three tabs: **changes**
+docked above its input, then the terminal drawer when it is open) and a right dock with three tabs: **changes**
 (`git.diff` in three scopes — this turn's checkpoints with the restore
 controls, the branch against its base through `mergeBase`, and the uncommitted
 working tree — with a split/unified toggle), **browser** (the pane) and **files** (a search
@@ -285,7 +285,9 @@ instance; `apps/web/src/lib/client-runtime.tsx` publishes it to React
 Presentation state that never reaches the server lives in
 `apps/web/src/state/ui.ts` and the browser's own storage — row disclosure, dock
 width, the per-thread dock tab, each thread's last pull request link, the
-Changes pane's scope and diff style, and the "last seen" stamp behind the unread dot.
+Changes pane's scope and diff style, and the "last seen" stamp behind the unread dot
+— and in `apps/web/src/state/terminal-ui.ts`, which threads have their
+terminal drawer open and how tall it is.
 There is no `unread` flag on the wire: whether this window has looked at a
 thread is not the server's business, and a thread with no stamp is deliberately
 not unread.
