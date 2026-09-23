@@ -97,8 +97,13 @@ export const handlersLayer = OpenAdeRpcGroup.toLayer(
       "attachments.read": ({ threadId, path }) => attachments.read(threadId, path),
 
       "git.status": ({ projectId, threadId }) => git.status({ projectId, threadId }),
-      "git.diff": ({ projectId, threadId, from, to, path }) =>
-        git.diff({ projectId, threadId }, { from, to, path }),
+      "git.diff": ({ projectId, threadId, from, to, path, mergeBase }) =>
+        git.diff({ projectId, threadId }, { from, to, path, mergeBase }),
+      "git.branches": ({ projectId, threadId }) => git.branches({ projectId, threadId }),
+      "git.branch.create": ({ projectId, threadId, name, from, checkout }) =>
+        git.createBranch({ projectId, threadId }, { name, from, checkout }),
+      "git.checkout": ({ projectId, threadId, branch }) =>
+        git.checkout({ projectId, threadId }, branch),
       "checkpoints.list": ({ projectId, threadId }) => git.checkpoints(projectId, threadId),
 
       "browser.subscribe": ({ threadId }) => browser.subscribe(threadId),

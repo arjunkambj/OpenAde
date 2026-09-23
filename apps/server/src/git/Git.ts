@@ -1,9 +1,11 @@
 /**
  * The real `GitService` behind the `git.status`/`git.diff`/`checkpoints.list`
- * RPCs: argv-form git
- * over `process.ts`, porcelain-v2 parsing for status, and unified patches split
- * per file for the changes pane. Each call runs in the thread's own root when
- * it names a thread (see `orchestration/workspaceRoot.ts`). A missing
+ * and branch RPCs: argv-form git over `process.ts`, porcelain-v2 parsing for
+ * status, and unified patches split per file for the changes pane. Branch
+ * listing, creation and switching live in `Branches.ts`; this layer resolves
+ * the root and adds the one guard that needs the read models — no switch
+ * while a turn runs in the same root. Each call runs in the thread's own root
+ * when it names a thread (see `orchestration/workspaceRoot.ts`). A missing
  * `projectId` or a non-repository root answers `isRepository: false` with
  * empty results rather than an RPC error, so the pane can say "not a git
  * repository" instead of showing what looks like a clean tree.
@@ -17,14 +19,26 @@ import * as Layer from "effect/Layer";
 
 import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
 
-import { resolveWorkspaceRoot } from "../orchestration/workspaceRoot";
+import { resolveWorkspaceRoot, workspaceRootBusy } from "../orchestration/workspaceRoot";
 import { ReadModelStore } from "../persistence/ReadModels";
 import { GitService, type WorkspaceScope } from "../rpc/services";
+import {
+  checkoutBranch,
+  createBranch,
+  listBranches,
+  mergeBaseOf,
+  notRepositoryBranches,
+  validRef,
+} from "./Branches";
 import { make as checkpointStore } from "./CheckpointStore";
 import { GitError, isRepository, run } from "./process";
 
 const toRpcError = (error: GitError) =>
   new OpenAdeRpcError({ code: "internal", message: error.message });
+
+/** Passes a classified refusal through and turns an unexpected git failure into `internal`. */
+const asRpcError = (error: GitError | OpenAdeRpcError) =>
+  error instanceof OpenAdeRpcError ? error : toRpcError(error);
 
 const NUL = "\0";
 
@@ -237,20 +251,6 @@ const toDiffFiles = (patch: string, numstat: string): Array<GitDiffFile> => {
 
 const notRepo: GitDiff = { from: null, to: null, isRepository: false, files: [] };
 
-/**
- * `from`/`to` land in flag position on the `git diff` argv — a value like
- * `--output=/path` would write the diff wherever the server user can. A ref
- * is letters, digits, `.`, `_`, `/`, `-` (branch names, SHAs, hidden refs);
- * anything else, or a leading `-`, is rejected before git ever sees it.
- */
-const REF_ARG = /^[A-Za-z0-9._/-]+$/;
-const validRef = (value: string, name: string): Effect.Effect<string, OpenAdeRpcError> =>
-  !value.startsWith("-") && REF_ARG.test(value)
-    ? Effect.succeed(value)
-    : Effect.fail(
-        new OpenAdeRpcError({ code: "invalid", message: `invalid ${name} ref: ${value}` }),
-      );
-
 export const layer = Layer.effect(
   GitService,
   Effect.gen(function* () {
@@ -269,6 +269,41 @@ export const layer = Layer.effect(
             }),
         ),
       );
+
+    /** A root a branch write can run in, or the reason it cannot. */
+    const repositoryRoot = (scope: WorkspaceScope) =>
+      Effect.gen(function* () {
+        const root = yield* workspaceRoot(scope);
+        if (root === null) {
+          return yield* Effect.fail(
+            new OpenAdeRpcError({ code: "not-found", message: "unknown project" }),
+          );
+        }
+        if (!(yield* isRepository(root))) {
+          return yield* Effect.fail(
+            new OpenAdeRpcError({ code: "invalid", message: "not a git repository" }),
+          );
+        }
+        return root;
+      });
+
+    /** No branch switch under a running turn or a checkpoint restore in the same root. */
+    const requireIdle = (root: string) =>
+      Effect.gen(function* () {
+        const busy = yield* workspaceRootBusy(readModels, root).pipe(
+          Effect.mapError(
+            (error) => new OpenAdeRpcError({ code: "internal", message: error.message }),
+          ),
+        );
+        if (busy) {
+          return yield* Effect.fail(
+            new OpenAdeRpcError({
+              code: "conflict",
+              message: "A turn is running in this workspace — stop it before switching branches.",
+            }),
+          );
+        }
+      });
 
     return GitService.of({
       status: (scope) =>
@@ -298,27 +333,62 @@ export const layer = Layer.effect(
 
       diff: (scope, options) =>
         Effect.gen(function* () {
+          if (options.mergeBase !== undefined && options.to !== undefined) {
+            return yield* Effect.fail(
+              new OpenAdeRpcError({
+                code: "invalid",
+                message: "a merge-base diff runs against the working tree and takes no `to`",
+              }),
+            );
+          }
           const from = yield* validRef(options.from ?? "HEAD", "from");
           const to = options.to === undefined ? undefined : yield* validRef(options.to, "to");
           const root = yield* workspaceRoot(scope);
           if (root === null || !(yield* isRepository(root))) {
             return { ...notRepo, from: options.from ?? null, to: options.to ?? null };
           }
+          // Branch against base: the fork point, not the base's tip, so the
+          // base's own later commits never read as reverted here.
+          const base =
+            options.mergeBase === undefined ? from : yield* mergeBaseOf(root, options.mergeBase);
           const { patch, numstat } =
             to === undefined
-              ? yield* worktreeDiff(root, from, options.path)
+              ? yield* worktreeDiff(root, base, options.path)
               : yield* refDiff(root, from, to, options.path);
           return {
-            from: options.from ?? null,
+            from: options.mergeBase === undefined ? (options.from ?? null) : base,
             to: options.to ?? null,
             isRepository: true,
             files: toDiffFiles(patch, numstat),
           };
-        }).pipe(
-          Effect.mapError((error) =>
-            error instanceof OpenAdeRpcError ? error : toRpcError(error),
-          ),
-        ),
+        }).pipe(Effect.mapError(asRpcError)),
+
+      branches: (scope) =>
+        Effect.gen(function* () {
+          const root = yield* workspaceRoot(scope);
+          if (root === null || !(yield* isRepository(root))) {
+            return notRepositoryBranches;
+          }
+          return yield* listBranches(root);
+        }).pipe(Effect.mapError(toRpcError)),
+
+      createBranch: (scope, options) =>
+        Effect.gen(function* () {
+          const root = yield* repositoryRoot(scope);
+          if (options.checkout) {
+            yield* requireIdle(root);
+          }
+          yield* createBranch(root, options);
+          return yield* listBranches(root);
+        }).pipe(Effect.mapError(asRpcError)),
+
+      checkout: (scope, branch) =>
+        Effect.gen(function* () {
+          const root = yield* repositoryRoot(scope);
+          yield* requireIdle(root);
+          yield* checkoutBranch(root, branch);
+          return yield* listBranches(root);
+        }).pipe(Effect.mapError(asRpcError)),
 
       /**
        * The refs that are actually there. The timeline's checkpoint list is a

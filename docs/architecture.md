@@ -327,7 +327,7 @@ Directories, relative to `apps/server/`:
 | `src/hooks/`         | the PreToolUse bridge                                                              |
 | `src/mcp/`           | the MCP gateway and its HTTP routes                                                |
 | `src/browser/`       | browser service, agent-browser CLI, driver, tool catalogue                         |
-| `src/git/`           | status/diff, file search and read, checkpoint store and hook, in a thread's root   |
+| `src/git/`           | status/diff, branches, file search and read, checkpoint store and hook, per root   |
 | `src/fs/`            | `fs.browse`                                                                        |
 | `src/settings/`      | settings store users, connector manager and host, connector extension routing      |
 | `src/attachments/`   | the staging store and its reactor                                                  |
@@ -347,7 +347,12 @@ enabled one.
 
 Every wire shape, as `effect/Schema` codecs. Modules: `base`, `ids`, `enums`,
 `runtime`, `orchestration`, `decisions`, `git`, `settings`, `connectors`,
-`rpc`. `git` holds `ThreadWorktree`, the worktree a thread was created in.
+`rpc`. `git` holds `ThreadWorktree`, the worktree a thread was created in,
+and the branch RPCs with their shapes (`GitBranch`, `GitBranchList`); they are
+defined there rather than in `rpc.ts`, their names are spread into
+`RPC_METHODS`, and `rpc.ts` lists them in the group. `OpenAdeRpcError` lives in
+`rpcError.ts` so `git` can name it without an import cycle, and `rpc`
+re-exports it.
 `thread.ts` holds the value objects of a thread and is reached through
 `orchestration`, which re-exports it, rather than as a module of its own.
 `decisions` holds the record a thread keeps of each settled approval, question
@@ -1298,7 +1303,7 @@ One `RpcGroup` (`OpenAdeRpcGroup` in `packages/contracts/src/rpc.ts`) carried
 over the WebSocket with JSON serialization. Every RPC fails with the single
 `OpenAdeRpcError` — `not-found | invalid | unavailable | conflict | internal` —
 except `fs.browse`, which has its own error because the picker offers a
-different next step for each reason. `PROTOCOL_VERSION` is 2; a mismatch puts
+different next step for each reason. `PROTOCOL_VERSION` is 3; a mismatch puts
 the client in the terminal `incompatible` state.
 
 | Method                        | Kind   | What it does                                                                        |
@@ -1318,7 +1323,10 @@ the client in the terminal `incompatible` state.
 | `attachments.stage`           | call   | Uploads one composer image; returns a reference, never echoes bytes                 |
 | `attachments.read`            | call   | Reads a staged image back for a thumbnail                                           |
 | `git.status`                  | call   | Branch, ahead/behind and changed paths; `threadId` reads the thread's root          |
-| `git.diff`                    | call   | Worktree against HEAD, or between two checkpoint refs                               |
+| `git.diff`                    | call   | Worktree against HEAD or a merge base, or between two checkpoint refs               |
+| `git.branches`                | call   | Local and remote branches, the current and default branch, the remotes              |
+| `git.branch.create`           | call   | Cuts an untracked branch, optionally switching to it; answers the new list          |
+| `git.checkout`                | call   | Switches branch; `conflict` on a dirty tracked tree or a running turn in that root  |
 | `checkpoints.list`            | call   | Checkpoints that still exist as refs, read in the thread's root                     |
 | `browser.subscribe`           | stream | The browser pane's state, and frames when the browser is ours                       |
 | `browser.humanInput`          | call   | A human gesture into the browser the agent is driving                               |

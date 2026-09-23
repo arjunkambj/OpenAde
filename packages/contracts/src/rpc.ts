@@ -27,6 +27,7 @@ import {
   ModelOption,
   SkillSummary,
 } from "./connectors";
+import { GIT_RPC_METHODS, GitBranchCheckoutRpc, GitBranchCreateRpc, GitBranchesRpc } from "./git";
 import { ConnectorInstanceId, ProjectId, ThreadId, UuidV7 } from "./ids";
 import {
   CheckpointSummary,
@@ -38,19 +39,12 @@ import {
   ThreadSummary,
 } from "./orchestration";
 import { FileChangeKind } from "./runtime";
+import { OpenAdeRpcError } from "./rpcError";
 import { Keybinding, Settings, SettingsPatch } from "./settings";
 
 // ── Errors ─────────────────────────────────────────────────────
 
-/**
- * The single failure shape every RPC can return. `code` is what the client
- * switches on; `message` is what it shows. Anything the server does not
- * classify surfaces as a defect instead, which is the honest answer for a bug.
- */
-export class OpenAdeRpcError extends Schema.TaggedError<OpenAdeRpcError>()("OpenAdeRpcError", {
-  code: Schema.Literals(["not-found", "invalid", "unavailable", "conflict", "internal"]),
-  message: Schema.String,
-}) {}
+export { OpenAdeRpcError } from "./rpcError";
 
 // ── Payload and result schemas ─────────────────────────────────
 
@@ -67,7 +61,7 @@ export const ServerHello = Schema.Struct({
 export type ServerHello = typeof ServerHello.Type;
 
 /** The protocol version this build speaks. Bumped when a wire shape changes incompatibly. */
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 /**
  * The server-side budget on every stream RPC.
@@ -338,6 +332,7 @@ export const RPC_METHODS = {
   attachmentsRead: "attachments.read",
   gitStatus: "git.status",
   gitDiff: "git.diff",
+  ...GIT_RPC_METHODS,
   checkpointsList: "checkpoints.list",
   browserSubscribe: "browser.subscribe",
   browserHumanInput: "browser.humanInput",
@@ -509,7 +504,10 @@ const GitStatusRpc = Rpc.make(RPC_METHODS.gitStatus, {
 /**
  * A diff of the worktree, or between two checkpoint refs. Omitting both ends
  * means "the working tree against HEAD", which is what the changes pane opens
- * on.
+ * on. `mergeBase` is the "branch against its base" comparison: the working
+ * tree, uncommitted and untracked work included, against `git merge-base HEAD
+ * <mergeBase>`, so the base's own later commits never show as reverted. It
+ * takes the place of `from` and cannot be combined with `to`.
  */
 const GitDiffRpc = Rpc.make(RPC_METHODS.gitDiff, {
   payload: Schema.Struct({
@@ -517,6 +515,7 @@ const GitDiffRpc = Rpc.make(RPC_METHODS.gitDiff, {
     threadId: Schema.optional(ThreadId),
     from: Schema.optional(NonEmptyString),
     to: Schema.optional(NonEmptyString),
+    mergeBase: Schema.optional(NonEmptyString),
     path: Schema.optional(NonEmptyString),
   }),
   success: GitDiff,
@@ -657,6 +656,9 @@ export const OpenAdeRpcGroup = RpcGroup.make(
   AttachmentsReadRpc,
   GitStatusRpc,
   GitDiffRpc,
+  GitBranchesRpc,
+  GitBranchCreateRpc,
+  GitBranchCheckoutRpc,
   CheckpointsListRpc,
   BrowserSubscribeRpc,
   BrowserHumanInputRpc,

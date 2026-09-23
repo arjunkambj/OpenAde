@@ -6,7 +6,12 @@
  * - `gitDiffAtom(range)` — `git.diff` for one comparison. `from`/`to` are the
  *   server's own argument shape: omitting `to` diffs the working tree against
  *   `from` (default `HEAD`), giving both "working tree" and "working tree vs a
- *   turn checkpoint"; supplying both diffs checkpoint to checkpoint.
+ *   turn checkpoint"; supplying both diffs checkpoint to checkpoint, and
+ *   `mergeBase` diffs the working tree against where the branch forked.
+ * - `gitBranchesAtom(scope)` — `git.branches`, the branch picker's list.
+ * - `gitCreateBranchAtom` / `gitCheckoutAtom` — the picker's two writes. Each
+ *   resolves with the new branch list and refreshes that scope's branch and
+ *   status atoms, so the header and the Changes pane follow the switch.
  *
  * Two deliberate shapes here:
  *
@@ -27,11 +32,13 @@
  * atoms share one connection with everything else.
  */
 
+import type { GitBranchList } from "@OpenAde/contracts/git";
 import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
 import type { GitDiff, GitStatus } from "@OpenAde/contracts/rpc";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
+import type * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry";
 import * as Atom from "effect/unstable/reactivity/Atom";
 
 import { Connection, ConnectionStateRef } from "./connection";
@@ -72,6 +79,8 @@ export interface GitDiffRange extends GitScope {
   readonly from?: string | undefined;
   /** Target ref; `undefined` means the working tree. */
   readonly to?: string | undefined;
+  /** Diff the working tree against the merge base of `HEAD` and this ref. */
+  readonly mergeBase?: string | undefined;
 }
 
 /**
@@ -80,12 +89,19 @@ export interface GitDiffRange extends GitScope {
  * payload, and a test pins that encode → decode is the identity.
  */
 export const encodeDiffRange = (range: GitDiffRange): string =>
-  JSON.stringify([range.projectId, range.threadId ?? null, range.from ?? null, range.to ?? null]);
+  JSON.stringify([
+    range.projectId,
+    range.threadId ?? null,
+    range.from ?? null,
+    range.to ?? null,
+    range.mergeBase ?? null,
+  ]);
 
 export const decodeDiffRange = (key: string): GitDiffRange => {
-  const [projectId, threadId, from, to] = JSON.parse(key) as [
+  const [projectId, threadId, from, to, mergeBase] = JSON.parse(key) as [
     ProjectId,
     ThreadId | null,
+    string | null,
     string | null,
     string | null,
   ];
@@ -94,8 +110,27 @@ export const decodeDiffRange = (key: string): GitDiffRange => {
     ...(threadId === null ? {} : { threadId }),
     ...(from === null ? {} : { from }),
     ...(to === null ? {} : { to }),
+    ...(mergeBase === null ? {} : { mergeBase }),
   };
 };
+
+/** The branch picker's "new branch": cut from `from` (default `HEAD`), switched to when `checkout`. */
+export interface GitCreateBranch extends GitScope {
+  readonly name: string;
+  readonly from?: string | undefined;
+  readonly checkout: boolean;
+}
+
+/** The branch picker's switch: a local branch, or a remote one to track. */
+export interface GitCheckout extends GitScope {
+  readonly branch: string;
+}
+
+/** The scope half of a payload, without an absent `threadId` on the wire. */
+const scopePayload = (scope: GitScope) => ({
+  projectId: scope.projectId,
+  ...(scope.threadId === undefined ? {} : { threadId: scope.threadId }),
+});
 
 /**
  * `git.status` answers `branch: null` with no files both for "not a git
@@ -150,6 +185,7 @@ export const makeGitAtoms = (runtime: Atom.AtomRuntime<Connection | ConnectionSt
               ...(range.threadId === undefined ? {} : { threadId: range.threadId }),
               ...(range.from === undefined ? {} : { from: range.from }),
               ...(range.to === undefined ? {} : { to: range.to }),
+              ...(range.mergeBase === undefined ? {} : { mergeBase: range.mergeBase }),
             });
           }).pipe(
             Effect.map(ok<GitDiff>),
@@ -160,11 +196,67 @@ export const makeGitAtoms = (runtime: Atom.AtomRuntime<Connection | ConnectionSt
     ),
   );
 
+  const gitBranchesByKeyAtom = Atom.family((key: string) =>
+    runtime.atom(
+      connectedEpochs.pipe(
+        Stream.mapEffect(() =>
+          Effect.gen(function* () {
+            const client = yield* (yield* Connection).client;
+            return yield* client["git.branches"](scopePayload(decodeGitScope(key)));
+          }).pipe(
+            Effect.map(ok<GitBranchList>),
+            Effect.catch((error) => Effect.succeed(failed<GitBranchList>(error.message))),
+          ),
+        ),
+      ),
+    ),
+  );
+
   /** The pane's handles: one atom per scope and per comparison, shared across mounts. */
   const gitStatusAtom = (scope: GitScope) => gitStatusByKeyAtom(encodeGitScope(scope));
   const gitDiffAtom = (range: GitDiffRange) => gitDiffByKeyAtom(encodeDiffRange(range));
+  const gitBranchesAtom = (scope: GitScope) => gitBranchesByKeyAtom(encodeGitScope(scope));
 
-  return { gitStatusAtom, gitDiffAtom };
+  /**
+   * After a branch write the scope's branch list and status are stale: the
+   * current branch moved, and so did what the working tree is compared with.
+   * Refreshing restarts each stream, which refetches on the replayed status.
+   */
+  const refreshScope = (registry: AtomRegistry.AtomRegistry, scope: GitScope) => {
+    const key = encodeGitScope(scope);
+    registry.refresh(gitBranchesByKeyAtom(key));
+    registry.refresh(gitStatusByKeyAtom(key));
+  };
+
+  /** Fails with the server's refusal (a bad name, a dirty tree) for the caller to show. */
+  const gitCreateBranchAtom = runtime.fn((input: GitCreateBranch, get) =>
+    Effect.gen(function* () {
+      const client = yield* (yield* Connection).client;
+      const list = yield* client["git.branch.create"]({
+        ...scopePayload(input),
+        name: input.name,
+        ...(input.from === undefined ? {} : { from: input.from }),
+        checkout: input.checkout,
+      });
+      refreshScope(get.registry, input);
+      return list;
+    }),
+  );
+
+  /** Fails with `conflict` on a dirty tracked tree or a running turn in that root. */
+  const gitCheckoutAtom = runtime.fn((input: GitCheckout, get) =>
+    Effect.gen(function* () {
+      const client = yield* (yield* Connection).client;
+      const list = yield* client["git.checkout"]({
+        ...scopePayload(input),
+        branch: input.branch,
+      });
+      refreshScope(get.registry, input);
+      return list;
+    }),
+  );
+
+  return { gitStatusAtom, gitDiffAtom, gitBranchesAtom, gitCreateBranchAtom, gitCheckoutAtom };
 };
 
 export type GitAtoms = ReturnType<typeof makeGitAtoms>;

@@ -22,6 +22,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
 import { ItemKind } from "../src/enums";
+import { GitBranchList } from "../src/git";
 import {
   Command,
   CommandReceipt,
@@ -198,6 +199,8 @@ const singles: ReadonlyArray<{ readonly path: string; readonly schema: FixtureSc
   { path: "rpc/git-status.not-a-repository.json", schema: GitStatus },
   { path: "rpc/git-diff.json", schema: GitDiff },
   { path: "rpc/git-diff.not-a-repository.json", schema: GitDiff },
+  { path: "rpc/git-branch-list.json", schema: GitBranchList },
+  { path: "rpc/git-branch-list.not-a-repository.json", schema: GitBranchList },
   { path: "rpc/browser-state.json", schema: BrowserState },
   { path: "rpc/mcp-server-config.json", schema: McpServerConfig },
   { path: "rpc/skill-summary.json", schema: SkillSummary },

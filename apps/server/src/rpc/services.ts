@@ -25,6 +25,7 @@ import type {
   GitStatus,
 } from "@OpenAde/contracts/rpc";
 import { FsBrowseError, OpenAdeRpcError } from "@OpenAde/contracts/rpc";
+import type { GitBranchList } from "@OpenAde/contracts/git";
 import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
 import { defaultSettings, Settings } from "@OpenAde/contracts/settings";
 import type { SettingsPatch } from "@OpenAde/contracts/settings";
@@ -133,6 +134,11 @@ export class DirectoryBrowser extends Context.Service<
 
 // ── Git ────────────────────────────────────────────────────────
 
+const gitUnavailable = new OpenAdeRpcError({
+  code: "unavailable",
+  message: "git is not available on this server",
+});
+
 export class GitService extends Context.Service<
   GitService,
   {
@@ -143,8 +149,21 @@ export class GitService extends Context.Service<
         readonly from?: string;
         readonly to?: string;
         readonly path?: string;
+        /** Diff the working tree against `git merge-base HEAD <mergeBase>`. */
+        readonly mergeBase?: string;
       },
     ) => Effect.Effect<GitDiff, OpenAdeRpcError>;
+    readonly branches: (scope: WorkspaceScope) => Effect.Effect<GitBranchList, OpenAdeRpcError>;
+    /** Cuts an untracked branch, and switches to it when `checkout` is set. */
+    readonly createBranch: (
+      scope: WorkspaceScope,
+      options: { readonly name: string; readonly from?: string; readonly checkout: boolean },
+    ) => Effect.Effect<GitBranchList, OpenAdeRpcError>;
+    /** `conflict` on a dirty tracked tree or while a turn runs in the same root. */
+    readonly checkout: (
+      scope: WorkspaceScope,
+      branch: string,
+    ) => Effect.Effect<GitBranchList, OpenAdeRpcError>;
     /** The checkpoint refs that still exist for a thread, read in its root, oldest first. */
     readonly checkpoints: (
       projectId: ProjectId,
@@ -160,6 +179,9 @@ export class GitService extends Context.Service<
       diff: (_scope, options) =>
         Effect.succeed({ from: options.from ?? null, to: options.to ?? null, files: [] }),
       checkpoints: () => Effect.succeed([]),
+      branches: () => Effect.fail(gitUnavailable),
+      createBranch: () => Effect.fail(gitUnavailable),
+      checkout: () => Effect.fail(gitUnavailable),
     }),
   );
 }

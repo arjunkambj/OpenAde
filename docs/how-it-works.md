@@ -210,7 +210,7 @@ Every subscription in `packages/client-runtime/src/atoms.ts` is a
 client["server.hello"]({})
   → { protocolVersion, serverInstanceId }
   │
-  ├─ protocolVersion ≠ PROTOCOL_VERSION (2) → markIncompatible, Stream.never
+  ├─ protocolVersion ≠ PROTOCOL_VERSION (3) → markIncompatible, Stream.never
   │
   ├─ serverInstanceId changed → drop the cached snapshot, afterSequence = undefined
   └─ otherwise                → afterSequence = doc.snapshotSequence
@@ -1206,6 +1206,33 @@ falls back to null.
 `checkpoints.list` intersects the timeline's own fold of
 `thread.checkpoint.created` with the refs that still exist in the repository,
 so the pane never offers a restore that can only fail.
+
+### Branches
+
+`git.branches`, `git.branch.create` and `git.checkout`
+(`apps/server/src/git/Branches.ts`, behind `Git.ts`) run in the same root the
+diff does. The list reads `git for-each-ref` over `refs/heads` and
+`refs/remotes` (a remote's own `HEAD` pointer is skipped) and `git worktree
+list`, which marks a branch checked out in another worktree. The default
+branch is the remote's `HEAD` (`origin`, or the first remote), else a local
+`main` or `master`, else `init.defaultBranch` when that branch exists, else
+the current branch.
+
+A branch is always cut with `--no-track`: one cut from `origin/main` would
+otherwise track it, and its first push would land on main. Names are refused
+before git sees them when they start with `-` or carry anything but letters,
+digits, `.`, `_`, `/` and `-`, and then `git check-ref-format --branch` has the
+last word. A switch — `git.checkout`, or a create with `checkout` — is refused
+with `conflict` while a tracked file has uncommitted changes, and while a turn
+runs (or a restore rewrites files) in any thread whose root is the same
+directory; every local thread of a project shares its root, so one busy local
+thread holds them all. Untracked files do not count as dirty: git carries them
+across a switch, and a harness session writes its own untracked config into
+the workspace. A remote branch is checked out as a local branch tracking it.
+
+`git.diff` with `mergeBase` compares the working tree, uncommitted and
+untracked work included, with `git merge-base HEAD <mergeBase>`: the branch's
+own work, without the base's later commits showing up as reverted.
 
 ---
 

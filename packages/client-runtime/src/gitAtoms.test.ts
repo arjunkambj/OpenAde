@@ -7,6 +7,7 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import { makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
+import type { GitBranchList } from "@OpenAde/contracts/git";
 import type { GitDiff, GitStatus } from "@OpenAde/contracts/rpc";
 import type * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
@@ -64,7 +65,21 @@ const diff = (from: string | null, to: string | null): GitDiff => ({
 interface Calls {
   readonly status: Array<{ projectId: string; threadId?: string }>;
   readonly diff: Array<{ from?: string; to?: string }>;
+  readonly branches?: Array<{ projectId: string; threadId?: string }>;
+  readonly checkout?: Array<{ projectId: string; threadId?: string; branch: string }>;
 }
+
+const branchList = (current: string): GitBranchList => ({
+  isRepository: true,
+  current,
+  defaultBranch: "main",
+  remotes: [],
+  branches: ["feature", "main"].map((name) => ({
+    name,
+    kind: "local" as const,
+    isCurrent: name === current,
+  })),
+});
 
 /**
  * A client whose git calls record their arguments and answer from a mutable
@@ -80,7 +95,7 @@ const fakeClient = (calls: Calls, failStatus: Ref.Ref<boolean>): OpenAdeRpcClien
             if (yield* Ref.get(failStatus)) {
               return yield* Effect.fail({ message: "not a git repository" });
             }
-            return status("main");
+            return status(calls.checkout?.at(-1)?.branch ?? "main");
           });
       }
       if (key === "git.diff") {
@@ -88,6 +103,23 @@ const fakeClient = (calls: Calls, failStatus: Ref.Ref<boolean>): OpenAdeRpcClien
           Effect.sync(() => {
             calls.diff.push({ ...payload });
             return diff(payload.from ?? null, payload.to ?? null);
+          });
+      }
+      if (key === "git.branches") {
+        return (payload: { projectId: string; threadId?: string }) =>
+          Effect.sync(() => {
+            calls.branches?.push({ ...payload });
+            return branchList(calls.checkout?.at(-1)?.branch ?? "main");
+          });
+      }
+      if (key === "git.checkout") {
+        return (payload: { projectId: string; threadId?: string; branch: string }) =>
+          Effect.gen(function* () {
+            if (payload.branch === "dirty") {
+              return yield* Effect.fail({ message: "The working tree has uncommitted changes" });
+            }
+            calls.checkout?.push({ ...payload });
+            return branchList(payload.branch);
           });
       }
       return () => Effect.die(`unimplemented rpc ${String(key)}`);
@@ -132,6 +164,8 @@ describe("git atoms", () => {
       { projectId, to: "refs/openade/checkpoints/b" },
       { projectId, threadId: makeThreadId() },
       { projectId, threadId: makeThreadId(), from: "main", to: "refs/openade/checkpoints/b" },
+      { projectId, mergeBase: "main" },
+      { projectId, threadId: makeThreadId(), mergeBase: "origin/main" },
     ];
     for (const range of ranges) {
       expect(decodeDiffRange(encodeDiffRange(range))).toEqual(range);
@@ -261,6 +295,88 @@ describe("git atoms", () => {
         );
         expect(calls.status).toEqual([{ projectId, threadId }]);
         expect(calls.diff).toEqual([{ projectId, threadId }]);
+      }),
+    ),
+  );
+
+  it.live(
+    "a checkout resolves with the new list and refetches that scope's branches and status",
+    () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const projectId = makeProjectId();
+          const threadId = makeThreadId();
+          const calls: Calls = { status: [], diff: [], branches: [], checkout: [] };
+          const failing = yield* Ref.make(false);
+          const { registry, gitBranchesAtom, gitStatusAtom, gitCheckoutAtom } = yield* runtimeWith(
+            fakeClient(calls, failing),
+            CONNECTED,
+          );
+          const branchesAtom = gitBranchesAtom({ projectId, threadId });
+          const statusAtom = gitStatusAtom({ projectId, threadId });
+          registry.mount(branchesAtom);
+          registry.mount(statusAtom);
+          yield* Effect.promise(() =>
+            awaitValue<GitQuery<GitBranchList>, Cause.NoSuchElementError>(
+              registry,
+              branchesAtom,
+              (query) => query._tag === "ok" && query.value.current === "main",
+            ),
+          );
+          expect(calls.branches).toEqual([{ projectId, threadId }]);
+
+          registry.mount(gitCheckoutAtom);
+          registry.set(gitCheckoutAtom, { projectId, threadId, branch: "feature" });
+          const switched = yield* Effect.promise(() =>
+            awaitValue<GitQuery<GitBranchList>, Cause.NoSuchElementError>(
+              registry,
+              branchesAtom,
+              (query) => query._tag === "ok" && query.value.current === "feature",
+            ),
+          );
+          expect(switched._tag).toBe("ok");
+          expect(calls.checkout).toEqual([{ projectId, threadId, branch: "feature" }]);
+          const result = registry.get(gitCheckoutAtom);
+          expect(AsyncResult.isSuccess(result) && result.value.current).toBe("feature");
+          // The status atom of the same scope is refetched as well.
+          yield* Effect.promise(() =>
+            awaitValue<GitQuery<GitStatus>, Cause.NoSuchElementError>(
+              registry,
+              statusAtom,
+              (query) => query._tag === "ok" && query.value.branch === "feature",
+            ),
+          );
+        }),
+      ),
+  );
+
+  it.live("a refused checkout fails the mutation with the server's message", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const projectId = makeProjectId();
+        const calls: Calls = { status: [], diff: [], branches: [], checkout: [] };
+        const failing = yield* Ref.make(false);
+        const { registry, gitCheckoutAtom } = yield* runtimeWith(
+          fakeClient(calls, failing),
+          CONNECTED,
+        );
+        registry.mount(gitCheckoutAtom);
+        registry.set(gitCheckoutAtom, { projectId, branch: "dirty" });
+        const failure = yield* Effect.promise(
+          () =>
+            new Promise<AsyncResult.AsyncResult<GitBranchList, unknown>>((resolve) => {
+              const check = (result: AsyncResult.AsyncResult<GitBranchList, unknown>) => {
+                if (AsyncResult.isFailure(result)) {
+                  unmount();
+                  resolve(result);
+                }
+              };
+              const unmount = registry.subscribe(gitCheckoutAtom, check);
+              check(registry.get(gitCheckoutAtom));
+            }),
+        );
+        expect(AsyncResult.isFailure(failure)).toBe(true);
+        expect(calls.checkout).toEqual([]);
       }),
     ),
   );

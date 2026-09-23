@@ -12,6 +12,8 @@
  * repository, and a deleted thread's worktree may already be gone.
  */
 
+import { realpathSync } from "node:fs";
+import * as nodePath from "node:path";
 import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
 import * as Effect from "effect/Effect";
 
@@ -56,4 +58,39 @@ export const resolveWorkspaceRoot = (
     return doc === null || doc.deleted || doc.projectId !== projectId
       ? project.workspaceRoot
       : threadWorkspaceRoot(doc, project);
+  });
+
+/** A path by its real location, so `/var/…` and `/private/var/…` compare equal. */
+const canonical = (path: string): string => {
+  try {
+    return realpathSync(path);
+  } catch {
+    return nodePath.resolve(path);
+  }
+};
+
+/**
+ * Whether a turn is running, or a checkpoint restore is rewriting files, in
+ * any live thread whose workspace root is `root`. A branch switch or a commit
+ * there would pull the tree out from under that turn — and every local thread
+ * of a project shares the project's root, so one running local thread blocks
+ * them all.
+ */
+export const workspaceRootBusy = (readModels: ReadModelStore["Service"], root: string) =>
+  Effect.gen(function* () {
+    const target = canonical(root);
+    const docs = yield* readModels.listThreadDocs;
+    const projects = new Map<ProjectId, ProjectDoc | null>();
+    for (const doc of docs) {
+      if (doc.deleted || (doc.currentTurn === null && !doc.restoring)) continue;
+      let project = projects.get(doc.projectId);
+      if (project === undefined) {
+        project = yield* readModels.getProjectDoc(doc.projectId);
+        projects.set(doc.projectId, project);
+      }
+      if (project !== null && canonical(threadWorkspaceRoot(doc, project)) === target) {
+        return true;
+      }
+    }
+    return false;
   });
