@@ -12,6 +12,7 @@
 import type { ConnectorModels } from "@OpenAde/client-runtime/connectorAtoms";
 import type { ConnectorInstanceId } from "@OpenAde/contracts/ids";
 import type { ConnectorSummary, ModelOption } from "@OpenAde/contracts/connectors";
+import type { ThreadSettingsPatch } from "@OpenAde/contracts/orchestration";
 import { isString } from "effect/Predicate";
 
 /** A model under an instance. `null` only for a current value no instance lists. */
@@ -78,6 +79,17 @@ export const modelPickerGroups = (
       })),
     };
   });
+
+/**
+ * The settings patch a pick asks for. On a locked thread the only enabled
+ * section is the thread's own, so the instance says nothing new — and the
+ * thread may not have stored one at all — so it stays out of the patch and
+ * the pick is a model change, as it always was.
+ */
+export const modelPickPatch = (pick: ModelPick, locked: boolean): ThreadSettingsPatch =>
+  locked || pick.connectorInstanceId === null
+    ? { model: pick.model }
+    : { model: pick.model, connectorInstanceId: pick.connectorInstanceId };
 
 /** The model a thread is on, looked up under its own instance first. */
 export const findModel = (

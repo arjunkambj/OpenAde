@@ -1011,4 +1011,62 @@ describe("the thread's connector instance", () => {
     if (!result.accepted) return;
     expect(result.events[0]!.payload).toEqual({ effort: "high" });
   });
+
+  const pickModel = (thread: ThreadDoc, connectorInstanceId: typeof CHOSEN) =>
+    decide(
+      {
+        ...baseCommand,
+        type: "thread.settings.update",
+        threadId: thread.threadId,
+        model: "fake/other",
+        connectorInstanceId,
+      } as Command,
+      { project: null, thread },
+      ctx(),
+      env,
+    );
+
+  it("switches model on a bound thread that never stored an instance", () => {
+    // Threads from before instances could be chosen, or created with no
+    // settings, have no `settings.connectorInstanceId` — the session is the
+    // only record of where they run.
+    const thread = threadDoc({
+      session: { connectorInstanceId: CHOSEN, connectorKind: "fake", sessionRef: {} },
+    } as Partial<ThreadDoc>);
+    const result = pickModel(thread, CHOSEN);
+    expect(result.accepted).toBe(true);
+    if (!result.accepted) return;
+    expect(result.events[0]!.payload).toEqual({ model: "fake/other" });
+  });
+
+  it("switches model on a thread routed away from the instance it stored", () => {
+    // It chose CHOSEN, which was not open at its first turn, so it runs on OTHER.
+    const thread = chosenThread({
+      session: { connectorInstanceId: OTHER, connectorKind: "fake", sessionRef: {} },
+    } as Partial<ThreadDoc>);
+    const result = pickModel(thread, OTHER);
+    expect(result.accepted).toBe(true);
+    if (!result.accepted) return;
+    expect(result.events[0]!.payload).toEqual({ model: "fake/other" });
+    // Naming the stored-but-unused instance would move the thread: refused.
+    expect(pickModel(thread, CHOSEN).accepted).toBe(false);
+  });
+
+  it("switches model on a thread that has messages but neither session nor stored instance", () => {
+    const thread = threadDoc({
+      items: [
+        {
+          itemId: makeItemId(),
+          kind: "user_message",
+          status: "completed",
+          turnId: makeTurnId(),
+          text: "hello",
+        },
+      ] as ThreadDoc["items"],
+    });
+    const result = pickModel(thread, CHOSEN);
+    expect(result.accepted).toBe(true);
+    if (!result.accepted) return;
+    expect(result.events[0]!.payload).toEqual({ model: "fake/other" });
+  });
 });

@@ -9,6 +9,7 @@ import {
   encodeModelPick,
   findModel,
   modelPickerGroups,
+  modelPickPatch,
 } from "./model-picks";
 
 const id = (value: string) => value as ConnectorInstanceId;
@@ -119,5 +120,26 @@ describe("defaultModelPick", () => {
       model: "m1",
     });
     expect(defaultModelPick([], undefined)).toBeNull();
+  });
+});
+
+describe("modelPickPatch", () => {
+  it("names the instance while the thread may still choose one", () => {
+    expect(modelPickPatch({ connectorInstanceId: id("a"), model: "m" }, false)).toEqual({
+      model: "m",
+      connectorInstanceId: id("a"),
+    });
+  });
+
+  it("sends only the model on a locked thread, which may never have stored an instance", () => {
+    expect(modelPickPatch({ connectorInstanceId: id("a"), model: "m" }, true)).toEqual({
+      model: "m",
+    });
+  });
+
+  it("sends only the model for a pick no instance lists", () => {
+    expect(modelPickPatch({ connectorInstanceId: null, model: "m" }, false)).toEqual({
+      model: "m",
+    });
   });
 });

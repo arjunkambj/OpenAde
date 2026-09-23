@@ -585,8 +585,12 @@ written before it existed decode unchanged, and absent means the default routing
 rule. The choice can change only until the thread has a bound session, a
 running turn or a user message — `threadLocksConnector` in the contracts is that
 rule, read by the decider (which rejects a change after it, suggesting a new
-thread) and by the renderer's picker alike. The field is routing, not a session
-setting: the reactor strips it before `handle.updateSettings`. The renderer's
+thread) and by the renderer's picker alike. After the lock, "a change" means
+naming an instance other than the one the thread runs on — the bound session's,
+which routing may have chosen over the stored one — so naming that instance
+again is accepted and left out of the event, and a thread with neither a
+session nor a stored instance has nothing to change. The field is routing, not
+a session setting: the reactor strips it before `handle.updateSettings`. The renderer's
 model picker is where the choice is made: one section per enabled instance, and
 a pick sends the instance with the model.
 

@@ -47,7 +47,7 @@ import { useClientRuntime } from "@/lib/client-runtime";
 import { instanceCapabilities, threadConnectorInstanceId } from "@/lib/connector-routing";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
 import { orderEfforts } from "@/lib/efforts";
-import { findModel } from "@/lib/model-picks";
+import { findModel, modelPickPatch } from "@/lib/model-picks";
 import { RUNTIME_MODE_LABELS, runtimeModeOptions } from "@/lib/runtime-modes";
 import { type HoneyIcon, Lightning, ListChecks, Lock } from "@honeyicons/react";
 
@@ -307,14 +307,7 @@ export function ThreadSettingsControls({
                 modelSwitch === "per-turn" || modelSwitch === "next-turn" ? NEXT_TURN_HINT : "Model"
               }
               disabledReason={modelSwitch === "restart" ? RESTART_TOOLTIP : undefined}
-              onPick={(pick) =>
-                onChange({
-                  model: pick.model,
-                  ...(pick.connectorInstanceId === null
-                    ? {}
-                    : { connectorInstanceId: pick.connectorInstanceId }),
-                })
-              }
+              onPick={(pick) => onChange(modelPickPatch(pick, locked))}
             />
           ) : null}
           <HeaderSelect

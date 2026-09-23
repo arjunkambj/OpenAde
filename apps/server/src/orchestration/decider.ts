@@ -285,14 +285,26 @@ export const decide = (
       // Choosing a connector is only possible while nothing has run on one: a
       // session belongs to its harness and cannot be carried to another. The
       // same answer as the picker's, so a disabled picker is never a lie.
-      const connectorChange =
-        command.connectorInstanceId !== undefined &&
-        command.connectorInstanceId !== thread.settings.connectorInstanceId;
-      if (connectorChange && threadLocksConnector(thread)) {
+      //
+      // Once locked, what counts is the instance the thread actually runs on —
+      // the bound session's, which routing may have picked over the stored
+      // choice — and naming that one again is no change at all. A thread with
+      // no session and no stored choice (created before threads could choose,
+      // or from a path that passes no settings) runs wherever the default rule
+      // sends it, so there is nothing recorded to change either: the patch's
+      // other fields apply and the instance stays out of the event.
+      const locked = threadLocksConnector(thread);
+      const current = locked
+        ? (thread.session?.connectorInstanceId ?? thread.settings.connectorInstanceId)
+        : thread.settings.connectorInstanceId;
+      const named = command.connectorInstanceId;
+      const differs = named !== undefined && named !== current;
+      if (differs && locked && current !== undefined) {
         return rejected(
           `thread ${command.threadId} has already run on a connector — start a new thread to use another connector`,
         );
       }
+      const connectorChange = differs && !locked;
       return accepted([
         emit("thread.settings.updated", {
           ...(command.model === undefined ? {} : { model: command.model }),

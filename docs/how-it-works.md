@@ -390,10 +390,11 @@ order. Picking a model picks its instance too: the start screen sends both on
 a new thread shows the saved default model under the first instance that lists
 it, else the first enabled instance's first model. Once the thread has run
 anything (`threadLocksConnector`), the other instances' sections stay listed but
-disabled, with a tooltip saying to start a new thread. The instance a thread
-runs on, or would, is `threadConnectorInstanceId`
-(`apps/web/src/lib/connector-routing.ts`): the bound session's, else the
-thread's chosen one while it is enabled, else the first enabled one.
+disabled, with a tooltip saying to start a new thread, and a pick in the
+thread's own section sends the model alone. The instance a thread runs on, or
+would, is `threadConnectorInstanceId` (`apps/web/src/lib/connector-routing.ts`):
+the bound session's, else the thread's chosen one while it is enabled, else the
+first enabled one.
 
 `/effort` and `/mode` offer what the header pickers offer. Efforts are the
 current model's `efforts`, or the whole ladder when it states none, always
