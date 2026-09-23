@@ -1,6 +1,6 @@
 /**
- * The thread's slim header: its title, the branch picker, its status and the
- * dock toggle.
+ * The thread's slim header: its title, the branch picker, the git actions,
+ * its status and the dock toggle.
  *
  * The branch picker (`components/git/branch-picker.tsx`) sits beside the
  * title: the branch the thread's workspace is on, switchable for a local
@@ -8,6 +8,10 @@
  * a thread that has one, because the agent's edits land there and not in the
  * project's folder. The header is where that stays in view once the thread
  * has messages and the greeting is gone.
+ *
+ * The git actions control (`components/git/git-actions-control.tsx`) sits at
+ * the right, before the status: commit, push and open a pull request from
+ * the thread's workspace.
  */
 
 import { Button } from "@OpenAde/ui/components/button";
@@ -16,6 +20,7 @@ import type { ThreadDetailSnapshot, ThreadStatus } from "@OpenAde/contracts/orch
 
 import type { DockTab } from "@/components/dock/right-dock";
 import { BranchPicker } from "@/components/git/branch-picker";
+import { GitActionsControl } from "@/components/git/git-actions-control";
 import { cn } from "@/lib/utils";
 import { SidebarRight, Spinner } from "@honeyicons/react";
 
@@ -60,6 +65,7 @@ export function ThreadHeader({
       </h1>
       <BranchPicker snapshot={snapshot} />
       <div className="flex-1" />
+      <GitActionsControl snapshot={snapshot} />
       <StatusPill status={snapshot.status} />
       <span className="inline-flex shrink-0">
         <Tooltip>

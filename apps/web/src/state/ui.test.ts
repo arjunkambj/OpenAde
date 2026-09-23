@@ -4,8 +4,10 @@ import {
   emptyComposerDraft,
   parseCollapsedProjects,
   parseDockTabs,
+  parsePullRequestLinks,
   parseWorkspaceModes,
   withComposerDraft,
+  withPullRequestLink,
   withWorkspaceMode,
   type ComposerDraft,
 } from "./ui";
@@ -120,5 +122,41 @@ describe("workspace mode memory", () => {
     const modes = { p1: "worktree" as const };
     expect(withWorkspaceMode(modes, "p1", "worktree")).toBe(modes);
     expect(withWorkspaceMode(modes, "p2", "local")).toBe(modes);
+  });
+});
+
+describe("pull request link memory", () => {
+  const URL_7 = "https://github.com/acme/app/pull/7";
+
+  it("remembers each thread's link and round-trips through storage", () => {
+    const one = withPullRequestLink({}, "t1", URL_7);
+    const both = withPullRequestLink(one, "t2", "https://github.com/acme/app/pull/8");
+    expect(both).toEqual({ t1: URL_7, t2: "https://github.com/acme/app/pull/8" });
+    expect(one).toEqual({ t1: URL_7 });
+    expect(parsePullRequestLinks(JSON.stringify(both))).toEqual(both);
+  });
+
+  it("replaces a thread's older link", () => {
+    expect(withPullRequestLink({ t1: URL_7 }, "t1", "https://github.com/acme/app/pull/9")).toEqual({
+      t1: "https://github.com/acme/app/pull/9",
+    });
+  });
+
+  it("returns the same map for the same link or one that is not a web URL", () => {
+    const links = { t1: URL_7 };
+    expect(withPullRequestLink(links, "t1", URL_7)).toBe(links);
+    expect(withPullRequestLink(links, "t2", "javascript:alert(1)")).toBe(links);
+    expect(withPullRequestLink(links, "t2", "not a url")).toBe(links);
+  });
+
+  it("reads unreadable storage as empty, and drops entries that are not web links", () => {
+    expect(parsePullRequestLinks(null)).toEqual({});
+    expect(parsePullRequestLinks("not json")).toEqual({});
+    expect(parsePullRequestLinks(`["${URL_7}"]`)).toEqual({});
+    expect(
+      parsePullRequestLinks(
+        JSON.stringify({ t1: URL_7, t2: 7, t3: "file:///etc/passwd", t4: "javascript:alert(1)" }),
+      ),
+    ).toEqual({ t1: URL_7 });
   });
 });

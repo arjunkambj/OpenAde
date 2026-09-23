@@ -1,6 +1,6 @@
 /**
- * The git writes a thread's start and end need, built on the same runtime and
- * git atoms as the Changes pane's reads.
+ * The git writes a thread's start, end and header need, built on the same
+ * runtime and git atoms as the Changes pane's reads.
  *
  * - `worktreeCreateAtom` — `git.worktree.create`: cuts a new thread's branch
  *   and directory, and resolves with the `ThreadWorktree` that `thread.create`
@@ -14,8 +14,17 @@
  * - `worktreeRemoveAtom` — `git.worktree.remove`: discards a worktree, keeping
  *   its branch.
  *
- * Each write refreshes the project's branch list: a create adds a branch and a
- * remove frees one that was checked out elsewhere.
+ * - `gitCommitAtom`, `gitPushAtom`, `gitPullRequestAtom` — `git.commit`,
+ *   `git.push` and `git.pullRequest.create`, the header's git actions control
+ *   runs them as stacked steps. Each fails with the server's refusal for the
+ *   step's toast to show.
+ *
+ * The worktree writes refresh the project's branch list: a create adds a
+ * branch and a remove frees one that was checked out elsewhere. A commit or a
+ * push moves the status (files, ahead, upstream) and the diffs of every scope
+ * on that repository, so both refetch every git read of the project, the way
+ * a branch switch does. Opening a pull request changes nothing git can see,
+ * so it refetches nothing.
  */
 
 import type { ThreadWorktree, WorktreeSetupFrame } from "@OpenAde/contracts/git";
@@ -25,7 +34,7 @@ import * as Stream from "effect/Stream";
 import type * as Atom from "effect/unstable/reactivity/Atom";
 
 import { Connection, type ConnectionStateRef } from "./connection";
-import type { GitAtoms } from "./gitAtoms";
+import type { GitAtoms, GitScope } from "./gitAtoms";
 
 /**
  * A setup run so far. `exit` is `null` until the script has finished; `code`
@@ -78,6 +87,27 @@ export interface WorktreeRemove extends WorktreeTarget {
   readonly force?: boolean | undefined;
 }
 
+/** A commit of every change, or of `paths` only when they are given. */
+export interface GitCommit extends GitScope {
+  readonly message: string;
+  readonly paths?: ReadonlyArray<string> | undefined;
+}
+
+/**
+ * A pull request from the current branch. The server picks the base: the
+ * branch the thread's worktree was cut from, else the default branch.
+ */
+export interface GitPullRequest extends GitScope {
+  readonly title: string;
+  readonly body: string;
+}
+
+/** The scope half of a payload, without an absent `threadId` on the wire. */
+const scopePayload = (scope: GitScope) => ({
+  projectId: scope.projectId,
+  ...(scope.threadId === undefined ? {} : { threadId: scope.threadId }),
+});
+
 export const makeGitCommands = (
   runtime: Atom.AtomRuntime<Connection | ConnectionStateRef>,
   git: GitAtoms,
@@ -119,7 +149,49 @@ export const makeGitCommands = (
     }),
   );
 
-  return { worktreeCreateAtom, worktreeSetupAtom, worktreeRemoveAtom };
+  /** Fails with `conflict` on nothing to commit, a hook's refusal or a running turn. */
+  const gitCommitAtom = runtime.fn((input: GitCommit, get) =>
+    Effect.gen(function* () {
+      const result = yield* Effect.flatMap(client, (c) =>
+        c["git.commit"]({
+          ...scopePayload(input),
+          message: input.message,
+          ...(input.paths === undefined ? {} : { paths: input.paths }),
+        }),
+      );
+      git.refreshProject(get.registry, input.projectId);
+      return result;
+    }),
+  );
+
+  /** Fails with `unavailable` without a remote, or with git's own refusal. */
+  const gitPushAtom = runtime.fn((input: GitScope, get) =>
+    Effect.gen(function* () {
+      const result = yield* Effect.flatMap(client, (c) => c["git.push"](scopePayload(input)));
+      git.refreshProject(get.registry, input.projectId);
+      return result;
+    }),
+  );
+
+  /** Fails with `unavailable` when `gh` is missing or signed out. */
+  const gitPullRequestAtom = runtime.fn((input: GitPullRequest) =>
+    Effect.flatMap(client, (c) =>
+      c["git.pullRequest.create"]({
+        ...scopePayload(input),
+        title: input.title,
+        body: input.body,
+      }),
+    ),
+  );
+
+  return {
+    worktreeCreateAtom,
+    worktreeSetupAtom,
+    worktreeRemoveAtom,
+    gitCommitAtom,
+    gitPushAtom,
+    gitPullRequestAtom,
+  };
 };
 
 export type GitCommands = ReturnType<typeof makeGitCommands>;

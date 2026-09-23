@@ -1291,6 +1291,48 @@ request already exists its URL comes from gh's refusal, or from `gh pr view`,
 with `created: false`. Tests swap in a fake runner that answers with gh's own
 wording; nothing talks to GitHub.
 
+The thread header's git actions control
+(`apps/web/src/components/git/git-actions-control.tsx`) is the client of these:
+a Commit button, and a menu with Commit, Commit & push, and Commit, push &
+create PR. An action is a stack of steps, planned from the root's status and
+branch list (`planGitAction` in `apps/web/src/lib/git-actions.ts`): a commit
+only when something changed; a push after a commit, and otherwise only when
+the branch has no upstream yet (the push then sets it, `-u`) or is ahead of
+it; the pull request last. Pushing and the pull request need a remote. Each
+action that cannot run says why — in the button's tooltip, or under its menu
+item: no changes and nothing to push, a turn running (the whole control is
+disabled while this thread's turn runs), not a repository, a detached HEAD, no
+remote, the branch behind its upstream, or a pull request from the default
+branch.
+
+Any action that commits opens the commit dialog first. Its message starts as
+the thread's title — `Update N files` while the title is still `New thread` —
+then a blank line and `Changed files:` with one `- path` line each; nothing
+writes the message for the user. Every path `git.status` reports is listed
+with a checkbox, untracked files included and all checked, so a file the user
+does not want (a harness's own untracked config, say) can be left out. `paths`
+is sent only when something is unchecked. With every file unchecked there is
+nothing to commit: a plain commit is disabled, while the other two actions skip
+the commit and run what is left (the button then reads `Push`,
+`Push & create PR` or `Create PR`), so a pull request stays reachable when the
+only change is a file nobody wants committed. A pull request in the same run takes
+its title (the first line) and body (the rest) from the commit message; with
+nothing to commit, a push runs straight away and a pull request asks only for
+its title and body.
+
+The steps run in order (`runGitSteps`) and the first refusal stops the run, so
+a failed commit never pushes and a failed push opens no pull request. Each step
+has one toast that starts as `Committing…`, `Pushing to origin/<branch>…` or
+`Creating pull request…` and turns in place into its outcome: `Committed
+<sha>`, `Pushed to …`, `Pull request created` or `Pull request already open`
+with an Open action — or `<Step> failed: <the server's message>`, which is how
+a hook's refusal, a rejected push or `gh not available` reach the user. After a
+commit or a push every git read of the project refetches, the way a branch
+switch does. The last pull request URL is remembered per thread in
+localStorage (`usePullRequestLink` in `apps/web/src/state/ui.ts`, web links
+only) and offered as View pull request, which opens it in the system browser
+(`openExternal`).
+
 ### Worktrees
 
 `git.worktree.create` (`apps/server/src/git/Worktrees.ts`) gives a new thread a

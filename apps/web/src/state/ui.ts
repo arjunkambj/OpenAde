@@ -3,9 +3,9 @@
  *
  * Row disclosure lives in a single override map keyed by itemId so expanding a
  * tool row survives virtualization (the row unmounts, the state does not).
- * Sidebar and dock widths, the per-thread dock tab and the start screen's
- * per-project workspace mode persist through localStorage — durable layout,
- * nothing more.
+ * Sidebar and dock widths, the per-thread dock tab, the start screen's
+ * per-project workspace mode and each thread's last pull request link persist
+ * through localStorage — durable layout and conveniences, nothing more.
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
@@ -483,4 +483,90 @@ export const useWorkspaceMode = (projectId: string) => {
     [setModes, projectId],
   );
   return [mode, setMode] as const;
+};
+
+const PULL_REQUESTS_KEY = "openade:pull-requests-by-thread";
+
+/** Only a web link is kept: the URL is opened in the system browser later. */
+const isWebUrl = (value: unknown): value is string => {
+  if (typeof value !== "string") {
+    return false;
+  }
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
+};
+
+/** Absent, unparseable or foreign-shaped storage all mean "no pull requests yet". */
+export const parsePullRequestLinks = (
+  raw: string | null | undefined,
+): Readonly<Record<string, string>> => {
+  if (raw === null || raw === undefined) {
+    return {};
+  }
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return {};
+    }
+    return Object.fromEntries(
+      Object.entries(parsed).filter((entry): entry is [string, string] => isWebUrl(entry[1])),
+    );
+  } catch {
+    return {};
+  }
+};
+
+/** The map with one thread's link set; a link that is not a web URL changes nothing. */
+export const withPullRequestLink = (
+  links: Readonly<Record<string, string>>,
+  threadId: string,
+  url: string,
+): Readonly<Record<string, string>> =>
+  links[threadId] === url || !isWebUrl(url) ? links : { ...links, [threadId]: url };
+
+const readPullRequestLinks = (): Readonly<Record<string, string>> => {
+  try {
+    return parsePullRequestLinks(globalThis.localStorage?.getItem(PULL_REQUESTS_KEY));
+  } catch {
+    return {};
+  }
+};
+
+/**
+ * The last pull request the git actions control opened (or found open) for
+ * each thread, so "View pull request" survives a reload. It is a convenience:
+ * the server keeps no record of it, and a cleared store only hides the item.
+ */
+const pullRequestLinksAtom = Atom.make<Readonly<Record<string, string>>>(readPullRequestLinks());
+
+/** `[url, remember]` for one thread; `url` is `null` until a pull request is known. */
+export const usePullRequestLink = (threadId: string) => {
+  const url = useAtomValue(
+    pullRequestLinksAtom,
+    React.useCallback(
+      (links: Readonly<Record<string, string>>) => links[threadId] ?? null,
+      [threadId],
+    ),
+  );
+  const setLinks = useAtomSet(pullRequestLinksAtom);
+  const remember = React.useCallback(
+    (next: string) =>
+      setLinks((current) => {
+        const links = withPullRequestLink(current, threadId, next);
+        if (links !== current) {
+          try {
+            globalThis.localStorage?.setItem(PULL_REQUESTS_KEY, JSON.stringify(links));
+          } catch {
+            // localStorage can throw (private mode, quota); the atom still updates.
+          }
+        }
+        return links;
+      }),
+    [setLinks, threadId],
+  );
+  return [url, remember] as const;
 };

@@ -282,7 +282,8 @@ instance; `apps/web/src/lib/client-runtime.tsx` publishes it to React
 
 Presentation state that never reaches the server lives in
 `apps/web/src/state/ui.ts` and the browser's own storage — row disclosure, dock
-width, the per-thread dock tab, and the "last seen" stamp behind the unread dot.
+width, the per-thread dock tab, each thread's last pull request link, and the
+"last seen" stamp behind the unread dot.
 There is no `unread` flag on the wire: whether this window has looked at a
 thread is not the server's business, and a thread with no stamp is deliberately
 not unread.
@@ -454,7 +455,9 @@ Everything a client needs that is not React.
 - `atoms.ts`, `gitAtoms.ts`, `fileAtoms.ts`, `fsAtoms.ts` — the atom factories.
 - `gitCommands.ts` — the worktree writes: create, the setup script (a stream
   atom whose value is the run so far, so the output shows as it arrives) and
-  remove. Built on `gitAtoms`, so each refreshes the project's branch list.
+  remove; and the header's commit, push and pull request. Built on
+  `gitAtoms`: a worktree write refreshes the project's branch list, a commit
+  or push refetches every git read of the project.
 - `connectorAtoms.ts` — `modelCatalogAtom`, every enabled connector instance
   with its models in `connectors.list` order, which the model pickers and the
   Models settings page read. It follows `connectorsAtom`, and an instance whose
@@ -611,7 +614,10 @@ in that order (`apps/web/src/components/thread/start-in-worktree.ts`), and the
 thread header's branch picker (`apps/web/src/components/git/branch-picker.tsx`)
 and sidebar row mark a worktree thread with its branch. The picker switches or
 creates a branch only for a local thread; a worktree thread's branch is its
-own.
+own. Beside it, the git actions control
+(`apps/web/src/components/git/git-actions-control.tsx`) commits, pushes and
+opens a pull request from the thread's root, as stacked steps planned by
+`apps/web/src/lib/git-actions.ts`.
 Deleting such a thread is where one goes: the delete confirmation offers to
 remove the worktree after the delete is accepted, never with `force` unless
 the user confirms twice (`apps/web/src/components/sidebar/delete-thread.ts`).

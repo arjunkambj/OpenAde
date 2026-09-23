@@ -254,7 +254,14 @@ export const makeGitAtoms = (runtime: Atom.AtomRuntime<Connection | ConnectionSt
     }),
   );
 
-  return { gitStatusAtom, gitDiffAtom, gitBranchesAtom, gitCreateBranchAtom, gitCheckoutAtom };
+  return {
+    gitStatusAtom,
+    gitDiffAtom,
+    gitBranchesAtom,
+    gitCreateBranchAtom,
+    gitCheckoutAtom,
+    refreshProject,
+  };
 };
 
 export type GitAtoms = ReturnType<typeof makeGitAtoms>;
