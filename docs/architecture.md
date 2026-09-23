@@ -218,14 +218,14 @@ only; must never import the server, the connector packages or the renderer.
 The renderer. TanStack Router routes under `apps/web/src/routes`, state through
 `@effect/atom-react`, components under `apps/web/src/components`.
 
-| Route                             | What it is                                                         |
-| --------------------------------- | ------------------------------------------------------------------ |
-| `_home/index`                     | start a thread, pick a project                                     |
-| `_home/t/$threadId`               | the thread view; `?pane=` carries the dock tab                     |
-| `_home/customize/{skills,mcp}`    | what extends the agent, one tab per kind, one section per instance |
-| `settings`, five pages            | general, models, connectors, keybindings, archived threads         |
-| `browser.$threadId`               | the marker page the browser pane's `<webview>` guest loads         |
-| `dev/{timeline,composer,changes}` | fixture pages, DEV only                                            |
+| Route                             | What it is                                                              |
+| --------------------------------- | ----------------------------------------------------------------------- |
+| `_home/index`                     | start a thread, pick a project                                          |
+| `_home/t/$threadId`               | the thread view; `?pane=` carries the dock tab                          |
+| `_home/customize/{skills,mcp}`    | what extends the agent, one tab per kind, one section per instance      |
+| `settings`, six pages             | general, models, connectors, keybindings, permissions, archived threads |
+| `browser.$threadId`               | the marker page the browser pane's `<webview>` guest loads              |
+| `dev/{timeline,composer,changes}` | fixture pages, DEV only                                                 |
 
 The shell is a left sidebar (projects → threads, with a status icon and an
 unread dot), the thread column (timeline, composer, interaction cards) and a
@@ -1186,6 +1186,11 @@ document keeps its own copy of that array empty, so the two can never disagree. 
 inside the dispatch transaction and, after commit, invalidates the reactive key
 so an open settings page re-reads it — after, because a subscriber told to
 re-read mid-transaction can see a row the rest of the dispatch then rolls back.
+
+Settings → Permissions lists the saved rules grouped by scope, edits a rule's
+pattern with the approval card's pattern editor, and deletes rules. It saves
+the whole array through `settings.update`, which replaces the table in the same
+transaction as the settings document.
 
 A failure inside a permission decision is logged and answered `prompt`: a
 permissions failure must never read as allow.
