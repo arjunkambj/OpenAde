@@ -213,6 +213,21 @@ describe("the thread fold", () => {
     expect(doc?.status).toBe("idle");
   });
 
+  it("keeps the session across an unarchive so the next turn resumes it", () => {
+    const doc = foldThread([
+      created(),
+      event("thread.session.bound", {
+        connectorInstanceId: makeConnectorInstanceId(),
+        connectorKind: "fake",
+        sessionRef: { id: "session-1" },
+      }),
+      event("thread.archived", {}),
+      event("thread.unarchived", {}),
+    ]);
+
+    expect(doc?.session?.sessionRef).toEqual({ id: "session-1" });
+  });
+
   it("ignores the late settlement of a turn an archive closed once a newer turn runs", () => {
     const first = makeTurnId();
     const second = makeTurnId();

@@ -630,19 +630,33 @@ describe("orchestration with a fake connector", () => {
     }),
   );
 
-  it.effect("unarchiving a thread lets it take a turn again", () =>
+  it.effect("unarchiving a thread resumes the session the archive closed", () =>
     Effect.gen(function* () {
-      const { instance } = yield* openFake();
+      const { fake, instance } = yield* openFake();
       yield* Effect.gen(function* () {
         const engine = yield* OrchestrationEngine;
+        const sessions = yield* SessionManager;
         yield* engine.dispatch(createProject);
         yield* engine.dispatch(createThread);
+
+        const first = yield* awaitEvent(engine, isType("thread.turn.completed"));
+        yield* engine.dispatch(turnStart("hello"));
+        yield* Fiber.join(first);
+
+        const ended = yield* sessions.lifecycle.pipe(
+          Stream.filter((entry) => entry.kind === "ended"),
+          Stream.runHead,
+          Effect.forkChild,
+        );
+        yield* Effect.yieldNow;
         yield* engine.dispatch({
           commandId: makeCommandId(),
           createdAt: NOW,
           type: "thread.archive",
           threadId,
         });
+        yield* Fiber.join(ended);
+        expect(yield* fake.processGone(threadId)).toBe(true);
 
         const receipt = yield* engine.dispatch({
           commandId: makeCommandId(),
@@ -653,11 +667,19 @@ describe("orchestration with a fake connector", () => {
         expect(receipt.status).toBe("accepted");
         expect((yield* engine.threadDoc(threadId))?.status).toBe("idle");
 
-        const completed = yield* awaitEvent(engine, isType("thread.turn.completed"));
+        const second = yield* awaitEvent(engine, isType("thread.turn.completed"));
         yield* engine.dispatch(turnStart("hello again"));
-        const entry = yield* Fiber.join(completed).pipe(Effect.timeout("5 seconds"));
+        const entry = yield* Fiber.join(second).pipe(Effect.timeout("5 seconds"));
         expect(Option.isSome(entry)).toBe(true);
       }).pipe(Effect.provide(stackLayer({ instance })));
+
+      // `resumeSession`, not `startSession`: the conversation the archive
+      // closed is the one the next turn continues.
+      const opened = yield* fake.sessions;
+      expect(opened.length).toBe(2);
+      expect(yield* opened[1]!.handle.sessionRef()).toEqual(yield* opened[0]!.handle.sessionRef());
+      const sends = (yield* opened[1]!.calls).filter((call) => call.method === "send");
+      expect(sends.map((call) => call.detail.text)).toEqual(["hello again"]);
     }),
   );
 
