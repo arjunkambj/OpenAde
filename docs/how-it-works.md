@@ -275,6 +275,10 @@ The probe's children get the same environment allowlist a turn's do, so an
 operator's `COMMAND_CODE_API_KEY` set through `extraEnv` is not reported as
 "not authenticated" while turns work fine.
 
+Every probe that found a binary reports `installed: true`; a signed-out one
+also carries `loginCommand: "cmd login"`, which is what the renderer shows the
+user to run. The wire probe adds `authenticated`, derived from `auth`.
+
 Exit codes decide the status (`packages/connector-cmd/src/exitCodes.ts`):
 
 | exit   | probe status             | what the user is told                                        |

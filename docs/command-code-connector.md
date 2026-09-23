@@ -105,6 +105,16 @@ the resolved binary, both with the same environment allowlist a turn gets, so a
 `COMMAND_CODE_API_KEY` supplied through `extraEnv` is not reported as "not
 authenticated" while turns work fine.
 
+`installed` is true once `resolveBinary` found something to run, whatever the
+probe then saw; nothing resolvable reports `not-installed` with `installed:
+false`. A signed-out CLI — exit 3, or `authenticated: false` in the status
+JSON — reports `loginCommand: "cmd login"` (`CMD_LOGIN_COMMAND`), the
+subcommand the recorded `cmd --help`
+(`packages/testkit/fixtures/cmd/probe/help.stdout.txt`) lists for signing in
+and the exit-3 message names. No `installCommand` is reported: nothing resolves
+only when `npx` is missing too, and no recording or doc names another way to
+install.
+
 ### `status --json`
 
 Timeout 30s. The recorded output

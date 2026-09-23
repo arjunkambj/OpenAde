@@ -24,7 +24,10 @@
     "status": "not-authenticated",
     "binaryPath": "/Users/dev/.local/share/pnpm/cmd",
     "version": "1.54.0",
-    "message": "run `cmd login` to authenticate",
+    "installed": true,
+    "authenticated": false,
+    "loginCommand": "cmd login",
+    "message": "not logged in — run `cmd login`",
     "probedAt": "2026-09-15T12:00:00.000Z"
   }
 }

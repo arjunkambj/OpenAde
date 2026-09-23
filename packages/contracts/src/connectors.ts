@@ -33,11 +33,22 @@ export type ModelOption = typeof ModelOption.Type;
  * What happened when the server last went looking for a connector's CLI. The
  * connectors page renders this directly, so the failure states are named rather
  * than folded into a message string.
+ *
+ * `installed` and `authenticated` are the two health facts the renderer reads
+ * without knowing any harness: `installed` is absent only on the `probing`
+ * stand-in and on a probe that never ran, and `authenticated` is absent when
+ * the probe could not tell. `loginCommand` and `installCommand` are the shell
+ * commands the connector itself names for fixing each — the renderer shows
+ * them, and never spells one of its own.
  */
 export const ConnectorProbe = Schema.Struct({
   status: Schema.Literals(["ready", "not-installed", "not-authenticated", "error", "probing"]),
   binaryPath: Schema.optional(NonEmptyString),
   version: Schema.optional(NonEmptyString),
+  installed: Schema.optional(Schema.Boolean),
+  authenticated: Schema.optional(Schema.Boolean),
+  loginCommand: Schema.optional(NonEmptyString),
+  installCommand: Schema.optional(NonEmptyString),
   /** Whether the harness reported usable credentials: present, absent, unknown. */
   auth: Schema.optional(Schema.Literals(["present", "absent", "unknown"])),
   /** The account the probe saw, e.g. the login email — for the settings page. */

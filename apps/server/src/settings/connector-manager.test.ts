@@ -205,6 +205,9 @@ describe("ConnectorManager", () => {
         // The fake connector manages no harness files of its own.
         expect(seeded.extensions).toEqual({ skills: false, mcpServers: false });
         expect(seeded.probe.modelCount).toBe(1);
+        // The health facts the renderer reads without knowing the harness.
+        expect(seeded.probe.installed).toBe(true);
+        expect(seeded.probe.authenticated).toBe(true);
         expect(yield* registry.instances).toHaveLength(1);
       }),
     ),
@@ -254,6 +257,7 @@ describe("ConnectorManager", () => {
             // Still inside the first probe: the summary has nothing to report.
             const pending = yield* manager.list();
             expect(pending[0]!.probe.status).toBe("probing");
+            expect(pending[0]!.probe.installed).toBeUndefined();
 
             yield* Deferred.succeed(release, undefined);
             const probed = yield* awaitSummaries(
@@ -733,6 +737,9 @@ describe("ConnectorManager", () => {
           (all) => all.length === 1 && all[0]!.probe.status === "error",
         );
         expect(summaries[0]!.probe.message).toContain("no-such-connector");
+        // Nothing ran, so nothing is installed and nothing is known about sign-in.
+        expect(summaries[0]!.probe.installed).toBe(false);
+        expect(summaries[0]!.probe.authenticated).toBeUndefined();
         expect(yield* registry.instances).toHaveLength(0);
       }),
     ),

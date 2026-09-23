@@ -54,6 +54,7 @@ const stubDefinition = (kind: string): ConnectorDefinition<StubConfig> => ({
     Effect.succeed({
       status: "ready" as const,
       probedAt: new Date(0).toISOString(),
+      installed: true,
       auth: "present" as const,
       models: [],
       warnings: [],

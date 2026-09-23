@@ -728,6 +728,22 @@ kind. The schema itself never leaves the server. `registry.describe` lists one
 `ConnectorDescriptor` (`kind`, `metadata`, `configFields`) per kind the build
 ships, in declaration order, and `connectors.describe` answers it.
 
+`probe` answers whether the harness can run a turn on this machine, in
+harness-neutral terms. The connector's `ConnectorProbe` carries a `status`
+(`ready`, `not-installed`, `not-authenticated`, `error`), `installed` (true
+once the harness resolved, even if it then refused), `auth` (`present`,
+`absent`, `unknown`), and optionally `version`, `account`, `loginCommand` and
+`installCommand` — the commands the harness's own output or docs name for
+signing in and installing, left out rather than guessed. It also keeps
+`models` and `warnings`, which stay on the server. `toWireProbe` narrows it to
+the wire `ConnectorProbe` that `ConnectorSummary.probe` carries, adding
+`authenticated` (`auth` as a boolean, absent when unknown) and `modelCount`.
+Only the `probing` stand-in an entry reports before its first probe lands has
+no `installed`; a probe that never ran (no definition for the kind, a
+`ProbeFailed`, the timeout) reports `installed: false`. The
+renderer builds every health message from these fields, so it never names a
+harness's commands itself.
+
 A `ConnectorInstance` is one _configured_ connector, live —
 `startSession`, `resumeSession`, `listModels`, plus its capabilities.
 `ConnectorCapabilities` is what the harness can do, and the renderer reads it

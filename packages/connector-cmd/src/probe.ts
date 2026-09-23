@@ -38,6 +38,14 @@ import { envAllowlist } from "./spawn";
 export const CMD_ACCOUNT_HELP_URL = "https://commandcode.ai/billing";
 
 /**
+ * How a signed-out `cmd` is signed in: the subcommand the CLI's own `--help`
+ * lists for it (`fixtures/cmd/probe/help.stdout.txt`) and its exit-3 message
+ * names (`exitCodes.ts`). There is no install command beside it: when nothing
+ * resolves, `npx` is missing too, and no recording or doc names another way.
+ */
+export const CMD_LOGIN_COMMAND = "cmd login";
+
+/**
  * The oldest release the connector has been recorded against — the floor the
  * probe warns below, never a version it asks for. A newer `cmd` is always fine.
  */
@@ -294,6 +302,7 @@ export const probe = (config: CmdConnectorConfig): Effect.Effect<ConnectorProbe,
       return {
         status: "not-installed" as const,
         probedAt,
+        installed: false,
         message: "cmd not found on PATH and npx is unavailable",
         auth: "unknown" as const,
         models: [],
@@ -307,8 +316,10 @@ export const probe = (config: CmdConnectorConfig): Effect.Effect<ConnectorProbe,
         status: "not-authenticated" as const,
         probedAt,
         binaryPath: binary.display,
-        message: "not logged in — run `cmd login`",
+        installed: true,
+        message: `not logged in — run \`${CMD_LOGIN_COMMAND}\``,
         auth: "absent" as const,
+        loginCommand: CMD_LOGIN_COMMAND,
         models: [],
         warnings: [],
       };
@@ -324,6 +335,7 @@ export const probe = (config: CmdConnectorConfig): Effect.Effect<ConnectorProbe,
         status: "error" as const,
         probedAt,
         binaryPath: binary.display,
+        installed: true,
         message: EXIT_MESSAGES[INSUFFICIENT_CREDITS]!.message,
         auth: "present" as const,
         helpUrl: CMD_ACCOUNT_HELP_URL,
@@ -378,6 +390,7 @@ export const probe = (config: CmdConnectorConfig): Effect.Effect<ConnectorProbe,
         status: "error" as const,
         probedAt,
         binaryPath: binary.display,
+        installed: true,
         message:
           known === undefined
             ? `status exited ${status.code}: ${detail}`
@@ -394,8 +407,14 @@ export const probe = (config: CmdConnectorConfig): Effect.Effect<ConnectorProbe,
       status: parsed.authenticated === false ? ("not-authenticated" as const) : ("ready" as const),
       probedAt,
       binaryPath: binary.display,
+      installed: true,
       ...(parsed.version === undefined ? {} : { version: parsed.version }),
-      ...(parsed.authenticated === false ? { message: "not logged in — run `cmd login`" } : {}),
+      ...(parsed.authenticated === false
+        ? {
+            message: `not logged in — run \`${CMD_LOGIN_COMMAND}\``,
+            loginCommand: CMD_LOGIN_COMMAND,
+          }
+        : {}),
       auth: parsed.authenticated === false ? ("absent" as const) : ("present" as const),
       ...(parsed.user === undefined ? {} : { account: parsed.user }),
       models,

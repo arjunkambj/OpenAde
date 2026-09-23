@@ -58,11 +58,15 @@ export class ConnectorRegistryService extends Context.Service<
   ConnectorRegistry
 >()("server/settings/ConnectorRegistryService") {}
 
-/** A probe that could not run: no definition, a ProbeFailed, or the timeout. */
+/**
+ * A probe that could not run: no definition, a ProbeFailed, or the timeout.
+ * Nothing was found, so `installed` is false — the message says why.
+ */
 const failedProbe = (message: string, probedAt: string): ConnectorProbe => ({
   status: "error",
   message,
   probedAt,
+  installed: false,
   auth: "unknown",
   models: [],
   warnings: [],

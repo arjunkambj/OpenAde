@@ -22,6 +22,7 @@ import type * as Scope from "effect/Scope";
 import { EXIT_MESSAGES } from "./exitCodes";
 import {
   CMD_ACCOUNT_HELP_URL,
+  CMD_LOGIN_COMMAND,
   isBelowOldestTested,
   OLDEST_TESTED_VERSION,
   parseModelList,
@@ -51,6 +52,15 @@ const recordedCreditsError = NodeFS.readFileSync(
   .trimEnd()
   .split("\n")
   .at(-1)!;
+
+/** The real `cmd --help` from 1.55.1: where the login subcommand is named. */
+const recordedHelp = NodeFS.readFileSync(
+  NodePath.resolve(
+    NodeURL.fileURLToPath(import.meta.url),
+    "../../../testkit/fixtures/cmd/probe/help.stdout.txt",
+  ),
+  "utf8",
+);
 
 describe("parseModelList", () => {
   const models = parseModelList(listModels);
@@ -199,6 +209,9 @@ describe("probe", () => {
       expect(result.account).toBe("someone");
       expect(result.version).toBe("1.54.0");
       expect(result.binaryPath).toBe(binaryPath);
+      expect(result.installed).toBe(true);
+      // Signed in: there is nothing to run, so no command is offered.
+      expect(result.loginCommand).toBeUndefined();
       expect(result.models.map((model) => model.id)).toEqual(["acme/one"]);
       expect(result.warnings).toEqual([]);
     }),
@@ -210,7 +223,16 @@ describe("probe", () => {
       const result = yield* probe({ binaryPath: fake.binary(statusBinary("not json", 3)) });
       expect(result.status).toBe("not-authenticated");
       expect(result.auth).toBe("absent");
-      expect(result.message).toContain("cmd login");
+      // Found and ran, only signed out.
+      expect(result.installed).toBe(true);
+      expect(result.loginCommand).toBe(CMD_LOGIN_COMMAND);
+      expect(result.message).toContain(CMD_LOGIN_COMMAND);
+      // The command is the one the CLI's own help lists and its exit-3
+      // message names, not one we made up.
+      expect(recordedHelp).toMatch(new RegExp(`^\\s+${CMD_LOGIN_COMMAND}\\s{2,}Login`, "m"));
+      expect(EXIT_MESSAGES[3]!.message).toContain(`\`${CMD_LOGIN_COMMAND}\``);
+      // No recording names an install command, so none is offered.
+      expect(result.installCommand).toBeUndefined();
       // Exit 3 short-circuits: no point listing models for a logged-out CLI.
       expect(result.models).toEqual([]);
     }),
@@ -226,6 +248,8 @@ describe("probe", () => {
       });
       expect(result.status).toBe("not-authenticated");
       expect(result.auth).toBe("absent");
+      expect(result.installed).toBe(true);
+      expect(result.loginCommand).toBe(CMD_LOGIN_COMMAND);
       // The model list still came back, so the picker has something to show.
       expect(result.models).toHaveLength(1);
     }),
@@ -306,6 +330,7 @@ process.exit(42);
       });
       expect(result.status).toBe("error");
       expect(result.auth).toBe("unknown");
+      expect(result.installed).toBe(true);
       expect(result.message).toContain("something broke");
       expect(result.message).toContain("42");
     }),

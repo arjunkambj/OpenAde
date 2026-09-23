@@ -494,6 +494,7 @@ export const makeFakeConnector = (
       probedAt: new Date(0).toISOString(),
       binaryPath: "/dev/null",
       version: "0.0.0",
+      installed: true,
       auth: "present",
       models,
       warnings: [],

@@ -100,10 +100,20 @@ export type ConnectorAuthState = "present" | "absent" | "unknown";
  * that the connectors page renders: the server keeps `models` to seed the model
  * picker without a second round trip, and `warnings` to surface a too-old
  * binary without failing the probe outright. `toWireProbe` narrows it.
+ *
+ * `installed` is whether the harness resolved at all — true once a binary (or
+ * whatever the connector runs) was found, even if it then refused. The wire's
+ * `authenticated` is derived from `auth`, so a connector states credentials
+ * once. `loginCommand` and `installCommand` are the commands this harness's own
+ * output or docs name for signing in and installing; a connector leaves one
+ * out rather than guess it, and the renderer shows whichever it is given.
  */
-export interface ConnectorProbe extends WireConnectorProbe {
+export interface ConnectorProbe extends Omit<WireConnectorProbe, "authenticated"> {
+  readonly installed: boolean;
   readonly auth: ConnectorAuthState;
   readonly account?: string;
+  readonly loginCommand?: string;
+  readonly installCommand?: string;
   readonly models: ReadonlyArray<ModelOption>;
   readonly warnings: ReadonlyArray<string>;
 }
@@ -111,16 +121,21 @@ export interface ConnectorProbe extends WireConnectorProbe {
 /**
  * Drops the server-only fields, leaving the shape `ConnectorSummary.probe` carries.
  * `auth`, `account` and the model count cross the wire — the connectors page
- * renders them; `models` and `warnings` stay server-side.
+ * renders them; `models` and `warnings` stay server-side. `authenticated` is
+ * `auth` as a boolean, left out when the probe could not tell.
  */
 export const toWireProbe = (probe: ConnectorProbe): WireConnectorProbe => ({
   status: probe.status,
   probedAt: probe.probedAt,
+  installed: probe.installed,
   auth: probe.auth,
+  ...(probe.auth === "unknown" ? {} : { authenticated: probe.auth === "present" }),
   modelCount: probe.models.length,
   ...(probe.binaryPath === undefined ? {} : { binaryPath: probe.binaryPath }),
   ...(probe.version === undefined ? {} : { version: probe.version }),
   ...(probe.account === undefined ? {} : { account: probe.account }),
+  ...(probe.loginCommand === undefined ? {} : { loginCommand: probe.loginCommand }),
+  ...(probe.installCommand === undefined ? {} : { installCommand: probe.installCommand }),
   ...(probe.helpUrl === undefined ? {} : { helpUrl: probe.helpUrl }),
   ...(probe.message === undefined ? {} : { message: probe.message }),
 });
