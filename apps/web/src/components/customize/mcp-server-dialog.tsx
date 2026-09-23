@@ -1,8 +1,8 @@
 /**
  * The add/edit dialog for one MCP server entry. Owns the draft record and the
  * `McpServerConfig` assembly (stdio command/args/env vs http url/headers); the
- * caller hands it the project context so `cmdConfig.mcp.upsert` lands in the
- * right file.
+ * caller hands it the connector instance and the project context so
+ * `connectors.mcp.add` lands in the right instance's file.
  */
 
 import { useAtomSet } from "@effect/atom-react";
@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@OpenAde/ui/components/select";
 import { Textarea } from "@OpenAde/ui/components/textarea";
-import type { ProjectId } from "@OpenAde/contracts/ids";
+import type { ConnectorInstanceId, ProjectId } from "@OpenAde/contracts/ids";
 import type { McpServerConfig, McpServerScope } from "@OpenAde/contracts/connectors";
 import * as Exit from "effect/Exit";
 import * as React from "react";
@@ -102,6 +102,7 @@ export function McpServerDialog({
   open,
   onClose,
   editing,
+  instanceId,
   projectId,
   canUseProjectScope,
 }: {
@@ -109,6 +110,8 @@ export function McpServerDialog({
   readonly onClose: () => void;
   /** The entry being edited, or `null` for a new server. */
   readonly editing: McpServerConfig | null;
+  /** The connector instance whose config the server is written to. */
+  readonly instanceId: ConnectorInstanceId;
   readonly projectId: ProjectId | null;
   readonly canUseProjectScope: boolean;
 }) {
@@ -136,7 +139,7 @@ export function McpServerDialog({
       return;
     }
     setSaving(true);
-    const exit = await upsert({ projectId, server: config });
+    const exit = await upsert({ instanceId, projectId, server: config });
     setSaving(false);
     if (Exit.isSuccess(exit)) {
       onClose();
@@ -169,8 +172,8 @@ export function McpServerDialog({
               label: "Scope",
               control: "select",
               description: canUseProjectScope
-                ? "Global writes the user-level mcp.json; project writes the project's .mcp.json."
-                : "Pick a project above to write into a project .mcp.json.",
+                ? "Global writes the connector's user config; project writes the project's own."
+                : "Pick a project above to write into a project's config.",
             }}
           >
             <Select

@@ -42,14 +42,14 @@ export function CustomizeLayout() {
   const matchRoute = useMatchRoute();
   const projectsResult = useAtomValue(atoms.projectsAtom);
   const [projectId, setProjectId] = React.useState<ProjectId | null>(null);
-  const skillsResult = useAtomValue(atoms.skillsAtom(projectId));
-  const serversResult = useAtomValue(atoms.mcpServersAtom(projectId));
+  // Summed across every instance that manages the kind — the tabs list them
+  // one section per instance.
+  const counts = {
+    skills: useAtomValue(atoms.customizeCountAtom("skills")(projectId)),
+    mcp: useAtomValue(atoms.customizeCountAtom("mcpServers")(projectId)),
+  };
 
   const projects = AsyncResult.isSuccess(projectsResult) ? projectsResult.value : [];
-  const counts = {
-    skills: AsyncResult.isSuccess(skillsResult) ? skillsResult.value.length : null,
-    mcp: AsyncResult.isSuccess(serversResult) ? serversResult.value.length : null,
-  };
 
   return (
     <div className="flex flex-1 flex-col overflow-y-auto px-8 py-10">

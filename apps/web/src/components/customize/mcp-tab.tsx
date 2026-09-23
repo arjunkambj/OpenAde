@@ -1,8 +1,9 @@
 /**
- * The MCP tab: everything `cmdConfig.mcp.list` returns for the chosen scope.
- * Entries carrying the `_openade` marker are edited and removed here; entries
- * without it are shown read-only — the server refuses to touch them anyway,
- * and the marker rule is what keeps a hand edit safe across a round-trip.
+ * The MCP tab: one section per connector instance with an MCP servers
+ * extension, each listing what `connectors.mcp.list` returns for the chosen
+ * scope. Entries the instance marks `managed` are edited and removed here;
+ * the rest are shown read-only — the connector refuses to touch them anyway,
+ * and that rule is what keeps a hand edit safe across a round-trip.
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
@@ -14,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@OpenAde/ui/components/dropdown-menu";
 import type { McpServerConfig } from "@OpenAde/contracts/connectors";
+import type { ConnectorInstanceId } from "@OpenAde/contracts/ids";
 import * as Exit from "effect/Exit";
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
@@ -22,6 +24,7 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { describeExitError, useAppAtoms } from "@/lib/app-runtime";
 
+import { CustomizeInstances } from "./customize-instances";
 import { useCustomizeScope } from "./customize-layout";
 import {
   CustomizeCard,
@@ -40,15 +43,72 @@ const describeServer = (server: McpServerConfig): string =>
     : (server.url ?? "");
 
 export function McpTab() {
+  const [query, setQuery] = React.useState("");
+  // The instance outlives `open`, so the dialog can animate closed.
+  const [dialog, setDialog] = React.useState<{
+    readonly open: boolean;
+    readonly instanceId: ConnectorInstanceId | null;
+    readonly editing: McpServerConfig | null;
+  }>({ open: false, instanceId: null, editing: null });
+  const projectId = useCustomizeScope();
+
+  return (
+    <div className="flex flex-col gap-8">
+      <CustomizeSearch value={query} onChange={setQuery} placeholder="Search MCP servers" />
+      <CustomizeInstances
+        kind="mcpServers"
+        empty="No enabled connector manages MCP servers."
+        actions={(instance) => (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              setDialog({ open: true, instanceId: instance.connectorInstanceId, editing: null })
+            }
+          >
+            <AddIcon />
+            Add server
+          </Button>
+        )}
+      >
+        {(instance) => (
+          <InstanceServers
+            instanceId={instance.connectorInstanceId}
+            query={query}
+            onEdit={(server) =>
+              setDialog({ open: true, instanceId: instance.connectorInstanceId, editing: server })
+            }
+          />
+        )}
+      </CustomizeInstances>
+
+      {dialog.instanceId === null ? null : (
+        <McpServerDialog
+          open={dialog.open}
+          editing={dialog.editing}
+          instanceId={dialog.instanceId}
+          projectId={projectId}
+          canUseProjectScope={projectId !== null}
+          onClose={() => setDialog((current) => ({ ...current, open: false }))}
+        />
+      )}
+    </div>
+  );
+}
+
+function InstanceServers({
+  instanceId,
+  query,
+  onEdit,
+}: {
+  readonly instanceId: ConnectorInstanceId;
+  readonly query: string;
+  readonly onEdit: (server: McpServerConfig) => void;
+}) {
   const atoms = useAppAtoms();
   const projectId = useCustomizeScope();
-  const serversResult = useAtomValue(atoms.mcpServersAtom(projectId));
+  const serversResult = useAtomValue(atoms.mcpServersAtom(instanceId)(projectId));
   const remove = useAtomSet(atoms.mcpRemoveAtom, { mode: "promiseExit" });
-  const [query, setQuery] = React.useState("");
-  const [dialog, setDialog] = React.useState<{
-    open: boolean;
-    editing: McpServerConfig | null;
-  }>({ open: false, editing: null });
   const [removing, setRemoving] = React.useState<McpServerConfig | null>(null);
 
   const servers = AsyncResult.isSuccess(serversResult) ? serversResult.value : null;
@@ -56,7 +116,7 @@ export function McpTab() {
     servers?.filter((server) => matchesQuery(query, [server.name, describeServer(server)])) ?? null;
 
   const removeServer = async (server: McpServerConfig) => {
-    const exit = await remove({ projectId, scope: server.scope, name: server.name });
+    const exit = await remove({ instanceId, projectId, scope: server.scope, name: server.name });
     if (!Exit.isSuccess(exit)) {
       toast.error(describeExitError(exit, "Could not remove server"));
     }
@@ -64,14 +124,6 @@ export function McpTab() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-2">
-        <CustomizeSearch value={query} onChange={setQuery} placeholder="Search MCP servers" />
-        <Button variant="outline" onClick={() => setDialog({ open: true, editing: null })}>
-          <AddIcon />
-          Add server
-        </Button>
-      </div>
-
       <CustomizeSection title="Configured" count={servers?.length ?? null}>
         {shown === null ? (
           <CustomizeEmpty>Loading…</CustomizeEmpty>
@@ -109,7 +161,7 @@ export function McpTab() {
                       <MoreVertical />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setDialog({ open: true, editing: server })}>
+                      <DropdownMenuItem onClick={() => onEdit(server)}>
                         <EditIcon />
                         Edit
                       </DropdownMenuItem>
@@ -127,14 +179,6 @@ export function McpTab() {
         )}
       </CustomizeSection>
 
-      <McpServerDialog
-        open={dialog.open}
-        editing={dialog.editing}
-        projectId={projectId}
-        canUseProjectScope={projectId !== null}
-        onClose={() => setDialog({ open: false, editing: null })}
-      />
-
       {/* Removing an entry rewrites the connector's config file; there is no
           undo, so it asks first the way the restore dialog does. */}
       <ConfirmDialog
@@ -148,7 +192,7 @@ export function McpTab() {
         description={
           removing === null
             ? ""
-            : `Its entry is deleted from the ${removing.scope === "project" ? "project's .mcp.json" : "global mcp.json"}, and sessions started after this will not launch it.`
+            : `Its entry is deleted from the connector's ${removing.scope === "project" ? "project" : "global"} config, and sessions started after this will not launch it.`
         }
         confirmLabel="Remove server"
         onConfirm={() => {

@@ -12,15 +12,17 @@
  */
 
 import { Connection } from "@OpenAde/client-runtime/connection";
-import type { ProjectId } from "@OpenAde/contracts/ids";
+import type { ConnectorInstanceId, ProjectId } from "@OpenAde/contracts/ids";
 import type { AgentSkill, McpServerConfig, McpServerScope } from "@OpenAde/contracts/connectors";
 import type { SettingsPatch } from "@OpenAde/contracts/settings";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import type * as Exit from "effect/Exit";
 import { isObject, isString } from "effect/Predicate";
+import { AsyncResult } from "effect/unstable/reactivity";
 import * as Atom from "effect/unstable/reactivity/Atom";
 
+import { instancesWith, totalCount, type ExtensionKind } from "@/lib/customize-instances";
 import { getAppAtoms, type AppAtoms as BaseAppAtoms } from "@/state/app-runtime";
 
 /** The message a failed `useAtomSet(..., { mode: "promiseExit" })` call should show. */
@@ -33,6 +35,11 @@ export const describeExitError = (exit: Exit.Exit<unknown, unknown>, fallback: s
     ? squashed.message
     : fallback;
 };
+
+/** A list's length once it has answered, `null` before. */
+const lengthOf = (
+  result: AsyncResult.AsyncResult<ReadonlyArray<unknown>, unknown>,
+): number | null => (AsyncResult.isSuccess(result) ? result.value.length : null);
 
 const makeSettingsAtoms = (base: BaseAppAtoms) => {
   const { runtime } = base;
@@ -56,64 +63,115 @@ const makeSettingsAtoms = (base: BaseAppAtoms) => {
     }),
   );
 
-  /** MCP servers for a project — `null` lists user scope only. */
-  const mcpServersAtom = Atom.family((projectId: ProjectId | null) =>
-    runtime.atom(
-      Effect.flatMap(client, (c) =>
-        c["cmdConfig.mcp.list"](projectId === null ? {} : { projectId }),
+  /**
+   * MCP servers one connector instance manages, per project — `null` lists
+   * user scope only. Only asked of an instance whose summary says it has the
+   * extension; any other answers `unavailable`.
+   */
+  const mcpServersAtom = Atom.family((instanceId: ConnectorInstanceId) =>
+    Atom.family((projectId: ProjectId | null) =>
+      runtime.atom(
+        Effect.flatMap(client, (c) =>
+          c["connectors.mcp.list"]({
+            instanceId,
+            ...(projectId === null ? {} : { projectId }),
+          }),
+        ),
+        { initialValue: [] as ReadonlyArray<McpServerConfig> },
       ),
-      { initialValue: [] as ReadonlyArray<McpServerConfig> },
     ),
   );
 
   const mcpUpsertAtom = runtime.fn(
-    (input: { projectId: ProjectId | null; server: McpServerConfig }, get) =>
+    (
+      input: {
+        instanceId: ConnectorInstanceId;
+        projectId: ProjectId | null;
+        server: McpServerConfig;
+      },
+      get,
+    ) =>
       Effect.gen(function* () {
         const next = yield* Effect.flatMap(client, (c) =>
-          c["cmdConfig.mcp.upsert"]({
+          c["connectors.mcp.add"]({
+            instanceId: input.instanceId,
             ...(input.projectId === null ? {} : { projectId: input.projectId }),
             server: input.server,
           }),
         );
-        get.registry.refresh(mcpServersAtom(input.projectId));
+        get.registry.refresh(mcpServersAtom(input.instanceId)(input.projectId));
         return next;
       }),
   );
 
   const mcpRemoveAtom = runtime.fn(
-    (input: { projectId: ProjectId | null; scope: McpServerScope; name: string }, get) =>
+    (
+      input: {
+        instanceId: ConnectorInstanceId;
+        projectId: ProjectId | null;
+        scope: McpServerScope;
+        name: string;
+      },
+      get,
+    ) =>
       Effect.gen(function* () {
         const next = yield* Effect.flatMap(client, (c) =>
-          c["cmdConfig.mcp.remove"]({
+          c["connectors.mcp.remove"]({
+            instanceId: input.instanceId,
             ...(input.projectId === null ? {} : { projectId: input.projectId }),
             scope: input.scope,
             name: input.name,
           }),
         );
-        get.registry.refresh(mcpServersAtom(input.projectId));
+        get.registry.refresh(mcpServersAtom(input.instanceId)(input.projectId));
         return next;
       }),
   );
 
-  /** Skills in the shared agents folder the connector does not load yet. */
-  const agentSkillsAtom = runtime.atom(
-    Effect.flatMap(client, (c) => c["cmdConfig.skills.agents"]({})),
-    { initialValue: [] as ReadonlyArray<AgentSkill> },
+  /** Skills in a shared folder one instance does not load yet. */
+  const agentSkillsAtom = Atom.family((instanceId: ConnectorInstanceId) =>
+    runtime.atom(
+      Effect.flatMap(client, (c) => c["connectors.skills.available"]({ instanceId })),
+      { initialValue: [] as ReadonlyArray<AgentSkill> },
+    ),
   );
 
   /**
-   * Links one agents-folder skill into the global skills root. `projectId` is
-   * the scope on screen, whose skills list now includes it.
+   * Links one shared-folder skill into the instance's user skills. `projectId`
+   * is the scope on screen, whose skills list now includes it.
    */
-  const skillsLinkAtom = runtime.fn((input: { entry: string; projectId: ProjectId | null }, get) =>
-    Effect.gen(function* () {
-      const next = yield* Effect.flatMap(client, (c) =>
-        c["cmdConfig.skills.link"]({ entry: input.entry }),
-      );
-      get.registry.refresh(agentSkillsAtom);
-      get.registry.refresh(base.skillsAtom(input.projectId));
-      return next;
-    }),
+  const skillsLinkAtom = runtime.fn(
+    (input: { instanceId: ConnectorInstanceId; entry: string; projectId: ProjectId | null }, get) =>
+      Effect.gen(function* () {
+        const next = yield* Effect.flatMap(client, (c) =>
+          c["connectors.skills.link"]({ instanceId: input.instanceId, entry: input.entry }),
+        );
+        get.registry.refresh(agentSkillsAtom(input.instanceId));
+        get.registry.refresh(base.skillsAtom(input.instanceId)(input.projectId));
+        return next;
+      }),
+  );
+
+  /**
+   * A Customize tab's count: its kind's list summed across every instance
+   * that manages it, `null` until each has answered.
+   */
+  const customizeCountAtom = Atom.family((kind: ExtensionKind) =>
+    Atom.family((projectId: ProjectId | null) =>
+      Atom.make((get): number | null => {
+        const connectors = get(base.connectorsAtom);
+        if (!AsyncResult.isSuccess(connectors)) {
+          return null;
+        }
+        return totalCount(
+          instancesWith(connectors.value, kind).map(({ connectorInstanceId: id }) =>
+            kind === "skills"
+              ? lengthOf(get(base.skillsAtom(id)(projectId)))
+              : lengthOf(get(mcpServersAtom(id)(projectId))),
+          ),
+        );
+      }),
+    ),
   );
 
   return {
@@ -125,6 +183,7 @@ const makeSettingsAtoms = (base: BaseAppAtoms) => {
     mcpRemoveAtom,
     agentSkillsAtom,
     skillsLinkAtom,
+    customizeCountAtom,
   };
 };
 
