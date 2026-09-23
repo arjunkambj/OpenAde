@@ -15,7 +15,10 @@
 
 import { createServer } from "node:http";
 import { NodeHttpServer } from "@effect/platform-node";
-import { claudeConnectorDefinition } from "@OpenAde/connector-claude/definition";
+import {
+  makeClaudeConnectorDefinition,
+  type ClaudeConnectorOptions,
+} from "@OpenAde/connector-claude/definition";
 import { makeCmdConnectorDefinition } from "@OpenAde/connector-cmd/definition";
 import { eraseConnectorDefinition } from "@OpenAde/connector-sdk/definition";
 import { makeRegistry } from "@OpenAde/connector-sdk/registry";
@@ -82,6 +85,13 @@ export interface BootOptions {
    * unset.
    */
   readonly commandCodeHome?: string;
+  /**
+   * Options for the Claude Code connector. The end-to-end harness sets the
+   * caps a recording or a live run puts on every session (`maxTurns`,
+   * `maxBudgetUsd`), so a test cannot spend beyond them. Production leaves it
+   * unset.
+   */
+  readonly claudeCode?: ClaudeConnectorOptions;
 }
 
 /** @public What a booted server tells a client (or the desktop shell) about itself. */
@@ -131,7 +141,7 @@ export const boot = (options: BootOptions) =>
           options.commandCodeHome === undefined ? {} : { commandCodeHome: options.commandCodeHome },
         ),
       ),
-      eraseConnectorDefinition(claudeConnectorDefinition),
+      eraseConnectorDefinition(makeClaudeConnectorDefinition(options.claudeCode ?? {})),
     ]);
     // Routing follows the connectors page's own order, not the order instances
     // happened to be opened in — the same reading the engine seeds a new
