@@ -11,6 +11,6 @@
   "payload": {
     "turnId": "0199c0de-0004-7000-8000-000000000001",
     "planMarkdown": "## Plan\n\n1. Add the route\n",
-    "planPath": "/Users/dev/.commandcode/plans/health-check.md"
+    "planPath": "/Users/dev/.harness/plans/health-check.md"
   }
 }

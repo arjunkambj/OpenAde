@@ -4,7 +4,7 @@
   "version": "1.54.0",
   "auth": "absent",
   "modelCount": 12,
-  "helpUrl": "https://commandcode.ai/billing",
+  "helpUrl": "https://harness.example/billing",
   "message": "run `cmd login` to authenticate",
   "probedAt": "2026-09-15T12:00:00.000Z"
 }
