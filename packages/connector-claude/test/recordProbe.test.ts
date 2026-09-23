@@ -15,7 +15,6 @@
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
-import * as NodeURL from "node:url";
 import { describe, expect, it } from "@effect/vitest";
 import { finalizeSdkStreamRecording, makeTeeLauncher } from "@OpenAde/testkit/sdkStreamRecording";
 import * as Effect from "effect/Effect";
@@ -23,17 +22,9 @@ import * as Effect from "effect/Effect";
 import { resolveBinary } from "../src/binary";
 import { CLAUDE_KIND } from "../src/kind";
 import { probe } from "../src/probe";
+import { sdkVersion } from "./replay";
 
 const RECORD = process.env.OPENADE_RECORD_CLAUDE === "1";
-
-/** The SDK's own version, read from the package the connector imports. */
-const sdkVersion = (): string => {
-  const entry = NodeURL.fileURLToPath(import.meta.resolve("@anthropic-ai/claude-agent-sdk"));
-  const manifest = JSON.parse(
-    NodeFS.readFileSync(NodePath.join(NodePath.dirname(entry), "package.json"), "utf8"),
-  ) as { version: string };
-  return manifest.version;
-};
 
 describe("the probe recording", () => {
   it.effect.skipIf(!RECORD)("captures the real CLI's probe", () =>

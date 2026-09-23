@@ -16,7 +16,6 @@ import { execFileSync } from "node:child_process";
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
-import * as NodeURL from "node:url";
 import { describe, expect, it } from "@effect/vitest";
 import { makeStreamCollector } from "@OpenAde/connector-sdk/streamCollector";
 import { makeConnectorInstanceId, makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
@@ -27,18 +26,11 @@ import { resolveBinary } from "../src/binary";
 import { makeClaudeConnectorDefinition } from "../src/definition";
 import { CLAUDE_KIND } from "../src/kind";
 import { parseVersion } from "../src/probe";
+import { initModelOf, sdkVersion } from "./replay";
 import { testServices } from "./services";
 
 const RECORD = process.env.OPENADE_RECORD_CLAUDE === "1";
 const SCRATCH = "/tmp/openade-h1/scratch";
-
-const sdkVersion = (): string => {
-  const entry = NodeURL.fileURLToPath(import.meta.resolve("@anthropic-ai/claude-agent-sdk"));
-  const manifest = JSON.parse(
-    NodeFS.readFileSync(NodePath.join(NodePath.dirname(entry), "package.json"), "utf8"),
-  ) as { version: string };
-  return manifest.version;
-};
 
 /** A fresh git repo for one scenario. */
 const scratchRepo = (scenario: string): string => {
@@ -94,7 +86,7 @@ describe("session recordings", () => {
             "One turn sent to a CLI that is not signed in: the CLI answers with its own sign-in error and an error result, without calling the API.",
           cliVersion: cliVersion ?? "unknown",
           sdkVersion: sdkVersion(),
-          model: "default",
+          model: initModelOf(rawDir) ?? "default",
           prompts: [prompt],
         });
         expect(NodeFS.existsSync(NodePath.join(dir, "manifest.json"))).toBe(true);
