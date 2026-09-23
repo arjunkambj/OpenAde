@@ -15,7 +15,7 @@
 
 import { createServer } from "node:http";
 import { NodeHttpServer } from "@effect/platform-node";
-import { cmdConnectorDefinition } from "@OpenAde/connector-cmd/definition";
+import { makeCmdConnectorDefinition } from "@OpenAde/connector-cmd/definition";
 import { eraseConnectorDefinition } from "@OpenAde/connector-sdk/definition";
 import { makeRegistry } from "@OpenAde/connector-sdk/registry";
 import type { ConnectorInstanceId } from "@OpenAde/contracts/ids";
@@ -49,7 +49,7 @@ import { layer as gitServiceLayer } from "./git/Git";
 import { writeHandshake } from "./rpc/bootstrap";
 import { serverLayer, ServerToken } from "./rpc/server";
 import { ServerIdentity, SettingsStore } from "./rpc/services";
-import { layer as cmdConfigLayer } from "./settings/CmdConfig";
+import { layer as connectorExtensionsLayer } from "./settings/ConnectorExtensions";
 import { ConnectorHost } from "./settings/ConnectorHost";
 import { ConnectorManager, ConnectorRegistryService } from "./settings/ConnectorManager";
 import { ConnectorModels, OpenConnectors, routingPreference } from "./settings/connectorRouting";
@@ -70,13 +70,15 @@ export interface BootOptions {
   /** `0` — the default — asks the OS for a free port. */
   readonly port?: number;
   /**
-   * Where the *harness's* own configuration lives — `~/.commandcode` by
-   * default, and not to be confused with `home`, which is ours.
+   * Where the Command Code connector finds the *harness's* own configuration —
+   * `~/.commandcode` by default, and not to be confused with `home`, which is
+   * ours.
    *
-   * The settings pages read and write two of the user's Command Code files
-   * through `CmdConfig`, so this is the one thing `OPENADE_HOME` cannot move:
-   * an end-to-end test that adds an MCP server would otherwise edit the
-   * operator's real config. Production leaves it unset.
+   * The Customize page reads and writes the user's MCP and skills files
+   * through the connector's extensions, so this is the one thing
+   * `OPENADE_HOME` cannot move: an end-to-end test that adds an MCP server
+   * would otherwise edit the operator's real config. Production leaves it
+   * unset.
    */
   readonly commandCodeHome?: string;
 }
@@ -118,7 +120,13 @@ export const boot = (options: BootOptions) =>
       sqlite,
       Layer.mergeAll(EventStore.layer, ReadModelStore.layer).pipe(Layer.provide(sqlite)),
     );
-    const registry = yield* makeRegistry([eraseConnectorDefinition(cmdConnectorDefinition)]);
+    const registry = yield* makeRegistry([
+      eraseConnectorDefinition(
+        makeCmdConnectorDefinition(
+          options.commandCodeHome === undefined ? {} : { commandCodeHome: options.commandCodeHome },
+        ),
+      ),
+    ]);
     // Routing follows the connectors page's own order, not the order instances
     // happened to be opened in — the same reading the engine seeds a new
     // thread's model from, so the two always name one instance. Both also skip
@@ -202,9 +210,11 @@ export const boot = (options: BootOptions) =>
       attachments,
       browser,
       mcp,
-      cmdConfigLayer(
-        options.commandCodeHome === undefined ? {} : { commandCodeHome: options.commandCodeHome },
-      ).pipe(Layer.provide(persistence)),
+      connectorExtensionsLayer.pipe(
+        Layer.provide(
+          Layer.mergeAll(persistence, Layer.succeed(ConnectorRegistryService, registry)),
+        ),
+      ),
       // SettingsStore is not listed here: `sharedSettings` already merges the one
       // instance the manager watches and the RPC handlers mutate.
       permissions,

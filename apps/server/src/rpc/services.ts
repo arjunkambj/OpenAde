@@ -200,41 +200,54 @@ export class BrowserService extends Context.Service<
   );
 }
 
-// ── Command Code config ────────────────────────────────────────
+// ── Connector extensions ───────────────────────────────────────
 
-export class CmdConfig extends Context.Service<
-  CmdConfig,
+/**
+ * The per-instance extensions behind `connectors.skills.*` and
+ * `connectors.mcp.*`. The real layer (`settings/ConnectorExtensions.ts`)
+ * resolves the instance and the project's workspace root, then calls the
+ * connector; the empty one answers every read with nothing.
+ */
+export class ConnectorExtensions extends Context.Service<
+  ConnectorExtensions,
   {
+    readonly skillsList: (
+      instanceId: ConnectorInstanceId,
+      projectId?: ProjectId,
+    ) => Effect.Effect<ReadonlyArray<SkillSummary>, OpenAdeRpcError>;
+    readonly skillsAvailable: (
+      instanceId: ConnectorInstanceId,
+    ) => Effect.Effect<ReadonlyArray<AgentSkill>, OpenAdeRpcError>;
+    readonly skillsLink: (
+      instanceId: ConnectorInstanceId,
+      entry: string,
+    ) => Effect.Effect<ReadonlyArray<AgentSkill>, OpenAdeRpcError>;
     readonly mcpList: (
+      instanceId: ConnectorInstanceId,
       projectId?: ProjectId,
     ) => Effect.Effect<ReadonlyArray<McpServerConfig>, OpenAdeRpcError>;
-    readonly mcpUpsert: (
+    readonly mcpAdd: (
+      instanceId: ConnectorInstanceId,
       projectId: ProjectId | undefined,
       server: McpServerConfig,
     ) => Effect.Effect<ReadonlyArray<McpServerConfig>, OpenAdeRpcError>;
     readonly mcpRemove: (
+      instanceId: ConnectorInstanceId,
       projectId: ProjectId | undefined,
       scope: McpServerScope,
       name: string,
     ) => Effect.Effect<ReadonlyArray<McpServerConfig>, OpenAdeRpcError>;
-    readonly skillsList: (
-      projectId?: ProjectId,
-    ) => Effect.Effect<ReadonlyArray<SkillSummary>, OpenAdeRpcError>;
-    readonly skillsAgents: Effect.Effect<ReadonlyArray<AgentSkill>, OpenAdeRpcError>;
-    readonly skillsLink: (
-      entry: string,
-    ) => Effect.Effect<ReadonlyArray<AgentSkill>, OpenAdeRpcError>;
   }
->()("server/rpc/CmdConfig") {
+>()("server/rpc/ConnectorExtensions") {
   static readonly empty = Layer.succeed(
-    CmdConfig,
-    CmdConfig.of({
-      mcpList: () => Effect.succeed([]),
-      mcpUpsert: () => Effect.succeed([]),
-      mcpRemove: () => Effect.succeed([]),
+    ConnectorExtensions,
+    ConnectorExtensions.of({
       skillsList: () => Effect.succeed([]),
-      skillsAgents: Effect.succeed([]),
+      skillsAvailable: () => Effect.succeed([]),
       skillsLink: () => Effect.succeed([]),
+      mcpList: () => Effect.succeed([]),
+      mcpAdd: () => Effect.succeed([]),
+      mcpRemove: () => Effect.succeed([]),
     }),
   );
 }
@@ -317,8 +330,8 @@ export class SettingsStore extends Context.Service<
       /**
        * The document is written whole, so a read-modify-write that yields in
        * the middle loses the other writer's fields entirely — two windows
-       * saving different pages at the same moment was enough. Serialised the
-       * way CmdConfig serialises its own writes.
+       * saving different pages at the same moment was enough. Serialised
+       * behind one semaphore, like every other read-modify-write of a file.
        */
       const writeMutex = yield* Semaphore.make(1);
 

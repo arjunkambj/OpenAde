@@ -393,6 +393,7 @@ export const makeFixtureClient = (): FixtureClient => {
       runtimeModes: ["approval-required", "auto-accept-edits", "full-access"],
       attachments: "files",
     },
+    extensions: { skills: true, mcpServers: false },
     probe: { status: "ready", probedAt: NOW },
   };
 
@@ -404,6 +405,7 @@ export const makeFixtureClient = (): FixtureClient => {
     ...connector,
     connectorInstanceId: makeConnectorInstanceId(),
     displayName: "Second fixture connector",
+    extensions: { skills: false, mcpServers: false },
   };
 
   /** What the fixture build "ships": the one connector kind above, with a form. */
@@ -492,7 +494,7 @@ export const makeFixtureClient = (): FixtureClient => {
             );
         case "connectors.describe":
           return () => Effect.succeed([descriptor]);
-        case "cmdConfig.skills.list":
+        case "connectors.skills.list":
           return () => Effect.succeed(FIXTURE_SKILLS.filter((skill) => skill.enabled));
         case "keybindings.get":
           return () => Effect.succeed(keybindings);

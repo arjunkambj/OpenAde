@@ -76,6 +76,15 @@ interface Entry {
   readonly scope: Scope.Closeable | null;
 }
 
+/** What an open instance declared, kept for the summaries. */
+interface Declared {
+  readonly capabilities: ConnectorCapabilities;
+  readonly extensions: ConnectorSummary["extensions"];
+}
+
+/** A closed instance manages nothing: the Customize page shows no section for it. */
+const NO_EXTENSIONS: ConnectorSummary["extensions"] = { skills: false, mcpServers: false };
+
 /** A probe gets this long before it's reported as an error. */
 const PROBE_TIMEOUT = Duration.seconds(15);
 
@@ -104,7 +113,8 @@ export class ConnectorManager extends Context.Service<
 
       const entries = yield* Ref.make<ReadonlyMap<string, Entry>>(new Map());
       const probes = yield* Ref.make<ReadonlyMap<string, ConnectorProbe>>(new Map());
-      const capabilities = yield* Ref.make<ReadonlyMap<string, ConnectorCapabilities>>(new Map());
+      /** What each open instance declared: its capabilities and which extensions it carries. */
+      const declared = yield* Ref.make<ReadonlyMap<string, Declared>>(new Map());
       /**
        * What `listModels()` last answered for an instance whose probe found no
        * models. Asking is a re-probe for some connectors — two child processes
@@ -164,8 +174,15 @@ export class ConnectorManager extends Context.Service<
             yield* Scope.close(scope, Exit.void);
             return null;
           }
-          yield* Ref.update(capabilities, (all) =>
-            new Map(all).set(conn.connectorInstanceId, opened.value.capabilities),
+          const { capabilities, extensions } = opened.value;
+          yield* Ref.update(declared, (all) =>
+            new Map(all).set(conn.connectorInstanceId, {
+              capabilities,
+              extensions: {
+                skills: extensions?.skills !== undefined,
+                mcpServers: extensions?.mcpServers !== undefined,
+              },
+            }),
           );
           return scope;
         });
@@ -190,7 +207,7 @@ export class ConnectorManager extends Context.Service<
             yield* Scope.close(entry.scope, Exit.void);
           }
           yield* forget(probes, id);
-          yield* forget(capabilities, id);
+          yield* forget(declared, id);
           yield* forget(fallbackModels, id);
         });
 
@@ -198,13 +215,14 @@ export class ConnectorManager extends Context.Service<
         Effect.gen(function* () {
           const probedAt = yield* now;
           const probeMap = yield* Ref.get(probes);
-          const caps = yield* Ref.get(capabilities);
+          const opened = yield* Ref.get(declared);
           return settings.connectors.map((conn): ConnectorSummary => ({
             connectorInstanceId: conn.connectorInstanceId,
             kind: conn.kind,
             displayName: conn.displayName,
             enabled: conn.enabled,
-            capabilities: caps.get(conn.connectorInstanceId) ?? null,
+            capabilities: opened.get(conn.connectorInstanceId)?.capabilities ?? null,
+            extensions: opened.get(conn.connectorInstanceId)?.extensions ?? NO_EXTENSIONS,
             probe:
               probeMap.get(conn.connectorInstanceId) !== undefined
                 ? toWireProbe(probeMap.get(conn.connectorInstanceId)!)

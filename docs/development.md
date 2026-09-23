@@ -465,15 +465,17 @@ a session does not churn the file under a running `cmd`.
 | `~/.commandcode/plans/`                               | where a plan turn's markdown lands                   |
 
 Both written files are edited per entry, not per file. Every MCP server OpenAde
-writes carries an `_openade` marker and upsert/remove refuse to touch an entry
+writes carries an `_openade` marker and add/remove refuse to touch an entry
 that lacks one; a file that exists but does not parse is never rewritten
-(`apps/server/src/settings/CmdConfig.ts`). The hook block is installed on
+(`packages/connector-cmd/src/mcpServers.ts`, the connector's MCP servers
+extension). The hook block is installed on
 session start and reverted on close, but only while the file still hashes to
 the bytes the install wrote, and only once the last session in that project has
 gone (`packages/connector-cmd/src/config.ts`).
 
-The `boot()` option `commandCodeHome` redirects all of this, which is how tests
-avoid editing the real files.
+The `boot()` option `commandCodeHome`, handed to
+`makeCmdConnectorDefinition`, redirects the files the Customize page edits,
+which is how tests avoid editing the real ones.
 
 ## Repository conventions
 

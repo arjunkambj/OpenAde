@@ -352,7 +352,8 @@ flight the send button becomes Queue and a Stop button appears — both read
 the projection only fills one event later.
 
 The `/` popover offers `/model`, `/effort`, `/mode`, `/plan`, `/default`,
-`/clear-draft` and the project's skills. `/clear` is deliberately not offered:
+`/clear-draft` and the skills the thread's connector instance loads for the
+project. `/clear` is deliberately not offered:
 in Command Code it drops the session's context, no command in the union does
 that, and binding it to emptying the textarea would throw away the sentence the
 user was writing while keeping every token they meant to drop. `@` searches the
@@ -1126,11 +1127,17 @@ underscore in it, which silently offered the model no browser tools at all in
 those projects. The entry is removed by name, so a server the user added under
 any other name is untouched.
 
-The settings UI edits a different pair of files through
-`apps/server/src/settings/CmdConfig.ts`: `~/.commandcode/mcp.json` for user
-scope and `<workspaceRoot>/.mcp.json` for project scope. Ownership there is per
-entry — every server OpenAde writes carries an `_openade` marker — and
-upsert/remove refuse to touch an entry without it. Disabling is a move, not a
+The Customize page edits a different pair of files through the connector's
+MCP servers extension (`packages/connector-cmd/src/mcpServers.ts`):
+`~/.commandcode/mcp.json` for user scope and `<workspaceRoot>/.mcp.json` for
+project scope. The page asks by instance id — `connectors.mcp.list`, `.add`,
+`.remove` — and `apps/server/src/settings/ConnectorExtensions.ts` finds the open
+instance, turns the `projectId` into its workspace root and calls the
+extension; an instance without it answers `unavailable`, and the page shows a
+section only for the enabled instances whose `ConnectorSummary.extensions` says
+they have one. Ownership there is per entry — every server OpenAde writes
+carries an `_openade` marker — and add/remove refuse to touch an entry without
+it. Disabling is a move, not a
 flag: Command Code launches everything under `mcpServers` and ignores keys it
 does not know, so a disabled server's definition is parked verbatim under
 `_openadeDisabled`. A file that cannot be parsed is never rewritten; listing
@@ -1138,11 +1145,16 @@ reports no servers for it and writes fail with a `conflict` naming the file,
 because a rewrite would be built from an empty base and would delete every
 server the user hand-authored.
 
-**Skills** are discovered, not written: `cmdConfig.skills.list` walks
-`~/.commandcode/skills` and `<workspaceRoot>/.commandcode/skills`, reads the
-`name` and `description` out of each `SKILL.md` frontmatter, and lets a project
-skill win a name collision, matching the harness's own precedence. The composer's
-`/` popover reads that list.
+**Skills** are discovered, not written: the skills extension
+(`packages/connector-cmd/src/skills.ts`), asked through `connectors.skills.list`,
+walks `~/.commandcode/skills` and `<workspaceRoot>/.commandcode/skills`, reads
+the `name` and `description` out of each `SKILL.md` frontmatter, and lets a
+project skill win a name collision, matching the harness's own precedence. The
+composer's `/` popover asks the thread's own instance for that list. The one
+write is a link: `connectors.skills.available` lists the skills in
+`~/.agents/skills` the instance does not load yet, and `connectors.skills.link`
+symlinks one into `~/.commandcode/skills`. Those homes follow the instance's
+`extraEnv.HOME` when it sets one, since that is the home the CLI resolves.
 
 ---
 

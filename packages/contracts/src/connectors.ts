@@ -58,6 +58,8 @@ export const ConnectorSummary = Schema.Struct({
   displayName: NonEmptyString,
   enabled: Schema.Boolean,
   capabilities: Schema.NullOr(ConnectorCapabilities),
+  /** Which per-instance extensions the open instance carries; all false when not open. */
+  extensions: Schema.Struct({ skills: Schema.Boolean, mcpServers: Schema.Boolean }),
   probe: ConnectorProbe,
 });
 export type ConnectorSummary = typeof ConnectorSummary.Type;
@@ -104,12 +106,12 @@ export const ConnectorDescriptor = Schema.Struct({
 });
 export type ConnectorDescriptor = typeof ConnectorDescriptor.Type;
 
-/** Where an MCP server entry is written in Command Code's own config. */
+/** Where an MCP server entry is written in the harness's own config. */
 export const McpServerScope = Schema.Literals(["user", "project"]);
 export type McpServerScope = typeof McpServerScope.Type;
 
 /**
- * One MCP server, in the shape Command Code's `mcp.json` stores. `${VAR}`
+ * One MCP server, in the shape a harness's `mcp.json` commonly stores. `${VAR}`
  * references in headers and env are resolved at spawn time, so a per-session
  * bearer never reaches disk.
  */

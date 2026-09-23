@@ -14,8 +14,8 @@ import { ConcurrencyConflict } from "../persistence/EventStore";
 import { OrchestrationEngine } from "../orchestration/Engine";
 import {
   BrowserService,
-  CmdConfig,
   ConnectorCatalog,
+  ConnectorExtensions,
   DirectoryBrowser,
   FileService,
   GitService,
@@ -46,7 +46,7 @@ export const handlersLayer = OpenAdeRpcGroup.toLayer(
     const git = yield* GitService;
     const browser = yield* BrowserService;
     const settings = yield* SettingsStore;
-    const cmdConfig = yield* CmdConfig;
+    const extensions = yield* ConnectorExtensions;
     const attachments = yield* AttachmentStore;
 
     return {
@@ -107,13 +107,16 @@ export const handlersLayer = OpenAdeRpcGroup.toLayer(
       "settings.update": ({ patch }) => settings.update(patch).pipe(Effect.mapError(toRpcError)),
       "settings.subscribe": () => settings.changes,
 
-      "cmdConfig.mcp.list": ({ projectId }) => cmdConfig.mcpList(projectId),
-      "cmdConfig.mcp.upsert": ({ projectId, server }) => cmdConfig.mcpUpsert(projectId, server),
-      "cmdConfig.mcp.remove": ({ projectId, scope, name }) =>
-        cmdConfig.mcpRemove(projectId, scope, name),
-      "cmdConfig.skills.list": ({ projectId }) => cmdConfig.skillsList(projectId),
-      "cmdConfig.skills.agents": () => cmdConfig.skillsAgents,
-      "cmdConfig.skills.link": ({ entry }) => cmdConfig.skillsLink(entry),
+      "connectors.skills.list": ({ instanceId, projectId }) =>
+        extensions.skillsList(instanceId, projectId),
+      "connectors.skills.available": ({ instanceId }) => extensions.skillsAvailable(instanceId),
+      "connectors.skills.link": ({ instanceId, entry }) => extensions.skillsLink(instanceId, entry),
+      "connectors.mcp.list": ({ instanceId, projectId }) =>
+        extensions.mcpList(instanceId, projectId),
+      "connectors.mcp.add": ({ instanceId, projectId, server }) =>
+        extensions.mcpAdd(instanceId, projectId, server),
+      "connectors.mcp.remove": ({ instanceId, projectId, scope, name }) =>
+        extensions.mcpRemove(instanceId, projectId, scope, name),
 
       "keybindings.get": () => Effect.map(settings.get, (doc) => doc.keybindings),
       "keybindings.update": ({ keybindings }) =>

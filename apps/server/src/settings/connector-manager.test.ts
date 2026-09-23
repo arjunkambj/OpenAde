@@ -202,6 +202,8 @@ describe("ConnectorManager", () => {
         expect(seeded.displayName).toBe("Fake");
         expect(seeded.enabled).toBe(true);
         expect(seeded.capabilities).not.toBeNull();
+        // The fake connector manages no harness files of its own.
+        expect(seeded.extensions).toEqual({ skills: false, mcpServers: false });
         expect(seeded.probe.modelCount).toBe(1);
         expect(yield* registry.instances).toHaveLength(1);
       }),

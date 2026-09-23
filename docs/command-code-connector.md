@@ -23,7 +23,7 @@ connector in the tree.
 
 | module             | what it owns                                                       |
 | ------------------ | ------------------------------------------------------------------ |
-| `definition.ts`    | the `ConnectorDefinition`: probe, instance, start/resume           |
+| `definition.ts`    | the `ConnectorDefinition`: probe, instance, extensions             |
 | `binary.ts`        | which executable `cmd` means, and how to spell the call            |
 | `probe.ts`         | `status --json`, `--list-models`, version policy, context window   |
 | `spawn.ts`         | argv construction, the env allowlist, the process handle           |
@@ -41,6 +41,8 @@ connector in the tree.
 | `hookAnswers.ts`   | answering hook posts: allow, deny, or park for the user            |
 | `approvals.ts`     | tool name → approval kind and "allow always" pattern               |
 | `config.ts`        | the two files we write into the user's machine, and their teardown |
+| `mcpServers.ts`    | the MCP servers extension: the user and project `mcp.json` files   |
+| `skills.ts`        | the skills extension: skill discovery and linking shared skills    |
 | `plans.ts`         | reading (and saving) the plan a plan turn produced                 |
 | `questions.ts`     | `ask_user_question` input and answers                              |
 | `subagents.ts`     | the three subagent frames as progress on one row                   |
@@ -1163,6 +1165,29 @@ the server's session manager closes every open session at shutdown — otherwise
 the finalizers never ran and every server exit left a hook block and an
 `openade` entry naming a dead port behind, one per session, in files the user
 owns.
+
+### What the Customize page edits
+
+Separately from the session's own files, an instance carries two extensions
+(`connector-sdk/src/extensions.ts`) the Customize page reaches through
+`connectors.skills.*` and `connectors.mcp.*`:
+
+- **MCP servers** (`mcpServers.ts`): `~/.commandcode/mcp.json` for user scope
+  and `<workspaceRoot>/.mcp.json` for project scope. Every server OpenAde
+  writes carries an `_openade` marker, and add/remove refuse an entry without
+  it; a disabled server is parked under `_openadeDisabled`, because Command Code
+  launches everything under `mcpServers`; a file that does not parse is never
+  rewritten.
+- **Skills** (`skills.ts`): read from `~/.commandcode/skills` and
+  `<workspaceRoot>/.commandcode/skills`, project winning a name collision. A
+  skill in `~/.agents/skills` can be linked into the user root as a relative
+  symlink; nothing is copied.
+
+`makeCmdConnectorDefinition({ commandCodeHome, agentsSkillsRoot })` moves both
+homes, which is how tests keep off the real ones. Left unset, they sit under the
+instance's `extraEnv.HOME` when it sets one — the home the CLI itself resolves —
+and under the user's home otherwise. Writes from every instance of the
+definition share one semaphore, so two never interleave on one file.
 
 ## Known CLI behaviour worth remembering
 

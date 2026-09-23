@@ -1,8 +1,8 @@
 /**
  * Scenario (h): the settings pages, against the user's real files.
  *
- * Two of the files OpenAde writes belong to the user — Command Code's own
- * config — and the rule for both is the same: merge into what is there, own
+ * Two of the files OpenAde writes belong to the user — the harness's own
+ * config, edited through the connector's extensions — and the rule for both is the same: merge into what is there, own
  * only what is marked as ours, and leave everything else exactly as found. A
  * settings page that quietly replaced a hand-edited config would be the worst
  * kind of bug, because the user would not find out until the next time they
@@ -60,7 +60,14 @@ const settings = (driver: Driver) => {
         const client = yield* connect(Effect.succeed(staticCredentials(server)));
         const rpc = yield* client.rpc;
 
-        const after = yield* rpc["cmdConfig.mcp.upsert"]({
+        // The file is the connector's, so the call names the instance that
+        // owns it — and the summary says up front that it manages MCP servers.
+        const [instance] = yield* rpc["connectors.list"]({}).pipe(Effect.orDie);
+        expect(instance!.extensions).toEqual({ skills: true, mcpServers: true });
+        const instanceId = instance!.connectorInstanceId;
+
+        const after = yield* rpc["connectors.mcp.add"]({
+          instanceId,
           server: {
             name: "ours",
             scope: "user",
@@ -90,9 +97,11 @@ const settings = (driver: Driver) => {
         expect(JSON.stringify(parsed.mcpServers["ours"])).toContain("_openade");
 
         // Removing ours puts the file back the way the user had it.
-        const removed = yield* rpc["cmdConfig.mcp.remove"]({ scope: "user", name: "ours" }).pipe(
-          Effect.orDie,
-        );
+        const removed = yield* rpc["connectors.mcp.remove"]({
+          instanceId,
+          scope: "user",
+          name: "ours",
+        }).pipe(Effect.orDie);
         expect(removed.map((entry) => entry.name)).toEqual(["theirs"]);
         const afterRemove = JSON.parse(
           yield* Effect.sync(() => NodeFS.readFileSync(userMcp, "utf8")),

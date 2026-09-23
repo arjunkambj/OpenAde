@@ -19,6 +19,7 @@
     "runtimeModes": ["approval-required", "auto-accept-edits", "full-access"],
     "attachments": "files"
   },
+  "extensions": { "skills": true, "mcpServers": true },
   "probe": {
     "status": "not-authenticated",
     "binaryPath": "/Users/dev/.local/share/pnpm/cmd",

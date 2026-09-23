@@ -344,12 +344,12 @@ export const RPC_METHODS = {
   settingsGet: "settings.get",
   settingsUpdate: "settings.update",
   settingsSubscribe: "settings.subscribe",
-  cmdConfigMcpList: "cmdConfig.mcp.list",
-  cmdConfigMcpUpsert: "cmdConfig.mcp.upsert",
-  cmdConfigMcpRemove: "cmdConfig.mcp.remove",
-  cmdConfigSkillsList: "cmdConfig.skills.list",
-  cmdConfigSkillsAgents: "cmdConfig.skills.agents",
-  cmdConfigSkillsLink: "cmdConfig.skills.link",
+  connectorsSkillsList: "connectors.skills.list",
+  connectorsSkillsAvailable: "connectors.skills.available",
+  connectorsSkillsLink: "connectors.skills.link",
+  connectorsMcpList: "connectors.mcp.list",
+  connectorsMcpAdd: "connectors.mcp.add",
+  connectorsMcpRemove: "connectors.mcp.remove",
   keybindingsGet: "keybindings.get",
   keybindingsUpdate: "keybindings.update",
 } as const;
@@ -560,14 +560,48 @@ const SettingsSubscribeRpc = Rpc.make(RPC_METHODS.settingsSubscribe, {
   stream: true,
 });
 
-const CmdConfigMcpListRpc = Rpc.make(RPC_METHODS.cmdConfigMcpList, {
-  payload: Schema.Struct({ projectId: Schema.optional(ProjectId) }),
+/**
+ * The per-instance extensions (`connector-sdk/src/extensions.ts`). Each one
+ * fails `unavailable` on an instance that does not carry the extension, which
+ * `ConnectorSummary.extensions` tells the renderer up front. `projectId` adds
+ * that project's scope to the user one.
+ */
+const ConnectorsSkillsListRpc = Rpc.make(RPC_METHODS.connectorsSkillsList, {
+  payload: Schema.Struct({
+    instanceId: ConnectorInstanceId,
+    projectId: Schema.optional(ProjectId),
+  }),
+  success: Schema.Array(SkillSummary),
+  error: OpenAdeRpcError,
+});
+
+/** Skills in a shared folder the instance does not load yet; empty when it offers none. */
+const ConnectorsSkillsAvailableRpc = Rpc.make(RPC_METHODS.connectorsSkillsAvailable, {
+  payload: Schema.Struct({ instanceId: ConnectorInstanceId }),
+  success: Schema.Array(AgentSkill),
+  error: OpenAdeRpcError,
+});
+
+/** Links one available skill into the instance's user skills; answers the rest. */
+const ConnectorsSkillsLinkRpc = Rpc.make(RPC_METHODS.connectorsSkillsLink, {
+  payload: Schema.Struct({ instanceId: ConnectorInstanceId, entry: NonEmptyString }),
+  success: Schema.Array(AgentSkill),
+  error: OpenAdeRpcError,
+});
+
+const ConnectorsMcpListRpc = Rpc.make(RPC_METHODS.connectorsMcpList, {
+  payload: Schema.Struct({
+    instanceId: ConnectorInstanceId,
+    projectId: Schema.optional(ProjectId),
+  }),
   success: Schema.Array(McpServerConfig),
   error: OpenAdeRpcError,
 });
 
-const CmdConfigMcpUpsertRpc = Rpc.make(RPC_METHODS.cmdConfigMcpUpsert, {
+/** Adds or replaces one server the instance manages; answers the whole list. */
+const ConnectorsMcpAddRpc = Rpc.make(RPC_METHODS.connectorsMcpAdd, {
   payload: Schema.Struct({
+    instanceId: ConnectorInstanceId,
     projectId: Schema.optional(ProjectId),
     server: McpServerConfig,
   }),
@@ -575,32 +609,14 @@ const CmdConfigMcpUpsertRpc = Rpc.make(RPC_METHODS.cmdConfigMcpUpsert, {
   error: OpenAdeRpcError,
 });
 
-const CmdConfigMcpRemoveRpc = Rpc.make(RPC_METHODS.cmdConfigMcpRemove, {
+const ConnectorsMcpRemoveRpc = Rpc.make(RPC_METHODS.connectorsMcpRemove, {
   payload: Schema.Struct({
+    instanceId: ConnectorInstanceId,
     projectId: Schema.optional(ProjectId),
     scope: McpServerScope,
     name: NonEmptyString,
   }),
   success: Schema.Array(McpServerConfig),
-  error: OpenAdeRpcError,
-});
-
-const CmdConfigSkillsListRpc = Rpc.make(RPC_METHODS.cmdConfigSkillsList, {
-  payload: Schema.Struct({ projectId: Schema.optional(ProjectId) }),
-  success: Schema.Array(SkillSummary),
-  error: OpenAdeRpcError,
-});
-
-const CmdConfigSkillsAgentsRpc = Rpc.make(RPC_METHODS.cmdConfigSkillsAgents, {
-  payload: empty,
-  success: Schema.Array(AgentSkill),
-  error: OpenAdeRpcError,
-});
-
-/** Links one agents-folder skill into the connector's global skills root. */
-const CmdConfigSkillsLinkRpc = Rpc.make(RPC_METHODS.cmdConfigSkillsLink, {
-  payload: Schema.Struct({ entry: NonEmptyString }),
-  success: Schema.Array(AgentSkill),
   error: OpenAdeRpcError,
 });
 
@@ -639,12 +655,12 @@ export const OpenAdeRpcGroup = RpcGroup.make(
   SettingsGetRpc,
   SettingsUpdateRpc,
   SettingsSubscribeRpc,
-  CmdConfigMcpListRpc,
-  CmdConfigMcpUpsertRpc,
-  CmdConfigMcpRemoveRpc,
-  CmdConfigSkillsListRpc,
-  CmdConfigSkillsAgentsRpc,
-  CmdConfigSkillsLinkRpc,
+  ConnectorsSkillsListRpc,
+  ConnectorsSkillsAvailableRpc,
+  ConnectorsSkillsLinkRpc,
+  ConnectorsMcpListRpc,
+  ConnectorsMcpAddRpc,
+  ConnectorsMcpRemoveRpc,
   KeybindingsGetRpc,
   KeybindingsUpdateRpc,
 );

@@ -6,7 +6,7 @@
 
 import { OpenAdeRpcError, PROTOCOL_VERSION } from "@OpenAde/contracts/rpc";
 import { describe, expect, it } from "@effect/vitest";
-import type { ConnectorInstanceId, ThreadId } from "@OpenAde/contracts/ids";
+import type { ConnectorInstanceId, ProjectId, ThreadId } from "@OpenAde/contracts/ids";
 import {
   makeCommandId,
   makeEventId,
@@ -23,7 +23,7 @@ import type {
   ThreadStreamItem,
   ThreadSummary,
 } from "@OpenAde/contracts/orchestration";
-import type { ConnectorSummary, ModelOption } from "@OpenAde/contracts/connectors";
+import type { ConnectorSummary, ModelOption, SkillSummary } from "@OpenAde/contracts/connectors";
 import type { Settings } from "@OpenAde/contracts/settings";
 import { defaultSettings } from "@OpenAde/contracts/settings";
 import * as Cause from "effect/Cause";
@@ -122,6 +122,11 @@ interface StubData {
   readonly models?: (
     instanceId: ConnectorInstanceId,
   ) => Effect.Effect<ReadonlyArray<ModelOption>, OpenAdeRpcError>;
+  /** Answers `connectors.skills.list`, given the whole payload. */
+  readonly skills?: (payload: {
+    readonly instanceId: ConnectorInstanceId;
+    readonly projectId?: ProjectId;
+  }) => ReadonlyArray<SkillSummary>;
 }
 
 /**
@@ -180,6 +185,11 @@ const fakeClient = (
         const models = data.models;
         return ({ instanceId }: { instanceId: ConnectorInstanceId }) => models(instanceId);
       }
+      if (key === "connectors.skills.list" && data.skills !== undefined) {
+        const skills = data.skills;
+        return (payload: { instanceId: ConnectorInstanceId; projectId?: ProjectId }) =>
+          Effect.sync(() => skills(payload));
+      }
       if (key === "settings.subscribe" && data.settings !== undefined) {
         const settings = data.settings;
         return () => Stream.suspend(() => Stream.fromQueue(settings()));
@@ -218,6 +228,7 @@ const connectorSummary = (id: string, enabled: boolean): ConnectorSummary => ({
   displayName: `Instance ${id}`,
   enabled,
   capabilities: null,
+  extensions: { skills: false, mcpServers: false },
   probe: { status: "ready", probedAt: "2026-01-01T00:00:00.000Z" },
 });
 
@@ -634,6 +645,38 @@ describe("atoms", () => {
           ["a", ["a/one", "a/two"]],
         ]);
         expect(asked).not.toContain("off");
+      }),
+    ),
+  );
+
+  it.live("skills come from the instance asked, and no instance has none", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const instance = yield* Ref.make(INSTANCE);
+        const asked: Array<unknown> = [];
+        const projectId = makeProjectId();
+        const { registry, skillsAtom } = yield* runtimeWith(
+          fakeClient(new Map(), instance, {
+            skills: (payload) => {
+              asked.push(payload);
+              return [{ name: `${payload.instanceId}-skill`, path: "/skill.md", enabled: true }];
+            },
+          }),
+          { status: "connected", serverInstanceId: INSTANCE },
+        );
+
+        // No instance: answered locally — the stub would die on any RPC.
+        const none = skillsAtom(null)(projectId);
+        registry.mount(none);
+        expect(yield* Effect.promise(() => awaitValue(registry, none, () => true))).toEqual([]);
+
+        const scoped = skillsAtom("a" as ConnectorInstanceId)(projectId);
+        registry.mount(scoped);
+        const skills = yield* Effect.promise(() =>
+          awaitValue(registry, scoped, (value) => value.length > 0),
+        );
+        expect(skills.map((skill) => skill.name)).toEqual(["a-skill"]);
+        expect(asked).toEqual([{ instanceId: "a", projectId }]);
       }),
     ),
   );

@@ -1,9 +1,10 @@
 /**
- * `CmdConfig` proven end to end: an upsert lands in Command Code's
- * own `mcp.json` carrying the `_openade` marker, a hand-authored entry without
- * the marker survives a round-trip untouched, remove refuses unmanaged entries,
- * skills are discovered from the user and project `skills` roots, and a skill
- * in the shared agents folder is linked into the user root by symlink.
+ * Command Code's skills and MCP server extensions proven end to end: an add
+ * lands in Command Code's own `mcp.json` carrying the `_openade` marker, a
+ * hand-authored entry without the marker survives a round-trip untouched,
+ * remove refuses unmanaged entries, skills are discovered from the user and
+ * project `skills` roots, and a skill in the shared agents folder is linked
+ * into the user root by symlink.
  */
 
 import {
@@ -18,18 +19,19 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
-import { makeProjectId, type ProjectId } from "@OpenAde/contracts/ids";
+import type { ConnectorServices } from "@OpenAde/connector-sdk/definition";
+import type {
+  ExtensionScope,
+  McpServersExtension,
+  SkillsExtension,
+} from "@OpenAde/connector-sdk/extensions";
+import { makeConnectorInstanceId } from "@OpenAde/contracts/ids";
 import type { McpServerConfig } from "@OpenAde/contracts/connectors";
 import { describe, expect, it } from "@effect/vitest";
-import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 
-import { runMigrations } from "../persistence/Migrations";
-import { ReadModelStore } from "../persistence/ReadModels";
-import { testLayer as sqliteTestLayer } from "../persistence/Sqlite";
-import { CmdConfig } from "../rpc/services";
-import { layer as cmdConfigLayer } from "./CmdConfig";
+import type { CmdConnectorConfig } from "./configSchema";
+import { makeCmdConnectorDefinition, type CmdConnectorOptions } from "./definition";
 
 interface Fixture {
   /** Temp dir standing in for `~/.commandcode`. */
@@ -38,36 +40,57 @@ interface Fixture {
   readonly agents: string;
   /** Temp dir standing in for the project's workspace root. */
   readonly root: string;
-  readonly projectId: ProjectId;
-  readonly service: CmdConfig["Service"];
+  /** The user scope alone. */
+  readonly user: ExtensionScope;
+  /** The user scope plus the project at `root`. */
+  readonly project: ExtensionScope;
+  readonly mcp: McpServersExtension;
+  readonly skills: Required<SkillsExtension>;
 }
 
-/** A temp Command Code home + a project row, over real sqlite read models. */
+const services: Effect.Effect<ConnectorServices> = Effect.clockWith((clock) =>
+  Effect.succeed({
+    mcpEndpoint: () => Effect.succeed({ url: "http://127.0.0.1:0/mcp", bearer: "test" }),
+    hookEndpoint: () => Effect.succeed({ url: "http://127.0.0.1:0/hook", bearer: "test" }),
+    permissions: { decide: () => Effect.succeed("prompt" as const) },
+    attachmentsDir: "/tmp/openade-cmd-extensions-test",
+    logger: { log: () => Effect.void },
+    clock,
+  }),
+);
+
+/** The extensions an instance of the real definition carries. */
+const extensionsOf = (options: CmdConnectorOptions, config: CmdConnectorConfig = {}) =>
+  Effect.gen(function* () {
+    const instance = yield* makeCmdConnectorDefinition(options).createInstance({
+      instanceId: makeConnectorInstanceId(),
+      config,
+      services: yield* services,
+    });
+    const { skills, mcpServers } = instance.extensions ?? {};
+    if (skills?.available === undefined || skills.link === undefined || mcpServers === undefined) {
+      return yield* Effect.die("the cmd instance carries every extension");
+    }
+    return {
+      mcp: mcpServers,
+      skills: { list: skills.list, available: skills.available, link: skills.link },
+    };
+  });
+
+/** Temp Command Code home, agents folder and workspace root. */
 const fixture = Effect.gen(function* () {
   const home = mkdtempSync(nodePath.join(tmpdir(), "openade-cmd-home-"));
   const root = mkdtempSync(nodePath.join(tmpdir(), "openade-cmd-project-"));
   const agents = mkdtempSync(nodePath.join(tmpdir(), "openade-agents-skills-"));
-  const sqliteContext = yield* Layer.build(sqliteTestLayer());
-  const sqlite = Layer.succeedContext(sqliteContext);
-  yield* runMigrations.pipe(Effect.provide(sqlite));
-  const rmContext = yield* Layer.build(ReadModelStore.layer.pipe(Layer.provide(sqlite)));
-  const readModels = Context.get(rmContext, ReadModelStore);
-  const projectId = makeProjectId();
-  const now = new Date().toISOString();
-  yield* readModels.putProject({
-    projectId,
-    name: "test",
-    workspaceRoot: root,
-    createdAt: now,
-    updatedAt: now,
-    removed: false,
-  });
-  const ctx = yield* Layer.build(
-    cmdConfigLayer({ commandCodeHome: home, agentsSkillsRoot: agents }).pipe(
-      Layer.provide(Layer.succeedContext(rmContext)),
-    ),
-  );
-  return { home, agents, root, projectId, service: Context.get(ctx, CmdConfig) } satisfies Fixture;
+  const extensions = yield* extensionsOf({ commandCodeHome: home, agentsSkillsRoot: agents });
+  return {
+    home,
+    agents,
+    root,
+    user: { workspaceRoot: null },
+    project: { workspaceRoot: root },
+    ...extensions,
+  } satisfies Fixture;
 });
 
 const withFixture = <A, E>(run: (fixture: Fixture) => Effect.Effect<A, E>) =>
@@ -90,11 +113,11 @@ const httpServer = (over: Partial<McpServerConfig> = {}): McpServerConfig => ({
   ...over,
 });
 
-describe("CmdConfig", () => {
-  it.effect("upsert writes the user mcp.json with an ownership marker", () =>
+describe("the cmd extensions", () => {
+  it.effect("add writes the user mcp.json with an ownership marker", () =>
     withFixture((f) =>
       Effect.gen(function* () {
-        const list = yield* f.service.mcpUpsert(undefined, httpServer());
+        const list = yield* f.mcp.add(f.user, httpServer());
         expect(list).toHaveLength(1);
         expect(list[0]).toMatchObject({ name: "docs", scope: "user", transport: "http" });
         const onDisk = readDoc(userMcpPath(f.home));
@@ -107,7 +130,7 @@ describe("CmdConfig", () => {
     ),
   );
 
-  it.effect("a hand-authored entry without the marker survives an upsert round-trip", () =>
+  it.effect("a hand-authored entry without the marker survives an add round-trip", () =>
     withFixture((f) =>
       Effect.gen(function* () {
         mkdirSync(f.home, { recursive: true });
@@ -121,7 +144,7 @@ describe("CmdConfig", () => {
           })}\n`,
         );
 
-        const list = yield* f.service.mcpUpsert(undefined, httpServer());
+        const list = yield* f.mcp.add(f.user, httpServer());
         expect(list.map((server) => server.name).sort()).toEqual(["docs", "handwritten"]);
 
         const onDisk = readDoc(userMcpPath(f.home));
@@ -137,14 +160,14 @@ describe("CmdConfig", () => {
     ),
   );
 
-  it.effect("upsert refuses to overwrite an unmanaged entry of the same name", () =>
+  it.effect("add refuses to overwrite an unmanaged entry of the same name", () =>
     withFixture((f) =>
       Effect.gen(function* () {
         writeFileSync(
           userMcpPath(f.home),
           JSON.stringify({ mcpServers: { docs: { type: "http", url: "https://hand" } } }),
         );
-        const exit = yield* Effect.exit(f.service.mcpUpsert(undefined, httpServer()));
+        const exit = yield* Effect.exit(f.mcp.add(f.user, httpServer()));
         expect(exit._tag).toBe("Failure");
         const onDisk = readDoc(userMcpPath(f.home));
         expect(onDisk.mcpServers.docs).toEqual({ type: "http", url: "https://hand" });
@@ -164,12 +187,12 @@ describe("CmdConfig", () => {
             },
           }),
         );
-        const after = yield* f.service.mcpRemove(undefined, "user", "docs");
+        const after = yield* f.mcp.remove(f.user, "user", "docs");
         expect(after.map((server) => server.name)).toEqual(["handwritten"]);
         expect(existsSync(userMcpPath(f.home))).toBe(true);
         expect(readDoc(userMcpPath(f.home)).mcpServers.handwritten).toBeDefined();
 
-        const exit = yield* Effect.exit(f.service.mcpRemove(undefined, "user", "handwritten"));
+        const exit = yield* Effect.exit(f.mcp.remove(f.user, "user", "handwritten"));
         expect(exit._tag).toBe("Failure");
         expect(readDoc(userMcpPath(f.home)).mcpServers.handwritten).toBeDefined();
       }),
@@ -179,8 +202,8 @@ describe("CmdConfig", () => {
   it.effect("project scope reads and writes <root>/.mcp.json", () =>
     withFixture((f) =>
       Effect.gen(function* () {
-        yield* f.service.mcpUpsert(
-          f.projectId,
+        yield* f.mcp.add(
+          f.project,
           httpServer({ name: "local", scope: "project", transport: "stdio", command: "srv" }),
         );
         expect(readDoc(projectMcpPath(f.root)).mcpServers.local).toMatchObject({
@@ -188,8 +211,8 @@ describe("CmdConfig", () => {
           command: "srv",
           _openade: { enabled: true },
         });
-        // projectId lists user + project; without it, only the user file.
-        const both = yield* f.service.mcpList(f.projectId);
+        // The project scope lists user + project; the user scope only the user file.
+        const both = yield* f.mcp.list(f.project);
         expect(both.map((server) => `${server.scope}:${server.name}`).sort()).toEqual([
           "project:local",
         ]);
@@ -206,13 +229,13 @@ describe("CmdConfig", () => {
         writeFileSync(userMcpPath(f.home), original);
 
         // Listing degrades to "no servers" rather than failing the whole page.
-        expect(yield* f.service.mcpList()).toEqual([]);
+        expect(yield* f.mcp.list(f.user)).toEqual([]);
 
-        const upsert = yield* Effect.exit(f.service.mcpUpsert(undefined, httpServer()));
-        expect(upsert._tag).toBe("Failure");
+        const add = yield* Effect.exit(f.mcp.add(f.user, httpServer()));
+        expect(add._tag).toBe("Failure");
         expect(readFileSync(userMcpPath(f.home), "utf8")).toBe(original);
 
-        const remove = yield* Effect.exit(f.service.mcpRemove(undefined, "user", "handwritten"));
+        const remove = yield* Effect.exit(f.mcp.remove(f.user, "user", "handwritten"));
         expect(remove._tag).toBe("Failure");
         expect(readFileSync(userMcpPath(f.home), "utf8")).toBe(original);
       }),
@@ -224,7 +247,7 @@ describe("CmdConfig", () => {
       Effect.gen(function* () {
         mkdirSync(f.home, { recursive: true });
         writeFileSync(userMcpPath(f.home), "");
-        const list = yield* f.service.mcpUpsert(undefined, httpServer());
+        const list = yield* f.mcp.add(f.user, httpServer());
         expect(list.map((server) => server.name)).toEqual(["docs"]);
       }),
     ),
@@ -233,10 +256,10 @@ describe("CmdConfig", () => {
   it.effect("disabling takes the server out of the map the harness launches", () =>
     withFixture((f) =>
       Effect.gen(function* () {
-        yield* f.service.mcpUpsert(undefined, httpServer());
+        yield* f.mcp.add(f.user, httpServer());
         expect(readDoc(userMcpPath(f.home)).mcpServers.docs).toBeDefined();
 
-        const disabled = yield* f.service.mcpUpsert(undefined, httpServer({ enabled: false }));
+        const disabled = yield* f.mcp.add(f.user, httpServer({ enabled: false }));
         expect(disabled[0]).toMatchObject({ name: "docs", enabled: false, managed: true });
         const parked = readDoc(userMcpPath(f.home));
         // The definition survives verbatim, but not where Command Code looks.
@@ -245,7 +268,7 @@ describe("CmdConfig", () => {
           docs: { type: "http", url: "https://example.com/mcp", _openade: { enabled: false } },
         });
 
-        const reEnabled = yield* f.service.mcpUpsert(undefined, httpServer());
+        const reEnabled = yield* f.mcp.add(f.user, httpServer());
         expect(reEnabled[0]?.enabled).toBe(true);
         const live = readDoc(userMcpPath(f.home));
         expect(live.mcpServers.docs).toMatchObject({ type: "http", _openade: { enabled: true } });
@@ -257,8 +280,8 @@ describe("CmdConfig", () => {
   it.effect("a disabled server can be removed from the park", () =>
     withFixture((f) =>
       Effect.gen(function* () {
-        yield* f.service.mcpUpsert(undefined, httpServer({ enabled: false }));
-        const after = yield* f.service.mcpRemove(undefined, "user", "docs");
+        yield* f.mcp.add(f.user, httpServer({ enabled: false }));
+        const after = yield* f.mcp.remove(f.user, "user", "docs");
         expect(after).toEqual([]);
         expect(readDoc(userMcpPath(f.home))._openadeDisabled).toBeUndefined();
       }),
@@ -278,15 +301,15 @@ describe("CmdConfig", () => {
           })}\n`,
         );
 
-        yield* f.service.mcpUpsert(undefined, httpServer());
-        const afterUpsert = readDoc(userMcpPath(f.home));
-        expect(afterUpsert.mcpServers.broken).toBeNull();
-        expect(afterUpsert.mcpServers.odd).toBe("not-an-object");
-        expect(afterUpsert._openadeDisabled).toEqual({
+        yield* f.mcp.add(f.user, httpServer());
+        const afterAdd = readDoc(userMcpPath(f.home));
+        expect(afterAdd.mcpServers.broken).toBeNull();
+        expect(afterAdd.mcpServers.odd).toBe("not-an-object");
+        expect(afterAdd._openadeDisabled).toEqual({
           handParked: { type: "stdio", command: "hand" },
         });
 
-        yield* f.service.mcpRemove(undefined, "user", "docs");
+        yield* f.mcp.remove(f.user, "user", "docs");
         const afterRemove = readDoc(userMcpPath(f.home));
         expect(afterRemove.mcpServers.broken).toBeNull();
         expect(afterRemove.mcpServers.odd).toBe("not-an-object");
@@ -320,7 +343,7 @@ describe("CmdConfig", () => {
           "---\nname: review\ndescription: project copy\n---\nbody\n",
         );
 
-        const skills = yield* f.service.skillsList(f.projectId);
+        const skills = yield* f.skills.list(f.project);
         const byName = new Map(skills.map((skill) => [skill.name, skill]));
         expect(byName.get("review")?.description).toBe("project copy");
         expect(byName.get("review")?.path).toContain(".commandcode");
@@ -343,22 +366,43 @@ describe("CmdConfig", () => {
         mkdirSync(nodePath.join(f.home, "skills"), { recursive: true });
         symlinkSync(nodePath.join(f.agents, "already"), nodePath.join(f.home, "skills", "already"));
 
-        const before = yield* f.service.skillsAgents;
+        const before = yield* f.skills.available;
         expect(before.map((skill) => skill.entry)).toEqual(["lint"]);
 
-        const after = yield* f.service.skillsLink("lint");
+        const after = yield* f.skills.link("lint");
         expect(after).toEqual([]);
         const link = nodePath.join(f.home, "skills", "lint");
         expect(lstatSync(link).isSymbolicLink()).toBe(true);
         expect(nodePath.isAbsolute(readlinkSync(link))).toBe(false);
-        const skills = yield* f.service.skillsList();
+        const skills = yield* f.skills.list(f.user);
         expect(skills.find((skill) => skill.name === "lint")?.description).toBe("lint skill");
 
-        const again = yield* Effect.flip(f.service.skillsLink("lint"));
+        const again = yield* Effect.flip(f.skills.link("lint"));
         expect(again.code).toBe("not-found");
-        const escape = yield* Effect.flip(f.service.skillsLink("../lint"));
+        const escape = yield* Effect.flip(f.skills.link("../lint"));
         expect(escape.code).toBe("not-found");
       }),
     ),
+  );
+
+  it.effect("an instance whose extraEnv sets HOME reads that home's config", () =>
+    Effect.gen(function* () {
+      const userHome = mkdtempSync(nodePath.join(tmpdir(), "openade-cmd-user-home-"));
+      const { mcp, skills } = yield* extensionsOf({}, { extraEnv: { HOME: userHome } });
+      yield* mcp.add({ workspaceRoot: null }, httpServer());
+      // The CLI resolves `~/.commandcode` against the HOME it is given, so the
+      // page edits that one rather than the server's.
+      expect(
+        readDoc(nodePath.join(userHome, ".commandcode", "mcp.json")).mcpServers.docs,
+      ).toMatchObject({
+        _openade: { enabled: true },
+      });
+      mkdirSync(nodePath.join(userHome, ".agents", "skills", "shared"), { recursive: true });
+      writeFileSync(
+        nodePath.join(userHome, ".agents", "skills", "shared", "SKILL.md"),
+        "---\nname: shared\n---\n",
+      );
+      expect((yield* skills.available).map((skill) => skill.entry)).toEqual(["shared"]);
+    }).pipe(Effect.scoped),
   );
 });

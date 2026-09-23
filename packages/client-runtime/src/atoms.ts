@@ -378,14 +378,25 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
     ),
   );
 
-  /** Skills the bound connector advertises, for the `/` popover. */
-  const skillsAtom = Atom.family((projectId: ProjectId | null) =>
-    runtime.atom(
-      Effect.gen(function* () {
-        const client = yield* (yield* Connection).client;
-        return yield* client["cmdConfig.skills.list"](projectId === null ? {} : { projectId });
-      }),
-      { initialValue: [] as ReadonlyArray<SkillSummary> },
+  /**
+   * Skills one connector instance loads, per instance per project — the `/`
+   * popover asks the thread's instance, the Customize page each instance with
+   * a skills extension. No instance has none; `null` project is the user scope.
+   */
+  const skillsAtom = Atom.family((instanceId: ConnectorInstanceId | null) =>
+    Atom.family((projectId: ProjectId | null) =>
+      runtime.atom(
+        instanceId === null
+          ? Effect.succeed([] as ReadonlyArray<SkillSummary>)
+          : Effect.gen(function* () {
+              const client = yield* (yield* Connection).client;
+              return yield* client["connectors.skills.list"]({
+                instanceId,
+                ...(projectId === null ? {} : { projectId }),
+              });
+            }),
+        { initialValue: [] as ReadonlyArray<SkillSummary> },
+      ),
     ),
   );
 

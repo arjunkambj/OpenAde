@@ -95,7 +95,7 @@ export function Composer({
   const attachRefusal = attachmentRefusal(capabilities);
   const modelsResult = useAtomValue(connectorModelsAtom(instanceId));
   const models = AsyncResult.isSuccess(modelsResult) ? modelsResult.value : [];
-  const skillsResult = useAtomValue(skillsAtom(projectId));
+  const skillsResult = useAtomValue(skillsAtom(instanceId)(projectId));
   const skills = AsyncResult.isSuccess(skillsResult) ? skillsResult.value : [];
 
   // The draft lives in a per-thread renderer atom, not in this component: the

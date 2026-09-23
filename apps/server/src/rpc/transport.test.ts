@@ -55,8 +55,8 @@ import { testLayer as sqliteTestLayer } from "../persistence/Sqlite";
 import { serverLayer, ServerToken } from "./server";
 import {
   BrowserService,
-  CmdConfig,
   ConnectorCatalog,
+  ConnectorExtensions,
   FileService,
   GitService,
   ServerIdentity,
@@ -124,7 +124,7 @@ const testStack = (browserLayer: Layer.Layer<BrowserService> = BrowserService.em
       GitService.empty,
       browserLayer,
       McpGateway.layer.pipe(Layer.provide(Layer.mergeAll(browserLayer, engineLayer, managerLayer))),
-      CmdConfig.empty,
+      ConnectorExtensions.empty,
       AttachmentStore.layerAt(mkdtempSync(NodePath.join(NodeOS.tmpdir(), "openade-transport-"))),
       SettingsStore.layer.pipe(Layer.provide(sqlite)),
     );

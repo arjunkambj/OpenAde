@@ -196,14 +196,14 @@ only; must never import the server, the connector packages or the renderer.
 The renderer. TanStack Router routes under `apps/web/src/routes`, state through
 `@effect/atom-react`, components under `apps/web/src/components`.
 
-| Route                             | What it is                                                 |
-| --------------------------------- | ---------------------------------------------------------- |
-| `_home/index`                     | start a thread, pick a project                             |
-| `_home/t/$threadId`               | the thread view; `?pane=` carries the dock tab             |
-| `_home/customize/{skills,mcp}`    | what extends the agent, one tab per kind                   |
-| `settings`, four pages            | general, models, connectors, keybindings                   |
-| `browser.$threadId`               | the marker page the browser pane's `<webview>` guest loads |
-| `dev/{timeline,composer,changes}` | fixture pages, DEV only                                    |
+| Route                             | What it is                                                         |
+| --------------------------------- | ------------------------------------------------------------------ |
+| `_home/index`                     | start a thread, pick a project                                     |
+| `_home/t/$threadId`               | the thread view; `?pane=` carries the dock tab                     |
+| `_home/customize/{skills,mcp}`    | what extends the agent, one tab per kind, one section per instance |
+| `settings`, four pages            | general, models, connectors, keybindings                           |
+| `browser.$threadId`               | the marker page the browser pane's `<webview>` guest loads         |
+| `dev/{timeline,composer,changes}` | fixture pages, DEV only                                            |
 
 The shell is a left sidebar (projects → threads, with a status icon and an
 unread dot), the thread column (timeline, composer, interaction cards) and a
@@ -271,7 +271,7 @@ Directories, relative to `apps/server/`:
 | `src/browser/`       | browser service, agent-browser CLI, driver, tool catalogue                         |
 | `src/git/`           | status/diff, file search and read, checkpoint store and hook                       |
 | `src/fs/`            | `fs.browse`                                                                        |
-| `src/settings/`      | settings store users, connector manager and host, Command Code config writers      |
+| `src/settings/`      | settings store users, connector manager and host, connector extension routing      |
 | `src/attachments/`   | the staging store and its reactor                                                  |
 
 Public seam: the RPC group in `packages/contracts/src/rpc.ts` and the three
@@ -308,6 +308,7 @@ What a connector is, and the promises it must keep.
   `ConnectorServices`, the error union, `eraseConnectorDefinition`.
 - `sessionHandle.ts` — `SessionHandle` and the bounded event queue.
 - `turnScopedHandle.ts` — the turn correlation wrapper.
+- `extensions.ts` — the optional per-instance extensions (skills, MCP servers).
 - `registry.ts` — definitions by kind, live instances by id.
 - `conformance.ts` — the executable suite.
 - `streamCollector.ts` — the collector the suite and testkit share.
@@ -323,7 +324,9 @@ allowlist), `turnArgs.ts` (what one turn's argv is), `session.ts` (one session
 per thread), `ndjson.ts` (frame parsing), `translate.ts` (frames →
 `RuntimeEvent`), `transcript.ts`, `plans.ts`, `subagents.ts`, `questions.ts`,
 `approvals.ts`, `hookAnswers.ts`, `hookScript.ts`, `config.ts`, `exitCodes.ts`,
-`sessionRef.ts`, `attachments.ts`.
+`sessionRef.ts`, `attachments.ts`, and the two extensions the Customize page
+edits through, `mcpServers.ts` and `skills.ts`. `makeCmdConnectorDefinition`
+takes the harness's config home, so a test can move it.
 
 May import `connector-sdk`, `contracts`, `shared`. It is the only place in the
 tree that knows `cmd` exists, apart from the one line in `boot.ts` that
@@ -742,7 +745,23 @@ instead of the kind:
 | `subagents`, `resume`        | boolean                              | declared                                             |
 | `steering`, `fork`           | boolean                              | declared; read once a harness supports them          |
 
-`steering` also decides `TurnInProgress`, below. Instances
+`steering` also decides `TurnInProgress`, below.
+
+An instance may also carry `extensions` (`extensions.ts`): harness
+configuration it manages for the Customize page. `skills` lists what the
+harness loads (`list`), and optionally what a shared folder offers
+(`available`) and a way to link one in (`link`); `mcpServers` lists, adds
+(an upsert) and removes servers in the harness's own config. Both take an
+`ExtensionScope` — `{ workspaceRoot: string | null }`, the user scope plus one
+project — and fail with `ConnectorExtensionFailed { code, message }`, never an
+RPC error: the server (`settings/ConnectorExtensions.ts`) resolves the
+`projectId` to a workspace root, calls the open instance's extension, maps the
+failure's code across, and answers `unavailable` for an instance that is not
+open or has no such extension. `ConnectorSummary.extensions` tells the renderer
+which instances have which, so it shows a Customize section only for those, and
+the composer's `/` menu asks the thread's own instance for its skills.
+
+Instances
 are per configuration, not per thread. The registry (`registry.ts`) routes by
 **instance id, never by kind**: two instances of the same harness with different
 binaries, credentials or default models are a normal configuration, and a thread
@@ -881,36 +900,38 @@ except `fs.browse`, which has its own error because the picker offers a
 different next step for each reason. `PROTOCOL_VERSION` is 1; a mismatch puts
 the client in the terminal `incompatible` state.
 
-| Method                   | Kind   | What it does                                                                        |
-| ------------------------ | ------ | ----------------------------------------------------------------------------------- |
-| `server.hello`           | call   | Protocol version and `serverInstanceId` — a new id means cached snapshots are stale |
-| `orchestration.dispatch` | call   | Takes the whole `Command` union, returns a `CommandReceipt`                         |
-| `projects.list`          | call   | Project rows for the sidebar                                                        |
-| `threads.list`           | call   | Thread summaries, optionally per project, optionally with archived                  |
-| `threads.subscribe`      | stream | One thread: snapshot or catch-up from `afterSequence`, then live                    |
-| `threads.listSubscribe`  | stream | The thread list, same shape                                                         |
-| `connectors.list`        | call   | Configured connectors with their cached probes; `refresh` re-probes                 |
-| `connectors.models`      | call   | The model picker's options for one instance                                         |
-| `connectors.describe`    | call   | Every connector the build ships: metadata and config form, configured or not        |
-| `files.search`           | call   | The composer's `@` file search                                                      |
-| `files.read`             | call   | A window of one file, with a `truncated` flag                                       |
-| `fs.browse`              | call   | Subfolders of one directory on the server's machine, for the folder picker          |
-| `attachments.stage`      | call   | Uploads one composer image; returns a reference, never echoes bytes                 |
-| `attachments.read`       | call   | Reads a staged image back for a thumbnail                                           |
-| `git.status`             | call   | Branch, ahead/behind and changed paths                                              |
-| `git.diff`               | call   | Worktree against HEAD, or between two checkpoint refs                               |
-| `checkpoints.list`       | call   | Checkpoints that still exist as refs, intersected with the log's list               |
-| `browser.subscribe`      | stream | The browser pane's state, and frames when the browser is ours                       |
-| `browser.humanInput`     | call   | A human gesture into the browser the agent is driving                               |
-| `settings.get`           | call   | The settings document                                                               |
-| `settings.update`        | call   | Applies a patch, returns the new document                                           |
-| `settings.subscribe`     | stream | The settings document as it changes                                                 |
-| `cmdConfig.mcp.list`     | call   | MCP servers in the harness's own config, user and project scope                     |
-| `cmdConfig.mcp.upsert`   | call   | Writes one entry we own; refuses one we do not                                      |
-| `cmdConfig.mcp.remove`   | call   | Removes one entry we own                                                            |
-| `cmdConfig.skills.list`  | call   | Skills found under the harness's skills directories                                 |
-| `keybindings.get`        | call   | The keybinding list                                                                 |
-| `keybindings.update`     | call   | Replaces it                                                                         |
+| Method                        | Kind   | What it does                                                                        |
+| ----------------------------- | ------ | ----------------------------------------------------------------------------------- |
+| `server.hello`                | call   | Protocol version and `serverInstanceId` — a new id means cached snapshots are stale |
+| `orchestration.dispatch`      | call   | Takes the whole `Command` union, returns a `CommandReceipt`                         |
+| `projects.list`               | call   | Project rows for the sidebar                                                        |
+| `threads.list`                | call   | Thread summaries, optionally per project, optionally with archived                  |
+| `threads.subscribe`           | stream | One thread: snapshot or catch-up from `afterSequence`, then live                    |
+| `threads.listSubscribe`       | stream | The thread list, same shape                                                         |
+| `connectors.list`             | call   | Configured connectors with their cached probes; `refresh` re-probes                 |
+| `connectors.models`           | call   | The model picker's options for one instance                                         |
+| `connectors.describe`         | call   | Every connector the build ships: metadata and config form, configured or not        |
+| `files.search`                | call   | The composer's `@` file search                                                      |
+| `files.read`                  | call   | A window of one file, with a `truncated` flag                                       |
+| `fs.browse`                   | call   | Subfolders of one directory on the server's machine, for the folder picker          |
+| `attachments.stage`           | call   | Uploads one composer image; returns a reference, never echoes bytes                 |
+| `attachments.read`            | call   | Reads a staged image back for a thumbnail                                           |
+| `git.status`                  | call   | Branch, ahead/behind and changed paths                                              |
+| `git.diff`                    | call   | Worktree against HEAD, or between two checkpoint refs                               |
+| `checkpoints.list`            | call   | Checkpoints that still exist as refs, intersected with the log's list               |
+| `browser.subscribe`           | stream | The browser pane's state, and frames when the browser is ours                       |
+| `browser.humanInput`          | call   | A human gesture into the browser the agent is driving                               |
+| `settings.get`                | call   | The settings document                                                               |
+| `settings.update`             | call   | Applies a patch, returns the new document                                           |
+| `settings.subscribe`          | stream | The settings document as it changes                                                 |
+| `connectors.skills.list`      | call   | Skills one instance loads, user scope plus an optional project                      |
+| `connectors.skills.available` | call   | Shared-folder skills that instance does not load yet; empty when it offers none     |
+| `connectors.skills.link`      | call   | Links one of those into the instance's user skills                                  |
+| `connectors.mcp.list`         | call   | MCP servers in one instance's harness config, user and project scope                |
+| `connectors.mcp.add`          | call   | Adds or replaces one entry we own; refuses one we do not                            |
+| `connectors.mcp.remove`       | call   | Removes one entry we own                                                            |
+| `keybindings.get`             | call   | The keybinding list                                                                 |
+| `keybindings.update`          | call   | Replaces it                                                                         |
 
 Reads that must stay fresh are streams rather than polls, and every stream can
 end in `resnapshot-required`.
