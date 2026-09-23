@@ -34,6 +34,7 @@ import {
   SidebarLeft,
   Sparkles,
   SquarePen,
+  Terminal,
 } from "@honeyicons/react";
 
 type GroupProps = { readonly onDone: () => void };
@@ -111,10 +112,10 @@ export function SettingsGroup({ onDone }: GroupProps) {
 }
 
 /**
- * Things to do rather than places to go. Add project and Toggle sidebar fire
- * the command their surface claims, and are read on mount — this content
- * mounts on every open — so a route without that surface gets no row for it
- * instead of a row that quietly does nothing. Picking a project starts a
+ * Things to do rather than places to go. Add project, Toggle sidebar and
+ * Toggle terminal fire the command their surface claims, and are read on
+ * mount — this content mounts on every open — so a route without that surface
+ * gets no row for it instead of a row that quietly does nothing. Picking a project starts a
  * thread through the one create flow.
  */
 export function ActionsGroup({ onDone }: GroupProps) {
@@ -123,8 +124,9 @@ export function ActionsGroup({ onDone }: GroupProps) {
   const { create } = useCreateThread();
   const canAddProject = useKeybindingHandled(SHORTCUT_COMMANDS.addProject);
   const canToggleSidebar = useKeybindingHandled(SHORTCUT_COMMANDS.toggle);
+  const canToggleTerminal = useKeybindingHandled(SHORTCUT_COMMANDS.terminal);
 
-  if (!canAddProject && !canToggleSidebar && projects.length === 0) {
+  if (!canAddProject && !canToggleSidebar && !canToggleTerminal && projects.length === 0) {
     return null;
   }
 
@@ -162,6 +164,13 @@ export function ActionsGroup({ onDone }: GroupProps) {
             <SidebarLeft variant="bold" />
             Toggle sidebar
             <ItemShortcut id="toggle" />
+          </CommandItem>
+        ) : null}
+        {canToggleTerminal ? (
+          <CommandItem value="Toggle terminal" onSelect={run(SHORTCUT_COMMANDS.terminal)}>
+            <Terminal />
+            Toggle terminal
+            <ItemShortcut id="terminal" />
           </CommandItem>
         ) : null}
       </CommandGroup>
