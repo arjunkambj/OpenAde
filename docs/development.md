@@ -386,11 +386,97 @@ hook answers to it. A `Replayer` pairs a kind and transport with
 talk to the recording instead of the harness. `cmdReplayer` wraps
 `replayConfig`.
 
-`RecordingTransport` already names the transports later connectors bring:
+`RecordingTransport` also names the transports other connectors bring:
 `stdio-jsonrpc`, `sdk-stream` and `http-sse`. A connector that speaks one of
 them adds its recordings under its own `fixtures/<kind>/`, sets `transport` in
-every manifest, and adds a replayer for that transport. The existing
-recordings stay as they are.
+every manifest, and uses or adds a replayer for that transport. Only `cmd` has
+a legacy layout: any other kind's manifest without `transport` is refused. The
+existing recordings stay as they are. `fixturesRoot`, `recordingNames` and
+`readManifest` take an optional root in place of `packages/testkit/fixtures`,
+so the testkit's own tests write their captures to a temp directory.
+
+#### sdk-stream
+
+An SDK that drives its CLI over stdio NDJSON (messages, `control_request` and
+`control_response` both ways) is recorded at the process boundary, so a replay
+runs the real SDK and the real connector code with only the binary path
+changed. Nothing in the testkit imports an SDK.
+
+**Recording.** `makeTeeLauncher({ realBinary, rawDir })`
+(`packages/testkit/src/sdkStreamRecording.ts`) writes a `#!/bin/sh` launcher
+and its `config.json` into `rawDir`. The launcher runs `bin/stdio-tee.mjs`
+with node named by absolute path, so it works under a connector's default-deny
+environment. Point the connector's binary path at the launcher.
+
+The tee spawns the real binary with the same argv, cwd and environment. It
+stays in the tee's process group, so a connector that kills the group takes
+both. The tee forwards SIGINT and SIGTERM and pipes all three streams through
+unchanged. Every launch, a `--version` probe as much as a session, claims the
+next number `n` and writes two files:
+
+- `invocation-<n>.ndjson`: one `RecordedFrame` per line, appended
+  synchronously, so a SIGKILL loses nothing already seen. A frame is
+  `{ dir: "to-harness" | "from-harness", channel: "stdin" | "stdout" | "stderr", at, data }`,
+  where `data` is the parsed JSON line, or the raw string when a line is not
+  JSON.
+- `invocation-<n>.json`: argv and cwd, plus the exit code and signal once the
+  harness exits.
+
+Environment values are never written.
+
+`finalizeSdkStreamRecording({ kind, scenario, rawDir, description, cliVersion, sdkVersion, model, prompts })`
+replaces `fixtures/<kind>/<scenario>/` with a `manifest.json` and the scrubbed
+invocation files. The manifest carries the common fields with
+`transport: "sdk-stream"`, plus `sdkVersion`, `prompts`, and `invocations[]`,
+which lists each launch's scrubbed `argv` and `cwd`, its `file`, `exitCode` and
+`signal`. `loadSdkStreamRecording(kind, scenario)` reads a recording back with
+its frames.
+
+**Replaying.** `sdkStreamReplayer(kind).config(scenario, { tmpDir, pidDir? })`
+(`packages/testkit/src/replaySdkStream.ts`) returns `{ binaryPath }`: a
+launcher written into `tmpDir` with the scenario baked in, because the
+connector's environment is default-deny and cannot carry it.
+`bin/replay-sdk-stream.mjs` behind it behaves as follows:
+
+- **Choosing an invocation.** Each launch plays the first unplayed recorded
+  invocation of the same argv class: `--version`, `auth status`, a
+  `stream-json` run, or else the exact argv. A counter in `tmpDir` keeps count,
+  so the second session of a resume-after-restart test plays the second
+  recorded run. A probe asked again hears the last recorded answer again. A
+  stream launch with no recorded run left is a divergence.
+- **Simple invocations** print their recorded stdout and stderr and exit with
+  the recorded code.
+- **Stream runs** walk the frames in order. A frame from the harness is written
+  to its channel. At a frame to the harness, the replay blocks on the next line
+  of stdin, so it never runs ahead of the live side. A test that triggers a
+  mid-turn action (an interrupt, a steer) must trigger it on an event the
+  recording emits before that action's frame.
+- **Gating.** The live line must be the same move:
+  - the same `type`;
+  - for a `control_request`, the same `request.subtype`;
+  - for a `control_response`, the same `response.subtype`;
+  - when it answers a request the harness made, the same `request_id`, plus the
+    same `behavior` for `can_use_tool` and the same `permissionDecision` for
+    `hook_callback`.
+
+  Answers to two open harness requests may arrive in either order, and each is
+  still checked.
+
+- **Id rewriting.** The SDK's own request ids (`initialize`, `interrupt`,
+  `set_model`, `set_permission_mode`, …) are random. Each recorded id is mapped
+  to the live one when it arrives, and the recorded `control_response` to it is
+  rewritten to carry the live id.
+- **Divergence is loud.** A line the recording does not have, stdin closing
+  while the recording still expects input, or input after the recording has
+  ended prints both sides to stderr and exits **97**.
+- **Ending.** After the last frame the replay waits for stdin to close, then
+  exits the way the recorded run did, by code or by signal. With `pidDir` it
+  drops a pid file, so `isProcessGone` checks a real child.
+
+The tests of the tee and the replayer
+(`sdkStreamRecording.test.ts`, `replaySdkStream.test.ts`) drive an ordinary
+node program written into a temp directory (`stdioCounterpart.ts`). It is no
+harness and needs no harness binary.
 
 ### Making one
 
@@ -421,6 +507,19 @@ basename become `user`, and anything token-shaped becomes `<REDACTED>`. Session
 ids and trace ids are left alone — they are per-run identifiers with no meaning
 off the machine, and the tests match on them. The replayer puts `<HOME>` and
 `<SCRATCH>` back from the running process's own directories.
+
+The `sdk-stream` finaliser adds more rules, because its captures carry the
+account and the MCP bearer:
+
+- The account's email, organisation name and ids, and account uuid are read out
+  of the init, account and `auth status` payloads. They are replaced
+  everywhere: emails become `user@example.com`, uuids the zero uuid, and names
+  `<ACCOUNT>`. Any other email address becomes `user@example.com` too.
+- A value under a credential key (`Authorization`, `x-api-key`, `*token`,
+  `password`, …) becomes `<REDACTED>` whatever its shape. That covers the MCP
+  bearer the connector hands the CLI inside `--mcp-config`'s JSON argv.
+- The scratch root is taken as the parent of the first stream run's working
+  directory, spelled with and without macOS's `/private`.
 
 ### When to re-record
 

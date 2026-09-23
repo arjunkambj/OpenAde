@@ -15,6 +15,14 @@
       "types": "./src/replayCmdProcess.ts",
       "import": "./src/replayCmdProcess.ts"
     },
+    "./sdkStreamRecording": {
+      "types": "./src/sdkStreamRecording.ts",
+      "import": "./src/sdkStreamRecording.ts"
+    },
+    "./replaySdkStream": {
+      "types": "./src/replaySdkStream.ts",
+      "import": "./src/replaySdkStream.ts"
+    },
     "./fakeConnector": {
       "types": "./src/fakeConnector.ts",
       "import": "./src/fakeConnector.ts"

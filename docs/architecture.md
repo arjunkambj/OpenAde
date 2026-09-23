@@ -443,6 +443,13 @@ Test infrastructure, never shipped.
   its own; `packages/testkit/src/replayCmdProcess.ts` loads a recording through `recording.ts`,
   flattens a turn into `RecordedFrame`s, and produces the spawn configuration that makes the
   replayer stand in for `cmd` (`cmdReplayer`, transport `stdio-ndjson`).
+- `packages/testkit/bin/stdio-tee.mjs` and `packages/testkit/src/sdkStreamRecording.ts` — the
+  `sdk-stream` recorder. It is a launcher that tees a real CLI's stdio into `RecordedFrame`s,
+  and a finaliser that scrubs the capture into `fixtures/<kind>/<scenario>/`.
+  `packages/testkit/bin/replay-sdk-stream.mjs` and `packages/testkit/src/replaySdkStream.ts`
+  (`sdkStreamReplayer(kind)`) are the replay half. It is gated on stdin, rewrites the SDK's
+  request ids, and exits 97 on divergence. See
+  [development.md](development.md#sdk-stream).
 - `packages/testkit/src/fakeConnector.ts` — a real `ConnectorDefinition` whose sessions replay a
   scripted event list, for everything above the connector layer. With `steering` on its sessions
   offer `steer`, recorded as a call like every other method, and `refuseSteering` makes each

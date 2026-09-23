@@ -68,16 +68,22 @@ const LEGACY_TRANSPORTS: Readonly<Record<string, RecordingTransport>> = {
   cmd: "stdio-ndjson",
 };
 
-/** Where a connector kind's recordings live: `packages/testkit/fixtures/<kind>/`. */
-export const fixturesRoot = (kind: string): string => NodePath.join(FIXTURES, kind);
+/**
+ * Where a connector kind's recordings live: `packages/testkit/fixtures/<kind>/`.
+ * `root` stands in for `packages/testkit/fixtures` — a test that exercises the
+ * recording machinery itself writes its captures under a temp directory, never
+ * beside the real ones.
+ */
+export const fixturesRoot = (kind: string, root: string = FIXTURES): string =>
+  NodePath.join(root, kind);
 
 /**
  * Every recorded scenario of a kind, by name. A scenario is a directory holding
  * a `manifest.json` with turns; the probe captures sit in their own directory
  * and are not a scenario.
  */
-export const recordingNames = (kind: string): ReadonlyArray<string> =>
-  NodeFS.readdirSync(fixturesRoot(kind), { withFileTypes: true })
+export const recordingNames = (kind: string, root?: string): ReadonlyArray<string> =>
+  NodeFS.readdirSync(fixturesRoot(kind, root), { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && entry.name !== "probe")
     .map((entry) => entry.name)
     .sort();
@@ -91,9 +97,10 @@ export const recordingNames = (kind: string): ReadonlyArray<string> =>
 export const readManifest = <Extra extends object = Record<string, unknown>>(
   kind: string,
   scenario: string,
+  root?: string,
 ): RecordingManifest & Extra => {
   const raw = JSON.parse(
-    NodeFS.readFileSync(NodePath.join(fixturesRoot(kind), scenario, "manifest.json"), "utf8"),
+    NodeFS.readFileSync(NodePath.join(fixturesRoot(kind, root), scenario, "manifest.json"), "utf8"),
   ) as Partial<RecordingManifest> & { readonly real?: unknown } & Extra;
   if (raw.real !== true) {
     throw new Error(`${kind}/${scenario}: not marked as a real recording`);
