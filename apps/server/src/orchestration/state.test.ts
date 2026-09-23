@@ -213,6 +213,37 @@ describe("the thread fold", () => {
     expect(doc?.status).toBe("idle");
   });
 
+  it("ignores the late settlement of a turn an archive closed once a newer turn runs", () => {
+    const first = makeTurnId();
+    const second = makeTurnId();
+    const doc = foldThread([
+      created(),
+      turnRequested(first),
+      event("thread.archived", {}),
+      event("thread.unarchived", {}),
+      turnRequested(second),
+      // The close the archive asked for settles the first turn only now.
+      event("thread.turn.completed", { turnId: first, stopReason: "interrupted" }),
+    ]);
+
+    // Ending the second turn here would let the next send start a turn the
+    // connector answers "busy" to, instead of queueing it.
+    expect(doc?.currentTurn?.turnId).toBe(second);
+    expect(doc?.status).toBe("running");
+
+    const settled = foldThread([
+      created(),
+      turnRequested(first),
+      event("thread.archived", {}),
+      event("thread.unarchived", {}),
+      turnRequested(second),
+      event("thread.turn.completed", { turnId: first, stopReason: "interrupted" }),
+      event("thread.turn.completed", { turnId: second, stopReason: "end_turn" }),
+    ]);
+    expect(settled?.currentTurn).toBeNull();
+    expect(settled?.status).toBe("idle");
+  });
+
   it("keeps a pending plan across an unarchive and waits on it", () => {
     const turnId = makeTurnId();
     const doc = foldThread([

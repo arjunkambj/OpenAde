@@ -853,7 +853,14 @@ the append transaction, on the document as it is at append time, so a
 and be sent anyway. The follow-up turn is dispatched with `queued: true` and
 its receipt is read: if anything makes the decider refuse it — a sibling thread
 starting a checkpoint restore, the user archiving the thread — the message is
-re-queued rather than destroyed.
+re-queued rather than destroyed. Nothing drains while a turn is still in
+flight: that completion was not the one that freed the connector.
+
+A completion only ends the turn it names. Archiving a thread mid-turn closes its
+session, and the close settles that turn when it gets there; by then the thread
+may be unarchived with a newer turn running. Both folds (server and client)
+ignore a `thread.turn.completed` whose `turnId` is not the turn in flight, so
+the late settlement cannot end the newer turn.
 
 ---
 

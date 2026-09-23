@@ -190,12 +190,15 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
     case "thread.archived":
       return { ...next, status: "archived" };
     case "thread.unarchived":
-      // Archiving closed the session, so an approval or question still open
+      // Archiving closes the session, so an approval or question still open
       // is a dead process asking — the same reasoning as `session.lost`, and
-      // `currentTurn` goes for the same reason. The session itself stays: the
-      // next turn resumes the conversation through its `sessionRef`. The queue
-      // and a pending plan stay too; the plan waits for its answer and the
-      // queue drains after the next turn completes.
+      // `currentTurn` goes for the same reason. The close may still be
+      // settling that turn: its late `turn.completed` names the old turn, and
+      // the `turn.completed` fold below ignores it once a newer one started.
+      // The session itself stays: the next turn resumes the conversation
+      // through its `sessionRef`. The queue and a pending plan stay too; the
+      // plan waits for its answer and the queue drains after the next turn
+      // completes.
       return {
         ...next,
         approvals: [],
@@ -257,6 +260,15 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
     case "thread.turn.started":
       return { ...next, status: "running" };
     case "thread.turn.completed":
+      // A completion for a turn other than the one in flight is a late
+      // settlement: archiving a thread mid-turn closes its session, the close
+      // settles that turn when it gets there, and by then the thread may be
+      // unarchived with a newer turn running. Ending the newer turn on the
+      // old one's word would let the next send start a turn the connector
+      // answers "busy" to, which the reactor turns into a fatal thread error.
+      if (doc.currentTurn !== null && doc.currentTurn.turnId !== payload.turnId) {
+        return next;
+      }
       // An archived thread stays archived: the settlement of a turn its
       // connector was stopped mid-answer must not put it back in the sidebar.
       return {

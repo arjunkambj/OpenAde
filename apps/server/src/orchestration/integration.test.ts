@@ -661,6 +661,40 @@ describe("orchestration with a fake connector", () => {
     }),
   );
 
+  it.effect("a turn sent right after unarchiving mid-turn survives the old turn settling", () =>
+    Effect.gen(function* () {
+      const { instance } = yield* openFake({ script: approvalTurnScript });
+      yield* Effect.gen(function* () {
+        const engine = yield* OrchestrationEngine;
+        yield* engine.dispatch(createProject);
+        yield* engine.dispatch(createThread);
+
+        // The script holds its `turn.completed` back until the approval is
+        // answered, so the first turn is in flight when the archive lands.
+        const opened = yield* awaitEvent(engine, isType("thread.approval.opened"));
+        yield* engine.dispatch(turnStart("npm run build"));
+        yield* Fiber.join(opened);
+        const firstTurn = (yield* engine.threadDoc(threadId))?.currentTurn?.turnId;
+
+        // No waiting between the three: the close the archive asked for may
+        // settle the first turn before or after the second one starts.
+        const reopened = yield* awaitEvent(engine, isType("thread.approval.opened"));
+        yield* Effect.yieldNow;
+        for (const type of ["thread.archive", "thread.unarchive"] as const) {
+          yield* engine.dispatch({ commandId: makeCommandId(), createdAt: NOW, type, threadId });
+        }
+        expect((yield* engine.dispatch(turnStart("npm test"))).status).toBe("accepted");
+        const entry = yield* Fiber.join(reopened).pipe(Effect.timeout("10 seconds"));
+        expect(Option.isSome(entry)).toBe(true);
+
+        const doc = yield* engine.threadDoc(threadId);
+        expect(doc?.currentTurn?.input.text).toBe("npm test");
+        expect(doc?.currentTurn?.turnId).not.toBe(firstTurn);
+        expect(doc?.status).not.toBe("error");
+      }).pipe(Effect.provide(stackLayer({ instance })));
+    }),
+  );
+
   it.effect("removing a project deletes its threads and stops their sessions", () =>
     Effect.gen(function* () {
       const { fake, instance } = yield* openFake();

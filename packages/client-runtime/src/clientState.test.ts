@@ -147,6 +147,29 @@ describe("clientState fold", () => {
     expect(doc.status).toBe("idle");
   });
 
+  it("ignores the late settlement of a turn an archive closed once a newer turn runs", () => {
+    const first = makeTurnId();
+    const second = makeTurnId();
+    let doc = applyThreadEvent(snapshot(), event("thread.turn.started", { turnId: first }));
+    doc = applyThreadEvent(doc, event("thread.archived", {}));
+    doc = applyThreadEvent(doc, event("thread.unarchived", {}));
+    doc = applyThreadEvent(doc, event("thread.turn.started", { turnId: second }));
+    doc = applyThreadEvent(
+      doc,
+      event("thread.turn.completed", { turnId: first, stopReason: "interrupted" }),
+    );
+    // The server's fold keeps the newer turn running; the live view must too.
+    expect(doc.currentTurnId).toBe(second);
+    expect(doc.status).toBe("running");
+
+    doc = applyThreadEvent(
+      doc,
+      event("thread.turn.completed", { turnId: second, stopReason: "end_turn" }),
+    );
+    expect(doc.currentTurnId).toBeNull();
+    expect(doc.status).toBe("idle");
+  });
+
   it("keeps a pending plan across unarchive and waits on it", () => {
     const turnId = makeTurnId();
     let doc = applyThreadEvent(

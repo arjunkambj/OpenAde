@@ -158,6 +158,13 @@ export const applyThreadEvent = (
       // server says `idle` and its reactor's drain turns the thread `running`
       // a beat later, and following it would blink the pill on every queued
       // message.
+      //
+      // A completion for a turn other than the one in flight is the late
+      // settlement of a turn an archive closed, landing after an unarchive
+      // let a newer turn start. The server's fold ignores it; so does this.
+      if (doc.currentTurnId !== null && doc.currentTurnId !== payload.turnId) {
+        return { ...doc, updatedAt: event.occurredAt };
+      }
       return {
         ...doc,
         status:

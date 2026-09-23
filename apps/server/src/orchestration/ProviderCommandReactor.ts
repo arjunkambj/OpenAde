@@ -343,8 +343,14 @@ export const ProviderCommandReactor = Layer.effectDiscard(
             const taken: Array<QueuedMessage> = [];
             // Dequeue first, then dispatch — the request event lands after the
             // queue mutation so a projector replaying the stream sees the same order.
+            //
+            // A turn still in flight means this completion is not the one that
+            // freed the connector — a late settlement of a turn an archive
+            // closed, after an unarchive let a newer one start. That turn's
+            // own completion drains the queue instead.
             yield* engine.appendThreadEvents(threadId, (doc) => {
-              const next = doc.status === "archived" ? undefined : doc.queue[0];
+              const next =
+                doc.status === "archived" || doc.currentTurn !== null ? undefined : doc.queue[0];
               if (next === undefined) {
                 return [];
               }
