@@ -42,7 +42,7 @@ import { useKeybindingCommand } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import { useConnectionState, useProjects, useThreadDetail } from "@/state/hooks";
 import { useDockTabMemory } from "@/state/ui";
-import { AlertTriangle, Close, SidebarRight, Spinner } from "@honeyicons/react";
+import { AlertTriangle, SidebarRight, Spinner, WifiOff } from "@honeyicons/react";
 
 const STATUS_LABEL: Record<ThreadStatus, string> = {
   idle: "Idle",
@@ -176,7 +176,7 @@ function ThreadBody({ result, connected }: { result: ThreadDetailResult; connect
       <Empty>
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            <Close variant="bold" />
+            <WifiOff variant="bold" />
           </EmptyMedia>
           <EmptyTitle>Not connected to a server</EmptyTitle>
         </EmptyHeader>

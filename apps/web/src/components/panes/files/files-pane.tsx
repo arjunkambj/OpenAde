@@ -33,12 +33,12 @@ import { splitPath } from "./preview";
 import {
   AlertTriangle,
   ChevronLeft,
-  Close,
   File as FileIcon,
   Folder,
   Repeat,
   Search as SearchIcon,
   Spinner,
+  WifiOff,
 } from "@honeyicons/react";
 
 /** The server's own ceiling (`MAX_SEARCH_LIMIT`), asked for explicitly so the
@@ -97,7 +97,7 @@ function SearchBody({
   readonly connected: boolean;
 }) {
   if (!connected) {
-    return <PaneMessage icon={Close} text="Not connected to the server." />;
+    return <PaneMessage icon={WifiOff} text="Not connected to the server." />;
   }
   if (query === "") {
     return (

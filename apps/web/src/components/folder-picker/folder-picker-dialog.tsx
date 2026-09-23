@@ -55,7 +55,7 @@ import {
   typed,
   type PickerLocation,
 } from "./picker-state";
-import { AlertTriangle, Close, Folder, Repeat, Spinner } from "@honeyicons/react";
+import { AlertTriangle, Folder, Repeat, Spinner, WifiOff } from "@honeyicons/react";
 
 export function FolderPickerDialog({
   open,
@@ -205,7 +205,7 @@ export function FolderPickerDialog({
           />
 
           {!connected ? (
-            <FolderListMessage icon={Close} text="Not connected to the server." />
+            <FolderListMessage icon={WifiOff} text="Not connected to the server." />
           ) : query === null ? (
             <FolderListMessage icon={Spinner} text="Listing…" />
           ) : query._tag === "error" ? (

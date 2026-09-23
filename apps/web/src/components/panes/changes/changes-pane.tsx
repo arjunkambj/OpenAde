@@ -50,7 +50,6 @@ import { TurnSelector } from "./turn-selector";
 import {
   type HoneyIcon,
   AlertTriangle,
-  Close,
   Edit,
   FileAdd,
   FileRemove,
@@ -58,6 +57,7 @@ import {
   GitDiff as GitDiffIcon,
   Repeat,
   Spinner,
+  WifiOff,
 } from "@honeyicons/react";
 
 const KIND_ICON: Record<GitDiffFile["kind"], HoneyIcon> = {
@@ -327,7 +327,7 @@ function ChangesBody({
     return connected ? (
       <PaneMessage icon={Spinner} text="Loading changes…" />
     ) : (
-      <PaneMessage icon={Close} text="Not connected to the server." />
+      <PaneMessage icon={WifiOff} text="Not connected to the server." />
     );
   }
   if (diff._tag === "error") {

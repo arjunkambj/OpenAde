@@ -30,10 +30,10 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronUp,
-  Close,
   File as FileIcon,
   Repeat,
   Spinner,
+  WifiOff,
 } from "@honeyicons/react";
 
 function LineTable({ offset, content }: { offset: number; content: FileContent }) {
@@ -93,7 +93,7 @@ export function FilePreview({
     return connected ? (
       <PaneMessage icon={Spinner} text="Loading file…" detail={path} />
     ) : (
-      <PaneMessage icon={Close} text="Not connected to the server." />
+      <PaneMessage icon={WifiOff} text="Not connected to the server." />
     );
   }
   if (query === "broken") {

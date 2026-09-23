@@ -30,7 +30,7 @@
 
 import type { ConnectionState } from "@OpenAde/client-runtime/connection";
 import type { DesktopServerState } from "@OpenAde/client-runtime/resolver";
-import { type HoneyIcon, AlertTriangle, Close, Spinner } from "@honeyicons/react";
+import { type HoneyIcon, AlertTriangle, Spinner, WifiOff } from "@honeyicons/react";
 
 export interface ConnectionNotice {
   /** `pending` is a quiet strip with a spinner; `error` is the loud one. */
@@ -89,7 +89,7 @@ export const connectionNotice = (
   if (connection.status === "disconnected") {
     return {
       tone: "error",
-      icon: Close,
+      icon: WifiOff,
       message: "Not connected to a server.",
     };
   }

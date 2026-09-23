@@ -4,7 +4,7 @@ import type { ConnectionState } from "@OpenAde/client-runtime/connection";
 import type { DesktopServerState } from "@OpenAde/client-runtime/resolver";
 
 import { connectionNotice } from "./connection-status";
-import { AlertTriangle, Close } from "@honeyicons/react";
+import { AlertTriangle, WifiOff } from "@honeyicons/react";
 
 const socket = (status: ConnectionState["status"]): ConnectionState => ({
   status,
@@ -81,7 +81,7 @@ describe("connectionNotice", () => {
     );
     expect(connectionNotice(socket("disconnected"), null)).toEqual({
       tone: "error",
-      icon: Close,
+      icon: WifiOff,
       message: "Not connected to a server.",
     });
   });
