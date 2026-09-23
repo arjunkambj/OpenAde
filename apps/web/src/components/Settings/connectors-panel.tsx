@@ -3,7 +3,7 @@
  * `ConnectorSummary` supplies probe state (binary, version, auth, account,
  * model count) and its settings entry supplies the editable config — rendered
  * by `SchemaForm` off the form fields its connector describes over
- * `connectors.describe`, as are the name and docs link. So this file
+ * `connectors.describe`, as are the name, icon and docs link. So this file
  * contains no connector-kind-specific markup, and a kind the server does not
  * describe gets a card with no config form.
  */
@@ -23,6 +23,7 @@ import { toast } from "sonner";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useAppAtoms } from "@/lib/app-runtime";
+import { connectorIconFor } from "@/lib/connector-icon";
 import { openExternal } from "@/lib/desktop";
 
 import { helpUrlFor } from "./probe-help";
@@ -129,10 +130,15 @@ function ConnectorCard({
     onChange({ ...conn, config });
   };
 
+  // `metadata.accent` is data only: the renderer paints nothing from a
+  // connector-supplied colour, and keeps to the theme's tokens.
+  const Icon = connectorIconFor(descriptor?.metadata.iconKey);
+
   return (
     <Card size="sm">
       <CardContent className="flex flex-col">
         <div className="flex items-center gap-3 pb-2">
+          <Icon className="size-4 text-muted-foreground" />
           <span className="text-sm font-medium">{conn.displayName}</span>
           <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
             {conn.kind}
