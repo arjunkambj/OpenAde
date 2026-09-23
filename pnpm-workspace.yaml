@@ -16,6 +16,14 @@ allowBuilds:
   # a checkout never needs a C++ toolchain; msgpackr falls back to JavaScript.
   msgpackr-extract: false
 
+# Install the arm64 and x64 variants of platform-specific optional packages
+# for this OS, not only the host's. The desktop app is packaged for both
+# architectures from one mac or Windows host, and each app carries the
+# terminal's pty binary for its own arch (apps/desktop/scripts/native-modules.mjs).
+supportedArchitectures:
+  os: [current]
+  cpu: [current, x64, arm64]
+
 catalog:
   typescript: ^6.0.3
   "@types/node": ^26.2.0

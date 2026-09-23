@@ -55,6 +55,13 @@ package, and the same binary loads under plain Node and under Electron run as
 Node. The server loads it on the first terminal it opens, not at boot, and
 `apps/server`'s esbuild bundle leaves it external.
 
+`pnpm-workspace.yaml` sets `supportedArchitectures` so that both the arm64 and
+the x64 variants of every platform-specific optional package for this OS are
+installed, not only the host's. The desktop app is packaged for both
+architectures from one Mac or Windows host, and each app needs the pty binary
+for its own architecture. The lockfile records every variant either way, so
+this changes what gets downloaded, not what `--frozen-lockfile` checks.
+
 ## Running it
 
 ```
@@ -787,6 +794,25 @@ Both server bundles define `import.meta.url` — a banner derives it from
 server throws before it starts. The banner restates `"use strict"` first, so
 the bundle stays in strict mode. The preload does not get it; it runs
 sandboxed, where `require("node:url")` does not exist.
+
+The pty module is the one package the server bundle leaves external, in both
+`apps/server`'s build and `apps/desktop/scripts/build.mjs`. The desktop build
+copies it into `out/server/node_modules/@lydell/`, beside `main.cjs`, where the
+bundle resolves it: the runtime package, plus one platform package per
+architecture the app is packaged for, arm64 and x64 on macOS and Windows and
+the host's on Linux (`apps/desktop/scripts/native-modules.mjs`). The copy
+follows pnpm's symlinks and keeps file modes, so `spawn-helper` stays
+executable, and `asarUnpack` keeps all of it as real files. The build fails if
+a needed platform package is not installed. `npmRebuild` stays off: the binary
+is N-API, so there is nothing to rebuild for Electron.
+
+The build also patches one line of each copied `lib/unixTerminal.js`. node-pty
+finds `spawn-helper` by rewriting `app.asar` in its own path to
+`app.asar.unpacked`; the bundled server already runs from `app.asar.unpacked`,
+so the stock rewrite would produce `app.asar.unpacked.unpacked` and every spawn
+would fail with `posix_spawn failed`. The patched line rewrites only an
+`app.asar` path segment. If an upgrade changes that line, the build stops and
+says so instead of shipping a terminal that cannot start.
 
 `apps/desktop` lists `@OpenAde/contracts` and `@OpenAde/shared` as
 _devDependencies_ on purpose: esbuild inlines them into the bundle, and

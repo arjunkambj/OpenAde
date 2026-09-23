@@ -1,14 +1,24 @@
-import { cp, rm } from "node:fs/promises";
+import { cp, readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import * as esbuild from "esbuild";
 
+import {
+  PTY_PACKAGE,
+  packageRootOf,
+  packagedArches,
+  patchHelperPath,
+  ptyPackagesFor,
+} from "./native-modules.mjs";
+
 export const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const outDir = join(root, "out");
 export const rendererDist = join(root, "..", "web", "dist");
 export const rendererOut = join(outDir, "renderer");
+const serverModulesOut = join(outDir, "server", "node_modules");
 
 /**
  * `import.meta.url` for a bundle esbuild turns into CommonJS, where it would
@@ -40,7 +50,9 @@ export function bundleOptions({ watch = false, channel = "stable" } = {}) {
     platform: "node",
     target: "node22",
     format: "cjs",
-    external: ["electron"],
+    // The pty module is a native binary; `copyNativeModules` ships it beside
+    // the bundle instead.
+    external: ["electron", PTY_PACKAGE],
     sourcemap: watch ? "inline" : false,
     minify: !watch,
     logLevel: "info",
@@ -65,11 +77,46 @@ export async function copyRenderer() {
   await cp(rendererDist, rendererOut, { recursive: true });
 }
 
+/**
+ * Copy the server's native modules into `out/server/node_modules`, where the
+ * bundled `main.cjs` resolves them; `asarUnpack` then keeps them real files.
+ * Packages are resolved the way the server resolves them in dev, and copied
+ * from their real paths, so pnpm's symlinks never reach the app. `cp` keeps
+ * file modes, which is what keeps `spawn-helper` executable.
+ */
+async function copyNativeModules() {
+  const fromServer = createRequire(join(root, "..", "server", "package.json"));
+  const runtime = packageRootOf(fromServer.resolve(PTY_PACKAGE), PTY_PACKAGE);
+  // The platform packages are the runtime package's own optional dependencies.
+  const fromRuntime = createRequire(join(runtime, "package.json"));
+  const names = ptyPackagesFor(process.platform, packagedArches(process.platform, process.arch));
+
+  await rm(serverModulesOut, { recursive: true, force: true });
+  for (const name of names) {
+    let source;
+    try {
+      source = name === PTY_PACKAGE ? runtime : packageRootOf(fromRuntime.resolve(name), name);
+    } catch (cause) {
+      throw new Error(
+        `${name} is not installed, so the packaged terminal could not start on that architecture. ` +
+          `pnpm-workspace.yaml's supportedArchitectures installs it; run "pnpm install".`,
+        { cause },
+      );
+    }
+    const target = join(serverModulesOut, name);
+    await cp(source, target, { recursive: true, dereference: true });
+    if (name !== PTY_PACKAGE && process.platform !== "win32") {
+      const file = join(target, "lib", "unixTerminal.js");
+      await writeFile(file, patchHelperPath(await readFile(file, "utf8")));
+    }
+  }
+}
+
 /** @param {{ channel?: "stable" | "canary" }} [options] */
 export async function build({ channel = "stable" } = {}) {
   await rm(outDir, { recursive: true, force: true });
   await Promise.all(bundleOptions({ channel }).map((options) => esbuild.build(options)));
-  await copyRenderer();
+  await Promise.all([copyRenderer(), copyNativeModules()]);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
