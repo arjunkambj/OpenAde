@@ -64,7 +64,7 @@ const diff = (from: string | null, to: string | null): GitDiff => ({
 
 interface Calls {
   readonly status: Array<{ projectId: string; threadId?: string }>;
-  readonly diff: Array<{ from?: string; to?: string }>;
+  readonly diff: Array<{ from?: string; to?: string; mergeBase?: string }>;
   readonly branches?: Array<{ projectId: string; threadId?: string }>;
   readonly checkout?: Array<{ projectId: string; threadId?: string; branch: string }>;
 }
@@ -99,7 +99,7 @@ const fakeClient = (calls: Calls, failStatus: Ref.Ref<boolean>): OpenAdeRpcClien
           });
       }
       if (key === "git.diff") {
-        return (payload: { from?: string; to?: string }) =>
+        return (payload: { from?: string; to?: string; mergeBase?: string }) =>
           Effect.sync(() => {
             calls.diff.push({ ...payload });
             return diff(payload.from ?? null, payload.to ?? null);
@@ -346,6 +346,54 @@ describe("git atoms", () => {
               (query) => query._tag === "ok" && query.value.branch === "feature",
             ),
           );
+        }),
+      ),
+  );
+
+  it.live(
+    "a checkout refetches every git read of the project: diffs, and a sibling thread's branches",
+    () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const projectId = makeProjectId();
+          const threadId = makeThreadId();
+          const sibling = makeThreadId();
+          const otherProject = makeProjectId();
+          const calls: Calls = { status: [], diff: [], branches: [], checkout: [] };
+          const failing = yield* Ref.make(false);
+          const { registry, gitBranchesAtom, gitDiffAtom, gitCheckoutAtom } = yield* runtimeWith(
+            fakeClient(calls, failing),
+            CONNECTED,
+          );
+          // Another local thread of the project shares its folder, so its
+          // branch moves too; the diff range was never named by the write.
+          const siblingBranches = gitBranchesAtom({ projectId, threadId: sibling });
+          const diffAtom = gitDiffAtom({ projectId, threadId: sibling, mergeBase: "main" });
+          const unrelated = gitDiffAtom({ projectId: otherProject });
+          registry.mount(siblingBranches);
+          registry.mount(diffAtom);
+          registry.mount(unrelated);
+          yield* Effect.promise(() =>
+            awaitValue<GitQuery<GitBranchList>, Cause.NoSuchElementError>(
+              registry,
+              siblingBranches,
+              (query) => query._tag === "ok" && query.value.current === "main",
+            ),
+          );
+          yield* Effect.promise(() => expect.poll(() => calls.diff.length).toBe(2));
+
+          registry.mount(gitCheckoutAtom);
+          registry.set(gitCheckoutAtom, { projectId, threadId, branch: "feature" });
+          yield* Effect.promise(() =>
+            awaitValue<GitQuery<GitBranchList>, Cause.NoSuchElementError>(
+              registry,
+              siblingBranches,
+              (query) => query._tag === "ok" && query.value.current === "feature",
+            ),
+          );
+          yield* Effect.promise(() => expect.poll(() => calls.diff.length).toBe(3));
+          // The project's diff was fetched again; the other project's was not.
+          expect(calls.diff.filter((call) => "mergeBase" in call)).toHaveLength(2);
         }),
       ),
   );

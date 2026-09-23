@@ -1234,6 +1234,31 @@ the workspace. A remote branch is checked out as a local branch tracking it.
 untracked work included, with `git merge-base HEAD <mergeBase>`: the branch's
 own work, without the base's later commits showing up as reverted.
 
+The thread header's branch picker (`apps/web/src/components/git/branch-picker.tsx`)
+is the client of these. Its trigger shows the branch the thread's root is on
+(`detached` on a detached HEAD). For a local thread it opens a search over the
+branches in two groups, Local and Remote; a remote branch whose local twin
+exists is left out, since picking it would switch to that local branch anyway,
+and a branch checked out in another worktree is listed but disabled. Picking a
+branch runs `git.checkout`; a query that looks like a branch name and names no
+existing branch — local, remote, or a remote's short name — offers
+`Create branch "<query>"`, which cuts it from the current branch with
+`checkout`. A refusal (a dirty tracked tree, a running turn in a sibling local
+thread) is a toast with the server's message, and nothing is stashed. The
+trigger is disabled while the thread's own turn runs, and the popover says that
+a switch moves every local thread of the project. For a worktree thread the
+popover only shows the branch, the base it was cut from and the path, because
+the thread owns that branch.
+
+After a successful switch or create, every git read of the project refetches —
+branches, status and each diff range, for every thread — through a per-project
+revision atom that each read in `gitAtoms.ts` depends on; a switch in the
+project's folder moves all of its local threads, so refreshing only the scope
+that asked would leave its siblings stale. The agent can switch branches as
+well, so the picker also refetches its list when a turn finishes. While the
+list cannot be read — offline, or a client that serves no git — the trigger is
+disabled with the reason in its tooltip.
+
 ### Commit, push and pull requests
 
 `git.commit` and `git.push` (`apps/server/src/git/Commits.ts`) run in the
@@ -1337,8 +1362,9 @@ Sending in that mode runs `start-in-worktree.ts`, a sequence of injected steps:
 
 The pickers and the composer wait from step 1 until the thread starts or the
 worktree is discarded, and the draft stays put throughout, so a discarded
-attempt can be sent again. Once the thread exists, its header shows the branch
-with the path in a tooltip, and its sidebar row carries a fork mark.
+attempt can be sent again. Once the thread exists, its header's branch picker
+shows the branch with a fork mark and the path in a tooltip, and its sidebar
+row carries a fork mark.
 
 ### Deleting a worktree thread
 

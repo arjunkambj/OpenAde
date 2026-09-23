@@ -608,7 +608,10 @@ the script in one both take the path only when it is a registered, non-main
 worktree of the project's repository. The start screen is where a thread gets
 one: its Local / New worktree picker runs create, setup and `thread.create`
 in that order (`apps/web/src/components/thread/start-in-worktree.ts`), and the
-thread header and sidebar row mark a worktree thread with its branch.
+thread header's branch picker (`apps/web/src/components/git/branch-picker.tsx`)
+and sidebar row mark a worktree thread with its branch. The picker switches or
+creates a branch only for a local thread; a worktree thread's branch is its
+own.
 Deleting such a thread is where one goes: the delete confirmation offers to
 remove the worktree after the delete is accepted, never with `force` unless
 the user confirms twice (`apps/web/src/components/sidebar/delete-thread.ts`).

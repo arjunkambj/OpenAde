@@ -1,21 +1,23 @@
 /**
- * The thread's slim header: its title, the worktree it works in when it has
- * one, its status and the dock toggle.
+ * The thread's slim header: its title, the branch picker, its status and the
+ * dock toggle.
  *
- * A worktree thread shows its branch beside the title, with the directory in
- * the tooltip, because the agent's edits land there and not in the project's
- * folder — the header is where that stays in view once the thread has
- * messages and the greeting is gone.
+ * The branch picker (`components/git/branch-picker.tsx`) sits beside the
+ * title: the branch the thread's workspace is on, switchable for a local
+ * thread, and marked as a worktree — with the directory in its tooltip — for
+ * a thread that has one, because the agent's edits land there and not in the
+ * project's folder. The header is where that stays in view once the thread
+ * has messages and the greeting is gone.
  */
 
 import { Button } from "@OpenAde/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import type { ThreadWorktree } from "@OpenAde/contracts/git";
 import type { ThreadDetailSnapshot, ThreadStatus } from "@OpenAde/contracts/orchestration";
 
 import type { DockTab } from "@/components/dock/right-dock";
+import { BranchPicker } from "@/components/git/branch-picker";
 import { cn } from "@/lib/utils";
-import { GitFork, SidebarRight, Spinner } from "@honeyicons/react";
+import { SidebarRight, Spinner } from "@honeyicons/react";
 
 const STATUS_LABEL: Record<ThreadStatus, string> = {
   idle: "Idle",
@@ -42,29 +44,6 @@ function StatusPill({ status }: { status: ThreadStatus }) {
   );
 }
 
-function WorktreeBadge({ worktree }: { worktree: ThreadWorktree }) {
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <span
-            tabIndex={0}
-            aria-label={`Worktree ${worktree.branch} at ${worktree.path}`}
-            className="inline-flex min-w-0 shrink items-center gap-1 rounded-full bg-hover px-2 py-0.5 type-micro text-muted-foreground"
-          />
-        }
-      >
-        <GitFork className="size-3 shrink-0" />
-        <span className="min-w-0 truncate font-mono">{worktree.branch}</span>
-      </TooltipTrigger>
-      <TooltipContent>
-        Works in its own worktree: {worktree.path}
-        {worktree.baseBranch === undefined ? null : ` (cut from ${worktree.baseBranch})`}
-      </TooltipContent>
-    </Tooltip>
-  );
-}
-
 export function ThreadHeader({
   snapshot,
   dockTab,
@@ -79,7 +58,7 @@ export function ThreadHeader({
       <h1 className="min-w-0 max-w-56 shrink truncate text-sm font-medium text-foreground">
         {snapshot.title}
       </h1>
-      {snapshot.worktree === undefined ? null : <WorktreeBadge worktree={snapshot.worktree} />}
+      <BranchPicker snapshot={snapshot} />
       <div className="flex-1" />
       <StatusPill status={snapshot.status} />
       <span className="inline-flex shrink-0">

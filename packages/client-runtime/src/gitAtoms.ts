@@ -10,8 +10,11 @@
  *   `mergeBase` diffs the working tree against where the branch forked.
  * - `gitBranchesAtom(scope)` — `git.branches`, the branch picker's list.
  * - `gitCreateBranchAtom` / `gitCheckoutAtom` — the picker's two writes. Each
- *   resolves with the new branch list and refreshes that scope's branch and
- *   status atoms, so the header and the Changes pane follow the switch.
+ *   resolves with the new branch list and refetches every git read of the
+ *   project — branches, status and diffs, for every thread — so the header
+ *   and the Changes pane follow the switch. A switch in the project's folder
+ *   moves every local thread of it at once, so refetching only the scope that
+ *   asked would leave its siblings showing the old branch.
  *
  * Two deliberate shapes here:
  *
@@ -32,16 +35,15 @@
  * atoms share one connection with everything else.
  */
 
-import type { GitBranchList } from "@OpenAde/contracts/git";
 import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
-import type { GitDiff, GitStatus } from "@OpenAde/contracts/rpc";
+import type { GitStatus } from "@OpenAde/contracts/rpc";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
 import type * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry";
 import * as Atom from "effect/unstable/reactivity/Atom";
 
-import { Connection, ConnectionStateRef } from "./connection";
+import { Connection, ConnectionStateRef, type OpenAdeRpcClient } from "./connection";
 
 /**
  * A git RPC's outcome as a value. `error` carries the server's message so the
@@ -153,64 +155,62 @@ export const makeGitAtoms = (runtime: Atom.AtomRuntime<Connection | ConnectionSt
     );
   }).pipe(Stream.unwrap);
 
-  const gitStatusByKeyAtom = Atom.family((key: string) =>
-    runtime.atom(
-      connectedEpochs.pipe(
-        Stream.mapEffect(() =>
-          Effect.gen(function* () {
-            const scope = decodeGitScope(key);
-            const client = yield* (yield* Connection).client;
-            return yield* client["git.status"]({
-              projectId: scope.projectId,
-              ...(scope.threadId === undefined ? {} : { threadId: scope.threadId }),
-            });
-          }).pipe(
-            Effect.map(ok<GitStatus>),
-            Effect.catch((error) => Effect.succeed(failed<GitStatus>(error.message))),
-          ),
-        ),
-      ),
-    ),
+  /**
+   * A counter per project that every git read of that project depends on.
+   * Bumping it rebuilds each mounted read, which restarts its stream and
+   * refetches on the replayed status; an unmounted one fetches fresh when it
+   * next mounts anyway. `Atom.family` cannot list its members, so this is how
+   * a branch write reaches the diff ranges it never saw.
+   */
+  const projectRevisionAtom = Atom.family((_projectId: ProjectId) =>
+    Atom.make(0).pipe(Atom.keepAlive),
   );
 
-  const gitDiffByKeyAtom = Atom.family((key: string) =>
-    runtime.atom(
-      connectedEpochs.pipe(
+  /**
+   * One git read as an atom: `call` once per connected epoch, rerun from the
+   * top whenever the project's revision moves, with a failed call kept as a
+   * value (`GitQuery`) so the stream survives it.
+   */
+  const gitRead = <A>(
+    projectId: ProjectId,
+    call: (client: OpenAdeRpcClient) => Effect.Effect<A, { readonly message: string }>,
+  ) =>
+    runtime.atom((get) => {
+      get(projectRevisionAtom(projectId));
+      return connectedEpochs.pipe(
         Stream.mapEffect(() =>
           Effect.gen(function* () {
-            const range = decodeDiffRange(key);
             const client = yield* (yield* Connection).client;
-            return yield* client["git.diff"]({
-              projectId: range.projectId,
-              ...(range.threadId === undefined ? {} : { threadId: range.threadId }),
-              ...(range.from === undefined ? {} : { from: range.from }),
-              ...(range.to === undefined ? {} : { to: range.to }),
-              ...(range.mergeBase === undefined ? {} : { mergeBase: range.mergeBase }),
-            });
+            return yield* call(client);
           }).pipe(
-            Effect.map(ok<GitDiff>),
-            Effect.catch((error) => Effect.succeed(failed<GitDiff>(error.message))),
+            Effect.map(ok<A>),
+            Effect.catch((error) => Effect.succeed(failed<A>(error.message))),
           ),
         ),
-      ),
-    ),
-  );
+      );
+    });
 
-  const gitBranchesByKeyAtom = Atom.family((key: string) =>
-    runtime.atom(
-      connectedEpochs.pipe(
-        Stream.mapEffect(() =>
-          Effect.gen(function* () {
-            const client = yield* (yield* Connection).client;
-            return yield* client["git.branches"](scopePayload(decodeGitScope(key)));
-          }).pipe(
-            Effect.map(ok<GitBranchList>),
-            Effect.catch((error) => Effect.succeed(failed<GitBranchList>(error.message))),
-          ),
-        ),
-      ),
-    ),
-  );
+  const gitStatusByKeyAtom = Atom.family((key: string) => {
+    const scope = decodeGitScope(key);
+    return gitRead(scope.projectId, (client) => client["git.status"](scopePayload(scope)));
+  });
+
+  const gitDiffByKeyAtom = Atom.family((key: string) => {
+    const range = decodeDiffRange(key);
+    return gitRead(range.projectId, (client) =>
+      client["git.diff"]({
+        ...scopePayload(range),
+        ...(range.from === undefined ? {} : { from: range.from }),
+        ...(range.to === undefined ? {} : { to: range.to }),
+        ...(range.mergeBase === undefined ? {} : { mergeBase: range.mergeBase }),
+      }),
+    );
+  });
+
+  const gitBranchesByKeyAtom = Atom.family((key: string) => {
+    const scope = decodeGitScope(key);
+    return gitRead(scope.projectId, (client) => client["git.branches"](scopePayload(scope)));
+  });
 
   /** The pane's handles: one atom per scope and per comparison, shared across mounts. */
   const gitStatusAtom = (scope: GitScope) => gitStatusByKeyAtom(encodeGitScope(scope));
@@ -218,15 +218,13 @@ export const makeGitAtoms = (runtime: Atom.AtomRuntime<Connection | ConnectionSt
   const gitBranchesAtom = (scope: GitScope) => gitBranchesByKeyAtom(encodeGitScope(scope));
 
   /**
-   * After a branch write the scope's branch list and status are stale: the
-   * current branch moved, and so did what the working tree is compared with.
-   * Refreshing restarts each stream, which refetches on the replayed status.
+   * After a branch write every git read of the project is stale: the current
+   * branch moved, and so did what each working tree is compared with. A switch
+   * in the project's folder moves all of its local threads at once, so the
+   * whole project refetches — not only the scope that asked.
    */
-  const refreshScope = (registry: AtomRegistry.AtomRegistry, scope: GitScope) => {
-    const key = encodeGitScope(scope);
-    registry.refresh(gitBranchesByKeyAtom(key));
-    registry.refresh(gitStatusByKeyAtom(key));
-  };
+  const refreshProject = (registry: AtomRegistry.AtomRegistry, projectId: ProjectId) =>
+    registry.update(projectRevisionAtom(projectId), (revision) => revision + 1);
 
   /** Fails with the server's refusal (a bad name, a dirty tree) for the caller to show. */
   const gitCreateBranchAtom = runtime.fn((input: GitCreateBranch, get) =>
@@ -238,7 +236,7 @@ export const makeGitAtoms = (runtime: Atom.AtomRuntime<Connection | ConnectionSt
         ...(input.from === undefined ? {} : { from: input.from }),
         checkout: input.checkout,
       });
-      refreshScope(get.registry, input);
+      refreshProject(get.registry, input.projectId);
       return list;
     }),
   );
@@ -251,7 +249,7 @@ export const makeGitAtoms = (runtime: Atom.AtomRuntime<Connection | ConnectionSt
         ...scopePayload(input),
         branch: input.branch,
       });
-      refreshScope(get.registry, input);
+      refreshProject(get.registry, input.projectId);
       return list;
     }),
   );
