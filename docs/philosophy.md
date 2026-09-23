@@ -95,13 +95,22 @@ config schema, its own binary discovery and probe, and a translation of whatever
 its harness emits into `RuntimeEvent`. Above that line — the orchestration
 engine, the projections, the transport, the renderer — no code names a harness.
 
-For the renderer this is enforced by grep.
-`scripts/check-boundaries.mjs` refuses the strings `command code` (spaced or
-not), the quoted literal `"cmd"` and `claude` anywhere under `apps/web/src`. It
-reads every file, not only sources, and it checks file names as well as
-contents — a connector name reads the same in a CSS class, an SVG title or a
-filename. The spaced spelling was added after "Command Code" walked through a
-one-word pattern and into the Skills tab's own description.
+This is enforced by grep. `scripts/check-boundaries.mjs` fails the gate when a
+non-test source under `apps/web`, `packages/client-runtime` or `apps/server`
+imports a connector package other than the SDK, or writes a quoted connector
+kind (`"cmd"`, `"claude"`, `"codex"`, `"opencode"`). Tests and the server's
+composition root, `boot.ts`, are the exceptions: they assemble the real
+connector on purpose. For the renderer it goes further and refuses the strings
+`command code` (spaced or not), the quoted literal `"cmd"`, and `claude`,
+`codex` and `opencode` as words anywhere under `apps/web/src`. It reads every
+file, not only sources, and it checks file names as well as contents — a
+connector name reads the same in a CSS class, an SVG title or a filename. The
+spaced spelling was added after "Command Code" walked through a one-word
+pattern and into the Skills tab's own description.
+
+The same script keeps the names of the products OpenAde was compared against
+out of the tree entirely — `apps/`, `packages/`, `scripts/` and the top-level
+docs. An idea borrowed from elsewhere is described in our own words.
 
 Capabilities are how the UI adapts without knowing. A connector declares
 `ConnectorCapabilities` — `modelSwitch`, `effortSwitch`, `steering`, `planMode`,
@@ -369,19 +378,22 @@ in [development.md](development.md#recordings-of-the-real-cli).
 
 ## 12. Deny by default, and keep files small enough to read
 
-`scripts/check-boundaries.mjs` holds an explicit allowlist per workspace — the
+`scripts/boundary-rules.mjs` holds an explicit allowlist per workspace — the
 table is in [architecture.md](architecture.md#boundaries). A workspace with no
 rule may import no workspace package at all, and a relative specifier that
 climbs out of its own directory is a violation whatever it lands on — packages
 are consumed through their `exports` map, so
 `../../../packages/testkit/src/receipts` is a boundary crossing wearing a path.
 
-`apps/server` additionally gets `testkit` and `client-runtime` in test files
-only, because it is bundled to `out/main.cjs` for packaging and an import from
-`src/main.ts` would ship a test framework. `apps/web` is deliberately not in that
-list.
+`apps/server` additionally gets `testkit`, `client-runtime` and `connector-cmd`
+in test files only, because it is bundled to `out/main.cjs` for packaging and an
+import from `src/main.ts` would ship a test framework. `connector-cmd` is also
+allowed in exactly one production file, the composition root `boot.ts`.
+`apps/web` is deliberately not in that list. The rules are pure functions, and
+`pnpm check:boundaries` runs their tests before `scripts/check-boundaries.mjs`
+walks the tree.
 
-The same script refuses barrel files anywhere under `packages/`: a package
+The walk also refuses barrel files anywhere under `packages/`: a package
 exports one entry per module through its `exports` map. Apps keep their route and
 entry-point `index` files.
 
@@ -436,6 +448,8 @@ on its own, is in [development.md](development.md#the-gate).
 | Contracts are the seam            | `packages/contracts/test/fixtures.test.ts`                                        |
 | Connector promises                | `packages/connector-sdk/src/conformance.ts`                                       |
 | Renderer neutrality               | `scripts/check-boundaries.mjs` (string and filename grep over `apps/web/src`)     |
+| No harness named above the SDK    | `scripts/check-boundaries.mjs` (connector imports and kind literals)              |
+| Reference products never named    | `scripts/check-boundaries.mjs` (encoded names over the whole tree)                |
 | Package boundaries, no barrels    | `scripts/check-boundaries.mjs`                                                    |
 | File sizes                        | `scripts/check-file-sizes.mjs`                                                    |
 | Migration lineage                 | `apps/server/src/persistence/migrations.test.ts`                                  |

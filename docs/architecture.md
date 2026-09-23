@@ -108,8 +108,10 @@ through their `exports` map, one entry per module; apps are unscoped.
 
 ## Boundaries
 
-`scripts/check-boundaries.mjs` enforces three rules over every workspace source
-file, and it is part of `pnpm check`.
+`scripts/check-boundaries.mjs` enforces five rules over the tree, and it is part
+of `pnpm check`. The rules are pure functions in `scripts/boundary-rules.mjs`,
+tested by `scripts/boundary-rules.test.mjs`, which `pnpm check:boundaries` runs
+before the walk.
 
 **1. Import allowlist.** A workspace may import itself and whatever the table
 says; anything else fails. A workspace with no rule may import no workspace
@@ -117,34 +119,47 @@ package at all. The rule applies however the import is spelled — `from`, bare
 `import`, dynamic `import()`, `require()`, and template literals with a static
 package segment.
 
-| Workspace                 | May import                                              |
-| ------------------------- | ------------------------------------------------------- |
-| `apps/web`                | `ui`, `contracts`, `client-runtime`, `shared`           |
-| `apps/desktop`            | `contracts`, `shared`                                   |
-| `apps/server`             | `contracts`, `connector-sdk`, `connector-cmd`, `shared` |
-| `packages/connector-sdk`  | `contracts`, `shared`                                   |
-| `packages/connector-*`    | `connector-sdk`, `contracts`, `shared`                  |
-| `packages/contracts`      | `shared`                                                |
-| `packages/client-runtime` | `contracts`, `shared`                                   |
-| `packages/testkit`        | `contracts`, `connector-sdk`, `shared`                  |
-| `packages/shared`         | nothing                                                 |
-| `packages/ui`             | nothing                                                 |
-| `packages/config`         | nothing                                                 |
+| Workspace                 | May import                                    |
+| ------------------------- | --------------------------------------------- |
+| `apps/web`                | `ui`, `contracts`, `client-runtime`, `shared` |
+| `apps/desktop`            | `contracts`, `shared`                         |
+| `apps/server`             | `contracts`, `connector-sdk`, `shared`        |
+| `packages/connector-sdk`  | `contracts`, `shared`                         |
+| `packages/connector-*`    | `connector-sdk`, `contracts`, `shared`        |
+| `packages/contracts`      | `shared`                                      |
+| `packages/client-runtime` | `contracts`, `shared`                         |
+| `packages/testkit`        | `contracts`, `connector-sdk`, `shared`        |
+| `packages/shared`         | nothing                                       |
+| `packages/ui`             | nothing                                       |
+| `packages/config`         | nothing                                       |
 
-Test files under `apps/server` get two extras: `testkit` and `client-runtime`.
-A file counts as a test when `.test.`/`.spec.` precedes its extension, or when
-any path segment is `test` — which is how the end-to-end harness under
-`apps/server/test/e2e/` qualifies. Keeping both out of the production list is
-what makes an accidental import in `apps/server/src/main.ts` fail: `apps/server` is bundled
-to a single file for packaging, and testkit must never ship.
+Test files under `apps/server` get three extras: `testkit`, `client-runtime`
+and `connector-cmd`. A file counts as a test when `.test.`/`.spec.` precedes its
+extension, or when any path segment is `test` — which is how the end-to-end
+harness under `apps/server/test/e2e/` qualifies. Keeping them out of the
+production list is what makes an accidental import in `apps/server/src/main.ts`
+fail: `apps/server` is bundled to a single file for packaging, and testkit must
+never ship. One production file has an extra of its own:
+`apps/server/src/boot.ts`, the composition root, may import `connector-cmd` to
+build the registry. Every other server file reaches a connector through the
+registry.
 
 A relative specifier that climbs out of its own workspace directory is a
 violation whatever it lands on. `../../../packages/testkit/src/receipts` is a
 boundary crossing wearing a path.
 
-**2. Renderer connector-neutrality.** The strings `command code` (spaced or
-not), the quoted literal `"cmd"` and `claude` must not appear anywhere under
-`apps/web/src` — in any file, whatever its extension, and in file names as well
+**2. Connector leaks.** Non-test sources under `apps/web`,
+`packages/client-runtime` and `apps/server` — `boot.ts` aside — import no
+`@OpenAde/connector-*` package other than `connector-sdk` and contain no quoted
+connector kind (`"cmd"`, `"claude"`, `"codex"`, `"opencode"`, any quote style).
+A connector kind travels as data, from the registry and `connectors.describe`;
+code that compares against one by name is branching on a harness. The one
+exemption is by exact path, with its reason beside it:
+`packages/client-runtime/src/keybindings.ts`, where `"cmd"` is the Command key.
+
+**3. Renderer connector-neutrality.** The strings `command code` (spaced or
+not), the quoted literal `"cmd"`, and `claude`, `codex` and `opencode` as words
+must not appear anywhere under `apps/web/src` — in any file, whatever its extension, and in file names as well
 as contents. One path is exempt, `apps/web/src/components/ui/icons`, so a
 connector's own logo can ship under its own name; nothing lives there today.
 The renderer renders whichever connector is configured; a connector's name in a
@@ -155,7 +170,13 @@ link as `ConnectorProbe.helpUrl`, rather than being written into a component.
 The contracts package names no connector either: there is no kind constant and
 no connector config schema in it.
 
-**3. No barrels.** An `index` module anywhere under `packages/` is refused —
+**4. Reference names.** The products OpenAde was compared against while it was
+built are not named anywhere in `apps/`, `packages/`, `scripts/` or the
+top-level `docs/*.md`, in file names or contents, in any case. Recorded
+fixtures, `node_modules`, build output and the local `docs/plans/` are skipped.
+The guard keeps the names base64-encoded so that it does not spell them.
+
+**5. No barrels.** An `index` module anywhere under `packages/` is refused —
 `.ts`, `.tsx`, `.js`, `.jsx` or `.mjs`: a package exports one entry per module
 through its `exports` map. Apps are exempt — the router's
 `apps/web/src/routes/settings/index.tsx` is a route, and the Electron entry

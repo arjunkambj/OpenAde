@@ -141,7 +141,7 @@ knip`, and it is what CI runs on Ubuntu and macOS. Each stage runs alone too:
 | format     | `pnpm fmt:check`        | oxfmt over the tree, the markdown in `docs/` included; `pnpm fmt` writes |
 | types      | `pnpm typecheck`        | `tsc --noEmit` per workspace; web also runs `vite build`                 |
 | tests      | `pnpm test`             | `turbo run test` → `vitest run` per workspace                            |
-| boundaries | `pnpm check:boundaries` | import allowlist, renderer neutrality, no barrel files                   |
+| boundaries | `pnpm check:boundaries` | import allowlist, connector leaks, neutrality, reference names, barrels  |
 | file sizes | `pnpm check:file-sizes` | 800 lines a file, 400 for a renderer component                           |
 | dead code  | `pnpm knip`             | unused files, exports and dependencies                                   |
 
@@ -149,26 +149,51 @@ knip`, and it is what CI runs on Ubuntu and macOS. Each stage runs alone too:
 
 ### Boundaries
 
-`scripts/check-boundaries.mjs` does three things in one pass over the workspace
-sources.
+`pnpm check:boundaries` first runs the rules' own tests
+(`scripts/boundary-rules.test.mjs`, with `scripts/vitest.config.mjs`), then
+`scripts/check-boundaries.mjs`, which does five things in one pass over the
+tree. The rules are pure functions in `scripts/boundary-rules.mjs`; the script
+only walks and reports.
 
 **Import allowlist.** Every import that names another workspace package is
-checked against a table in that file — the table is reproduced in
+checked against a table in `boundary-rules.mjs` — the table is reproduced in
 [architecture.md](architecture.md#boundaries). A relative specifier that climbs
 out of its own workspace directory is a violation whatever it lands on, because
 packages are consumed through their `exports` map.
 
 A workspace with no rule may import no workspace package at all; add the rule
-before the import. Test files in `apps/server` get two extras — `testkit` and
-`client-runtime` — which is what keeps an accidental import of either out of
-`src/main.ts`, since that file is bundled for packaging. A file counts as a
-test when it ends in `.test.`/`.spec.` or sits under a `test/` directory.
+before the import. Test files in `apps/server` get three extras — `testkit`,
+`client-runtime` and `connector-cmd` — which is what keeps an accidental import
+of any of them out of `src/main.ts`, since that file is bundled for packaging.
+One production file gets an extra of its own: `apps/server/src/boot.ts`, the
+composition root, may import `connector-cmd`. A file counts as a test when it
+ends in `.test.`/`.spec.` or sits under a `test/` directory.
+
+**Connector leaks.** Non-test sources under `apps/web`, `packages/client-runtime`
+and `apps/server` name no concrete connector: they import no `@OpenAde/connector-*`
+package other than `connector-sdk`, and contain no quoted connector kind —
+`"cmd"`, `"claude"`, `"codex"` or `"opencode"`, in any quote style. Tests and
+`apps/server/src/boot.ts` are exempt, because they assemble the real connector
+on purpose. One file is exempt from the kind rule by exact path,
+`packages/client-runtime/src/keybindings.ts`, where `"cmd"` is the Command key
+of a shortcut; the reason sits next to the path in `KIND_LITERAL_EXEMPT`. A
+harness config path such as `".claude"` or `".config/opencode"` is not a kind
+and passes.
 
 **Renderer neutrality.** Connector identity never reaches `apps/web/src`: the
-patterns `command code` (spaced or not), the literal `"cmd"` and `claude` are
-refused anywhere under it, in file names as well as contents. One path is
-exempt, `apps/web/src/components/ui/icons`, so a connector's own logo can be
-shipped under its own name; nothing lives there today.
+patterns `command code` (spaced or not), the literal `"cmd"`, and `claude`,
+`codex` and `opencode` as words are refused anywhere under it, in file names as
+well as contents. One path is exempt, `apps/web/src/components/ui/icons`, so a
+connector's own logo can be shipped under its own name; nothing lives there
+today.
+
+**Reference names.** The products OpenAde was compared against while it was
+built are never named — not in `apps/`, `packages/`, `scripts/` or the
+top-level `docs/*.md`, in file names or contents, in any case. `docs/plans/`
+(local, gitignored), `node_modules`, `dist`, `out` and the two recorded fixture
+roots are skipped. The guard holds the names base64-encoded so that it does not
+spell them itself, and its tests build their inputs from the same list. Describe
+an idea you took from elsewhere in our own words.
 
 **No barrels.** An `index` module anywhere under `packages/` is refused —
 `.ts`, `.tsx`, `.js`, `.jsx` or `.mjs`; each package exports one entry per

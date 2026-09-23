@@ -36,7 +36,7 @@ const SENSITIVE_SEGMENTS = new Set([
 ]);
 
 /** `.config/<name>` homes, matched as two consecutive segments. */
-const SENSITIVE_CONFIG_DIRS = new Set(["gh", "opencode"]);
+const SENSITIVE_CONFIG_HOMES = new Set([".config/gh", ".config/opencode"]);
 
 const normalize = (path: string): string =>
   path
@@ -65,9 +65,8 @@ export const isSensitivePath = (path: string): boolean => {
   }
   // `.config/gh` and `.config/opencode` are two-segment matches — gh's
   // hosts.yml holds tokens, the other is a harness config home.
-  return lowered.some(
-    (segment, index) =>
-      segment === ".config" && SENSITIVE_CONFIG_DIRS.has(lowered[index + 1] ?? ""),
+  return lowered.some((segment, index) =>
+    SENSITIVE_CONFIG_HOMES.has(`${segment}/${lowered[index + 1] ?? ""}`),
   );
 };
 

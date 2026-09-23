@@ -18,7 +18,7 @@
     "lint": "oxlint",
     "fmt": "oxfmt --write",
     "fmt:check": "oxfmt --check",
-    "check:boundaries": "node scripts/check-boundaries.mjs",
+    "check:boundaries": "vitest run --config scripts/vitest.config.mjs && node scripts/check-boundaries.mjs",
     "check:file-sizes": "node scripts/check-file-sizes.mjs",
     "knip": "knip",
     "check": "pnpm lint && pnpm fmt:check && pnpm typecheck && pnpm test && pnpm check:boundaries && pnpm check:file-sizes && pnpm knip"

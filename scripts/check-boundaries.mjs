@@ -2,23 +2,32 @@
 /**
  * Package boundary check.
  *
- * Two guardrails in one pass over the workspace sources:
+ * Five guardrails in one pass over the tree. The rules themselves are pure
+ * functions in `boundary-rules.mjs`, tested by `boundary-rules.test.mjs`; this
+ * file walks the tree, feeds them and reports.
  *
  *  1. Import boundaries. Every import that names another workspace package is
- *     checked against the allowlist below — the scoped `@OpenAde/*` packages
- *     and the three unscoped apps (`web`, `desktop`, `server`) alike. A package
- *     may always import itself; anything else has to be listed. A package with
- *     no rule may not import any workspace package. A relative specifier that
+ *     checked against the allowlist — the scoped `@OpenAde/*` packages and the
+ *     three unscoped apps (`web`, `desktop`, `server`) alike. A package may
+ *     always import itself; anything else has to be listed. A package with no
+ *     rule may not import any workspace package. A relative specifier that
  *     climbs out of its own workspace directory is a violation whatever it
  *     lands on: packages are consumed through their `exports` map, so
  *     `../../../packages/testkit/src/receipts` is a boundary crossing wearing a
  *     path.
- *  2. The renderer connector-neutrality grep. Connector identity never reaches
- *     `apps/web`: the strings `commandcode`, the quoted literal `"cmd"` and
- *     `claude` must not appear under `apps/web/src`, outside the icon set.
- *     Every file counts, not only the source ones — a connector name reads the
- *     same in a CSS class, an SVG title, a JSON label or a file name.
- *  3. No barrel files. A package exports one entry per module through its
+ *  2. Connector leaks. The renderer, the client runtime and the server name no
+ *     concrete connector: outside tests and the server's composition root
+ *     (`apps/server/src/boot.ts`) they import no connector package but the SDK
+ *     and write no quoted connector kind.
+ *  3. The renderer connector-neutrality grep. Connector identity never reaches
+ *     `apps/web/src`, outside the icon set: not a harness name, not the quoted
+ *     literal `"cmd"`. Every file counts, not only the source ones — a
+ *     connector name reads the same in a CSS class, an SVG title, a JSON label
+ *     or a file name.
+ *  4. Reference-product names. The products this one was compared against
+ *     are never named in `apps/`, `packages/`, `scripts/` or the top-level
+ *     `docs/*.md`, in file names or contents; recorded fixtures are skipped.
+ *  5. No barrel files. A package exports one entry per module through its
  *     `exports` map, so an `index.ts` anywhere under a
  *     `packages/` workspace is refused. Apps are not covered: the router's
  *     `routes/settings/index.tsx` is a route, not a barrel, and the Electron
@@ -31,76 +40,21 @@ import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
 import * as NodeURL from "node:url";
 
+import {
+  allowedImportsFor,
+  connectorLeaks,
+  importSpecifiers,
+  lineOf,
+  referenceNameApplies,
+  referenceNameLeaks,
+  rendererLeaks,
+} from "./boundary-rules.mjs";
+
 const ROOT = NodePath.resolve(NodeURL.fileURLToPath(new URL("..", import.meta.url)));
-
-/**
- * Workspace package short names each workspace directory may import.
- *
- * The renderer's rule is contracts, client-runtime and shared, plus `ui`:
- * the design system predates this app and apps/web renders through it. This
- * list is the enforced rule (docs/architecture.md, "Boundaries").
- */
-const IMPORT_ALLOWLIST = new Map([
-  ["apps/web", ["ui", "contracts", "client-runtime", "shared"]],
-  ["apps/desktop", ["contracts", "shared"]],
-  ["apps/server", ["contracts", "connector-sdk", "connector-cmd", "shared"]],
-  // W11: the public site is static — it may share the design system and the
-  // tiny utils but never contracts, the client runtime or server code.
-  ["apps/site", ["ui", "shared"]],
-  ["packages/connector-sdk", ["contracts", "shared"]],
-  ["packages/connector-*", ["connector-sdk", "contracts", "shared"]],
-  ["packages/contracts", ["shared"]],
-  ["packages/client-runtime", ["contracts", "shared"]],
-  ["packages/testkit", ["contracts", "connector-sdk", "shared"]],
-  ["packages/shared", []],
-  ["packages/ui", []],
-  ["packages/config", []],
-]);
-
-/**
- * What a workspace's *test* files may import on top of its own allowlist.
- *
- * `@OpenAde/testkit` is the fakes and the receipt helpers; the server drives
- * them from its tests and must never ship them, because apps/server is bundled
- * to `out/main.cjs` for packaging. `@OpenAde/client-runtime` joins in
- * tests for the transport suite, which exercises the real client against the
- * real server over a WebSocket. Keeping both out of the production list is
- * what makes an accidental import in `src/main.ts` fail the gate.
- */
-const TEST_ONLY_ALLOWLIST = new Map([["apps/server", ["testkit", "client-runtime"]]]);
-
-/**
- * A `*.test.ts` file, or anything under a workspace's `test/` directory.
- *
- * The second half is for suites too big to live in one file: the end-to-end
- * scenarios under `apps/server/test/e2e/` share a harness that dials the
- * server with the real client runtime, and a harness is not a `.test.ts`. The
- * directory is the statement of intent — nothing under it is bundled, because
- * `apps/server`'s esbuild entry is `src/main.ts` — so it carries the same
- * allowance the test files themselves do.
- */
-const isTestFile = (file) =>
-  /\.(?:test|spec)\.[cm]?[jt]sx?$/.test(file) || file.split("/").includes("test");
-
-/**
- * The exact patterns, and the one directory they do not apply to.
- *
- * `commandcode` matches the spaced spelling too. The one-word form was the
- * only thing the pattern caught, so "Command Code" walked straight through it
- * — and did, in the Skills page's own description, which named one connector
- * on a page that renders whichever connector is configured.
- */
-const RENDERER_FORBIDDEN = [
-  { name: "commandcode", pattern: /\bcommand\s*code\b/i },
-  { name: '"cmd"', pattern: /"cmd"/ },
-  { name: "claude", pattern: /\bclaude\b/i },
-];
-const RENDERER_ROOT = "apps/web/src";
-const RENDERER_EXCLUDED = ["apps/web/src/components/ui/icons"];
 
 const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"]);
 
-/** Files the neutrality grep reads by name only; their bytes are not text. */
+/** Files the greps read by name only; their bytes are not text. */
 const OPAQUE_EXTENSIONS = new Set([
   ".png",
   ".jpg",
@@ -128,22 +82,13 @@ const SKIPPED_DIRECTORIES = new Set([
   "dist",
   "build",
   "out",
+  "dist-ssr",
   "artifacts",
   ".turbo",
   ".git",
   ".vite",
   "coverage",
 ]);
-
-/**
- * Matches `from "x"`, bare `import "x"`, `import("x")` and `require("x")`.
- *
- * Backticks count: `import(\`@OpenAde/${name}/ids\`)` is still a boundary
- * crossing, and a template literal whose package segment is static is exactly
- * how one would be written to slip past a quote-only pattern.
- */
-const IMPORT_PATTERN =
-  /(?:\bfrom\s*|\bimport\s*|\brequire\s*\(\s*|\bimport\s*\(\s*)(?:["']([^"']+)["']|`([^`]+)`)/g;
 
 const listDirectories = (parent) => {
   const full = NodePath.join(ROOT, parent);
@@ -201,22 +146,6 @@ const walkAllFiles = (relativeDirectory) => {
   return files.sort();
 };
 
-const allowlistFor = (workspaceDirectory) => {
-  const exact = IMPORT_ALLOWLIST.get(workspaceDirectory);
-  if (exact !== undefined) {
-    return exact;
-  }
-  for (const [key, allowed] of IMPORT_ALLOWLIST) {
-    if (!key.endsWith("*")) {
-      continue;
-    }
-    if (workspaceDirectory.startsWith(key.slice(0, -1))) {
-      return allowed;
-    }
-  }
-  return undefined;
-};
-
 const WORKSPACE_DIRECTORIES = [...listDirectories("apps"), ...listDirectories("packages")].filter(
   (directory) => NodeFS.existsSync(NodePath.join(ROOT, directory, "package.json")),
 );
@@ -267,88 +196,100 @@ const classifySpecifier = (specifier, file, workspaceDirectory) => {
     : { kind: "workspace", packageName, target: shortNameOf(directory) };
 };
 
-const lineOf = (source, index) => source.slice(0, index).split("\n").length;
-
 const violations = [];
 
 const report = (file, line, message) => {
   violations.push(`${file}:${line}  ${message}`);
 };
 
+/** A file's text, or `null` when its bytes are not text. */
+const readText = (file) =>
+  OPAQUE_EXTENSIONS.has(NodePath.extname(file))
+    ? null
+    : NodeFS.readFileSync(NodePath.join(ROOT, file), "utf8");
+
+const reportAll = (file, leaks) => {
+  for (const { line, message } of leaks) {
+    report(file, line, message);
+  }
+};
+
 // ---------------------------------------------------------------- boundaries
 
 for (const workspaceDirectory of WORKSPACE_DIRECTORIES) {
   const ownName = shortNameOf(workspaceDirectory);
-  const allowed = allowlistFor(workspaceDirectory);
-
-  const testExtras = TEST_ONLY_ALLOWLIST.get(workspaceDirectory) ?? [];
 
   for (const file of walkSourceFiles(workspaceDirectory)) {
-    const allowedHere =
-      allowed !== undefined && isTestFile(file) ? [...allowed, ...testExtras] : allowed;
+    const allowedHere = allowedImportsFor(file, workspaceDirectory);
     const source = NodeFS.readFileSync(NodePath.join(ROOT, file), "utf8");
-    IMPORT_PATTERN.lastIndex = 0;
-    let match = IMPORT_PATTERN.exec(source);
-    while (match !== null) {
-      const specifier = match[1] ?? match[2];
+    for (const { specifier, index } of importSpecifiers(source)) {
       const resolution = classifySpecifier(specifier, file, workspaceDirectory);
-      if (resolution !== null) {
-        const line = lineOf(source, match.index);
-        if (resolution.kind === "escape") {
+      if (resolution === null) {
+        continue;
+      }
+      const line = lineOf(source, index);
+      if (resolution.kind === "escape") {
+        report(
+          file,
+          line,
+          resolution.landing === null
+            ? `${specifier} climbs out of ${workspaceDirectory}; a package only imports its own files by path`
+            : `${specifier} reaches into ${resolution.landing} by path; import ${shortNameOf(
+                resolution.landing,
+              )} by its package name so the boundary rule applies`,
+        );
+      } else if (resolution.target !== ownName) {
+        if (allowedHere === undefined) {
           report(
             file,
             line,
-            resolution.landing === null
-              ? `${specifier} climbs out of ${workspaceDirectory}; a package only imports its own files by path`
-              : `${specifier} reaches into ${resolution.landing} by path; import ${shortNameOf(
-                  resolution.landing,
-                )} by its package name so the boundary rule applies`,
+            `${workspaceDirectory} has no boundary rule; add one to scripts/boundary-rules.mjs before importing ${specifier}`,
           );
-        } else if (resolution.target !== ownName) {
-          if (allowedHere === undefined) {
-            report(
-              file,
-              line,
-              `${workspaceDirectory} has no boundary rule; add one to scripts/check-boundaries.mjs before importing ${specifier}`,
-            );
-          } else if (!allowedHere.includes(resolution.target)) {
-            report(
-              file,
-              line,
-              `${workspaceDirectory} may not import ${resolution.packageName} (allowed: ${
-                allowedHere.length === 0 ? "none" : allowedHere.join(", ")
-              })`,
-            );
-          }
+        } else if (!allowedHere.includes(resolution.target)) {
+          report(
+            file,
+            line,
+            `${file} may not import ${resolution.packageName} (allowed: ${
+              allowedHere.length === 0 ? "none" : allowedHere.join(", ")
+            })`,
+          );
         }
       }
-      match = IMPORT_PATTERN.exec(source);
     }
+  }
+}
+
+// ----------------------------------------------------------- connector leaks
+
+for (const root of ["apps/web", "packages/client-runtime", "apps/server"]) {
+  for (const file of walkSourceFiles(root)) {
+    reportAll(file, connectorLeaks(file, readText(file)));
   }
 }
 
 // ----------------------------------------------------- renderer neutrality
 
-for (const file of walkAllFiles(RENDERER_ROOT)) {
-  if (RENDERER_EXCLUDED.some((excluded) => file.startsWith(excluded))) {
-    continue;
+for (const file of walkAllFiles("apps/web/src")) {
+  reportAll(file, rendererLeaks(file, readText(file)));
+}
+
+// --------------------------------------------------------- reference names
+
+const topLevelDocs = NodeFS.existsSync(NodePath.join(ROOT, "docs"))
+  ? NodeFS.readdirSync(NodePath.join(ROOT, "docs"), { withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => `docs/${entry.name}`)
+  : [];
+
+for (const file of [
+  ...walkAllFiles("apps"),
+  ...walkAllFiles("packages"),
+  ...walkAllFiles("scripts"),
+  ...topLevelDocs,
+]) {
+  if (referenceNameApplies(file)) {
+    reportAll(file, referenceNameLeaks(file, readText(file)));
   }
-  for (const { name, pattern } of RENDERER_FORBIDDEN) {
-    if (pattern.test(NodePath.basename(file))) {
-      report(file, 1, `connector identity leaked into a renderer file name: ${name}`);
-    }
-  }
-  if (OPAQUE_EXTENSIONS.has(NodePath.extname(file))) {
-    continue;
-  }
-  const lines = NodeFS.readFileSync(NodePath.join(ROOT, file), "utf8").split("\n");
-  lines.forEach((text, index) => {
-    for (const { name, pattern } of RENDERER_FORBIDDEN) {
-      if (pattern.test(text)) {
-        report(file, index + 1, `connector identity leaked into the renderer: ${name}`);
-      }
-    }
-  });
 }
 
 // --------------------------------------------------------------- no barrels

@@ -10,6 +10,7 @@ export default defineConfig({
       "apps/desktop/vitest.config.ts",
       "apps/site/vitest.config.ts",
       "apps/web/vitest.config.ts",
+      "scripts/vitest.config.mjs",
     ],
   },
 });
