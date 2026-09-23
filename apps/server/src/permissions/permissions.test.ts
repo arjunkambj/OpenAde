@@ -99,6 +99,13 @@ describe("sensitive paths", () => {
     ".commandcode/settings.json",
     ".commandcode/settings.local.json",
     "project/.commandcode/settings.json",
+    ".claude/settings.local.json",
+    "/home/user/.claude/.credentials.json",
+    "project/.claude/settings.json",
+    ".codex/auth.json",
+    "/home/user/.codex/config.toml",
+    ".config/opencode/opencode.json",
+    "/home/user/.config/opencode/auth.json",
   ])("flags %s", (path) => {
     expect(isSensitivePath(path)).toBe(true);
   });
@@ -113,6 +120,11 @@ describe("sensitive paths", () => {
     ".gitignore",
     ".gitmodules",
     "config/settings.json",
+    // Near misses: only the exact directory names count.
+    "docs/claude.md",
+    "src/codex/index.ts",
+    ".config/opencode-notes.txt",
+    "opencode/config.json",
   ])("allows %s", (path) => {
     expect(isSensitivePath(path)).toBe(false);
   });
@@ -172,6 +184,14 @@ const rows: ReadonlyArray<Row> = [
   { kind: "file_write", input: write(".env"), mode: "auto-accept-edits", want: "prompt" },
   { kind: "file_write", input: write("keys/site.key"), mode: "full-access", want: "prompt" },
   { kind: "file_write", input: write(".env"), mode: "approval-required", want: "prompt" },
+  // A harness's own config home is sensitive whichever harness runs the thread.
+  {
+    kind: "file_write",
+    input: write(".claude/settings.local.json"),
+    mode: "full-access",
+    want: "prompt",
+  },
+  { kind: "command", input: shell("cat ~/.codex/auth.json"), mode: "full-access", want: "prompt" },
   // ... and a shell command that names one is no different from a read.
   { kind: "command", input: shell("cat ~/.ssh/id_rsa"), mode: "full-access", want: "prompt" },
   { kind: "command", input: shell("cp .env /tmp"), mode: "full-access", want: "prompt" },

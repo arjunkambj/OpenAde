@@ -1098,7 +1098,9 @@ tools. Without that last clause, `browser_open` on a `file:` URL followed by
 same path prompts. The list (`sensitivePaths.ts`) is about credentials
 specifically: `.env*`, `.netrc`, `.pgpass`, `credentials`, SSH key names,
 `.pem`/`.key`/`.p12`/`.pfx`, and anything under `.ssh`, `.aws`, `.gnupg`,
-`.git`, `.commandcode` or `.config/gh`.
+`.git`, `.config/gh`, or a harness config home — `.commandcode`, `.claude`,
+`.codex`, `.config/opencode` — since those hold auth tokens and the harness's
+own permission settings.
 
 **Pattern syntax** (`packages/shared/src/permissionPattern.ts`). The
 vocabulary is OpenAde's own, the same whichever harness runs the thread; each

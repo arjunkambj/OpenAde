@@ -20,7 +20,23 @@ const SENSITIVE_BASENAMES = new Set([
 
 const SENSITIVE_EXTENSIONS = [".pem", ".key", ".p12", ".pfx"];
 
-const SENSITIVE_SEGMENTS = new Set([".ssh", ".aws", ".gnupg", ".git", ".commandcode"]);
+/**
+ * Directories whose whole contents count. The harness config homes are here
+ * because they hold auth tokens and the harness's own permission settings — a
+ * tool call rewriting them could grant itself more than the user did.
+ */
+const SENSITIVE_SEGMENTS = new Set([
+  ".ssh",
+  ".aws",
+  ".gnupg",
+  ".git",
+  ".commandcode",
+  ".claude",
+  ".codex",
+]);
+
+/** `.config/<name>` homes, matched as two consecutive segments. */
+const SENSITIVE_CONFIG_DIRS = new Set(["gh", "opencode"]);
 
 const normalize = (path: string): string =>
   path
@@ -47,8 +63,12 @@ export const isSensitivePath = (path: string): boolean => {
   if (lowered.some((segment) => SENSITIVE_SEGMENTS.has(segment))) {
     return true;
   }
-  // `.config/gh` is a two-segment match — hosts.yml holds tokens.
-  return lowered.some((segment, index) => segment === ".config" && lowered[index + 1] === "gh");
+  // `.config/gh` and `.config/opencode` are two-segment matches — gh's
+  // hosts.yml holds tokens, the other is a harness config home.
+  return lowered.some(
+    (segment, index) =>
+      segment === ".config" && SENSITIVE_CONFIG_DIRS.has(lowered[index + 1] ?? ""),
+  );
 };
 
 /**
