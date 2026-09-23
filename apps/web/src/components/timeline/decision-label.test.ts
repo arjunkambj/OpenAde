@@ -1,4 +1,4 @@
-import type { ResolvedDecision } from "@OpenAde/contracts/orchestration";
+import { UNANSWERED_OUTCOME, type ResolvedDecision } from "@OpenAde/contracts/orchestration";
 import { describe, expect, it } from "vitest";
 
 import { decisionDenied, decisionLabel } from "./decision-label";
@@ -12,6 +12,17 @@ const decision = (over: Partial<ResolvedDecision>): ResolvedDecision => ({
 });
 
 describe("decisionLabel", () => {
+  it("says a card the runtime released was not answered, and not as a denial", () => {
+    const released = decision({ outcome: UNANSWERED_OUTCOME, subject: "npm test" });
+    expect(decisionLabel(released)).toBe("Not answered · npm test");
+    expect(decisionDenied(released)).toBe(false);
+    expect(
+      decisionLabel(
+        decision({ kind: "question", outcome: UNANSWERED_OUTCOME, subject: "Database" }),
+      ),
+    ).toBe("Not answered · Database");
+  });
+
   it("names a one-off approval by its subject", () => {
     expect(decisionLabel(decision({ outcome: "allow-once", subject: "npm test" }))).toBe(
       "Allowed once · npm test",

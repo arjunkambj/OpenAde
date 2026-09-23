@@ -13,6 +13,7 @@ import type {
   ThreadStreamItem,
   ThreadSummary,
 } from "@OpenAde/contracts/orchestration";
+import { UNANSWERED_OUTCOME } from "@OpenAde/contracts/orchestration";
 import { approvalSubject, planSubject, questionSubject } from "@OpenAde/shared/decisionSubject";
 
 /** A restore git refused, kept until the next restore is ordered. */
@@ -77,6 +78,14 @@ const settledStatus = (doc: ThreadDetailView) =>
  */
 const recorded = (doc: ThreadDetailView, kind: ResolvedDecision["kind"], id: unknown): boolean =>
   (doc.decisions ?? []).some((decision) => decision.kind === kind && decision.id === id);
+
+/**
+ * The outcome to record, matching the server's fold: a resolve the connector
+ * sends for a request not already recorded is the runtime releasing it as the
+ * process exits, not a choice the user made.
+ */
+const outcomeOf = (event: OrchestrationEvent, chosen: string): string =>
+  event.actor === "connector" ? UNANSWERED_OUTCOME : chosen;
 
 /**
  * The server's decision record, appended between snapshots. The snapshot
@@ -281,7 +290,7 @@ export const applyThreadEvent = (
       const decisions = withDecision(doc, event, {
         kind: "approval",
         id: payload.requestId as string,
-        outcome: payload.decision as string,
+        outcome: outcomeOf(event, payload.decision as string),
         subject:
           open && doc.pendingApproval !== null ? approvalSubject(doc.pendingApproval) : undefined,
         pattern: payload.pattern as string | undefined,
@@ -314,7 +323,7 @@ export const applyThreadEvent = (
       const decisions = withDecision(doc, event, {
         kind: "question",
         id: payload.requestId as string,
-        outcome: "answered",
+        outcome: outcomeOf(event, "answered"),
         subject:
           open && doc.pendingUserInput !== null
             ? questionSubject(doc.pendingUserInput.questions)

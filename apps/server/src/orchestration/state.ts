@@ -25,6 +25,7 @@ import type {
   TurnUsage,
   ContextWindowUsage,
 } from "@OpenAde/contracts/orchestration";
+import { UNANSWERED_OUTCOME } from "@OpenAde/contracts/orchestration";
 import type { ProjectId, RequestId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
 import type { ApprovalRequest, ItemSnapshot, UserQuestion } from "@OpenAde/contracts/runtime";
 import { approvalSubject, planSubject, questionSubject } from "@OpenAde/shared/decisionSubject";
@@ -138,7 +139,16 @@ const decisionsOf = (doc: ThreadDoc): ReadonlyArray<ResolvedDecision> =>
   (doc.decisions as ReadonlyArray<ResolvedDecision> | undefined) ?? [];
 
 /**
- * Appends one answered decision. `afterItemId` is the thread's last item as
+ * The outcome to record for a resolve event that finds its request still
+ * open. The decider writes every user answer, so the connector reaching an
+ * open request first means the runtime released it — the process exited with
+ * the card up — and the user chose nothing.
+ */
+const outcomeOf = (event: OrchestrationEvent, chosen: string): string =>
+  event.actor === "connector" ? UNANSWERED_OUTCOME : chosen;
+
+/**
+ * Appends one settled decision. `afterItemId` is the thread's last item as
  * the answer lands, which is where the timeline places the record.
  *
  * Callers record only an answer to something still open: the connector
@@ -393,7 +403,7 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
             : withDecision(doc, event, {
                 kind: "approval",
                 id: requestId,
-                outcome: payload.decision as string,
+                outcome: outcomeOf(event, payload.decision as string),
                 subject: approvalSubject(request),
                 pattern: payload.pattern as string | undefined,
               }),
@@ -425,7 +435,7 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
             : withDecision(doc, event, {
                 kind: "question",
                 id: requestId,
-                outcome: "answered",
+                outcome: outcomeOf(event, "answered"),
                 subject: questionSubject(asked.questions),
               }),
         status: doc.currentTurn === null ? waitingOr({ ...doc, userInputs }, "idle") : "running",

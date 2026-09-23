@@ -672,14 +672,23 @@ export const DecisionKind = Schema.Literals(["approval", "question", "plan"]);
 export type DecisionKind = typeof DecisionKind.Type;
 
 /**
- * One answered approval, question or plan, as the timeline records it after
+ * One settled approval, question or plan, as the timeline records it after
  * the card is gone. `id` is the request id, or the turn id for a plan;
- * `outcome` is the `ApprovalDecision` or `PlanResponseAction` chosen, or
- * `"answered"` for a question. `subject` is a one-line reminder of what was
+ * `outcome` is the `ApprovalDecision` or `PlanResponseAction` chosen,
+ * `"answered"` for a question, or `UNANSWERED_OUTCOME` when the runtime
+ * settled the request without the user. `subject` is a one-line reminder of what was
  * asked — the approval's target (else its tool), the first question's header
  * (else its text), the plan file's name. `afterItemId` is the last timeline
  * item when the answer landed, so a client can place the record in order.
  */
+/**
+ * The outcome of an approval or question the runtime settled on its own: the
+ * harness process exited (Stop, a crash, an archive) while the card was still
+ * open, and the connector released the parked request so the hook could
+ * reply. The user never chose, so the record must not say they did.
+ */
+export const UNANSWERED_OUTCOME = "unanswered";
+
 export const ResolvedDecision = Schema.Struct({
   kind: DecisionKind,
   id: NonEmptyString,

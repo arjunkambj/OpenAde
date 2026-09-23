@@ -3,10 +3,13 @@
  * "Allowed once · npm test", "Allowed for session · Shell(npm run *)",
  * "Answered · Which database?", "Plan accepted". A rule-writing approval names
  * the rule it saved rather than the one request, since the rule is what keeps
- * applying; a plan's record needs no subject, the plan sits just above it.
+ * applying; a plan's record needs no subject, the plan sits just above it. A
+ * card the runtime released as its process exited reads "Not answered · …",
+ * muted: the request was refused, but the user chose nothing.
  */
 
 import type { ResolvedDecision } from "@OpenAde/contracts/orchestration";
+import { UNANSWERED_OUTCOME } from "@OpenAde/contracts/orchestration";
 
 const APPROVAL_LABEL: Readonly<Record<string, string>> = {
   "allow-once": "Allowed once",
@@ -31,6 +34,9 @@ const withTarget = (lead: string, target: string | undefined): string =>
   target === undefined || target.length === 0 ? lead : `${lead} · ${target}`;
 
 export const decisionLabel = (decision: ResolvedDecision): string => {
+  if (decision.outcome === UNANSWERED_OUTCOME && decision.kind !== "plan") {
+    return withTarget("Not answered", decision.subject);
+  }
   switch (decision.kind) {
     case "approval": {
       const lead = APPROVAL_LABEL[decision.outcome] ?? fallbackLabel(decision.outcome);

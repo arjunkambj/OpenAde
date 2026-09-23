@@ -228,7 +228,9 @@ export const makeFixtureClient = (): FixtureClient => {
       streamId: threadId,
       streamVersion: ++streamVersion,
       occurredAt: new Date().toISOString(),
-      actor: "connector" as const,
+      // As on the server: the decider's events answer a command and carry
+      // the user as actor; everything else arrives from the connector.
+      actor: commandId === undefined ? ("connector" as const) : ("user" as const),
       ...(commandId === undefined ? {} : { commandId }),
       type,
       payload,
@@ -310,11 +312,15 @@ export const makeFixtureClient = (): FixtureClient => {
           ? { events: () => {}, reason: "no matching approval request" }
           : {
               events: () =>
-                next("thread.approval.resolved", {
-                  requestId: command.requestId,
-                  decision: command.decision,
-                  ...(command.pattern === undefined ? {} : { pattern: command.pattern }),
-                }),
+                next(
+                  "thread.approval.resolved",
+                  {
+                    requestId: command.requestId,
+                    decision: command.decision,
+                    ...(command.pattern === undefined ? {} : { pattern: command.pattern }),
+                  },
+                  command.commandId,
+                ),
             };
       }
       case "thread.userInput.respond": {
@@ -323,10 +329,14 @@ export const makeFixtureClient = (): FixtureClient => {
           ? { events: () => {}, reason: "no matching question request" }
           : {
               events: () =>
-                next("thread.userInput.resolved", {
-                  requestId: command.requestId,
-                  answers: command.answers,
-                }),
+                next(
+                  "thread.userInput.resolved",
+                  {
+                    requestId: command.requestId,
+                    answers: command.answers,
+                  },
+                  command.commandId,
+                ),
             };
       }
       case "thread.plan.respond": {
@@ -335,11 +345,15 @@ export const makeFixtureClient = (): FixtureClient => {
           ? { events: () => {}, reason: "no pending plan" }
           : {
               events: () =>
-                next("thread.plan.responded", {
-                  turnId: command.turnId,
-                  action: command.action,
-                  ...(command.feedback === undefined ? {} : { feedback: command.feedback }),
-                }),
+                next(
+                  "thread.plan.responded",
+                  {
+                    turnId: command.turnId,
+                    action: command.action,
+                    ...(command.feedback === undefined ? {} : { feedback: command.feedback }),
+                  },
+                  command.commandId,
+                ),
             };
       }
       case "thread.queue.remove": {

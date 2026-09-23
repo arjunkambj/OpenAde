@@ -605,8 +605,9 @@ turns the flat item list into rows:
 - each answered approval, question and plan in the snapshot's `decisions` (§5)
   becomes a one-line `decision` row — "Allowed once · npm test", "Allowed for
   session · Shell(npm run \*)", "Denied · …" in the destructive colour,
-  "Answered · <question>", "Plan accepted", "Plan accepted with auto-edits",
-  "Revision requested" — placed right after the row holding its `afterItemId`
+  "Answered · <question>", "Not answered · …" for a card the runtime released,
+  "Plan accepted", "Plan accepted with auto-edits", "Revision requested" —
+  placed right after the row holding its `afterItemId`
   (after the task, for a task child's item). In a settled segment the record
   is not folded: it ends the work run, so the work group splits around it. A
   record whose anchor is missing or unknown goes at the end, before the
@@ -752,7 +753,12 @@ decision, the pattern it kept, a one-line subject — the input's `command`,
 `path`, `file_path`, `filePath`, `url` or `query`, first line only, else the
 tool's name — the time, and `afterItemId`, the last timeline item as the answer
 landed. The connector echoes each answer back as `request.resolved`; only the
-first, which still finds the request open, is recorded. The subject comes from
+first, which still finds the request open, is recorded. When the harness
+process exits with a card still up — Stop, a crash, an archive — the connector
+releases each parked request itself (`deny` for an approval, no answers for a
+question), and that event is the first to reach it. The fold tells it apart by
+its `connector` actor and records the outcome `unanswered` instead of the
+refusal, so the timeline never claims the user chose. The subject comes from
 `packages/shared/src/decisionSubject.ts`, so the client's fold, which appends
 the same record between snapshots, writes the same words.
 
@@ -863,7 +869,8 @@ channel, so the tool call takes the hook road for a different purpose
 The answer is recorded in the thread's `decisions` (§5) as `question`,
 `answered`, with the first question's header — else its text — as the subject.
 Once the card closes, that record is what the timeline keeps of it: one line,
-"Answered · <question>", where the exchange happened.
+"Answered · <question>", where the exchange happened. A question the process
+exit released reads "Not answered · <question>" instead (§5).
 
 ---
 

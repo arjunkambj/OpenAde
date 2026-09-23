@@ -17,7 +17,11 @@ import {
   makeThreadId,
   makeTurnId,
 } from "@OpenAde/contracts/ids";
-import type { CheckpointSummary, OrchestrationEvent } from "@OpenAde/contracts/orchestration";
+import {
+  UNANSWERED_OUTCOME,
+  type CheckpointSummary,
+  type OrchestrationEvent,
+} from "@OpenAde/contracts/orchestration";
 
 import {
   foldThread,
@@ -51,6 +55,12 @@ const event = <Type extends OrchestrationEvent["type"]>(
     payload,
   } as OrchestrationEvent;
 };
+
+/** The same event as the runtime ingestion writes it: from the connector. */
+const fromConnector = (planned: OrchestrationEvent): OrchestrationEvent => ({
+  ...planned,
+  actor: "connector",
+});
 
 const created = () =>
   event("thread.created", {
@@ -502,19 +512,61 @@ describe("the decision record", () => {
       }),
       event("thread.approval.resolved", { requestId, decision: "deny" }),
       // The connector's own `request.resolved`, arriving after the decider's.
-      event("thread.approval.resolved", { requestId, decision: "deny" }),
+      fromConnector(event("thread.approval.resolved", { requestId, decision: "deny" })),
       event("thread.userInput.requested", {
         requestId: questionId,
         questions: [{ questionId: "q", question: "Which port?", options: [] }],
       }),
-      event("thread.userInput.resolved", { requestId: questionId, answers: [] }),
-      event("thread.userInput.resolved", { requestId: questionId, answers: [] }),
+      event("thread.userInput.resolved", {
+        requestId: questionId,
+        answers: [{ questionId: "q", optionIds: [], text: "8080" }],
+      }),
+      fromConnector(event("thread.userInput.resolved", { requestId: questionId, answers: [] })),
     ]);
 
-    expect(doc?.decisions.map((decision) => [decision.kind, decision.id])).toEqual([
-      ["approval", requestId],
-      ["question", questionId],
+    expect(
+      doc?.decisions.map((decision) => [decision.kind, decision.id, decision.outcome]),
+    ).toEqual([
+      ["approval", requestId, "deny"],
+      ["question", questionId, "answered"],
     ]);
+  });
+
+  it("records a card the runtime released on exit as not answered", () => {
+    const requestId = makeRequestId();
+    const questionId = makeRequestId();
+    const turnId = makeTurnId();
+    const doc = foldThread([
+      created(),
+      turnRequested(turnId),
+      event("thread.approval.opened", {
+        request: {
+          requestId,
+          kind: "command",
+          toolName: "shell_command",
+          input: { command: "npm test" },
+          description: "Run npm test",
+        },
+      }),
+      event("thread.userInput.requested", {
+        requestId: questionId,
+        questions: [{ questionId: "q", header: "Database", question: "Which one?", options: [] }],
+      }),
+      // Stop kills the process; the connector releases both parked requests
+      // before anyone answered them.
+      event("thread.turn.interrupted", { turnId }),
+      fromConnector(event("thread.approval.resolved", { requestId, decision: "deny" })),
+      fromConnector(event("thread.userInput.resolved", { requestId: questionId, answers: [] })),
+    ]);
+
+    expect(
+      doc?.decisions.map((decision) => [decision.kind, decision.outcome, decision.subject]),
+    ).toEqual([
+      ["approval", UNANSWERED_OUTCOME, "npm test"],
+      ["question", UNANSWERED_OUTCOME, "Database"],
+    ]);
+    expect(doc?.approvals).toEqual([]);
+    expect(doc?.userInputs).toEqual([]);
   });
 
   it("serves a document projected before decisions were kept", () => {

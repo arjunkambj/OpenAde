@@ -13,10 +13,11 @@ import {
   makeThreadId,
   makeTurnId,
 } from "@OpenAde/contracts/ids";
-import type {
-  OrchestrationEvent,
-  ThreadDetailSnapshot,
-  ThreadSummary,
+import {
+  UNANSWERED_OUTCOME,
+  type OrchestrationEvent,
+  type ThreadDetailSnapshot,
+  type ThreadSummary,
 } from "@OpenAde/contracts/orchestration";
 
 import { applyThreadEvent, applyThreadListItem, applyThreadStreamItem } from "./clientState";
@@ -64,6 +65,9 @@ const event = (
     actor: "connector",
     payload,
   }) as OrchestrationEvent;
+
+/** The same event as the decider writes it, answering the user's command. */
+const byUser = (planned: OrchestrationEvent): OrchestrationEvent => ({ ...planned, actor: "user" });
 
 describe("clientState fold", () => {
   it("keeps pendingPlan across turn completion until plan.responded", () => {
@@ -485,7 +489,7 @@ describe("clientState fold", () => {
     );
     doc = applyThreadEvent(
       doc,
-      event("thread.approval.resolved", { requestId: approvalId, decision: "allow-once" }),
+      byUser(event("thread.approval.resolved", { requestId: approvalId, decision: "allow-once" })),
     );
     doc = applyThreadEvent(
       doc,
@@ -496,13 +500,21 @@ describe("clientState fold", () => {
     );
     doc = applyThreadEvent(
       doc,
-      event("thread.userInput.resolved", { requestId: questionId, answers: [] }),
+      byUser(
+        event("thread.userInput.resolved", {
+          requestId: questionId,
+          answers: [{ questionId: "q", optionIds: [], text: "8080" }],
+        }),
+      ),
     );
     doc = applyThreadEvent(
       doc,
       event("thread.plan.proposed", { turnId, planMarkdown: "# plan", planPath: "plans/a.md" }),
     );
-    doc = applyThreadEvent(doc, event("thread.plan.responded", { turnId, action: "revise" }));
+    doc = applyThreadEvent(
+      doc,
+      byUser(event("thread.plan.responded", { turnId, action: "revise" })),
+    );
 
     expect(doc.decisions).toEqual([
       {
@@ -551,11 +563,13 @@ describe("clientState fold", () => {
     );
     doc = applyThreadEvent(
       doc,
-      event("thread.approval.resolved", {
-        requestId: hidden,
-        decision: "allow-always",
-        pattern: "Shell(ls)",
-      }),
+      byUser(
+        event("thread.approval.resolved", {
+          requestId: hidden,
+          decision: "allow-always",
+          pattern: "Shell(ls)",
+        }),
+      ),
     );
 
     // The connector's echo of the same answer adds nothing.
@@ -573,6 +587,36 @@ describe("clientState fold", () => {
         pattern: "Shell(ls)",
         resolvedAt: "2026-01-01T00:00:00.000Z",
       },
+    ]);
+  });
+
+  it("records a card the runtime released on exit as not answered", () => {
+    // Stop kills the process with a question up; the connector releases the
+    // parked request with no answers before anyone chose.
+    const shown = makeRequestId();
+    const hidden = makeRequestId();
+    let doc = applyThreadEvent(
+      snapshot(),
+      event("thread.userInput.requested", {
+        requestId: shown,
+        questions: [{ questionId: "q", header: "Database", question: "Which one?", options: [] }],
+      }),
+    );
+    doc = applyThreadEvent(
+      doc,
+      event("thread.approval.resolved", { requestId: hidden, decision: "deny" }),
+    );
+    doc = applyThreadEvent(
+      doc,
+      event("thread.userInput.resolved", { requestId: shown, answers: [] }),
+    );
+
+    expect(doc.pendingUserInput).toBeNull();
+    expect(
+      doc.decisions?.map((decision) => [decision.kind, decision.outcome, decision.subject]),
+    ).toEqual([
+      ["approval", UNANSWERED_OUTCOME, undefined],
+      ["question", UNANSWERED_OUTCOME, "Database"],
     ]);
   });
 });

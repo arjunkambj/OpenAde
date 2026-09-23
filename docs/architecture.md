@@ -506,9 +506,10 @@ and a rebuild is a pure fold. `ThreadDoc`
 plus the bookkeeping the decider needs and the wire never sees: the full open
 approval set, pending user inputs, the list preview, the `deleted` flag.
 
-`decisions` is on the wire: one `ResolvedDecision` per answered approval,
+`decisions` is on the wire: one `ResolvedDecision` per settled approval,
 question or plan, oldest first — its kind, the request id (the turn id for a
-plan), the outcome, a one-line subject, the pattern an approval kept, when it
+plan), the outcome (`unanswered` when the runtime released the request as its
+process exited, before the user chose), a one-line subject, the pattern an approval kept, when it
 landed and `afterItemId`, the thread's last item at that moment. The event
 payloads carry nothing new; the fold reads the subject off the open request
 before it clears it. The field is optional on `ThreadDetailSnapshot`, so a
