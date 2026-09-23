@@ -717,10 +717,17 @@ returns `prompt`. It never reads as allow.
 ### The card and the rules it writes
 
 `apps/web/src/components/approvals/approval-card.tsx` renders the request and
-offers four answers. Keys while it is up: `1` allow once, `2` allow for
-session, `3` always allow, `d` or `Escape` deny. The card listens in **capture**
-phase and stops propagation, so its `Escape` beats the global `thread.interrupt`
-binding (§11) while a card is open — denying the call, not stopping the turn.
+offers four answers. It is docked directly above the composer input by
+`apps/web/src/components/composer/pending-card.tsx`, which shows one card at a
+time — an approval, then a question, then a plan — across the composer's width,
+never in the timeline. Keys while it is up: `1` allow once, `2` allow for
+session, `3` always allow, `d` or `Escape` deny; a muted line under the card
+names them. The card listens in **capture** phase, so its `Escape` beats the
+global `thread.interrupt` binding (§11) while a card is open — denying the
+call, not stopping the turn. It claims a key only when nothing nearer wants it
+(`approvals/card-keys.ts`): no modifier, focus outside a text field, and no
+dialog, popover or menu on screen; a claimed key is marked with
+`preventDefault`, and nothing stops propagation.
 
 `allow-session` and `allow-always` carry a `pattern` — the `patternSuggestion`
 the connector proposed, editable in the card before it is accepted
