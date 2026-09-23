@@ -17,7 +17,7 @@ import * as Schema from "effect/Schema";
 
 import { IsoDateTime, NonEmptyString, NonNegativeInt } from "./base";
 import { DecisionKind, ResolvedDecision } from "./decisions";
-import { ApprovalDecision, Effort, InteractionMode, RuntimeMode } from "./enums";
+import { ApprovalDecision } from "./enums";
 import {
   CheckpointId,
   CommandId,
@@ -39,8 +39,18 @@ import {
   UserQuestion,
   UserQuestionAnswer,
 } from "./runtime";
-
-// ── Shared value objects ───────────────────────────────────────
+import {
+  CheckpointSummary,
+  ContextWindowUsage,
+  Mention,
+  PlanResponseAction,
+  QueuedMessage,
+  ThreadSession,
+  ThreadSettings,
+  ThreadSettingsPatch,
+  ThreadStatus,
+  TurnUsage,
+} from "./thread";
 
 /**
  * A file the user attached to a turn. Defined beside the runtime events
@@ -49,120 +59,21 @@ import {
  */
 export { Attachment } from "./runtime";
 
-/** An `@`-mention from the composer: a workspace-relative path. */
-export const Mention = NonEmptyString;
-export type Mention = typeof Mention.Type;
-
-/**
- * The per-thread controls the header exposes.
- *
- * `connectorInstanceId` is the harness the user picked for this thread. It is
- * optional because every event written before threads could choose one lacks
- * it, and because a thread may leave the choice to routing: absent means "the
- * default rule" — the first enabled connector that is open.
- */
-export const ThreadSettings = Schema.Struct({
-  model: NonEmptyString,
-  effort: Schema.optional(Effort),
-  runtimeMode: RuntimeMode,
-  interactionMode: InteractionMode,
-  connectorInstanceId: Schema.optional(ConnectorInstanceId),
-});
-export type ThreadSettings = typeof ThreadSettings.Type;
-
-/** A partial update of `ThreadSettings`; absent fields are left alone. */
-export const ThreadSettingsPatch = Schema.Struct({
-  model: Schema.optional(NonEmptyString),
-  effort: Schema.optional(Effort),
-  runtimeMode: Schema.optional(RuntimeMode),
-  interactionMode: Schema.optional(InteractionMode),
-  connectorInstanceId: Schema.optional(ConnectorInstanceId),
-});
-export type ThreadSettingsPatch = typeof ThreadSettingsPatch.Type;
-
-/**
- * Whether a thread is past the point where it may change connector instance:
- * it has a bound session, a running turn, or any message of the user's. A
- * harness's session cannot be carried to another harness, so from then on the
- * way to use a different connector is a new thread. The decider and the
- * renderer both ask this, so the picker is never enabled for a switch the
- * server would refuse.
- */
-export const threadLocksConnector = (thread: {
-  readonly session: unknown;
-  readonly items: ReadonlyArray<{ readonly kind: string }>;
-  readonly currentTurnId?: unknown;
-  readonly currentTurn?: unknown;
-}): boolean =>
-  thread.session != null ||
-  thread.currentTurnId != null ||
-  thread.currentTurn != null ||
-  thread.items.some((item) => item.kind === "user_message");
-
-/** What the user typed while a turn was still running. */
-export const QueuedMessage = Schema.Struct({
-  queuedMessageId: ItemId,
-  text: Schema.String,
-  attachments: Schema.Array(Attachment),
-  mentions: Schema.Array(Mention),
-  queuedAt: IsoDateTime,
-});
-export type QueuedMessage = typeof QueuedMessage.Type;
-
-/** Token accounting for one turn. */
-export const TurnUsage = Schema.Struct({
-  input: NonNegativeInt,
-  output: NonNegativeInt,
-  cacheRead: NonNegativeInt,
-  cacheWrite: NonNegativeInt,
-  costUsd: Schema.optional(Schema.Number),
-});
-export type TurnUsage = typeof TurnUsage.Type;
-
-/** How much of the model's context window the thread is using. */
-export const ContextWindowUsage = Schema.Struct({
-  used: NonNegativeInt,
-  limit: NonNegativeInt,
-});
-export type ContextWindowUsage = typeof ContextWindowUsage.Type;
-
-/** One per-turn worktree snapshot, stored as a hidden git ref. */
-export const CheckpointSummary = Schema.Struct({
-  checkpointId: CheckpointId,
-  turnId: TurnId,
-  ref: NonEmptyString,
-  createdAt: IsoDateTime,
-});
-export type CheckpointSummary = typeof CheckpointSummary.Type;
-
-/** The connector session a thread is currently bound to, if any. */
-export const ThreadSession = Schema.Struct({
-  connectorInstanceId: ConnectorInstanceId,
-  connectorKind: ConnectorKind,
-  sessionRef: Schema.Unknown,
-});
-export type ThreadSession = typeof ThreadSession.Type;
-
-/**
- * What the sidebar pill shows. `deleted` is produced by the client fold when a
- * `thread.deleted` event arrives for a thread that is open — the server never
- * sends it, because a deleted thread leaves the read model entirely. It exists
- * so an open timeline can say the thread is gone instead of quietly claiming
- * it was archived.
- */
-export const ThreadStatus = Schema.Literals([
-  "idle",
-  "running",
-  "waiting",
-  "error",
-  "archived",
-  "deleted",
-]);
-export type ThreadStatus = typeof ThreadStatus.Type;
-
-/** What the user chose on a proposed plan. */
-export const PlanResponseAction = Schema.Literals(["accept", "accept-auto", "revise"]);
-export type PlanResponseAction = typeof PlanResponseAction.Type;
+// The value objects live in `./thread`; this module is still where they are
+// imported from.
+export {
+  CheckpointSummary,
+  ContextWindowUsage,
+  Mention,
+  PlanResponseAction,
+  QueuedMessage,
+  ThreadSession,
+  ThreadSettings,
+  ThreadSettingsPatch,
+  ThreadStatus,
+  threadLocksConnector,
+  TurnUsage,
+} from "./thread";
 
 // ── Commands ───────────────────────────────────────────────────
 
