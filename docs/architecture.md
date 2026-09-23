@@ -301,9 +301,9 @@ Public seam: none; it is a leaf. May import `ui`, `contracts`,
 The whole backend, assembled in one composition root.
 
 `apps/server/src/boot.ts` builds the layer graph and starts it in the calling scope:
-closing that scope shuts down the server, the database and every open connector
-instance. It returns once the handshake is written, which is the moment the
-first client may connect. Two things about it are load-bearing:
+closing that scope shuts down the server, the database, every open connector
+instance and every terminal's shell. It returns once the handshake is written,
+which is the moment the first client may connect. Two things about it are load-bearing:
 
 - **One `Layer.build` for the whole graph.** `Layer.build` memoizes per call, so
   a layer handed to two builds is constructed twice. `OrchestrationEngine` and
@@ -330,6 +330,7 @@ Directories, relative to `apps/server/`:
 | `src/hooks/`         | the PreToolUse bridge                                                                                            |
 | `src/mcp/`           | the MCP gateway and its HTTP routes                                                                              |
 | `src/browser/`       | browser service, agent-browser CLI, driver, tool catalogue                                                       |
+| `src/terminal/`      | terminal service and sessions, pty seam, shell and env, scrollback, batcher                                      |
 | `src/git/`           | status/diff, branches, commit/push, gh pull requests, worktrees and their setup script, file search, checkpoints |
 | `src/fs/`            | `fs.browse`                                                                                                      |
 | `src/settings/`      | settings store users, connector manager and host, connector extension routing                                    |

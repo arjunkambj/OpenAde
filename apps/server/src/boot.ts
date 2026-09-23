@@ -3,14 +3,15 @@
  *
  * Everything the running app is made of is assembled here — SQLite persistence,
  * the orchestration engine, session drivers, reactors and supervisor, the
- * connector registry and its manager, the browser + MCP gateway, the RPC
- * handlers and the HTTP+WebSocket server — so that `main.ts` is only argument
- * parsing and a runtime call, and a test can build the very same graph.
+ * connector registry and its manager, the browser + MCP gateway, the
+ * integrated terminal's shells, the RPC handlers and the HTTP+WebSocket
+ * server — so that `main.ts` is only argument parsing and a runtime call, and
+ * a test can build the very same graph.
  *
  * `boot` is scoped: closing the scope it was run in shuts the server, the
- * database and every open connector instance down. It returns once the
- * handshake has been emitted, which is also the moment the first client may
- * connect.
+ * database, every open connector instance and every terminal's shell down.
+ * It returns once the handshake has been emitted, which is also the moment the
+ * first client may connect.
  */
 
 import { createServer } from "node:http";
@@ -54,8 +55,9 @@ import { layer as gitServiceLayer } from "./git/Git";
 import { GhRunner } from "./git/GitHubCli";
 import { WorktreesRoot } from "./git/Worktrees";
 import { writeHandshake } from "./rpc/bootstrap";
+import { layer as terminalServiceLayer } from "./terminal/TerminalService";
 import { serverLayer, ServerToken } from "./rpc/server";
-import { ServerIdentity, SettingsStore, TerminalService } from "./rpc/services";
+import { ServerIdentity, SettingsStore } from "./rpc/services";
 import { layer as connectorExtensionsLayer } from "./settings/ConnectorExtensions";
 import { ConnectorHost } from "./settings/ConnectorHost";
 import { ConnectorManager, ConnectorRegistryService } from "./settings/ConnectorManager";
@@ -236,7 +238,9 @@ export const boot = (options: BootOptions) =>
       attachments,
       browser,
       mcp,
-      TerminalService.empty,
+      // The engine is the same memoized layer the rest of the graph uses, so
+      // the teardown reactor hears the thread.deleted every command produces.
+      terminalServiceLayer.pipe(Layer.provide(engine)),
       connectorExtensionsLayer.pipe(
         Layer.provide(
           Layer.mergeAll(persistence, Layer.succeed(ConnectorRegistryService, registry)),
