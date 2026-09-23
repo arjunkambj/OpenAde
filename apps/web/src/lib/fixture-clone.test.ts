@@ -4,7 +4,7 @@ import * as Schema from "effect/Schema";
 import { uuidV7Millis } from "@OpenAde/shared/ids";
 import { describe, expect, it } from "vitest";
 
-import { cloneItems } from "./fixture-clone";
+import { cloneDecisions, cloneItems } from "./fixture-clone";
 
 const snapshot = Schema.decodeUnknownSync(ThreadDetailSnapshot)(fixture);
 
@@ -44,5 +44,26 @@ describe("cloneItems", () => {
     const millis = items.map((item) => uuidV7Millis(item.itemId));
     expect(millis.every((value) => value !== undefined)).toBe(true);
     expect(new Set(millis).size).toBe(items.length);
+  });
+});
+
+describe("cloneDecisions", () => {
+  const decisions = snapshot.decisions ?? [];
+
+  it("leaves a single copy untouched", () => {
+    expect(cloneDecisions(decisions, 1)).toBe(decisions);
+  });
+
+  it("anchors every copy's records on that copy's items", () => {
+    expect(decisions.some((decision) => decision.afterItemId !== undefined)).toBe(true);
+    const items = cloneItems(snapshot.items, 3);
+    const cloned = cloneDecisions(decisions, 3);
+    expect(cloned).toHaveLength(decisions.length * 3);
+    expect(new Set(cloned.map((decision) => decision.id)).size).toBe(cloned.length);
+    for (const decision of cloned) {
+      if (decision.afterItemId !== undefined) {
+        expect(items.some((item) => item.itemId === decision.afterItemId)).toBe(true);
+      }
+    }
   });
 });

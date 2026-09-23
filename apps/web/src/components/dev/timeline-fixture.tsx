@@ -23,7 +23,7 @@ import { uuidV7 } from "@OpenAde/shared/ids";
 
 import { ModeToggle } from "@/components/mode-toggle";
 import { Timeline } from "@/components/timeline/timeline";
-import { cloneItems } from "@/lib/fixture-clone";
+import { cloneDecisions, cloneItems } from "@/lib/fixture-clone";
 
 const baseSnapshot = Schema.decodeUnknownSync(ThreadDetailSnapshot)(fixture);
 
@@ -37,6 +37,7 @@ export function TimelineFixture() {
     return {
       ...baseSnapshot,
       items: cloneItems(baseSnapshot.items, multiplier),
+      decisions: cloneDecisions(baseSnapshot.decisions ?? [], multiplier),
       status: live ? "running" : baseSnapshot.status,
       currentTurnId: live ? decodeTurnId(uuidV7()) : baseSnapshot.currentTurnId,
     };

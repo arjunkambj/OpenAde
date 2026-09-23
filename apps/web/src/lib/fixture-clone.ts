@@ -10,9 +10,13 @@
  * `LegendList` rendering a handful of rows. The timestamp field moves a second
  * per item and a minute per copy, because the fold labels read durations out
  * of these ids and a shared millisecond measures no time at all.
+ *
+ * Decision records anchor on item ids, so they are cloned alongside: each copy
+ * gets its own records, pointing at that copy's items.
  */
 
 import { decodeItemId, type ItemId } from "@OpenAde/contracts/ids";
+import type { ResolvedDecision } from "@OpenAde/contracts/orchestration";
 import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
 
 /** `0199c0de-0005-7000-8000-000000000001` → its 48-bit millisecond field. */
@@ -46,4 +50,25 @@ export const cloneItems = (
     ? items
     : Array.from({ length: copies }, (_, copy) =>
         items.map((item) => cloneItem(item, copy)),
+      ).flat();
+
+/**
+ * `decisions` repeated to match `cloneItems(items, copies)`: every copy's
+ * records anchor on that copy's items and carry an id of their own.
+ */
+export const cloneDecisions = (
+  decisions: ReadonlyArray<ResolvedDecision>,
+  copies: number,
+): ReadonlyArray<ResolvedDecision> =>
+  copies <= 1
+    ? decisions
+    : Array.from({ length: copies }, (_, copy) =>
+        decisions.map((decision) => ({
+          ...decision,
+          id: `${decision.id}~${copy}`,
+          afterItemId:
+            decision.afterItemId === undefined
+              ? undefined
+              : cloneItemId(decision.afterItemId, copy),
+        })),
       ).flat();
