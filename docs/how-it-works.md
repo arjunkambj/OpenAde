@@ -600,7 +600,9 @@ POST /hooks/pretooluse   Authorization: Bearer <per-thread ticket>
 HookBridge.answer(token, body) → the session's registered handler
    │                                    packages/connector-cmd/src/hookAnswers.ts
    ▼
-PermissionService.decide(...)          apps/server/src/permissions/PermissionService.ts
+approval gate → PermissionService.decide(...)
+   │     packages/connector-sdk/src/approvalGate.ts
+   │     apps/server/src/permissions/PermissionService.ts
    │
    ├─ allow  → { permissionDecision: "allow" }
    ├─ deny   → { permissionDecision: "deny", reason: "denied by OpenAde permission rules" }
@@ -612,6 +614,11 @@ PermissionService.decide(...)          apps/server/src/permissions/PermissionSer
                  ▼
                { permissionDecision: "allow" | "deny", reason: "decided <d> via OpenAde" }
 ```
+
+The top half is Command Code's: its hook is how a tool call reaches us. A
+harness that asks its host directly instead — over an SDK or JSON-RPC — skips
+the script and the bridge and hands its request straight to the same approval
+gate; from the gate down the path is identical.
 
 ### The script and the ticket
 

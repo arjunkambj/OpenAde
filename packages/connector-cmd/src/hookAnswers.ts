@@ -12,6 +12,11 @@
  * model reads them as context instead of waiting for a prompt that will never
  * come.
  *
+ * The allow/deny/park flow itself is the SDK's approval gate
+ * (`@OpenAde/connector-sdk/approvalGate`), the same one a connector without a
+ * hook bridge calls directly; this module is what turns a hook post into its
+ * input and its verdict back into `hookSpecificOutput`.
+ *
  * A dead process leaves every one of those posts parked, so `releasePending` is
  * the other half: it answers each of them rather than letting the hook sit to
  * its 590-second ceiling.
@@ -22,6 +27,7 @@ import type { RequestId, ThreadId } from "@OpenAde/contracts/ids";
 import { makeRequestId } from "@OpenAde/contracts/ids";
 import type { ThreadSettings } from "@OpenAde/contracts/orchestration";
 import type { ApprovalRequest, UserQuestion, UserQuestionAnswer } from "@OpenAde/contracts/runtime";
+import { makeApprovalGate } from "@OpenAde/connector-sdk/approvalGate";
 import type { ConnectorServices } from "@OpenAde/connector-sdk/definition";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -30,10 +36,6 @@ import * as Ref from "effect/Ref";
 import { approvalKindFor, patternSuggestionFor } from "./approvals";
 import type { PendingRuntimeEvent } from "./items";
 import { describeAnswers, normalizeQuestions } from "./questions";
-
-interface PendingApproval {
-  readonly released: Deferred.Deferred<ApprovalDecision>;
-}
 
 interface PendingUserInput {
   readonly released: Deferred.Deferred<ReadonlyArray<UserQuestionAnswer>>;
@@ -73,7 +75,10 @@ export const makeHookAnswerer = (options: {
   readonly emit: (pending: PendingRuntimeEvent) => Effect.Effect<void>;
 }): Effect.Effect<HookAnswerer> =>
   Effect.gen(function* () {
-    const pendingApprovals = yield* Ref.make(new Map<RequestId, PendingApproval>());
+    const gate = yield* makeApprovalGate({
+      permissions: options.services.permissions,
+      emit: options.emit,
+    });
     /** PreToolUse posts answered, for the gate-silence check in the session. */
     const posts = yield* Ref.make(0);
     const pendingUserInputs = yield* Ref.make(new Map<RequestId, PendingUserInput>());
@@ -85,15 +90,7 @@ export const makeHookAnswerer = (options: {
      * replies instead of hanging to the 590s ceiling.
      */
     const releasePending = Effect.gen(function* () {
-      const approvals = yield* Ref.getAndSet(pendingApprovals, new Map());
-      for (const [requestId, pending] of approvals) {
-        yield* Deferred.succeed(pending.released, "deny" as const);
-        yield* emit({
-          type: "request.resolved",
-          requestId,
-          payload: { requestId, decision: "deny" },
-        });
-      }
+      yield* gate.releaseAll("deny");
       const inputs = yield* Ref.getAndSet(pendingUserInputs, new Map());
       for (const [requestId, pending] of inputs) {
         yield* Deferred.succeed(pending.released, []);
@@ -102,9 +99,9 @@ export const makeHookAnswerer = (options: {
     });
 
     /**
-     * Answers a PreToolUse post for this session: asks the permission engine,
-     * and on "prompt" opens a request and parks until `respondToRequest`
-     * resolves it. The hook script turns the reply into `permissionDecision`.
+     * Answers a PreToolUse post for this session through the approval gate:
+     * the permission engine decides, and on "prompt" the gate opens a request
+     * and parks until `respondToRequest` resolves it. The hook script turns the reply into `permissionDecision`.
      */
     const onHookPost = (body: unknown): Effect.Effect<unknown> =>
       Effect.gen(function* () {
@@ -161,42 +158,27 @@ export const makeHookAnswerer = (options: {
           patternSuggestion: patternSuggestionFor(toolName, input),
           description: toolName,
         };
-        const decision = yield* options.services.permissions.decide({
+        const verdict = yield* gate.decide({
           request,
           threadId: options.threadId,
           runtimeMode: settings.runtimeMode,
           interactionMode: settings.interactionMode,
         });
-        if (decision === "allow") {
-          return { hookSpecificOutput: { permissionDecision: "allow" } };
+        if (verdict.via === "rules") {
+          return verdict.allowed
+            ? { hookSpecificOutput: { permissionDecision: "allow" } }
+            : {
+                hookSpecificOutput: {
+                  permissionDecision: "deny",
+                  permissionDecisionReason: "denied by OpenAde permission rules",
+                },
+              };
         }
-        if (decision === "deny") {
-          return {
-            hookSpecificOutput: {
-              permissionDecision: "deny",
-              permissionDecisionReason: "denied by OpenAde permission rules",
-            },
-          };
-        }
-        // prompt → the user decides via thread.approval.respond.
-        const released = yield* Deferred.make<ApprovalDecision>();
-        yield* Ref.update(pendingApprovals, (map) => new Map(map).set(requestId, { released }));
-        yield* emit({ type: "request.opened", requestId, payload: { request } });
-        const answer = yield* Deferred.await(released);
-        yield* Ref.update(pendingApprovals, (map) => {
-          const next = new Map(map);
-          next.delete(requestId);
-          return next;
-        });
-        yield* emit({
-          type: "request.resolved",
-          requestId,
-          payload: { requestId, decision: answer },
-        });
+        // prompt → the user decided via thread.approval.respond.
         return {
           hookSpecificOutput: {
-            permissionDecision: answer === "deny" ? "deny" : "allow",
-            permissionDecisionReason: `decided ${answer} via OpenAde`,
+            permissionDecision: verdict.allowed ? "allow" : "deny",
+            permissionDecisionReason: `decided ${verdict.decision} via OpenAde`,
           },
         };
       }).pipe(
@@ -215,12 +197,7 @@ export const makeHookAnswerer = (options: {
       onHookPost,
       releasePending,
       postCount: Ref.get(posts),
-      respondToRequest: (requestId, decision) =>
-        Effect.gen(function* () {
-          const pending = (yield* Ref.get(pendingApprovals)).get(requestId);
-          if (pending === undefined) return;
-          yield* Deferred.succeed(pending.released, decision);
-        }),
+      respondToRequest: gate.respond,
       respondToUserInput: (requestId, answers) =>
         Effect.gen(function* () {
           const pending = (yield* Ref.get(pendingUserInputs)).get(requestId);

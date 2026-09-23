@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./approvalGate": {
+      "types": "./src/approvalGate.ts",
+      "import": "./src/approvalGate.ts"
+    },
     "./conformance": {
       "types": "./src/conformance.ts",
       "import": "./src/conformance.ts"

@@ -309,6 +309,8 @@ What a connector is, and the promises it must keep.
 - `sessionHandle.ts` — `SessionHandle` and the bounded event queue.
 - `turnScopedHandle.ts` — the turn correlation wrapper.
 - `extensions.ts` — the optional per-instance extensions (skills, MCP servers).
+- `approvalGate.ts` — the shared approval flow: ask the permission ladder, and
+  on prompt open a request and park until the user answers.
 - `registry.ts` — definitions by kind, live instances by id.
 - `conformance.ts` — the executable suite.
 - `streamCollector.ts` — the collector the suite and testkit share.
@@ -950,6 +952,27 @@ already in its own URL.
 
 ## The hook bridge
 
+A harness gates its tool calls one of two ways, and OpenAde supports both:
+
+- **The hook bridge**, for a harness with shell hooks. The harness runs a
+  script before each tool call; the script posts to our loopback bridge and
+  blocks on the answer. Command Code works this way, and the rest of this
+  section is that path.
+- **The direct path**, for a harness driven over an SDK or JSON-RPC, where the
+  harness asks its host — a permission callback, an approval request on the
+  wire. The connector answers it in-process and needs no endpoint.
+
+Both end in the same helper, `makeApprovalGate` in
+`packages/connector-sdk/src/approvalGate.ts`. Its `decide` calls
+`services.permissions.decide`; `allow` and `deny` return at once and emit
+nothing, while `prompt` emits `request.opened`, parks until `respond` answers
+(the connector wires it to `SessionHandle.respondToRequest`), and emits
+`request.resolved`. `releaseAll` answers every parked request when the process
+that asked has gone, so no card outlives its session. A defect inside
+`decide` is answered as a prompt, never as allow. The hook bridge's
+`hookAnswers.ts` is a thin adapter over the gate: a hook post in,
+`hookSpecificOutput` out.
+
 Command Code's PreToolUse hook is how a tool call becomes an approval card.
 
 ```
@@ -1106,6 +1129,11 @@ re-read mid-transaction can see a row the rest of the dispatch then rolls back.
 
 A failure inside a permission decision is logged and answered `prompt`: a
 permissions failure must never read as allow.
+
+Connectors reach the ladder only through `ConnectorServices.permissions`, on
+either approval path ([the hook bridge](#the-hook-bridge)): the hook bridge's
+adapter and a direct-path connector both hand their request to the approval
+gate, which asks the ladder and, on `prompt`, opens the card.
 
 ## On disk
 
