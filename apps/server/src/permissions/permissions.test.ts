@@ -5,7 +5,7 @@ import type { ApprovalKind } from "@OpenAde/contracts/enums";
 import type { ApprovalRequest } from "@OpenAde/contracts/runtime";
 
 import { parsePattern, patternMatches, requestPath } from "./patterns";
-import { isSensitivePath } from "./sensitivePaths";
+import { commandTouchesSensitivePath, isSensitivePath } from "./sensitivePaths";
 import { decidePermission, type PermissionDecision } from "./PermissionService";
 
 const request = (kind: ApprovalKind, input: unknown, toolName = "tool"): ApprovalRequest => ({
@@ -127,6 +127,33 @@ describe("sensitive paths", () => {
     "opencode/config.json",
   ])("allows %s", (path) => {
     expect(isSensitivePath(path)).toBe(false);
+  });
+
+  describe("inside a workspace that lives under a config directory", () => {
+    const root = "/home/user/code/app/.claude/worktrees/feature";
+
+    it("does not count the directories above the workspace root", () => {
+      expect(isSensitivePath(`${root}/package.json`, root)).toBe(false);
+      expect(isSensitivePath(`${root}/src/app.ts`, root)).toBe(false);
+      expect(isSensitivePath(root, root)).toBe(false);
+      expect(commandTouchesSensitivePath(`cd ${root} && pnpm test`, root)).toBe(false);
+    });
+
+    it("still counts what lies inside the workspace", () => {
+      expect(isSensitivePath(`${root}/.claude/settings.json`, root)).toBe(true);
+      expect(isSensitivePath(`${root}/.git/config`, root)).toBe(true);
+      expect(isSensitivePath(`${root}/.env`, root)).toBe(true);
+    });
+
+    it("still counts the same path outside the workspace, or climbing out of it", () => {
+      expect(isSensitivePath("/home/user/code/app/.claude/settings.json", root)).toBe(true);
+      expect(isSensitivePath(`${root}/../../settings.json`, root)).toBe(true);
+      expect(isSensitivePath(`${root}/package.json`)).toBe(true);
+    });
+
+    it("still counts a config home opened as the project itself", () => {
+      expect(isSensitivePath("/home/user/.claude/settings.json", "/home/user/.claude")).toBe(true);
+    });
   });
 });
 
@@ -539,6 +566,24 @@ const generated: ReadonlyArray<Row> = (() => {
   }
   return out;
 })();
+
+describe("a workspace under .claude/worktrees", () => {
+  const root = "/home/user/code/app/.claude/worktrees/feature";
+
+  it("reads and edits its own files as any other project does", () => {
+    const decide = (kind: ApprovalKind, file: string) =>
+      decidePermission({
+        request: request(kind, { file_path: file }),
+        runtimeMode: "full-access",
+        interactionMode: "default",
+        rules: [],
+        workspaceRoot: root,
+      });
+    expect(decide("file_read", `${root}/package.json`)).toBe("allow");
+    expect(decide("file_write", `${root}/src/app.ts`)).toBe("allow");
+    expect(decide("file_write", `${root}/.claude/settings.json`)).toBe("prompt");
+  });
+});
 
 describe("decidePermission precedence table", () => {
   it("runs 100+ rows", () => {

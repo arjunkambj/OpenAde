@@ -5,6 +5,14 @@
  * cautious in general — `.env` files, key material, SSH and cloud credentials,
  * password stores. "full-access" allows everything *except* these, so the
  * check sits below the runtime-mode shortcut in the ladder.
+ *
+ * The directory rules look only at the part of a path a tool call reaches
+ * into. Where the user keeps a project is their choice, not the tool's: a
+ * workspace under `.claude/worktrees/` is ordinary source, and every absolute
+ * path inside it names that `.claude` segment. So for an absolute path inside
+ * the thread's workspace root, only the root's own name and what lies below it
+ * are checked — `~/.claude` opened as a project still counts, and so does the
+ * project's own `.claude/settings.json`.
  */
 
 const SENSITIVE_BASENAMES = new Set([
@@ -44,9 +52,41 @@ const normalize = (path: string): string =>
     .replace(/^\.?\//, "")
     .replace(/\/+$/, "");
 
-export const isSensitivePath = (path: string): boolean => {
-  const normalized = normalize(path);
-  const segments = normalized.split("/").filter((segment) => segment.length > 0);
+const segmentsOf = (path: string): ReadonlyArray<string> =>
+  normalize(path)
+    .split("/")
+    .filter((segment) => segment.length > 0);
+
+const isAbsolute = (path: string): boolean => /^(?:[\\/]|[a-z]:[\\/])/i.test(path);
+
+/**
+ * How many leading segments of `lowered` sit above the workspace root: all of
+ * the root's but its last, when `path` is absolute and inside the root. A `..`
+ * could climb back out, so a path holding one is checked whole.
+ */
+const segmentsAboveRoot = (
+  path: string,
+  lowered: ReadonlyArray<string>,
+  workspaceRoot: string | undefined,
+): number => {
+  if (
+    workspaceRoot === undefined ||
+    !isAbsolute(path) ||
+    !isAbsolute(workspaceRoot) ||
+    lowered.includes("..")
+  ) {
+    return 0;
+  }
+  const root = segmentsOf(workspaceRoot).map((segment) => segment.toLowerCase());
+  const inside =
+    root.length > 0 &&
+    root.length <= lowered.length &&
+    root.every((segment, index) => lowered[index] === segment);
+  return inside ? root.length - 1 : 0;
+};
+
+export const isSensitivePath = (path: string, workspaceRoot?: string): boolean => {
+  const segments = segmentsOf(path);
   const basename = segments.at(-1)?.toLowerCase() ?? "";
   if (basename === "" || basename === "." || basename === "..") {
     return false;
@@ -59,7 +99,8 @@ export const isSensitivePath = (path: string): boolean => {
   if (SENSITIVE_EXTENSIONS.some((extension) => basename.endsWith(extension))) {
     return true;
   }
-  const lowered = segments.map((segment) => segment.toLowerCase());
+  const all = segments.map((segment) => segment.toLowerCase());
+  const lowered = all.slice(segmentsAboveRoot(path, all, workspaceRoot));
   if (lowered.some((segment) => SENSITIVE_SEGMENTS.has(segment))) {
     return true;
   }
@@ -79,8 +120,8 @@ export const isSensitivePath = (path: string): boolean => {
  * shell separators and quotes is deliberately rough: this decides whether to
  * *ask*, and asking about one argument too many costs a keystroke.
  */
-export const commandTouchesSensitivePath = (command: string): boolean =>
+export const commandTouchesSensitivePath = (command: string, workspaceRoot?: string): boolean =>
   command
     .split(/[\s;|&<>()`]+/)
     .map((token) => token.replace(/^["']+/, "").replace(/["']+$/, ""))
-    .some((token) => token.length > 0 && isSensitivePath(token));
+    .some((token) => token.length > 0 && isSensitivePath(token, workspaceRoot));

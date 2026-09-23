@@ -292,7 +292,8 @@ export const boot = (options: BootOptions) =>
     // services object it already handed those instances is `ConnectorHost`'s
     // façade, and this fills it in: the gateway's per-thread MCP endpoint, the
     // hook bridge's endpoint and handler registry, and a permission ladder that
-    // resolves the thread's project before it decides. It runs before the
+    // resolves the thread's project (its rules and its directory) before it
+    // decides. It runs before the
     // handshake, so no client can start a session against a half-wired host.
     const bridge = Context.get(appContext, HookBridge);
     const engineService = Context.get(appContext, OrchestrationEngine);
@@ -307,16 +308,18 @@ export const boot = (options: BootOptions) =>
       unregisterHookHandler: (threadId) => bridge.unregister(threadId),
       permissions: {
         decide: (input) =>
-          engineService.threadDoc(input.threadId).pipe(
-            Effect.flatMap((doc) =>
-              permissionService.decide({
-                request: input.request,
-                runtimeMode: input.runtimeMode,
-                interactionMode: input.interactionMode,
-                threadId: input.threadId,
-                ...(doc === null ? {} : { projectId: doc.projectId }),
-              }),
-            ),
+          Effect.gen(function* () {
+            const doc = yield* engineService.threadDoc(input.threadId);
+            const project = doc === null ? null : yield* engineService.projectDoc(doc.projectId);
+            return yield* permissionService.decide({
+              request: input.request,
+              runtimeMode: input.runtimeMode,
+              interactionMode: input.interactionMode,
+              threadId: input.threadId,
+              ...(doc === null ? {} : { projectId: doc.projectId }),
+              ...(project === null ? {} : { workspaceRoot: project.workspaceRoot }),
+            });
+          }).pipe(
             // A permissions failure must never read as allow.
             Effect.catch((error) =>
               Effect.logWarning("permission decide failed; prompting", error).pipe(

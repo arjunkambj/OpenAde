@@ -1149,7 +1149,10 @@ specifically: `.env*`, `.netrc`, `.pgpass`, `credentials`, SSH key names,
 `.pem`/`.key`/`.p12`/`.pfx`, and anything under `.ssh`, `.aws`, `.gnupg`,
 `.git`, `.config/gh`, or a harness config home — `.commandcode`, `.claude`,
 `.codex`, `.config/opencode` — since those hold auth tokens and the harness's
-own permission settings.
+own permission settings. The directory rules read only what lies below the
+parent of the thread's workspace root, so a project kept under
+`.claude/worktrees/` is ordinary source, while its own `.claude/settings.json`
+and `~/.claude` opened as a project still count.
 
 **Pattern syntax** (`packages/shared/src/permissionPattern.ts`). The
 vocabulary is OpenAde's own, the same whichever harness runs the thread; each

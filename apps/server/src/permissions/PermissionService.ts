@@ -62,22 +62,22 @@ const localPathOf = (url: string): string | null => {
  * `file:` URL followed by `browser_get text body` read `~/.ssh/id_ed25519`
  * with no card ever shown, where `read_file` on the same path prompts.
  */
-const touchesSensitivePath = (request: ApprovalRequest): boolean => {
+const touchesSensitivePath = (request: ApprovalRequest, workspaceRoot?: string): boolean => {
   if (request.kind === "file_read" || request.kind === "file_write") {
     const path = requestPath(request);
-    return path !== null && isSensitivePath(path);
+    return path !== null && isSensitivePath(path, workspaceRoot);
   }
   if (request.kind === "command") {
     const command = requestCommand(request);
-    return command !== null && commandTouchesSensitivePath(command);
+    return command !== null && commandTouchesSensitivePath(command, workspaceRoot);
   }
   const url = requestUrl(request);
   const fromUrl = url === null ? null : localPathOf(url);
-  if (fromUrl !== null && isSensitivePath(fromUrl)) {
+  if (fromUrl !== null && isSensitivePath(fromUrl, workspaceRoot)) {
     return true;
   }
   const path = requestPath(request);
-  return path !== null && isSensitivePath(path);
+  return path !== null && isSensitivePath(path, workspaceRoot);
 };
 
 export type PermissionDecision = "allow" | "prompt" | "deny";
@@ -97,11 +97,16 @@ export interface DecideInput {
   readonly interactionMode: InteractionMode;
   /** Rules whose scope already covers this request. */
   readonly rules: ReadonlyArray<Pick<PermissionRule, "pattern" | "decision">>;
+  /**
+   * The thread's project directory. Directories above it are where the user
+   * keeps the project, so they do not make its files sensitive.
+   */
+  readonly workspaceRoot?: string;
 }
 
 /** The pure ladder — everything a decision needs is an argument. */
 export const decidePermission = (input: DecideInput): PermissionDecision => {
-  const { request, runtimeMode, interactionMode, rules } = input;
+  const { request, runtimeMode, interactionMode, rules, workspaceRoot } = input;
 
   const compiled = rules.flatMap((rule) => {
     const parsed = parsePattern(rule.pattern);
@@ -115,7 +120,7 @@ export const decidePermission = (input: DecideInput): PermissionDecision => {
   if (interactionMode === "plan" && request.kind !== "file_read") {
     return "deny";
   }
-  if (touchesSensitivePath(request)) {
+  if (touchesSensitivePath(request, workspaceRoot)) {
     return "prompt";
   }
   if (matching.some((rule) => rule.decision === "allow")) {
@@ -230,6 +235,8 @@ export class PermissionService extends Context.Service<
       readonly interactionMode: InteractionMode;
       readonly projectId?: ProjectId;
       readonly threadId?: ThreadId;
+      /** The project's directory — see `DecideInput.workspaceRoot`. */
+      readonly workspaceRoot?: string;
     }) => Effect.Effect<PermissionDecision, SqlError>;
     readonly rules: (
       scope?: PermissionScope,
@@ -287,6 +294,7 @@ export class PermissionService extends Context.Service<
               runtimeMode: input.runtimeMode,
               interactionMode: input.interactionMode,
               rules: applicable,
+              ...(input.workspaceRoot === undefined ? {} : { workspaceRoot: input.workspaceRoot }),
             }),
           ),
         rules,
