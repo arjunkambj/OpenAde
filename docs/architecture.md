@@ -172,8 +172,9 @@ no connector config schema in it.
 
 **4. Reference names.** The products OpenAde was compared against while it was
 built are not named anywhere in `apps/`, `packages/`, `scripts/` or the
-top-level `docs/*.md`, in file names or contents, in any case. Recorded
-fixtures, `node_modules`, build output and the local `docs/plans/` are skipped.
+top-level `docs/*.md`, in file names or contents, in any case. The recordings
+of real runs under `packages/testkit/fixtures/`, `node_modules`, build output
+and the local `docs/plans/` are skipped.
 The guard keeps the names base64-encoded so that it does not spell them.
 
 **5. No barrels.** An `index` module anywhere under `packages/` is refused —

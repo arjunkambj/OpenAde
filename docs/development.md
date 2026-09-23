@@ -190,10 +190,11 @@ today.
 **Reference names.** The products OpenAde was compared against while it was
 built are never named — not in `apps/`, `packages/`, `scripts/` or the
 top-level `docs/*.md`, in file names or contents, in any case. `docs/plans/`
-(local, gitignored), `node_modules`, `dist`, `out` and the two recorded fixture
-roots are skipped. The guard holds the names base64-encoded so that it does not
-spell them itself, and its tests build their inputs from the same list. Describe
-an idea you took from elsewhere in our own words.
+(local, gitignored), `node_modules`, `dist`, `out` and the recorded fixtures
+under `packages/testkit/fixtures/` are skipped; the hand-written contract
+fixtures are read like any source. The guard holds the names base64-encoded so
+that it does not spell them itself, and its tests build their inputs from the
+same list. Describe an idea you took from elsewhere in our own words.
 
 **No barrels.** An `index` module anywhere under `packages/` is refused —
 `.ts`, `.tsx`, `.js`, `.jsx` or `.mjs`; each package exports one entry per

@@ -155,10 +155,14 @@ describe("referenceNameLeaks", () => {
   it("skips recorded fixtures, dependencies and build output", () => {
     const text = `${REFERENCE_NAMES[1]}\n`;
     expect(referenceNameLeaks("packages/testkit/fixtures/cmd/a.json", text)).toEqual([]);
-    expect(referenceNameLeaks("packages/contracts/fixtures/a.json", text)).toEqual([]);
     expect(referenceNameLeaks("apps/web/node_modules/x/index.js", text)).toEqual([]);
     expect(referenceNameLeaks("apps/web/dist/a.js", text)).toEqual([]);
     expect(referenceNameLeaks("apps/desktop/out/main.js", text)).toEqual([]);
+  });
+
+  it("reads the hand-written contract fixtures, which are not recordings", () => {
+    const text = `{ "displayName": "${REFERENCE_NAMES[1]}" }\n`;
+    expect(referenceNameLeaks("packages/contracts/fixtures/rpc/a.json", text)).toHaveLength(1);
   });
 
   it("passes ordinary text, including harness names we integrate", () => {
