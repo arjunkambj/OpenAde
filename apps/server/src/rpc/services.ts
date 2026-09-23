@@ -8,19 +8,21 @@
 
 import type {
   AgentSkill,
-  BrowserHumanInput,
-  BrowserState,
   ConnectorDescriptor,
   ConnectorSummary,
+  McpServerConfig,
+  McpServerScope,
+  ModelOption,
+  SkillSummary,
+} from "@OpenAde/contracts/connectors";
+import type {
+  BrowserHumanInput,
+  BrowserState,
   FileContent,
   FileSearchResult,
   FsListing,
   GitDiff,
   GitStatus,
-  McpServerConfig,
-  McpServerScope,
-  ModelOption,
-  SkillSummary,
 } from "@OpenAde/contracts/rpc";
 import { FsBrowseError, OpenAdeRpcError } from "@OpenAde/contracts/rpc";
 import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";

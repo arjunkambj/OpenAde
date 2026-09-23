@@ -282,7 +282,10 @@ loopback HTTP routes. May import `contracts`, `connector-sdk`, `connector-cmd`,
 ### packages/contracts
 
 Every wire shape, as `effect/Schema` codecs. Modules: `base`, `ids`, `enums`,
-`runtime`, `orchestration`, `settings`, `rpc`.
+`runtime`, `orchestration`, `settings`, `connectors`, `rpc`. `connectors` holds
+what the renderer learns about a connector — models, probe, configured
+instances, metadata and config form, and the skills and MCP servers its
+extensions list — and `rpc` holds the methods that carry them.
 
 Ids are branded UUIDv7 strings, so a `ThreadId` cannot be passed where a
 `TurnId` is expected, and they are validated on decode — a malformed id fails at

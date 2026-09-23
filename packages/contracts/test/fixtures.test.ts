@@ -35,22 +35,24 @@ import {
   ThreadSummary,
 } from "../src/orchestration";
 import {
-  AttachmentBytes,
-  BrowserHumanInput,
-  BrowserState,
   ConnectorDescriptor,
   ConnectorProbe,
   ConnectorSummary,
+  McpServerConfig,
+  ModelOption,
+  SkillSummary,
+} from "../src/connectors";
+import {
+  AttachmentBytes,
+  BrowserHumanInput,
+  BrowserState,
   FileContent,
   FileSearchResult,
   FsBrowseError,
   FsListing,
   GitDiff,
   GitStatus,
-  McpServerConfig,
-  ModelOption,
   ServerHello,
-  SkillSummary,
   StagedAttachment,
 } from "../src/rpc";
 import { ItemSnapshot, RuntimeEvent, RuntimeEventType } from "../src/runtime";

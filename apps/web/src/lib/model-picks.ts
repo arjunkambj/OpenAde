@@ -11,7 +11,7 @@
 
 import type { ConnectorModels } from "@OpenAde/client-runtime/connectorAtoms";
 import type { ConnectorInstanceId } from "@OpenAde/contracts/ids";
-import type { ConnectorSummary, ModelOption } from "@OpenAde/contracts/rpc";
+import type { ConnectorSummary, ModelOption } from "@OpenAde/contracts/connectors";
 import { isString } from "effect/Predicate";
 
 /** A model under an instance. `null` only for a current value no instance lists. */

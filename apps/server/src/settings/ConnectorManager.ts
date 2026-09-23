@@ -29,7 +29,7 @@
 
 import type { ConnectorInstanceId } from "@OpenAde/contracts/ids";
 import { makeConnectorInstanceId } from "@OpenAde/contracts/ids";
-import type { ConnectorSummary, ModelOption } from "@OpenAde/contracts/rpc";
+import type { ConnectorSummary, ModelOption } from "@OpenAde/contracts/connectors";
 import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
 import type { ConnectorProbe } from "@OpenAde/connector-sdk/definition";
 import { toWireProbe } from "@OpenAde/connector-sdk/definition";

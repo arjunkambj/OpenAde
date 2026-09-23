@@ -13,7 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@OpenAde/ui/components/dropdown-menu";
-import type { McpServerConfig } from "@OpenAde/contracts/rpc";
+import type { McpServerConfig } from "@OpenAde/contracts/connectors";
 import * as Exit from "effect/Exit";
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";

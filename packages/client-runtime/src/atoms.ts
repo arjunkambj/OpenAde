@@ -26,14 +26,16 @@ import type {
   ThreadStreamItem,
 } from "@OpenAde/contracts/orchestration";
 import type {
+  ConnectorDescriptor,
+  ConnectorSummary,
+  ModelOption,
+  SkillSummary,
+} from "@OpenAde/contracts/connectors";
+import type {
   AttachmentBytes,
   BrowserHumanInput,
   BrowserState,
-  ConnectorDescriptor,
-  ConnectorSummary,
   FileSearchResult,
-  ModelOption,
-  SkillSummary,
 } from "@OpenAde/contracts/rpc";
 import type { Keybinding, Settings } from "@OpenAde/contracts/settings";
 import * as Effect from "effect/Effect";

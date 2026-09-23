@@ -23,7 +23,7 @@ import type {
   ThreadStreamItem,
   ThreadSummary,
 } from "@OpenAde/contracts/orchestration";
-import type { ConnectorSummary, ModelOption } from "@OpenAde/contracts/rpc";
+import type { ConnectorSummary, ModelOption } from "@OpenAde/contracts/connectors";
 import type { Settings } from "@OpenAde/contracts/settings";
 import { defaultSettings } from "@OpenAde/contracts/settings";
 import * as Cause from "effect/Cause";

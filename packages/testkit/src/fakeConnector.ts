@@ -19,7 +19,7 @@
 import { makeEventId, makeItemId, makeRequestId, makeTurnId } from "@OpenAde/contracts/ids";
 import type { ConnectorInstanceId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
 import type { ConnectorCapabilities, RuntimeEvent } from "@OpenAde/contracts/runtime";
-import type { ConnectorMetadata, ModelOption } from "@OpenAde/contracts/rpc";
+import type { ConnectorMetadata, ModelOption } from "@OpenAde/contracts/connectors";
 import { settingsForm } from "@OpenAde/contracts/settings";
 import type {
   ConnectorDefinition,

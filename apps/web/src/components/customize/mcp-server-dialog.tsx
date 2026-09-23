@@ -25,7 +25,7 @@ import {
 } from "@OpenAde/ui/components/select";
 import { Textarea } from "@OpenAde/ui/components/textarea";
 import type { ProjectId } from "@OpenAde/contracts/ids";
-import type { McpServerConfig, McpServerScope } from "@OpenAde/contracts/rpc";
+import type { McpServerConfig, McpServerScope } from "@OpenAde/contracts/connectors";
 import * as Exit from "effect/Exit";
 import * as React from "react";
 

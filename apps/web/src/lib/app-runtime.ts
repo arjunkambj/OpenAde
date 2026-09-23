@@ -13,7 +13,7 @@
 
 import { Connection } from "@OpenAde/client-runtime/connection";
 import type { ProjectId } from "@OpenAde/contracts/ids";
-import type { AgentSkill, McpServerConfig, McpServerScope } from "@OpenAde/contracts/rpc";
+import type { AgentSkill, McpServerConfig, McpServerScope } from "@OpenAde/contracts/connectors";
 import type { SettingsPatch } from "@OpenAde/contracts/settings";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";

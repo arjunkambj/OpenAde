@@ -1,6 +1,6 @@
 import type { ConnectorModels } from "@OpenAde/client-runtime/connectorAtoms";
 import type { ConnectorInstanceId } from "@OpenAde/contracts/ids";
-import type { ModelOption } from "@OpenAde/contracts/rpc";
+import type { ModelOption } from "@OpenAde/contracts/connectors";
 import { describe, expect, it } from "vitest";
 
 import {

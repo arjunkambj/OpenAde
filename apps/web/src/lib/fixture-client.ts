@@ -41,10 +41,10 @@ import { PROTOCOL_VERSION } from "@OpenAde/contracts/rpc";
 import type {
   ConnectorDescriptor,
   ConnectorSummary,
-  FileSearchResult,
   ModelOption,
   SkillSummary,
-} from "@OpenAde/contracts/rpc";
+} from "@OpenAde/contracts/connectors";
+import type { FileSearchResult } from "@OpenAde/contracts/rpc";
 import { defaultSettings, DEFAULT_KEYBINDINGS } from "@OpenAde/contracts/settings";
 import type { Keybinding } from "@OpenAde/contracts/settings";
 import { uuidV7 } from "@OpenAde/shared/ids";

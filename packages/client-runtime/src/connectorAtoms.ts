@@ -19,7 +19,7 @@
  * takes the `AtomRuntime` `makeRuntime` built, so these share its socket.
  */
 
-import type { ConnectorSummary, ModelOption } from "@OpenAde/contracts/rpc";
+import type { ConnectorSummary, ModelOption } from "@OpenAde/contracts/connectors";
 import * as Effect from "effect/Effect";
 import type { AsyncResult } from "effect/unstable/reactivity";
 import type * as Atom from "effect/unstable/reactivity/Atom";

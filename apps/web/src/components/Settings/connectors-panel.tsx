@@ -13,7 +13,11 @@ import { Button } from "@OpenAde/ui/components/button";
 import { Card, CardContent } from "@OpenAde/ui/components/card";
 import { Separator } from "@OpenAde/ui/components/separator";
 import { makeConnectorInstanceId } from "@OpenAde/contracts/ids";
-import type { ConnectorDescriptor, ConnectorProbe, ConnectorSummary } from "@OpenAde/contracts/rpc";
+import type {
+  ConnectorDescriptor,
+  ConnectorProbe,
+  ConnectorSummary,
+} from "@OpenAde/contracts/connectors";
 import { ConnectorInstanceConfig } from "@OpenAde/contracts/settings";
 import * as Exit from "effect/Exit";
 import { isObject } from "effect/Predicate";

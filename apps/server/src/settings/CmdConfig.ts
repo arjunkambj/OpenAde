@@ -35,7 +35,7 @@ import type {
   McpServerConfig,
   McpServerScope,
   SkillSummary,
-} from "@OpenAde/contracts/rpc";
+} from "@OpenAde/contracts/connectors";
 import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";

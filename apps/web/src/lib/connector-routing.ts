@@ -34,7 +34,7 @@
  */
 
 import type { ConnectorInstanceId } from "@OpenAde/contracts/ids";
-import type { ConnectorSummary } from "@OpenAde/contracts/rpc";
+import type { ConnectorSummary } from "@OpenAde/contracts/connectors";
 import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
 
 export const threadConnectorInstanceId = (

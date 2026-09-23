@@ -19,7 +19,7 @@ import {
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import { makeProjectId, type ProjectId } from "@OpenAde/contracts/ids";
-import type { McpServerConfig } from "@OpenAde/contracts/rpc";
+import type { McpServerConfig } from "@OpenAde/contracts/connectors";
 import { describe, expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";

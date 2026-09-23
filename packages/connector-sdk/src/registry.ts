@@ -13,7 +13,7 @@
  */
 
 import type { ConnectorInstanceId, ConnectorKind } from "@OpenAde/contracts/ids";
-import type { ConnectorDescriptor } from "@OpenAde/contracts/rpc";
+import type { ConnectorDescriptor } from "@OpenAde/contracts/connectors";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 import type * as Scope from "effect/Scope";

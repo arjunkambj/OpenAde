@@ -1,5 +1,5 @@
 import type { ConnectorInstanceId } from "@OpenAde/contracts/ids";
-import type { ConnectorSummary } from "@OpenAde/contracts/rpc";
+import type { ConnectorSummary } from "@OpenAde/contracts/connectors";
 import { describe, expect, it } from "vitest";
 
 import { instanceCapabilities, threadConnectorInstanceId } from "./connector-routing";

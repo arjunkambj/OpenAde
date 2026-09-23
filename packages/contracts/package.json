@@ -28,6 +28,10 @@
       "types": "./src/settings.ts",
       "import": "./src/settings.ts"
     },
+    "./connectors": {
+      "types": "./src/connectors.ts",
+      "import": "./src/connectors.ts"
+    },
     "./rpc": {
       "types": "./src/rpc.ts",
       "import": "./src/rpc.ts"

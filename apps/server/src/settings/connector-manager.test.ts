@@ -15,7 +15,7 @@ import {
   makeThreadId,
   type ConnectorInstanceId,
 } from "@OpenAde/contracts/ids";
-import type { ConnectorSummary } from "@OpenAde/contracts/rpc";
+import type { ConnectorSummary } from "@OpenAde/contracts/connectors";
 import { OPENADE_HOME_ENV } from "@OpenAde/shared/paths";
 import type { AnyConnectorDefinition, ConnectorServices } from "@OpenAde/connector-sdk/definition";
 import { eraseConnectorDefinition, ProbeFailed } from "@OpenAde/connector-sdk/definition";

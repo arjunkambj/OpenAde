@@ -13,7 +13,7 @@
  * the renderer: the links arrive over the wire.
  */
 
-import type { ConnectorProbe } from "@OpenAde/contracts/rpc";
+import type { ConnectorProbe } from "@OpenAde/contracts/connectors";
 
 /**
  * Whether this connector can actually run a turn.

@@ -30,7 +30,7 @@ import type {
   ConnectorMetadata,
   ConnectorProbe as WireConnectorProbe,
   ModelOption,
-} from "@OpenAde/contracts/rpc";
+} from "@OpenAde/contracts/connectors";
 import { settingsFormFields } from "@OpenAde/contracts/settings";
 import type { UnknownRecord } from "@OpenAde/contracts/base";
 import * as Data from "effect/Data";

@@ -13,7 +13,7 @@
  */
 
 import type { Effort, InteractionMode, RuntimeMode } from "@OpenAde/contracts/enums";
-import type { ModelOption, SkillSummary } from "@OpenAde/contracts/rpc";
+import type { ModelOption, SkillSummary } from "@OpenAde/contracts/connectors";
 import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
 
 import { TriggerMenu, type TriggerMenuItem } from "@/components/composer/trigger-menu";

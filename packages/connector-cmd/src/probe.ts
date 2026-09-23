@@ -21,7 +21,7 @@
  */
 
 import { execFile } from "node:child_process";
-import type { ModelOption } from "@OpenAde/contracts/rpc";
+import type { ModelOption } from "@OpenAde/contracts/connectors";
 import type { ConnectorProbe } from "@OpenAde/connector-sdk/definition";
 import { ProbeFailed } from "@OpenAde/connector-sdk/definition";
 import * as Effect from "effect/Effect";
