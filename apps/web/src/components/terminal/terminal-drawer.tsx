@@ -4,7 +4,9 @@
  * `ThreadTerminal` is always mounted with the thread view: it answers
  * `terminal.toggle` and renders the drawer only while this thread's drawer is
  * open (`@/state/terminal-ui`). The drawer holds a tab strip over one lazily
- * loaded xterm (`./terminal-view`) that shows whichever tab is in front.
+ * loaded xterm (`./terminal-view`) that shows whichever tab is in front, and a
+ * toolbar that acts on that xterm — "Add selection to chat" quotes its
+ * selection into the thread's composer draft.
  *
  * Which terminals exist is the server's to say: the drawer folds each
  * `terminal.list` into its tab state (`./drawer-state`). Opening a drawer that
@@ -22,9 +24,11 @@ import { Button } from "@OpenAde/ui/components/button";
 import { AsyncResult } from "effect/unstable/reactivity";
 import * as React from "react";
 
+import { AddSelectionButton } from "@/components/terminal/add-selection-button";
 import { DrawerMessage, IconButton, TerminalTabButton } from "@/components/terminal/drawer-parts";
 import { nextTitle, useDrawerState } from "@/components/terminal/drawer-state";
 import { useTerminalAtoms } from "@/components/terminal/terminal-atoms";
+import type { TerminalHandle } from "@/components/terminal/terminal-handle";
 import { describeExitError } from "@/lib/app-runtime";
 import { SHORTCUT_COMMANDS, ShortcutKbd, useKeybindingCommand } from "@/lib/shortcuts";
 import { useConnectionState } from "@/state/hooks";
@@ -85,6 +89,7 @@ function TerminalDrawer({
   const [opening, setOpening] = React.useState(false);
   const [openError, setOpenError] = React.useState<string | null>(null);
   const [measured, setMeasured] = React.useState(false);
+  const [handle, setHandle] = React.useState<TerminalHandle | null>(null);
   const [tabFocus, bumpTabFocus] = React.useReducer((count: number) => count + 1, 0);
   const gridRef = React.useRef<TerminalSize | null>(null);
   const tabsRef = React.useRef(state.tabs);
@@ -194,6 +199,7 @@ function TerminalDrawer({
           onGrid={onGrid}
           onExited={onExited}
           onGone={onGone}
+          onHandle={setHandle}
         />
       </React.Suspense>
     );
@@ -241,6 +247,7 @@ function TerminalDrawer({
         {openError !== null && state.tabs.length > 0 ? (
           <p className="min-w-0 shrink truncate type-micro text-destructive">{openError}</p>
         ) : null}
+        <AddSelectionButton threadId={threadId} handle={handle} />
         <IconButton
           label={full ? `At most ${TERMINALS_PER_THREAD} terminals per thread` : "New terminal"}
           disabled={!connected || opening || full}

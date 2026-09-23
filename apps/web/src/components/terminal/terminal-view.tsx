@@ -10,6 +10,9 @@
  * Unmounting disposes the xterm and ends the subscription; the shell keeps
  * running on the server, and the next mount reattaches from the snapshot.
  *
+ * The drawer's toolbar reaches the xterm only through the `TerminalHandle`
+ * this view hands up while it is mounted.
+ *
  * Keys: the chord bound to `terminal.toggle` is refused to xterm through
  * `attachCustomKeyEventHandler`, so it bubbles to the app's one keybinding
  * listener instead of reaching the shell (off macOS, `Ctrl+J` would otherwise
@@ -32,6 +35,7 @@ import * as React from "react";
 
 import { useTheme } from "@/components/theme-provider";
 import { useTerminalAtoms } from "@/components/terminal/terminal-atoms";
+import type { TerminalHandle } from "@/components/terminal/terminal-handle";
 import { readTerminalTheme } from "@/components/terminal/terminal-theme";
 import { TERMINAL_TOGGLE_COMMAND } from "@/lib/keybindings";
 import { useKeybindings } from "@/lib/shortcuts";
@@ -187,6 +191,7 @@ export default function TerminalView({
   onGrid,
   onExited,
   onGone,
+  onHandle,
 }: {
   threadId: ThreadId;
   terminalId: TerminalId | null;
@@ -196,6 +201,8 @@ export default function TerminalView({
   onGrid: (size: TerminalSize) => void;
   onExited: (terminalId: TerminalId, exitCode: number | null) => void;
   onGone: (terminalId: TerminalId) => void;
+  /** The handle once the xterm is open, and null once it is gone. */
+  onHandle: (handle: TerminalHandle | null) => void;
 }) {
   const hostRef = React.useRef<HTMLDivElement>(null);
   const [xterm, setXterm] = React.useState<Xterm | null>(null);
@@ -269,6 +276,23 @@ export default function TerminalView({
     xterm.fit.fit();
     onGridRef.current(boundedSize(xterm.terminal.cols, xterm.terminal.rows));
   }, [xterm, look]);
+
+  React.useEffect(() => {
+    if (xterm === null) {
+      return;
+    }
+    const { terminal } = xterm;
+    onHandle({
+      selection: () => terminal.getSelection(),
+      clearSelection: () => terminal.clearSelection(),
+      watchSelection: (listener) => {
+        listener(terminal.hasSelection());
+        const change = terminal.onSelectionChange(() => listener(terminal.hasSelection()));
+        return () => change.dispose();
+      },
+    });
+    return () => onHandle(null);
+  }, [xterm, onHandle]);
 
   React.useEffect(() => {
     if (xterm !== null && focusRequest > 0) {
