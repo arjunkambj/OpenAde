@@ -905,8 +905,9 @@ so its session id is not resumable.
 
 ### The queue
 
-Print-mode harnesses cannot take a mid-turn message, so a send while a turn is
-running goes on a queue instead of racing the session. `thread.turn.start` with
+A harness that cannot steer — a print-mode one takes no mid-turn message — has
+a send made while a turn is running go on a queue instead of racing the
+session. `thread.turn.start` with
 `queued: true` emits `thread.message.queued`, carrying the whole composer input
 — text, attachments and mentions. An interrupt that has not settled yet always
 queues, whatever the caller asked for.
@@ -933,6 +934,48 @@ archive's close before the newer turn's request, the settlement lands after
 client) count a turn as in flight from `thread.turn.requested` and ignore a
 `thread.turn.completed` whose `turnId` is not the turn in flight, so the late
 settlement cannot end the newer turn.
+
+### Steering
+
+A harness that can take a message mid-turn says so with
+`capabilities.steering`. Its `session.started` carries the capabilities, and
+`RuntimeIngestion` copies them onto `thread.session.bound`, so the thread's
+session in the read model knows what its harness can do. Command Code
+declares `steering: false`, and its threads keep the queue exactly as above.
+
+`thread.turn.steer` carries the same input as a send — text, attachments,
+mentions — and the decider answers it from the thread as it is:
+
+| The thread                               | What the steer becomes                                           |
+| ---------------------------------------- | ---------------------------------------------------------------- |
+| no turn running                          | a new turn, as an unqueued `thread.turn.start` would start       |
+| a turn stopping (`interrupting`)         | `thread.message.queued`, drained on that turn's completion       |
+| a turn running, the session cannot steer | rejected: "this thread's harness cannot take a message mid-turn" |
+| a turn running, the session steers       | `thread.turn.steered` plus the user's row, both on that turn     |
+
+The first row absorbs a race: the turn ended while the user was still typing,
+and the message simply starts the next one. A session bound before
+capabilities were recorded has none, and reads as one that cannot steer. The
+same checks as a send bar a steer outright — a missing or archived thread, a
+checkpoint restore in this thread or a sibling.
+
+`thread.turn.steered` changes nothing in either fold: the turn it names keeps
+running, and the user's row arrives as its own `thread.item.upserted` stamped
+with that turn, so the timeline shows the message inside the turn it joined.
+`ProviderCommandReactor` calls `handle.steer(turnId, input)`, which the
+turn-scoped handle delivers only while that turn is still the active one. When
+there is no live handle, or the steer fails — the turn settled between the
+decision and the call, say — the message is dispatched again as
+`thread.turn.start { queued: true }`: a new turn when none is running, the
+queue when one is. Should even that be refused, it goes onto the queue
+directly, as a refused drain does. The row the decider already wrote stays in
+the turn it was meant for, so a message that fell back shows twice: once where
+it was sent, once where it was answered.
+
+The connector keeps the running turn open until its harness has answered the
+steered message too, so the turn still ends with exactly one
+`thread.turn.completed`. The composer does not send `thread.turn.steer` yet: a
+message typed mid-turn still goes through the queue.
 
 ---
 

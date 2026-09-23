@@ -261,12 +261,18 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
     case "thread.deleted":
       return { ...next, deleted: true };
     case "thread.session.bound":
+      // The capabilities ride along when the connector announced them — the
+      // decider reads `steering` here. A session bound before they were
+      // recorded has none, which reads as "cannot steer".
       return {
         ...next,
         session: {
           connectorInstanceId: payload.connectorInstanceId as ThreadSession["connectorInstanceId"],
           connectorKind: payload.connectorKind as string,
           sessionRef: payload.sessionRef,
+          ...(payload.capabilities === undefined
+            ? {}
+            : { capabilities: payload.capabilities as ThreadSession["capabilities"] }),
         },
       };
     case "thread.session.lost":
@@ -328,6 +334,10 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
         interrupting: false,
         status: doc.status === "archived" ? "archived" : waitingOr(doc, "idle"),
       };
+    case "thread.turn.steered":
+      // The message joined the turn already running, which stays as it is:
+      // no new turn, and the user's row arrives as its own `item.upserted`.
+      return next;
     case "thread.turn.interrupted":
       // The interrupt is a request, not the end of the turn: the connector
       // still has to stop, and it settles the turn with its own

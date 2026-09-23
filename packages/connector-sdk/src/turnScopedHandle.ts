@@ -26,7 +26,10 @@
  *
  * `interrupt` and `awaitTurn` are turn-scoped for the same reason: they return
  * only once the turn has actually settled, so the caller that interrupted a
- * turn can act on a thread that is genuinely idle.
+ * turn can act on a thread that is genuinely idle. `steer` is turn-scoped too:
+ * it delivers only into the turn it names, and only while that turn is the
+ * active one, and it never moves the active turn — the steered message belongs
+ * to the turn that was already running.
  *
  * Every event is stamped on the flat `RuntimeEvent` union itself rather than
  * wrapped in a separate scope envelope.
@@ -43,7 +46,7 @@ import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 
 import type { ConnectorError, TurnInput } from "./definition";
-import { SessionClosed, TurnInProgress } from "./definition";
+import { NotSteerable, SessionClosed, TurnInProgress } from "./definition";
 import type { SessionHandle } from "./sessionHandle";
 
 /**
@@ -52,7 +55,7 @@ import type { SessionHandle } from "./sessionHandle";
  */
 export interface TurnScopedSessionHandle extends Omit<
   SessionHandle,
-  "events" | "send" | "interrupt"
+  "events" | "send" | "steer" | "interrupt"
 > {
   readonly events: Stream.Stream<RuntimeEvent>;
   /**
@@ -61,6 +64,13 @@ export interface TurnScopedSessionHandle extends Omit<
    * different turn while one is active fails with `TurnInProgress`.
    */
   readonly send: (turnId: TurnId, turn: TurnInput) => Effect.Effect<void, ConnectorError>;
+  /**
+   * Delivers a message into `turnId` while it runs. Fails with `NotSteerable`
+   * when `turnId` is not the active turn — it settled, or never started — or
+   * when the harness cannot steer at all; the caller queues the message then.
+   * The active turn is left exactly as it was either way.
+   */
+  readonly steer: (turnId: TurnId, turn: TurnInput) => Effect.Effect<void, ConnectorError>;
   /**
    * Interrupts `turnId` and returns once it has settled — the harness's own
    * `turn.completed`, or the one this wrapper synthesizes. Interrupting a turn
@@ -358,6 +368,28 @@ export const makeTurnScopedHandle = (
         Effect.flatMap((released) => (released === null ? Effect.void : Deferred.await(released))),
       );
 
+    const steer = (turnId: TurnId, turn: TurnInput): Effect.Effect<void, ConnectorError> =>
+      Effect.gen(function* () {
+        const deliver = handle.steer;
+        if (deliver === undefined) {
+          return yield* Effect.fail(
+            new NotSteerable({
+              threadId: options.threadId,
+              reason: "this harness cannot take a message mid-turn",
+            }),
+          );
+        }
+        if ((yield* latchFor(turnId)) === null) {
+          return yield* Effect.fail(
+            new NotSteerable({
+              threadId: options.threadId,
+              reason: `turn ${turnId} is not running`,
+            }),
+          );
+        }
+        yield* deliver(turn);
+      });
+
     const interrupt = (turnId: TurnId): Effect.Effect<void, ConnectorError> =>
       Effect.gen(function* () {
         const released = yield* latchFor(turnId);
@@ -372,6 +404,7 @@ export const makeTurnScopedHandle = (
       ...handle,
       events,
       send,
+      steer,
       interrupt,
       awaitTurn,
       activeTurnId: Ref.get(stateRef).pipe(Effect.map(({ active }) => active?.turnId ?? null)),

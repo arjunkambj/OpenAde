@@ -17,7 +17,7 @@ import {
   makeThreadId,
   type ItemId,
 } from "@OpenAde/contracts/ids";
-import type { RuntimeEvent } from "@OpenAde/contracts/runtime";
+import type { ConnectorCapabilities, RuntimeEvent } from "@OpenAde/contracts/runtime";
 import type { TurnScopedSessionHandle } from "@OpenAde/connector-sdk/turnScopedHandle";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
@@ -52,8 +52,8 @@ const started = (itemId: ItemId): RuntimeEvent =>
     payload: { item: { itemId, kind: "assistant_message", status: "in_progress" } },
   }) as RuntimeEvent;
 
-/** Runs the ingestion over a fixed stream and answers the texts it appended. */
-const run = (events: ReadonlyArray<RuntimeEvent>, deltaWindowMillis?: number) =>
+/** Runs the ingestion over a fixed stream and answers everything it appended. */
+const ingest = (events: ReadonlyArray<RuntimeEvent>, deltaWindowMillis?: number) =>
   Effect.gen(function* () {
     const appended = yield* Ref.make<ReadonlyArray<PlannedEvent>>([]);
     const handle = {
@@ -68,11 +68,19 @@ const run = (events: ReadonlyArray<RuntimeEvent>, deltaWindowMillis?: number) =>
         ...(deltaWindowMillis === undefined ? {} : { deltaWindowMillis }),
       },
     );
-    return (yield* Ref.get(appended)).map((event) => {
-      const payload = event.payload as { readonly item?: { readonly text?: string } };
-      return payload.item?.text ?? "";
-    });
+    return yield* Ref.get(appended);
   });
+
+/** Runs the ingestion over a fixed stream and answers the texts it appended. */
+const run = (events: ReadonlyArray<RuntimeEvent>, deltaWindowMillis?: number) =>
+  ingest(events, deltaWindowMillis).pipe(
+    Effect.map((appended) =>
+      appended.map((event) => {
+        const payload = event.payload as { readonly item?: { readonly text?: string } };
+        return payload.item?.text ?? "";
+      }),
+    ),
+  );
 
 describe("ingestSession", () => {
   it.effect("writes one snapshot per window, and the last one always lands", () =>
@@ -114,6 +122,44 @@ describe("ingestSession", () => {
         delta(second, "two"),
       ]);
       expect(texts).toEqual(["one", "one!", "", "two"]);
+    }),
+  );
+
+  it.effect("binds the session with the capabilities its harness announced", () =>
+    Effect.gen(function* () {
+      const capabilities: ConnectorCapabilities = {
+        modelSwitch: "in-session",
+        effortSwitch: "in-session",
+        steering: true,
+        planMode: true,
+        subagents: true,
+        images: true,
+        resume: true,
+        fork: false,
+        interrupt: "turn",
+        rollback: false,
+        compaction: true,
+        questions: true,
+        runtimeModes: ["approval-required"],
+        attachments: "images",
+      };
+      const appended = yield* ingest([
+        {
+          eventId: makeEventId(),
+          connectorInstanceId,
+          threadId,
+          createdAt: NOW,
+          type: "session.started",
+          payload: { sessionRef: { sessionId: "s-1" }, model: "fake/model", capabilities },
+        },
+      ]);
+      expect(appended.map((event) => event.type)).toEqual(["thread.session.bound"]);
+      expect(appended[0]?.payload).toEqual({
+        connectorInstanceId,
+        connectorKind: "fake",
+        sessionRef: { sessionId: "s-1" },
+        capabilities,
+      });
     }),
   );
 });

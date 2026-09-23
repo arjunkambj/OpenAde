@@ -335,6 +335,8 @@ loopback HTTP routes. May import `contracts`, `connector-sdk`, `connector-cmd`,
 
 Every wire shape, as `effect/Schema` codecs. Modules: `base`, `ids`, `enums`,
 `runtime`, `orchestration`, `decisions`, `settings`, `connectors`, `rpc`.
+`thread.ts` holds the value objects of a thread and is reached through
+`orchestration`, which re-exports it, rather than as a module of its own.
 `decisions` holds the record a thread keeps of each settled approval, question
 and plan, which the thread read models in `orchestration` carry. `connectors`
 holds what the renderer learns about a connector — models, probe, configured
@@ -442,7 +444,9 @@ Test infrastructure, never shipped.
   flattens a turn into `RecordedFrame`s, and produces the spawn configuration that makes the
   replayer stand in for `cmd` (`cmdReplayer`, transport `stdio-ndjson`).
 - `packages/testkit/src/fakeConnector.ts` — a real `ConnectorDefinition` whose sessions replay a
-  scripted event list, for everything above the connector layer.
+  scripted event list, for everything above the connector layer. With `steering` on its sessions
+  offer `steer`, recorded as a call like every other method, and `refuseSteering` makes each
+  one fail so a test can take the fallback to the queue.
 - `packages/testkit/src/receipts.ts` — await a command by its receipt instead of sleeping.
 - `packages/testkit/src/sqlite.ts` — a throwaway database on the same engine the server uses.
 - `packages/testkit/scripts/record-cmd.mjs` and `record-probe.mjs` — the
@@ -614,16 +618,30 @@ and its append.
 
 ### Commands and events
 
-Sixteen commands (`packages/contracts/src/orchestration.ts`):
+Seventeen commands (`packages/contracts/src/orchestration.ts`):
 `project.create`, `project.remove`, `thread.create`, `thread.rename`,
 `thread.archive`, `thread.unarchive`, `thread.delete`, `thread.turn.start`,
-`thread.turn.interrupt`, `thread.settings.update`, `thread.approval.respond`,
+`thread.turn.steer`, `thread.turn.interrupt`, `thread.settings.update`, `thread.approval.respond`,
 `thread.userInput.respond`, `thread.plan.respond`, `thread.queue.remove`,
 `thread.queue.reorder`, `thread.checkpoint.restore`.
 
-Thirty-one events, from `project.created` through `thread.error`. The catalogue
+Thirty-two events, from `project.created` through `thread.error`. The catalogue
 is kept as data (`commandTypes`, `orchestrationEventTypes`) and a test holds
-each list and its union in lockstep.
+each list and its union in lockstep. The value objects the commands, events
+and read models share — `ThreadSettings`, `QueuedMessage`, `ThreadSession` and
+the rest — live in `thread.ts` beside it, and `orchestration.ts` re-exports
+them, so that is still where they are imported from.
+
+`thread.turn.steer` is how a message reaches a turn that is already running.
+The decider decides it from the thread's bound session: `thread.session.bound`
+carries the `ConnectorCapabilities` the session announced, and only a session
+whose `steering` is true is steered — `thread.turn.steered` plus the user's
+row, stamped with the running turn. Everything else about the command is the
+same as `thread.turn.start`: the same checks bar it, with no turn running it
+starts one, while an interrupt settles it queues, and for a harness that cannot
+steer it is refused with the queue as the recourse. `capabilities` is optional
+on the session and on the event, so a log written before it decodes, and such
+a session reads as one that cannot steer.
 
 Commands do not appear as individual RPCs: `orchestration.dispatch` takes the
 whole union, which is what keeps the decider the single place a state change is
@@ -655,16 +673,20 @@ a forked fiber does not start until the builder yields and the engine's PubSub
 drops what it publishes while nobody is listening. `RuntimeIngestion` is the
 exception: one fiber per session, forked by the session manager.
 
-| Reactor                              | Watches                    | Does                                                                                                                                                 |
-| ------------------------------------ | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ProviderCommandReactor`             | the event stream           | turn send, interrupt, approval/question/plan responses, settings push, queue drain, session close, cascade of `project.removed` into `thread.delete` |
-| `RuntimeIngestion` (`ingestSession`) | one session's event stream | `RuntimeEvent` → `PlannedEvent`, appended and tagged with the runtime event that caused it; reports session end on the lifecycle channel             |
-| `SessionSupervisor`                  | boot scan + lifecycle      | resumes or marks lost                                                                                                                                |
-| `CheckpointReactor`                  | the event stream           | capture on turn completion, restore on a work order, prune on deletion                                                                               |
-| `AttachmentReactor`                  | the event stream + boot    | purges a deleted thread's attachments and sweeps unreferenced staged files                                                                           |
+| Reactor                              | Watches                    | Does                                                                                                                                                        |
+| ------------------------------------ | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ProviderCommandReactor`             | the event stream           | turn send, steer, interrupt, approval/question/plan responses, settings push, queue drain, session close, cascade of `project.removed` into `thread.delete` |
+| `RuntimeIngestion` (`ingestSession`) | one session's event stream | `RuntimeEvent` → `PlannedEvent`, appended and tagged with the runtime event that caused it; reports session end on the lifecycle channel                    |
+| `SessionSupervisor`                  | boot scan + lifecycle      | resumes or marks lost                                                                                                                                       |
+| `CheckpointReactor`                  | the event stream           | capture on turn completion, restore on a work order, prune on deletion                                                                                      |
+| `AttachmentReactor`                  | the event stream + boot    | purges a deleted thread's attachments and sweeps unreferenced staged files                                                                                  |
 
 **`ProviderCommandReactor`.** `turn.requested` → ensure the session and
-`handle.send(turnId, turn)`. `turn.interrupted` → `handle.interrupt(turnId)`,
+`handle.send(turnId, turn)`. `turn.steered` → `handle.steer(turnId, turn)`;
+when there is no live handle or the steer fails, the message is dispatched
+again as `thread.turn.start { queued: true }` — a new turn if the running one
+has ended, the queue if not — and put on the queue directly if even that is
+refused, so it is never lost. `turn.interrupted` → `handle.interrupt(turnId)`,
 and the turn stays in flight until the connector settles it — this fiber settles
 it itself only when there is no live session left to do so.
 `approval.resolved` / `userInput.resolved` / `plan.responded` → the matching
@@ -840,10 +862,12 @@ instead of the kind:
 | `rollback`                   | boolean                              | whether the harness can rewind its own conversation  |
 | `compaction`                 | boolean                              | whether compaction can be asked for on demand        |
 | `questions`                  | boolean                              | whether a turn can put a question to the user        |
+| `steering`                   | boolean                              | the decider, off the bound session: steer or refuse  |
 | `subagents`, `resume`        | boolean                              | declared                                             |
-| `steering`, `fork`           | boolean                              | declared; read once a harness supports them          |
+| `fork`                       | boolean                              | declared; read once a harness supports it            |
 
-`steering` also decides `TurnInProgress`, below.
+`steering` also decides `TurnInProgress` and whether a handle has `steer`,
+below.
 
 An instance may also carry `extensions` (`extensions.ts`): harness
 configuration it manages for the Customize page. `skills` lists what the
@@ -877,10 +901,16 @@ logger that annotates lines with the thread they came from, and a clock.
 ### The session handle
 
 `SessionHandle` is the live surface of one session: `events`, `send`,
-`interrupt`, `respondToRequest`, `respondToUserInput`, `respondToPlan`,
-`updateSettings`, `sessionRef`, `close`. `send` fails with `TurnInProgress` when
-a turn is running and `capabilities.steering` is false; the caller's recourse is
-to queue, which is what `thread.turn.start { queued: true }` is for. `close` is
+`steer`, `interrupt`, `respondToRequest`, `respondToUserInput`,
+`respondToPlan`, `updateSettings`, `sessionRef`, `close`. `send` fails with
+`TurnInProgress` when a turn is running and `capabilities.steering` is false;
+the caller's recourse is to queue, which is what
+`thread.turn.start { queued: true }` is for. `steer` is present only when
+`capabilities.steering` is true: it delivers a message into the running turn
+with no new turn boundary, and the connector keeps that turn open until the
+harness has answered the steered message too, so the turn still completes
+exactly once. It fails with `NotSteerable` when there is no turn to take the
+message. `close` is
 not best-effort: it resolves only once the connector has proved the process tree
 it started is gone.
 
@@ -915,6 +945,12 @@ spawned; the harness numbers its turns differently or not at all. Three rules:
 actually settled, so the caller that interrupted can act on a thread that is
 genuinely idle. Settling is observed on `events`, so a caller that interrupts
 must have that stream running.
+
+`steer(turnId, turn)` is turn-scoped the same way: it delivers only while
+`turnId` is the active turn, and fails with `NotSteerable` when that turn has
+settled, never started, or the handle has no `steer`. It never touches the
+active turn — the message belongs to the turn that was already running, and
+that turn's one completion still ends it.
 
 ### The conformance suite
 

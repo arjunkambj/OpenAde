@@ -67,6 +67,16 @@ export class TurnInProgress extends Data.TaggedError("TurnInProgress")<{
   readonly activeTurnId: TurnId | null;
 }> {}
 
+/**
+ * A message could not be delivered into a running turn: the turn named is not
+ * the one running, or the handle's harness has no way to take a message
+ * mid-turn. The caller's recourse is the queue, so the message is never lost.
+ */
+export class NotSteerable extends Data.TaggedError("NotSteerable")<{
+  readonly threadId: ThreadId;
+  readonly reason: string;
+}> {}
+
 /** The handle was used after `close()`, or after the harness process went away. */
 export class SessionClosed extends Data.TaggedError("SessionClosed")<{
   readonly threadId: ThreadId;
@@ -87,6 +97,7 @@ export type ConnectorError =
   | ProbeFailed
   | SpawnFailed
   | TurnInProgress
+  | NotSteerable
   | SessionClosed
   | ConnectorNotFound;
 

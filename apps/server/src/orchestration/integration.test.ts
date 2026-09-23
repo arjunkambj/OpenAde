@@ -106,6 +106,16 @@ const turnStart = (text: string, queued = false): Command => ({
   queued,
 });
 
+const turnSteer = (text: string): Command => ({
+  commandId: makeCommandId(),
+  createdAt: NOW,
+  type: "thread.turn.steer",
+  threadId,
+  text,
+  attachments: [],
+  mentions: ["README.md"],
+});
+
 /**
  * A fiber that completes with the first matching event. Fork it *before* the
  * action that produces the event — a PubSub subscription only sees what
@@ -498,6 +508,97 @@ describe("orchestration with a fake connector", () => {
         const after = yield* engine.threadDetail(threadId);
         expect(after?.queue.map((message) => message.text)).toEqual(["second"]);
       }).pipe(Effect.provide(stackLayer({ instance, checkpoints: false, supervisor: false })));
+    }),
+  );
+
+  it.effect("a steered message reaches the running turn, and its row lands in that turn", () =>
+    Effect.gen(function* () {
+      // The approval script holds the turn open until the request is
+      // answered, so the steer arrives while it is certainly still running.
+      const { fake, instance } = yield* openFake({
+        script: approvalTurnScript,
+        capabilities: { steering: true },
+      });
+      yield* Effect.gen(function* () {
+        const engine = yield* OrchestrationEngine;
+        yield* engine.dispatch(createProject);
+        yield* engine.dispatch(createThread);
+
+        const opened = yield* awaitEvent(engine, isType("thread.approval.opened"));
+        yield* engine.dispatch(turnStart("first"));
+        yield* Fiber.join(opened);
+        const turnId = (yield* engine.threadDetail(threadId))?.currentTurnId;
+
+        const receipt = yield* engine.dispatch(turnSteer("use port 8081"));
+        expect(receipt.status).toBe("accepted");
+
+        // The reactor handles events in order, so by the time the approval
+        // answer has completed the turn, the steer before it has been made.
+        const completed = yield* awaitEvent(engine, isType("thread.turn.completed"));
+        yield* engine.dispatch({
+          commandId: makeCommandId(),
+          createdAt: NOW,
+          type: "thread.approval.respond",
+          threadId,
+          requestId: (yield* engine.threadDetail(threadId))!.pendingApproval!.requestId,
+          decision: "allow-once",
+        });
+        yield* Fiber.join(completed);
+
+        const detail = yield* engine.threadDetail(threadId);
+        const rows = detail?.items.filter((item) => item.kind === "user_message") ?? [];
+        expect(rows.map((row) => [row.text, row.turnId])).toEqual([
+          ["first", turnId],
+          ["use port 8081", turnId],
+        ]);
+        expect(detail?.queue).toEqual([]);
+        expect(detail?.status).toBe("idle");
+      }).pipe(Effect.provide(stackLayer({ instance })));
+
+      const session = yield* fake.session(threadId);
+      const calls = yield* session!.calls;
+      // One turn: the steered text went to `steer`, never to a second `send`.
+      expect(calls.filter((call) => call.method === "send")).toHaveLength(1);
+      expect(calls.filter((call) => call.method === "steer")).toEqual([
+        {
+          method: "steer",
+          detail: { text: "use port 8081", attachments: [], mentions: ["README.md"] },
+        },
+      ]);
+    }),
+  );
+
+  it.effect("a steer the harness refuses falls back to the queue", () =>
+    Effect.gen(function* () {
+      const { fake, instance } = yield* openFake({
+        script: approvalTurnScript,
+        capabilities: { steering: true },
+        refuseSteering: true,
+      });
+      yield* Effect.gen(function* () {
+        const engine = yield* OrchestrationEngine;
+        yield* engine.dispatch(createProject);
+        yield* engine.dispatch(createThread);
+
+        const opened = yield* awaitEvent(engine, isType("thread.approval.opened"));
+        yield* engine.dispatch(turnStart("first"));
+        yield* Fiber.join(opened);
+
+        const queued = yield* awaitEvent(engine, isType("thread.message.queued"));
+        yield* engine.dispatch(turnSteer("use port 8081"));
+        yield* Fiber.join(queued);
+
+        const detail = yield* engine.threadDetail(threadId);
+        expect(detail?.queue.map((message) => [message.text, message.mentions])).toEqual([
+          ["use port 8081", ["README.md"]],
+        ]);
+      }).pipe(Effect.provide(stackLayer({ instance })));
+
+      const session = yield* fake.session(threadId);
+      // The steer was tried and refused; the turn it was meant for is still
+      // the only one sent, and the message waits on the queue for the next.
+      const methods = (yield* session!.calls).map((call) => call.method);
+      expect(methods.filter((method) => method !== "close")).toEqual(["send", "steer"]);
     }),
   );
 

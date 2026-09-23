@@ -80,6 +80,9 @@ const translateRuntimeEvent = (
             connectorInstanceId: ctx.connectorInstanceId,
             connectorKind: ctx.connectorKind,
             sessionRef: event.payload.sessionRef,
+            // What the harness can do goes onto the thread with its session:
+            // the decider reads `steering` there to route a mid-turn message.
+            capabilities: event.payload.capabilities,
           },
         },
       ];

@@ -12,7 +12,7 @@ import * as Schema from "effect/Schema";
 import { IsoDateTime, NonEmptyString, NonNegativeInt } from "./base";
 import { Effort, InteractionMode, RuntimeMode } from "./enums";
 import { CheckpointId, ConnectorInstanceId, ConnectorKind, ItemId, TurnId } from "./ids";
-import { Attachment } from "./runtime";
+import { Attachment, ConnectorCapabilities } from "./runtime";
 
 /** An `@`-mention from the composer: a workspace-relative path. */
 export const Mention = NonEmptyString;
@@ -100,11 +100,20 @@ export const CheckpointSummary = Schema.Struct({
 });
 export type CheckpointSummary = typeof CheckpointSummary.Type;
 
-/** The connector session a thread is currently bound to, if any. */
+/**
+ * The connector session a thread is currently bound to, if any.
+ *
+ * `capabilities` is what that session's harness said it can do when it
+ * started — the decider reads `steering` off it to decide whether a message
+ * sent mid-turn goes into the running turn or onto the queue. Optional, so a
+ * session bound before the field existed still decodes; absent reads as "no
+ * steering".
+ */
 export const ThreadSession = Schema.Struct({
   connectorInstanceId: ConnectorInstanceId,
   connectorKind: ConnectorKind,
   sessionRef: Schema.Unknown,
+  capabilities: Schema.optional(ConnectorCapabilities),
 });
 export type ThreadSession = typeof ThreadSession.Type;
 

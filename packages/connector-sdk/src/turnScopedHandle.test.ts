@@ -15,7 +15,7 @@ import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 
 import type { TurnInput } from "./definition";
-import { SessionClosed } from "./definition";
+import { NotSteerable, SessionClosed } from "./definition";
 import type { SessionHandle } from "./sessionHandle";
 import { makeBoundedEventQueue } from "./sessionHandle";
 import { makeTurnScopedHandle } from "./turnScopedHandle";
@@ -74,12 +74,14 @@ const usageUpdated = (): RuntimeEvent => ({
 
 /**
  * A handle whose harness is the test itself: events go in through `emit`, the
- * prompts that reached `send` come back out through `sent`.
+ * prompts that reached `send` come back out through `sent`, and — for a
+ * harness that can steer — the messages that reached `steer` through `steered`.
  */
-const makeScriptedHandle = () =>
+const makeScriptedHandle = (options?: { readonly steerable?: boolean }) =>
   Effect.gen(function* () {
     const queue = yield* makeBoundedEventQueue({ capacity: 64, reserve: 8 });
     const sentRef = yield* Ref.make<ReadonlyArray<TurnInput>>([]);
+    const steeredRef = yield* Ref.make<ReadonlyArray<TurnInput>>([]);
     const failSendRef = yield* Ref.make(false);
     const onInterruptRef = yield* Ref.make<Effect.Effect<void>>(Effect.void);
 
@@ -92,6 +94,9 @@ const makeScriptedHandle = () =>
           }
           yield* Ref.update(sentRef, (all) => [...all, input]);
         }),
+      ...(options?.steerable === true
+        ? { steer: (input: TurnInput) => Ref.update(steeredRef, (all) => [...all, input]) }
+        : {}),
       interrupt: () => Ref.get(onInterruptRef).pipe(Effect.flatMap((run) => run)),
       respondToRequest: () => Effect.void,
       respondToUserInput: () => Effect.void,
@@ -106,6 +111,7 @@ const makeScriptedHandle = () =>
       emit: (event: RuntimeEvent) => queue.offer(event).pipe(Effect.asVoid),
       end: queue.end,
       sent: Ref.get(sentRef),
+      steered: Ref.get(steeredRef),
       refuseSends: Ref.set(failSendRef, true),
       /** What the harness does when the wrapper asks it to stop. */
       onInterrupt: (run: Effect.Effect<void>) => Ref.set(onInterruptRef, run),
@@ -469,4 +475,75 @@ describe("makeTurnScopedHandle", () => {
       );
     }),
   );
+
+  describe("steer", () => {
+    it.effect("delivers into the active turn and leaves it active", () =>
+      Effect.gen(function* () {
+        const scripted = yield* makeScriptedHandle({ steerable: true });
+        const scoped = yield* makeTurnScopedHandle(scripted.handle, {
+          connectorInstanceId,
+          threadId,
+        });
+        const turnId = makeTurnId();
+
+        yield* scoped.send(turnId, turn("build it"));
+        yield* scoped.steer(turnId, turn("use port 8081"));
+
+        expect((yield* scripted.steered).map((input) => input.text)).toEqual(["use port 8081"]);
+        // No new turn: the prompt went to `send` once, and the turn that was
+        // running is still the one running.
+        expect((yield* scripted.sent).map((input) => input.text)).toEqual(["build it"]);
+        expect(yield* scoped.activeTurnId).toBe(turnId);
+
+        // Events after the steer still belong to that same turn.
+        yield* scripted.emit(delta());
+        yield* scripted.end;
+        const events = yield* Stream.runCollect(scoped.events);
+        expect(events.find((event) => event.type === "content.delta")?.turnId).toBe(turnId);
+      }),
+    );
+
+    it.effect("refuses a turn that is not the active one, and changes nothing", () =>
+      Effect.gen(function* () {
+        const scripted = yield* makeScriptedHandle({ steerable: true });
+        const scoped = yield* makeTurnScopedHandle(scripted.handle, {
+          connectorInstanceId,
+          threadId,
+        });
+        const turnId = makeTurnId();
+        const stale = makeTurnId();
+
+        // Nothing running at all.
+        const idle = yield* Effect.flip(scoped.steer(turnId, turn("too early")));
+        expect(idle).toBeInstanceOf(NotSteerable);
+        expect(yield* scoped.activeTurnId).toBeNull();
+
+        // A turn running, but a different one — the steer was meant for a
+        // turn that has already settled.
+        yield* scoped.send(turnId, turn("build it"));
+        const error = yield* Effect.flip(scoped.steer(stale, turn("too late")));
+        expect(error).toBeInstanceOf(NotSteerable);
+        expect(error._tag === "NotSteerable" && error.reason).toContain(stale);
+        expect(yield* scripted.steered).toEqual([]);
+        expect(yield* scoped.activeTurnId).toBe(turnId);
+      }),
+    );
+
+    it.effect("refuses when the harness cannot steer, and changes nothing", () =>
+      Effect.gen(function* () {
+        const scripted = yield* makeScriptedHandle();
+        const scoped = yield* makeTurnScopedHandle(scripted.handle, {
+          connectorInstanceId,
+          threadId,
+        });
+        const turnId = makeTurnId();
+
+        yield* scoped.send(turnId, turn("build it"));
+        const error = yield* Effect.flip(scoped.steer(turnId, turn("use port 8081")));
+        expect(error).toBeInstanceOf(NotSteerable);
+        expect(yield* scoped.activeTurnId).toBe(turnId);
+        expect((yield* scripted.sent).map((input) => input.text)).toEqual(["build it"]);
+      }),
+    );
+  });
 });

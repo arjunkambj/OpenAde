@@ -108,6 +108,74 @@ const event =
       payload,
     }) as PlannedEvent;
 
+type Emit = ReturnType<typeof event>;
+
+/** What the user typed, as the two turn commands carry it. */
+type TurnText = Extract<Command, { type: "thread.turn.start" | "thread.turn.steer" }>;
+
+/**
+ * Why an existing thread may not take a message now, or `null` when it may.
+ * Shared by `thread.turn.start` and `thread.turn.steer`: a steered message is
+ * work on the worktree like any other, so it is barred for the same reasons.
+ */
+const turnBarred = (thread: ThreadDoc, ctx: DeciderContext): string | null => {
+  if (thread.status === "archived") {
+    return `thread ${thread.threadId} is archived`;
+  }
+  // A restore is rewriting the worktree right now: `git clean -fd` would
+  // delete whatever the turn wrote while it ran. The worktree belongs to the
+  // project, not the thread, so a sibling's restore bars this turn too.
+  if (thread.restoring) {
+    return `thread ${thread.threadId} is restoring a checkpoint`;
+  }
+  if (ctx.restoreInFlight(thread.projectId, thread.threadId)) {
+    return `another thread in project ${thread.projectId} is restoring a checkpoint`;
+  }
+  return null;
+};
+
+const queueMessage = (emit: Emit, env: DecideEnv, command: TurnText): PlannedEvent =>
+  emit("thread.message.queued", {
+    message: {
+      queuedMessageId: env.nextItemId(),
+      text: command.text,
+      attachments: command.attachments,
+      mentions: command.mentions,
+      queuedAt: env.now,
+    },
+  });
+
+/**
+ * The user's own row. Nothing else mints it: connectors deliberately emit
+ * nothing for a user text message (their translators say so), so without this
+ * the timeline showed the answers and never the questions.
+ */
+const userMessage = (emit: Emit, env: DecideEnv, command: TurnText, turnId: TurnId): PlannedEvent =>
+  emit("thread.item.upserted", {
+    turnId,
+    item: {
+      itemId: env.nextItemId(),
+      kind: "user_message",
+      status: "completed",
+      turnId,
+      text: command.text,
+      ...(command.attachments.length === 0 ? {} : { attachments: command.attachments }),
+    },
+  });
+
+const startTurn = (emit: Emit, env: DecideEnv, command: TurnText): ReadonlyArray<PlannedEvent> => {
+  const turnId = env.nextTurnId();
+  return [
+    emit("thread.turn.requested", {
+      turnId,
+      text: command.text,
+      attachments: command.attachments,
+      mentions: command.mentions,
+    }),
+    userMessage(emit, env, command, turnId),
+  ];
+};
+
 export const decide = (
   command: Command,
   state: { readonly project: ProjectDoc | null; readonly thread: ThreadDoc | null },
@@ -218,17 +286,9 @@ export const decide = (
       if (thread === null || thread.deleted) {
         return rejected(`thread ${command.threadId} does not exist`);
       }
-      if (thread.status === "archived") {
-        return rejected(`thread ${command.threadId} is archived`);
-      }
-      // A restore is rewriting the worktree right now: `git clean -fd` would
-      // delete whatever the turn wrote while it ran. The worktree belongs to
-      // the project, not the thread, so a sibling's restore bars this turn too.
-      if (thread.restoring) {
-        return rejected(`thread ${command.threadId} is restoring a checkpoint`);
-      }
-      if (ctx.restoreInFlight(thread.projectId, thread.threadId)) {
-        return rejected(`another thread in project ${thread.projectId} is restoring a checkpoint`);
+      const barred = turnBarred(thread, ctx);
+      if (barred !== null) {
+        return rejected(barred);
       }
       if (thread.currentTurn !== null) {
         // An interrupt that has not settled yet always queues, whatever the
@@ -238,40 +298,43 @@ export const decide = (
         if (!command.queued && !thread.interrupting) {
           return rejected("a turn is already running; send with queued: true to queue it");
         }
-        return accepted([
-          emit("thread.message.queued", {
-            message: {
-              queuedMessageId: env.nextItemId(),
-              text: command.text,
-              attachments: command.attachments,
-              mentions: command.mentions,
-              queuedAt: env.now,
-            },
-          }),
-        ]);
+        return accepted([queueMessage(emit, env, command)]);
       }
-      // The user's own row. Nothing else mints it: connectors deliberately
-      // emit nothing for a user text message (their translators say so), so
-      // without this the timeline showed the answers and never the questions.
-      const turnId = env.nextTurnId();
+      return accepted(startTurn(emit, env, command));
+    }
+
+    case "thread.turn.steer": {
+      if (thread === null || thread.deleted) {
+        return rejected(`thread ${command.threadId} does not exist`);
+      }
+      const barred = turnBarred(thread, ctx);
+      if (barred !== null) {
+        return rejected(barred);
+      }
+      // The turn ended while the user was typing: the message starts the next
+      // one, exactly as an unqueued send would, rather than being refused.
+      if (thread.currentTurn === null) {
+        return accepted(startTurn(emit, env, command));
+      }
+      // A turn that is stopping cannot take anything more; the queue drains
+      // on its `turn.completed`, as it does for a send.
+      if (thread.interrupting) {
+        return accepted([queueMessage(emit, env, command)]);
+      }
+      // Only a harness that said it can steer is steered. A thread bound
+      // before capabilities were recorded has none, which reads as "no".
+      if (thread.session?.capabilities?.steering !== true) {
+        return rejected("this thread's harness cannot take a message mid-turn; queue it instead");
+      }
+      const turnId = thread.currentTurn.turnId;
       return accepted([
-        emit("thread.turn.requested", {
+        emit("thread.turn.steered", {
           turnId,
           text: command.text,
           attachments: command.attachments,
           mentions: command.mentions,
         }),
-        emit("thread.item.upserted", {
-          turnId,
-          item: {
-            itemId: env.nextItemId(),
-            kind: "user_message",
-            status: "completed",
-            turnId,
-            text: command.text,
-            ...(command.attachments.length === 0 ? {} : { attachments: command.attachments }),
-          },
-        }),
+        userMessage(emit, env, command, turnId),
       ]);
     }
 

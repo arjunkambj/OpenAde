@@ -19,6 +19,7 @@ import {
 } from "@OpenAde/contracts/ids";
 import { UNANSWERED_OUTCOME } from "@OpenAde/contracts/decisions";
 import type { CheckpointSummary, OrchestrationEvent } from "@OpenAde/contracts/orchestration";
+import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
 
 import {
   foldThread,
@@ -73,6 +74,23 @@ const created = () =>
 
 const turnRequested = (turnId = makeTurnId()) =>
   event("thread.turn.requested", { turnId, text: "hello", attachments: [], mentions: [] });
+
+const steeringCapabilities: ConnectorCapabilities = {
+  modelSwitch: "in-session",
+  effortSwitch: "in-session",
+  steering: true,
+  planMode: true,
+  subagents: true,
+  images: true,
+  resume: true,
+  fork: false,
+  interrupt: "turn",
+  rollback: false,
+  compaction: true,
+  questions: true,
+  runtimeModes: ["approval-required"],
+  attachments: "images",
+};
 
 const checkpoint: CheckpointSummary = {
   checkpointId: makeCheckpointId(),
@@ -386,6 +404,56 @@ describe("the thread fold", () => {
     const doc = foldThread([created(), event("thread.settings.updated", { effort: "low" })]);
 
     expect(doc?.settings).not.toHaveProperty("connectorInstanceId");
+  });
+
+  it("stores the capabilities a session was bound with, and serves them", () => {
+    const doc = foldThread([
+      created(),
+      event("thread.session.bound", {
+        connectorInstanceId: makeConnectorInstanceId(),
+        connectorKind: "fake",
+        sessionRef: { id: "session-1" },
+        capabilities: steeringCapabilities,
+      }),
+    ]);
+
+    expect(doc?.session?.capabilities?.steering).toBe(true);
+    expect(doc === null ? null : threadSnapshotOf(doc).session?.capabilities).toEqual(
+      steeringCapabilities,
+    );
+  });
+
+  it("binds a session recorded without capabilities as one that cannot steer", () => {
+    const doc = foldThread([
+      created(),
+      event("thread.session.bound", {
+        connectorInstanceId: makeConnectorInstanceId(),
+        connectorKind: "fake",
+        sessionRef: { id: "session-1" },
+      }),
+    ]);
+
+    expect(doc?.session).not.toHaveProperty("capabilities");
+  });
+
+  it("changes nothing on a steered message: the turn it joined keeps running", () => {
+    const turnId = makeTurnId();
+    const before = foldThread([created(), turnRequested(turnId)]);
+    const steered = event("thread.turn.steered", {
+      turnId,
+      text: "use port 8081",
+      attachments: [],
+      mentions: [],
+    });
+    const after = before === null ? null : projectThreadEvent(before, steered);
+
+    expect(after).toEqual({
+      ...before,
+      snapshotSequence: steered.sequence,
+      updatedAt: steered.occurredAt,
+    });
+    expect(after?.currentTurn?.turnId).toBe(turnId);
+    expect(after?.items).toEqual([]);
   });
 });
 

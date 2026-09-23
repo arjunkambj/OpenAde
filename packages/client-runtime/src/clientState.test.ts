@@ -6,6 +6,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import {
   makeCheckpointId,
+  makeConnectorInstanceId,
   makeEventId,
   makeItemId,
   makeProjectId,
@@ -98,6 +99,39 @@ describe("clientState fold", () => {
     );
     doc = applyThreadEvent(doc, event("thread.turn.interrupted", { turnId }));
     expect(doc.pendingPlan?.turnId).toBe(turnId);
+  });
+
+  it("leaves the running turn alone when a message is steered into it", () => {
+    const turnId = makeTurnId();
+    const running = applyThreadEvent(
+      snapshot(),
+      event("thread.turn.requested", { turnId, text: "first", attachments: [], mentions: [] }),
+    );
+    const steered = event("thread.turn.steered", {
+      turnId,
+      text: "use port 8081",
+      attachments: [],
+      mentions: [],
+    });
+    const doc = applyThreadEvent(running, steered);
+    expect(doc).toEqual({ ...running, updatedAt: steered.occurredAt });
+    expect(doc.currentTurnId).toBe(turnId);
+    expect(doc.status).toBe("running");
+  });
+
+  it("keeps the capabilities a session was bound with, and binds older ones without", () => {
+    const bound = (capabilities?: Record<string, unknown>) =>
+      applyThreadEvent(
+        snapshot(),
+        event("thread.session.bound", {
+          connectorInstanceId: makeConnectorInstanceId(),
+          connectorKind: "fake",
+          sessionRef: {},
+          ...(capabilities === undefined ? {} : { capabilities }),
+        }),
+      ).session;
+    expect(bound({ steering: true })?.capabilities?.steering).toBe(true);
+    expect(bound()).not.toHaveProperty("capabilities");
   });
 
   it("ignores plan.responded for a different turn", () => {

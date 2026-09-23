@@ -181,6 +181,67 @@ describe("FakeConnector", () => {
     }),
   );
 
+  it.effect("offers no steer while steering is off", () =>
+    Effect.gen(function* () {
+      const { handle } = yield* openFakeSession();
+      expect(handle.steer).toBeUndefined();
+    }),
+  );
+
+  it.effect("takes a steered message into the running turn and completes it once", () =>
+    Effect.gen(function* () {
+      const { handle, collector, session } = yield* openFakeSession({
+        capabilities: { steering: true },
+      });
+      const steer = handle.steer;
+      if (steer === undefined) {
+        throw new Error("a steering fake must offer steer");
+      }
+
+      yield* session.pause;
+      yield* handle.send(turn("first"));
+      yield* collector.awaitItem((event) => event.type === "turn.started");
+      yield* steer({ text: "and also this", attachments: [], mentions: ["README.md"] });
+      yield* session.resume;
+      yield* collector.awaitItem((event) => event.type === "turn.completed");
+
+      const events = yield* collector.collected;
+      expect(events.filter((event) => event.type === "turn.started")).toHaveLength(1);
+      expect(events.filter((event) => event.type === "turn.completed")).toHaveLength(1);
+      expect(yield* session.calls).toEqual([
+        { method: "send", detail: { text: "first", attachments: [], mentions: [] } },
+        {
+          method: "steer",
+          detail: { text: "and also this", attachments: [], mentions: ["README.md"] },
+        },
+      ]);
+    }),
+  );
+
+  it.effect("refuses a steer with no turn running", () =>
+    Effect.gen(function* () {
+      const { handle } = yield* openFakeSession({ capabilities: { steering: true } });
+      const error = yield* Effect.flip(handle.steer?.(turn("nobody is listening")) ?? Effect.void);
+      expect(error._tag).toBe("NotSteerable");
+    }),
+  );
+
+  it.effect("refuses every steer when told to, while still advertising steering", () =>
+    Effect.gen(function* () {
+      const { handle, collector, session } = yield* openFakeSession({
+        capabilities: { steering: true },
+        refuseSteering: true,
+      });
+
+      yield* session.pause;
+      yield* handle.send(turn("first"));
+      yield* collector.awaitItem((event) => event.type === "turn.started");
+      const error = yield* Effect.flip(handle.steer?.(turn("turned away")) ?? Effect.void);
+      expect(error._tag).toBe("NotSteerable");
+      expect((yield* session.calls).map((call) => call.method)).toEqual(["send", "steer"]);
+    }),
+  );
+
   it.effect("ends the turn as interrupted when the turn is interrupted", () =>
     Effect.gen(function* () {
       const { handle, collector, session } = yield* openFakeSession();

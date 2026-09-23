@@ -10,6 +10,7 @@ import {
   makeTurnId,
 } from "@OpenAde/contracts/ids";
 import type { Command } from "@OpenAde/contracts/orchestration";
+import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
 
 import { decide, type DeciderContext, type DecideEnv } from "./decider";
 import type { ProjectDoc, ThreadDoc } from "./state";
@@ -1099,5 +1100,159 @@ describe("the thread's connector instance", () => {
     expect(result.accepted).toBe(true);
     if (!result.accepted) return;
     expect(result.events[0]!.payload).toEqual({ model: "fake/other" });
+  });
+});
+
+describe("steering a running turn", () => {
+  const RUNNING = makeTurnId();
+  const INSTANCE = makeConnectorInstanceId();
+
+  const capabilities = (steering: boolean): ConnectorCapabilities => ({
+    modelSwitch: "per-turn",
+    effortSwitch: "per-turn",
+    steering,
+    planMode: true,
+    subagents: true,
+    images: false,
+    resume: true,
+    fork: false,
+    interrupt: "turn",
+    rollback: false,
+    compaction: false,
+    questions: true,
+    runtimeModes: ["approval-required"],
+    attachments: "images",
+  });
+
+  /** A thread mid-turn on a session whose harness can, or cannot, steer. */
+  const running = (session: ThreadDoc["session"], overrides: Partial<ThreadDoc> = {}) =>
+    threadDoc({
+      session,
+      currentTurn: {
+        turnId: RUNNING,
+        input: { text: "in-flight", attachments: [], mentions: [] },
+      },
+      status: "running",
+      ...overrides,
+    });
+
+  const steerable = (overrides: Partial<ThreadDoc> = {}) =>
+    running(
+      {
+        connectorInstanceId: INSTANCE,
+        connectorKind: "fake",
+        sessionRef: {},
+        capabilities: capabilities(true),
+      },
+      overrides,
+    );
+
+  const steer = (
+    thread: ThreadDoc | null,
+    attachments: ReadonlyArray<{ path: string; mime?: string }> = [],
+    context = ctx(),
+  ) =>
+    decide(
+      {
+        ...baseCommand,
+        type: "thread.turn.steer",
+        threadId: thread?.threadId ?? makeThreadId(),
+        text: "use port 8081",
+        attachments,
+        mentions: ["README.md"],
+      } as Command,
+      { project: null, thread },
+      context,
+      env,
+    );
+
+  it("delivers into the running turn, with the user's row in that same turn", () => {
+    const attachments = [{ path: "/home/.openade/attachments/t/abc-shot.png", mime: "image/png" }];
+    const result = steer(steerable(), attachments);
+    expect(result.accepted).toBe(true);
+    if (!result.accepted) return;
+    expect(result.events.map((event) => event.type)).toEqual([
+      "thread.turn.steered",
+      "thread.item.upserted",
+    ]);
+    expect(result.events[0]!.payload).toEqual({
+      turnId: RUNNING,
+      text: "use port 8081",
+      attachments,
+      mentions: ["README.md"],
+    });
+    const upserted = result.events[1]!.payload as {
+      turnId: string;
+      item: { kind: string; turnId: string; text: string; attachments?: unknown };
+    };
+    expect(upserted.turnId).toBe(RUNNING);
+    expect(upserted.item).toMatchObject({
+      kind: "user_message",
+      turnId: RUNNING,
+      text: "use port 8081",
+      attachments,
+    });
+  });
+
+  it("starts a turn when the one it was meant for has already ended", () => {
+    const result = steer(threadDoc());
+    expect(result.accepted).toBe(true);
+    if (!result.accepted) return;
+    expect(result.events.map((event) => event.type)).toEqual([
+      "thread.turn.requested",
+      "thread.item.upserted",
+    ]);
+    const requested = result.events[0]!.payload as { turnId: string };
+    expect(requested.turnId).not.toBe(RUNNING);
+  });
+
+  it("queues while the running turn is stopping", () => {
+    const result = steer(steerable({ interrupting: true }));
+    expect(result.accepted).toBe(true);
+    if (!result.accepted) return;
+    expect(result.events.map((event) => event.type)).toEqual(["thread.message.queued"]);
+  });
+
+  it("refuses a harness that cannot steer, such as a print-mode one", () => {
+    const result = steer(
+      running({
+        connectorInstanceId: INSTANCE,
+        connectorKind: "cmd",
+        sessionRef: {},
+        capabilities: capabilities(false),
+      }),
+    );
+    expect(result).toEqual({
+      accepted: false,
+      reason: "this thread's harness cannot take a message mid-turn; queue it instead",
+    });
+  });
+
+  it("refuses a session bound before capabilities were recorded", () => {
+    const result = steer(
+      running({ connectorInstanceId: INSTANCE, connectorKind: "cmd", sessionRef: {} }),
+    );
+    expect(result.accepted).toBe(false);
+  });
+
+  it("refuses a running turn with no session bound yet", () => {
+    expect(steer(running(null)).accepted).toBe(false);
+  });
+
+  it("is barred by the same checks as starting a turn", () => {
+    const reasons = [
+      steer(null),
+      steer(steerable({ deleted: true })),
+      steer(steerable({ status: "archived" })),
+      steer(steerable({ restoring: true })),
+      steer(steerable(), [], ctx({ restoreInFlight: () => true })),
+    ].map((result) => (result.accepted ? "accepted" : result.reason));
+    expect(reasons).toEqual([
+      expect.stringContaining("does not exist"),
+      expect.stringContaining("does not exist"),
+      expect.stringContaining("is archived"),
+      expect.stringContaining("restoring a checkpoint"),
+      expect.stringContaining("another thread in project"),
+    ]);
   });
 });

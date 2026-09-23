@@ -21,8 +21,6 @@ import { ApprovalDecision } from "./enums";
 import {
   CheckpointId,
   CommandId,
-  ConnectorInstanceId,
-  ConnectorKind,
   EventId,
   ItemId,
   ProjectId,
@@ -116,8 +114,9 @@ const ThreadDeleteCommand = command("thread.delete", { threadId: ThreadId });
 
 /**
  * Start a turn, or queue it. `queued` is the composer's Cmd+Enter: with a turn
- * already running the text goes on the queue instead of racing the session,
- * because print-mode harnesses cannot take a mid-turn message.
+ * already running the text goes on the queue instead of racing the session.
+ * The queue is for harnesses that cannot steer — print-mode ones take no
+ * mid-turn message; one that can is sent `thread.turn.steer` instead.
  */
 const ThreadTurnStartCommand = command("thread.turn.start", {
   threadId: ThreadId,
@@ -125,6 +124,19 @@ const ThreadTurnStartCommand = command("thread.turn.start", {
   attachments: Schema.Array(Attachment),
   mentions: Schema.Array(Mention),
   queued: Schema.Boolean,
+});
+
+/**
+ * Deliver a message into the running turn, for a thread whose harness can
+ * steer (`capabilities.steering` on its bound session). With no turn running
+ * it starts one, so a turn that ended while the user typed loses nothing; a
+ * turn that is stopping queues it; a harness that cannot steer is refused.
+ */
+const ThreadTurnSteerCommand = command("thread.turn.steer", {
+  threadId: ThreadId,
+  text: Schema.String,
+  attachments: Schema.Array(Attachment),
+  mentions: Schema.Array(Mention),
 });
 
 const ThreadTurnInterruptCommand = command("thread.turn.interrupt", { threadId: ThreadId });
@@ -197,6 +209,7 @@ export const Command = Schema.Union([
   ThreadUnarchiveCommand,
   ThreadDeleteCommand,
   ThreadTurnStartCommand,
+  ThreadTurnSteerCommand,
   ThreadTurnInterruptCommand,
   ThreadSettingsUpdateCommand,
   ThreadApprovalRespondCommand,
@@ -221,6 +234,7 @@ export const CommandType = Schema.Literals([
   "thread.unarchive",
   "thread.delete",
   "thread.turn.start",
+  "thread.turn.steer",
   "thread.turn.interrupt",
   "thread.settings.update",
   "thread.approval.respond",
@@ -324,14 +338,12 @@ const ThreadUnarchivedEvent = orchestrationEvent("thread.unarchived", Schema.Str
 
 const ThreadDeletedEvent = orchestrationEvent("thread.deleted", Schema.Struct({}));
 
-const ThreadSessionBoundEvent = orchestrationEvent(
-  "thread.session.bound",
-  Schema.Struct({
-    connectorInstanceId: ConnectorInstanceId,
-    connectorKind: ConnectorKind,
-    sessionRef: Schema.Unknown,
-  }),
-);
+/**
+ * The session a thread now runs on, exactly as `ThreadSession` stores it —
+ * `capabilities` included when the connector announced them, which every
+ * session bound before the field existed did not.
+ */
+const ThreadSessionBoundEvent = orchestrationEvent("thread.session.bound", ThreadSession);
 
 const ThreadSessionLostEvent = orchestrationEvent(
   "thread.session.lost",
@@ -356,6 +368,21 @@ const ThreadTurnStartedEvent = orchestrationEvent(
 const ThreadTurnCompletedEvent = orchestrationEvent(
   "thread.turn.completed",
   Schema.Struct({ turnId: TurnId, stopReason: TurnStopReason }),
+);
+
+/**
+ * A message delivered into `turnId` while it runs. The turn keeps its
+ * boundary — no new turn starts — and the user's row arrives beside this as a
+ * `thread.item.upserted` stamped with the same turn.
+ */
+const ThreadTurnSteeredEvent = orchestrationEvent(
+  "thread.turn.steered",
+  Schema.Struct({
+    turnId: TurnId,
+    text: Schema.String,
+    attachments: Schema.Array(Attachment),
+    mentions: Schema.Array(Mention),
+  }),
 );
 
 const ThreadTurnInterruptedEvent = orchestrationEvent(
@@ -501,6 +528,7 @@ export const OrchestrationEvent = Schema.Union([
   ThreadTurnRequestedEvent,
   ThreadTurnStartedEvent,
   ThreadTurnCompletedEvent,
+  ThreadTurnSteeredEvent,
   ThreadTurnInterruptedEvent,
   ThreadMessageQueuedEvent,
   ThreadMessageDequeuedEvent,
@@ -540,6 +568,7 @@ export const OrchestrationEventType = Schema.Literals([
   "thread.turn.requested",
   "thread.turn.started",
   "thread.turn.completed",
+  "thread.turn.steered",
   "thread.turn.interrupted",
   "thread.message.queued",
   "thread.message.dequeued",

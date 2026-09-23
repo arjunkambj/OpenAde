@@ -9,6 +9,10 @@
  * mid-turn, push an extra event in, crash the process, and read back every call
  * the code under test made.
  *
+ * With `capabilities.steering` on, a session also offers `steer`: the message
+ * is recorded as a call and the running turn simply goes on, which is all the
+ * SPI promises. The fake stands in for no harness's way of answering it.
+ *
  * Two rules are enforced by the fake rather than by the script, because they
  * are the ones the engine depends on and a hand-written script would forget:
  * a turn always opens with `turn.started` and always closes with exactly one
@@ -27,7 +31,7 @@ import type {
   ConnectorProbe,
   TurnInput,
 } from "@OpenAde/connector-sdk/definition";
-import { SessionClosed, TurnInProgress } from "@OpenAde/connector-sdk/definition";
+import { NotSteerable, SessionClosed, TurnInProgress } from "@OpenAde/connector-sdk/definition";
 import type { ConnectorExtensions } from "@OpenAde/connector-sdk/extensions";
 import type { SessionHandle } from "@OpenAde/connector-sdk/sessionHandle";
 import { makeBoundedEventQueue } from "@OpenAde/connector-sdk/sessionHandle";
@@ -122,6 +126,7 @@ export const approvalTurnScript: FakeTurnScript = ({ input }) => {
 
 export type FakeSessionMethod =
   | "send"
+  | "steer"
   | "interrupt"
   | "respondToRequest"
   | "respondToUserInput"
@@ -159,6 +164,7 @@ interface FakeSessionInput {
   readonly capabilities: ConnectorCapabilities;
   readonly script: FakeTurnScript;
   readonly sessionRef: unknown;
+  readonly refuseSteering: boolean;
 }
 
 const makeFakeSession = (input: FakeSessionInput): Effect.Effect<FakeSession, never, Scope.Scope> =>
@@ -339,6 +345,32 @@ const makeFakeSession = (input: FakeSessionInput): Effect.Effect<FakeSession, ne
       }
     });
 
+    /**
+     * Takes a message into the running turn: recorded, and nothing else — the
+     * turn's script carries on and completes it as before. Refused with no turn
+     * running, as the SPI says, or always when the test asked for a harness
+     * that advertises steering and then turns the message away.
+     */
+    const steer = (turn: TurnInput): Effect.Effect<void, NotSteerable | SessionClosed> =>
+      Effect.gen(function* () {
+        yield* record("steer", {
+          text: turn.text,
+          attachments: turn.attachments,
+          mentions: turn.mentions,
+        });
+        yield* refuseWhenClosed;
+        if (input.refuseSteering) {
+          return yield* Effect.fail(
+            new NotSteerable({ threadId: input.threadId, reason: "the fake refuses steering" }),
+          );
+        }
+        if ((yield* Ref.get(activeTurn)) === null) {
+          return yield* Effect.fail(
+            new NotSteerable({ threadId: input.threadId, reason: "no turn is running" }),
+          );
+        }
+      });
+
     const handle: SessionHandle = {
       events: queue.events,
       send: (turn) =>
@@ -359,6 +391,7 @@ const makeFakeSession = (input: FakeSessionInput): Effect.Effect<FakeSession, ne
           yield* Ref.set(activeTurn, turnId);
           yield* Queue.offer(turns, { turnId, input: turn });
         }),
+      ...(input.capabilities.steering ? { steer } : {}),
       interrupt: () =>
         Effect.gen(function* () {
           yield* record("interrupt");
@@ -443,6 +476,12 @@ export interface FakeConnectorOptions {
   readonly models?: ReadonlyArray<ModelOption>;
   readonly model?: string;
   readonly script?: FakeTurnScript;
+  /**
+   * With `capabilities.steering` on, makes every `steer` fail with
+   * `NotSteerable` — the path where a message meant for the running turn has
+   * to fall back to the queue.
+   */
+  readonly refuseSteering?: boolean;
   /** Handed to every instance as-is; tests supply in-memory ones. */
   readonly extensions?: ConnectorExtensions;
 }
@@ -484,6 +523,7 @@ export const makeFakeConnector = (
           capabilities,
           script,
           sessionRef,
+          refuseSteering: options.refuseSteering ?? false,
         });
         yield* Ref.update(opened, (all) => [...all, session]);
         return session.handle;

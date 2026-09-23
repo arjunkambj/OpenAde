@@ -1,0 +1,23 @@
+{
+  "connectorInstanceId": "0199c0de-0003-7000-8000-000000000002",
+  "connectorKind": "fake",
+  "sessionRef": {
+    "sessionId": "7d1e4a52-93b0-4c6e-8f21-0c5a9e3b7d10"
+  },
+  "capabilities": {
+    "modelSwitch": "in-session",
+    "effortSwitch": "in-session",
+    "steering": true,
+    "planMode": true,
+    "subagents": true,
+    "images": true,
+    "resume": true,
+    "fork": false,
+    "interrupt": "turn",
+    "rollback": false,
+    "compaction": true,
+    "questions": true,
+    "runtimeModes": ["approval-required", "auto-accept-edits", "full-access"],
+    "attachments": "images"
+  }
+}

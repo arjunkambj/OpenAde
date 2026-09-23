@@ -118,8 +118,9 @@ Capabilities are how the UI adapts without knowing. A connector declares
 `questions`, `runtimeModes`, `attachments` — and the renderer branches on those
 (`packages/connector-cmd/src/capabilities.ts`). The mode picker offers the
 connector's `runtimeModes`, the composer refuses attachments when `images` is
-false. `steering` and `fork` are declared ahead of any UI for them and read once
-a harness supports them.
+false, and the decider steers a message into a running turn only for a
+session whose `steering` is true — a harness without it keeps the queue.
+`fork` is declared ahead of any UI for it and read once a harness supports it.
 
 **To honour it:** if the UI needs to behave differently for one harness, add a
 capability flag to the contract and let the connector declare it. Never add a

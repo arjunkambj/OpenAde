@@ -28,7 +28,8 @@ import type { ConnectorError, TurnInput } from "./definition";
  * `send` fails with `TurnInProgress` when a turn is already running and the
  * connector's `capabilities.steering` is false — Command Code's print mode is
  * one turn per process, so a second message has to be queued by the caller
- * rather than raced into the running one.
+ * rather than raced into the running one. A harness that can steer offers
+ * `steer` for that message instead.
  *
  * `close` is not best-effort: it resolves only once the connector has proved
  * the process tree it started is gone. A connector that cannot prove that must
@@ -37,6 +38,17 @@ import type { ConnectorError, TurnInput } from "./definition";
 export interface SessionHandle {
   readonly events: Stream.Stream<RuntimeEvent>;
   readonly send: (turn: TurnInput) => Effect.Effect<void, ConnectorError>;
+  /**
+   * Delivers a message into the turn that is running now. Present only when
+   * the connector's `capabilities.steering` is true, and absent otherwise.
+   *
+   * It draws no new turn boundary: no `turn.started`, and the running turn's
+   * events simply go on. The connector keeps that turn open until the harness
+   * has answered the steered message as well, so the turn's one
+   * `turn.completed` comes after both answers. It fails with `NotSteerable`
+   * when there is no running turn to take the message.
+   */
+  readonly steer?: (turn: TurnInput) => Effect.Effect<void, ConnectorError>;
   readonly interrupt: () => Effect.Effect<void, ConnectorError>;
   readonly respondToRequest: (
     requestId: RequestId,

@@ -150,10 +150,14 @@ export const applyThreadEvent = (
     case "thread.session.bound":
       return {
         ...doc,
+        // The capabilities come along when the connector announced them: the
+        // composer reads `steering` off the session to know whether a message
+        // sent mid-turn goes into the running turn or onto the queue.
         session: {
           connectorInstanceId: payload.connectorInstanceId,
           connectorKind: payload.connectorKind,
           sessionRef: payload.sessionRef,
+          ...(payload.capabilities === undefined ? {} : { capabilities: payload.capabilities }),
         } as ThreadDetailSnapshot["session"],
         updatedAt: event.occurredAt,
       };
@@ -192,6 +196,10 @@ export const applyThreadEvent = (
         currentTurnId: payload.turnId as ThreadDetailSnapshot["currentTurnId"],
         updatedAt: event.occurredAt,
       };
+    case "thread.turn.steered":
+      // The message joined the turn already running, as on the server: no new
+      // turn, and the user's row arrives through its own `item.upserted`.
+      return { ...doc, updatedAt: event.occurredAt };
     case "thread.turn.interrupted":
       // An interrupt is a request, not the end of the turn: the connector
       // still has to stop and settles the turn with its own `turn.completed`.

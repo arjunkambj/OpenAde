@@ -5,6 +5,8 @@
  * already decided; this fiber performs the side effect the event calls for:
  *
  * - `turn.requested` → ensure the session, `handle.send(turnId, turn)`.
+ * - `turn.steered` → `handle.steer(turnId, turn)` into the running turn; a
+ *   message that cannot be delivered falls back to the queue, never lost.
  * - `turn.interrupted` → `handle.interrupt(turnId)`; the turn stays in flight
  *   until the connector settles it, and this fiber settles it itself when
  *   there is no live session left to do so.
@@ -22,7 +24,7 @@
  * wedged in `running`.
  */
 
-import { makeCommandId, makeEventId } from "@OpenAde/contracts/ids";
+import { makeCommandId, makeEventId, makeItemId } from "@OpenAde/contracts/ids";
 import type { ProjectId, RequestId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
 import type { ApprovalDecision } from "@OpenAde/contracts/enums";
 import type {
@@ -145,6 +147,56 @@ export const ProviderCommandReactor = Layer.effectDiscard(
         yield* engine.appendThreadEvents(threadId, planned);
       });
 
+    /**
+     * Delivers a steered message into the turn it was meant for. The decider
+     * steers only a thread whose harness said it can, but the message can
+     * still miss: the session went away, or the turn ended between the
+     * decision and this call. Then it goes back through the queue instead —
+     * `queued: true` starts a turn when none is running and queues behind the
+     * one that is — and a refusal of that too puts it on the queue directly,
+     * as the drain does, so the user never loses what they typed.
+     */
+    const steerOrQueue = (threadId: ThreadId, turnId: TurnId, input: TurnInput, causedBy: string) =>
+      Effect.gen(function* () {
+        const handle = yield* sessions.handleFor(threadId);
+        const delivered = yield* handle === null
+          ? Effect.succeed(false)
+          : handle.steer(turnId, input).pipe(
+              Effect.as(true),
+              Effect.catch((error) =>
+                Effect.logWarning("steer failed", error).pipe(Effect.as(false)),
+              ),
+            );
+        if (delivered) {
+          return;
+        }
+        const receipt = yield* dispatchTurn(threadId, input, true);
+        if (receipt.status === "accepted") {
+          return;
+        }
+        const now = new Date().toISOString();
+        yield* engine.appendThreadEvents(threadId, [
+          systemEvent(
+            threadId,
+            "thread.message.queued",
+            {
+              message: {
+                queuedMessageId: makeItemId(),
+                text: input.text,
+                attachments: input.attachments,
+                mentions: input.mentions,
+                queuedAt: now,
+              },
+            },
+            now,
+            causedBy,
+          ),
+        ]);
+        yield* Effect.logWarning(
+          `a steer for ${threadId} was queued: ${receipt.reason ?? "rejected"}`,
+        );
+      });
+
     const dispatchDelete = (threadId: ThreadId) =>
       engine.dispatch({
         commandId: makeCommandId(),
@@ -197,6 +249,20 @@ export const ProviderCommandReactor = Layer.effectDiscard(
               Effect.catch((error) =>
                 failThread(threadId, doc, describeError(error), event.eventId),
               ),
+            );
+            return;
+          }
+
+          case "thread.turn.steered": {
+            yield* steerOrQueue(
+              threadId,
+              payload.turnId as TurnId,
+              {
+                text: payload.text as string,
+                attachments: (payload.attachments ?? []) as ReadonlyArray<Attachment>,
+                mentions: (payload.mentions ?? []) as ReadonlyArray<Mention>,
+              },
+              event.eventId,
             );
             return;
           }

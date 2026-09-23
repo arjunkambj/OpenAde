@@ -31,6 +31,7 @@ import {
   ProjectSummary,
   ThreadDetailSnapshot,
   ThreadListStreamItem,
+  ThreadSession,
   ThreadStreamItem,
   ThreadSummary,
 } from "../src/orchestration";
@@ -172,6 +173,9 @@ const singles: ReadonlyArray<{ readonly path: string; readonly schema: FixtureSc
   { path: "settings.json", schema: Settings },
   { path: "read-models/project-summary.json", schema: ProjectSummary },
   { path: "read-models/thread-summary.json", schema: ThreadSummary },
+  // A session bound with the capabilities its harness announced, which is
+  // where the decider reads `steering` from.
+  { path: "read-models/thread-session.json", schema: ThreadSession },
   { path: "read-models/command-receipt.accepted.json", schema: CommandReceipt },
   { path: "read-models/command-receipt.rejected.json", schema: CommandReceipt },
   { path: "rpc/server-hello.json", schema: ServerHello },
@@ -337,6 +341,37 @@ describe("the thread snapshot fixture", () => {
       );
       const ids = snapshot.items.map((snapshotItem) => snapshotItem.itemId);
       expect(new Set(ids).size).toBe(ids.length);
+    }),
+  );
+});
+
+describe("the bound session's capabilities", () => {
+  it.effect("decodes a session.bound written before capabilities existed", () =>
+    Effect.gen(function* () {
+      const bound = yield* Effect.sync(() =>
+        Schema.decodeUnknownSync(OrchestrationEvent)(
+          read("orchestration-events/thread.session.bound.json"),
+        ),
+      );
+      expect(bound.type).toBe("thread.session.bound");
+      expect(bound.type === "thread.session.bound" && bound.payload.capabilities).toBeUndefined();
+    }),
+  );
+
+  it.effect("carries them onto a session.bound when the connector announced them", () =>
+    Effect.gen(function* () {
+      const session = yield* Effect.sync(() =>
+        Schema.decodeUnknownSync(ThreadSession)(read("read-models/thread-session.json")),
+      );
+      const bound = yield* Effect.sync(() =>
+        Schema.decodeUnknownSync(OrchestrationEvent)({
+          ...(read("orchestration-events/thread.session.bound.json") as Record<string, unknown>),
+          payload: session,
+        }),
+      );
+      expect(bound.type === "thread.session.bound" && bound.payload.capabilities?.steering).toBe(
+        true,
+      );
     }),
   );
 });

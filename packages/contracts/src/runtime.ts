@@ -144,9 +144,13 @@ export type CapabilitySwitch = typeof CapabilitySwitch.Type;
  * - `runtimeModes` — the modes a session can honour, never empty.
  * - `attachments` — what a turn can carry: only `images`, or any `files`.
  *
- * `steering` and `fork` are declared, but no UI reads them yet: every harness so
- * far runs one turn at a time and forks nowhere OpenAde can show. They are read
- * once a harness supports them.
+ * - `steering` — a message sent while a turn runs can be delivered into that
+ *   turn. The server copies the capabilities onto the thread's bound session,
+ *   and the decider reads this flag there: `thread.turn.steer` is accepted
+ *   only when it is true, and a harness without it takes the queue instead.
+ *
+ * `fork` is declared, but nothing reads it yet: no harness so far forks
+ * anywhere OpenAde can show. It is read once one does.
  */
 export const ConnectorCapabilities = Schema.Struct({
   modelSwitch: CapabilitySwitch,
