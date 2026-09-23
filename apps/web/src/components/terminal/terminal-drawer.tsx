@@ -6,7 +6,8 @@
  * open (`@/state/terminal-ui`). The drawer holds a tab strip over one lazily
  * loaded xterm (`./terminal-view`) that shows whichever tab is in front, and a
  * toolbar that acts on that xterm — "Add selection to chat" quotes its
- * selection into the thread's composer draft. A mod-clicked link opens in the
+ * selection into the thread's composer draft, and Find (`./terminal-find`)
+ * searches the xterm's output. A mod-clicked link opens in the
  * thread's browser pane (`./use-open-link`).
  *
  * Which terminals exist is the server's to say: the drawer folds each
@@ -29,6 +30,7 @@ import { AddSelectionButton } from "@/components/terminal/add-selection-button";
 import { DrawerMessage, IconButton, TerminalTabButton } from "@/components/terminal/drawer-parts";
 import { nextTitle, useDrawerState } from "@/components/terminal/drawer-state";
 import { useTerminalAtoms } from "@/components/terminal/terminal-atoms";
+import { TerminalFind } from "@/components/terminal/terminal-find";
 import type { TerminalHandle } from "@/components/terminal/terminal-handle";
 import { useOpenInBrowserPane } from "@/components/terminal/use-open-link";
 import { describeExitError } from "@/lib/app-runtime";
@@ -40,7 +42,7 @@ import {
   useDrawerHeight,
   useTerminalOpen,
 } from "@/state/terminal-ui";
-import { Add, ChevronDown, Spinner } from "@honeyicons/react";
+import { Add, ChevronDown, Search, Spinner } from "@honeyicons/react";
 
 const TerminalView = React.lazy(() => import("@/components/terminal/terminal-view"));
 
@@ -94,6 +96,7 @@ function TerminalDrawer({
   const [openError, setOpenError] = React.useState<string | null>(null);
   const [measured, setMeasured] = React.useState(false);
   const [handle, setHandle] = React.useState<TerminalHandle | null>(null);
+  const [finding, setFinding] = React.useState(false);
   const [tabFocus, bumpTabFocus] = React.useReducer((count: number) => count + 1, 0);
   const gridRef = React.useRef<TerminalSize | null>(null);
   const tabsRef = React.useRef(state.tabs);
@@ -165,6 +168,11 @@ function TerminalDrawer({
     } else {
       bumpTabFocus();
     }
+  };
+
+  const closeFind = () => {
+    setFinding(false);
+    handle?.focus();
   };
 
   const full = state.tabs.length >= TERMINALS_PER_THREAD;
@@ -252,6 +260,13 @@ function TerminalDrawer({
         {openError !== null && state.tabs.length > 0 ? (
           <p className="min-w-0 shrink truncate type-micro text-destructive">{openError}</p>
         ) : null}
+        <IconButton
+          label="Find"
+          disabled={handle === null}
+          onClick={() => (finding ? closeFind() : setFinding(true))}
+        >
+          <Search />
+        </IconButton>
         <AddSelectionButton threadId={threadId} handle={handle} />
         <IconButton
           label={full ? `At most ${TERMINALS_PER_THREAD} terminals per thread` : "New terminal"}
@@ -264,6 +279,11 @@ function TerminalDrawer({
           <ChevronDown />
         </IconButton>
       </div>
+      {finding && handle !== null ? (
+        <div className="flex shrink-0 justify-end px-2 pb-1">
+          <TerminalFind handle={handle} onClose={closeFind} />
+        </div>
+      ) : null}
       <div className="min-h-0 flex-1 px-2 pb-1">{body}</div>
     </div>
   );

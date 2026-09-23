@@ -9,9 +9,12 @@
  *
  * Only the surface colours come from tokens: background, foreground, cursor
  * and selection. The 16 ANSI colours stay xterm's built-in palette, so the
- * terminal invents no colour values of its own.
+ * terminal invents no colour values of its own. Find's match highlights are
+ * the foreground mixed into the background, since the search addon takes
+ * nothing but opaque `#rrggbb`.
  */
 
+import type { ISearchOptions } from "@xterm/addon-search";
 import type { ITheme } from "@xterm/xterm";
 
 /** One pixel as `getImageData` returns it: r, g, b and alpha, each 0–255. */
@@ -19,6 +22,12 @@ export type Pixel = readonly [number, number, number, number];
 
 /** How strongly the selection tints the text under it. */
 const SELECTION_ALPHA = 0.25;
+
+/** How much foreground goes into a find match, and into the current one. */
+const MATCH_MIX = 0.15;
+const ACTIVE_MATCH_MIX = 0.35;
+
+export type SearchDecorations = NonNullable<ISearchOptions["decorations"]>;
 
 const channel = (value: number): number => Math.max(0, Math.min(255, Math.round(value)));
 
@@ -49,6 +58,44 @@ export const themeFromPixels = (colors: {
   return theme;
 };
 
+const hexByte = (value: number): string => channel(value).toString(16).padStart(2, "0");
+
+/**
+ * `top` laid over `base` at `amount` (0–1) as opaque `#rrggbb`; `top`'s own
+ * alpha scales how much of it shows, and `base` is taken as opaque.
+ */
+export const mixHex = (base: Pixel, top: Pixel, amount: number): string => {
+  const weight = amount * (channel(top[3]) / 255);
+  const mix = (index: 0 | 1 | 2) => hexByte(base[index] + (top[index] - base[index]) * weight);
+  return `#${mix(0)}${mix(1)}${mix(2)}`;
+};
+
+/**
+ * Find's highlights from resolved token pixels: every match lightly tinted
+ * with the foreground, the current one more strongly and outlined in it. Null
+ * when a token could not be resolved — find then marks only the current match,
+ * with the selection.
+ */
+export const searchDecorationsFromPixels = (colors: {
+  readonly background: Pixel | null;
+  readonly foreground: Pixel | null;
+}): SearchDecorations | null => {
+  const { background, foreground } = colors;
+  if (background === null || foreground === null) {
+    return null;
+  }
+  const match = mixHex(background, foreground, MATCH_MIX);
+  const active = mixHex(background, foreground, ACTIVE_MATCH_MIX);
+  const outline = mixHex(background, foreground, 1);
+  return {
+    matchBackground: match,
+    matchOverviewRuler: match,
+    activeMatchBackground: active,
+    activeMatchBorder: outline,
+    activeMatchColorOverviewRuler: outline,
+  };
+};
+
 let paint: CanvasRenderingContext2D | null | undefined;
 
 /**
@@ -75,19 +122,25 @@ const resolveColor = (value: string): Pixel | null => {
 };
 
 /**
- * The theme for the tokens as they stand now, and the monospace stack of
- * `host` — an element carrying the `font-mono` utility, so the family is the
- * one the rest of the app's code is set in.
+ * The theme and find's highlights for the tokens as they stand now, and the
+ * monospace stack of `host` — an element carrying the `font-mono` utility, so
+ * the family is the one the rest of the app's code is set in.
  */
 export const readTerminalTheme = (
   host: HTMLElement,
-): { readonly theme: ITheme; readonly fontFamily: string } => {
+): {
+  readonly theme: ITheme;
+  readonly search: SearchDecorations | null;
+  readonly fontFamily: string;
+} => {
   const tokens = getComputedStyle(document.documentElement);
+  const colors = {
+    background: resolveColor(tokens.getPropertyValue("--background")),
+    foreground: resolveColor(tokens.getPropertyValue("--foreground")),
+  };
   return {
-    theme: themeFromPixels({
-      background: resolveColor(tokens.getPropertyValue("--background")),
-      foreground: resolveColor(tokens.getPropertyValue("--foreground")),
-    }),
+    theme: themeFromPixels(colors),
+    search: searchDecorationsFromPixels(colors),
     fontFamily: getComputedStyle(host).fontFamily,
   };
 };

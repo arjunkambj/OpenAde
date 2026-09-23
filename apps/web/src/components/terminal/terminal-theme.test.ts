@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { formatPixel, themeFromPixels, withAlpha, type Pixel } from "./terminal-theme";
+import {
+  formatPixel,
+  mixHex,
+  searchDecorationsFromPixels,
+  themeFromPixels,
+  withAlpha,
+  type Pixel,
+} from "./terminal-theme";
 
 describe("formatPixel", () => {
   it("writes an opaque pixel as rgb()", () => {
@@ -45,5 +52,40 @@ describe("themeFromPixels", () => {
 
   it("names no ANSI colour", () => {
     expect(Object.keys(themeFromPixels({ background, foreground }))).not.toContain("red");
+  });
+});
+
+describe("mixHex", () => {
+  const white: Pixel = [255, 255, 255, 255];
+  const black: Pixel = [0, 0, 0, 255];
+
+  it("writes the base at 0, the top at 1 and the blend between as #rrggbb", () => {
+    expect(mixHex(white, black, 0)).toBe("#ffffff");
+    expect(mixHex(white, black, 1)).toBe("#000000");
+    expect(mixHex(white, black, 0.5)).toBe("#808080");
+  });
+
+  it("lets a translucent top show only as much as its alpha", () => {
+    expect(mixHex(black, [255, 255, 255, 51], 1)).toBe("#333333");
+  });
+});
+
+describe("searchDecorationsFromPixels", () => {
+  const background: Pixel = [255, 255, 255, 255];
+  const foreground: Pixel = [24, 24, 27, 255];
+
+  it("tints matches with the foreground and marks the current one harder", () => {
+    expect(searchDecorationsFromPixels({ background, foreground })).toEqual({
+      matchBackground: "#dcdcdd",
+      matchOverviewRuler: "#dcdcdd",
+      activeMatchBackground: "#aeaeaf",
+      activeMatchBorder: "#18181b",
+      activeMatchColorOverviewRuler: "#18181b",
+    });
+  });
+
+  it("is null when a token could not be resolved", () => {
+    expect(searchDecorationsFromPixels({ background, foreground: null })).toBeNull();
+    expect(searchDecorationsFromPixels({ background: null, foreground })).toBeNull();
   });
 });

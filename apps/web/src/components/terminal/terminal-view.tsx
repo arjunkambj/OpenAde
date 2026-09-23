@@ -11,7 +11,8 @@
  * running on the server, and the next mount reattaches from the snapshot.
  *
  * The drawer's toolbar reaches the xterm only through the `TerminalHandle`
- * this view hands up while it is mounted. A mod-click on a printed http(s)
+ * this view hands up while it is mounted — selection and find (xterm's search
+ * addon, highlighted in colours mixed from our tokens). A mod-click on a printed http(s)
  * link goes to `onOpenLink` (`./terminal-links`); a plain click only selects.
  *
  * Keys: the chord bound to `terminal.toggle` is refused to xterm through
@@ -38,7 +39,7 @@ import { useTheme } from "@/components/theme-provider";
 import { useTerminalAtoms } from "@/components/terminal/terminal-atoms";
 import type { TerminalHandle } from "@/components/terminal/terminal-handle";
 import { linkToOpen } from "@/components/terminal/terminal-links";
-import { readTerminalTheme } from "@/components/terminal/terminal-theme";
+import { readTerminalTheme, type SearchDecorations } from "@/components/terminal/terminal-theme";
 import { TERMINAL_TOGGLE_COMMAND } from "@/lib/keybindings";
 import { useKeybindings } from "@/lib/shortcuts";
 
@@ -61,6 +62,7 @@ const exitLine = (exitCode: number | null, signal: number | null): string =>
 interface Xterm {
   readonly terminal: Terminal;
   readonly fit: FitAddon;
+  readonly search: SearchAddon;
 }
 
 /**
@@ -222,13 +224,16 @@ export default function TerminalView({
   onGridRef.current = onGrid;
   const onOpenLinkRef = React.useRef(onOpenLink);
   onOpenLinkRef.current = onOpenLink;
+  // Find's highlight colours, re-read with the theme.
+  const decorationsRef = React.useRef<SearchDecorations | null>(null);
 
   React.useEffect(() => {
     const host = hostRef.current;
     if (host === null) {
       return;
     }
-    const { theme, fontFamily } = readTerminalTheme(host);
+    const { theme, search: decorations, fontFamily } = readTerminalTheme(host);
+    decorationsRef.current = decorations;
     const terminal = new Terminal({
       theme,
       fontFamily,
@@ -236,6 +241,9 @@ export default function TerminalView({
       scrollback: 5000,
       macOptionIsMeta: false,
       cursorBlink: true,
+      // Find highlights every match through xterm's decorations, which are
+      // still proposed API; the search addon is the only thing that uses them.
+      allowProposedApi: true,
     });
     const modKey = detectModKey();
     const fit = new FitAddon();
@@ -248,7 +256,8 @@ export default function TerminalView({
         }
       }),
     );
-    terminal.loadAddon(new SearchAddon());
+    const search = new SearchAddon();
+    terminal.loadAddon(search);
 
     const inTerminal = (name: string) =>
       name === "terminalFocus" ? true : name === "composerFocus" ? false : undefined;
@@ -268,7 +277,7 @@ export default function TerminalView({
       frame = requestAnimationFrame(refit);
     });
     observer.observe(host);
-    setXterm({ terminal, fit });
+    setXterm({ terminal, fit, search });
     return () => {
       observer.disconnect();
       cancelAnimationFrame(frame);
@@ -283,7 +292,8 @@ export default function TerminalView({
     if (xterm === null || host === null) {
       return;
     }
-    const { theme, fontFamily } = readTerminalTheme(host);
+    const { theme, search: decorations, fontFamily } = readTerminalTheme(host);
+    decorationsRef.current = decorations;
     xterm.terminal.options.theme = theme;
     xterm.terminal.options.fontFamily = fontFamily;
     xterm.terminal.options.fontSize = Number.parseFloat(getComputedStyle(host).fontSize) || 12;
@@ -295,7 +305,7 @@ export default function TerminalView({
     if (xterm === null) {
       return;
     }
-    const { terminal } = xterm;
+    const { terminal, search } = xterm;
     onHandle({
       selection: () => terminal.getSelection(),
       clearSelection: () => terminal.clearSelection(),
@@ -304,6 +314,21 @@ export default function TerminalView({
         const change = terminal.onSelectionChange(() => listener(terminal.hasSelection()));
         return () => change.dispose();
       },
+      find: (query, direction, incremental = false) => {
+        const decorations = decorationsRef.current;
+        const options = { incremental, ...(decorations !== null && { decorations }) };
+        return direction === "next"
+          ? search.findNext(query, options)
+          : search.findPrevious(query, options);
+      },
+      watchFindResults: (listener) => {
+        const change = search.onDidChangeResults(({ resultIndex, resultCount }) =>
+          listener({ index: resultIndex, count: resultCount }),
+        );
+        return () => change.dispose();
+      },
+      clearFind: () => search.clearDecorations(),
+      focus: () => terminal.focus(),
     });
     return () => onHandle(null);
   }, [xterm, onHandle]);

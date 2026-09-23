@@ -238,11 +238,14 @@ The renderer. TanStack Router routes under `apps/web/src/routes`, state through
 
 The shell is a left sidebar (projects → threads), the thread column (the
 timeline, then the composer with any open approval, question or plan card
-docked above its input, then the terminal drawer when it is open) and a right dock with three tabs: **changes**
-(`git.diff` in three scopes — this turn's checkpoints with the restore
-controls, the branch against its base through `mergeBase`, and the uncommitted
-working tree — with a split/unified toggle), **browser** (the pane) and **files** (a search
-over `files.search` that drills into directories and previews a file through
+docked above its input, then the terminal drawer when it is open, whose
+toolbar finds text and quotes a selection into the composer draft, and whose
+mod-clicked http(s) links open on the dock's browser tab) and a right dock with
+three tabs: **changes** (`git.diff` in three scopes — this turn's checkpoints
+with the restore controls, the branch against its base through `mergeBase`, and
+the uncommitted working tree — with a split/unified toggle), **browser** (the
+pane) and **files** (a search over `files.search` that drills into directories
+and previews a file through
 `files.read`, paged by line offset because a window is capped by characters,
 not lines). When less than 640px remains beside the sidebar, the dock overlays
 the thread so its tabs stay reachable. Wider rows fit a thread column of at least 360px beside the dock.
