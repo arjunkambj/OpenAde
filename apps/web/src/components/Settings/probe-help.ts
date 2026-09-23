@@ -15,24 +15,15 @@
 
 import type { ConnectorProbe } from "@OpenAde/contracts/connectors";
 
-/**
- * Whether this connector can actually run a turn.
- *
- * `status: "ready"` alone does not mean it can. The cmd probe answers `ready`
- * with `auth: "absent"` whenever `status --json` succeeds and reports
- * `authenticated: false` — installed, reachable, signed out. Welcome read the
- * status by itself and told the user "A connector is ready." beside a row that
- * said "installed, not signed in"; they pressed on and the first turn failed.
- */
-export const connectorReady = (probe: ConnectorProbe): boolean =>
-  probe.status === "ready" && probe.auth !== "absent";
+import { probeHealthState } from "@/lib/connector-health";
 
 /**
  * `fallbackUrl` is where the connector says its own docs live, or `null` when
  * it names none (or the kind is not one this build describes).
  */
 export const helpUrlFor = (probe: ConnectorProbe, fallbackUrl: string | null): string | null => {
-  if (probe.status === "probing" || connectorReady(probe)) {
+  const state = probeHealthState(probe);
+  if (state === "probing" || state === "ready") {
     return null;
   }
   if (probe.helpUrl !== undefined) {

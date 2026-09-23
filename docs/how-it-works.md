@@ -294,9 +294,28 @@ The billing link (`CMD_ACCOUNT_HELP_URL`) and the docs link
 renderer: it receives the first as `ConnectorProbe.helpUrl` and the second over
 `connectors.describe`. `apps/web/src/components/Settings/probe-help.ts` decides
 which failures get a link at all — the probe's own `helpUrl`, or else the
-connector's docs link for an account-shaped failure — and `connectorReady` insists on
-`status === "ready" && auth !== "absent"` — an installed, reachable, signed-out
-CLI reports `ready`, and must not read as usable.
+connector's docs link for an account-shaped failure.
+
+`apps/web/src/lib/connector-health.ts` reads a `ConnectorSummary` into one of
+five states — `ready`, `probing`, `not-installed`, `signed-out`, `error` — plus
+the command that fixes it and a sentence built from the instance's display
+name. Signed-out is decided before ready: a harness that answers `ready` with
+`auth: "absent"` (or `authenticated: false`) is installed and reachable but
+cannot run a turn. The command is the probe's `installCommand` for
+not-installed and its `loginCommand` for signed-out, and null when the
+connector named none; the renderer never spells a command of its own.
+
+Two surfaces show it. Each Settings → Connectors card has a status badge beside
+the instance's name and a line under it with the binary, version, account,
+model count, the probe's message and the fixing command in a copyable code span
+(`apps/web/src/components/Settings/connector-status.tsx`). Above the composer —
+on an open thread and on the start screen — `harness-health-banner.tsx` shows an
+alert when the thread's instance (`threadConnectorInstanceId`: the bound one,
+else the chosen one, else the routing fallback) is neither ready nor still
+probing: "Command Code is not signed in", then "Run `cmd login` in a terminal,
+then check again", with a Check again button that re-probes every connector.
+The banner is rendered by `thread-view.tsx` and `start-thread.tsx`, outside the
+composer itself.
 
 A version below `OLDEST_TESTED_VERSION` (1.54.0) produces a warning and nothing
 else. Nothing is pinned: the connector runs whatever `cmd` the user has.

@@ -28,6 +28,7 @@ import type * as RpcClientError from "effect/unstable/rpc/RpcClientError";
 
 import { Composer } from "@/components/composer/composer";
 import { isDockTab, RightDock, type DockTab } from "@/components/dock/right-dock";
+import { ThreadHarnessBanner } from "@/components/thread/harness-health-banner";
 import { ThreadGreeting } from "@/components/thread/thread-greeting";
 import { Timeline } from "@/components/timeline/timeline";
 import { useKeybindingCommand } from "@/lib/shortcuts";
@@ -251,7 +252,8 @@ export function ThreadView({
         ) : null}
         <ThreadBody result={result} connected={connection.status !== "disconnected"} />
         {snapshot !== null ? (
-          <div className="flex w-full shrink-0 justify-center px-4 pb-4">
+          <div className="flex w-full shrink-0 flex-col items-center gap-2 px-4 pb-4">
+            <ThreadHarnessBanner snapshot={snapshot} className="max-w-[760px]" />
             <Composer threadId={threadId} projectId={snapshot.projectId} />
           </div>
         ) : null}

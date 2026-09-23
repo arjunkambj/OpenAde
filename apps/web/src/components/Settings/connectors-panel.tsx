@@ -1,7 +1,8 @@
 /**
  * The Connectors settings page body. Each configured instance is a card: its
- * `ConnectorSummary` supplies probe state (binary, version, auth, account,
- * model count) and its settings entry supplies the editable config — rendered
+ * `ConnectorSummary` supplies probe state — a status badge, and the binary,
+ * version, account, model count and fixing command (`connector-status.tsx`) —
+ * and its settings entry supplies the editable config — rendered
  * by `SchemaForm` off the form fields its connector describes over
  * `connectors.describe`, as are the name, icon and docs link. So this file
  * contains no connector-kind-specific markup, and a kind the server does not
@@ -13,11 +14,7 @@ import { Button } from "@OpenAde/ui/components/button";
 import { Card, CardContent } from "@OpenAde/ui/components/card";
 import { Separator } from "@OpenAde/ui/components/separator";
 import { makeConnectorInstanceId } from "@OpenAde/contracts/ids";
-import type {
-  ConnectorDescriptor,
-  ConnectorProbe,
-  ConnectorSummary,
-} from "@OpenAde/contracts/connectors";
+import type { ConnectorDescriptor, ConnectorSummary } from "@OpenAde/contracts/connectors";
 import { ConnectorInstanceConfig } from "@OpenAde/contracts/settings";
 import * as Exit from "effect/Exit";
 import { isObject } from "effect/Predicate";
@@ -28,71 +25,13 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useAppAtoms } from "@/lib/app-runtime";
 import { connectorIconFor } from "@/lib/connector-icon";
-import { openExternal } from "@/lib/desktop";
 
-import { helpUrlFor } from "./probe-help";
+import { ConnectorStatusBadge, ConnectorStatusLine } from "./connector-status";
 import { SchemaForm, StructForm, type SelectOption } from "./schema-form";
 import { Add as AddIcon, Repeat, Spinner, Trash } from "@honeyicons/react";
 
-const PROBE_LABEL: Record<ConnectorProbe["status"], string> = {
-  ready: "Ready",
-  "not-installed": "Not installed",
-  "not-authenticated": "Not signed in",
-  error: "Error",
-  probing: "Probing…",
-};
-
-const probeTone = (status: ConnectorProbe["status"]): string =>
-  status === "ready"
-    ? "text-added"
-    : status === "probing"
-      ? "text-muted-foreground"
-      : "text-removed";
-
 const asRecord = (value: unknown): Record<string, unknown> =>
   isObject(value) ? (value as Record<string, unknown>) : {};
-
-function ProbeLine({
-  probe,
-  docsUrl,
-}: {
-  readonly probe: ConnectorProbe;
-  readonly docsUrl: string | null;
-}) {
-  const details = [
-    probe.binaryPath,
-    probe.version === undefined ? undefined : `v${probe.version}`,
-    probe.account,
-    probe.modelCount === undefined ? undefined : `${probe.modelCount} models`,
-    probe.auth === undefined || probe.auth === "unknown"
-      ? undefined
-      : probe.auth === "present"
-        ? "signed in"
-        : "signed out",
-  ].filter((part): part is string => part !== undefined);
-  const helpUrl = helpUrlFor(probe, docsUrl);
-
-  return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-      <span className={probeTone(probe.status)}>{PROBE_LABEL[probe.status]}</span>
-      {details.map((detail) => (
-        <span key={detail} className="text-muted-foreground">
-          {detail}
-        </span>
-      ))}
-      {probe.message === undefined ? null : <span className="text-removed">{probe.message}</span>}
-      {helpUrl === null ? null : (
-        <button
-          type="button"
-          className="text-primary underline underline-offset-2"
-          onClick={() => openExternal(helpUrl)}
-        >
-          Resolve
-        </button>
-      )}
-    </div>
-  );
-}
 
 function ConnectorCard({
   conn,
@@ -147,10 +86,8 @@ function ConnectorCard({
           <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
             {conn.kind}
           </span>
+          {summary === undefined ? null : <ConnectorStatusBadge summary={summary} />}
           <span className="flex-1" />
-          {summary === undefined ? null : (
-            <ProbeLine probe={summary.probe} docsUrl={descriptor?.metadata.docsUrl ?? null} />
-          )}
           <Button
             variant="ghost"
             size="icon-sm"
@@ -160,6 +97,9 @@ function ConnectorCard({
             <Trash />
           </Button>
         </div>
+        {summary === undefined ? null : (
+          <ConnectorStatusLine summary={summary} docsUrl={descriptor?.metadata.docsUrl ?? null} />
+        )}
         <Separator />
         <StructForm
           schema={ConnectorInstanceConfig}

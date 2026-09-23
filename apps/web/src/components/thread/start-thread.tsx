@@ -16,7 +16,8 @@
  * rides `thread.create` with the model. Until the user picks, that is the
  * saved default model's instance, else the first enabled one's first model
  * (`defaultModelPick`). The runtime modes offered and whether attaching is
- * allowed come from that instance's capabilities.
+ * allowed come from that instance's capabilities, and when that instance
+ * cannot run a turn the harness banner sits above the composer.
  *
  * With no server it says so. A fresh install lands here with no projects, so
  * the empty state carries the same Add project dialog the sidebar does —
@@ -47,6 +48,7 @@ import type { ProjectSummary, ThreadSettingsPatch } from "@OpenAde/contracts/orc
 import { ComposerChips } from "@/components/composer/composer-chips";
 import { useAttachments } from "@/components/composer/use-attachments";
 import { useSendDraft } from "@/components/composer/use-send-draft";
+import { HarnessHealthBanner } from "@/components/thread/harness-health-banner";
 import { AddProjectDialog } from "@/components/sidebar/add-project-dialog";
 import { ThreadGreeting } from "@/components/thread/thread-greeting";
 import { attachmentRefusal } from "@/lib/attachment-support";
@@ -178,6 +180,9 @@ function StartComposer({
 
   return (
     <div className="flex w-full min-w-0 max-w-[760px] flex-col gap-2">
+      <HarnessHealthBanner
+        summary={connectors.find((connector) => connector.connectorInstanceId === instanceId)}
+      />
       <ComposerSurface
         dragging={attachments.dragging}
         context={
