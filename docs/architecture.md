@@ -230,9 +230,10 @@ The renderer. TanStack Router routes under `apps/web/src/routes`, state through
 | `browser.$threadId`               | the marker page the browser pane's `<webview>` guest loads              |
 | `dev/{timeline,composer,changes}` | fixture pages, DEV only                                                 |
 
-The shell is a left sidebar (projects → threads), the thread column (timeline,
-composer, interaction cards) and a right dock with three tabs: **changes** (a
-turn selector over `git.diff`), **browser** (the pane) and **files** (a search
+The shell is a left sidebar (projects → threads), the thread column (the
+timeline, then the composer with any open approval, question or plan card
+docked above its input) and a right dock with three tabs: **changes** (a turn
+selector over `git.diff`), **browser** (the pane) and **files** (a search
 over `files.search` that drills into directories and previews a file through
 `files.read`, paged by line offset because a window is capped by characters,
 not lines). When less than 640px remains beside the sidebar, the dock overlays
@@ -251,6 +252,17 @@ the thread last moved ("now", "5m", "3h", "2d", "4w", then the month), from
 way to two actions: archive, and the overflow menu (rename, archive or
 unarchive, delete). An archived row, listed only while it is open, offers the
 menu alone.
+
+The command palette (`Cmd+K`, `apps/web/src/components/Layout/search-command.tsx`
+with its groups in `palette-groups.tsx`) lists navigation (new task, skills,
+MCP servers), one entry per settings page, actions — add project, a "New
+thread in …" entry per project, toggle sidebar — and the threads. An action
+that goes through a keybinding command (add project, toggle sidebar) is offered
+only where a mounted surface answers that command, so the palette never lists
+something that would do nothing. A leading `>` narrows the list to
+commands and hides the threads; the text after it is matched by the usual fuzzy
+filter (`apps/web/src/lib/palette-query.ts`). A footer names the keys: arrows
+to move, Enter to open, Escape to close, `>` for commands.
 
 The atom runtime is built once. `apps/web/src/state/app-runtime.tsx` owns the
 single `makeRuntime` instance, the shared registry and the offline layer that

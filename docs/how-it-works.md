@@ -820,8 +820,12 @@ sessions writing into the same global directory
 [command-code-connector.md](command-code-connector.md#finding-the-plan)).
 
 The proposal becomes `thread.plan.proposed` while the turn is still open, and
-the card (`apps/web/src/components/approvals/plan-card.tsx`) offers three
-answers. `ProviderCommandReactor` acts on `thread.plan.responded`:
+the card (`apps/web/src/components/approvals/plan-card.tsx`), docked above the
+composer like the approval card (§5), offers three answers: `1` accept, `2`
+accept and run, `3` opens the revision field, named in the same muted line
+under the card. `Escape` is left to the composer — a plan does not block the
+turn on an answer, so the card has nothing to deny. `ProviderCommandReactor`
+acts on `thread.plan.responded`:
 
 | action        | settings change                                                  | follow-up turn                            |
 | ------------- | ---------------------------------------------------------------- | ----------------------------------------- |
