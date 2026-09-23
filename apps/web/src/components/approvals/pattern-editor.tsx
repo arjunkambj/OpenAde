@@ -55,8 +55,8 @@ export function PatternEditor({
           <>
             <AlertTriangle className="size-3.5 shrink-0" />
             <span>
-              Not a valid pattern — use Shell(cmd *), Edit(/path/**), Read(...), WebFetch(...) or
-              mcp__server__tool.
+              Not a valid pattern — use Shell(cmd *), Edit(/path/**), Read(...), Fetch(...) or
+              Mcp(server.tool).
             </span>
           </>
         ) : matches ? (

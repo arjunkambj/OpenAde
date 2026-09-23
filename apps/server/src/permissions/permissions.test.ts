@@ -27,7 +27,7 @@ describe("patterns", () => {
       arg: "/src/**",
     });
     expect(parsePattern("mcp__github__create_issue")).toMatchObject({
-      family: "mcp",
+      family: "mcp-name",
       arg: "mcp__github__create_issue",
     });
     expect(parsePattern("shell_command")).toMatchObject({

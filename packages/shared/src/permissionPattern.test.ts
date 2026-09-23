@@ -7,21 +7,39 @@ import {
   type PatternSubject,
 } from "./permissionPattern";
 
-const request = (kind: string, input: unknown, toolName = "tool"): PatternSubject => ({
+const request = (
+  kind: string,
+  input: unknown,
+  toolName = "tool",
+  mcpTool?: PatternSubject["mcpTool"],
+): PatternSubject => ({
   kind,
   toolName,
   input,
+  ...(mcpTool === undefined ? {} : { mcpTool }),
 });
 
 describe("parsePattern", () => {
-  it("parses the call form, mcp form and bare tool names", () => {
+  it("parses OpenAde's call forms", () => {
+    expect(parsePattern("Read(/docs/**)")).toMatchObject({ family: "read", arg: "/docs/**" });
+    expect(parsePattern("Fetch(https://*)")).toMatchObject({ family: "fetch", arg: "https://*" });
+    expect(parsePattern("Mcp(github.*)")).toMatchObject({ family: "mcp", arg: "github.*" });
+  });
+
+  it("parses the stored aliases into the canonical families", () => {
+    expect(parsePattern("Write(/tmp/**)")).toMatchObject({ family: "edit", arg: "/tmp/**" });
+    expect(parsePattern("WebFetch(https://x)")).toMatchObject({ family: "fetch" });
+    expect(parsePattern("WebSearch(effect)")).toMatchObject({ family: "fetch" });
+  });
+
+  it("parses the call form, mcp literal and bare tool names", () => {
     expect(parsePattern("Shell(npm run *)")).toMatchObject({
       family: "shell",
       arg: "npm run *",
     });
     expect(parsePattern("Edit(/src/**)")).toMatchObject({ family: "edit", arg: "/src/**" });
     expect(parsePattern("mcp__github__create_issue")).toMatchObject({
-      family: "mcp",
+      family: "mcp-name",
       arg: "mcp__github__create_issue",
     });
     expect(parsePattern("shell_command")).toMatchObject({ family: "tool", arg: "shell_command" });
@@ -75,6 +93,42 @@ describe("patternMatches", () => {
     ).toBe(true);
     // A web pattern says nothing about a command request.
     expect(patternMatches("WebFetch(*)", request("command", { command: "ls" }))).toBe(false);
+  });
+
+  it("matches Fetch against urls and queries", () => {
+    const web = (input: unknown) => request("web", input, "fetch");
+    expect(
+      patternMatches("Fetch(https://*.example.com/*)", web({ url: "https://a.example.com/x" })),
+    ).toBe(true);
+    expect(patternMatches("Fetch(*security*)", web({ query: "security advisories" }))).toBe(true);
+    expect(patternMatches("Fetch(https://a.test/*)", web({ url: "https://b.test/x" }))).toBe(false);
+    expect(patternMatches("Fetch(*)", request("file_read", { path: "/x" }))).toBe(false);
+  });
+
+  it("matches Mcp(server.tool) against the request's mcpTool", () => {
+    const ref = { server: "github", tool: "create_issue" };
+    const mcp = request("mcp_tool", {}, "mcp__github__create_issue", ref);
+    expect(patternMatches("Mcp(github.create_issue)", mcp)).toBe(true);
+    expect(patternMatches("Mcp(github.*)", mcp)).toBe(true);
+    expect(patternMatches("Mcp(*.create_*)", mcp)).toBe(true);
+    expect(patternMatches("Mcp(other.*)", mcp)).toBe(false);
+    // The dot is literal, not a regex wildcard.
+    expect(patternMatches("Mcp(githubXcreate_issue)", mcp)).toBe(false);
+    // A request whose connector named no MCP tool, or not an MCP request.
+    expect(patternMatches("Mcp(*)", request("mcp_tool", {}, "mcp__github__create_issue"))).toBe(
+      false,
+    );
+    expect(patternMatches("Mcp(*)", request("command", { command: "ls" }, "x", ref))).toBe(false);
+  });
+
+  it("keeps the legacy mcp__ literal matching the tool name as before", () => {
+    const ref = { server: "github", tool: "create_issue" };
+    const mcp = request("mcp_tool", {}, "mcp__github__create_issue", ref);
+    expect(patternMatches("mcp__github__create_issue", mcp)).toBe(true);
+    expect(patternMatches("mcp__github__*", mcp)).toBe(true);
+    expect(patternMatches("mcp__other__*", mcp)).toBe(false);
+    // Still only for MCP requests.
+    expect(patternMatches("mcp__*", request("other", {}, "mcp__github__create_issue"))).toBe(false);
   });
 
   it("extracts the subject path across input key spellings", () => {

@@ -119,7 +119,8 @@ function DevComposerInner({ fixture }: { readonly fixture: FixtureClient }) {
               kind: "mcp_tool" as const,
               toolName: "mcp__github__create_issue",
               input: { title: "Composer edge cases" },
-              patternSuggestion: "mcp__github__*",
+              patternSuggestion: "Mcp(github.*)",
+              mcpTool: { server: "github", tool: "create_issue" },
               description: "Call the GitHub MCP server",
             };
     fixture.emit("thread.approval.opened", { request });

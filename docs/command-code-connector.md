@@ -605,19 +605,27 @@ starting `read_` plus `glob` and `grep` → `file_read`; `mcp__*` → `mcp_tool`
 `web_search`/`web_fetch` → `web`; everything else → `other`.
 
 The "allow always" button on an approval card starts from an editable pattern
-in Command Code's own syntax:
+in OpenAde's own vocabulary (see
+[architecture.md](architecture.md#permissions)); `approvals.ts` maps Command
+Code's tools onto it:
 
-| call                               | suggestion           |
-| ---------------------------------- | -------------------- |
-| `shell_command {command: "git …"}` | `Shell(git *)`       |
-| `shell_command` with no command    | `Shell(*)`           |
-| `edit_file {file_path}`            | `Edit(<path>)`       |
-| `write_file {file_path}`           | `Write(<path>)`      |
-| `read_file` / `read_directory`     | `Read(<path>)`       |
-| `web_fetch {url}`                  | `WebFetch(<url>)`    |
-| `web_search {query}`               | `WebSearch(<query>)` |
-| `mcp__server__tool`                | the literal name     |
-| anything else                      | the bare tool name   |
+| call                               | suggestion             |
+| ---------------------------------- | ---------------------- |
+| `shell_command {command: "git …"}` | `Shell(git *)`         |
+| `shell_command` with no command    | `Shell(*)`             |
+| `edit_file {file_path}`            | `Edit(<path>)`         |
+| `write_file {file_path}`           | `Edit(<path>)`         |
+| `read_file` / `read_directory`     | `Read(<path>)`         |
+| `web_fetch {url}`                  | `Fetch(<url>)`         |
+| `web_search {query}`               | `Fetch(<query>)`       |
+| `mcp__<server>__<tool>`            | `Mcp(<server>.<tool>)` |
+| anything else                      | the bare tool name     |
+
+An MCP call's request also carries `mcpTool: {server, tool}`, parsed from the
+`mcp__<server>__<tool>` name (the server is the first segment; the tool keeps
+any further `__`), which is what an `Mcp(…)` rule matches. Rules users saved
+in the CLI's own spellings — `Write(…)`, `WebFetch(…)`, `WebSearch(…)`, a
+literal `mcp__server__tool` — still match, as aliases.
 
 A path is read from whichever of `file_path`, `path`, `filePath` or `file` the
 call carries.

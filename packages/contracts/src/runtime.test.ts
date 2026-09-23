@@ -2,8 +2,8 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
-import { makeConnectorInstanceId, makeEventId, makeThreadId } from "./ids";
-import { RuntimeEvent, RuntimeEventType, runtimeEventTypes } from "./runtime";
+import { makeConnectorInstanceId, makeEventId, makeRequestId, makeThreadId } from "./ids";
+import { ApprovalRequest, RuntimeEvent, RuntimeEventType, runtimeEventTypes } from "./runtime";
 
 const envelope = () => ({
   eventId: makeEventId(),
@@ -61,6 +61,38 @@ describe("event.unmapped", () => {
         decode({ ...envelope(), type: "session.warning", payload: { message: "slow start" } }),
       );
       expect(exit._tag).toBe("Success");
+    }),
+  );
+});
+
+describe("ApprovalRequest", () => {
+  const request = {
+    requestId: makeRequestId(),
+    kind: "mcp_tool",
+    toolName: "mcp__github__create_issue",
+    input: { title: "x" },
+    patternSuggestion: "Mcp(github.create_issue)",
+    description: "Call an MCP tool",
+  };
+
+  it.effect("decodes a request stored before mcpTool existed", () =>
+    Effect.gen(function* () {
+      const exit = yield* Effect.sync(() => Schema.decodeUnknownExit(ApprovalRequest)(request));
+      expect(exit._tag).toBe("Success");
+    }),
+  );
+
+  it.effect("carries the MCP server and tool a call goes to", () =>
+    Effect.gen(function* () {
+      const decoded = yield* Schema.decodeUnknownEffect(ApprovalRequest)({
+        ...request,
+        mcpTool: { server: "github", tool: "create_issue" },
+      });
+      expect(decoded.mcpTool).toEqual({ server: "github", tool: "create_issue" });
+      const exit = yield* Effect.sync(() =>
+        Schema.decodeUnknownExit(ApprovalRequest)({ ...request, mcpTool: { server: "" } }),
+      );
+      expect(exit._tag).toBe("Failure");
     }),
   );
 });

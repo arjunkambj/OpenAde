@@ -33,7 +33,7 @@ import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 
-import { approvalKindFor, patternSuggestionFor } from "./approvals";
+import { approvalKindFor, mcpToolFor, patternSuggestionFor } from "./approvals";
 import type { PendingRuntimeEvent } from "./items";
 import { describeAnswers, normalizeQuestions } from "./questions";
 
@@ -150,12 +150,14 @@ export const makeHookAnswerer = (options: {
 
         const settings = yield* options.settings;
         const input = record.tool_input ?? {};
+        const mcpTool = mcpToolFor(toolName);
         const request: ApprovalRequest = {
           requestId,
           kind: approvalKindFor(toolName),
           toolName,
           input,
           patternSuggestion: patternSuggestionFor(toolName, input),
+          ...(mcpTool === undefined ? {} : { mcpTool }),
           description: toolName,
         };
         const verdict = yield* gate.decide({

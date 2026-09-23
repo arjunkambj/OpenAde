@@ -94,12 +94,23 @@ export const UserQuestionAnswer = Schema.Struct({
 });
 export type UserQuestionAnswer = typeof UserQuestionAnswer.Type;
 
+/** The MCP server and tool an `mcp_tool` request calls, as its connector names them. */
+export const McpToolRef = Schema.Struct({
+  server: NonEmptyString,
+  tool: NonEmptyString,
+});
+export type McpToolRef = typeof McpToolRef.Type;
+
 /**
  * A pending permission decision. `input` is the harness's own tool input,
  * unmodelled on purpose: the approval card shows a rendering of it, and the
  * permission engine matches patterns against `toolName` plus the fields it
- * knows. `patternSuggestion` is what "allow always" would persist, in Command
- * Code's pattern syntax, and is editable in the card before it is accepted.
+ * knows. `patternSuggestion` is what "allow always" would persist, in
+ * OpenAde's own pattern vocabulary (`@OpenAde/shared/permissionPattern`) —
+ * the connector maps its harness's tool onto it — and is editable in the card
+ * before it is accepted. `mcpTool` names the server and tool of an MCP call so
+ * an `Mcp(server.tool)` rule can match it; it is optional because requests
+ * persisted before it existed do not carry it.
  */
 export const ApprovalRequest = Schema.Struct({
   requestId: RequestId,
@@ -107,6 +118,7 @@ export const ApprovalRequest = Schema.Struct({
   toolName: NonEmptyString,
   input: Schema.Unknown,
   patternSuggestion: Schema.optional(Schema.String),
+  mcpTool: Schema.optional(McpToolRef),
   description: Schema.String,
 });
 export type ApprovalRequest = typeof ApprovalRequest.Type;

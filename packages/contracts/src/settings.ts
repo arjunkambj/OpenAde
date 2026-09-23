@@ -129,8 +129,9 @@ export const PermissionScope = Schema.Literals(["global", "project", "session"])
 export type PermissionScope = typeof PermissionScope.Type;
 
 /**
- * One persisted permission rule, in Command Code's pattern syntax
- * (`Shell(npm run *)`, `Edit(/src/**)`, `mcp__server__tool`). Deny wins over
+ * One persisted permission rule, in OpenAde's pattern vocabulary
+ * (`Shell(npm run *)`, `Edit(/src/**)`, `Mcp(github.*)`; see
+ * `@OpenAde/shared/permissionPattern`). Deny wins over
  * ask, ask wins over allow, so a rule can only ever be made stricter by adding
  * another one. `projectId` and `threadId` narrow the rule to its scope.
  */
@@ -147,7 +148,7 @@ export const PermissionRule = Schema.Struct({
   pattern: NonEmptyString.pipe(
     settingsForm({
       label: "Pattern",
-      description: "Command Code pattern, e.g. Shell(git push:*) or Edit(/src/**).",
+      description: "A pattern, e.g. Shell(git push *), Edit(/src/**) or Mcp(github.*).",
       control: "text",
       placeholder: "Shell(npm run *)",
     }),

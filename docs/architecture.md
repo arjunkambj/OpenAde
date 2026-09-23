@@ -1100,23 +1100,26 @@ specifically: `.env*`, `.netrc`, `.pgpass`, `credentials`, SSH key names,
 `.pem`/`.key`/`.p12`/`.pfx`, and anything under `.ssh`, `.aws`, `.gnupg`,
 `.git`, `.commandcode` or `.config/gh`.
 
-**Pattern syntax** (`packages/shared/src/permissionPattern.ts`):
+**Pattern syntax** (`packages/shared/src/permissionPattern.ts`). The
+vocabulary is OpenAde's own, the same whichever harness runs the thread; each
+connector maps its harness's tool names onto it when it proposes a rule:
 
-| Form                          | Matches                                            |
-| ----------------------------- | -------------------------------------------------- |
-| `Shell(npm run *)`            | a command glob; `*` matches anything, `?` one char |
-| `Edit(/src/**)`               | a path glob; `**` crosses separators, `*` does not |
-| `Write(…)`, `Read(…)`         | the same, for write and read requests              |
-| `WebFetch(…)`, `WebSearch(…)` | the request's url or query                         |
-| `mcp__server__tool`           | an MCP tool reference, glob over the tool name     |
-| `shell_command`               | a bare tool name, exact or glob                    |
+| Form                     | Matches                                                   |
+| ------------------------ | --------------------------------------------------------- |
+| `Shell(npm run *)`       | a command glob; `*` matches anything, `?` one char        |
+| `Edit(/src/**)`          | a write's path glob; `**` crosses separators, `*` doesn't |
+| `Read(/docs/**)`         | the same, for reads                                       |
+| `Fetch(https://x.dev/*)` | a web request's url or search query                       |
+| `Mcp(github.create_*)`   | an MCP call's `server.tool`, from the request's `mcpTool` |
+| `todo_write`             | a bare tool name, exact or glob                           |
 
-The subject a pattern tests comes from the request's `kind` and `input`. The
-matcher lives in `shared` rather than the server so the approval card can
-preview a rule with the exact semantics that will enforce it — one syntax, one
-matcher, one source of truth. It is dependency-free on purpose: `ApprovalRequest`
-satisfies its `PatternSubject` shape structurally, so neither side imports the
-other.
+Rules stored in the older spelling stay valid as aliases: `Write(…)` is
+`Edit(…)`, `WebFetch(…)` and `WebSearch(…)` are `Fetch(…)`, and a literal
+`mcp__server__tool` is still globbed against an MCP request's tool name.
+
+The subject a pattern tests comes from the request's `kind`, `input` and
+`mcpTool` (optional on `ApprovalRequest`, since requests persisted before it
+existed lack it).
 
 Rules live in `permission_rules`, scoped `global | project | session`, with
 `project_id`/`thread_id` stored as `''` rather than NULL so the uniqueness

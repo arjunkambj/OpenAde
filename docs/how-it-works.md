@@ -683,12 +683,13 @@ The rule is inserted inside the dispatch transaction, and the engine then
 invalidates the `permission_rules` reactivity key so an open settings page
 re-reads its list.
 
-The patterns are Command Code's own syntax — `Shell(npm run *)`,
-`Edit(/src/**)`, `mcp__server__tool` and the rest — matched by
-`packages/shared/src/permissionPattern.ts` on both sides, so the preview in the
-card means what the engine will do. The grammar is in
-[architecture.md](architecture.md#permissions); which suggestion a given tool
-call produces is in
+The patterns are OpenAde's own vocabulary — `Shell(npm run *)`,
+`Edit(/src/**)`, `Fetch(…)`, `Mcp(server.tool)` and the rest — whichever
+harness proposed them, matched by `packages/shared/src/permissionPattern.ts`
+on both sides, so the preview in the card means what the engine will do. The
+grammar and the aliases older rules use are in
+[architecture.md](architecture.md#permissions); how Command Code's tool calls
+map onto it is in
 [command-code-connector.md](command-code-connector.md#the-tool-vocabulary).
 
 ### Subagents

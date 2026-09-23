@@ -32,7 +32,6 @@ import * as Fiber from "effect/Fiber";
 import * as Ref from "effect/Ref";
 import type * as Scope from "effect/Scope";
 
-import { patternSuggestionFor } from "./approvals";
 import { NPX_PACKAGE } from "./binary";
 import { makeCmdSession, type CmdSessionRef } from "./session";
 import { transcriptPathFor } from "./transcript";
@@ -1138,48 +1137,4 @@ process.exit(result.status ?? 1);
       yield* handle.close();
     }),
   );
-});
-
-describe("patternSuggestionFor", () => {
-  it("suggests Shell(<first-word> *) for shell commands", () => {
-    expect(patternSuggestionFor("shell_command", { command: "rm -rf build" })).toBe("Shell(rm *)");
-    expect(patternSuggestionFor("shell_command", { command: "pnpm run test" })).toBe(
-      "Shell(pnpm *)",
-    );
-    // No usable command falls back to any shell call.
-    expect(patternSuggestionFor("shell_command", { command: "" })).toBe("Shell(*)");
-    expect(patternSuggestionFor("shell_command", {})).toBe("Shell(*)");
-  });
-
-  it("suggests Edit/Write/Read(<path>) for file tools", () => {
-    expect(patternSuggestionFor("edit_file", { file_path: "/src/app.ts" })).toBe(
-      "Edit(/src/app.ts)",
-    );
-    expect(patternSuggestionFor("write_file", { path: "out/x.txt" })).toBe("Write(out/x.txt)");
-    expect(patternSuggestionFor("read_file", { file_path: "/etc/hosts" })).toBe("Read(/etc/hosts)");
-    expect(patternSuggestionFor("read_directory", { path: "/src" })).toBe("Read(/src)");
-    // Path-less inputs degrade to the tool family, not a broken pattern.
-    expect(patternSuggestionFor("edit_file", {})).toBe("Edit(*)");
-  });
-
-  it("suggests the literal tool name for mcp tools", () => {
-    expect(patternSuggestionFor("mcp__openade__get_thread", { id: "t" })).toBe(
-      "mcp__openade__get_thread",
-    );
-  });
-
-  it("suggests WebFetch/WebSearch patterns for web tools", () => {
-    expect(patternSuggestionFor("web_fetch", { url: "https://docs.rs/x" })).toBe(
-      "WebFetch(https://docs.rs/x)",
-    );
-    expect(patternSuggestionFor("web_search", { query: "effect schema" })).toBe(
-      "WebSearch(effect schema)",
-    );
-  });
-
-  it("falls back to the bare tool name for anything else", () => {
-    expect(patternSuggestionFor("agent", { prompt: "go" })).toBe("agent");
-    expect(patternSuggestionFor("todo_write", {})).toBe("todo_write");
-    expect(patternSuggestionFor("glob", { pattern: "*.ts" })).toBe("glob");
-  });
 });

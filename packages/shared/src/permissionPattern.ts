@@ -1,17 +1,27 @@
 /**
- * Command Code permission patterns, parsed and matched.
+ * OpenAde's permission patterns, parsed and matched.
  *
- * Syntax the settings document and `approval.respond.pattern` accept:
+ * This is OpenAde's own vocabulary, the same whichever harness runs the
+ * thread. A connector maps its harness's tool names onto it (the "allow
+ * always" suggestion it proposes); the rules the settings document and
+ * `approval.respond.pattern` store are written in it:
  *
- * - `Shell(npm run *)`      — command glob; `*` matches anything, `?` one char
- * - `Edit(/src/**)`         — path glob; `**` crosses separators, `*` doesn't
- * - `Write(...)`, `Read(...)`, `WebFetch(...)`, `WebSearch(...)`
- * - `mcp__server__tool`     — MCP tool reference (glob over the tool name)
- * - `shell_command`         — bare tool name, matched exactly or as a glob
+ * - `Shell(npm run *)`       — command glob; `*` matches anything, `?` one char
+ * - `Edit(/src/**)`          — path glob over writes; `**` crosses separators
+ * - `Read(/docs/**)`         — the same, over reads
+ * - `Fetch(https://x.dev/*)` — glob over a web request's url or search query
+ * - `Mcp(github.create_*)`   — glob over an MCP call's `server.tool`
+ * - `todo_write`             — bare tool name, matched exactly or as a glob
  *
- * The subject a pattern tests comes from the request's `kind` and `input`:
- * `command` requests carry `input.command`, file requests `input.path`, web
- * requests `input.url`/`input.query`, MCP requests the `toolName` itself.
+ * Rules stored before the vocabulary was OpenAde's own stay valid as aliases:
+ * `Write(...)` is `Edit(...)`, `WebFetch(...)` and `WebSearch(...)` are
+ * `Fetch(...)`, and a literal `mcp__server__tool` is still globbed against the
+ * tool name of an MCP request.
+ *
+ * The subject a pattern tests comes from the request's `kind`, `input` and
+ * `mcpTool`: `command` requests carry `input.command`, file requests
+ * `input.path`, web requests `input.url`/`input.query`, MCP requests the
+ * `mcpTool` their connector named.
  *
  * This module lives in shared so the renderer can preview a pattern against
  * the live request with the exact matcher the server enforces — one syntax,
@@ -19,6 +29,12 @@
  * `ApprovalRequest` satisfies `PatternSubject` structurally, so neither side
  * needs to import the other.
  */
+
+/** The MCP server and tool a call goes to, as its connector names them. */
+export interface McpToolRef {
+  readonly server: string;
+  readonly tool: string;
+}
 
 /**
  * What a pattern is matched against. `ApprovalRequest` in
@@ -30,35 +46,36 @@ export interface PatternSubject {
   readonly kind: string;
   readonly toolName: string;
   readonly input: unknown;
+  readonly mcpTool?: McpToolRef | undefined;
 }
 
-export type PatternFamily =
-  | "shell"
-  | "edit"
-  | "write"
-  | "read"
-  | "webfetch"
-  | "websearch"
-  | "mcp"
-  | "tool";
+/**
+ * - `shell`, `edit`, `read`, `fetch`, `mcp` — the call forms above.
+ * - `mcp-name` — a stored `mcp__server__tool` literal, globbed over `toolName`.
+ * - `tool` — a bare tool name.
+ */
+export type PatternFamily = "shell" | "edit" | "read" | "fetch" | "mcp" | "mcp-name" | "tool";
 
 export interface ParsedPattern {
   readonly family: PatternFamily;
-  /** The `(...)` argument, or the whole pattern for bare/mcp forms. */
+  /** The `(...)` argument, or the whole pattern for bare/mcp-name forms. */
   readonly arg: string | null;
   readonly source: string;
 }
 
+/** Call-form names, lower-cased, canonical and alias alike. */
 const FAMILY_NAMES: Readonly<Record<string, PatternFamily>> = {
   shell: "shell",
   edit: "edit",
-  write: "write",
+  write: "edit",
   read: "read",
-  webfetch: "webfetch",
-  websearch: "websearch",
+  fetch: "fetch",
+  webfetch: "fetch",
+  websearch: "fetch",
+  mcp: "mcp",
 };
 
-/** `Family(arg)` → `{family, arg}`; bare names fall through to tool/mcp. */
+/** `Family(arg)` → `{family, arg}`; bare names fall through to tool/mcp-name. */
 export const parsePattern = (pattern: string): ParsedPattern | null => {
   const trimmed = pattern.trim();
   if (trimmed.length === 0) {
@@ -73,7 +90,7 @@ export const parsePattern = (pattern: string): ParsedPattern | null => {
     return { family, arg: call[2]!.trim(), source: trimmed };
   }
   if (trimmed.startsWith("mcp__")) {
-    return { family: "mcp", arg: trimmed, source: trimmed };
+    return { family: "mcp-name", arg: trimmed, source: trimmed };
   }
   return { family: "tool", arg: trimmed, source: trimmed };
 };
@@ -147,8 +164,7 @@ export const matchPattern = (pattern: ParsedPattern, request: PatternSubject): b
       const command = requestCommand(request);
       return command !== null && globToRegExp(pattern.arg).test(command);
     }
-    case "edit":
-    case "write": {
+    case "edit": {
       if (request.kind !== "file_write" || pattern.arg === null) {
         return false;
       }
@@ -162,21 +178,23 @@ export const matchPattern = (pattern: ParsedPattern, request: PatternSubject): b
       const path = requestPath(request);
       return path !== null && pathGlobToRegExp(pattern.arg).test(path);
     }
-    case "webfetch": {
+    case "fetch": {
       if (request.kind !== "web" || pattern.arg === null) {
         return false;
       }
       const url = requestUrl(request);
       return url !== null && globToRegExp(pattern.arg).test(url);
     }
-    case "websearch": {
-      if (request.kind !== "web" || pattern.arg === null) {
-        return false;
-      }
-      const query = requestUrl(request);
-      return query !== null && globToRegExp(pattern.arg).test(query);
+    case "mcp": {
+      const ref = request.mcpTool;
+      return (
+        request.kind === "mcp_tool" &&
+        ref !== undefined &&
+        pattern.arg !== null &&
+        globToRegExp(pattern.arg).test(`${ref.server}.${ref.tool}`)
+      );
     }
-    case "mcp":
+    case "mcp-name":
       return (
         request.kind === "mcp_tool" &&
         pattern.arg !== null &&

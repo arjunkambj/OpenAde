@@ -1,10 +1,13 @@
 /**
- * Command Code's tool vocabulary, as the approval card needs it: which kind of
- * permission a tool call asks for, and the pattern its "allow always" button
- * starts from (docs/command-code-connector.md, "The tool vocabulary").
+ * Command Code's tool vocabulary, mapped onto OpenAde's approval model: which
+ * kind of permission a tool call asks for, the MCP server and tool it names,
+ * and the pattern its "allow always" button starts from — in OpenAde's own
+ * pattern vocabulary (`@OpenAde/shared/permissionPattern`), not the CLI's
+ * (docs/command-code-connector.md, "The tool vocabulary").
  */
 
 import type { ApprovalKind } from "@OpenAde/contracts/enums";
+import type { McpToolRef } from "@OpenAde/contracts/runtime";
 
 /** Which kind of permission a tool call asks for. */
 export const approvalKindFor = (toolName: string): ApprovalKind => {
@@ -18,11 +21,20 @@ export const approvalKindFor = (toolName: string): ApprovalKind => {
 };
 
 /**
- * The editable pattern the approval card's "allow always" starts from, in
- * Command Code's syntax: `Shell(<first-word> *)`, `Edit(<path>)`,
- * `Write(<path>)`, `Read(<path>)`, `WebFetch(<url>)`, `WebSearch(<query>)`, a
- * literal `mcp__server__tool` — or the bare tool name when nothing narrower
- * applies.
+ * The server and tool of an MCP call. Command Code names them
+ * `mcp__<server>__<tool>`; the server is the first segment, and a tool name
+ * may itself contain `__`.
+ */
+export const mcpToolFor = (toolName: string): McpToolRef | undefined => {
+  const match = /^mcp__(.+?)__(.+)$/.exec(toolName);
+  return match === null ? undefined : { server: match[1]!, tool: match[2]! };
+};
+
+/**
+ * The editable pattern the approval card's "allow always" starts from:
+ * `Shell(<first-word> *)`, `Edit(<path>)` for both edits and writes,
+ * `Read(<path>)`, `Fetch(<url or query>)`, `Mcp(<server>.<tool>)` — or the
+ * bare tool name when nothing narrower applies.
  */
 export const patternSuggestionFor = (toolName: string, input: unknown): string => {
   const record =
@@ -42,22 +54,23 @@ export const patternSuggestionFor = (toolName: string, input: unknown): string =
     const first = command === undefined ? undefined : command.split(/\s+/)[0];
     return first === undefined || first === "" ? "Shell(*)" : `Shell(${first} *)`;
   }
-  if (toolName === "edit_file") {
+  if (toolName === "edit_file" || toolName === "write_file") {
     return `Edit(${path ?? "*"})`;
-  }
-  if (toolName === "write_file") {
-    return `Write(${path ?? "*"})`;
   }
   if (toolName === "read_file" || toolName === "read_directory") {
     return `Read(${path ?? "*"})`;
   }
   if (toolName === "web_fetch") {
-    return `WebFetch(${field("url") ?? "*"})`;
+    return `Fetch(${field("url") ?? "*"})`;
   }
   if (toolName === "web_search") {
-    return `WebSearch(${field("query") ?? "*"})`;
+    return `Fetch(${field("query") ?? "*"})`;
   }
-  // mcp__server__tool is already a literal pattern; anything else (agent,
-  // todo_write, glob/grep without a path…) allows always by tool name.
+  const mcp = mcpToolFor(toolName);
+  if (mcp !== undefined) {
+    return `Mcp(${mcp.server}.${mcp.tool})`;
+  }
+  // Anything else (agent, todo_write, glob/grep without a path…) allows
+  // always by tool name.
   return toolName;
 };
