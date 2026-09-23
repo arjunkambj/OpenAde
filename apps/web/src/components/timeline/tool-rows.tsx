@@ -2,13 +2,15 @@
  * The compact work rows: reasoning, command_execution, tool_call,
  * mcp_tool_call and web_search. Each is an icon + one-line label with an
  * expandable detail body; disclosure state is keyed by item id in
- * `rowDisclosureAtom`.
+ * `rowDisclosureAtom`. Tool rows follow the name with a short target (see
+ * `toolTarget`).
  */
 
 import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
 import type { ReactNode } from "react";
 
 import { DisclosureRow, JsonBlock, MonoBlock } from "@/components/timeline/row-shell";
+import { toolTarget } from "@/components/timeline/tool-target";
 import { cn } from "@/lib/utils";
 import { Close, Globe, Lightbulb, Server, Terminal } from "@honeyicons/react";
 
@@ -36,6 +38,15 @@ const field = (input: unknown, key: string): unknown =>
   typeof input === "object" && input !== null && key in input
     ? (input as Record<string, unknown>)[key]
     : undefined;
+
+/** The target after a tool's name, muted so the name leads. */
+function ToolTarget({ input }: { input: unknown }) {
+  const target = toolTarget(input);
+  if (target === undefined) {
+    return null;
+  }
+  return <span className="ml-1.5 font-mono text-xs text-muted-foreground">{target}</span>;
+}
 
 function ToolPayload({ input, output }: { input: unknown; output: unknown }) {
   return (
@@ -113,7 +124,6 @@ export function CommandExecutionRow({ item }: { item: ItemSnapshot }) {
 export function ToolCallRow({ item }: { item: ItemSnapshot }) {
   const tool = item.tool;
   const name = tool?.name ?? item.text ?? "tool call";
-  const detail = preview(field(tool?.input, "file_path") ?? field(tool?.input, "path"));
   return (
     <DisclosureRow
       rowId={item.itemId}
@@ -121,7 +131,7 @@ export function ToolCallRow({ item }: { item: ItemSnapshot }) {
       label={
         <>
           {name}
-          {detail !== undefined ? <span className="ml-1 font-mono text-xs">{detail}</span> : null}
+          <ToolTarget input={tool?.input} />
         </>
       }
       status={item.status}
@@ -144,6 +154,7 @@ export function McpToolCallRow({ item }: { item: ItemSnapshot }) {
             <span className="mr-1 rounded-sm bg-hover px-1 font-mono text-xs">{tool.server}</span>
           ) : null}
           {name}
+          <ToolTarget input={tool?.input} />
         </>
       }
       status={item.status}

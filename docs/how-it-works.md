@@ -593,6 +593,9 @@ turns the flat item list into rows:
 - durations come out of the UUIDv7 ids, which carry their creation millisecond
   in the leading 48 bits; a zero duration is left out of a label rather than
   shown as "0ms";
+- tool rows follow the tool's name with a short target — the first of
+  `file_path`, `path`, `filePath`, `command`, `pattern`, `url` or `query` in
+  the input, first line only, cut to 60 characters;
 - rows whose `parentItemId` names a task leave the top level and render nested
   inside that task's row.
 
