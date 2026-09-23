@@ -15,6 +15,10 @@
  *   failed — it carries `error`, and the text is the CLI's own line, such as
  *   "Not logged in · Please run /login" — becomes a `runtime.error` instead,
  *   fatal and naming the login command when the failure is the sign-in;
+ * - the `tool_use` blocks of those snapshots, and the `tool_result`s the CLI
+ *   writes back as `user` messages → one row per call (`tools.ts`), opened by
+ *   the call and settled by its result. Rows a turn leaves open when its
+ *   `result` arrives are failed there, so none spins under an idle thread;
  * - `system/init` → `mcp.status.updated`, and the model it reports is kept for
  *   the context window. It is not reported as `model.changed`: the CLI names
  *   the model a choice resolved to (`default` runs as a dated id), and the
@@ -27,8 +31,9 @@
  *   what it sent and from the `result` that ends it. The second says a request
  *   is on its way to the API, which the deltas that follow say again.
  *
- * Everything else — tool calls and results, subagent traffic, status and
- * lifecycle notices — is kept whole as `event.unmapped` until a mapping exists
+ * Everything else — subagent traffic, a user message that is not tool
+ * results, status and lifecycle notices — is kept whole as `event.unmapped`
+ * until a mapping exists
  * for it. Nothing is dropped silently; the stream events skipped here are the
  * block boundaries and message-level bookkeeping the snapshot restates.
  */
@@ -47,6 +52,7 @@ import {
 } from "./pending";
 import { resultEvents, type TurnContext } from "./result";
 import { makeTextRows } from "./textRows";
+import { makeToolRows } from "./tools";
 
 export type { TurnContext };
 
@@ -79,7 +85,12 @@ export interface Translator {
   readonly lastAssistantUuid: () => string | undefined;
   /** The newest `total_cost_usd`, for the session ref. */
   readonly totalCost: () => number | null;
+  /** How many tool calls have run to a result that is not an error, so far. */
+  readonly toolCallsRan: () => number;
 }
+
+/** Why a tool row still open at the end of its turn is failed. */
+export const TURN_ENDED_UNDER_TOOL = "The turn ended before this tool call finished.";
 
 export const makeTranslator = (options: {
   /** What the user types to sign the CLI in — named when a request fails on it. */
@@ -88,6 +99,7 @@ export const makeTranslator = (options: {
   readonly previousTotalCost: number | null;
 }): Translator => {
   const rows = makeTextRows();
+  const tools = makeToolRows();
   let streamMessage: string | null = null;
   let model: string | null = null;
   let contextUsed: number | null = null;
@@ -184,12 +196,27 @@ export const makeTranslator = (options: {
       } else if (block.type === "thinking") {
         const thinking = asString(block.thinking) ?? "";
         if (thinking !== "") events.push(...rows.settle(messageId, "reasoning", thinking));
+      } else if (block.type === "tool_use") {
+        events.push(...tools.started(block));
       } else {
         untold = true;
       }
     }
     if (untold) events.push(unmapped(message));
     return events;
+  };
+
+  /**
+   * A user message the CLI wrote: the results of the calls the model made.
+   * `tool_use_result` is the tool's structured output, and belongs to the
+   * message's one result — a message carrying several is read without it.
+   */
+  const user = (message: Json): ReadonlyArray<PendingRuntimeEvent> => {
+    const blocks = asArray(asRecord(message.message).content).map(asRecord);
+    const results = blocks.filter((block) => block.type === "tool_result");
+    if (results.length === 0 || results.length !== blocks.length) return [unmapped(message)];
+    const structured = results.length === 1 ? message.tool_use_result : undefined;
+    return results.flatMap((block) => tools.finished(block, structured));
   };
 
   const init = (message: Json): ReadonlyArray<PendingRuntimeEvent> => {
@@ -215,6 +242,8 @@ export const makeTranslator = (options: {
         return mainLoop ? streamEvent(message) : [unmapped(message)];
       case "assistant":
         return mainLoop ? assistant(message) : [unmapped(message)];
+      case "user":
+        return mainLoop ? user(message) : [unmapped(message)];
       case "system":
         if (message.subtype === "init") return init(message);
         if (message.subtype === "status" && REQUEST_STATUSES.has(asString(message.status) ?? "")) {
@@ -233,7 +262,7 @@ export const makeTranslator = (options: {
         });
         if (total !== null) totalCost = total;
         errorReported = false;
-        return events;
+        return [...tools.abandonOpen(TURN_ENDED_UNDER_TOOL), ...events];
       }
       default:
         return [unmapped(message)];
@@ -244,5 +273,6 @@ export const makeTranslator = (options: {
     translate,
     lastAssistantUuid: () => lastAssistantUuid,
     totalCost: () => totalCost,
+    toolCallsRan: tools.ran,
   };
 };
