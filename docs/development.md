@@ -162,12 +162,16 @@ out of its own workspace directory is a violation whatever it lands on, because
 packages are consumed through their `exports` map.
 
 A workspace with no rule may import no workspace package at all; add the rule
-before the import. Test files in `apps/server` get three extras — `testkit`,
-`client-runtime` and `connector-cmd` — which is what keeps an accidental import
-of any of them out of `src/main.ts`, since that file is bundled for packaging.
-One production file gets an extra of its own: `apps/server/src/boot.ts`, the
-composition root, may import `connector-cmd`. A file counts as a test when it
-ends in `.test.`/`.spec.` or sits under a `test/` directory.
+before the import. Test files in `apps/server` get four extras — `testkit`,
+`client-runtime`, `connector-cmd` and `connector-claude` — which is what keeps
+an accidental import of any of them out of `src/main.ts`, since that file is
+bundled for packaging. Test files in `packages/connector-claude` get `testkit`,
+because they replay the connector's recordings through its `sdk-stream`
+replayer and record them through its tee; the connector's sources never import
+it. One production file gets extras of its own: `apps/server/src/boot.ts`, the
+composition root, may import `connector-cmd` and `connector-claude`. A file
+counts as a test when it ends in `.test.`/`.spec.` or sits under a `test/`
+directory.
 
 **Connector leaks.** Non-test sources under `apps/web`, `packages/client-runtime`
 and `apps/server` name no concrete connector: they import no `@OpenAde/connector-*`
@@ -489,6 +493,23 @@ node packages/testkit/scripts/record-cmd.mjs plan --model poolside/laguna-s-2.1-
 node packages/testkit/scripts/record-probe.mjs      # no model turns at all
 ```
 
+The Claude Code recorders are vitest files in `packages/connector-claude/test/`,
+skipped unless `OPENADE_RECORD_CLAUDE=1`:
+
+```sh
+OPENADE_RECORD_CLAUDE=1 pnpm -F @OpenAde/connector-claude vitest run test/recordProbe.test.ts
+OPENADE_HOME=/tmp/openade-h1 OPENADE_RECORD_CLAUDE=1 \
+  pnpm -F @OpenAde/connector-claude vitest run test/recordSession.test.ts
+```
+
+Each points the connector's `binaryPath` at the testkit's stdio tee, drives the
+real definition — the probe, or a session in a throwaway git repo under
+`/tmp/openade-h1/scratch` — and finalises the capture into
+`fixtures/claude/<scenario>/`. Sessions run on the CLI's default model, capped
+at one turn and five cents. `probe` and `signed-out` spend nothing: the first
+sends no message, and the second was recorded while the CLI was signed out, so
+the CLI refused the turn without calling the API.
+
 `record-cmd.mjs` gives each run a throwaway git repo under a scratch root
 (`RECORD_SCRATCH`, default the system temp directory), spawns the CLI through
 the same binary resolution `probe.ts` uses and with the same argv and
@@ -516,8 +537,13 @@ account and the MCP bearer:
   everywhere: emails become `user@example.com`, uuids the zero uuid, and names
   `<ACCOUNT>`. Any other email address becomes `user@example.com` too.
 - A value under a credential key (`Authorization`, `x-api-key`, `*token`,
-  `password`, …) becomes `<REDACTED>` whatever its shape. That covers the MCP
-  bearer the connector hands the CLI inside `--mcp-config`'s JSON argv.
+  `password`, …) becomes `<REDACTED>` whatever its shape.
+- The MCP bearer the Claude connector hands the CLI travels inside
+  `--mcp-config`'s JSON, which the argv carries as one string rather than an
+  object, so the key rule cannot see it there; the token-shaped rule catches it
+  as `Bearer <token>`, as long as the token is at least twelve characters. A
+  real bearer is; the connector's tests use `openade-test-bearer-0000` so their
+  recordings show the redaction too.
 - The scratch root is taken as the parent of the first stream run's working
   directory, spelled with and without macOS's `/private`.
 

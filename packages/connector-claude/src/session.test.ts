@@ -1,0 +1,165 @@
+/**
+ * A session against `fixtures/claude/signed-out/`: one real turn sent to a CLI
+ * that was not signed in, replayed behind the binary path under the real SDK.
+ * The CLI answers with its own sign-in error and an error result without
+ * calling the API, which is the whole of a turn's lifecycle: handshake,
+ * announcement, the user message, the answer, the result, and the close.
+ */
+
+import * as NodeFS from "node:fs";
+import * as NodeOS from "node:os";
+import * as NodePath from "node:path";
+import { describe, expect, it } from "@effect/vitest";
+import { makeStreamCollector } from "@OpenAde/connector-sdk/streamCollector";
+import { makeConnectorInstanceId, makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
+import type { RuntimeEvent } from "@OpenAde/contracts/runtime";
+import { loadSdkStreamRecording } from "@OpenAde/testkit/sdkStreamRecording";
+import * as Effect from "effect/Effect";
+
+import { isPidGone, replay } from "../test/replay";
+import { testServices } from "../test/services";
+import { CLAUDE_CAPABILITIES } from "./capabilities";
+import { makeClaudeConnectorDefinition } from "./definition";
+import { CLAUDE_KIND } from "./kind";
+
+const recording = loadSdkStreamRecording(CLAUDE_KIND, "signed-out");
+const PROMPT = recording.manifest.prompts[0]!;
+
+const open = (options: { readonly resumeFrom?: unknown } = {}) =>
+  Effect.gen(function* () {
+    const replayed = replay("signed-out");
+    const workspace = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "claude-session-"));
+    const instance = yield* makeClaudeConnectorDefinition().createInstance({
+      instanceId: makeConnectorInstanceId(),
+      config: { binaryPath: replayed.binaryPath },
+      services: yield* testServices(),
+    });
+    const input = {
+      threadId: makeThreadId(),
+      projectId: makeProjectId(),
+      workspaceRoot: workspace,
+      settings: {
+        model: "default",
+        runtimeMode: "approval-required" as const,
+        interactionMode: "default" as const,
+      },
+    };
+    const handle =
+      options.resumeFrom === undefined
+        ? yield* instance.startSession(input)
+        : yield* instance.resumeSession({ ...input, sessionRef: options.resumeFrom });
+    const collector = yield* makeStreamCollector(handle.events);
+    return { replayed, workspace, handle, collector };
+  });
+
+const ofType = <T extends RuntimeEvent["type"]>(events: ReadonlyArray<RuntimeEvent>, type: T) =>
+  events.filter((event): event is Extract<RuntimeEvent, { type: T }> => event.type === type);
+
+describe("a Claude Code session", () => {
+  it.live("runs a turn the CLI refuses for want of a login, and closes cleanly", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const { replayed, workspace, handle, collector } = yield* open();
+
+        yield* handle.send({ text: PROMPT, attachments: [], mentions: [] });
+        yield* collector.awaitItem((event) => event.type === "turn.completed");
+        const events = yield* collector.collected;
+
+        // Announced first, with the id the session minted and the thread's model.
+        const started = events[0];
+        expect(started?.type).toBe("session.started");
+        if (started?.type !== "session.started") throw new Error("unreachable");
+        expect(started.payload.model).toBe("default");
+        expect(started.payload.capabilities).toEqual(CLAUDE_CAPABILITIES);
+        expect(started.payload.sessionRef).toMatchObject({ cwd: workspace });
+        const { sessionId } = started.payload.sessionRef as { sessionId: string };
+        expect(sessionId).toMatch(/^[0-9a-f-]{36}$/);
+
+        // OpenAde's MCP server was offered; nothing listened, and the CLI said so.
+        expect(ofType(events, "mcp.status.updated")[0]?.payload.servers).toEqual([
+          { name: "openade", status: "failed" },
+        ]);
+
+        // The CLI's own "Not logged in" line becomes an error naming the command
+        // that fixes it, not an assistant row.
+        const errors = ofType(events, "runtime.error");
+        expect(errors).toHaveLength(1);
+        expect(errors[0]?.payload.fatal).toBe(false);
+        expect(errors[0]?.payload.message).toContain(`${replayed.binaryPath} auth login`);
+        expect(events.some((event) => event.type.startsWith("item."))).toBe(false);
+
+        const turn = ofType(events, "turn.started")[0]!.payload.turnId;
+        expect(ofType(events, "usage.updated")[0]?.payload).toEqual({
+          turnId: turn,
+          input: 0,
+          output: 0,
+          cacheRead: 0,
+          cacheWrite: 0,
+          costUsd: 0,
+        });
+        expect(ofType(events, "turn.completed")[0]?.payload).toEqual({
+          turnId: turn,
+          stopReason: "error",
+        });
+
+        // Nothing the session does not map yet is dropped.
+        const unmapped = ofType(events, "event.unmapped").map((event) => event.raw.method);
+        expect(unmapped).toContain("command_lifecycle");
+        expect(unmapped).toContain("system/status");
+        expect(ofType(events, "event.unmapped").every((e) => e.raw.source === "claude.sdk")).toBe(
+          true,
+        );
+
+        // The ref is said again once the turn settled, now with the cost total.
+        expect(ofType(events, "session.started").at(-1)?.payload.sessionRef).toEqual({
+          sessionId,
+          cwd: workspace,
+          totalCostUsd: 0,
+        });
+        expect(yield* handle.sessionRef()).toEqual({ sessionId, cwd: workspace, totalCostUsd: 0 });
+
+        yield* handle.close();
+        yield* collector.awaitDone;
+        const all = yield* collector.collected;
+        expect(all.at(-1)).toMatchObject({ type: "session.ended", payload: { reason: "stopped" } });
+        expect(replayed.pids()).toHaveLength(1);
+        expect(replayed.pids().every(isPidGone)).toBe(true);
+
+        const refused = yield* Effect.flip(
+          handle.send({ text: PROMPT, attachments: [], mentions: [] }),
+        );
+        expect(refused._tag).toBe("SessionClosed");
+      }),
+    ),
+  );
+
+  it.live("refuses a second message while a turn runs", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const { handle, collector } = yield* open();
+        yield* handle.send({ text: PROMPT, attachments: [], mentions: [] });
+        const second = yield* Effect.flip(
+          handle.send({ text: "again", attachments: [], mentions: [] }),
+        );
+        expect(second._tag).toBe("TurnInProgress");
+        yield* collector.awaitItem((event) => event.type === "turn.completed");
+        yield* handle.close();
+      }),
+    ),
+  );
+
+  it.live("starts fresh, and says so, when the stored ref cannot be read", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const { handle, collector } = yield* open({ resumeFrom: { sessionId: "not-a-uuid" } });
+        const warning = yield* collector.awaitItem((event) => event.type === "session.warning");
+        const events = yield* collector.collected;
+        expect(events[0]?.type).toBe("session.started");
+        expect(warning.type === "session.warning" && warning.payload.message).toContain(
+          "starts a new one",
+        );
+        yield* handle.close();
+      }),
+    ),
+  );
+});

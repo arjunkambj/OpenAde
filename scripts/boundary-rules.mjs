@@ -45,23 +45,31 @@ export const IMPORT_ALLOWLIST = new Map([
  * them from its tests and must never ship them, because apps/server is bundled
  * to `out/main.cjs` for packaging. `@OpenAde/client-runtime` joins in
  * tests for the transport suite, which exercises the real client against the
- * real server over a WebSocket. `@OpenAde/connector-cmd` is here because a
- * conformance or end-to-end test assembles the real connector the same way
- * the composition root does. Keeping all three out of the production list is
- * what makes an accidental import in `src/main.ts` fail the gate.
+ * real server over a WebSocket. `@OpenAde/connector-cmd` and
+ * `@OpenAde/connector-claude` are here because a conformance or end-to-end
+ * test assembles a real connector the same way the composition root does.
+ * Keeping them all out of the production list is what makes an accidental
+ * import in `src/main.ts` fail the gate.
+ *
+ * The Claude Code connector's own tests replay its recordings through
+ * testkit's `sdk-stream` replayer and record them through its tee, so they
+ * get testkit too; the connector's sources never do.
  */
 export const TEST_ONLY_ALLOWLIST = new Map([
-  ["apps/server", ["testkit", "client-runtime", "connector-cmd"]],
+  ["apps/server", ["testkit", "client-runtime", "connector-cmd", "connector-claude"]],
+  ["packages/connector-claude", ["testkit"]],
 ]);
 
 /**
  * Single files that may import more than their workspace.
  *
- * The server's composition root is the one place that names a concrete
- * connector: it builds the registry from each connector's definition, and
+ * The server's composition root is the one place that names the concrete
+ * connectors: it builds the registry from each connector's definition, and
  * everything else in `apps/server` reaches connectors through the registry.
  */
-export const FILE_ALLOWLIST = new Map([["apps/server/src/boot.ts", ["connector-cmd"]]]);
+export const FILE_ALLOWLIST = new Map([
+  ["apps/server/src/boot.ts", ["connector-cmd", "connector-claude"]],
+]);
 
 /**
  * A `*.test.ts` file, or anything under a workspace's `test/` directory.

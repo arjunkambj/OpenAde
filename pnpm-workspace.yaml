@@ -42,5 +42,19 @@ catalog:
   # Dead-export audit.
   knip: ^6.35.1
 
+# The Claude Agent SDK lists a native build of the Claude Code CLI per platform
+# as optional dependencies, about 220MB in all. The Claude connector always
+# passes the user's installed CLI as `pathToClaudeCodeExecutable`, so none of
+# them is ever run.
+ignoredOptionalDependencies:
+  - "@anthropic-ai/claude-agent-sdk-darwin-arm64"
+  - "@anthropic-ai/claude-agent-sdk-darwin-x64"
+  - "@anthropic-ai/claude-agent-sdk-linux-arm64"
+  - "@anthropic-ai/claude-agent-sdk-linux-arm64-musl"
+  - "@anthropic-ai/claude-agent-sdk-linux-x64"
+  - "@anthropic-ai/claude-agent-sdk-linux-x64-musl"
+  - "@anthropic-ai/claude-agent-sdk-win32-arm64"
+  - "@anthropic-ai/claude-agent-sdk-win32-x64"
+
 minimumReleaseAgeExclude:
   - "@honeyicons/react@0.0.8"

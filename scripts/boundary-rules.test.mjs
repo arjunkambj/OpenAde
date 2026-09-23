@@ -15,19 +15,31 @@ const lines = (leaks) => leaks.map((leak) => leak.line);
 
 describe("allowedImportsFor", () => {
   it("keeps connector packages out of the server's production files", () => {
-    expect(allowedImportsFor("apps/server/src/rpc/handlers.ts", "apps/server")).not.toContain(
-      "connector-cmd",
-    );
+    const handlers = allowedImportsFor("apps/server/src/rpc/handlers.ts", "apps/server");
+    expect(handlers).not.toContain("connector-cmd");
+    expect(handlers).not.toContain("connector-claude");
   });
 
-  it("lets the composition root and server tests import the real connector", () => {
-    expect(allowedImportsFor("apps/server/src/boot.ts", "apps/server")).toContain("connector-cmd");
+  it("lets the composition root and server tests import the real connectors", () => {
+    for (const connector of ["connector-cmd", "connector-claude"]) {
+      expect(allowedImportsFor("apps/server/src/boot.ts", "apps/server")).toContain(connector);
+      expect(
+        allowedImportsFor("apps/server/src/hooks/cmdConformance.test.ts", "apps/server"),
+      ).toContain(connector);
+      expect(allowedImportsFor("apps/server/test/e2e/harness.ts", "apps/server")).toContain(
+        connector,
+      );
+    }
+  });
+
+  it("lets the Claude Code connector's tests, and only its tests, import testkit", () => {
+    const workspace = "packages/connector-claude";
+    expect(allowedImportsFor(`${workspace}/src/session.ts`, workspace)).not.toContain("testkit");
+    expect(allowedImportsFor(`${workspace}/src/session.test.ts`, workspace)).toContain("testkit");
+    expect(allowedImportsFor(`${workspace}/test/replay.ts`, workspace)).toContain("testkit");
     expect(
-      allowedImportsFor("apps/server/src/hooks/cmdConformance.test.ts", "apps/server"),
-    ).toContain("connector-cmd");
-    expect(allowedImportsFor("apps/server/test/e2e/harness.ts", "apps/server")).toContain(
-      "connector-cmd",
-    );
+      allowedImportsFor("packages/connector-cmd/src/session.test.ts", "packages/connector-cmd"),
+    ).not.toContain("testkit");
   });
 
   it("gives test extras only to tests, and nothing to a workspace with no rule", () => {

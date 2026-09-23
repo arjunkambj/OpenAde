@@ -1,0 +1,44 @@
+{
+  "formatVersion": 1,
+  "kind": "claude",
+  "transport": "sdk-stream",
+  "scenario": "signed-out",
+  "description": "One turn sent to a CLI that is not signed in: the CLI answers with its own sign-in error and an error result, without calling the API.",
+  "cliVersion": "2.1.280",
+  "sdkVersion": "0.3.280",
+  "recordedOn": "2026-09-23",
+  "model": "default",
+  "real": true,
+  "prompts": ["Reply with the single word: ok"],
+  "invocations": [
+    {
+      "argv": [
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--input-format",
+        "stream-json",
+        "--max-turns",
+        "1",
+        "--max-budget-usd",
+        "0.05",
+        "--permission-prompt-tool",
+        "stdio",
+        "--mcp-config",
+        "{\"mcpServers\":{\"openade\":{\"type\":\"http\",\"url\":\"http://127.0.0.1:9/mcp\",\"headers\":{\"Authorization\":\"<REDACTED>\"}}}}",
+        "--setting-sources=user,project,local",
+        "--permission-mode",
+        "default",
+        "--allow-dangerously-skip-permissions",
+        "--include-partial-messages",
+        "--add-dir",
+        "/var/folders/fk/g7j37kcj0kd6sdfwg_czzrjh0000gn/T/claude-attachments-fs826G/01a0d087-6adf-7000-871a-15792629a5bd",
+        "--session-id=a352e9b4-f546-4a09-b359-d74abb95d57d"
+      ],
+      "cwd": "<SCRATCH>/signed-out",
+      "file": "invocation-1.ndjson",
+      "exitCode": 1,
+      "signal": null
+    }
+  ]
+}
