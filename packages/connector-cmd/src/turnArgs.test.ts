@@ -10,7 +10,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { makeThreadId } from "@OpenAde/contracts/ids";
 import type { ThreadSettings } from "@OpenAde/contracts/orchestration";
 
-import { prepareTurn } from "./turnArgs";
+import { cmdEffort, prepareTurn } from "./turnArgs";
 
 const RECORDINGS = NodePath.resolve(
   NodeURL.fileURLToPath(import.meta.url),
@@ -33,6 +33,24 @@ const prepare = (interactionMode: ThreadSettings["interactionMode"]) =>
   });
 
 describe("prepareTurn", () => {
+  it("maps the contract's minimal effort onto Command Code's lowest rung", async () => {
+    const prepared = await prepareTurn({
+      turn: { text: "hi", attachments: [], mentions: [] },
+      settings: { ...settings("default"), effort: "minimal" },
+      attachmentsDir: NodePath.join(NodeFS.realpathSync(NodePath.resolve("/tmp")), "openade-none"),
+      threadId: makeThreadId(),
+      resumeSessionId: null,
+    });
+    expect(prepared.args.join(" ")).toContain("--effort low");
+    expect(prepared.args).not.toContain("minimal");
+  });
+
+  it("passes every other effort through unchanged", () => {
+    for (const effort of ["low", "medium", "high", "xhigh", "max"] as const) {
+      expect(cmdEffort(effort)).toBe(effort);
+    }
+  });
+
   it("sends --yolo on an ordinary turn", async () => {
     const prepared = await prepare("default");
     expect(prepared.args).toContain("--yolo");

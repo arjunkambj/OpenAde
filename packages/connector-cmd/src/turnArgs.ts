@@ -13,6 +13,7 @@
  * carry it; see below.
  */
 
+import type { Effort } from "@OpenAde/contracts/enums";
 import type { ThreadId } from "@OpenAde/contracts/ids";
 import type { ThreadSettings } from "@OpenAde/contracts/orchestration";
 import type { TurnInput } from "@OpenAde/connector-sdk/definition";
@@ -27,6 +28,14 @@ export interface PreparedTurn {
   /** Spawned with `--permission-mode plan`. */
   readonly plan: boolean;
 }
+
+/**
+ * The contract's effort, as a rung Command Code takes. Its ladder starts at
+ * `low`: no model it lists offers `minimal`, and the CLI exits 1 on an effort
+ * the model does not support, so the contract's lowest rung maps onto its
+ * lowest instead of failing the turn.
+ */
+export const cmdEffort = (effort: Effort): string => (effort === "minimal" ? "low" : effort);
 
 export const prepareTurn = async (input: {
   readonly turn: TurnInput;
@@ -52,7 +61,7 @@ export const prepareTurn = async (input: {
     args: buildArgs({
       prompt,
       model: input.settings.model,
-      ...(input.settings.effort === undefined ? {} : { effort: input.settings.effort }),
+      ...(input.settings.effort === undefined ? {} : { effort: cmdEffort(input.settings.effort) }),
       ...(input.resumeSessionId === null ? {} : { sessionId: input.resumeSessionId }),
       // Not in plan mode. `--yolo` turns off print mode's own refusal of
       // writes and shell calls, and in plan mode PreToolUse never fires —

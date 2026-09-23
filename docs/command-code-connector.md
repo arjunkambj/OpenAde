@@ -1059,7 +1059,10 @@ the tree builds that argv today.
 
 Command Code's own effort ladder is `low` to `max`. The contract's `minimal`
 never appears in a model's `efforts`, because nothing recorded shows the CLI
-accepting it.
+accepting it. A thread can still carry it — a saved default, or the whole
+ladder offered while a model is not in the catalog — and the CLI exits 1 on an
+effort the model does not support, so `cmdEffort` (`turnArgs.ts`) sends
+`--effort low` for it instead.
 
 ### One turn at a time
 
