@@ -6,7 +6,8 @@
  * open (`@/state/terminal-ui`). The drawer holds a tab strip over one lazily
  * loaded xterm (`./terminal-view`) that shows whichever tab is in front, and a
  * toolbar that acts on that xterm — "Add selection to chat" quotes its
- * selection into the thread's composer draft.
+ * selection into the thread's composer draft. A mod-clicked link opens in the
+ * thread's browser pane (`./use-open-link`).
  *
  * Which terminals exist is the server's to say: the drawer folds each
  * `terminal.list` into its tab state (`./drawer-state`). Opening a drawer that
@@ -29,6 +30,7 @@ import { DrawerMessage, IconButton, TerminalTabButton } from "@/components/termi
 import { nextTitle, useDrawerState } from "@/components/terminal/drawer-state";
 import { useTerminalAtoms } from "@/components/terminal/terminal-atoms";
 import type { TerminalHandle } from "@/components/terminal/terminal-handle";
+import { useOpenInBrowserPane } from "@/components/terminal/use-open-link";
 import { describeExitError } from "@/lib/app-runtime";
 import { SHORTCUT_COMMANDS, ShortcutKbd, useKeybindingCommand } from "@/lib/shortcuts";
 import { useConnectionState } from "@/state/hooks";
@@ -73,11 +75,13 @@ function TerminalDrawer({
   focusRequest,
   onHide,
   onClose,
+  onOpenLink,
 }: {
   threadId: ThreadId;
   focusRequest: number;
   onHide: () => void;
   onClose: (terminalId: TerminalId) => void;
+  onOpenLink: (url: string) => void;
 }) {
   const atoms = useTerminalAtoms();
   const connected = useConnectionState().status === "connected";
@@ -200,6 +204,7 @@ function TerminalDrawer({
           onExited={onExited}
           onGone={onGone}
           onHandle={setHandle}
+          onOpenLink={onOpenLink}
         />
       </React.Suspense>
     );
@@ -267,10 +272,18 @@ function TerminalDrawer({
 /**
  * Answers `terminal.toggle` for the thread on screen and shows its drawer
  * while open. Mount it keyed by threadId, so each thread starts with its own
- * drawer rather than inheriting the last one's xterm.
+ * drawer rather than inheriting the last one's xterm. `onShowBrowser` puts the
+ * dock on its Browser tab, for a link the terminal opens there.
  */
-export function ThreadTerminal({ threadId }: { threadId: ThreadId }) {
+export function ThreadTerminal({
+  threadId,
+  onShowBrowser,
+}: {
+  threadId: ThreadId;
+  onShowBrowser: () => void;
+}) {
   const [open, setOpen] = useTerminalOpen(threadId);
+  const openLink = useOpenInBrowserPane(threadId, onShowBrowser);
   const [focusRequest, bumpFocus] = React.useReducer((count: number) => count + 1, 0);
   // Mounted here, not in the drawer: closing the last tab hides the drawer,
   // and the close must not be cut short by the drawer unmounting.
@@ -292,6 +305,7 @@ export function ThreadTerminal({ threadId }: { threadId: ThreadId }) {
       focusRequest={focusRequest}
       onHide={() => setOpen(false)}
       onClose={(terminalId) => closeTerminal({ threadId, terminalId })}
+      onOpenLink={openLink}
     />
   );
 }

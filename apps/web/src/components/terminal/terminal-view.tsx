@@ -11,7 +11,8 @@
  * running on the server, and the next mount reattaches from the snapshot.
  *
  * The drawer's toolbar reaches the xterm only through the `TerminalHandle`
- * this view hands up while it is mounted.
+ * this view hands up while it is mounted. A mod-click on a printed http(s)
+ * link goes to `onOpenLink` (`./terminal-links`); a plain click only selects.
  *
  * Keys: the chord bound to `terminal.toggle` is refused to xterm through
  * `attachCustomKeyEventHandler`, so it bubbles to the app's one keybinding
@@ -36,6 +37,7 @@ import * as React from "react";
 import { useTheme } from "@/components/theme-provider";
 import { useTerminalAtoms } from "@/components/terminal/terminal-atoms";
 import type { TerminalHandle } from "@/components/terminal/terminal-handle";
+import { linkToOpen } from "@/components/terminal/terminal-links";
 import { readTerminalTheme } from "@/components/terminal/terminal-theme";
 import { TERMINAL_TOGGLE_COMMAND } from "@/lib/keybindings";
 import { useKeybindings } from "@/lib/shortcuts";
@@ -192,6 +194,7 @@ export default function TerminalView({
   onExited,
   onGone,
   onHandle,
+  onOpenLink,
 }: {
   threadId: ThreadId;
   terminalId: TerminalId | null;
@@ -203,6 +206,8 @@ export default function TerminalView({
   onGone: (terminalId: TerminalId) => void;
   /** The handle once the xterm is open, and null once it is gone. */
   onHandle: (handle: TerminalHandle | null) => void;
+  /** A link the user mod-clicked, already checked to be http(s). */
+  onOpenLink: (url: string) => void;
 }) {
   const hostRef = React.useRef<HTMLDivElement>(null);
   const [xterm, setXterm] = React.useState<Xterm | null>(null);
@@ -215,6 +220,8 @@ export default function TerminalView({
   );
   const onGridRef = React.useRef(onGrid);
   onGridRef.current = onGrid;
+  const onOpenLinkRef = React.useRef(onOpenLink);
+  onOpenLinkRef.current = onOpenLink;
 
   React.useEffect(() => {
     const host = hostRef.current;
@@ -230,12 +237,19 @@ export default function TerminalView({
       macOptionIsMeta: false,
       cursorBlink: true,
     });
+    const modKey = detectModKey();
     const fit = new FitAddon();
     terminal.loadAddon(fit);
-    terminal.loadAddon(new WebLinksAddon());
+    terminal.loadAddon(
+      new WebLinksAddon((event, uri) => {
+        const url = linkToOpen(uri, event, modKey);
+        if (url !== null) {
+          onOpenLinkRef.current(url);
+        }
+      }),
+    );
     terminal.loadAddon(new SearchAddon());
 
-    const modKey = detectModKey();
     const inTerminal = (name: string) =>
       name === "terminalFocus" ? true : name === "composerFocus" ? false : undefined;
     terminal.attachCustomKeyEventHandler(

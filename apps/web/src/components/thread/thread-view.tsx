@@ -11,7 +11,8 @@
  * the `threadRunning` flag — belong to the composer, which owns the Stop button
  * and the error line those bindings report through. The layout keeps the
  * bindings that work with no thread open. The terminal drawer sits in the
- * thread column below the composer and answers `terminal.toggle` itself.
+ * thread column below the composer and answers `terminal.toggle` itself; the
+ * links it opens land on this dock's Browser tab.
  */
 
 import { useNavigate } from "@tanstack/react-router";
@@ -209,7 +210,13 @@ export function ThreadView({
             <Composer threadId={threadId} projectId={snapshot.projectId} />
           </div>
         ) : null}
-        {snapshot !== null ? <ThreadTerminal key={threadId} threadId={threadId} /> : null}
+        {snapshot !== null ? (
+          <ThreadTerminal
+            key={threadId}
+            threadId={threadId}
+            onShowBrowser={() => setDockTab("browser")}
+          />
+        ) : null}
       </section>
       {dockTab !== undefined && snapshot !== null ? (
         <RightDock tab={dockTab} onTabChange={setDockTab} snapshot={snapshot} />
