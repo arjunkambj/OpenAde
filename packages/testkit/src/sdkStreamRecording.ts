@@ -214,21 +214,52 @@ const spellings = (path: string): ReadonlyArray<string> => {
   return [...out];
 };
 
+/**
+ * The operator's own skills, commands and agents, by name, each mapped to a
+ * neutral stand-in (`user-skill-1`, …).
+ *
+ * A harness that loads the user's configuration lists these in its handshake
+ * — names, and descriptions the user wrote — and they are the operator's
+ * business, not the recording's. They are read from the harness's config
+ * directory: every entry of `skills/`, `commands/` and `agents/`, a file's
+ * extension dropped.
+ */
+const operatorEntries = (configDir: string): Map<string, string> => {
+  const names = new Set<string>();
+  for (const sub of ["skills", "commands", "agents"]) {
+    let entries: ReadonlyArray<string> = [];
+    try {
+      entries = NodeFS.readdirSync(NodePath.join(configDir, sub));
+    } catch {
+      // A config directory without this kind of entry.
+    }
+    for (const entry of entries) {
+      const name = entry.replace(/\.[^.]+$/, "");
+      if (name.length > 0 && !name.startsWith(".")) names.add(name);
+    }
+  }
+  return new Map([...names].sort().map((name, index) => [name, `user-skill-${index + 1}`]));
+};
+
 interface ScrubContext {
   readonly home: string;
   /** The scratch root the throwaway repos live under; null when there is none. */
   readonly scratch: string | null;
   readonly username: string;
   readonly account: ReadonlyMap<string, string>;
+  /** The operator's own skills, commands and agents: name → stand-in. */
+  readonly entries: ReadonlyMap<string, string>;
 }
 
 /**
- * The cmd scrubbing rules, plus the account and the MCP bearer: account values
- * are replaced first, then the scratch root becomes `<SCRATCH>` and the home
- * directory `<HOME>` (longest spelling first, so a scratch root under home stays
- * a scratch root), the username becomes `user`, and credentials become
- * `<REDACTED>` — under a credential's key whatever their shape, anywhere when
- * they are token-shaped.
+ * The cmd scrubbing rules, plus the account, the MCP bearer and the operator's
+ * own entries: account values are replaced first, then the scratch root
+ * becomes `<SCRATCH>` and the home directory `<HOME>` (longest spelling first,
+ * so a scratch root under home stays a scratch root), the username becomes
+ * `user`, and credentials become `<REDACTED>` — under a credential's key
+ * whatever their shape, anywhere when they are token-shaped. An operator entry
+ * is replaced where the handshake lists it: a list item that is its name, and
+ * an object whose `name` it is, whose `description` goes with it.
  */
 const makeScrubber = (context: ScrubContext): ((value: unknown) => unknown) => {
   const paths = [
@@ -250,8 +281,23 @@ const makeScrubber = (context: ScrubContext): ((value: unknown) => unknown) => {
   };
   const scrub = (value: unknown): unknown => {
     if (typeof value === "string") return text(value);
-    if (Array.isArray(value)) return value.map(scrub);
+    if (Array.isArray(value)) {
+      return value.map((entry) =>
+        typeof entry === "string" && context.entries.has(entry)
+          ? context.entries.get(entry)
+          : scrub(entry),
+      );
+    }
     if (value !== null && typeof value === "object") {
+      const named = (value as { readonly name?: unknown }).name;
+      if (typeof named === "string" && context.entries.has(named)) {
+        const stand = context.entries.get(named)!;
+        return scrub({
+          ...value,
+          name: stand,
+          ...("description" in value ? { description: `${stand} (user)` } : {}),
+        });
+      }
       return Object.fromEntries(
         Object.entries(value).map(([key, entry]) => [
           text(key),
@@ -281,6 +327,11 @@ export interface FinalizeOptions {
   /** Defaults to the operator's own. */
   readonly home?: string;
   readonly username?: string;
+  /**
+   * The harness's config directory, whose `skills/`, `commands/` and `agents/`
+   * name the operator's own entries; defaults to `<home>/.claude`.
+   */
+  readonly configDir?: string;
   /**
    * The scratch root; defaults to the parent of the first stream run's working
    * directory, the same directory a replay restores `<SCRATCH>` from.
@@ -314,6 +365,7 @@ export const finalizeSdkStreamRecording = (options: FinalizeOptions): string => 
     scratch: options.scratch ?? scratchOf(firstStream?.cwd, home),
     username: options.username ?? NodeOS.userInfo().username,
     account: accountValues(invocations.flatMap((invocation) => invocation.frames)),
+    entries: operatorEntries(options.configDir ?? NodePath.join(home, ".claude")),
   });
 
   const dir = NodePath.join(fixturesRoot(options.kind, options.fixturesRoot), options.scenario);

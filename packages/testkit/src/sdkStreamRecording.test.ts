@@ -214,6 +214,59 @@ describe("finalizeSdkStreamRecording", () => {
     expect(readManifest("sample", "scrubbed", fixtures).transport).toBe("sdk-stream");
   });
 
+  it("replaces the operator's own skills, commands and agents where the handshake lists them", async () => {
+    const rawDir = NodePath.join(ROOT, "raw-entries");
+    const launcher = makeTeeLauncher({ realBinary: COUNTERPART, rawDir });
+    const configDir = NodePath.join(ROOT, "config-dir");
+    NodeFS.mkdirSync(NodePath.join(configDir, "skills", "private-notes"), { recursive: true });
+    NodeFS.mkdirSync(NodePath.join(configDir, "agents"), { recursive: true });
+    NodeFS.writeFileSync(NodePath.join(configDir, "agents", "reviewer.md"), "x\n");
+
+    const run = converse(launcher, STREAM_ARGS, { cwd: REPO });
+    await run.awaitLine(typed("ready"));
+    run.send({
+      type: "note",
+      commands: [
+        { name: "private-notes", description: "Notes about a private project (user)" },
+        { name: "compact", description: "Compact the conversation" },
+      ],
+      skills: ["private-notes", "compact"],
+      agents: ["reviewer", "Explore"],
+    });
+    await run.awaitLine(typed("echo"));
+    run.child.stdin.end();
+    expect((await run.exited).code).toBe(0);
+
+    const fixtures = NodePath.join(ROOT, "fixtures-entries");
+    finalizeSdkStreamRecording({
+      kind: "sample",
+      scenario: "entries",
+      rawDir,
+      description: "an ordinary node program, for the finaliser's own test",
+      cliVersion: "9.9.9",
+      sdkVersion: "0.0.0",
+      model: "none",
+      prompts: [],
+      fixturesRoot: fixtures,
+      configDir,
+    });
+
+    const [stream] = loadSdkStreamRecording("sample", "entries", fixtures).invocations;
+    const echoed = stream!.frames.find((frame) => typed("echo")(frame.data))!.data;
+    expect(JSON.stringify(echoed)).not.toContain("private");
+    expect(JSON.stringify(echoed)).not.toContain("reviewer");
+    expect(echoed).toMatchObject({
+      message: {
+        commands: [
+          { name: "user-skill-1", description: "user-skill-1 (user)" },
+          { name: "compact", description: "Compact the conversation" },
+        ],
+        skills: ["user-skill-1", "compact"],
+        agents: ["user-skill-2", "Explore"],
+      },
+    });
+  });
+
   it("is required to name its transport, having no legacy layout", () => {
     const fixtures = NodePath.join(ROOT, "fixtures-untyped");
     NodeFS.mkdirSync(NodePath.join(fixtures, "sample", "untyped"), { recursive: true });
