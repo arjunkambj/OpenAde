@@ -52,6 +52,11 @@ export interface SessionHandle {
     action: PlanResponseAction,
     feedback?: string,
   ) => Effect.Effect<void, ConnectorError>;
+  /**
+   * A mode, model or effort change for the running session. The patch never
+   * carries `connectorInstanceId`: which instance a session runs on is fixed
+   * for its life, and the server strips it before calling this.
+   */
   readonly updateSettings: (patch: ThreadSettingsPatch) => Effect.Effect<void, ConnectorError>;
   readonly sessionRef: () => Effect.Effect<unknown, ConnectorError>;
   readonly close: () => Effect.Effect<void>;

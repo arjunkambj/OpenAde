@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   makeCheckpointId,
+  makeConnectorInstanceId,
   makeEventId,
   makeItemId,
   makeProjectId,
@@ -250,5 +251,24 @@ describe("the thread fold", () => {
     expect(doc?.items).toHaveLength(1);
     expect(doc?.items[0]?.status).toBe("completed");
     expect(doc?.items[0]?.turnId).toBe(turnId);
+  });
+
+  it("records the connector instance a settings patch chose, and keeps it after", () => {
+    const chosen = makeConnectorInstanceId();
+    const doc = foldThread([
+      created(),
+      event("thread.settings.updated", { connectorInstanceId: chosen }),
+      // A later patch that says nothing about the connector leaves it alone.
+      event("thread.settings.updated", { effort: "high" }),
+    ]);
+
+    expect(doc?.settings.connectorInstanceId).toBe(chosen);
+    expect(doc?.settings.effort).toBe("high");
+  });
+
+  it("leaves a thread that never chose an instance without one", () => {
+    const doc = foldThread([created(), event("thread.settings.updated", { effort: "low" })]);
+
+    expect(doc?.settings).not.toHaveProperty("connectorInstanceId");
   });
 });

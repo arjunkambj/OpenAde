@@ -52,12 +52,20 @@ export { Attachment } from "./runtime";
 export const Mention = NonEmptyString;
 export type Mention = typeof Mention.Type;
 
-/** The per-thread controls the header exposes. */
+/**
+ * The per-thread controls the header exposes.
+ *
+ * `connectorInstanceId` is the harness the user picked for this thread. It is
+ * optional because every event written before threads could choose one lacks
+ * it, and because a thread may leave the choice to routing: absent means "the
+ * default rule" — the first enabled connector that is open.
+ */
 export const ThreadSettings = Schema.Struct({
   model: NonEmptyString,
   effort: Schema.optional(Effort),
   runtimeMode: RuntimeMode,
   interactionMode: InteractionMode,
+  connectorInstanceId: Schema.optional(ConnectorInstanceId),
 });
 export type ThreadSettings = typeof ThreadSettings.Type;
 
@@ -67,8 +75,28 @@ export const ThreadSettingsPatch = Schema.Struct({
   effort: Schema.optional(Effort),
   runtimeMode: Schema.optional(RuntimeMode),
   interactionMode: Schema.optional(InteractionMode),
+  connectorInstanceId: Schema.optional(ConnectorInstanceId),
 });
 export type ThreadSettingsPatch = typeof ThreadSettingsPatch.Type;
+
+/**
+ * Whether a thread is past the point where it may change connector instance:
+ * it has a bound session, a running turn, or any message of the user's. A
+ * harness's session cannot be carried to another harness, so from then on the
+ * way to use a different connector is a new thread. The decider and the
+ * renderer both ask this, so the picker is never enabled for a switch the
+ * server would refuse.
+ */
+export const threadLocksConnector = (thread: {
+  readonly session: unknown;
+  readonly items: ReadonlyArray<{ readonly kind: string }>;
+  readonly currentTurnId?: unknown;
+  readonly currentTurn?: unknown;
+}): boolean =>
+  thread.session != null ||
+  thread.currentTurnId != null ||
+  thread.currentTurn != null ||
+  thread.items.some((item) => item.kind === "user_message");
 
 /** What the user typed while a turn was still running. */
 export const QueuedMessage = Schema.Struct({

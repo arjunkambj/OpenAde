@@ -27,6 +27,11 @@
  * with two connectors on different accounts a thread routed to B and seeded
  * with A's model fails its first turn on a model B has never heard of. Which
  * instances are open is `OpenConnectors`, below.
+ *
+ * All of that is now the fallback. A thread that chose its connector instance
+ * (`ThreadSettings.connectorInstanceId`) runs on that one while it is open, and
+ * its model is seeded from that one; the rule above answers only for a thread
+ * that chose none, or whose choice is no longer open.
  */
 
 import { Effort, RuntimeMode } from "@OpenAde/contracts/enums";
@@ -210,18 +215,42 @@ export const ConnectorModels = Context.Reference<
  * until the user found Settings → General by themselves. Asking the routed
  * instance for its first model is what makes the first thread possible, and it
  * names a model that instance certainly has.
+ *
+ * A thread that chose its instance (`chosen`) skips all of that while the
+ * instance is open: its `defaultModel`, then its first model. The app-wide
+ * default does not outrank it there — it is one model, and it may well belong
+ * to another harness. Only when the chosen instance has neither, or is not
+ * open (so the turn will be routed by the default rule anyway), does the rule
+ * above answer. A model named on the command itself outranks all of this; the
+ * engine does not ask for a seed then.
  */
 export const seedModel = (
   sql: SqlClient.SqlClient,
   open: Effect.Effect<ReadonlyArray<ConnectorInstanceId>> | null,
   models: ((instanceId: ConnectorInstanceId) => Effect.Effect<ReadonlyArray<string>>) | null = null,
+  chosen?: ConnectorInstanceId,
 ): Effect.Effect<string | null, SqlError> =>
   Effect.gen(function* () {
     const routing = yield* readConnectorRouting(sql);
+    const openIds = open === null ? null : yield* open;
+    if (chosen !== undefined) {
+      const entry = routing.enabled.find((connector) => connector.connectorInstanceId === chosen);
+      // With nobody tracking the registry, the document's enabled list is the
+      // only reading of "open" there is — the same one selection falls back to.
+      const isOpen = openIds === null ? entry !== undefined : openIds.includes(chosen);
+      if (isOpen) {
+        if (entry?.defaultModel != null) {
+          return entry.defaultModel;
+        }
+        const first = models === null ? undefined : (yield* models(chosen))[0];
+        if (first !== undefined) {
+          return first;
+        }
+      }
+    }
     if (routing.sharedModel !== null) {
       return routing.sharedModel;
     }
-    const openIds = open === null ? null : yield* open;
     const routed =
       openIds === null
         ? routing.enabled[0]

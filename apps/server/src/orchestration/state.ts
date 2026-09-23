@@ -129,6 +129,19 @@ const waitingOr = (doc: ThreadDoc, fallback: ThreadStatus): ThreadStatus =>
     ? "waiting"
     : fallback;
 
+/**
+ * The thread's chosen connector after a settings patch: the patch's when it
+ * names one, the one already stored otherwise. Spread rather than assigned so
+ * a thread that never chose one keeps no `connectorInstanceId` key at all.
+ */
+const connectorOf = (
+  patched: unknown,
+  settings: ThreadSettings,
+): Pick<ThreadSettings, "connectorInstanceId"> => {
+  const chosen = (patched as ThreadSettings["connectorInstanceId"]) ?? settings.connectorInstanceId;
+  return chosen === undefined ? {} : { connectorInstanceId: chosen };
+};
+
 // ── Thread fold ───────────────────────────────────────────────
 
 const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): ThreadDoc | null => {
@@ -363,6 +376,7 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
           interactionMode:
             (payload.interactionMode as ThreadSettings["interactionMode"]) ??
             doc.settings.interactionMode,
+          ...connectorOf(payload.connectorInstanceId, doc.settings),
         },
       };
     case "thread.usage.updated":

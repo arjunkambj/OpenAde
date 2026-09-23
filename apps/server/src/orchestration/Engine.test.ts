@@ -357,6 +357,56 @@ describe("OrchestrationEngine", () => {
       }),
     ),
   );
+
+  it.effect("starts a thread that chose its connector on that connector's model", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const persistence = Layer.succeedContext(yield* Layer.build(persistenceLayer()));
+        const chosen = makeConnectorInstanceId();
+
+        yield* Effect.gen(function* () {
+          const sql = yield* SqlClient.SqlClient;
+          yield* sql`
+            INSERT INTO settings (key, value_json, updated_at)
+            VALUES (
+              'settings',
+              ${JSON.stringify({
+                defaults: { model: "acme/shared" },
+                connectors: [
+                  {
+                    connectorInstanceId: makeConnectorInstanceId(),
+                    enabled: true,
+                    config: { defaultModel: "acme/first" },
+                  },
+                  {
+                    connectorInstanceId: chosen,
+                    enabled: true,
+                    config: { defaultModel: "acme/chosen" },
+                  },
+                ],
+              })},
+              ${NOW}
+            )
+          `;
+          const engine = yield* OrchestrationEngine;
+          yield* engine.dispatch(createProject);
+          yield* engine.dispatch({
+            commandId: makeCommandId(),
+            createdAt: NOW,
+            type: "thread.create",
+            threadId,
+            projectId,
+            settings: { connectorInstanceId: chosen },
+          });
+          // Neither the app-wide default nor the first enabled connector: the
+          // shared model may belong to another harness entirely.
+          const settings = (yield* engine.threadDoc(threadId))?.settings;
+          expect(settings?.model).toBe("acme/chosen");
+          expect(settings?.connectorInstanceId).toBe(chosen);
+        }).pipe(Effect.provide(OrchestrationEngine.layer.pipe(Layer.provideMerge(persistence))));
+      }),
+    ),
+  );
 });
 
 describe("projection rebuild", () => {

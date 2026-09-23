@@ -11,7 +11,7 @@
  * - `approval.resolved` / `userInput.resolved` / `plan.responded` → the
  *   matching `respond*` on the live handle, plus the plan follow-up commands.
  * - `settings.updated` → `handle.updateSettings` so mode/model changes reach
- *   the running session.
+ *   the running session (without `connectorInstanceId`, which is routing).
  * - `turn.completed` → drain the queue: dequeue the head, dispatch it as a new
  *   turn.
  * - `project.removed` → dispatch `thread.delete` for every thread under it.
@@ -325,8 +325,11 @@ export const ProviderCommandReactor = Layer.effectDiscard(
           case "thread.settings.updated": {
             const handle = yield* sessions.handleFor(threadId);
             if (handle !== null) {
+              // The instance is routing, not something a session can act on —
+              // and the decider never lets it change under a live one anyway.
+              const { connectorInstanceId: _routing, ...patch } = payload as ThreadSettingsPatch;
               yield* handle
-                .updateSettings(payload as ThreadSettingsPatch)
+                .updateSettings(patch)
                 .pipe(Effect.catch((error) => Effect.logWarning("updateSettings failed", error)));
             }
             return;

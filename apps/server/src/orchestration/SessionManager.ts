@@ -3,9 +3,11 @@
  *
  * `ConnectorSelection` is the seam the settings layer fills through the
  * registry (`settings/connectorRouting.ts`). Left to itself it answers "the
- * first instance registered", which is what the fake-connector tests provide. Routing on a thread that already has a session always goes by
- * the persisted `connectorInstanceId` — two instances of the same kind can
- * differ in binary, credentials and model, so kind is never a lookup key.
+ * first instance registered", which is what the fake-connector tests provide.
+ * A thread that chose an instance goes to that one while it is open. Routing
+ * on a thread that already has a session always goes by the persisted
+ * `connectorInstanceId` — two instances of the same kind can differ in binary,
+ * credentials and model, so kind is never a lookup key.
  *
  * `SessionManager` keeps one driver per thread: the turn-scoped handle plus
  * the ingestion fiber draining its events into the log. A driver is removed
@@ -58,9 +60,11 @@ export class ConnectorSelection extends Context.Service<
   }
 >()("server/orchestration/ConnectorSelection") {
   /**
-   * Over the live registry. A new thread goes to the first instance in
-   * `preference` that is open, and to the registry's own first entry when
-   * none of them is.
+   * Over the live registry. A new thread goes to the instance it chose
+   * (`settings.connectorInstanceId`) when that one is open. Otherwise — no
+   * choice, or the chosen instance was disabled or removed since — it falls
+   * back to the default rule: the first instance in `preference` that is open,
+   * and the registry's own first entry when none of them is.
    *
    * `preference` is what keeps routing off an insertion accident: the registry
    * lists instances in the order `open` was called, and the connector manager
@@ -78,12 +82,14 @@ export class ConnectorSelection extends Context.Service<
       instanceFor: (doc) =>
         Effect.flatMap(registry.instances, (instances) =>
           Effect.flatMap(preference, (preferred) => {
+            const open = (instanceId: ConnectorInstanceId | undefined) =>
+              instanceId === undefined
+                ? undefined
+                : instances.find((instance) => instance.instanceId === instanceId);
             const chosen =
-              preferred
-                .map((instanceId) =>
-                  instances.find((instance) => instance.instanceId === instanceId),
-                )
-                .find((instance) => instance !== undefined) ?? instances[0];
+              open(doc.settings.connectorInstanceId) ??
+              preferred.map(open).find((instance) => instance !== undefined) ??
+              instances[0];
             return chosen === undefined
               ? Effect.fail(new NoConnector({ threadId: doc.threadId }))
               : Effect.succeed(chosen);

@@ -405,10 +405,15 @@ workspaceRoot)` and then `handle.send(turnId, turn)`.
 
 `SessionManager` (`orchestration/SessionManager.ts`) keeps one driver per
 thread. A thread with no `session` in its document is routed by
-`ConnectorSelection.fromRegistry`, which takes the first _open_ instance in the
-settings document's own order; a thread that already has one is looked up by
-its persisted `connectorInstanceId`, never by kind — two instances of the same
-kind can differ in binary, credentials and model. `startSession` or
+`ConnectorSelection.fromRegistry`: to the instance the thread chose
+(`settings.connectorInstanceId`, picked on the start screen) when that instance
+is open, and otherwise — no choice, or the chosen one was disabled or removed
+since — to the first _open_ instance in the settings document's own order. A
+thread that already has a session is looked up by the session's persisted
+`connectorInstanceId`, never by kind — two instances of the same kind can differ
+in binary, credentials and model. Once a thread has a session, a running turn or
+a message of the user's, the decider refuses to change its connector: the answer
+is a new thread. `startSession` or
 `resumeSession` produces a raw `SessionHandle`; `makeTurnScopedHandle` wraps it
 so runtime events carry our `turnId`, and `ingestSession` forks the fiber that
 drains its events into the log.
@@ -1075,7 +1080,9 @@ before it is reported as an error.
 
 Routing follows the settings document's order, not the order instances happened
 to be opened in — the same reading a new thread's default model is seeded from,
-so the two can never name different instances.
+so the two can never name different instances. That order is the fallback: a
+thread that chose its instance runs on it, and is seeded from its default or
+first model, while it is open.
 
 ### The CLI's own config files
 

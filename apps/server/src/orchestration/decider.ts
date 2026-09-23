@@ -13,6 +13,7 @@
 import { DEFAULT_RUNTIME_MODE } from "@OpenAde/contracts/enums";
 import type { Effort, RuntimeMode } from "@OpenAde/contracts/enums";
 import type { EventId, ItemId, ProjectId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
+import { threadLocksConnector } from "@OpenAde/contracts/orchestration";
 import type {
   Actor,
   Command,
@@ -171,6 +172,9 @@ export const decide = (
             runtimeMode: patch.runtimeMode ?? ctx.defaultRuntimeMode ?? DEFAULT_RUNTIME_MODE,
             interactionMode: patch.interactionMode ?? "default",
             ...(effort === null || effort === undefined ? {} : { effort }),
+            ...(patch.connectorInstanceId === undefined
+              ? {}
+              : { connectorInstanceId: patch.connectorInstanceId }),
           },
         }),
       ]);
@@ -278,6 +282,17 @@ export const decide = (
       if (thread === null || thread.deleted) {
         return rejected(`thread ${command.threadId} does not exist`);
       }
+      // Choosing a connector is only possible while nothing has run on one: a
+      // session belongs to its harness and cannot be carried to another. The
+      // same answer as the picker's, so a disabled picker is never a lie.
+      const connectorChange =
+        command.connectorInstanceId !== undefined &&
+        command.connectorInstanceId !== thread.settings.connectorInstanceId;
+      if (connectorChange && threadLocksConnector(thread)) {
+        return rejected(
+          `thread ${command.threadId} has already run on a connector — start a new thread to use another connector`,
+        );
+      }
       return accepted([
         emit("thread.settings.updated", {
           ...(command.model === undefined ? {} : { model: command.model }),
@@ -286,6 +301,7 @@ export const decide = (
           ...(command.interactionMode === undefined
             ? {}
             : { interactionMode: command.interactionMode }),
+          ...(connectorChange ? { connectorInstanceId: command.connectorInstanceId } : {}),
         }),
       ]);
     }

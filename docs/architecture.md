@@ -541,6 +541,15 @@ Commands do not appear as individual RPCs: `orchestration.dispatch` takes the
 whole union, which is what keeps the decider the single place a state change is
 decided.
 
+A thread chooses its harness through `ThreadSettings.connectorInstanceId`, set
+on `thread.create` or by `thread.settings.update`. The field is optional: events
+written before it existed decode unchanged, and absent means the default routing
+rule. The choice can change only until the thread has a bound session, a
+running turn or a user message — `threadLocksConnector` in the contracts is that
+rule, read by the decider (which rejects a change after it, suggesting a new
+thread) and by the renderer's picker alike. The field is routing, not a session
+setting: the reactor strips it before `handle.updateSettings`.
+
 ### Reactors
 
 A reactor consumes the engine's published streams and performs the side effect
@@ -608,10 +617,15 @@ the hidden refs under the thread's prefix.
 driver per thread, being the turn-scoped handle plus the ingestion fiber
 draining its events into the log. A driver is removed when its event stream ends
 or when the thread is deleted. `ConnectorSelection` decides which instance a
-thread runs on: by the persisted `connectorInstanceId` when it has one,
-otherwise the first instance in the settings document's order that is actually
-open. `connectorRouting.ts` is the single reading of that order, shared with the
-engine's model seeding so the two can never name different instances.
+thread runs on: by the bound session's persisted `connectorInstanceId` when it
+has one; otherwise by the instance the thread chose
+(`ThreadSettings.connectorInstanceId`) while that instance is open; otherwise
+the default rule, the first instance in the settings document's order that is
+actually open. `connectorRouting.ts` is the single reading of that order, shared
+with the engine's model seeding so the two can never name different instances.
+A `thread.create` that chose an instance and named no model is seeded from that
+instance: its `defaultModel`, then its first model, ahead of the app-wide
+default, which may belong to another harness.
 
 ### Subscriptions
 

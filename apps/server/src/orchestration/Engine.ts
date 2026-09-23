@@ -16,7 +16,14 @@
  */
 
 import { makeEventId, makeItemId, makeTurnId } from "@OpenAde/contracts/ids";
-import type { EventId, ItemId, ProjectId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
+import type {
+  ConnectorInstanceId,
+  EventId,
+  ItemId,
+  ProjectId,
+  ThreadId,
+  TurnId,
+} from "@OpenAde/contracts/ids";
 import type {
   Command,
   CommandReceipt,
@@ -252,14 +259,17 @@ export class OrchestrationEngine extends Context.Service<
       }));
 
       /**
-       * The model a `thread.create` without one starts on: the app-wide
-       * default first, and then the connector's own, so that a `defaultModel`
-       * on the connectors page means "new threads on this connector" rather
-       * than nothing at all. `seedModel` is the same rule `ConnectorSelection`
-       * routes by, so the seeded model belongs to the instance the thread's
-       * first turn will actually run on.
+       * The model a `thread.create` without one starts on. A thread that chose
+       * its connector instance starts on that instance's own default or first
+       * model; otherwise the app-wide default comes first, and then the routed
+       * connector's own, so that a `defaultModel` on the connectors page means
+       * "new threads on this connector" rather than nothing at all.
+       * `seedModel` is the same rule `ConnectorSelection` routes by, so the
+       * seeded model belongs to the instance the thread's first turn will
+       * actually run on.
        */
-      const defaultModel = seedModel(sql, openConnectors, connectorModels);
+      const defaultModel = (chosen: ConnectorInstanceId | undefined) =>
+        seedModel(sql, openConnectors, connectorModels, chosen);
 
       /** Cross-aggregate facts the decider may check, gathered inside the txn. */
       const buildContext = (command: Command): Effect.Effect<DeciderContext, SqlError> =>
@@ -267,7 +277,12 @@ export class OrchestrationEngine extends Context.Service<
           const projectId = command.type === "thread.create" ? command.projectId : null;
           const exists = projectId === null ? false : yield* readModels.projectExists(projectId);
           const roots = command.type === "project.create" ? yield* readModels.workspaceRoots : [];
-          const model = command.type === "thread.create" ? yield* defaultModel : null;
+          // A command that names its model never needs a seed, and asking a
+          // chosen instance for its models is not free.
+          const model =
+            command.type === "thread.create" && command.settings?.model === undefined
+              ? yield* defaultModel(command.settings?.connectorInstanceId)
+              : null;
           const defaults =
             command.type === "thread.create"
               ? yield* seedThreadDefaults(sql)

@@ -204,6 +204,10 @@ export interface StartSessionInput {
   readonly threadId: ThreadId;
   readonly projectId: ProjectId;
   readonly workspaceRoot: string;
+  /**
+   * The thread's settings. Its `connectorInstanceId`, when present, only says
+   * how the server routed the thread here; a connector has nothing to do with it.
+   */
   readonly settings: ThreadSettings;
 }
 

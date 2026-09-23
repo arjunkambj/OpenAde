@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   makeCommandId,
+  makeConnectorInstanceId,
   makeEventId,
   makeItemId,
   makeProjectId,
@@ -899,5 +900,115 @@ describe("the user's own timeline row", () => {
     if (!result.accepted) return;
     const upserted = result.events[1]!.payload as { item: { attachments?: unknown } };
     expect(upserted.item.attachments).toEqual(attachments);
+  });
+});
+
+describe("the thread's connector instance", () => {
+  const CHOSEN = makeConnectorInstanceId();
+  const OTHER = makeConnectorInstanceId();
+
+  const update = (thread: ThreadDoc, connectorInstanceId = OTHER) =>
+    decide(
+      {
+        ...baseCommand,
+        type: "thread.settings.update",
+        threadId: thread.threadId,
+        connectorInstanceId,
+      } as Command,
+      { project: null, thread },
+      ctx(),
+      env,
+    );
+
+  const chosenThread = (overrides: Partial<ThreadDoc> = {}) =>
+    threadDoc({
+      settings: {
+        model: "fake/model",
+        runtimeMode: "approval-required",
+        interactionMode: "default",
+        connectorInstanceId: CHOSEN,
+      },
+      ...overrides,
+    });
+
+  it("carries the instance a create command chose onto thread.created", () => {
+    const result = decide(
+      {
+        ...baseCommand,
+        type: "thread.create",
+        threadId: makeThreadId(),
+        projectId: makeProjectId(),
+        settings: { connectorInstanceId: CHOSEN },
+      } as Command,
+      { project: null, thread: null },
+      ctx(),
+      env,
+    );
+    expect(result.accepted).toBe(true);
+    if (!result.accepted) return;
+    const payload = result.events[0]!.payload as { settings: { connectorInstanceId?: string } };
+    expect(payload.settings.connectorInstanceId).toBe(CHOSEN);
+  });
+
+  it("lets a thread change instance before anything has run", () => {
+    const result = update(chosenThread());
+    expect(result.accepted).toBe(true);
+    if (!result.accepted) return;
+    expect(result.events.map((event) => event.type)).toEqual(["thread.settings.updated"]);
+    expect(result.events[0]!.payload).toEqual({ connectorInstanceId: OTHER });
+  });
+
+  it("refuses a change once the user has sent a message", () => {
+    const thread = chosenThread({
+      items: [
+        {
+          itemId: makeItemId(),
+          kind: "user_message",
+          status: "completed",
+          turnId: makeTurnId(),
+          text: "hello",
+        },
+      ] as ThreadDoc["items"],
+    });
+    const result = update(thread);
+    expect(result).toEqual({
+      accepted: false,
+      reason: expect.stringContaining("start a new thread to use another connector"),
+    });
+  });
+
+  it("refuses a change while a session is bound", () => {
+    const thread = chosenThread({
+      session: { connectorInstanceId: CHOSEN, connectorKind: "fake", sessionRef: {} },
+    } as Partial<ThreadDoc>);
+    expect(update(thread).accepted).toBe(false);
+  });
+
+  it("refuses a change while a turn is running", () => {
+    const thread = chosenThread({
+      currentTurn: { turnId: makeTurnId(), input: { text: "go", attachments: [], mentions: [] } },
+    });
+    expect(update(thread).accepted).toBe(false);
+  });
+
+  it("accepts the same instance on a locked thread, and leaves it out of the event", () => {
+    const thread = chosenThread({
+      session: { connectorInstanceId: CHOSEN, connectorKind: "fake", sessionRef: {} },
+    } as Partial<ThreadDoc>);
+    const result = decide(
+      {
+        ...baseCommand,
+        type: "thread.settings.update",
+        threadId: thread.threadId,
+        connectorInstanceId: CHOSEN,
+        effort: "high",
+      } as Command,
+      { project: null, thread },
+      ctx(),
+      env,
+    );
+    expect(result.accepted).toBe(true);
+    if (!result.accepted) return;
+    expect(result.events[0]!.payload).toEqual({ effort: "high" });
   });
 });
