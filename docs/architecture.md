@@ -256,10 +256,12 @@ menu alone.
 The command palette (`Cmd+K`, `apps/web/src/components/Layout/search-command.tsx`
 with its groups in `palette-groups.tsx`) lists navigation (new task, skills,
 MCP servers), one entry per settings page, actions — add project, a "New
-thread in …" entry per project, toggle sidebar — and the threads. An action
-that goes through a keybinding command (add project, toggle sidebar) is offered
-only where a mounted surface answers that command, so the palette never lists
-something that would do nothing. A leading `>` narrows the list to
+thread in …" entry per project, toggle sidebar — and the threads, archived ones
+last and marked, which makes the palette the other way back to an archived
+thread besides its settings page. An action that goes through a keybinding
+command (add project, toggle sidebar) is offered only where a mounted surface
+answers that command, so the palette never lists something that would do
+nothing. A leading `>` narrows the list to
 commands and hides the threads; the text after it is matched by the usual fuzzy
 filter (`apps/web/src/lib/palette-query.ts`). A footer names the keys: arrows
 to move, Enter to open, Escape to close, `>` for commands.
