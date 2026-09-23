@@ -7,6 +7,7 @@
  */
 
 import { Badge } from "@OpenAde/ui/components/badge";
+import { Button } from "@OpenAde/ui/components/button";
 import type { ConnectorSummary } from "@OpenAde/contracts/connectors";
 
 import { CopyCommand } from "@/components/copy-command";
@@ -75,13 +76,9 @@ export function ConnectorStatusLine({
         </span>
       )}
       {helpUrl === null ? null : (
-        <button
-          type="button"
-          className="text-primary underline underline-offset-2"
-          onClick={() => openExternal(helpUrl)}
-        >
+        <Button type="button" variant="link" size="xs" onClick={() => openExternal(helpUrl)}>
           Resolve
-        </button>
+        </Button>
       )}
     </div>
   );
