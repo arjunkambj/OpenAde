@@ -7,6 +7,10 @@
   },
   "type": "module",
   "exports": {
+    "./recording": {
+      "types": "./src/recording.ts",
+      "import": "./src/recording.ts"
+    },
     "./replayCmdProcess": {
       "types": "./src/replayCmdProcess.ts",
       "import": "./src/replayCmdProcess.ts"

@@ -343,6 +343,13 @@ both halves of the conversation, and the files the run touched. Nothing in it is
 hand-written or reconstructed. When the CLI changes, recordings are re-recorded —
 never edited to make a test pass.
 
+Every harness gets the same treatment. Its recordings live under
+`packages/testkit/fixtures/<kind>/` in one versioned format
+(`packages/testkit/src/recording.ts`): a manifest that says which transport the
+harness used, and frames tagged with the direction they travelled. A process
+that prints NDJSON, a JSON-RPC peer, an SDK stream and an HTTP server with
+server-sent events are recorded and replayed the same way.
+
 The replayer (`packages/testkit/bin/replay-cmd.mjs`,
 `packages/testkit/src/replayCmdProcess.ts`) has no behaviour of its own: it
 chooses nothing and synthesises nothing. It puts stdout back on the recorded

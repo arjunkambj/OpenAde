@@ -264,9 +264,10 @@ connector's test file is one call to it.
 `packages/testkit/src/fakeConnector.ts` is the fake that exercises the SDK
 interface itself.
 
-**The CLI is never invented.** Anything a test needs to know about Command Code
-comes from a recording under `packages/testkit/fixtures/cmd/`, replayed by
-`packages/testkit/bin/replay-cmd.mjs`. See
+**The CLI is never invented.** Anything a test needs to know about a harness
+comes from a recording of it under `packages/testkit/fixtures/<kind>/`, where
+`<kind>` is the connector kind that drives it. Command Code's are under
+`fixtures/cmd/` and replayed by `packages/testkit/bin/replay-cmd.mjs`. See
 [Recordings](#recordings-of-the-real-cli).
 
 ## The end-to-end suite
@@ -346,6 +347,35 @@ invocation with both halves of the conversation, the plan files and the files
 the turn touched. Nothing in it is hand-written, and it is never edited to make
 a test pass. `packages/testkit/fixtures/cmd/README.md` is the index and the
 scenario catalogue.
+
+### The recording format
+
+Every harness's recordings share one layout, defined in
+`packages/testkit/src/recording.ts`: `packages/testkit/fixtures/<kind>/<scenario>/`
+holds a `manifest.json` and the transport's own capture files beside it. The
+manifest's common fields are `formatVersion` (currently
+`RECORDING_FORMAT_VERSION = 1`), `kind`, `transport`, `scenario`,
+`description`, `cliVersion`, `recordedOn`, `model` and `real: true`.
+`readManifest(kind, scenario)` refuses a manifest that is not marked real or
+names a format it cannot read. The Command Code manifests predate
+`formatVersion` and `transport` and are never edited, so a manifest without
+them reads as version 1 of its kind's legacy layout: for `cmd` that is
+`stdio-ndjson`.
+
+A `RecordedFrame` is one unit on the wire, tagged with its direction
+(`from-harness` or `to-harness`), the channel it travelled on, an optional
+timestamp and its data. `turnFrames` in `replayCmdProcess.ts` gives a Command
+Code turn in that form: stdout frames and hook payloads from the harness, and
+hook answers to it. A `Replayer` pairs a kind and transport with
+`config(scenario, options)`, which returns what a connector instance needs to
+talk to the recording instead of the harness. `cmdReplayer` wraps
+`replayConfig`.
+
+`RecordingTransport` already names the transports later connectors bring:
+`stdio-jsonrpc`, `sdk-stream` and `http-sse`. A connector that speaks one of
+them adds its recordings under its own `fixtures/<kind>/`, sets `transport` in
+every manifest, and adds a replayer for that transport. The existing
+recordings stay as they are.
 
 ### Making one
 

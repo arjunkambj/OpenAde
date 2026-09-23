@@ -6,25 +6,38 @@
  * no stand-in CLI any more and nothing here decides anything: a test that wants
  * a different outcome names a different recording.
  *
+ * The recordings follow the shared layout in `recording.ts`: Command Code's
+ * transport is `stdio-ndjson`, and its manifests predate the format fields, so
+ * they read as version 1 without being edited.
+ *
  * Two halves:
  *
  * - `loadRecording` reads a recording so a test can assert against what the
  *   harness actually produced — the frames, the transcript, the hook payloads,
- *   the exit code.
+ *   the exit code. `turnFrames` flattens a turn into direction-tagged frames.
  * - `replayConfig` gives the binary path and environment for spawning
  *   `bin/replay-cmd.mjs` as if it were `cmd`. That is the whole production round
  *   trip: real argv, real stdout chunking, a real transcript appearing on disk,
  *   the project's real hook script invoked through the system shell.
+ *   `cmdReplayer` is the same thing behind the shared `Replayer` shape.
  */
 
 import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
 import * as NodeURL from "node:url";
 
+import {
+  fixturesRoot,
+  readManifest,
+  recordingNames as recordingNamesOf,
+  type RecordedFrame,
+  type Replayer,
+} from "./recording";
+
 const HERE = NodePath.dirname(NodeURL.fileURLToPath(import.meta.url));
 
 /** Where the recordings live. */
-export const RECORDINGS_DIR = NodePath.join(HERE, "..", "fixtures", "cmd");
+export const RECORDINGS_DIR = fixturesRoot("cmd");
 
 /** The executable a connector instance points its binary path at. */
 export const REPLAY_BINARY = NodePath.join(HERE, "..", "bin", "replay-cmd.mjs");
@@ -114,19 +127,7 @@ const parseLines = (text: string): ReadonlyArray<unknown> =>
  * parsing is a recording nobody is testing against.
  */
 export const loadRecording = (scenario: string): Recording => {
-  const manifest = JSON.parse(
-    NodeFS.readFileSync(NodePath.join(RECORDINGS_DIR, scenario, "manifest.json"), "utf8"),
-  ) as {
-    scenario: string;
-    description: string;
-    cliVersion: string;
-    model: string;
-    real: boolean;
-    turns: ReadonlyArray<ManifestTurn>;
-  };
-  if (manifest.real !== true) {
-    throw new Error(`${scenario}: not marked as a real recording`);
-  }
+  const manifest = readManifest<{ readonly turns: ReadonlyArray<ManifestTurn> }>("cmd", scenario);
   return {
     scenario: manifest.scenario,
     description: manifest.description,
@@ -150,17 +151,38 @@ export const loadRecording = (scenario: string): Recording => {
 };
 
 /** Every recording on disk, by name. */
-export const recordingNames = (): ReadonlyArray<string> =>
-  NodeFS.readdirSync(RECORDINGS_DIR, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && entry.name !== "probe")
-    .map((entry) => entry.name)
-    .sort();
+export const recordingNames = (): ReadonlyArray<string> => recordingNamesOf("cmd");
+
+/**
+ * One turn as direction-tagged frames: each stdout frame from the harness, and
+ * each PreToolUse call as the payload the harness sent the hook followed by
+ * the answer that went back. Stdout frames carry no timestamp of their own, so
+ * the two channels are listed one after the other rather than interleaved.
+ */
+export const turnFrames = (turn: RecordedTurn): ReadonlyArray<RecordedFrame> => [
+  ...turn.frames.map((data): RecordedFrame => ({ dir: "from-harness", channel: "stdout", data })),
+  ...turn.hooks.flatMap((hook): ReadonlyArray<RecordedFrame> => [
+    { dir: "from-harness", channel: "hook", at: hook.at, data: hook.stdin },
+    { dir: "to-harness", channel: "hook", at: hook.at, data: hook.answer },
+  ]),
+];
 
 export interface ReplayConfig {
   /** Point a connector instance's binary path here. */
   readonly binaryPath: string;
   /** Merge into the connector instance's `extraEnv`. */
   readonly extraEnv: Record<string, string>;
+}
+
+export interface ReplayOptions {
+  readonly home: string;
+  /** A directory the replay drops a file named after its pid into. */
+  readonly pidDir?: string;
+  /** Where the "which turn is next" counter lives; defaults under `home`. */
+  readonly stateFile?: string;
+  readonly turn?: number;
+  /** File the replay appends each invocation's argv and cwd to, as JSON lines. */
+  readonly argvLog?: string;
 }
 
 /**
@@ -171,19 +193,7 @@ export interface ReplayConfig {
  * one recorded turn, successive spawns play successive turns — the second
  * message of a session gets the second recorded run — unless `turn` pins one.
  */
-export const replayConfig = (
-  scenario: string,
-  options: {
-    readonly home: string;
-    /** A directory the replay drops a file named after its pid into. */
-    readonly pidDir?: string;
-    /** Where the "which turn is next" counter lives; defaults under `home`. */
-    readonly stateFile?: string;
-    readonly turn?: number;
-    /** File the replay appends each invocation's argv and cwd to, as JSON lines. */
-    readonly argvLog?: string;
-  },
-): ReplayConfig => ({
+export const replayConfig = (scenario: string, options: ReplayOptions): ReplayConfig => ({
   binaryPath: REPLAY_BINARY,
   extraEnv: {
     HOME: options.home,
@@ -194,6 +204,13 @@ export const replayConfig = (
     ...(options.argvLog === undefined ? {} : { OPENADE_REPLAY_ARGV_LOG: options.argvLog }),
   },
 });
+
+/** `replayConfig` as the shared replayer shape. */
+export const cmdReplayer: Replayer<ReplayOptions, ReplayConfig> = {
+  kind: "cmd",
+  transport: "stdio-ndjson",
+  config: replayConfig,
+};
 
 /** The argv/cwd lines a replay wrote to `argvLog`, in order. */
 export const replayedInvocations = (
