@@ -589,7 +589,10 @@ A turn drains the whole transcript before it settles: the harness's last flush
 lands with or after `run_end` and the tailer is a poller, so the assistant line
 carrying `usage.costUsd` reliably arrived after `turn.completed` — after the
 engine stops tagging events with that turn — and the turn's price was never
-reported. Re-reading what the tailer already delivered costs nothing.
+reported. Re-reading what the tailer already delivered costs nothing. The
+drain waits for the process to exit first, bounded at a second: that final flush
+lands a few milliseconds after `run_end` and before the exit, so a drain run the
+moment `run_end` is read can beat it and still miss the price.
 
 ## The tool vocabulary
 

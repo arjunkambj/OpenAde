@@ -595,7 +595,9 @@ still open — once it settles, the engine stops tagging events with its
 `turnId`:
 
 1. warn if the gate was silent (tools queued, no hook post — see §5);
-2. re-read the transcript, which is where `usage.costUsd` arrives;
+2. wait (at most a second) for the process to exit, then re-read the
+   transcript, which is where `usage.costUsd` arrives — its last flush lands
+   after `run_end`, before the exit;
 3. refresh the stored transcript path;
 4. emit a plan proposal, if this was a plan turn.
 

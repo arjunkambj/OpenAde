@@ -41,7 +41,7 @@ import {
   type McpRegistration,
 } from "./config";
 import { CMD_CAPABILITIES } from "./capabilities";
-import { SIGNAL_DEATHS, type ActiveProcess } from "./activeProcess";
+import { SIGNAL_DEATHS, awaitExitBriefly, type ActiveProcess } from "./activeProcess";
 import { resolveForSession, type ResolvedBinary } from "./binary";
 import { ensureHookScript, hookTicketPath, removeHookTicket, writeHookTicket } from "./hookScript";
 import { makeHookAnswerer } from "./hookAnswers";
@@ -489,6 +489,8 @@ export const makeCmdSession = (
           const prepared = enrich(pending);
           if (prepared.type === "turn.completed") {
             yield* warnIfGateWasSilent(active);
+            // The last transcript flush precedes the exit, not `run_end`.
+            yield* awaitExitBriefly(active);
             yield* drainTranscript;
             yield* refreshTranscriptPath;
             yield* emitPlanProposal(active);

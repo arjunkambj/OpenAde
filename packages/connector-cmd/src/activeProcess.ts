@@ -6,6 +6,7 @@
  */
 
 import type * as Deferred from "effect/Deferred";
+import * as Effect from "effect/Effect";
 import type * as Ref from "effect/Ref";
 
 import type { PlanWrite } from "./plans";
@@ -65,3 +66,17 @@ export interface ActiveProcess {
  * reported for SIGKILL and SIGTERM.
  */
 export const SIGNAL_DEATHS = new Set([-1, 137, 143]);
+
+/**
+ * Waits, briefly, for a turn's process to exit.
+ *
+ * `run_end` is not the harness's last word: the transcript's final flush — the
+ * assistant line carrying `usage.costUsd` — lands a few milliseconds after it,
+ * and before the process exits. Draining the transcript the moment `run_end`
+ * is read races that flush, and under load the drain wins and the turn's price
+ * is lost. Waiting for the exit puts the drain after the flush. The bound is
+ * for a child that lingers after `run_end`: the turn settles anyway, and the
+ * tailer still delivers whatever lands later.
+ */
+export const awaitExitBriefly = (active: ActiveProcess): Effect.Effect<void> =>
+  Effect.raceFirst(Effect.asVoid(active.proc.exitCode), Effect.sleep("1 second"));
