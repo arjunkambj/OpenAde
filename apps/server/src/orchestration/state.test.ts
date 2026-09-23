@@ -17,11 +17,8 @@ import {
   makeThreadId,
   makeTurnId,
 } from "@OpenAde/contracts/ids";
-import {
-  UNANSWERED_OUTCOME,
-  type CheckpointSummary,
-  type OrchestrationEvent,
-} from "@OpenAde/contracts/orchestration";
+import { UNANSWERED_OUTCOME } from "@OpenAde/contracts/decisions";
+import type { CheckpointSummary, OrchestrationEvent } from "@OpenAde/contracts/orchestration";
 
 import {
   foldThread,

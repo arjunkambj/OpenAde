@@ -32,6 +32,10 @@
       "types": "./src/connectors.ts",
       "import": "./src/connectors.ts"
     },
+    "./decisions": {
+      "types": "./src/decisions.ts",
+      "import": "./src/decisions.ts"
+    },
     "./rpc": {
       "types": "./src/rpc.ts",
       "import": "./src/rpc.ts"

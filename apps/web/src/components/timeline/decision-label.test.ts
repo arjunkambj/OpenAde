@@ -1,4 +1,4 @@
-import { UNANSWERED_OUTCOME, type ResolvedDecision } from "@OpenAde/contracts/orchestration";
+import { UNANSWERED_OUTCOME, type ResolvedDecision } from "@OpenAde/contracts/decisions";
 import { describe, expect, it } from "vitest";
 
 import { decisionDenied, decisionLabel } from "./decision-label";

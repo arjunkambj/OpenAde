@@ -8,15 +8,15 @@
  * decision and the stored read model can never disagree.
  */
 
+import type { DecisionKind, ResolvedDecision } from "@OpenAde/contracts/decisions";
+import { UNANSWERED_OUTCOME } from "@OpenAde/contracts/decisions";
 import type {
   Attachment,
   CheckpointSummary,
-  DecisionKind,
   Mention,
   OrchestrationEvent,
   ProjectSummary,
   QueuedMessage,
-  ResolvedDecision,
   ThreadDetailSnapshot,
   ThreadSession,
   ThreadSettings,
@@ -25,7 +25,6 @@ import type {
   TurnUsage,
   ContextWindowUsage,
 } from "@OpenAde/contracts/orchestration";
-import { UNANSWERED_OUTCOME } from "@OpenAde/contracts/orchestration";
 import type { ProjectId, RequestId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
 import type { ApprovalRequest, ItemSnapshot, UserQuestion } from "@OpenAde/contracts/runtime";
 import { approvalSubject, planSubject, questionSubject } from "@OpenAde/shared/decisionSubject";

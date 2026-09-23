@@ -4,16 +4,16 @@
  * server's own projection — it merges deltas, it never decides anything.
  */
 
+import type { ResolvedDecision } from "@OpenAde/contracts/decisions";
+import { UNANSWERED_OUTCOME } from "@OpenAde/contracts/decisions";
 import type {
   CheckpointSummary,
   OrchestrationEvent,
-  ResolvedDecision,
   ThreadDetailSnapshot,
   ThreadListStreamItem,
   ThreadStreamItem,
   ThreadSummary,
 } from "@OpenAde/contracts/orchestration";
-import { UNANSWERED_OUTCOME } from "@OpenAde/contracts/orchestration";
 import { approvalSubject, planSubject, questionSubject } from "@OpenAde/shared/decisionSubject";
 
 /** A restore git refused, kept until the next restore is ordered. */

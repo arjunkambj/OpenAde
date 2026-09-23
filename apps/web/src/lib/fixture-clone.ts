@@ -16,7 +16,7 @@
  */
 
 import { decodeItemId, type ItemId } from "@OpenAde/contracts/ids";
-import type { ResolvedDecision } from "@OpenAde/contracts/orchestration";
+import type { ResolvedDecision } from "@OpenAde/contracts/decisions";
 import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
 
 /** `0199c0de-0005-7000-8000-000000000001` → its 48-bit millisecond field. */

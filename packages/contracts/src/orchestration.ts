@@ -16,6 +16,7 @@
 import * as Schema from "effect/Schema";
 
 import { IsoDateTime, NonEmptyString, NonNegativeInt } from "./base";
+import { DecisionKind, ResolvedDecision } from "./decisions";
 import { ApprovalDecision, Effort, InteractionMode, RuntimeMode } from "./enums";
 import {
   CheckpointId,
@@ -666,40 +667,6 @@ export const ProjectSummary = Schema.Struct({
   threadCount: NonNegativeInt,
 });
 export type ProjectSummary = typeof ProjectSummary.Type;
-
-/** The three things a thread can stop and ask the user about. */
-export const DecisionKind = Schema.Literals(["approval", "question", "plan"]);
-export type DecisionKind = typeof DecisionKind.Type;
-
-/**
- * The outcome of an approval or question the runtime settled on its own: the
- * harness process exited (Stop, a crash, an archive) while the card was still
- * open, and the connector released the parked request so the hook could
- * reply. The user never chose, so the record must not say they did.
- */
-export const UNANSWERED_OUTCOME = "unanswered";
-
-/**
- * One settled approval, question or plan, as the timeline records it after
- * the card is gone. `id` is the request id, or the turn id for a plan;
- * `outcome` is the `ApprovalDecision` or `PlanResponseAction` chosen,
- * `"answered"` for a question, or `UNANSWERED_OUTCOME` when the runtime
- * settled the request without the user. `subject` is a one-line reminder of
- * what was asked — the approval's target (else its tool), the first
- * question's header (else its text), the plan file's name. `afterItemId` is
- * the last timeline item when the answer landed, so a client can place the
- * record in order.
- */
-export const ResolvedDecision = Schema.Struct({
-  kind: DecisionKind,
-  id: NonEmptyString,
-  outcome: Schema.String,
-  subject: Schema.optional(Schema.String),
-  pattern: Schema.optional(NonEmptyString),
-  resolvedAt: IsoDateTime,
-  afterItemId: Schema.optional(ItemId),
-});
-export type ResolvedDecision = typeof ResolvedDecision.Type;
 
 /** A thread as the sidebar lists it: enough for the row, never the timeline. */
 export const ThreadSummary = Schema.Struct({

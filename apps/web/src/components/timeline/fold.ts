@@ -21,7 +21,7 @@
  */
 
 import type { ItemKind } from "@OpenAde/contracts/enums";
-import type { ResolvedDecision } from "@OpenAde/contracts/orchestration";
+import type { ResolvedDecision } from "@OpenAde/contracts/decisions";
 import type { FileChangeKind, ItemSnapshot } from "@OpenAde/contracts/runtime";
 import { uuidV7Millis } from "@OpenAde/shared/ids";
 

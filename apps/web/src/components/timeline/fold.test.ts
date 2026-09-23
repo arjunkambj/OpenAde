@@ -1,6 +1,6 @@
 import type { ItemKind } from "@OpenAde/contracts/enums";
 import type { ItemId } from "@OpenAde/contracts/ids";
-import type { ResolvedDecision } from "@OpenAde/contracts/orchestration";
+import type { ResolvedDecision } from "@OpenAde/contracts/decisions";
 import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
 import { describe, expect, it } from "vitest";
 

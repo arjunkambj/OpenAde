@@ -332,8 +332,10 @@ loopback HTTP routes. May import `contracts`, `connector-sdk`, `connector-cmd`,
 ### packages/contracts
 
 Every wire shape, as `effect/Schema` codecs. Modules: `base`, `ids`, `enums`,
-`runtime`, `orchestration`, `settings`, `connectors`, `rpc`. `connectors` holds
-what the renderer learns about a connector — models, probe, configured
+`runtime`, `orchestration`, `decisions`, `settings`, `connectors`, `rpc`.
+`decisions` holds the record a thread keeps of each settled approval, question
+and plan, which the thread read models in `orchestration` carry. `connectors`
+holds what the renderer learns about a connector — models, probe, configured
 instances, metadata and config form, and the skills and MCP servers its
 extensions list — and `rpc` holds the methods that carry them.
 

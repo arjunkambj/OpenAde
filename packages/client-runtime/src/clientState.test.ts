@@ -13,11 +13,11 @@ import {
   makeThreadId,
   makeTurnId,
 } from "@OpenAde/contracts/ids";
-import {
-  UNANSWERED_OUTCOME,
-  type OrchestrationEvent,
-  type ThreadDetailSnapshot,
-  type ThreadSummary,
+import { UNANSWERED_OUTCOME } from "@OpenAde/contracts/decisions";
+import type {
+  OrchestrationEvent,
+  ThreadDetailSnapshot,
+  ThreadSummary,
 } from "@OpenAde/contracts/orchestration";
 
 import { applyThreadEvent, applyThreadListItem, applyThreadStreamItem } from "./clientState";
