@@ -1,5 +1,6 @@
 /**
- * One `ItemSnapshot` → one row component, plus the synthetic `working` row.
+ * One `ItemSnapshot` → one row component, plus the synthetic rows: the
+ * `work-group` and `turn-summary` folds and the `working` indicator.
  * `childrenByParent` threads through so task rows (and work-group bodies) can
  * render their nested items through the same dispatcher.
  */
@@ -20,6 +21,7 @@ import {
 } from "@/components/timeline/status-rows";
 import { TaskRow } from "@/components/timeline/task-row";
 import { TodoRow } from "@/components/timeline/todo-row";
+import { TurnSummaryRow } from "@/components/timeline/turn-summary-row";
 import {
   McpToolCallRow,
   ReasoningRow,
@@ -99,6 +101,9 @@ export function TimelineRowView({
   }
   if (row.kind === "work-group") {
     return <WorkGroupRow group={row} childrenByParent={childrenByParent} />;
+  }
+  if (row.kind === "turn-summary") {
+    return <TurnSummaryRow summary={row} />;
   }
   return <WorkingRow />;
 }

@@ -1,6 +1,6 @@
 /**
- * `formatDurationMs(4_250)` → `"4s"`. The "Worked for Ns" labels use this:
- * sub-second precision matters, minute-plus durations read as `1m 5s`.
+ * `formatDurationMs(4_250)` → `"4.3s"`. The work-group and turn-summary labels
+ * use this: sub-second precision matters, minute-plus durations read as `1m 5s`.
  */
 const formatDurationMs = (ms: number): string => {
   if (ms < 1_000) {
@@ -14,24 +14,64 @@ const formatDurationMs = (ms: number): string => {
   return `${minutes}m ${seconds}s`;
 };
 
+/** A duration worth printing: zero reads as a broken clock, so it counts as none. */
+const measured = (ms: number | undefined): string | undefined =>
+  ms !== undefined && ms > 0 ? formatDurationMs(ms) : undefined;
+
+const plural = (count: number, one: string, many: string): string =>
+  `${count} ${count === 1 ? one : many}`;
+
 /**
- * The folded work-group label: "Worked for 4s · 3 tools", "Worked · 1 tool"
- * when the ids carry no timing, "Thought for 2s" for a reasoning-only fold.
+ * The folded work-group label: "3 tools · 4s", "1 tool" when the ids carry no
+ * timing, "Thought for 2s" for a reasoning-only fold. The turn's closing
+ * summary owns "Worked for", so the group names what it holds instead.
  *
  * A zero duration is treated as no timing rather than as a measurement: it
- * means the group's items share a millisecond, and "Worked for 0ms" reads as a
- * broken clock where "Worked" reads as a fact.
+ * means the group's items share a millisecond, and "0ms" reads as a broken
+ * clock where leaving it out reads as a fact.
  */
 export const workGroupLabel = (group: {
   readonly toolCount: number;
   readonly durationMs: number | undefined;
 }): string => {
-  const duration =
-    group.durationMs !== undefined && group.durationMs > 0
-      ? ` for ${formatDurationMs(group.durationMs)}`
-      : "";
+  const duration = measured(group.durationMs);
   if (group.toolCount === 0) {
-    return `Thought${duration}`;
+    return duration === undefined ? "Thought" : `Thought for ${duration}`;
   }
-  return `Worked${duration} · ${group.toolCount} ${group.toolCount === 1 ? "tool" : "tools"}`;
+  const tools = plural(group.toolCount, "tool", "tools");
+  return duration === undefined ? tools : `${tools} · ${duration}`;
+};
+
+/**
+ * The turn summary up to its diff counts: "Worked for 12s · 3 files", "Worked
+ * for 12s" when no file changed, "Worked" when the ids carry no timing. The
+ * row renders the counts itself so it can colour them.
+ */
+export const turnSummaryLead = (summary: {
+  readonly durationMs: number | undefined;
+  readonly files: ReadonlyArray<unknown>;
+}): string => {
+  const duration = measured(summary.durationMs);
+  const lead = duration === undefined ? "Worked" : `Worked for ${duration}`;
+  return summary.files.length === 0
+    ? lead
+    : `${lead} · ${plural(summary.files.length, "file", "files")}`;
+};
+
+/** "+20 −4", with a real minus sign; a zero side is left out. */
+const diffCountLabel = (counts: { readonly added: number; readonly removed: number }): string =>
+  [counts.added > 0 ? `+${counts.added}` : "", counts.removed > 0 ? `−${counts.removed}` : ""]
+    .filter((part) => part !== "")
+    .join(" ");
+
+/** The whole turn summary as one string: "Worked for 12s · 3 files +20 −4". */
+export const turnSummaryLabel = (summary: {
+  readonly durationMs: number | undefined;
+  readonly files: ReadonlyArray<unknown>;
+  readonly added: number;
+  readonly removed: number;
+}): string => {
+  const counts = diffCountLabel(summary);
+  const lead = turnSummaryLead(summary);
+  return counts === "" ? lead : `${lead} ${counts}`;
 };

@@ -582,9 +582,17 @@ turns the flat item list into rows:
 - a settled segment folds each maximal run of work kinds — `reasoning`,
   `command_execution`, `file_change`, `tool_call`, `mcp_tool_call`,
   `web_search`, `task`, `skill` — into one `work-group` row, the
-  "Worked for Ns · N tools" disclosure;
+  "N tools · 4s" disclosure ("Thought for 2s" when the run is only reasoning);
+- a settled segment that a `user_message` opened and that did any work ends
+  with one `turn-summary` row, "Worked for 12s · 3 files +20 −4" (just "Worked
+  for 12s" when no file changed). Its time runs from the user message to the
+  turn's last item, task children included, and its file list — one line per
+  distinct path, diff line counts summed across the turn — opens from the row,
+  with a link to the Changes pane. It lists paths and counts only, never a
+  diff; the live segment gets none;
 - durations come out of the UUIDv7 ids, which carry their creation millisecond
-  in the leading 48 bits;
+  in the leading 48 bits; a zero duration is left out of a label rather than
+  shown as "0ms";
 - rows whose `parentItemId` names a task leave the top level and render nested
   inside that task's row.
 

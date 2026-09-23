@@ -3,7 +3,7 @@
  * inline through the worker pool when the item carries one.
  */
 
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
+import type { FileChangeKind, ItemSnapshot } from "@OpenAde/contracts/runtime";
 
 import { InlineDiff } from "@/components/timeline/diff-pool";
 import { fileChangeFallbackLabel } from "@/components/timeline/file-change";
@@ -18,6 +18,22 @@ const KIND_LABEL = {
   edit: "edited",
   delete: "deleted",
 } as const;
+
+/** "created" / "edited" / "deleted", tinted by what the change did. */
+export function FileChangeKindBadge({ kind }: { kind: FileChangeKind }) {
+  return (
+    <span
+      className={cn(
+        "ml-1 shrink-0 rounded-sm px-1 type-micro",
+        kind === "create" && "bg-added-bg text-added",
+        kind === "delete" && "bg-removed-bg text-removed",
+        kind === "edit" && "bg-hover text-muted-foreground",
+      )}
+    >
+      {KIND_LABEL[kind]}
+    </span>
+  );
+}
 
 function DiffCount({ diff }: { diff: string }) {
   const { added, removed } = diffStats(diff);
@@ -63,16 +79,7 @@ export function FileChangeRow({ item }: { item: ItemSnapshot }) {
       label={
         <>
           <span className="font-mono text-xs">{fileChange.path}</span>
-          <span
-            className={cn(
-              "ml-1 shrink-0 rounded-sm px-1 type-micro",
-              fileChange.kind === "create" && "bg-added-bg text-added",
-              fileChange.kind === "delete" && "bg-removed-bg text-removed",
-              fileChange.kind === "edit" && "bg-hover text-muted-foreground",
-            )}
-          >
-            {KIND_LABEL[fileChange.kind]}
-          </span>
+          <FileChangeKindBadge kind={fileChange.kind} />
         </>
       }
       status={item.status}

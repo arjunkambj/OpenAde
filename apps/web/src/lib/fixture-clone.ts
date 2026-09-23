@@ -9,7 +9,7 @@
  * `byId` map (so a task's children nest under the wrong item) and leaves
  * `LegendList` rendering a handful of rows. The timestamp field moves a second
  * per item and a minute per copy, because the fold labels read durations out
- * of these ids and a shared millisecond reads "Worked for 0ms".
+ * of these ids and a shared millisecond measures no time at all.
  */
 
 import { decodeItemId, type ItemId } from "@OpenAde/contracts/ids";

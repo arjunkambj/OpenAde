@@ -1,6 +1,6 @@
 /**
  * `work-group` — a settled turn's run of work rows folded behind one
- * disclosure: "Worked for 4s · 3 tools". Failures surface in the label so a
+ * disclosure: "3 tools · 4s". Failures surface in the label so a
  * broken step is visible without expanding. The body re-renders each folded
  * item through the same row dispatcher.
  */

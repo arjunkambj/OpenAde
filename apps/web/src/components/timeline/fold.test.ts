@@ -3,7 +3,7 @@ import type { ItemId } from "@OpenAde/contracts/ids";
 import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
 import { describe, expect, it } from "vitest";
 
-import { buildTimeline, type TimelineWorkGroupRow } from "./fold";
+import { buildTimeline, type TimelineTurnSummaryRow, type TimelineWorkGroupRow } from "./fold";
 
 let sequence = 0;
 
@@ -25,6 +25,12 @@ const item = (kind: ItemKind, over: Partial<ItemSnapshot> = {}): ItemSnapshot =>
 const workGroups = (rows: ReturnType<typeof buildTimeline>["rows"]) =>
   rows.filter((row): row is TimelineWorkGroupRow => row.kind === "work-group");
 
+const summaries = (rows: ReturnType<typeof buildTimeline>["rows"]) =>
+  rows.filter((row): row is TimelineTurnSummaryRow => row.kind === "turn-summary");
+
+const edit = (path: string, diff: string, over: Partial<ItemSnapshot> = {}): ItemSnapshot =>
+  item("file_change", { fileChange: { path, kind: "edit", diff }, ...over });
+
 describe("buildTimeline", () => {
   it("passes a lone message exchange through untouched", () => {
     const items = [
@@ -44,7 +50,7 @@ describe("buildTimeline", () => {
       item("assistant_message"),
     ];
     const { rows } = buildTimeline(items, { turnActive: false });
-    expect(rows.map((row) => row.kind)).toEqual(["item", "work-group", "item"]);
+    expect(rows.map((row) => row.kind)).toEqual(["item", "work-group", "item", "turn-summary"]);
     const group = workGroups(rows)[0];
     expect(group.items).toHaveLength(3);
     // reasoning folds but is not a tool
@@ -64,6 +70,7 @@ describe("buildTimeline", () => {
       "item",
       "work-group",
       "item",
+      "turn-summary",
       "item",
       "item",
       "working",
@@ -85,6 +92,7 @@ describe("buildTimeline", () => {
       "item",
       "work-group",
       "item",
+      "turn-summary",
     ]);
     const groups = workGroups(rows);
     expect(groups.map((group) => group.toolCount)).toEqual([1, 1]);
@@ -123,5 +131,83 @@ describe("buildTimeline", () => {
     const items = [item("reasoning"), item("tool_call"), item("assistant_message")];
     const { rows } = buildTimeline(items, { turnActive: false });
     expect(rows.map((row) => row.kind)).toEqual(["work-group", "item"]);
+  });
+});
+
+describe("buildTimeline turn summaries", () => {
+  it("ends a settled turn with one summary of its time, files and line counts", () => {
+    const user = item("user_message");
+    const items = [
+      user,
+      item("tool_call"),
+      edit("src/a.ts", "@@ -1,2 +1,3 @@\n-old\n+new\n+more"),
+      item("file_change", { fileChange: { path: "src/b.ts", kind: "create", diff: "+x" } }),
+      item("assistant_message"),
+    ];
+    const { rows } = buildTimeline(items, { turnActive: false });
+    expect(rows[rows.length - 1].kind).toBe("turn-summary");
+    const [summary] = summaries(rows);
+    expect(summaries(rows)).toHaveLength(1);
+    expect(summary.id).toBe(`turn-summary:${user.itemId}`);
+    expect(summary.durationMs).toBe(4_000);
+    expect(summary.files.map((file) => file.path)).toEqual(["src/a.ts", "src/b.ts"]);
+    expect(summary.added).toBe(3);
+    expect(summary.removed).toBe(1);
+    expect(summary.failedCount).toBe(0);
+  });
+
+  it("merges repeated paths into one entry", () => {
+    const items = [
+      item("user_message"),
+      item("file_change", { fileChange: { path: "src/a.ts", kind: "create", diff: "+one" } }),
+      edit("src/a.ts", "+two\n-one"),
+      edit("src/a.ts", "+three", { status: "failed" }),
+    ];
+    const [summary] = summaries(buildTimeline(items, { turnActive: false }).rows);
+    expect(summary.files).toEqual([{ path: "src/a.ts", kind: "create", added: 3, removed: 1 }]);
+    expect(summary.failedCount).toBe(1);
+  });
+
+  it("counts file changes and time nested under a task", () => {
+    const user = item("user_message");
+    const task = item("task");
+    const inner = item("task", { parentItemId: task.itemId });
+    const change = edit("src/deep.ts", "+a\n+b", { parentItemId: inner.itemId });
+    const [summary] = summaries(
+      buildTimeline([user, task, inner, change], { turnActive: false }).rows,
+    );
+    expect(summary.files).toEqual([{ path: "src/deep.ts", kind: "edit", added: 2, removed: 0 }]);
+    // the nested change is the turn's last item
+    expect(summary.durationMs).toBe(3_000);
+  });
+
+  it("reports no files when the turn changed none", () => {
+    const items = [item("user_message"), item("command_execution")];
+    const [summary] = summaries(buildTimeline(items, { turnActive: false }).rows);
+    expect(summary.files).toEqual([]);
+    expect(summary.added + summary.removed).toBe(0);
+  });
+
+  it("leaves out turns without work, the live turn and a leading segment", () => {
+    const plain = [item("user_message"), item("assistant_message")];
+    expect(summaries(buildTimeline(plain, { turnActive: false }).rows)).toEqual([]);
+
+    const live = [item("user_message"), item("tool_call")];
+    expect(summaries(buildTimeline(live, { turnActive: true }).rows)).toEqual([]);
+
+    const leading = [item("tool_call"), item("assistant_message")];
+    expect(summaries(buildTimeline(leading, { turnActive: false }).rows)).toEqual([]);
+  });
+
+  it("drops a duration the ids cannot measure", () => {
+    const user = item("user_message");
+    // two items in one millisecond: no measurable time
+    const sameMs: ItemSnapshot = {
+      itemId: itemIdAt(millis),
+      kind: "tool_call",
+      status: "completed",
+    };
+    const [summary] = summaries(buildTimeline([user, sameMs], { turnActive: false }).rows);
+    expect(summary.durationMs).toBeUndefined();
   });
 });

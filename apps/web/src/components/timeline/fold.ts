@@ -4,17 +4,21 @@
  * Items carry no turn id or timestamp, so structure is positional: a
  * `user_message` opens a segment, and the segment that is still open (the last
  * one, while a turn runs) renders its work rows inline. Settled segments fold
- * each maximal run of work kinds into one `work-group` row — the "Worked for
- * Ns · N tools" disclosure. Durations come out of the UUIDv7 ids, which carry
- * their creation millisecond in the leading 48 bits.
+ * each maximal run of work kinds into one `work-group` row — the "N tools · 4s"
+ * disclosure — and a settled turn that did any work ends with one
+ * `turn-summary` row: "Worked for 12s · 3 files +20 −4". Durations come out of
+ * the UUIDv7 ids, which carry their creation millisecond in the leading 48
+ * bits.
  *
  * `task` children (rows whose `parentItemId` resolves to a task) leave the top
  * level and render nested inside the task row via `childrenByParent`.
  */
 
 import type { ItemKind } from "@OpenAde/contracts/enums";
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
+import type { FileChangeKind, ItemSnapshot } from "@OpenAde/contracts/runtime";
 import { uuidV7Millis } from "@OpenAde/shared/ids";
+
+import { diffStats } from "@/lib/diff-stats";
 
 export interface TimelineItemRow {
   readonly kind: "item";
@@ -33,13 +37,37 @@ export interface TimelineWorkGroupRow {
   readonly durationMs: number | undefined;
 }
 
+/** One changed path in a turn summary, its diffs summed across the turn. */
+export interface TurnSummaryFile {
+  readonly path: string;
+  readonly kind: FileChangeKind;
+  readonly added: number;
+  readonly removed: number;
+}
+
+/** The closing line of a settled turn that did work: time taken, files touched. */
+export interface TimelineTurnSummaryRow {
+  readonly kind: "turn-summary";
+  readonly id: string;
+  /** First item to last, nested task children included; undefined when 0 or unknown. */
+  readonly durationMs: number | undefined;
+  readonly files: ReadonlyArray<TurnSummaryFile>;
+  readonly added: number;
+  readonly removed: number;
+  readonly failedCount: number;
+}
+
 /** Trailing "Working…" row shown while a turn is open. */
 export interface TimelineWorkingRow {
   readonly kind: "working";
   readonly id: string;
 }
 
-export type TimelineRow = TimelineItemRow | TimelineWorkGroupRow | TimelineWorkingRow;
+export type TimelineRow =
+  | TimelineItemRow
+  | TimelineWorkGroupRow
+  | TimelineTurnSummaryRow
+  | TimelineWorkingRow;
 
 export interface TimelineProjection {
   readonly rows: ReadonlyArray<TimelineRow>;
@@ -94,6 +122,70 @@ const workGroupRow = (items: ReadonlyArray<ItemSnapshot>): TimelineWorkGroupRow 
   };
 };
 
+/**
+ * A path touched twice keeps the kind that describes the turn's net effect:
+ * a file the turn created and then edited is still new; anything else takes
+ * the latest kind.
+ */
+const mergeKind = (earlier: FileChangeKind, later: FileChangeKind): FileChangeKind =>
+  earlier === "create" && later === "edit" ? "create" : later;
+
+const turnSummaryRow = (
+  segment: ReadonlyArray<ItemSnapshot>,
+  childrenByParent: ReadonlyMap<string, ReadonlyArray<ItemSnapshot>>,
+): TimelineTurnSummaryRow => {
+  // Every item the turn produced, task children (at any depth) included.
+  const all: ItemSnapshot[] = [];
+  const visit = (item: ItemSnapshot) => {
+    all.push(item);
+    for (const child of childrenByParent.get(item.itemId) ?? []) {
+      visit(child);
+    }
+  };
+  segment.forEach(visit);
+
+  const files = new Map<string, TurnSummaryFile>();
+  let firstMs: number | undefined;
+  let lastMs: number | undefined;
+  let failedCount = 0;
+  for (const item of all) {
+    const ms = uuidV7Millis(item.itemId);
+    if (ms !== undefined) {
+      firstMs = firstMs === undefined ? ms : Math.min(firstMs, ms);
+      lastMs = lastMs === undefined ? ms : Math.max(lastMs, ms);
+    }
+    if (item.status === "failed") {
+      failedCount += 1;
+    }
+    const change = item.kind === "file_change" ? item.fileChange : undefined;
+    if (change !== undefined) {
+      const stats = change.diff === undefined ? { added: 0, removed: 0 } : diffStats(change.diff);
+      const seen = files.get(change.path);
+      files.set(change.path, {
+        path: change.path,
+        kind: seen === undefined ? change.kind : mergeKind(seen.kind, change.kind),
+        added: (seen?.added ?? 0) + stats.added,
+        removed: (seen?.removed ?? 0) + stats.removed,
+      });
+    }
+  }
+
+  const list = [...files.values()];
+  const durationMs =
+    firstMs !== undefined && lastMs !== undefined && lastMs > firstMs
+      ? lastMs - firstMs
+      : undefined;
+  return {
+    kind: "turn-summary",
+    id: `turn-summary:${segment[0].itemId}`,
+    durationMs,
+    files: list,
+    added: list.reduce((sum, file) => sum + file.added, 0),
+    removed: list.reduce((sum, file) => sum + file.removed, 0),
+    failedCount,
+  };
+};
+
 export const buildTimeline = (
   items: ReadonlyArray<ItemSnapshot>,
   options: { readonly turnActive: boolean },
@@ -142,6 +234,7 @@ export const buildTimeline = (
     }
 
     let run: ItemSnapshot[] = [];
+    let worked = false;
     const flush = () => {
       if (run.length > 0) {
         rows.push(workGroupRow(run));
@@ -151,12 +244,19 @@ export const buildTimeline = (
     for (const item of segment) {
       if (FOLDABLE_KINDS.has(item.kind)) {
         run.push(item);
+        worked = true;
       } else {
         flush();
         rows.push({ kind: "item", id: item.itemId, item });
       }
     }
     flush();
+
+    // Only a turn — a segment the user opened — gets a closing line, and only
+    // when it did work: a plain exchange needs no "Worked for".
+    if (worked && segment[0].kind === "user_message") {
+      rows.push(turnSummaryRow(segment, childrenByParent));
+    }
   });
 
   if (options.turnActive) {
