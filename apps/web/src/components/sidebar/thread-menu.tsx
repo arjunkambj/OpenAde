@@ -1,15 +1,17 @@
 /**
- * The per-thread overflow menu: rename, archive, delete.
+ * The per-thread overflow menu: rename, archive or unarchive, delete.
  *
- * `thread.rename`, `thread.archive` and `thread.delete` run through the
- * command union, the decider and the reactors — closing the session, pruning
- * the checkpoints, deleting the staged attachments. This menu is the only
- * place the renderer dispatches them; without it the sidebar grows forever and
+ * `thread.rename`, `thread.archive`, `thread.unarchive` and `thread.delete`
+ * run through the command union, the decider and the reactors — closing the
+ * session, pruning the checkpoints, deleting the staged attachments. This menu
+ * and Settings → Archived threads are where the renderer dispatches them, both
+ * through `thread-actions.ts`; without them the sidebar grows forever and
  * every one of those cleanup behaviours is unreachable from the product.
  *
  * Delete is behind a confirmation, on the precedent `RestoreCheckpointDialog`
  * set: it is durable and there is no undo. Archive is not — the thread stays,
- * and archiving again is refused rather than compounded.
+ * and an archived row offers Unarchive in place of Archive, as the Archived
+ * threads settings page does.
  *
  * Both dialogs are siblings of the menu, not children of it: two modal
  * surfaces each own a focus trap, and a menu that is closing while a dialog
@@ -17,7 +19,6 @@
  */
 
 import * as React from "react";
-import { toast } from "sonner";
 
 import { Button } from "@OpenAde/ui/components/button";
 import {
@@ -37,13 +38,15 @@ import {
 } from "@OpenAde/ui/components/dropdown-menu";
 import { Input } from "@OpenAde/ui/components/input";
 import { Label } from "@OpenAde/ui/components/label";
-import { makeCommandId } from "@OpenAde/contracts/ids";
 import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { isAccepted, rejectionMessage } from "@/lib/dispatch-outcome";
-import { useDispatchCommand } from "@/state/hooks";
-import { Archive as ArchiveIcon, Edit, MoreHorizontal, Trash } from "@honeyicons/react";
+import {
+  THREAD_DELETE_DESCRIPTION,
+  threadCommandBase,
+  useThreadCommand,
+} from "@/components/sidebar/thread-actions";
+import { Archive as ArchiveIcon, ArchiveUp, Edit, MoreHorizontal, Trash } from "@honeyicons/react";
 
 /** Which of the two dialogs this row currently has open. */
 type OpenDialog = "rename" | "delete" | null;
@@ -128,25 +131,10 @@ function RenameThreadDialog({
 }
 
 export function ThreadRowMenu({ thread }: { readonly thread: ThreadSummary }) {
-  const dispatch = useDispatchCommand();
+  const send = useThreadCommand();
   const [dialog, setDialog] = React.useState<OpenDialog>(null);
 
-  const send = async (command: Parameters<typeof dispatch>[0], fallback: string, done?: string) => {
-    const exit = await dispatch(command);
-    if (!isAccepted(exit)) {
-      toast.error(rejectionMessage(exit, fallback));
-      return;
-    }
-    if (done !== undefined) {
-      toast.success(done);
-    }
-  };
-
-  const base = () => ({
-    commandId: makeCommandId(),
-    createdAt: new Date().toISOString(),
-    threadId: thread.threadId,
-  });
+  const base = () => threadCommandBase(thread.threadId);
 
   return (
     <>
@@ -168,19 +156,33 @@ export function ThreadRowMenu({ thread }: { readonly thread: ThreadSummary }) {
             <Edit />
             Rename
           </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={thread.status === "archived"}
-            onClick={() =>
-              void send(
-                { ...base(), type: "thread.archive" },
-                "Thread was not archived",
-                "Archived",
-              )
-            }
-          >
-            <ArchiveIcon />
-            Archive
-          </DropdownMenuItem>
+          {thread.status === "archived" ? (
+            <DropdownMenuItem
+              onClick={() =>
+                void send(
+                  { ...base(), type: "thread.unarchive" },
+                  "Thread was not unarchived",
+                  "Unarchived",
+                )
+              }
+            >
+              <ArchiveUp />
+              Unarchive
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem
+              onClick={() =>
+                void send(
+                  { ...base(), type: "thread.archive" },
+                  "Thread was not archived",
+                  "Archived",
+                )
+              }
+            >
+              <ArchiveIcon />
+              Archive
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onClick={() => setDialog("delete")}>
             <Trash />
@@ -202,7 +204,7 @@ export function ThreadRowMenu({ thread }: { readonly thread: ThreadSummary }) {
         open={dialog === "delete"}
         onOpenChange={(next) => setDialog(next ? "delete" : null)}
         title={`Delete ${thread.title}?`}
-        description="Its transcript, its queue and its turn checkpoints go with it, and the session it is running on is closed. Files in the workspace are left alone."
+        description={THREAD_DELETE_DESCRIPTION}
         confirmLabel="Delete thread"
         onConfirm={() =>
           void send({ ...base(), type: "thread.delete" }, "Thread was not deleted", "Deleted")
