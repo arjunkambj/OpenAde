@@ -1711,7 +1711,13 @@ There is exactly one listener, mounted at the app root
 get first refusal and it skips `defaultPrevented` events — an interaction card
 claims `1`/`2`/`3`/`d`/`Escape` in capture phase, and the composer's trigger
 menu eats `Escape` before that, so the global table only ever sees what nothing
-closer to the focus wanted. A surface that owns a command registers a handler
+closer to the focus wanted. A focused terminal goes further: inside
+`[data-context="terminal"]` the listener only considers `terminal.toggle` and
+leaves every other chord to the shell without calling `preventDefault`, so
+`Escape` reaches vim instead of interrupting the turn, and `Cmd+K` and `Cmd+B`
+reach the program running there (`yieldsToTerminal` in
+`apps/web/src/lib/keybindings.ts`). `when` clauses can read `terminalFocus`
+the same way they read `composerFocus`. A surface that owns a command registers a handler
 while it is mounted, and a surface that is not mounted does not answer its
 command: `thread.interrupt` belongs to the composer, so it is inert on the
 settings page rather than reaching into a thread nobody is looking at.

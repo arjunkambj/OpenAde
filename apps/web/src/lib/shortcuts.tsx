@@ -15,9 +15,14 @@
  * and it skips `defaultPrevented` events for the same reason. Do not move it
  * to capture.
  *
- * `when` clauses read context flags: `composerFocus` is derived from the
- * focused element's `data-context`, everything else is published by whichever
- * component knows it through `useKeybindingFlag`.
+ * `when` clauses read context flags: `composerFocus` and `terminalFocus` are
+ * derived from the focused element's `data-context`, everything else is
+ * published by whichever component knows it through `useKeybindingFlag`.
+ *
+ * A focused terminal keeps its keys. Inside `[data-context="terminal"]` the
+ * listener only considers `terminal.toggle` and leaves every other chord —
+ * `Escape`, `Cmd+K`, `Cmd+B` — to the shell without calling `preventDefault`
+ * (`yieldsToTerminal` in `@/lib/keybindings`).
  */
 
 import { useAtomValue } from "@effect/atom-react";
@@ -30,7 +35,13 @@ import { AsyncResult } from "effect/unstable/reactivity";
 
 import { useClientRuntime } from "@/lib/client-runtime";
 import { makeCommandRegistry, type CommandRegistry } from "@/lib/command-registry";
-import { effectiveKeybindings, keycapsFor, shortcutFor } from "@/lib/keybindings";
+import {
+  effectiveKeybindings,
+  keycapsFor,
+  shortcutFor,
+  TERMINAL_TOGGLE_COMMAND,
+  yieldsToTerminal,
+} from "@/lib/keybindings";
 
 /**
  * The command ids the shell's own surfaces answer to. Kept as a map so the
@@ -46,6 +57,7 @@ export const SHORTCUT_COMMANDS = {
   addProject: "project.add",
   interrupt: "thread.interrupt",
   queue: "composer.queue",
+  terminal: TERMINAL_TOGGLE_COMMAND,
 } as const;
 
 export type ShortcutId = keyof typeof SHORTCUT_COMMANDS;
@@ -78,11 +90,20 @@ export function KeybindingsProvider({ children }: { readonly children: React.Rea
       if (event.defaultPrevented || event.repeat || event.isComposing) {
         return;
       }
+      const focus = focusedContext(event.target);
       const context = (name: string): boolean | string | undefined =>
         name === "composerFocus"
-          ? focusedContext(event.target) === "composer"
-          : registry.flag(name);
-      const binding = resolveKeybinding(keybindingsRef.current, event, context, modKey);
+          ? focus === "composer"
+          : name === "terminalFocus"
+            ? focus === "terminal"
+            : registry.flag(name);
+      // Filtered rather than checked after resolving, so a yielded binding
+      // cannot shadow a toggle bound to the same chord further down.
+      const table =
+        focus === "terminal"
+          ? keybindingsRef.current.filter((entry) => !yieldsToTerminal(entry.command, focus))
+          : keybindingsRef.current;
+      const binding = resolveKeybinding(table, event, context, modKey);
       const handler = binding === null ? undefined : registry.resolve(binding.command);
       if (handler === undefined) {
         return;

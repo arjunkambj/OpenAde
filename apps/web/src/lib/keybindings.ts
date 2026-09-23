@@ -21,6 +21,20 @@ export const effectiveKeybindings = (
   table: ReadonlyArray<Keybinding>,
 ): ReadonlyArray<Keybinding> => (table.length === 0 ? DEFAULT_KEYBINDINGS : table);
 
+/** The command a focused terminal still lets the app answer. */
+export const TERMINAL_TOGGLE_COMMAND = "terminal.toggle";
+
+/**
+ * Whether the app leaves a chord to the focused element instead of answering
+ * `command`. A shell owns its keys — `Escape` is vim's, not `thread.interrupt`,
+ * and `Cmd+K` or `Cmd+B` mean something to the program running there — so with
+ * focus inside `[data-context="terminal"]` every binding yields except the
+ * toggle, which has to work from inside the terminal to hide it again. Any
+ * other focus, the composer's included, yields nothing.
+ */
+export const yieldsToTerminal = (command: string, focusedContext: string | undefined): boolean =>
+  focusedContext === "terminal" && command !== TERMINAL_TOGGLE_COMMAND;
+
 /** The chord bound to a command, or null when the table does not bind it. */
 export const shortcutFor = (table: ReadonlyArray<Keybinding>, command: string): string | null =>
   table.find((binding) => binding.command === command)?.shortcut ?? null;
