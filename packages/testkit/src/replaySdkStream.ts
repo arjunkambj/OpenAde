@@ -10,9 +10,10 @@
  * replayer through an environment variable. `config` therefore bakes the
  * scenario into a launcher of its own, written into the test's temp directory,
  * and returns that launcher as the binary path. Each launch plays the next
- * recorded invocation of its kind — `--version`, `auth status`, or a stream-json
- * run — counted in a state file beside it, so the second session of a
- * resume-after-restart test gets the second recorded run.
+ * recorded invocation of its kind — `--version`, `auth status`, a probe's
+ * handshake, or a session's stream-json run — counted in a state file beside
+ * it, so the second session of a resume-after-restart test gets the second
+ * recorded run whatever the probes did in between.
  */
 
 import * as NodeFS from "node:fs";
@@ -35,6 +36,13 @@ export interface SdkStreamReplayOptions {
   readonly tmpDir: string;
   /** A directory each replayed process drops a file named after its pid into. */
   readonly pidDir?: string;
+  /**
+   * A file each divergence is appended to as well as printed. A connector
+   * that keeps its child's stderr to itself turns a divergence into some other
+   * failure, or none; a test that checks this file after a green run knows
+   * the recording was played out as recorded.
+   */
+  readonly divergenceLog?: string;
 }
 
 export interface SdkStreamReplayConfig {
@@ -69,6 +77,9 @@ export const sdkStreamReplayer = (
           scenarioDir: NodePath.join(fixturesRoot(kind, root), scenario),
           stateFile: NodePath.join(tmpDir, `replay-${kind}-${scenario}.state.json`),
           ...(options.pidDir === undefined ? {} : { pidDir: NodePath.resolve(options.pidDir) }),
+          ...(options.divergenceLog === undefined
+            ? {}
+            : { divergenceLog: NodePath.resolve(options.divergenceLog) }),
         },
         null,
         2,

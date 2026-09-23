@@ -20,6 +20,8 @@ import { converse, writeCounterpart } from "./stdioCounterpart";
 const ROOT = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "sdk-stream-replay-"));
 const FIXTURES = NodePath.join(ROOT, "fixtures");
 const STREAM_ARGS = ["--output-format", "stream-json", "--input-format", "stream-json"];
+/** A handshake that keeps no session, the way a probe runs. */
+const PROBE_ARGS = [...STREAM_ARGS, "--no-session-persistence"];
 /** Where the replays run: a different scratch root from the recording's. */
 const REPLAY_REPO = NodePath.join(ROOT, "elsewhere", "repo");
 
@@ -30,10 +32,16 @@ const typed =
 
 type Run = ReturnType<typeof converse>;
 
+const initialize = (requestId: string): unknown => ({
+  type: "control_request",
+  request_id: requestId,
+  request: { subtype: "initialize" },
+});
+
 /** One full exchange: initialize, a user message, and an answer to the question it raises. */
 const exchange = async (run: Run, requestId: string, behavior: string): Promise<unknown> => {
   await run.awaitLine(typed("ready"));
-  run.send({ type: "control_request", request_id: requestId, request: { subtype: "initialize" } });
+  run.send(initialize(requestId));
   const initialized = await run.awaitLine(typed("control_response"));
   run.send({ type: "user", message: { role: "user", content: "hello" } });
   const asked = (await run.awaitLine(typed("control_request"))) as { request_id: string };
@@ -115,6 +123,35 @@ beforeAll(async () => {
     fixturesRoot: FIXTURES,
   });
 
+  // A probe's handshake — a run that keeps no session — then a session.
+  const probedRaw = NodePath.join(ROOT, "raw-probed");
+  const probedLauncher = makeTeeLauncher({
+    realBinary: NodePath.join(ROOT, "bin", "counterpart.mjs"),
+    rawDir: probedRaw,
+  });
+  const handshake = converse(probedLauncher, PROBE_ARGS, { cwd: repo });
+  await handshake.awaitLine(typed("ready"));
+  handshake.send(initialize("probe-1"));
+  await handshake.awaitLine(typed("control_response"));
+  handshake.child.stdin.end();
+  expect((await handshake.exited).code).toBe(0);
+  const session = converse(probedLauncher, STREAM_ARGS, { cwd: repo });
+  await exchange(session, "session-1", "allow");
+  await session.awaitLine(typed("result"));
+  session.child.stdin.end();
+  expect((await session.exited).code).toBe(0);
+  finalizeSdkStreamRecording({
+    kind: "sample",
+    scenario: "probed",
+    rawDir: probedRaw,
+    description: "an ordinary node program, probed once and then run as a session",
+    cliVersion: "9.9.9",
+    sdkVersion: "0.0.0",
+    model: "none",
+    prompts: ["hello"],
+    fixturesRoot: FIXTURES,
+  });
+
   finalizeSdkStreamRecording({
     kind: "sample",
     scenario: "exchange",
@@ -181,6 +218,16 @@ describe("sdkStreamReplayer", () => {
     expect(exit.stderr).toContain('"behavior":"deny"');
   });
 
+  it("appends each divergence to the divergence log when it is given one", async () => {
+    const tmpDir = NodePath.join(ROOT, `replay-${(configs += 1)}`);
+    const divergenceLog = NodePath.join(tmpDir, "diverged.log");
+    const binary = replayer.config("exchange", { tmpDir, divergenceLog }).binaryPath;
+    const run = converse(binary, STREAM_ARGS, { cwd: REPLAY_REPO });
+    await exchange(run, "live-1", "deny");
+    expect((await run.exited).code).toBe(REPLAY_DIVERGED);
+    expect(NodeFS.readFileSync(divergenceLog, "utf8")).toContain("a different behavior");
+  });
+
   it("exits 97 when the live side sends a different kind of line", async () => {
     const run = converse(freshBinary(), STREAM_ARGS, { cwd: REPLAY_REPO });
     await run.awaitLine(typed("ready"));
@@ -245,6 +292,31 @@ describe("sdkStreamReplayer", () => {
     const exit = await swapped.exited;
     expect(exit.code).toBe(REPLAY_DIVERGED);
     expect(exit.stderr).toContain("a different behavior");
+  });
+
+  it("keeps a probe's handshakes apart from sessions, and replays the last one again", async () => {
+    const binary = replayer.config("probed", {
+      tmpDir: NodePath.join(ROOT, `replay-${(configs += 1)}`),
+    }).binaryPath;
+
+    // The session launched first still gets the session run, not the handshake.
+    const session = converse(binary, STREAM_ARGS, { cwd: REPLAY_REPO });
+    await exchange(session, "live-session", "allow");
+    expect(await session.awaitLine(typed("result"))).toMatchObject({ behavior: "allow" });
+    session.child.stdin.end();
+    expect((await session.exited).code).toBe(0);
+
+    // However often the server probes, each handshake hears the recorded one.
+    for (const id of ["live-probe-1", "live-probe-2"]) {
+      const probe = converse(binary, PROBE_ARGS, { cwd: REPLAY_REPO });
+      await probe.awaitLine(typed("ready"));
+      probe.send(initialize(id));
+      expect(await probe.awaitLine(typed("control_response"))).toMatchObject({
+        response: { request_id: id },
+      });
+      probe.child.stdin.end();
+      expect((await probe.exited).code).toBe(0);
+    }
   });
 
   it("refuses a scenario that is not recorded", () => {

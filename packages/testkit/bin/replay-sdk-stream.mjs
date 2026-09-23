@@ -13,12 +13,16 @@
  *     node replay-sdk-stream.mjs <config.json> <the argv the SDK passed>
  *
  * `config.json` names the scenario directory, the invocation counter's state
- * file and, optionally, a directory to drop a pid file into.
+ * file and, optionally, a directory to drop a pid file into and a file to
+ * append divergences to.
  *
  * Each launch takes the first unplayed invocation whose argv is of the same
- * class — `--version`, `auth status`, a stream-json run, or else the exact argv.
- * A probe that asks twice hears the last recorded answer again; a stream run
- * with none left to play is a divergence.
+ * class — `--version`, `auth status`, a probe's stream-json handshake (a run
+ * that keeps no session: `--no-session-persistence`), a session's stream-json
+ * run, or else the exact argv. A probe that asks twice — a handshake included —
+ * hears the last recorded answer again, because how often a server probes is
+ * its own business; a session with no recorded run left to play is a
+ * divergence.
  *
  * A simple invocation prints its recorded stdout and stderr and exits with its
  * recorded code. A stream run walks its frames in order:
@@ -39,7 +43,8 @@
  *
  * Divergence is loud: anything the live side says that the recording did not,
  * or stdin closing while the recording still expects input, prints both sides
- * to stderr and exits 97. A recording made under one answer never plays out a
+ * to stderr — and appends them to the config's `divergenceLog` when it names
+ * one, for a test whose connector swallows the child's stderr — and exits 97. A recording made under one answer never plays out a
  * run that answered differently.
  *
  * `<HOME>` and `<SCRATCH>` in the recording are put back from this process's own
@@ -65,7 +70,9 @@ const label = `${manifest.kind}/${manifest.scenario}`;
 const drained = (stream) => new Promise((resolve) => stream.write("", resolve));
 
 const fail = async (message) => {
-  process.stderr.write(`replay-sdk-stream: ${label}: ${message}\n`);
+  const said = `replay-sdk-stream: ${label}: ${message}\n`;
+  if (config.divergenceLog !== undefined) fs.appendFileSync(config.divergenceLog, said, "utf8");
+  process.stderr.write(said);
   await drained(process.stderr);
   process.exit(DIVERGED);
 };
@@ -80,7 +87,9 @@ if (config.pidDir !== undefined) {
 const classOf = (args) => {
   if (args.includes("--version") || args.includes("-v")) return "version";
   if (args[0] === "auth" && args[1] === "status") return "auth-status";
-  if (args.includes("stream-json")) return "stream";
+  if (args.includes("stream-json")) {
+    return args.includes("--no-session-persistence") ? "probe-stream" : "stream";
+  }
   return `argv:${JSON.stringify(args)}`;
 };
 
@@ -105,6 +114,7 @@ const withLock = (body) => {
 };
 
 const wanted = classOf(argv);
+const streaming = wanted === "stream" || wanted === "probe-stream";
 const chosen = withLock(() => {
   let played = [];
   try {
@@ -161,7 +171,7 @@ const leave = async () => {
   process.exit(invocation.exitCode ?? 0);
 };
 
-if (wanted !== "stream") {
+if (!streaming) {
   for (const frame of frames) {
     if (frame.dir === "from-harness") await write(frame.channel, frame.data);
   }
