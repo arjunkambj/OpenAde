@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   allowedImportsFor,
+  boldIconLeaks,
   connectorLeaks,
+  honeyiconNames,
   KIND_LITERAL_EXEMPT,
   REFERENCE_NAMES,
   referenceNameLeaks,
@@ -169,5 +171,61 @@ describe("referenceNameLeaks", () => {
     expect(
       referenceNameLeaks("docs/architecture.md", "Command Code, Claude Code, Codex, OpenCode\n"),
     ).toEqual([]);
+  });
+});
+
+describe("boldIconLeaks", () => {
+  const file = "apps/web/src/components/a.tsx";
+  const icons = 'import { type HoneyIcon, Bell, Close as CloseIcon } from "@honeyicons/react";\n';
+
+  it("fails an imported icon rendered without the bold variant, and says what to do", () => {
+    const leaks = boldIconLeaks(file, `${icons}const a = <Bell className="size-4" />;\n`);
+    expect(lines(leaks)).toEqual([2]);
+    expect(leaks[0].message).toContain('add variant="bold"');
+  });
+
+  it("passes the bold variant in any attribute position and quote style", () => {
+    expect(boldIconLeaks(file, `${icons}const a = <Bell variant="bold" />;\n`)).toEqual([]);
+    expect(boldIconLeaks(file, `${icons}const a = <Bell size={16} variant='bold'/>;\n`)).toEqual(
+      [],
+    );
+    expect(boldIconLeaks(file, `${icons}const a = <Bell variant={"bold"}>x</Bell>;\n`)).toEqual([]);
+  });
+
+  it("fails the linear variant, spelled out", () => {
+    expect(boldIconLeaks(file, `${icons}const a = <Bell variant="linear" />;\n`)).toHaveLength(1);
+  });
+
+  it("reads a multi-line opening to its end, past braces and quoted angle brackets", () => {
+    const passing = `${icons}const a = (\n  <Bell\n    onClick={() => a > b}\n    title="a > b"\n    variant="bold"\n  />\n);\n`;
+    expect(boldIconLeaks(file, passing)).toEqual([]);
+    const failing = `${icons}const a = (\n  <Bell\n    onClick={() => a > b}\n  />\n);\nconst b = <p variant="bold" />;\n`;
+    expect(lines(boldIconLeaks(file, failing))).toEqual([3]);
+  });
+
+  it("follows an import alias and a multi-line import", () => {
+    expect(lines(boldIconLeaks(file, `${icons}const a = <CloseIcon />;\n`))).toEqual([2]);
+    const multiLine = 'import {\n  Bell,\n  Search,\n} from "@honeyicons/react";\n<Search />;\n';
+    expect(lines(boldIconLeaks(file, multiLine))).toEqual([5]);
+  });
+
+  it("passes an icon that spreads props, which carry the variant", () => {
+    expect(boldIconLeaks(file, `${icons}const a = <Bell {...props} />;\n`)).toEqual([]);
+  });
+
+  it("ignores other components, type arguments, closing tags and type-only imports", () => {
+    expect(boldIconLeaks(file, `${icons}const a = <Button><BellRing /></Button>;\n`)).toEqual([]);
+    expect(boldIconLeaks(file, `${icons}const m: Record<string, Bell> = {};\n`)).toEqual([]);
+    expect(
+      boldIconLeaks(file, 'import type { HoneyIcon } from "@honeyicons/react";\n<HoneyIcon />;\n'),
+    ).toEqual([]);
+    expect([...honeyiconNames(icons)]).toEqual(["Bell", "CloseIcon"]);
+  });
+
+  it("reads only .tsx files under apps/ and packages/", () => {
+    const source = `${icons}<Bell />;\n`;
+    expect(boldIconLeaks("packages/ui/src/components/sonner.tsx", source)).toHaveLength(1);
+    expect(boldIconLeaks("apps/web/src/lib/a.ts", source)).toEqual([]);
+    expect(boldIconLeaks("scripts/a.tsx", source)).toEqual([]);
   });
 });

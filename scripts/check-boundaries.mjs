@@ -2,7 +2,7 @@
 /**
  * Package boundary check.
  *
- * Five guardrails in one pass over the tree. The rules themselves are pure
+ * Six guardrails in one pass over the tree. The rules themselves are pure
  * functions in `boundary-rules.mjs`, tested by `boundary-rules.test.mjs`; this
  * file walks the tree, feeds them and reports.
  *
@@ -32,6 +32,10 @@
  *     `packages/` workspace is refused. Apps are not covered: the router's
  *     `routes/settings/index.tsx` is a route, not a barrel, and the Electron
  *     entry points are named by electron-builder.
+ *  6. Bold icons. Every `.tsx` file under `apps/` or `packages/` renders the
+ *     components it imports from `@honeyicons/react` with `variant="bold"`:
+ *     the package defaults to linear and has no provider to change that, so
+ *     the app-wide choice is spelled on each element.
  *
  * Every violation is printed as `file:line` and the process exits 1.
  */
@@ -42,6 +46,7 @@ import * as NodeURL from "node:url";
 
 import {
   allowedImportsFor,
+  boldIconLeaks,
   connectorLeaks,
   importSpecifiers,
   lineOf,
@@ -306,6 +311,14 @@ for (const workspaceDirectory of WORKSPACE_DIRECTORIES) {
         `barrel file: ${workspaceDirectory} exports one entry per module through package.json "exports"`,
       );
     }
+  }
+}
+
+// --------------------------------------------------------------- bold icons
+
+for (const file of [...walkSourceFiles("apps"), ...walkSourceFiles("packages")]) {
+  if (NodePath.extname(file) === ".tsx") {
+    reportAll(file, boldIconLeaks(file, readText(file)));
   }
 }
 

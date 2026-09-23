@@ -323,3 +323,104 @@ export const referenceNameLeaks = (relativePath, text) => {
   }
   return leaks;
 };
+
+// ----------------------------------------------------------- bold icons
+
+/** Where the bold-icon rule reads: every `.tsx` file of an app or a package. */
+const BOLD_ICON_FILE = /^(?:apps|packages)\/.+\.tsx$/;
+
+/** A value import from the icon package, the only place icon components come from. */
+const HONEYICONS_IMPORT = /\bimport\s+(type\s+)?\{([^}]*)\}\s*from\s*["']@honeyicons\/react["']/g;
+
+/**
+ * The local names a file binds to Honeyicons components: every value
+ * specifier of an import from `@honeyicons/react`, under its alias when it
+ * has one. Type-only imports and specifiers (`type HoneyIcon`) are not
+ * components and are left out.
+ */
+export const honeyiconNames = (text) => {
+  const names = new Set();
+  for (const match of text.matchAll(HONEYICONS_IMPORT)) {
+    if (match[1] !== undefined) {
+      continue;
+    }
+    for (const raw of match[2].split(",")) {
+      const specifier = raw.trim();
+      if (specifier === "" || /^type\s/.test(specifier)) {
+        continue;
+      }
+      names.add(
+        specifier
+          .split(/\s+as\s+/)
+          .at(-1)
+          .trim(),
+      );
+    }
+  }
+  return names;
+};
+
+/**
+ * The attribute text of the JSX opening that starts at `start` (just past the
+ * tag name), up to its closing `>`. Braces and quoted strings are skipped, so
+ * an arrow function or a `>` inside a class name does not end the tag early.
+ */
+const openingAttributes = (text, start) => {
+  let depth = 0;
+  let quote = null;
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+    if (quote !== null) {
+      if (char === quote) {
+        quote = null;
+      }
+    } else if (char === '"' || char === "'" || char === "`") {
+      quote = char;
+    } else if (char === "{") {
+      depth += 1;
+    } else if (char === "}") {
+      depth -= 1;
+    } else if (char === ">" && depth === 0) {
+      return text.slice(start, index);
+    }
+  }
+  return text.slice(start);
+};
+
+const BOLD_VARIANT = /(?:^|\s)variant=(?:"bold"|'bold'|\{\s*["']bold["']\s*\})/;
+const SPREAD_ATTRIBUTE = /\{\s*\.\.\./;
+
+/**
+ * JSX renderings of a Honeyicons component without `variant="bold"`.
+ *
+ * Every icon ships a linear and a bold drawing and renders linear unless told
+ * otherwise; the package has no provider for a default, so the app-wide
+ * choice of bold is spelled on each element. An element that spreads props
+ * passes: the spread is where the caller's `variant="bold"` arrives. A tag is
+ * any `<Name` that is not preceded by an identifier character, which keeps
+ * type arguments such as `Record<string, Name>` out.
+ */
+export const boldIconLeaks = (relativePath, text) => {
+  if (!BOLD_ICON_FILE.test(relativePath)) {
+    return [];
+  }
+  const names = honeyiconNames(text);
+  if (names.size === 0) {
+    return [];
+  }
+  const leaks = [];
+  for (const match of text.matchAll(/(?<![\w$.])<([A-Z][\w$]*)(?=[\s/>])/g)) {
+    const name = match[1];
+    if (!names.has(name)) {
+      continue;
+    }
+    const attributes = openingAttributes(text, match.index + match[0].length);
+    if (!BOLD_VARIANT.test(attributes) && !SPREAD_ATTRIBUTE.test(attributes)) {
+      leaks.push({
+        line: lineOf(text, match.index),
+        message: `<${name}> renders the linear icon; add variant="bold" (icons render the bold variant app-wide)`,
+      });
+    }
+  }
+  return leaks;
+};

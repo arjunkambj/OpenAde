@@ -135,15 +135,15 @@ pnpm check
 is `lint → fmt:check → typecheck → test → check:boundaries → check:file-sizes →
 knip`, and it is what CI runs on Ubuntu and macOS. Each stage runs alone too:
 
-| Stage      | Command                 | What it enforces                                                         |
-| ---------- | ----------------------- | ------------------------------------------------------------------------ |
-| lint       | `pnpm lint`             | oxlint: `correctness` as error, `no-explicit-any`, the shadcn rules      |
-| format     | `pnpm fmt:check`        | oxfmt over the tree, the markdown in `docs/` included; `pnpm fmt` writes |
-| types      | `pnpm typecheck`        | `tsc --noEmit` per workspace; web also runs `vite build`                 |
-| tests      | `pnpm test`             | `turbo run test` → `vitest run` per workspace                            |
-| boundaries | `pnpm check:boundaries` | import allowlist, connector leaks, neutrality, reference names, barrels  |
-| file sizes | `pnpm check:file-sizes` | 800 lines a file, 400 for a renderer component                           |
-| dead code  | `pnpm knip`             | unused files, exports and dependencies                                   |
+| Stage      | Command                 | What it enforces                                                                    |
+| ---------- | ----------------------- | ----------------------------------------------------------------------------------- |
+| lint       | `pnpm lint`             | oxlint: `correctness` as error, `no-explicit-any`, the shadcn rules                 |
+| format     | `pnpm fmt:check`        | oxfmt over the tree, the markdown in `docs/` included; `pnpm fmt` writes            |
+| types      | `pnpm typecheck`        | `tsc --noEmit` per workspace; web also runs `vite build`                            |
+| tests      | `pnpm test`             | `turbo run test` → `vitest run` per workspace                                       |
+| boundaries | `pnpm check:boundaries` | import allowlist, connector leaks, neutrality, reference names, barrels, bold icons |
+| file sizes | `pnpm check:file-sizes` | 800 lines a file, 400 for a renderer component                                      |
+| dead code  | `pnpm knip`             | unused files, exports and dependencies                                              |
 
 `pnpm typecheck` and `pnpm check-types` are the same script.
 
@@ -151,7 +151,7 @@ knip`, and it is what CI runs on Ubuntu and macOS. Each stage runs alone too:
 
 `pnpm check:boundaries` first runs the rules' own tests
 (`scripts/boundary-rules.test.mjs`, with `scripts/vitest.config.mjs`), then
-`scripts/check-boundaries.mjs`, which does five things in one pass over the
+`scripts/check-boundaries.mjs`, which does six things in one pass over the
 tree. The rules are pure functions in `scripts/boundary-rules.mjs`; the script
 only walks and reports.
 
@@ -200,6 +200,20 @@ same list. Describe an idea you took from elsewhere in our own words.
 `.ts`, `.tsx`, `.js`, `.jsx` or `.mjs`; each package exports one entry per
 module through its `exports` map. Apps are exempt — a router `index.tsx` is a
 route, and the Electron entry points are named by electron-builder.
+
+**Bold icons.** Icons render the bold variant app-wide. `@honeyicons/react`
+draws every icon linear unless told otherwise and has no provider for a
+default, so each element spells it: a `.tsx` file under `apps/` or `packages/`
+that renders a component imported from `@honeyicons/react` without
+`variant="bold"` fails, and the message says to add it. The rule reads the
+file's imports from the package (aliases included, type-only imports left out)
+and each JSX opening of one of those names, across as many lines as it spans.
+An element that spreads props (`<Bell {...props} />`) passes, so a wrapper that
+forwards props must pass `variant="bold"` through them. An icon handed around
+as a value — a `HoneyIcon` prop, an icon map, a nav item's `icon` — is outside
+the rule's reach; render it as `<item.icon variant="bold" />` too. Line-only
+icons such as arrows and chevrons draw the same in both variants and take the
+prop anyway, so no icon is a special case.
 
 ### File sizes
 
