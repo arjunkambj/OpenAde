@@ -14,7 +14,15 @@ import {
 
 import { SettingsWindowChrome } from "@/components/Layout/window-chrome";
 import { SidebarPrimaryNav } from "@/components/sidebar/sidebar-primary-nav";
-import { Archive, Brain, Connect, Keyboard, Lock, SlidersHorizontal } from "@honeyicons/react";
+import {
+  Archive,
+  Brain,
+  Connect,
+  GitBranch,
+  Keyboard,
+  Lock,
+  SlidersHorizontal,
+} from "@honeyicons/react";
 
 const ITEMS = [
   { to: "/settings", label: "General", icon: SlidersHorizontal },
@@ -22,6 +30,7 @@ const ITEMS = [
   { to: "/settings/connectors", label: "Connectors", icon: Connect },
   { to: "/settings/keybindings", label: "Keybindings", icon: Keyboard },
   { to: "/settings/permissions", label: "Permissions", icon: Lock },
+  { to: "/settings/git", label: "Git & worktrees", icon: GitBranch },
   { to: "/settings/archived", label: "Archived threads", icon: Archive },
 ] as const;
 

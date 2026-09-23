@@ -227,14 +227,14 @@ only; must never import the server, the connector packages or the renderer.
 The renderer. TanStack Router routes under `apps/web/src/routes`, state through
 `@effect/atom-react`, components under `apps/web/src/components`.
 
-| Route                             | What it is                                                              |
-| --------------------------------- | ----------------------------------------------------------------------- |
-| `_home/index`                     | start a thread, pick a project                                          |
-| `_home/t/$threadId`               | the thread view; `?pane=` carries the dock tab                          |
-| `_home/customize/{skills,mcp}`    | what extends the agent, one tab per kind, one section per instance      |
-| `settings`, six pages             | general, models, connectors, keybindings, permissions, archived threads |
-| `browser.$threadId`               | the marker page the browser pane's `<webview>` guest loads              |
-| `dev/{timeline,composer,changes}` | fixture pages, DEV only                                                 |
+| Route                             | What it is                                                                               |
+| --------------------------------- | ---------------------------------------------------------------------------------------- |
+| `_home/index`                     | start a thread, pick a project                                                           |
+| `_home/t/$threadId`               | the thread view; `?pane=` carries the dock tab                                           |
+| `_home/customize/{skills,mcp}`    | what extends the agent, one tab per kind, one section per instance                       |
+| `settings`, seven pages           | general, models, connectors, keybindings, permissions, git & worktrees, archived threads |
+| `browser.$threadId`               | the marker page the browser pane's `<webview>` guest loads                               |
+| `dev/{timeline,composer,changes}` | fixture pages, DEV only                                                                  |
 
 The shell is a left sidebar (projects → threads), the thread column (the
 timeline, then the composer with any open approval, question or plan card
@@ -598,7 +598,9 @@ repository. The directory root is the `WorktreesRoot` service, which `boot`
 points at `worktreesDir()` and a test at a tmp directory. The settings
 document's `projectSettings` holds each project's optional `setupScript`,
 which `git.worktree.setup` runs there; both keys are defaulted on decode, so a
-settings row written before them still reads. Removing a worktree and running
+settings row written before them still reads. Both are edited on the Git &
+worktrees settings page (`apps/web/src/components/Settings/git-panel.tsx`,
+also reached from a project's overflow menu). Removing a worktree and running
 the script in one both take the path only when it is a registered, non-main
 worktree of the project's repository.
 

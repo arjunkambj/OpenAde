@@ -1,7 +1,8 @@
 /**
- * The per-project overflow menu. One entry today — remove the project — but a
- * menu rather than a bare button, because removing one is not something to put
- * a click away from "New thread".
+ * The per-project overflow menu: a shortcut to the project's setup script on
+ * the Git & worktrees settings page, and removing the project — a menu rather
+ * than a bare button, because removing one is not something to put a click
+ * away from "New thread".
  *
  * `project.remove` was in the union with no dispatch site anywhere, so a
  * project whose path was mistyped could only be dropped by editing the sqlite
@@ -10,6 +11,7 @@
  * it, so the confirmation says so and counts them — see `./removal-copy`.
  */
 
+import { useNavigate } from "@tanstack/react-router";
 import * as React from "react";
 import { toast } from "sonner";
 
@@ -18,6 +20,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@OpenAde/ui/components/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
@@ -28,7 +31,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { projectRemovalWarning } from "@/components/sidebar/removal-copy";
 import { isAccepted, rejectionMessage } from "@/lib/dispatch-outcome";
 import { useDispatchCommand } from "@/state/hooks";
-import { MoreHorizontal, Trash } from "@honeyicons/react";
+import { GitBranch, MoreHorizontal, Trash } from "@honeyicons/react";
 
 export function ProjectRowMenu({
   project,
@@ -38,6 +41,7 @@ export function ProjectRowMenu({
   readonly threadCount: number;
 }) {
   const dispatch = useDispatchCommand();
+  const navigate = useNavigate();
   const [confirming, setConfirming] = React.useState(false);
 
   const remove = async () => {
@@ -75,6 +79,11 @@ export function ProjectRowMenu({
           <TooltipContent>More actions</TooltipContent>
         </Tooltip>
         <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuItem onClick={() => void navigate({ to: "/settings/git" })}>
+            <GitBranch />
+            Setup script…
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onClick={() => setConfirming(true)}>
             <Trash variant="bold" />
             Remove project

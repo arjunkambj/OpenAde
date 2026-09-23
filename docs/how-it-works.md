@@ -1455,6 +1455,16 @@ Settings
 `git` and `projectSettings`, like the two font sizes, are defaulted on decode
 (`openade/` and `{}`), so a row written before they existed still reads.
 
+Both are edited on the Git & worktrees page. The branch prefix saves on blur,
+Enter or Save, trimmed, and only when it changed; a prefix git would refuse
+(a leading `-` or `/`, spaces, `..`, `@{`, `~^:?*[\`) is named under the input
+and not saved, though `git.worktree.create` still has the last word. A setup
+script is saved per project, but a patch replaces the whole key, so the page
+writes the whole `projectSettings` record, rebuilt from the latest document at
+the moment of the click (`apps/web/src/components/Settings/git-settings.ts`):
+editing one project keeps every other project's script, and a blank script
+removes the project's entry.
+
 Every field carries a `settingsForm` annotation — label, description, control —
 so the settings pages render from the schema and cannot drift from it. A
 connector's `config` is its own document: the connector's definition owns the
