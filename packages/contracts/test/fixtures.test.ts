@@ -22,7 +22,14 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
 import { ItemKind } from "../src/enums";
-import { GitBranchList, GitCommitResult, GitPullRequestResult, GitPushResult } from "../src/git";
+import {
+  GitBranchList,
+  GitCommitResult,
+  GitPullRequestResult,
+  GitPushResult,
+  GitWorktreeInfo,
+  WorktreeSetupFrame,
+} from "../src/git";
 import {
   Command,
   CommandReceipt,
@@ -162,6 +169,12 @@ const families: ReadonlyArray<Family> = [
     tag: "kind",
     variants: tagsOf(BrowserHumanInput.members, "kind"),
   },
+  {
+    directory: "rpc/worktree-setup-frame",
+    schema: WorktreeSetupFrame,
+    tag: "kind",
+    variants: tagsOf(WorktreeSetupFrame.members, "kind"),
+  },
 ];
 
 /** A schema with a single fixture: a read model, an RPC result, a document. */
@@ -204,6 +217,8 @@ const singles: ReadonlyArray<{ readonly path: string; readonly schema: FixtureSc
   { path: "rpc/git-commit-result.json", schema: GitCommitResult },
   { path: "rpc/git-push-result.json", schema: GitPushResult },
   { path: "rpc/git-pull-request-result.json", schema: GitPullRequestResult },
+  { path: "rpc/git-worktree-info.json", schema: GitWorktreeInfo },
+  { path: "rpc/git-worktree-info.main.json", schema: GitWorktreeInfo },
   { path: "rpc/browser-state.json", schema: BrowserState },
   { path: "rpc/mcp-server-config.json", schema: McpServerConfig },
   { path: "rpc/skill-summary.json", schema: SkillSummary },

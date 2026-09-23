@@ -12,7 +12,11 @@ import {
   makeThreadId,
   type ThreadId,
 } from "@OpenAde/contracts/ids";
-import { DEFAULT_KEYBINDINGS, defaultSettings } from "@OpenAde/contracts/settings";
+import {
+  DEFAULT_BRANCH_PREFIX,
+  DEFAULT_KEYBINDINGS,
+  defaultSettings,
+} from "@OpenAde/contracts/settings";
 import { describe, expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
@@ -117,6 +121,22 @@ describe("SettingsStore", () => {
         expect(settings.keybindings).toEqual([]);
         expect(settings.theme).toBe("dark");
         expect(store.freshInstall).toBe(false);
+      }),
+    ),
+  );
+
+  it.effect("a row written before the git settings existed reads them as defaults", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        // Not a decode failure served as the whole default document: the
+        // user's own theme survives, and only the missing keys are filled in.
+        const { git: _git, projectSettings: _projects, ...older } = defaultSettings();
+        const { store, sql } = yield* fixture(JSON.stringify({ ...older, theme: "dark" }));
+        const settings = yield* store.get;
+        expect(settings.theme).toBe("dark");
+        expect(settings.git).toEqual({ branchPrefix: DEFAULT_BRANCH_PREFIX });
+        expect(settings.projectSettings).toEqual({});
+        expect(yield* rowJson(sql, "settings.unreadable")).toBeNull();
       }),
     ),
   );

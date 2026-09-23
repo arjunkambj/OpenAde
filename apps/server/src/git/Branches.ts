@@ -34,7 +34,8 @@ export const notRepositoryBranches: GitBranchList = {
  */
 const REF_ARG = /^[A-Za-z0-9._/-]+$/;
 
-const isSafeRefArg = (value: string): boolean => !value.startsWith("-") && REF_ARG.test(value);
+export const isSafeRefArg = (value: string): boolean =>
+  !value.startsWith("-") && REF_ARG.test(value);
 
 const invalid = (message: string) => new OpenAdeRpcError({ code: "invalid", message });
 const conflict = (message: string) => new OpenAdeRpcError({ code: "conflict", message });
@@ -134,7 +135,7 @@ const currentBranch = (cwd: string) =>
     Effect.map((result) => (result.exitCode === 0 ? result.stdout.trim() || null : null)),
   );
 
-const refExists = (cwd: string, ref: string) =>
+export const refExists = (cwd: string, ref: string) =>
   run(cwd, ["show-ref", "--verify", "--quiet", ref], { allowNonZeroExit: true }).pipe(
     Effect.map((result) => result.exitCode === 0),
   );

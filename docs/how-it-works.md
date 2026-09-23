@@ -1266,6 +1266,43 @@ request already exists its URL comes from gh's refusal, or from `gh pr view`,
 with `created: false`. Tests swap in a fake runner that answers with gh's own
 wording; nothing talks to GitHub.
 
+### Worktrees
+
+`git.worktree.create` (`apps/server/src/git/Worktrees.ts`) gives a new thread a
+directory of its own. The branch is the settings document's `git.branchPrefix`
+(default `openade/`) followed by `branchSlug` of the free-text name
+(`packages/shared/src/branchSlug.ts`: lowercase ASCII, digits and single
+dashes, at most 40 characters cut at a word boundary, `thread` when nothing is
+left). A prefix that makes an invalid name is refused as `invalid`, naming the
+setting. The base is the payload's, else the default branch, and it has to
+resolve to a commit. The worktree goes in
+`<OpenAde home>/worktrees/<project slug>/<slug>`, and `-2`, `-3`… is appended
+until neither a branch nor a directory of that name exists — two projects with
+the same name share the parent directory. `git worktree add --no-track -b`
+runs from the project's root, and the answer (real path, branch, base) is what
+`thread.create` records as the thread's `worktree`.
+
+`git.worktree.list` reads `git worktree list --porcelain`, the project's own
+checkout first. `git.worktree.remove` takes a path only when it is a
+registered worktree of the project's repository and not its own checkout,
+compared by real path; refuses with `conflict` while a thread that is not
+deleted (archived ones included) still works there; and runs `git worktree
+remove`. git refuses a tree with modified or untracked files, which is
+answered as the work removal would lose; `force` removes it anyway. The branch
+is never deleted, so committed work survives, and `git worktree prune`
+follows.
+
+`git.worktree.setup` streams the project's setup script
+(`apps/server/src/git/SetupScript.ts`). The script is read from the settings
+document's `projectSettings[projectId].setupScript`, never from the payload,
+and a missing or blank one answers a single `skipped` frame. It runs as
+`/bin/sh -c <script>` in the worktree, with `OPENADE_WORKTREE_PATH` and
+`OPENADE_PROJECT_ROOT` set, detached so it leads its own process group.
+stdout and stderr arrive as `output` frames, capped at 1 MiB with a notice,
+and an `exit` frame carries the exit code (or the signal) last. A stream that
+ends first — the client went away — kills the whole group, SIGTERM and then
+SIGKILL, so nothing the script started outlives it.
+
 ---
 
 ## 9. Attachments
@@ -1411,7 +1448,12 @@ Settings
   theme        system | light | dark
   keybindings  Keybinding[]
   permissions  PermissionRule[]            a projection of the permission_rules table
+  git          { branchPrefix }            what a new worktree's branch starts with
+  projectSettings  { [projectId]: { setupScript? } }
 ```
+
+`git` and `projectSettings`, like the two font sizes, are defaulted on decode
+(`openade/` and `{}`), so a row written before they existed still reads.
 
 Every field carries a `settingsForm` annotation — label, description, control —
 so the settings pages render from the schema and cannot drift from it. A

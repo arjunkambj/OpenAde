@@ -30,6 +30,9 @@ import type {
   GitCommitResult,
   GitPullRequestResult,
   GitPushResult,
+  GitWorktreeInfo,
+  ThreadWorktree,
+  WorktreeSetupFrame,
 } from "@OpenAde/contracts/git";
 import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
 import { defaultSettings, Settings } from "@OpenAde/contracts/settings";
@@ -184,6 +187,31 @@ export class GitService extends Context.Service<
       scope: WorkspaceScope,
       options: { readonly title: string; readonly body: string; readonly base?: string },
     ) => Effect.Effect<GitPullRequestResult, OpenAdeRpcError>;
+    /**
+     * Cuts a worktree for a new thread under the OpenAde home, on a branch
+     * named from the settings' prefix and `name`, from `baseBranch` or the
+     * default branch.
+     */
+    readonly createWorktree: (
+      projectId: ProjectId,
+      options: { readonly name: string; readonly baseBranch?: string | undefined },
+    ) => Effect.Effect<ThreadWorktree, OpenAdeRpcError>;
+    readonly listWorktrees: (
+      projectId: ProjectId,
+    ) => Effect.Effect<ReadonlyArray<GitWorktreeInfo>, OpenAdeRpcError>;
+    /**
+     * Removes one of the project's worktrees, keeping its branch. `conflict`
+     * while a thread works in it, or when it holds work `force` would lose.
+     */
+    readonly removeWorktree: (
+      projectId: ProjectId,
+      options: { readonly path: string; readonly force: boolean },
+    ) => Effect.Effect<void, OpenAdeRpcError>;
+    /** Runs the project's configured setup script in one of its worktrees. */
+    readonly setupWorktree: (
+      projectId: ProjectId,
+      path: string,
+    ) => Stream.Stream<WorktreeSetupFrame, OpenAdeRpcError>;
     /** The checkpoint refs that still exist for a thread, read in its root, oldest first. */
     readonly checkpoints: (
       projectId: ProjectId,
@@ -205,6 +233,10 @@ export class GitService extends Context.Service<
       commit: () => Effect.fail(gitUnavailable),
       push: () => Effect.fail(gitUnavailable),
       createPullRequest: () => Effect.fail(gitUnavailable),
+      createWorktree: () => Effect.fail(gitUnavailable),
+      listWorktrees: () => Effect.fail(gitUnavailable),
+      removeWorktree: () => Effect.fail(gitUnavailable),
+      setupWorktree: () => Stream.fail(gitUnavailable),
     }),
   );
 }

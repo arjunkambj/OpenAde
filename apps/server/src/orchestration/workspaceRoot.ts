@@ -61,7 +61,7 @@ export const resolveWorkspaceRoot = (
   });
 
 /** A path by its real location, so `/var/…` and `/private/var/…` compare equal. */
-const canonical = (path: string): string => {
+export const canonicalPath = (path: string): string => {
   try {
     return realpathSync(path);
   } catch {
@@ -78,7 +78,7 @@ const canonical = (path: string): string => {
  */
 export const workspaceRootBusy = (readModels: ReadModelStore["Service"], root: string) =>
   Effect.gen(function* () {
-    const target = canonical(root);
+    const target = canonicalPath(root);
     const docs = yield* readModels.listThreadDocs;
     const projects = new Map<ProjectId, ProjectDoc | null>();
     for (const doc of docs) {
@@ -88,9 +88,24 @@ export const workspaceRootBusy = (readModels: ReadModelStore["Service"], root: s
         project = yield* readModels.getProjectDoc(doc.projectId);
         projects.set(doc.projectId, project);
       }
-      if (project !== null && canonical(threadWorkspaceRoot(doc, project)) === target) {
+      if (project !== null && canonicalPath(threadWorkspaceRoot(doc, project)) === target) {
         return true;
       }
     }
     return false;
+  });
+
+/**
+ * Whether a thread that has not been deleted still works in the worktree at
+ * `path`. An archived thread counts: it can be unarchived, and its worktree
+ * has to be there when it is.
+ */
+export const worktreeInUse = (readModels: ReadModelStore["Service"], path: string) =>
+  Effect.gen(function* () {
+    const target = canonicalPath(path);
+    const docs = yield* readModels.listThreadDocs;
+    return docs.some((doc) => {
+      const worktree = doc.deleted ? null : worktreeOf(doc);
+      return worktree !== null && canonicalPath(worktree.path) === target;
+    });
   });

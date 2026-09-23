@@ -52,6 +52,7 @@ import { layer as gitCheckpointHookLayer } from "./git/CheckpointHook";
 import { layer as fileServiceLayer } from "./git/Files";
 import { layer as gitServiceLayer } from "./git/Git";
 import { GhRunner } from "./git/GitHubCli";
+import { WorktreesRoot } from "./git/Worktrees";
 import { writeHandshake } from "./rpc/bootstrap";
 import { serverLayer, ServerToken } from "./rpc/server";
 import { ServerIdentity, SettingsStore } from "./rpc/services";
@@ -224,7 +225,14 @@ export const boot = (options: BootOptions) =>
       sharedSettings,
       fileServiceLayer.pipe(Layer.provide(persistence)),
       directoryBrowserLayer,
-      gitServiceLayer.pipe(Layer.provide(Layer.mergeAll(persistence, GhRunner.layer))),
+      // `sharedSettings` again, not a second SettingsStore: one build memoizes
+      // it, so the prefix and setup scripts are read from the store the
+      // settings RPCs write.
+      gitServiceLayer.pipe(
+        Layer.provide(
+          Layer.mergeAll(persistence, GhRunner.layer, WorktreesRoot.layer, sharedSettings),
+        ),
+      ),
       attachments,
       browser,
       mcp,

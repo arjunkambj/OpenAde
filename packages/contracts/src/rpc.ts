@@ -35,6 +35,10 @@ import {
   GitCommitRpc,
   GitPullRequestCreateRpc,
   GitPushRpc,
+  GitWorktreeCreateRpc,
+  GitWorktreeListRpc,
+  GitWorktreeRemoveRpc,
+  GitWorktreeSetupRpc,
 } from "./git";
 import { ConnectorInstanceId, ProjectId, ThreadId, UuidV7 } from "./ids";
 import {
@@ -670,6 +674,10 @@ export const OpenAdeRpcGroup = RpcGroup.make(
   GitCommitRpc,
   GitPushRpc,
   GitPullRequestCreateRpc,
+  GitWorktreeCreateRpc,
+  GitWorktreeListRpc,
+  GitWorktreeRemoveRpc,
+  GitWorktreeSetupRpc,
   CheckpointsListRpc,
   BrowserSubscribeRpc,
   BrowserHumanInputRpc,

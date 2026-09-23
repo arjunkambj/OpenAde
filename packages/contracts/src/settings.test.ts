@@ -5,6 +5,7 @@ import * as Schema from "effect/Schema";
 import { DEFAULT_RUNTIME_MODE } from "./enums";
 import {
   ConnectorInstanceConfig,
+  DEFAULT_BRANCH_PREFIX,
   DEFAULT_FONT_SIZE,
   DEFAULT_KEYBINDINGS,
   Keybinding,
@@ -141,9 +142,11 @@ describe("settingsForm annotations", () => {
       expect(Object.keys(encoded as object).sort()).toEqual([
         "connectors",
         "defaults",
+        "git",
         "keybindings",
         "mainFontSize",
         "permissions",
+        "projectSettings",
         "sidebarFontSize",
         "theme",
       ]);
@@ -181,6 +184,44 @@ describe("font sizes", () => {
       const finer = { ...defaultSettings(), sidebarFontSize: 14.25 };
       const exit = yield* Effect.exit(Schema.decodeUnknownEffect(Settings)(finer));
       expect(exit._tag).toBe("Failure");
+    }),
+  );
+});
+
+describe("git settings", () => {
+  it.effect("default to the openade/ prefix and no project settings when a row predates them", () =>
+    Effect.gen(function* () {
+      const {
+        git: _git,
+        projectSettings: _projects,
+        ...older
+      } = Schema.encodeUnknownSync(Settings)(defaultSettings()) as Record<string, unknown>;
+      const decoded = yield* Schema.decodeUnknownEffect(Settings)(older);
+      expect(decoded.git).toEqual({ branchPrefix: DEFAULT_BRANCH_PREFIX });
+      expect(DEFAULT_BRANCH_PREFIX).toBe("openade/");
+      expect(decoded.projectSettings).toEqual({});
+    }),
+  );
+
+  it.effect("carry a project's setup script and an empty prefix through a round-trip", () =>
+    Effect.gen(function* () {
+      const settings = {
+        ...defaultSettings(),
+        git: { branchPrefix: "" },
+        projectSettings: { "0199c0de-0001-7000-8000-000000000001": { setupScript: "pnpm i" } },
+      };
+      const encoded = Schema.encodeUnknownSync(Settings)(settings);
+      const decoded = yield* Schema.decodeUnknownEffect(Settings)(encoded);
+      expect(decoded).toEqual(settings);
+    }),
+  );
+
+  it.effect("hide both from the generic form: a page of their own renders them", () =>
+    Effect.gen(function* () {
+      const fields = yield* Effect.sync(() => settingsFormFields(Settings));
+      const hidden = fields.filter((field) => field.control === "hidden").map((field) => field.key);
+      expect(hidden).toContain("git");
+      expect(hidden).toContain("projectSettings");
     }),
   );
 });

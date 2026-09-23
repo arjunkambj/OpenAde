@@ -56,5 +56,13 @@
       "decision": "deny",
       "createdAt": "2026-09-15T12:00:00.000Z"
     }
-  ]
+  ],
+  "git": {
+    "branchPrefix": "openade/"
+  },
+  "projectSettings": {
+    "0199c0de-0001-7000-8000-000000000001": {
+      "setupScript": "pnpm install"
+    }
+  }
 }

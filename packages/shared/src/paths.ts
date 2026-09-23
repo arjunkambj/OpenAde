@@ -3,7 +3,8 @@ import * as NodePath from "node:path";
 
 /**
  * Where OpenAde keeps everything it owns on disk: the SQLite database, the
- * generated Command Code hook script, the dev connection file. `~/.openade` by
+ * generated Command Code hook script, the threads' git worktrees, the dev
+ * connection file. `~/.openade` by
  * default; set `OPENADE_HOME` to point a test, a sandbox or a second install
  * somewhere else.
  */
@@ -34,6 +35,12 @@ export const databasePath = (env: Env = defaultEnv()): string => configPath(["st
 
 /** Directory for generated executables, such as the Command Code hook script. */
 export const binDir = (env: Env = defaultEnv()): string => configPath(["bin"], env);
+
+/**
+ * Where a thread's own git worktree is created:
+ * `<worktreesDir>/<project slug>/<thread slug>`.
+ */
+export const worktreesDir = (env: Env = defaultEnv()): string => configPath(["worktrees"], env);
 
 /** Dev-mode connection descriptor written by `apps/server` in dev mode. */
 export const devConnectionPath = (env: Env = defaultEnv()): string =>

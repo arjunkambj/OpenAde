@@ -1,0 +1,5 @@
+{
+  "kind": "exit",
+  "exitCode": null,
+  "signal": "SIGTERM"
+}

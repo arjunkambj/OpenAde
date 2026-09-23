@@ -197,6 +197,45 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<Keybinding> = [
   { command: "settings.open", shortcut: "Cmd+," },
 ];
 
+// ── Git and worktrees ──────────────────────────────────────────
+
+/** What a thread's worktree branch starts with unless the user says otherwise. */
+export const DEFAULT_BRANCH_PREFIX = "openade/";
+
+/**
+ * How OpenAde names the branches it cuts. A new worktree's branch is
+ * `branchPrefix` followed by a slug of the thread's first message; the prefix
+ * may hold `/` (`openade/`, `me/`) or be empty.
+ */
+export const GitSettings = Schema.Struct({
+  branchPrefix: Schema.String.pipe(
+    settingsForm({
+      label: "Branch prefix",
+      description: "Put in front of every branch a new worktree is created on.",
+      control: "text",
+      placeholder: DEFAULT_BRANCH_PREFIX,
+    }),
+  ),
+});
+export type GitSettings = typeof GitSettings.Type;
+
+/**
+ * One project's own settings. `setupScript` runs with `/bin/sh` in every new
+ * worktree of the project — `pnpm install`, copying an `.env` — and is only
+ * ever read from here, never taken from a client.
+ */
+export const ProjectSettings = Schema.Struct({
+  setupScript: Schema.optional(Schema.String).pipe(
+    settingsForm({
+      label: "Setup script",
+      description: "Runs in each new worktree of this project, before the first turn.",
+      control: "text",
+      placeholder: "pnpm install",
+    }),
+  ),
+});
+export type ProjectSettings = typeof ProjectSettings.Type;
+
 // ── The document ───────────────────────────────────────────────
 
 /** Follow the OS, or pin one appearance. */
@@ -279,6 +318,17 @@ export const Settings = Schema.Struct({
   permissions: Schema.Array(PermissionRule).pipe(
     settingsForm({ label: "Permission rules", control: "hidden" }),
   ),
+  // Defaulted on decode like the font sizes: rows written before these fields
+  // existed must still decode, not fall back to the whole default document.
+  git: GitSettings.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed({ branchPrefix: DEFAULT_BRANCH_PREFIX })),
+    settingsForm({ label: "Git", control: "hidden" }),
+  ),
+  /** Keyed by project id. A project with nothing configured has no entry. */
+  projectSettings: Schema.Record(Schema.String, ProjectSettings).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed({})),
+    settingsForm({ label: "Project settings", control: "hidden" }),
+  ),
 });
 export type Settings = typeof Settings.Type;
 
@@ -291,6 +341,8 @@ export const SettingsPatch = Schema.Struct({
   sidebarFontSize: Schema.optional(FontSize),
   keybindings: Schema.optional(Schema.Array(Keybinding)),
   permissions: Schema.optional(Schema.Array(PermissionRule)),
+  git: Schema.optional(GitSettings),
+  projectSettings: Schema.optional(Schema.Record(Schema.String, ProjectSettings)),
 });
 export type SettingsPatch = typeof SettingsPatch.Type;
 
@@ -306,4 +358,6 @@ export const defaultSettings = (): Settings => ({
   sidebarFontSize: DEFAULT_FONT_SIZE,
   keybindings: DEFAULT_KEYBINDINGS,
   permissions: [],
+  git: { branchPrefix: DEFAULT_BRANCH_PREFIX },
+  projectSettings: {},
 });

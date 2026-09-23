@@ -109,6 +109,12 @@ export const handlersLayer = OpenAdeRpcGroup.toLayer(
       "git.push": ({ projectId, threadId }) => git.push({ projectId, threadId }),
       "git.pullRequest.create": ({ projectId, threadId, title, body, base }) =>
         git.createPullRequest({ projectId, threadId }, { title, body, base }),
+      "git.worktree.create": ({ projectId, name, baseBranch }) =>
+        git.createWorktree(projectId, { name, baseBranch }),
+      "git.worktree.list": ({ projectId }) => git.listWorktrees(projectId),
+      "git.worktree.remove": ({ projectId, path, force }) =>
+        git.removeWorktree(projectId, { path, force: force ?? false }).pipe(Effect.as({})),
+      "git.worktree.setup": ({ projectId, path }) => git.setupWorktree(projectId, path),
       "checkpoints.list": ({ projectId, threadId }) => git.checkpoints(projectId, threadId),
 
       "browser.subscribe": ({ threadId }) => browser.subscribe(threadId),

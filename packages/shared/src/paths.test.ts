@@ -2,7 +2,14 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { binDir, configDir, configPath, databasePath, devConnectionPath } from "./paths";
+import {
+  binDir,
+  configDir,
+  configPath,
+  databasePath,
+  devConnectionPath,
+  worktreesDir,
+} from "./paths";
 
 describe("configDir", () => {
   it("defaults to ~/.openade", () => {
@@ -27,6 +34,7 @@ describe("well-known paths", () => {
     expect(configPath(["a", "b"], env)).toBe(NodePath.join(configDir(env), "a", "b"));
     expect(databasePath(env)).toBe(NodePath.join(configDir(env), "state.sqlite"));
     expect(binDir(env)).toBe(NodePath.join(configDir(env), "bin"));
+    expect(worktreesDir(env)).toBe(NodePath.join(configDir(env), "worktrees"));
     expect(devConnectionPath(env)).toBe(NodePath.join(configDir(env), "dev", "connection.json"));
   });
 });

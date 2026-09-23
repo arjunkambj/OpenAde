@@ -25,10 +25,11 @@ import * as Layer from "effect/Layer";
 import { runMigrations } from "../persistence/Migrations";
 import { testLayer as sqliteTestLayer } from "../persistence/Sqlite";
 import { ReadModelStore } from "../persistence/ReadModels";
-import { FileService, GitService } from "../rpc/services";
+import { FileService, GitService, SettingsStore } from "../rpc/services";
 import { layer as fileLayer } from "./Files";
 import { layer as gitLayer } from "./Git";
 import { GhRunner } from "./GitHubCli";
+import { WorktreesRoot } from "./Worktrees";
 import { make as checkpointStore } from "./CheckpointStore";
 import { GitError, run } from "./process";
 
@@ -67,7 +68,15 @@ const stack = (root: string) =>
     });
     const servicesContext = yield* Layer.build(
       Layer.mergeAll(gitLayer, fileLayer).pipe(
-        Layer.provide(Layer.mergeAll(Layer.succeedContext(rmContext), GhRunner.layer)),
+        Layer.provide(
+          Layer.mergeAll(
+            Layer.succeedContext(rmContext),
+            GhRunner.layer,
+            SettingsStore.layer.pipe(Layer.provide(sqlite)),
+            // No test here cuts a worktree, so nothing is created under it.
+            Layer.succeed(WorktreesRoot, { path: nodePath.join(tmpdir(), "openade-no-worktrees") }),
+          ),
+        ),
       ),
     );
     return {

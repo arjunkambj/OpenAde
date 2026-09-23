@@ -789,6 +789,7 @@ Everything OpenAde owns hangs off `configDir()` — `~/.openade`, or
 ├── state.sqlite            event log, projections, settings, permissions
 ├── desktop.json            shell preferences read before Electron is ready
 ├── attachments/            staged uploads
+├── worktrees/<project>/<slug>/  threads' own git worktrees
 ├── bin/
 │   ├── cmd-hook.mjs        generated PreToolUse hook script
 │   └── tickets/<id>.ticket per-session bearer, mode 0600

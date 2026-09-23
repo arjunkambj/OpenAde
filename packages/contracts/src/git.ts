@@ -1,6 +1,6 @@
 /**
  * The git shapes a thread and the git RPCs share, and the branch, commit,
- * push and pull-request RPCs.
+ * push, pull-request and worktree RPCs.
  *
  * Kept apart from `rpc.ts` so the branch, commit and worktree surface can grow
  * without pushing the RPC group past its size limit: the RPCs are defined
@@ -100,6 +100,39 @@ export const GitPullRequestResult = Schema.Struct({
 });
 export type GitPullRequestResult = typeof GitPullRequestResult.Type;
 
+// ── Worktrees ──────────────────────────────────────────────────
+
+/**
+ * One worktree of a repository, as `git worktree list` reports it. `isMain` is
+ * the repository's own checkout — the project's root — which is never
+ * removed. `branch` is `null` on a detached HEAD; `head` is the commit
+ * checked out.
+ */
+export const GitWorktreeInfo = Schema.Struct({
+  path: NonEmptyString,
+  branch: Schema.NullOr(NonEmptyString),
+  head: NonEmptyString,
+  isMain: Schema.Boolean,
+});
+export type GitWorktreeInfo = typeof GitWorktreeInfo.Type;
+
+/**
+ * One frame of a new worktree's setup script run. `skipped` is the only frame
+ * when the project has no script. Otherwise `output` frames carry stdout and
+ * stderr as they arrive, interleaved, and `exit` ends the stream: `exitCode`
+ * is `null` when the script was killed, with the `signal` that did it.
+ */
+export const WorktreeSetupFrame = Schema.Union([
+  Schema.Struct({ kind: Schema.Literal("skipped") }),
+  Schema.Struct({ kind: Schema.Literal("output"), text: Schema.String }),
+  Schema.Struct({
+    kind: Schema.Literal("exit"),
+    exitCode: Schema.NullOr(Schema.Int),
+    signal: Schema.optional(NonEmptyString),
+  }),
+]);
+export type WorktreeSetupFrame = typeof WorktreeSetupFrame.Type;
+
 // ── Method names and RPCs ──────────────────────────────────────
 
 /** Spread into `RPC_METHODS`, so the names stay in the one table. */
@@ -110,6 +143,10 @@ export const GIT_RPC_METHODS = {
   gitCommit: "git.commit",
   gitPush: "git.push",
   gitPullRequestCreate: "git.pullRequest.create",
+  gitWorktreeCreate: "git.worktree.create",
+  gitWorktreeList: "git.worktree.list",
+  gitWorktreeRemove: "git.worktree.remove",
+  gitWorktreeSetup: "git.worktree.setup",
 } as const;
 
 /** The branches of the thread's root when `threadId` is set, the project's otherwise. */
@@ -195,4 +232,58 @@ export const GitPullRequestCreateRpc = Rpc.make(GIT_RPC_METHODS.gitPullRequestCr
   }),
   success: GitPullRequestResult,
   error: OpenAdeRpcError,
+});
+
+/**
+ * Creates a worktree for a new thread: branch `<branchPrefix><slug of name>`
+ * cut `--no-track` from `baseBranch` (default: the default branch), in
+ * `<OpenAde home>/worktrees/<project>/<slug>`, with `-2`, `-3`… appended when
+ * the branch or the directory is taken. `name` is free text — the thread's
+ * first message will do. Answers what `thread.create` records as its
+ * `worktree`.
+ */
+export const GitWorktreeCreateRpc = Rpc.make(GIT_RPC_METHODS.gitWorktreeCreate, {
+  payload: Schema.Struct({
+    projectId: ProjectId,
+    name: NonEmptyString,
+    baseBranch: Schema.optional(NonEmptyString),
+  }),
+  success: ThreadWorktree,
+  error: OpenAdeRpcError,
+});
+
+/** Every worktree of the project's repository, its own checkout first. */
+export const GitWorktreeListRpc = Rpc.make(GIT_RPC_METHODS.gitWorktreeList, {
+  payload: Schema.Struct({ projectId: ProjectId }),
+  success: Schema.Array(GitWorktreeInfo),
+  error: OpenAdeRpcError,
+});
+
+/**
+ * Removes one of the project's worktrees; its branch is kept, so committed
+ * work survives. `invalid` for a path that is not one of them (or is the
+ * project's own checkout), `conflict` while a thread still works in it, and
+ * `conflict` when it holds uncommitted or untracked work — `force` removes it
+ * anyway.
+ */
+export const GitWorktreeRemoveRpc = Rpc.make(GIT_RPC_METHODS.gitWorktreeRemove, {
+  payload: Schema.Struct({
+    projectId: ProjectId,
+    path: NonEmptyString,
+    force: Schema.optional(Schema.Boolean),
+  }),
+  success: Schema.Struct({}),
+  error: OpenAdeRpcError,
+});
+
+/**
+ * Runs the project's setup script (from the settings document, never from the
+ * client) in one of its worktrees, streaming the output. Ending the stream
+ * early kills the script and everything it started.
+ */
+export const GitWorktreeSetupRpc = Rpc.make(GIT_RPC_METHODS.gitWorktreeSetup, {
+  payload: Schema.Struct({ projectId: ProjectId, path: NonEmptyString }),
+  success: WorktreeSetupFrame,
+  error: OpenAdeRpcError,
+  stream: true,
 });

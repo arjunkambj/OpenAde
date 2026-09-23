@@ -28,9 +28,10 @@ import { foldThread } from "../orchestration/state";
 import { runMigrations } from "../persistence/Migrations";
 import { ReadModelStore } from "../persistence/ReadModels";
 import { testLayer as sqliteTestLayer } from "../persistence/Sqlite";
-import { GitService } from "../rpc/services";
+import { GitService, SettingsStore } from "../rpc/services";
 import { layer as gitLayer } from "./Git";
 import { GhRunner } from "./GitHubCli";
+import { WorktreesRoot } from "./Worktrees";
 
 const git = (cwd: string, ...args: Array<string>) =>
   execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
@@ -125,7 +126,17 @@ const stack = (root: string) =>
         return threadId;
       });
     const services = yield* Layer.build(
-      gitLayer.pipe(Layer.provide(Layer.mergeAll(Layer.succeedContext(rmContext), GhRunner.layer))),
+      gitLayer.pipe(
+        Layer.provide(
+          Layer.mergeAll(
+            Layer.succeedContext(rmContext),
+            GhRunner.layer,
+            SettingsStore.layer.pipe(Layer.provide(sqlite)),
+            // No test here cuts a worktree, so nothing is created under it.
+            Layer.succeed(WorktreesRoot, { path: nodePath.join(tmpdir(), "openade-no-worktrees") }),
+          ),
+        ),
+      ),
     );
     return { projectId, addRunningThread, git: Context.get(services, GitService) };
   });

@@ -1,12 +1,14 @@
 /**
  * The real `GitService` behind the `git.status`/`git.diff`/`checkpoints.list`,
- * branch, commit, push and pull-request RPCs: argv-form git over
+ * branch, commit, push, pull-request and worktree RPCs: argv-form git over
  * `process.ts`, porcelain-v2 parsing for status, and unified patches split per
  * file for the changes pane. Branch listing, creation and switching live in
  * `Branches.ts`, commit and push in `Commits.ts`, pull requests in
- * `GitHubCli.ts`; this layer resolves the root and adds the one guard that
- * needs the read models — no switch or commit while a turn runs in the same
- * root. Each call runs in the thread's own root
+ * `GitHubCli.ts`, worktrees in `Worktrees.ts` and the setup script in
+ * `SetupScript.ts`; this layer resolves the root, reads the settings those
+ * need, and adds the guards that need the read models — no switch or commit
+ * while a turn runs in the same root, no removing a worktree a thread still
+ * works in. Each call runs in the thread's own root
  * when it names a thread (see `orchestration/workspaceRoot.ts`). A missing
  * `projectId` or a non-repository root answers `isRepository: false` with
  * empty results rather than an RPC error, so the pane can say "not a git
@@ -15,16 +17,22 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
+import type { ProjectId } from "@OpenAde/contracts/ids";
 import type { GitDiff, GitDiffFile, GitFileChange, GitStatus } from "@OpenAde/contracts/rpc";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Stream from "effect/Stream";
 
 import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
 
 import { worktreeOf } from "../orchestration/state";
-import { resolveWorkspaceRoot, workspaceRootBusy } from "../orchestration/workspaceRoot";
+import {
+  resolveWorkspaceRoot,
+  workspaceRootBusy,
+  worktreeInUse,
+} from "../orchestration/workspaceRoot";
 import { ReadModelStore } from "../persistence/ReadModels";
-import { GitService, type WorkspaceScope } from "../rpc/services";
+import { GitService, SettingsStore, type WorkspaceScope } from "../rpc/services";
 import {
   checkoutBranch,
   createBranch,
@@ -37,6 +45,14 @@ import { make as checkpointStore } from "./CheckpointStore";
 import { commit, push } from "./Commits";
 import { createPullRequest, GhRunner } from "./GitHubCli";
 import { GitError, isRepository, run } from "./process";
+import { runSetupScript } from "./SetupScript";
+import {
+  createWorktree,
+  listWorktrees,
+  registeredWorktree,
+  removeWorktree,
+  WorktreesRoot,
+} from "./Worktrees";
 
 const toRpcError = (error: GitError) =>
   new OpenAdeRpcError({ code: "internal", message: error.message });
@@ -261,6 +277,8 @@ export const layer = Layer.effect(
   Effect.gen(function* () {
     const readModels = yield* ReadModelStore;
     const gh = yield* GhRunner;
+    const settings = yield* SettingsStore;
+    const worktreesRoot = yield* WorktreesRoot;
 
     /** The thread's root when the scope names one, the project's otherwise. */
     const workspaceRoot = (scope: WorkspaceScope) =>
@@ -291,6 +309,33 @@ export const layer = Layer.effect(
           );
         }
         return root;
+      });
+
+    /**
+     * The project itself, when its root is a repository. Worktree RPCs always
+     * run from the project's root: that is the repository every one of its
+     * worktrees is registered with.
+     */
+    const projectRepository = (projectId: ProjectId) =>
+      Effect.gen(function* () {
+        const project = yield* readModels
+          .getProjectDoc(projectId)
+          .pipe(
+            Effect.mapError(
+              (error) => new OpenAdeRpcError({ code: "internal", message: error.message }),
+            ),
+          );
+        if (project === null || project.removed) {
+          return yield* Effect.fail(
+            new OpenAdeRpcError({ code: "not-found", message: "unknown project" }),
+          );
+        }
+        if (!(yield* isRepository(project.workspaceRoot))) {
+          return yield* Effect.fail(
+            new OpenAdeRpcError({ code: "invalid", message: "not a git repository" }),
+          );
+        }
+        return project;
       });
 
     /** No branch switch or commit under a running turn or a checkpoint restore in the same root. */
@@ -456,6 +501,64 @@ export const layer = Layer.effect(
             body: options.body,
           });
         }).pipe(Effect.mapError(asRpcError)),
+
+      createWorktree: (projectId, options) =>
+        Effect.gen(function* () {
+          const project = yield* projectRepository(projectId);
+          const { git: gitSettings } = yield* settings.get;
+          return yield* createWorktree(project.workspaceRoot, {
+            worktreesRoot: worktreesRoot.path,
+            projectName: project.name,
+            branchPrefix: gitSettings.branchPrefix,
+            name: options.name,
+            baseBranch: options.baseBranch,
+          });
+        }).pipe(Effect.mapError(asRpcError)),
+
+      listWorktrees: (projectId) =>
+        Effect.gen(function* () {
+          const project = yield* projectRepository(projectId);
+          return yield* listWorktrees(project.workspaceRoot);
+        }).pipe(Effect.mapError(asRpcError)),
+
+      removeWorktree: (projectId, options) =>
+        Effect.gen(function* () {
+          const project = yield* projectRepository(projectId);
+          const worktree = yield* registeredWorktree(project.workspaceRoot, options.path);
+          const inUse = yield* worktreeInUse(readModels, worktree.path).pipe(
+            Effect.mapError(
+              (error) => new OpenAdeRpcError({ code: "internal", message: error.message }),
+            ),
+          );
+          if (inUse) {
+            return yield* Effect.fail(
+              new OpenAdeRpcError({
+                code: "conflict",
+                message: "A thread still works in this worktree — delete the thread first.",
+              }),
+            );
+          }
+          yield* removeWorktree(project.workspaceRoot, worktree, options.force);
+        }).pipe(Effect.mapError(asRpcError)),
+
+      setupWorktree: (projectId, path) =>
+        Stream.unwrap(
+          Effect.gen(function* () {
+            const project = yield* projectRepository(projectId);
+            const worktree = yield* registeredWorktree(project.workspaceRoot, path);
+            // From the settings document only: a client names the worktree,
+            // never the command that runs in it.
+            const script = (yield* settings.get).projectSettings[projectId]?.setupScript ?? "";
+            if (script.trim() === "") {
+              return Stream.make({ kind: "skipped" as const });
+            }
+            return runSetupScript({
+              script,
+              cwd: worktree.path,
+              projectRoot: project.workspaceRoot,
+            });
+          }).pipe(Effect.mapError(asRpcError)),
+        ),
 
       /**
        * The refs that are actually there. The timeline's checkpoint list is a

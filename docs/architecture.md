@@ -318,19 +318,19 @@ first client may connect. Two things about it are load-bearing:
 
 Directories, relative to `apps/server/`:
 
-| Path                 | What lives there                                                                   |
-| -------------------- | ---------------------------------------------------------------------------------- |
-| `src/persistence/`   | `Sqlite`, `EventStore`, `ReadModels`, `Migrations`, `migrations/*`                 |
-| `src/orchestration/` | decider, engine, state fold, reactors, session manager and supervisor, live buffer |
-| `src/rpc/`           | WebSocket transport, handlers, service tags, handshake, origin check               |
-| `src/permissions/`   | the ladder, the pattern re-export, the sensitive-path list                         |
-| `src/hooks/`         | the PreToolUse bridge                                                              |
-| `src/mcp/`           | the MCP gateway and its HTTP routes                                                |
-| `src/browser/`       | browser service, agent-browser CLI, driver, tool catalogue                         |
-| `src/git/`           | status/diff, branches, commit/push, gh pull requests, file search, checkpoints     |
-| `src/fs/`            | `fs.browse`                                                                        |
-| `src/settings/`      | settings store users, connector manager and host, connector extension routing      |
-| `src/attachments/`   | the staging store and its reactor                                                  |
+| Path                 | What lives there                                                                                                 |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `src/persistence/`   | `Sqlite`, `EventStore`, `ReadModels`, `Migrations`, `migrations/*`                                               |
+| `src/orchestration/` | decider, engine, state fold, reactors, session manager and supervisor, live buffer                               |
+| `src/rpc/`           | WebSocket transport, handlers, service tags, handshake, origin check                                             |
+| `src/permissions/`   | the ladder, the pattern re-export, the sensitive-path list                                                       |
+| `src/hooks/`         | the PreToolUse bridge                                                                                            |
+| `src/mcp/`           | the MCP gateway and its HTTP routes                                                                              |
+| `src/browser/`       | browser service, agent-browser CLI, driver, tool catalogue                                                       |
+| `src/git/`           | status/diff, branches, commit/push, gh pull requests, worktrees and their setup script, file search, checkpoints |
+| `src/fs/`            | `fs.browse`                                                                                                      |
+| `src/settings/`      | settings store users, connector manager and host, connector extension routing                                    |
+| `src/attachments/`   | the staging store and its reactor                                                                                |
 
 Public seam: the RPC group in `packages/contracts/src/rpc.ts` and the three
 loopback HTTP routes. May import `contracts`, `connector-sdk` and `shared`;
@@ -348,9 +348,10 @@ enabled one.
 Every wire shape, as `effect/Schema` codecs. Modules: `base`, `ids`, `enums`,
 `runtime`, `orchestration`, `decisions`, `git`, `settings`, `connectors`,
 `rpc`. `git` holds `ThreadWorktree`, the worktree a thread was created in,
-and the branch, commit, push and pull-request RPCs with their shapes
-(`GitBranch`, `GitBranchList`, `GitCommitResult`, `GitPushResult`,
-`GitPullRequestResult`); they are
+and the branch, commit, push, pull-request and worktree RPCs with their
+shapes (`GitBranch`, `GitBranchList`, `GitCommitResult`, `GitPushResult`,
+`GitPullRequestResult`, `GitWorktreeInfo`, and the `WorktreeSetupFrame` union
+the setup script streams); they are
 defined there rather than in `rpc.ts`, their names are spread into
 `RPC_METHODS`, and `rpc.ts` lists them in the group. `OpenAdeRpcError` lives in
 `rpcError.ts` so `git` can name it without an import cycle, and `rpc`
@@ -467,7 +468,8 @@ Dependency-light helpers both sides need: `ids.ts` (UUIDv7), `paths.ts`
 parser and matcher, shared so the renderer previews an "allow always" rule with
 the exact semantics the server enforces), `imageBytes.ts` (magic-byte sniffing
 and the attachment size cap), `decisionSubject.ts` (the one-line subject a
-resolved decision is recorded with, shared so both folds write the same words). Imports no workspace package at all.
+resolved decision is recorded with, shared so both folds write the same words),
+`branchSlug.ts` (the slug a worktree's branch and directory are named with). Imports no workspace package at all.
 
 ### packages/ui
 
@@ -586,6 +588,19 @@ read the project's root, and a thread of another project is ignored).
 Checkpoint prune is the one exception and stays on the project's root: the
 hidden refs are shared by every worktree of a repository, and a deleted
 thread's worktree may already be gone.
+
+A worktree comes from `git.worktree.create` (`apps/server/src/git/Worktrees.ts`)
+before the thread is created: a branch named from the settings document's
+`git.branchPrefix` (default `openade/`) and a slug of the thread's first
+message, cut `--no-track` from the chosen base, in
+`~/.openade/worktrees/<project slug>/<slug>` — never inside the user's
+repository. The directory root is the `WorktreesRoot` service, which `boot`
+points at `worktreesDir()` and a test at a tmp directory. The settings
+document's `projectSettings` holds each project's optional `setupScript`,
+which `git.worktree.setup` runs there; both keys are defaulted on decode, so a
+settings row written before them still reads. Removing a worktree and running
+the script in one both take the path only when it is a registered, non-main
+worktree of the project's repository.
 
 `decisions` is on the wire: one `ResolvedDecision` per settled approval,
 question or plan, oldest first — its kind, the request id (the turn id for a
@@ -1332,6 +1347,10 @@ the client in the terminal `incompatible` state.
 | `git.commit`                  | call   | Commits all changes or chosen paths as the user; `conflict` on nothing staged       |
 | `git.push`                    | call   | Pushes the current branch, `-u` to its remote on the first push                     |
 | `git.pullRequest.create`      | call   | Opens (or finds) the branch's pull request with `gh`; `unavailable` without gh      |
+| `git.worktree.create`         | call   | Cuts a new thread's worktree and branch under the OpenAde home                      |
+| `git.worktree.list`           | call   | The repository's worktrees, the project's own checkout first                        |
+| `git.worktree.remove`         | call   | Removes one, keeping its branch; `conflict` on unsaved work unless `force`          |
+| `git.worktree.setup`          | stream | Runs the project's setup script (from settings) in a worktree, streaming its output |
 | `checkpoints.list`            | call   | Checkpoints that still exist as refs, read in the thread's root                     |
 | `browser.subscribe`           | stream | The browser pane's state, and frames when the browser is ours                       |
 | `browser.humanInput`          | call   | A human gesture into the browser the agent is driving                               |
@@ -1569,13 +1588,14 @@ gate, which asks the ladder and, on `prompt`, opens the card.
 (`packages/shared/src/paths.ts`). `boot` sets that variable process-wide before
 anything resolves a path, and connector children inherit it.
 
-| Path                                 | What it is                                  |
-| ------------------------------------ | ------------------------------------------- |
-| `~/.openade/state.sqlite`            | the event log, projections, settings, rules |
-| `~/.openade/bin/cmd-hook.mjs`        | the generated PreToolUse hook script        |
-| `~/.openade/bin/tickets/<id>.ticket` | a session's hook bearer, 0600               |
-| `~/.openade/attachments/<threadId>/` | staged composer images                      |
-| `~/.openade/dev/connection.json`     | the dev handshake, 0600, dev mode only      |
+| Path                                    | What it is                                  |
+| --------------------------------------- | ------------------------------------------- |
+| `~/.openade/state.sqlite`               | the event log, projections, settings, rules |
+| `~/.openade/bin/cmd-hook.mjs`           | the generated PreToolUse hook script        |
+| `~/.openade/bin/tickets/<id>.ticket`    | a session's hook bearer, 0600               |
+| `~/.openade/attachments/<threadId>/`    | staged composer images                      |
+| `~/.openade/worktrees/<project>/<slug>` | a thread's own git worktree                 |
+| `~/.openade/dev/connection.json`        | the dev handshake, 0600, dev mode only      |
 
 Attachments are references, never bytes, in the event log: an inlined screenshot
 would be re-sent on every replay and to every client. The bytes cross the wire
