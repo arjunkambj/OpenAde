@@ -2,7 +2,8 @@
  * The Models page: `defaults` (model, effort, runtime mode) — what a new
  * thread starts with — rendered by `StructForm` off the schema's
  * `settingsForm` annotations. Model options come from every enabled
- * connector's probe, effort and runtime mode from their contract enums.
+ * connector instance (`modelCatalogAtom`), each labelled with the instance it
+ * is listed under; effort and runtime mode from their contract enums.
  *
  * With no default model saved, the picker shows the first listed model: that
  * is the one the server seeds a new thread with (`seedModel`), so the page
@@ -28,11 +29,21 @@ const enumOptions = (literals: ReadonlyArray<string>): ReadonlyArray<SelectOptio
 export function ModelsPanel() {
   const atoms = useAppAtoms();
   const settingsResult = useAtomValue(atoms.settingsAtom);
-  const modelsResult = useAtomValue(atoms.allModelsAtom);
+  const catalogResult = useAtomValue(atoms.modelCatalogAtom);
   const updateSettings = useAtomSet(atoms.settingsUpdateAtom, { mode: "promiseExit" });
 
   const settings = AsyncResult.isSuccess(settingsResult) ? settingsResult.value : null;
-  const models = AsyncResult.isSuccess(modelsResult) ? modelsResult.value : [];
+  const catalog = AsyncResult.isSuccess(catalogResult) ? catalogResult.value : [];
+  // The default is a bare model id, so an id two instances both list is one
+  // option — under the first instance that lists it.
+  const modelOptions: ReadonlyArray<SelectOption> = catalog
+    .flatMap(({ connector, models }) =>
+      models.map((model) => ({
+        value: model.id,
+        label: `${connector.displayName} · ${model.label}`,
+      })),
+    )
+    .filter((option, index, all) => all.findIndex((o) => o.value === option.value) === index);
 
   if (settings === null) {
     return <p className="text-sm text-muted-foreground">Loading settings…</p>;
@@ -58,7 +69,7 @@ export function ModelsPanel() {
 
   const shown = {
     ...settings.defaults,
-    model: settings.defaults.model ?? models[0]?.id ?? null,
+    model: settings.defaults.model ?? modelOptions[0]?.value ?? null,
   };
 
   return (
@@ -77,10 +88,7 @@ export function ModelsPanel() {
             optionsFor={(key) => {
               switch (key) {
                 case "model":
-                  return models.map((model) => ({
-                    value: model.id,
-                    label: `${model.family} · ${model.label}`,
-                  }));
+                  return modelOptions;
                 case "effort":
                   return enumOptions(Effort.literals);
                 case "runtimeMode":

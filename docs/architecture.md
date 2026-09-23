@@ -339,6 +339,10 @@ Everything a client needs that is not React.
   `ThreadDetailSnapshot`, `ThreadListStreamItem`s onto a summary array. A
   projection of the server's projection; it decides nothing.
 - `atoms.ts`, `gitAtoms.ts`, `fileAtoms.ts`, `fsAtoms.ts` — the atom factories.
+- `connectorAtoms.ts` — `modelCatalogAtom`, every enabled connector instance
+  with its models in `connectors.list` order, which the model pickers and the
+  Models settings page read. It follows `connectorsAtom`, and an instance whose
+  `connectors.models` fails lists no models without emptying the others.
 - `resolver.ts`, `desktop.ts` — how a client finds its server and its shell.
 - `composerTrigger.ts`, `keybindings.ts` — shared input logic.
 
@@ -548,7 +552,9 @@ rule. The choice can change only until the thread has a bound session, a
 running turn or a user message — `threadLocksConnector` in the contracts is that
 rule, read by the decider (which rejects a change after it, suggesting a new
 thread) and by the renderer's picker alike. The field is routing, not a session
-setting: the reactor strips it before `handle.updateSettings`.
+setting: the reactor strips it before `handle.updateSettings`. The renderer's
+model picker is where the choice is made: one section per enabled instance, and
+a pick sends the instance with the model.
 
 ### Reactors
 

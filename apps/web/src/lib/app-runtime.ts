@@ -6,18 +6,14 @@
  * query/mutation atoms the settings pages need that the
  * shared client runtime does not carry, built once on top of that instance.
  * Atoms the shared runtime already publishes — `skillsAtom`,
- * `connectorModelsAtom`, `keybindingsAtom`, `keybindingsUpdateAtom` — are
+ * `connectorModelsAtom`, `modelCatalogAtom`, `keybindingsAtom`,
+ * `keybindingsUpdateAtom` — are
  * re-exported through the same bag rather than redefined here.
  */
 
 import { Connection } from "@OpenAde/client-runtime/connection";
 import type { ProjectId } from "@OpenAde/contracts/ids";
-import type {
-  AgentSkill,
-  McpServerConfig,
-  McpServerScope,
-  ModelOption,
-} from "@OpenAde/contracts/rpc";
+import type { AgentSkill, McpServerConfig, McpServerScope } from "@OpenAde/contracts/rpc";
 import type { SettingsPatch } from "@OpenAde/contracts/settings";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
@@ -120,30 +116,6 @@ const makeSettingsAtoms = (base: BaseAppAtoms) => {
     }),
   );
 
-  /**
-   * Every model every enabled instance advertises — the default-model picker
-   * on the Models page. `family` carries the instance name so duplicates
-   * across connectors stay distinct.
-   */
-  const allModelsAtom = runtime.atom(
-    Effect.gen(function* () {
-      const c = yield* client;
-      const summaries = yield* c["connectors.list"]({});
-      const perInstance = yield* Effect.forEach(
-        summaries.filter((summary) => summary.enabled),
-        (summary) =>
-          c["connectors.models"]({ instanceId: summary.connectorInstanceId }).pipe(
-            Effect.map((models) =>
-              models.map((model): ModelOption => ({ ...model, family: summary.displayName })),
-            ),
-            Effect.orElseSucceed((): ReadonlyArray<ModelOption> => []),
-          ),
-      );
-      return perInstance.flat();
-    }),
-    { initialValue: [] as ReadonlyArray<ModelOption> },
-  );
-
   return {
     ...base,
     settingsUpdateAtom,
@@ -153,7 +125,6 @@ const makeSettingsAtoms = (base: BaseAppAtoms) => {
     mcpRemoveAtom,
     agentSkillsAtom,
     skillsLinkAtom,
-    allModelsAtom,
   };
 };
 

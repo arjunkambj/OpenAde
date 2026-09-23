@@ -358,6 +358,19 @@ that, and binding it to emptying the textarea would throw away the sentence the
 user was writing while keeping every token they meant to drop. `@` searches the
 project's files through `files.search` and inserts a chip.
 
+The model picker, on the start screen and in the thread header, has one
+section per enabled connector instance (`modelCatalogAtom`), headed by the
+instance's name and its connector's generic icon, in the connectors page's
+order. Picking a model picks its instance too: the start screen sends both on
+`thread.create`, the header on `thread.settings.update`. Until the user picks,
+a new thread shows the saved default model under the first instance that lists
+it, else the first enabled instance's first model. Once the thread has run
+anything (`threadLocksConnector`), the other instances' sections stay listed but
+disabled, with a tooltip saying to start a new thread. The instance a thread
+runs on, or would, is `threadConnectorInstanceId`
+(`apps/web/src/lib/connector-routing.ts`): the bound session's, else the
+thread's chosen one while it is enabled, else the first enabled one.
+
 `/effort` and `/mode` offer what the header pickers offer. Efforts are the
 current model's `efforts`, or the whole ladder when it states none, always
 lowest first in the contract's `EFFORT_ORDER` (`apps/web/src/lib/efforts.ts`).

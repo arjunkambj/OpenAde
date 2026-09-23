@@ -10,10 +10,12 @@
  * disappears from the interaction picker when the connector cannot plan. A
  * thread with no bound session reports no capabilities, in which case model
  * and effort behave as per-turn — that is what a fresh session consumes. The
- * model *list* does not wait for that binding: it comes from the instance the
- * thread would route to (`@/lib/connector-routing`), and so do the runtime
- * modes on offer (`@/lib/runtime-modes`). Efforts read lowest first in the
- * contract's order (`@/lib/efforts`).
+ * model picker lists every enabled instance's models (`./model-picker`); the
+ * instance the thread runs on, or would (`@/lib/connector-routing`), decides
+ * which section is current and which runtime modes are on offer
+ * (`@/lib/runtime-modes`). Once the thread has run anything, the other
+ * sections are disabled. Efforts read lowest first in the contract's order
+ * (`@/lib/efforts`).
  */
 
 import { Button } from "@OpenAde/ui/components/button";
@@ -32,21 +34,24 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@OpenAde/ui/components/tooltip";
+import type { ConnectorModels } from "@OpenAde/client-runtime/connectorAtoms";
 import { DEFAULT_RUNTIME_MODE, type Effort, RuntimeMode } from "@OpenAde/contracts/enums";
 import { makeCommandId } from "@OpenAde/contracts/ids";
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import type { ThreadSettingsPatch } from "@OpenAde/contracts/orchestration";
-import type { ModelOption } from "@OpenAde/contracts/rpc";
+import type { ConnectorInstanceId, ThreadId } from "@OpenAde/contracts/ids";
+import { threadLocksConnector, type ThreadSettingsPatch } from "@OpenAde/contracts/orchestration";
 import type { CapabilitySwitch } from "@OpenAde/contracts/runtime";
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 
 import { useClientRuntime } from "@/lib/client-runtime";
-import { routedCapabilities, routedConnectorInstanceId } from "@/lib/connector-routing";
+import { instanceCapabilities, threadConnectorInstanceId } from "@/lib/connector-routing";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
 import { orderEfforts } from "@/lib/efforts";
+import { findModel } from "@/lib/model-picks";
 import { RUNTIME_MODE_LABELS, runtimeModeOptions } from "@/lib/runtime-modes";
-import { type HoneyIcon, Brain, Lightning, ListChecks, Lock } from "@honeyicons/react";
+import { type HoneyIcon, Lightning, ListChecks, Lock } from "@honeyicons/react";
+
+import { ModelPicker } from "./model-picker";
 
 interface HeaderOption {
   readonly value: string;
@@ -146,8 +151,7 @@ export function HeaderControls({
   readonly threadId: ThreadId;
   readonly className?: string;
 }) {
-  const { threadDetailAtom, connectorsAtom, connectorModelsAtom, dispatchAtom } =
-    useClientRuntime();
+  const { threadDetailAtom, connectorsAtom, modelCatalogAtom, dispatchAtom } = useClientRuntime();
   const docResult = useAtomValue(threadDetailAtom(threadId));
   const doc = AsyncResult.isSuccess(docResult) ? docResult.value : null;
   const connectorsResult = useAtomValue(connectorsAtom);
@@ -159,15 +163,17 @@ export function HeaderControls({
   const boundInstanceId = doc?.session?.connectorInstanceId ?? null;
   const capabilities =
     connectors.find((c) => c.connectorInstanceId === boundInstanceId)?.capabilities ?? null;
-  // The model list, though, is the instance this thread *would* run on — see
-  // `@/lib/connector-routing`. Without it a thread that has not run a turn yet
-  // offered a picker holding nothing but the raw current model id.
-  const modelsResult = useAtomValue(
-    connectorModelsAtom(routedConnectorInstanceId(boundInstanceId, connectors)),
+  // Which section of the model picker is the thread's, though, is the
+  // instance it runs on or *would* — see `@/lib/connector-routing` — and what
+  // that harness can honour is known before any session is bound.
+  const instanceId = threadConnectorInstanceId(
+    boundInstanceId,
+    doc?.settings.connectorInstanceId,
+    connectors,
   );
-  const models = AsyncResult.isSuccess(modelsResult) ? modelsResult.value : [];
-  // What the harness can honour is known before any session is bound.
-  const runtimeModes = runtimeModeOptions(routedCapabilities(boundInstanceId, connectors));
+  const catalogResult = useAtomValue(modelCatalogAtom);
+  const catalog = AsyncResult.isSuccess(catalogResult) ? catalogResult.value : [];
+  const runtimeModes = runtimeModeOptions(instanceCapabilities(instanceId, connectors));
 
   const [error, setError] = React.useState<string | null>(null);
 
@@ -196,7 +202,9 @@ export function HeaderControls({
     <div className={className}>
       <ThreadSettingsControls
         settings={doc.settings}
-        models={models}
+        catalog={catalog}
+        connectorInstanceId={instanceId}
+        locked={threadLocksConnector(doc)}
         modelSwitch={capabilities?.modelSwitch ?? "per-turn"}
         effortSwitch={capabilities?.effortSwitch ?? "per-turn"}
         canPlan={capabilities?.planMode ?? true}
@@ -214,7 +222,9 @@ export function HeaderControls({
 
 export function ThreadSettingsControls({
   settings,
-  models,
+  catalog,
+  connectorInstanceId,
+  locked = false,
   modelSwitch = "next-turn",
   effortSwitch = "next-turn",
   canPlan = true,
@@ -222,7 +232,12 @@ export function ThreadSettingsControls({
   onChange,
 }: {
   readonly settings: ThreadSettingsPatch;
-  readonly models: ReadonlyArray<ModelOption>;
+  /** Every enabled instance's models, one picker section each. */
+  readonly catalog: ReadonlyArray<ConnectorModels>;
+  /** The instance the thread runs on, or would; `null` when none is enabled. */
+  readonly connectorInstanceId: ConnectorInstanceId | null;
+  /** The thread has run something: other instances show, disabled. */
+  readonly locked?: boolean;
   readonly modelSwitch?: CapabilitySwitch | "next-turn";
   readonly effortSwitch?: CapabilitySwitch | "next-turn";
   readonly canPlan?: boolean;
@@ -230,13 +245,10 @@ export function ThreadSettingsControls({
   readonly runtimeModes?: ReadonlyArray<RuntimeMode>;
   readonly onChange: (patch: ThreadSettingsPatch) => void;
 }) {
-  const modelOptions: ReadonlyArray<HeaderOption> = models.map((model) => ({
-    value: model.id,
-    label: model.label,
-    description: model.family === "" ? undefined : model.family,
-  }));
-
-  const currentModel = models.find((model) => model.id === settings.model);
+  const currentModel =
+    settings.model === undefined
+      ? undefined
+      : findModel(catalog, { connectorInstanceId, model: settings.model });
   const effortOptions: ReadonlyArray<HeaderOption> = orderEfforts(currentModel?.efforts).map(
     (effort) => ({ value: effort, label: effort }),
   );
@@ -286,13 +298,23 @@ export function ThreadSettingsControls({
         ) : null}
         <div className="ml-auto flex min-w-0 flex-wrap items-center rounded-full bg-muted">
           {settings.model ? (
-            <HeaderSelect
-              icon={Brain}
-              label="Model"
-              value={settings.model}
-              options={modelOptions}
-              capability={modelSwitch}
-              onPick={(model) => onChange({ model })}
+            <ModelPicker
+              catalog={catalog}
+              instanceId={connectorInstanceId}
+              model={settings.model}
+              locked={locked}
+              title={
+                modelSwitch === "per-turn" || modelSwitch === "next-turn" ? NEXT_TURN_HINT : "Model"
+              }
+              disabledReason={modelSwitch === "restart" ? RESTART_TOOLTIP : undefined}
+              onPick={(pick) =>
+                onChange({
+                  model: pick.model,
+                  ...(pick.connectorInstanceId === null
+                    ? {}
+                    : { connectorInstanceId: pick.connectorInstanceId }),
+                })
+              }
             />
           ) : null}
           <HeaderSelect

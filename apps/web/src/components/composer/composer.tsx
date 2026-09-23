@@ -42,7 +42,7 @@ import { useInterrupt } from "@/components/composer/use-interrupt";
 import { useSendDraft } from "@/components/composer/use-send-draft";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { attachmentRefusal } from "@/lib/attachment-support";
-import { routedCapabilities, routedConnectorInstanceId } from "@/lib/connector-routing";
+import { instanceCapabilities, threadConnectorInstanceId } from "@/lib/connector-routing";
 import { turnInFlight } from "@/lib/turn";
 import { useKeybindingCommand, useKeybindingFlag } from "@/lib/shortcuts";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
@@ -85,13 +85,13 @@ export function Composer({
   const doc = AsyncResult.isSuccess(docResult) ? docResult.value : null;
   const dispatch = useAtomSet(dispatchAtom, { mode: "promise" });
 
-  // Not `doc.session` alone: a thread binds one on its first turn, and until
-  // then `/model` and `/effort` had nothing to offer — see
-  // `@/lib/connector-routing`.
+  // Not `doc.session` alone: unbound, the chosen or default instance answers.
   const connectorsResult = useAtomValue(connectorsAtom);
   const connectors = AsyncResult.isSuccess(connectorsResult) ? connectorsResult.value : [];
-  const instanceId = routedConnectorInstanceId(doc?.session?.connectorInstanceId, connectors);
-  const capabilities = routedCapabilities(doc?.session?.connectorInstanceId, connectors);
+  const bound = doc?.session?.connectorInstanceId;
+  const chosen = doc?.settings.connectorInstanceId;
+  const instanceId = threadConnectorInstanceId(bound, chosen, connectors);
+  const capabilities = instanceCapabilities(instanceId, connectors);
   const attachRefusal = attachmentRefusal(capabilities);
   const modelsResult = useAtomValue(connectorModelsAtom(instanceId));
   const models = AsyncResult.isSuccess(modelsResult) ? modelsResult.value : [];

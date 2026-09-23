@@ -11,8 +11,12 @@
  * after the thread exists is still in the thread's own composer when the user
  * gets there.
  *
- * The runtime modes offered and whether attaching is allowed come from the
- * capabilities of the connector the new thread would route to.
+ * The model picker lists every enabled connector instance's models, and the
+ * instance a model is picked under is the one the new thread runs on — it
+ * rides `thread.create` with the model. Until the user picks, that is the
+ * saved default model's instance, else the first enabled one's first model
+ * (`defaultModelPick`). The runtime modes offered and whether attaching is
+ * allowed come from that instance's capabilities.
  *
  * With no server it says so. A fresh install lands here with no projects, so
  * the empty state carries the same Add project dialog the sidebar does —
@@ -46,7 +50,8 @@ import { useSendDraft } from "@/components/composer/use-send-draft";
 import { AddProjectDialog } from "@/components/sidebar/add-project-dialog";
 import { ThreadGreeting } from "@/components/thread/thread-greeting";
 import { attachmentRefusal } from "@/lib/attachment-support";
-import { routedCapabilities } from "@/lib/connector-routing";
+import { instanceCapabilities, threadConnectorInstanceId } from "@/lib/connector-routing";
+import { defaultModelPick } from "@/lib/model-picks";
 import { runtimeModeOptions } from "@/lib/runtime-modes";
 import { useCreateThread } from "@/lib/use-create-thread";
 import { useConnectionState, useProjects } from "@/state/hooks";
@@ -114,20 +119,24 @@ function StartComposer({
   const atoms = useAppAtoms();
   const connectorsResult = useAtomValue(atoms.connectorsAtom);
   const connectors = AsyncResult.isSuccess(connectorsResult) ? connectorsResult.value : [];
-  const capabilities = routedCapabilities(null, connectors);
-  const attachRefusal = attachmentRefusal(capabilities);
-  const attachments = useAttachments(threadId, files, setFiles, attachRefusal);
   const defaultsResult = useAtomValue(atoms.settingsAtom);
-  const modelsResult = useAtomValue(atoms.allModelsAtom);
-  const models = AsyncResult.isSuccess(modelsResult) ? modelsResult.value : [];
+  const catalogResult = useAtomValue(atoms.modelCatalogAtom);
+  const catalog = AsyncResult.isSuccess(catalogResult) ? catalogResult.value : [];
   const defaults = AsyncResult.isSuccess(defaultsResult) ? defaultsResult.value?.defaults : null;
   const [settings, setSettings] = React.useState<ThreadSettingsPatch>({});
-  const initialModel = defaults?.model ?? models[0]?.id;
+  const initial = defaultModelPick(catalog, defaults?.model);
   const shownSettings: ThreadSettingsPatch = {
-    ...(initialModel ? { model: initialModel } : {}),
+    ...(initial === null ? {} : { model: initial.model }),
+    ...(initial?.connectorInstanceId == null
+      ? {}
+      : { connectorInstanceId: initial.connectorInstanceId }),
     ...(defaults ? { effort: defaults.effort, runtimeMode: defaults.runtimeMode } : {}),
     ...settings,
   };
+  const instanceId = threadConnectorInstanceId(null, shownSettings.connectorInstanceId, connectors);
+  const capabilities = instanceCapabilities(instanceId, connectors);
+  const attachRefusal = attachmentRefusal(capabilities);
+  const attachments = useAttachments(threadId, files, setFiles, attachRefusal);
 
   const open = () => void navigate({ to: "/t/$threadId", params: { threadId } });
   const { sending, send: sendDraft } = useSendDraft(
@@ -219,7 +228,8 @@ function StartComposer({
             defaults ? (
               <ThreadSettingsControls
                 settings={shownSettings}
-                models={models}
+                catalog={catalog}
+                connectorInstanceId={instanceId}
                 runtimeModes={runtimeModeOptions(capabilities)}
                 onChange={(patch) => setSettings((current) => ({ ...current, ...patch }))}
               />

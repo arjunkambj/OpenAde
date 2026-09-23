@@ -10,6 +10,8 @@
  * - `projectsAtom`, `connectorsAtom`, `settingsAtom` — read models.
  * - `connectorDescriptorsAtom` — every connector the server ships, with the
  *   metadata and config form the connectors page renders.
+ * - `modelCatalogAtom` — every enabled instance with its models, for the
+ *   pickers (`./connectorAtoms`).
  * - `connectionStateAtom` — the reconnecting banner's source.
  * - `dispatchAtom` — sends a `Command` and resolves with its receipt.
  * - `stageAttachmentAtom` / `attachmentAtom` — upload a composer image, and
@@ -49,6 +51,7 @@ import { PROTOCOL_VERSION, type OpenAdeRpcError } from "@OpenAde/contracts/rpc";
 
 import { Connection, ConnectionStateRef, markConnected, markIncompatible } from "./connection";
 import { applyThreadListItem, applyThreadStreamItem, type ThreadDetailView } from "./clientState";
+import { makeConnectorAtoms } from "./connectorAtoms";
 
 export interface ConnectionLayer extends Layer.Layer<
   Connection | ConnectionStateRef,
@@ -469,6 +472,7 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
     dispatchAtom,
     fileSearchAtom,
     connectorModelsAtom,
+    ...makeConnectorAtoms(runtime, connectorsAtom),
     skillsAtom,
     keybindingsAtom,
     keybindingsUpdateAtom,

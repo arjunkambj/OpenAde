@@ -20,6 +20,10 @@
       "types": "./src/gitAtoms.ts",
       "import": "./src/gitAtoms.ts"
     },
+    "./connectorAtoms": {
+      "types": "./src/connectorAtoms.ts",
+      "import": "./src/connectorAtoms.ts"
+    },
     "./fileAtoms": {
       "types": "./src/fileAtoms.ts",
       "import": "./src/fileAtoms.ts"

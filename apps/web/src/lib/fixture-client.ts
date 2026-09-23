@@ -171,6 +171,7 @@ const settingsPatch = (command: Extract<Command, { type: "thread.settings.update
       ["effort", command.effort],
       ["runtimeMode", command.runtimeMode],
       ["interactionMode", command.interactionMode],
+      ["connectorInstanceId", command.connectorInstanceId],
     ].filter(([, value]) => value !== undefined),
   );
 
@@ -395,6 +396,16 @@ export const makeFixtureClient = (): FixtureClient => {
     probe: { status: "ready", probedAt: NOW },
   };
 
+  /**
+   * A second instance of the same kind, so the model picker has two sections.
+   * The fixture thread is bound to the first, so this one shows disabled.
+   */
+  const secondConnector: ConnectorSummary = {
+    ...connector,
+    connectorInstanceId: makeConnectorInstanceId(),
+    displayName: "Second fixture connector",
+  };
+
   /** What the fixture build "ships": the one connector kind above, with a form. */
   const descriptor: ConnectorDescriptor = {
     kind: connector.kind,
@@ -473,9 +484,12 @@ export const makeFixtureClient = (): FixtureClient => {
               return { mime: "image/png", size: Math.floor((base64.length * 3) / 4), base64 };
             });
         case "connectors.list":
-          return () => Effect.succeed([connector]);
+          return () => Effect.succeed([connector, secondConnector]);
         case "connectors.models":
-          return () => Effect.succeed(FIXTURE_MODELS);
+          return ({ instanceId }: { instanceId: string }) =>
+            Effect.succeed(
+              instanceId === connectorInstanceId ? FIXTURE_MODELS : FIXTURE_MODELS.slice(1),
+            );
         case "connectors.describe":
           return () => Effect.succeed([descriptor]);
         case "cmdConfig.skills.list":

@@ -2,7 +2,7 @@ import type { ConnectorInstanceId } from "@OpenAde/contracts/ids";
 import type { ConnectorSummary } from "@OpenAde/contracts/rpc";
 import { describe, expect, it } from "vitest";
 
-import { routedCapabilities, routedConnectorInstanceId } from "./connector-routing";
+import { instanceCapabilities, threadConnectorInstanceId } from "./connector-routing";
 
 const instance = (id: string, enabled: boolean): ConnectorSummary => ({
   connectorInstanceId: id as ConnectorInstanceId,
@@ -13,26 +13,43 @@ const instance = (id: string, enabled: boolean): ConnectorSummary => ({
   probe: { status: "ready", probedAt: "2026-09-18T00:00:00.000Z" },
 });
 
-describe("routedConnectorInstanceId", () => {
+const id = (value: string) => value as ConnectorInstanceId;
+
+describe("threadConnectorInstanceId", () => {
   it("uses the bound session's instance once there is one", () => {
     expect(
-      routedConnectorInstanceId("bound" as ConnectorInstanceId, [
+      threadConnectorInstanceId(id("bound"), id("chosen"), [
         instance("first", true),
+        instance("chosen", true),
         instance("bound", true),
       ]),
     ).toBe("bound");
   });
 
-  it("falls back to the first enabled instance before the first turn", () => {
+  it("uses the thread's chosen instance before the first turn", () => {
+    expect(
+      threadConnectorInstanceId(null, id("b"), [instance("a", true), instance("b", true)]),
+    ).toBe("b");
+  });
+
+  it("falls back to the first enabled instance when the thread chose none", () => {
     // The regression: a thread binds a session only on its first turn, and
     // until then the header picker and `/model` asked for a null instance and
     // got an empty model list.
-    expect(routedConnectorInstanceId(null, [instance("a", true), instance("b", true)])).toBe("a");
+    expect(threadConnectorInstanceId(null, null, [instance("a", true), instance("b", true)])).toBe(
+      "a",
+    );
+  });
+
+  it("falls back when the chosen instance is disabled or gone", () => {
+    const connectors = [instance("a", true), instance("off", false)];
+    expect(threadConnectorInstanceId(null, id("off"), connectors)).toBe("a");
+    expect(threadConnectorInstanceId(undefined, id("removed"), connectors)).toBe("a");
   });
 
   it("skips disabled instances, the way the server's routing does", () => {
     expect(
-      routedConnectorInstanceId(null, [
+      threadConnectorInstanceId(null, undefined, [
         instance("off", false),
         instance("on", true),
         instance("later", true),
@@ -41,12 +58,12 @@ describe("routedConnectorInstanceId", () => {
   });
 
   it("answers null when nothing is configured or everything is off", () => {
-    expect(routedConnectorInstanceId(null, [])).toBeNull();
-    expect(routedConnectorInstanceId(undefined, [instance("off", false)])).toBeNull();
+    expect(threadConnectorInstanceId(null, null, [])).toBeNull();
+    expect(threadConnectorInstanceId(undefined, id("off"), [instance("off", false)])).toBeNull();
   });
 });
 
-describe("routedCapabilities", () => {
+describe("instanceCapabilities", () => {
   const capabilities = {
     modelSwitch: "per-turn",
     effortSwitch: "per-turn",
@@ -64,14 +81,17 @@ describe("routedCapabilities", () => {
     attachments: "images",
   } as const;
 
-  it("reads the routed instance's capabilities before the first turn", () => {
+  it("reads the instance's capabilities", () => {
     expect(
-      routedCapabilities(null, [{ ...instance("a", true), capabilities }, instance("b", true)]),
+      instanceCapabilities(id("a"), [
+        { ...instance("a", true), capabilities },
+        instance("b", true),
+      ]),
     ).toEqual(capabilities);
   });
 
-  it("answers null while the routed instance has reported none", () => {
-    expect(routedCapabilities(null, [instance("a", true)])).toBeNull();
-    expect(routedCapabilities(null, [])).toBeNull();
+  it("answers null while the instance has reported none, or there is no instance", () => {
+    expect(instanceCapabilities(id("a"), [instance("a", true)])).toBeNull();
+    expect(instanceCapabilities(null, [{ ...instance("a", true), capabilities }])).toBeNull();
   });
 });

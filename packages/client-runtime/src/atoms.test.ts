@@ -6,7 +6,7 @@
 
 import { OpenAdeRpcError, PROTOCOL_VERSION } from "@OpenAde/contracts/rpc";
 import { describe, expect, it } from "@effect/vitest";
-import type { ThreadId } from "@OpenAde/contracts/ids";
+import type { ConnectorInstanceId, ThreadId } from "@OpenAde/contracts/ids";
 import {
   makeCommandId,
   makeEventId,
@@ -23,6 +23,7 @@ import type {
   ThreadStreamItem,
   ThreadSummary,
 } from "@OpenAde/contracts/orchestration";
+import type { ConnectorSummary, ModelOption } from "@OpenAde/contracts/rpc";
 import type { Settings } from "@OpenAde/contracts/settings";
 import { defaultSettings } from "@OpenAde/contracts/settings";
 import * as Cause from "effect/Cause";
@@ -115,6 +116,12 @@ interface StubData {
   readonly dispatch?: (command: Command) => CommandReceipt;
   /** What `server.hello` claims to speak; defaults to this build's version. */
   readonly protocolVersion?: number;
+  /** Answers `connectors.list`. */
+  readonly connectors?: ReadonlyArray<ConnectorSummary>;
+  /** Answers `connectors.models` per instance — how a test makes one fail. */
+  readonly models?: (
+    instanceId: ConnectorInstanceId,
+  ) => Effect.Effect<ReadonlyArray<ModelOption>, OpenAdeRpcError>;
 }
 
 /**
@@ -165,6 +172,14 @@ const fakeClient = (
         const dispatch = data.dispatch;
         return ({ command }: { command: Command }) => Effect.sync(() => dispatch(command));
       }
+      if (key === "connectors.list" && data.connectors !== undefined) {
+        const connectors = data.connectors;
+        return () => Effect.succeed(connectors);
+      }
+      if (key === "connectors.models" && data.models !== undefined) {
+        const models = data.models;
+        return ({ instanceId }: { instanceId: ConnectorInstanceId }) => models(instanceId);
+      }
       if (key === "settings.subscribe" && data.settings !== undefined) {
         const settings = data.settings;
         return () => Stream.suspend(() => Stream.fromQueue(settings()));
@@ -196,6 +211,17 @@ const project = (name: string): ProjectSummary => ({
   updatedAt: "2026-01-01T00:00:00.000Z",
   threadCount: 0,
 });
+
+const connectorSummary = (id: string, enabled: boolean): ConnectorSummary => ({
+  connectorInstanceId: id as ConnectorInstanceId,
+  kind: "harness",
+  displayName: `Instance ${id}`,
+  enabled,
+  capabilities: null,
+  probe: { status: "ready", probedAt: "2026-01-01T00:00:00.000Z" },
+});
+
+const model = (id: string): ModelOption => ({ id, label: id, family: "test", efforts: [] });
 
 const runtimeWith = (client: OpenAdeRpcClient, state: ConnectionState) =>
   Effect.gen(function* () {
@@ -563,6 +589,51 @@ describe("atoms", () => {
         const failure = yield* Effect.promise(() => awaitFailure(registry, projectsAtom));
         expect(failure).toBeInstanceOf(OpenAdeRpcError);
         expect(calls).toBe(1);
+      }),
+    ),
+  );
+
+  it.live("the model catalog groups enabled instances in list order and isolates failures", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const instance = yield* Ref.make(INSTANCE);
+        const asked: Array<string> = [];
+        const { registry, modelCatalogAtom } = yield* runtimeWith(
+          fakeClient(new Map(), instance, {
+            connectors: [
+              connectorSummary("b", true),
+              connectorSummary("off", false),
+              connectorSummary("broken", true),
+              connectorSummary("a", true),
+            ],
+            models: (instanceId) => {
+              asked.push(instanceId);
+              return instanceId === "broken"
+                ? Effect.fail(new OpenAdeRpcError({ code: "internal", message: "no models" }))
+                : Effect.succeed([model(`${instanceId}/one`), model(`${instanceId}/two`)]);
+            },
+          }),
+          { status: "connected", serverInstanceId: INSTANCE },
+        );
+
+        registry.mount(modelCatalogAtom);
+        const catalog = yield* Effect.promise(() =>
+          awaitValue(registry, modelCatalogAtom, (groups) => groups.length > 0),
+        );
+        // `connectors.list` order, not alphabetical; the disabled instance is
+        // neither listed nor asked; the failing one lists nothing and leaves
+        // its neighbours alone.
+        expect(
+          catalog.map((group) => [
+            group.connector.connectorInstanceId,
+            group.models.map((entry) => entry.id),
+          ]),
+        ).toEqual([
+          ["b", ["b/one", "b/two"]],
+          ["broken", []],
+          ["a", ["a/one", "a/two"]],
+        ]);
+        expect(asked).not.toContain("off");
       }),
     ),
   );
