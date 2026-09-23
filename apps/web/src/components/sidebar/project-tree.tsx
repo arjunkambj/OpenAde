@@ -33,6 +33,13 @@ import * as React from "react";
 
 import { Button } from "@OpenAde/ui/components/button";
 import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@OpenAde/ui/components/empty";
+import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -52,7 +59,7 @@ import { useNow } from "@/lib/use-now";
 import { cn } from "@/lib/utils";
 import { useConnectionState, useProjects, useThreadList } from "@/state/hooks";
 import { useProjectCollapsed } from "@/state/ui";
-import { Add, ChevronRight, Folder, FolderOpen } from "@honeyicons/react";
+import { Add, ChevronRight, Folder, FolderAdd, FolderOpen } from "@honeyicons/react";
 
 function NewThreadButton({
   projectId,
@@ -141,11 +148,21 @@ export function ProjectTree() {
       </div>
       <SidebarGroupContent className="mt-1 min-h-0 overflow-y-auto [scrollbar-width:none]">
         {projects.length === 0 && orphanThreads.length === 0 ? (
-          <p className="px-2 py-4 type-micro text-muted-foreground">
-            {connection.status === "connected"
-              ? "No projects yet — add one to start a thread."
-              : "Connect to a server to see projects."}
-          </p>
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <FolderAdd />
+              </EmptyMedia>
+              <EmptyTitle>
+                {connection.status === "connected" ? "No projects yet" : "Not connected"}
+              </EmptyTitle>
+              <EmptyDescription>
+                {connection.status === "connected"
+                  ? "Add one to start a thread."
+                  : "Connect to a server to see projects."}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : null}
         <div className="grid min-w-0 gap-0.5">
           {projects.map((project) => (

@@ -19,6 +19,13 @@ import * as Cause from "effect/Cause";
 import * as React from "react";
 
 import { Button } from "@OpenAde/ui/components/button";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@OpenAde/ui/components/empty";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import type { ThreadId } from "@OpenAde/contracts/ids";
 import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
@@ -106,14 +113,14 @@ type ThreadDetailResult = AsyncResult.AsyncResult<
   OpenAdeRpcError.OpenAdeRpcError | RpcClientError.RpcClientError | Cause.NoSuchElementError
 >;
 
-/** First squashed error line, or the generic fallback when the cause is empty. */
-function failureMessage(result: ThreadDetailResult): string {
+/** First squashed error line, or null when the cause says nothing. */
+function failureMessage(result: ThreadDetailResult): string | null {
   if (!AsyncResult.isFailure(result)) {
-    return "Could not load this thread.";
+    return null;
   }
   const pretty = Cause.pretty(result.cause).trim();
   const firstLine = pretty.split("\n", 1)[0];
-  return firstLine === "" ? "Could not load this thread." : firstLine;
+  return firstLine === undefined || firstLine === "" ? null : firstLine;
 }
 
 /**
@@ -146,21 +153,31 @@ function ThreadBody({ result, connected }: { result: ThreadDetailResult; connect
     return <Timeline snapshot={snapshot} />;
   }
   if (AsyncResult.isFailure(result)) {
+    const message = failureMessage(result);
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
-        <AlertTriangle className="size-5 text-destructive" />
-        <p className="type-body text-muted-foreground">{failureMessage(result)}</p>
-      </div>
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <AlertTriangle className="text-destructive" />
+          </EmptyMedia>
+          <EmptyTitle>Could not load this thread</EmptyTitle>
+          {message === null ? null : <EmptyDescription>{message}</EmptyDescription>}
+        </EmptyHeader>
+      </Empty>
     );
   }
   // No server resolved at all — the subscription never starts, so say so
   // instead of spinning on a load that cannot finish.
   if (!connected) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
-        <Close className="size-5 text-muted-foreground" />
-        <p className="type-body text-muted-foreground">Not connected to a server.</p>
-      </div>
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Close />
+          </EmptyMedia>
+          <EmptyTitle>Not connected to a server</EmptyTitle>
+        </EmptyHeader>
+      </Empty>
     );
   }
   return (

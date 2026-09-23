@@ -15,6 +15,13 @@
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { Button } from "@OpenAde/ui/components/button";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@OpenAde/ui/components/empty";
 import { Input } from "@OpenAde/ui/components/input";
 import {
   Tooltip,
@@ -32,7 +39,7 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { ShortcutRecorder } from "@/components/keybindings/shortcut-recorder";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { effectiveKeybindings } from "@/lib/keybindings";
-import { Add as AddIcon, AlertTriangle, Close, Undo } from "@honeyicons/react";
+import { Add as AddIcon, AlertTriangle, Close, Keyboard, Undo } from "@honeyicons/react";
 
 /** Rows whose (shortcut, when) pair collides with an earlier row. */
 const conflictCommands = (keybindings: ReadonlyArray<Keybinding>): ReadonlySet<string> =>
@@ -224,9 +231,18 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
               })}
               {draft.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-3 py-6 text-center text-xs text-muted-foreground">
-                    Every binding removed — nothing is bound. Add one below, or restore the
-                    defaults.
+                  <td colSpan={4}>
+                    <Empty>
+                      <EmptyHeader>
+                        <EmptyMedia variant="icon">
+                          <Keyboard />
+                        </EmptyMedia>
+                        <EmptyTitle>Nothing is bound</EmptyTitle>
+                        <EmptyDescription>
+                          Every binding was removed. Add one below, or restore the defaults.
+                        </EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
                   </td>
                 </tr>
               ) : null}

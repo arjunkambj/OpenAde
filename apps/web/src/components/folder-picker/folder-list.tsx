@@ -1,7 +1,8 @@
 /**
- * The middle of the folder picker: the breadcrumb above, the subfolders below.
+ * The middle of the folder picker: the breadcrumb above, the subfolders below,
+ * or a message in the list's place when there are none to show.
  *
- * Both are presentation only — every decision (which directory, which row, what
+ * All of it is presentation only — every decision (which directory, which row, what
  * a key means) is in `picker-state.ts` and lives in the dialog. The list is a
  * `listbox`: one tab stop, the keyboard moves the highlight through
  * `aria-activedescendant`, and a row is still an ordinary button so a pointer
@@ -10,12 +11,19 @@
 
 import type { FsEntry } from "@OpenAde/contracts/rpc";
 import { Button } from "@OpenAde/ui/components/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@OpenAde/ui/components/empty";
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
 import { breadcrumbFor } from "./picker-state";
-import { ChevronUp, Folder } from "@honeyicons/react";
+import { type HoneyIcon, ChevronUp, Folder } from "@honeyicons/react";
 
 export function Breadcrumb({
   path,
@@ -153,6 +161,35 @@ export function FolderList({
           onOpen={() => onOpen(entry)}
         />
       ))}
+    </div>
+  );
+}
+
+/**
+ * What the list's place shows when there is no list: loading, an error, an
+ * offline socket or an empty folder. It keeps the list's height and surface so
+ * the dialog does not jump between states.
+ */
+export function FolderListMessage({
+  icon: Glyph,
+  text,
+  action,
+}: {
+  readonly icon: HoneyIcon;
+  readonly text: string;
+  readonly action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex h-64 rounded-lg bg-muted/50">
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Glyph />
+          </EmptyMedia>
+          <EmptyTitle>{text}</EmptyTitle>
+        </EmptyHeader>
+        {action === undefined ? null : <EmptyContent>{action}</EmptyContent>}
+      </Empty>
     </div>
   );
 }

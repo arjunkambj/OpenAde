@@ -40,7 +40,7 @@ import { AsyncResult } from "effect/unstable/reactivity";
 
 import { useConnectionState } from "@/state/hooks";
 
-import { Breadcrumb, FolderList } from "./folder-list";
+import { Breadcrumb, FolderList, FolderListMessage } from "./folder-list";
 import { useFsAtoms } from "./fs-atoms";
 import {
   completionsFor,
@@ -55,17 +55,7 @@ import {
   typed,
   type PickerLocation,
 } from "./picker-state";
-import { type HoneyIcon, AlertTriangle, Close, Folder, Repeat, Spinner } from "@honeyicons/react";
-
-/** A block for every state that is not a folder full of folders. */
-function PickerMessage({ icon: Glyph, text }: { readonly icon: HoneyIcon; readonly text: string }) {
-  return (
-    <div className="flex h-64 flex-col items-center justify-center gap-2 rounded-lg bg-muted/50 px-6 text-center">
-      <Glyph className="size-6 text-muted-foreground" />
-      <p className="type-body text-muted-foreground">{text}</p>
-    </div>
-  );
-}
+import { AlertTriangle, Close, Folder, Repeat, Spinner } from "@honeyicons/react";
 
 export function FolderPickerDialog({
   open,
@@ -211,19 +201,22 @@ export function FolderPickerDialog({
           />
 
           {!connected ? (
-            <PickerMessage icon={Close} text="Not connected to the server." />
+            <FolderListMessage icon={Close} text="Not connected to the server." />
           ) : query === null ? (
-            <PickerMessage icon={Spinner} text="Listing…" />
+            <FolderListMessage icon={Spinner} text="Listing…" />
           ) : query._tag === "error" ? (
-            <div className="flex flex-col items-center gap-2">
-              <PickerMessage icon={AlertTriangle} text={query.message} />
-              <Button type="button" variant="ghost" size="sm" onClick={retry}>
-                <Repeat className="size-3.5" />
-                Try again
-              </Button>
-            </div>
+            <FolderListMessage
+              icon={AlertTriangle}
+              text={query.message}
+              action={
+                <Button type="button" variant="ghost" size="sm" onClick={retry}>
+                  <Repeat className="size-3.5" />
+                  Try again
+                </Button>
+              }
+            />
           ) : entries.length === 0 ? (
-            <PickerMessage icon={Folder} text="No folders in here." />
+            <FolderListMessage icon={Folder} text="No folders in here." />
           ) : (
             <FolderList
               entries={entries}

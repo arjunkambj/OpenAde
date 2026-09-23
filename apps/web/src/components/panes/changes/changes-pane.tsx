@@ -35,6 +35,7 @@ import type { GitDiff, GitDiffFile, GitStatus } from "@OpenAde/contracts/rpc";
 import { Button } from "@OpenAde/ui/components/button";
 import { AsyncResult } from "effect/unstable/reactivity";
 
+import { PaneMessage } from "@/components/panes/files/pane-message";
 import { InlineDiff } from "@/components/timeline/diff-pool";
 import { DisclosureRow } from "@/components/timeline/row-shell";
 import { turnInFlight } from "@/lib/turn";
@@ -63,24 +64,6 @@ const KIND_ICON: Record<GitDiffFile["kind"], HoneyIcon> = {
   edit: Edit,
   delete: FileRemove,
 };
-
-function PaneMessage({
-  icon: Glyph,
-  text,
-  action,
-}: {
-  icon: HoneyIcon;
-  text: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-12 text-center">
-      <Glyph className="size-6 text-muted-foreground" />
-      <p className="type-body text-muted-foreground">{text}</p>
-      {action}
-    </div>
-  );
-}
 
 function FileRow({ file, rangeKey }: { file: GitDiffFile; rangeKey: string }) {
   const rowId = `changes-${rangeKey}-${file.path}`;
