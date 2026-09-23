@@ -255,10 +255,13 @@ when a piece of it is missing, and make that answer "deny".
 `apps/web` holds no state the server owns, and no component calls the RPC
 client. The connection is built once, in `apps/web/src/state/app-runtime.tsx`;
 the client is reached only inside atom definitions — those of
-`packages/client-runtime/src/atoms.ts`, plus the settings atoms in
+`packages/client-runtime/src/atoms.ts` and its sibling factories
+(`terminalAtoms.ts` among them), plus the settings atoms in
 `apps/web/src/lib/app-runtime.ts`. Every component reads through the hooks in
 `apps/web/src/state/hooks.ts` and writes by dispatching a `Command` through
-`dispatchAtom` and awaiting its receipt.
+`dispatchAtom` and awaiting its receipt — or, for what is not thread state in
+the event log, such as the settings document or a terminal's input, through
+the atom that makes that one call.
 
 Nothing enforces that automatically the way the neutrality grep enforces
 connector-neutrality, so it is a convention the code keeps rather than a guarded
@@ -305,6 +308,11 @@ And the checks live on the same side as the disk. The composer validates a file
 before it uploads megabytes, but that copy is a courtesy: size, media type and
 containment are decided again in `attachments.stage`, from the bytes rather than
 from anything the client said about them.
+
+The integrated terminal keeps the rule rather than bending it: the shell runs
+on the server, the renderer sends it keys and receives text, and the directory
+it starts in is the server's to decide from the thread (`workspaceOf` in
+`apps/server/src/terminal/TerminalService.ts`) — `terminal.open` takes no path.
 
 **To honour it:** new filesystem capability goes in `apps/server`, behind an RPC
 with a narrow surface, and gets asked "what does this give a remote client?"

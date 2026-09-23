@@ -8,8 +8,8 @@ whichever question you have.
   the RPC surface, the hook bridge, the browser and permissions.
 - [how-it-works.md](how-it-works.md) — the runtime traced in order: boot,
   connect, first run, a turn end to end, approvals, plan mode, stop and the
-  queue, checkpoints, attachments, the browser pane, settings, recovery,
-  shutdown.
+  queue, checkpoints, attachments, the browser pane, the terminal, settings,
+  recovery, shutdown.
 - [philosophy.md](philosophy.md) — thirteen rules the code keeps, what each one
   means concretely here, and the check that enforces it.
 - [development.md](development.md) — prerequisites, the dev loop, the gate and

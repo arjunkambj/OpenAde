@@ -2,7 +2,8 @@
 
 OpenAde is a desktop application that drives an agentic coding CLI and gives it
 a real interface: a sidebar of projects and threads, a streaming timeline,
-approval cards, a diff pane, a browser pane, a file pane, settings.
+approval cards, a diff pane, a browser pane, a file pane, an integrated
+terminal, settings.
 
 Nothing above the connector boundary knows which CLI is running. A _connector_
 owns a harness — how to find its binary, how to spawn it, how to translate what
@@ -23,7 +24,9 @@ thing, and [command-code-connector.md](command-code-connector.md) and
 
 ## Processes
 
-Three processes of our own, plus two children the server starts.
+Three processes of our own, plus three kinds of child the server starts: a
+`cmd` per turn, `agent-browser` per browser call, and a login shell per open
+terminal.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -38,11 +41,13 @@ Three processes of our own, plus two children the server starts.
 │ Effect · SQLite · HTTP + WS  │◄─────┤ React · TanStack Router      │
 │   /ws  /healthz  /mcp        │      │ atoms · timeline · composer  │
 │   /hooks/pretooluse          │      │ right dock                   │
-└───┬──────────────────┬───────┘      └──────────────────────────────┘
-    │ spawn (per turn) │ execFile (per call)
-    ▼                  ▼
- cmd child         agent-browser
- one per turn      browser pane / browser_* tools
+└───┬───────────┬─────────────┬┘      └──────────────────────────────┘
+    │ spawn     │ execFile    │ pty
+    │ per turn  │ per call    │ per terminal
+    ▼           ▼             ▼
+ cmd child  agent-browser   login shell, in the
+            browser pane,   project folder
+            browser_* tools
 ```
 
 **Electron main → server.** `ServerSupervisor` spawns the server as a child
@@ -89,6 +94,12 @@ group.
 invocation per call against a named session
 (`apps/server/src/browser/agentBrowser.ts`). The Rust daemon underneath
 persists between invocations.
+
+**Server → shell.** One login shell per open terminal, started in a
+pseudo-terminal by `@lydell/node-pty` (`apps/server/src/terminal/pty.ts`) with
+the thread's project folder as its working directory. A shell lives until its
+terminal is closed, its thread is deleted or archived, or the server shuts
+down; switching threads or reloading the renderer leaves it running.
 
 ## Workspaces
 
@@ -290,7 +301,11 @@ Presentation state that never reaches the server lives in
 width, the per-thread dock tab, each thread's last pull request link, the
 Changes pane's scope and diff style, and the "last seen" stamp behind the unread dot
 — and in `apps/web/src/state/terminal-ui.ts`, which threads have their
-terminal drawer open and how tall it is.
+terminal drawer open and how tall it is. The terminals themselves are the
+server's: the drawer's tabs are a fold of `terminal.list`
+(`apps/web/src/components/terminal/drawer-state.ts`), kept in memory per
+thread so the active tab survives a thread switch, and a terminal the server
+no longer knows drops out of them.
 There is no `unread` flag on the wire: whether this window has looked at a
 thread is not the server's business, and a thread with no stamp is deliberately
 not unread.
@@ -816,6 +831,10 @@ exception: one fiber per session, forked by the session manager.
 | `CheckpointReactor`                  | the event stream           | capture on turn completion, restore on a work order, prune on deletion                                                                                      |
 | `AttachmentReactor`                  | the event stream + boot    | purges a deleted thread's attachments and sweeps unreferenced staged files                                                                                  |
 
+`TerminalService` (`apps/server/src/terminal/TerminalService.ts`) carries one
+more watcher of its own, subscribed the same eager way inside its layer: on
+`thread.deleted` or `thread.archived` it kills that thread's shells.
+
 **`ProviderCommandReactor`.** `turn.requested` → ensure the session and
 `handle.send(turnId, turn)`. `turn.steered` → `handle.steer(turnId, turn)`;
 when there is no live handle or the steer fails, the message is dispatched
@@ -929,6 +948,16 @@ reads `lastSequence` _first_ and the documents second: with the documents read
 first, a commit landing in the gap is both missing from the snapshot and
 filtered out of the live pump, whereas the other way round a re-delivered event
 is an idempotent `upserted`.
+
+`terminal.subscribe` follows the same pattern with offsets in place of
+sequences. It subscribes to the terminal's output hub, then reads the
+scrollback into a `snapshot` whose `offset` is the total number of chars the
+terminal has produced, and drops any live `output` at or below that offset.
+Its LiveBuffer has no window and no merge key — every item is a boundary, since
+two chunks of output are never the same thing twice — and its own budget,
+`TERMINAL_STREAM_BUDGET_ITEMS` 4096 and `TERMINAL_STREAM_BUDGET_BYTES` 4 MiB in
+`packages/contracts/src/terminal.ts`, because a busy shell produces many small
+items. The stream ends after `exited`.
 
 ## The connector contract
 
@@ -1412,6 +1441,12 @@ the client in the terminal `incompatible` state.
 | `connectors.mcp.remove`       | call   | Removes one entry we own                                                            |
 | `keybindings.get`             | call   | The keybinding list                                                                 |
 | `keybindings.update`          | call   | Replaces it                                                                         |
+| `terminal.open`               | call   | Starts a shell under a client-minted id, or answers the one already running         |
+| `terminal.write`              | call   | Input for the shell: typed keys, a paste                                            |
+| `terminal.resize`             | call   | The terminal's grid in character cells                                              |
+| `terminal.close`              | call   | Kills the shell and forgets the terminal, output and all                            |
+| `terminal.list`               | call   | A thread's terminals, exited ones included, oldest first                            |
+| `terminal.subscribe`          | stream | One terminal: a snapshot of its scrollback, then live output, then its exit         |
 
 Reads that must stay fresh are streams rather than polls, and every stream can
 end in `resnapshot-required`.
@@ -1655,6 +1690,12 @@ is touched. `AttachmentReactor` purges a thread's directory on
 and sweeps files no thread references at boot, with an hour's grace so a file
 the previous process staged just before it went away survives.
 
+The integrated terminal adds nothing to this table. A terminal's scrollback
+lives in the server's memory only, bounded by `TERMINAL_SCROLLBACK_CHARS`, and
+is gone with the process: a server restart ends every shell, and a client
+coming back to one learns it is gone. The drawer's open state and height are
+the renderer's, in localStorage.
+
 The harness's own home (`~/.commandcode` by default) is separate and is _not_
 moved by `OPENADE_HOME`; `BootOptions.commandCodeHome` exists so an end-to-end
 test that adds an MCP server does not edit the operator's real config.
@@ -1675,9 +1716,10 @@ Unit suites sit beside their subjects in every workspace. Above them:
 - **The end-to-end suite** (`apps/server/test/e2e/`) builds the product: `boot`
   assembles the same graph `main.ts` ships, the real client runtime dials it
   over a real WebSocket, and the renderer's own folds turn the subscription into
-  the view a pane renders. Ten scenarios — `turn`, `approval`, `question`,
+  the view a pane renders. Eleven scenarios — `turn`, `approval`, `question`,
   `plan`, `interrupt`, `resume`, `checkpoints`, `attachment`, `mcp`,
-  `settings`. Nothing waits on a clock: commands are awaited through their
+  `settings`, `terminal`. The `terminal` scenario involves no harness, so it
+  runs once rather than per driver, against a real shell. Nothing waits on a clock: commands are awaited through their
   receipts and everything else through the subscription, so a scenario that
   never happens ends as a failed wait rather than a slow pass.
 

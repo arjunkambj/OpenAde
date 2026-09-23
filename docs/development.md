@@ -50,9 +50,12 @@ pnpm install
 needs a C++ toolchain. CI installs with `--frozen-lockfile`.
 
 The integrated terminal's pty module, `@lydell/node-pty`, needs no build
-either: it ships one prebuilt N-API binary per platform as an optional
-package, and the same binary loads under plain Node and under Electron run as
-Node. The server loads it on the first terminal it opens, not at boot, and
+either. It is node-pty's own code with one prebuilt N-API binary per platform,
+shipped as optional packages, and it has no install script. N-API means the
+same binary loads under plain Node (tests, `pnpm -F server dev`) and under the
+desktop app's Electron binary run with `ELECTRON_RUN_AS_NODE`, so there is no
+toolchain to install and nothing to rebuild per Node or Electron ABI. The
+server loads it on the first terminal it opens, not at boot, and
 `apps/server`'s esbuild bundle leaves it external.
 
 `pnpm-workspace.yaml` sets `supportedArchitectures` so that both the arm64 and
@@ -315,12 +318,20 @@ comes from a recording of it under `packages/testkit/fixtures/<kind>/`, where
 `fixtures/cmd/` and replayed by `packages/testkit/bin/replay-cmd.mjs`. See
 [Recordings](#recordings-of-the-real-cli).
 
+**Ordinary tools run for real.** git runs in throwaway repos under the system
+temp directory, and the terminal tests start a real `/bin/sh` in a pseudo-terminal
+with `HOME` pointed at a temp dir, so the operator's rc files cannot change
+what it prints. The shell echoes what it is typed, so they assert on output the
+shell computed — `echo $((20+22))` answered by `42`, `stty size` after a
+resize — and wait on it, never on a delay. They are skipped on Windows
+(`apps/server/src/terminal/pty.test.ts`, `terminalService.test.ts`).
+
 ## The end-to-end suite
 
 `apps/server/test/e2e/` boots the product: `boot()` assembles the same graph
 `main.ts` ships, `makeConnection` from `@OpenAde/client-runtime` dials it over
 a real WebSocket, and the folds the renderer's atoms use turn the subscription
-into the view a pane renders. Ten scenarios:
+into the view a pane renders. Eleven scenarios:
 
 | File                  | Scenario                                              |
 | --------------------- | ----------------------------------------------------- |
@@ -334,8 +345,10 @@ into the view a pane renders. Ten scenarios:
 | `settings.test.ts`    | the settings pages, against the user's real files     |
 | `attachment.test.ts`  | an image on a turn                                    |
 | `mcp.test.ts`         | OpenAde's own tools, offered to the harness           |
+| `terminal.test.ts`    | a terminal over the wire, from open to close          |
 
-Each scenario runs against two drivers (`apps/server/test/e2e/harness.ts`):
+Each scenario with a harness in it runs against two drivers
+(`apps/server/test/e2e/harness.ts`):
 
 - **replay** — the connector's `binaryPath` points at testkit's replayer, which
   puts a recording of that run back on the wire. This is what the gate runs.
@@ -350,7 +363,8 @@ OPENADE_LIVE_CMD=1 pnpm exec vitest run apps/server/test/e2e
 The same assertions run twice, which is the point: the replay says the product
 behaves, and the live run says the recording still describes reality. A
 scenario that needs different expectations from the two drivers is a scenario
-whose recording has gone stale.
+whose recording has gone stale. `terminal.test.ts` has no harness in it, so
+it runs once, outside `forEachDriver`, with no connector configured.
 
 Every test gets a fresh `OPENADE_HOME` and a throwaway git repo under the
 system temp directory. The replay driver also redirects `HOME`, so it cannot
@@ -804,7 +818,10 @@ the host's on Linux (`apps/desktop/scripts/native-modules.mjs`). The copy
 follows pnpm's symlinks and keeps file modes, so `spawn-helper` stays
 executable, and `asarUnpack` keeps all of it as real files. The build fails if
 a needed platform package is not installed. `npmRebuild` stays off: the binary
-is N-API, so there is nothing to rebuild for Electron.
+is N-API, so there is nothing to rebuild for Electron. A mac build for the
+other architecture (`package.mjs --x64` on an arm64 Mac) carries its own binary
+only because `supportedArchitectures` in `pnpm-workspace.yaml` installed it
+([Install](#install)).
 
 The build also patches one line of each copied `lib/unixTerminal.js`. node-pty
 finds `spawn-helper` by rewriting `app.asar` in its own path to
@@ -929,6 +946,17 @@ the connector instance in Settings. The npx fallback works but downloads
 The full exit-code table is `packages/connector-cmd/src/exitCodes.ts`: 3 is not
 logged in, 4 is the CLI's own permission refusal, 5/6/7 are retryable transport
 failures, 8 is `--max-turns`, 130 is an interrupt.
+
+**The terminal says "terminal support failed to load".** `terminal.open`
+failed `unavailable`: the server could not load `@lydell/node-pty` or its
+platform package, and the drawer shows the reason with a Try again button. The
+rest of the app is unaffected. Check that the platform package for this OS and
+architecture is installed — `node_modules/.pnpm/@lydell+node-pty-<platform>-<arch>@*`
+in a checkout, `out/server/node_modules/@lydell/` in a desktop build — and that
+the install did not skip optional dependencies (`--no-optional`,
+`--omit=optional`), since the binaries ship only as optional packages. In a
+packaged app, also check that `spawn-helper` in that platform package is still
+executable.
 
 **`pnpm knip` fails on a fresh tree** with an unresolved
 `apps/web/src/routeTree.gen.ts`. That file is generated by `vite build` and

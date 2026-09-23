@@ -36,6 +36,9 @@ Three processes matter.
                                  └──────────────────────────────┘
 ```
 
+The server starts two other kinds of child besides `cmd`: `agent-browser` for
+the browser pane (§10), and a login shell per open terminal (§11).
+
 The renderer never touches the filesystem, git or a child process: everything
 it knows arrives over one authenticated WebSocket. The server is the single
 writer of durable state, and it is event-sourced — a client dispatches a
@@ -806,7 +809,7 @@ time — an approval, then a question, then a plan — across the composer's wid
 never in the timeline. Keys while it is up: `1` allow once, `2` allow for
 session, `3` always allow, `d` or `Escape` deny; a muted line under the card
 names them. The card listens in **capture** phase, so its `Escape` beats the
-global `thread.interrupt` binding (§11) while a card is open — denying the
+global `thread.interrupt` binding (§12) while a card is open — denying the
 call, not stopping the turn. It claims a key only when nothing nearer wants it
 (`approvals/card-keys.ts`): no modifier, focus outside a text field, and no
 dialog, popover or menu on screen; a claimed key is marked with
@@ -1031,7 +1034,7 @@ all, or the interrupt itself fails, the reactor appends the synthetic
 `thread.turn.completed` itself rather than leaving the thread stuck in
 `running`.
 
-The consequence for the next turn is §12: a SIGINT'd run leaves no transcript,
+The consequence for the next turn is §13: a SIGINT'd run leaves no transcript,
 so its session id is not resumable.
 
 ### The queue
@@ -1629,7 +1632,167 @@ the only writer of durable thread state.
 
 ---
 
-## 11. Settings
+## 11. The terminal
+
+Each thread has a terminal drawer at the bottom of its column: real shells,
+running on the server in the thread's project folder, shown in xterm.
+
+### Opening one
+
+`Cmd+J`, the header's terminal button ("Toggle terminal") and the palette's
+"Toggle terminal" all fire the same command, `terminal.toggle`. It is answered
+by `ThreadTerminal` (`apps/web/src/components/terminal/terminal-drawer.tsx`),
+which is always mounted with the thread view, so the button and the chord take
+one path — the one that also moves focus into the terminal it opens. Whether a
+thread's drawer is open, and how tall the drawer is (at least 120px, at most
+70% of the column), is presentation state in localStorage
+(`apps/web/src/state/terminal-ui.ts`).
+
+A drawer that opens with no terminals starts one, once `terminal.list` has
+said there are none and the xterm has measured the grid to start it at. The
+client mints the `TerminalId`, so `terminal.open` is idempotent: a repeated
+open answers the shell already running under that id instead of starting a
+second one. The New tab button is disabled at `TERMINALS_PER_THREAD` (8), and
+the server refuses a ninth with `conflict`; an exited terminal still counts
+until it is closed.
+
+On the server, `TerminalService` (`apps/server/src/terminal/TerminalService.ts`)
+asks `workspaceOf` for the directory: the thread's project folder, refused as
+`not-found` for a deleted thread, and as `invalid` for an archived one or a
+folder that no longer exists on disk. It is the one place a thread is mapped to
+a folder. The shell comes from `resolveShell` in
+`apps/server/src/terminal/shell.ts`: `$SHELL` when it is an absolute path,
+else `/bin/zsh` on macOS and bash (or `sh`) on Linux, with `-l` so it reads the
+user's profile — an app launched from the Finder has only launchd's bare
+`PATH`, and a login shell is what gives it the one the user sees in their own
+terminal. On Windows it is `COMSPEC`, else `powershell.exe`. `terminalEnv`
+starts from the server's environment and takes out what belongs to OpenAde:
+`ELECTRON_RUN_AS_NODE`, which the desktop app sets to run the server under its
+Electron binary and which would turn every Electron-based CLI started from the
+shell into plain Node, and every `OPENADE_*` key. Under an AppImage it also
+removes the AppImage runtime's variables and its mount point's entries from the
+search paths. It sets `TERM=xterm-256color`, `COLORTERM=truecolor` and
+`TERM_PROGRAM=OpenAde`, and on macOS an unset `LANG` becomes `en_US.UTF-8`.
+
+`apps/server/src/terminal/pty.ts` starts the shell in a pseudo-terminal through
+`@lydell/node-pty`, loaded on the first spawn rather than at boot. A module that
+fails to load makes that open fail `unavailable` ("terminal support failed to
+load: …") and is tried again on the next one; the rest of the server never
+notices. A shell that cannot be started fails `internal`, naming the file.
+
+`terminal.write` runs whatever it is sent in the user's shell. It rides the
+same loopback, token-authenticated WebSocket that already accepts
+`orchestration.dispatch`, so it exposes nothing that socket did not already
+reach.
+
+### Output
+
+Everything the shell prints takes one path, synchronous inside the pty's data
+callback (`apps/server/src/terminal/session.ts`). The batcher
+(`batcher.ts`) holds output for `TERMINAL_BATCH_MS` (16ms) after the first
+chunk, or sends at once when a batch reaches `TERMINAL_BATCH_CHARS` (64K
+chars), so a shell writing a byte at a time is not a frame per byte; a batch
+never ends between the halves of a surrogate pair. Each batch is appended to
+the scrollback first and then published on the terminal's hub with the
+scrollback's new `offset` — the total number of chars the terminal has ever
+produced.
+
+The scrollback (`scrollback.ts`) keeps the last `TERMINAL_SCROLLBACK_CHARS` (1M
+chars). Past that the oldest output goes, and what remains starts after its
+first newline, so a replay begins at the start of a line rather than in the
+middle of an escape sequence. It lives in memory only.
+
+`terminal.subscribe` sends a `snapshot` first — the terminal's summary, its
+scrollback and that scrollback's offset — then live `output`, then `exited`
+when the shell ends, and then the stream ends. The server subscribes to the hub
+_before_ it reads the scrollback, so output written in between is in both, and
+drops any `output` at or below the snapshot's offset; read the other way round,
+it would be in neither. A subscriber that falls behind its budget
+(`TERMINAL_STREAM_BUDGET_ITEMS` 4096, `TERMINAL_STREAM_BUDGET_BYTES` 4 MiB) is
+sent `resnapshot-required` instead of a growing backlog. Terminal output is
+never merged the way timeline items are: every item is a boundary.
+
+On the client, `terminalAttachAtom` (`packages/client-runtime/src/terminalAtoms.ts`)
+hands every item to a callback in order. It is a callback-running
+`runtime.fn`, not an atom over the stream, because an atom built from a stream
+keeps only the last item of each chunk, and a terminal that loses a chunk of
+output paints garbage. It subscribes again after `resnapshot-required` or a
+dropped socket, treats the end after `exited` as final, and turns a server
+`not-found` into a client-only `gone`. The xterm
+(`apps/web/src/components/terminal/terminal-view.tsx`) resets to each
+`snapshot` and drops output the snapshot already holds. While a snapshot is
+being parsed it holds its own input back: the replay contains the shell's old
+terminal queries (colours, cursor position), and xterm would otherwise answer
+each of them to the shell as fresh input.
+
+Input goes through one lane per terminal, so keys typed while a write is in
+flight follow it in order as the next write, split at `TERMINAL_WRITE_MAX_CHARS`
+if a paste is larger. The xterm fits itself to the drawer and sends a resize,
+debounced by 100ms and only when the grid changed; only the latest pending size
+is sent.
+
+The theme is read from our own tokens at runtime
+(`apps/web/src/components/terminal/terminal-theme.ts`): background,
+foreground, cursor and selection are resolved to RGBA through a 1×1 canvas,
+because the tokens are `oklch(…)` and xterm cannot parse that, and are read
+again when the theme changes. The 16 ANSI colours stay xterm's own palette.
+
+### Reattaching
+
+A terminal outlives its subscribers. Switching threads unmounts the drawer:
+the xterm is disposed and the subscription ends, but the shell keeps running.
+The tabs are kept in memory per thread (`drawer-state.ts`, in a `keepAlive`
+map), and the drawer's open state is in localStorage, so coming back shows the
+same tab in front, and the new subscription starts with a snapshot of
+everything the shell printed meanwhile, up to the scrollback bound. A reload
+works the same way, from `terminal.list`. A server restart ends every shell:
+the listing comes back empty, the attach reports `gone`, and the tab drops.
+
+The drawer holds one xterm for whichever tab is in front; switching tabs
+reattaches it to the other terminal from that terminal's snapshot. An exited
+terminal stays listed, marked "exited", with its final output, until it is
+closed, so the last thing a command printed is still readable.
+
+### Teardown
+
+A shell ends on `terminal.close` — closing a tab, and closing the last tab
+hides the drawer — on `thread.deleted` and `thread.archived`, which the service
+watches on the engine's event stream the way the browser pane's teardown does,
+and when the server shuts down. Killing is bounded: SIGHUP, what a closing
+terminal sends, then after one second SIGKILL to the shell's process group and
+to the pty, and at most two seconds more waiting for the exit.
+
+### Keys, links, find and quoting
+
+While a terminal has focus, the one keybinding listener considers only
+`terminal.toggle` and leaves every other chord to the shell (§12), so `Escape`
+reaches vim rather than interrupting the turn. The xterm refuses the toggle's
+own chord through `attachCustomKeyEventHandler`, so it bubbles to that listener
+instead of reaching the shell — off macOS `Ctrl+J` would otherwise be a line
+feed.
+
+A printed http(s) link opens on a mod-click (`Cmd` on macOS, `Ctrl`
+elsewhere) and nowhere else: a plain click in a terminal places the selection.
+It opens in the thread's own browser pane — the dock switches to its Browser
+tab and the pane is sent a human `navigate`, as its address bar would send
+(`use-open-link.ts`, `terminal-links.ts`).
+
+Find is a row under the drawer's toolbar (`terminal-find.tsx`) that searches
+the xterm in front as the user types: Enter for the next match, Shift+Enter for
+the previous one, Escape to close it and return focus to the terminal. Match
+highlights are our foreground mixed into our background, since xterm's search
+addon takes only opaque `#rrggbb`.
+
+"Add selection to chat" quotes the terminal's selection into the thread's
+composer draft (`appendQuotedBlock` in `apps/web/src/lib/quote-selection.ts`):
+the padding xterm adds to each selected line and any blank lines around the
+text are trimmed, each line gets `> `, and a blank line separates the block
+from text already in the draft and from what the user types next. It writes
+the per-thread draft the composer renders from, and nothing else.
+
+---
+
+## 12. Settings
 
 ### The document
 
@@ -1817,7 +1980,7 @@ symlinks one into `~/.commandcode/skills`. Those homes follow the instance's
 
 ---
 
-## 12. Crash and recovery
+## 13. Crash and recovery
 
 ### A session that dies
 
@@ -1878,6 +2041,10 @@ The renderer's half is §2: a changed `serverInstanceId` discards every cached
 snapshot, because the new instance never issued the sequence numbers the old
 ones are positioned at.
 
+Terminals do not come back. Their shells died with the old process and their
+scrollback was only ever in its memory, so the drawer's tabs drop out on the
+next `terminal.list` and a terminal still attached reports `gone` (§11).
+
 ### Projections
 
 `threads.doc_json` holds a `ThreadDoc` with no schema of its own, so the engine
@@ -1903,7 +2070,7 @@ the undecodable document is exactly when the copy has to become durable.
 
 ---
 
-## 13. Shutdown
+## 14. Shutdown
 
 Quitting is held open on purpose (`apps/desktop/src/main/quit.ts`):
 
@@ -1946,22 +2113,28 @@ report `crashed`, and have the supervisor resurrect a session that was
 deliberately stopped. A connector whose event stream outlives its close gets
 5 s before the scope is closed under it.
 
+`TerminalService`'s finalizer ends every open terminal, all at once: it refuses
+new opens from then on, and kills each shell the way closing its tab does —
+SIGHUP, then SIGKILL to the process group after a second, each wait bounded —
+so no shell outlives the server and a wedged pty cannot hold the shutdown up.
+
 ---
 
 ## Where to look next
 
-| area                                   | start here                                                                                                                                          |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| the pieces, one by one                 | [architecture.md](architecture.md)                                                                                                                  |
-| the rules and where they are enforced  | [philosophy.md](philosophy.md)                                                                                                                      |
-| running, testing, packaging            | [development.md](development.md)                                                                                                                    |
-| the CLI on the far end                 | [command-code-connector.md](command-code-connector.md), [claude-code-connector.md](claude-code-connector.md)                                        |
-| commands, events, read models          | `packages/contracts/src/orchestration.ts`                                                                                                           |
-| the connector-neutral event vocabulary | `packages/contracts/src/runtime.ts`                                                                                                                 |
-| the RPC surface                        | `packages/contracts/src/rpc.ts`                                                                                                                     |
-| the composition root                   | `apps/server/src/boot.ts`                                                                                                                           |
-| the decider                            | `apps/server/src/orchestration/decider.ts`                                                                                                          |
-| the Command Code session               | `packages/connector-cmd/src/session.ts`                                                                                                             |
-| what the real CLI does                 | `packages/testkit/fixtures/cmd/README.md`                                                                                                           |
-| the product, end to end                | `apps/server/test/e2e/` — ten scenarios over a real server, a real socket and either the real CLI (`OPENADE_LIVE_CMD=1`) or a recording of it       |
-| the same, on Claude Code               | `apps/server/test/e2e-claude/` — the Claude connector's scenarios, replayed, live (`OPENADE_LIVE_CLAUDE=1`) or recorded (`OPENADE_RECORD_CLAUDE=1`) |
+| area                                   | start here                                                                                                                                                           |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| the pieces, one by one                 | [architecture.md](architecture.md)                                                                                                                                   |
+| the rules and where they are enforced  | [philosophy.md](philosophy.md)                                                                                                                                       |
+| running, testing, packaging            | [development.md](development.md)                                                                                                                                     |
+| the CLI on the far end                 | [command-code-connector.md](command-code-connector.md), [claude-code-connector.md](claude-code-connector.md)                                                         |
+| commands, events, read models          | `packages/contracts/src/orchestration.ts`                                                                                                                            |
+| the connector-neutral event vocabulary | `packages/contracts/src/runtime.ts`                                                                                                                                  |
+| the RPC surface                        | `packages/contracts/src/rpc.ts`                                                                                                                                      |
+| the composition root                   | `apps/server/src/boot.ts`                                                                                                                                            |
+| the decider                            | `apps/server/src/orchestration/decider.ts`                                                                                                                           |
+| the integrated terminal                | `apps/server/src/terminal/TerminalService.ts`, `apps/web/src/components/terminal/terminal-drawer.tsx`                                                                |
+| the Command Code session               | `packages/connector-cmd/src/session.ts`                                                                                                                              |
+| what the real CLI does                 | `packages/testkit/fixtures/cmd/README.md`                                                                                                                            |
+| the product, end to end                | `apps/server/test/e2e/` — eleven scenarios over a real server and a real socket; the ten with a harness run the real CLI (`OPENADE_LIVE_CMD=1`) or a recording of it |
+| the same, on Claude Code               | `apps/server/test/e2e-claude/` — the Claude connector's scenarios, replayed, live (`OPENADE_LIVE_CLAUDE=1`) or recorded (`OPENADE_RECORD_CLAUDE=1`)                  |
