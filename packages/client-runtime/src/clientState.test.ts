@@ -153,12 +153,27 @@ describe("clientState fold", () => {
     let doc = applyThreadEvent(snapshot(), event("thread.turn.started", { turnId: first }));
     doc = applyThreadEvent(doc, event("thread.archived", {}));
     doc = applyThreadEvent(doc, event("thread.unarchived", {}));
-    doc = applyThreadEvent(doc, event("thread.turn.started", { turnId: second }));
+    // The order the reactor produces: it handles the archive's close — whose
+    // drain appends the late settlement — before the newer turn's request,
+    // and `turn.started` waits on the connector's startup after that.
+    doc = applyThreadEvent(
+      doc,
+      event("thread.turn.requested", {
+        turnId: second,
+        text: "again",
+        attachments: [],
+        mentions: [],
+      }),
+    );
     doc = applyThreadEvent(
       doc,
       event("thread.turn.completed", { turnId: first, stopReason: "interrupted" }),
     );
     // The server's fold keeps the newer turn running; the live view must too.
+    expect(doc.currentTurnId).toBe(second);
+    expect(doc.status).toBe("running");
+
+    doc = applyThreadEvent(doc, event("thread.turn.started", { turnId: second }));
     expect(doc.currentTurnId).toBe(second);
     expect(doc.status).toBe("running");
 

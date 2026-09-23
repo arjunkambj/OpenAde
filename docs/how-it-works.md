@@ -858,9 +858,12 @@ flight: that completion was not the one that freed the connector.
 
 A completion only ends the turn it names. Archiving a thread mid-turn closes its
 session, and the close settles that turn when it gets there; by then the thread
-may be unarchived with a newer turn running. Both folds (server and client)
-ignore a `thread.turn.completed` whose `turnId` is not the turn in flight, so
-the late settlement cannot end the newer turn.
+may be unarchived with a newer turn running — and since the reactor handles the
+archive's close before the newer turn's request, the settlement lands after
+`thread.turn.requested` and before `thread.turn.started`. Both folds (server and
+client) count a turn as in flight from `thread.turn.requested` and ignore a
+`thread.turn.completed` whose `turnId` is not the turn in flight, so the late
+settlement cannot end the newer turn.
 
 ---
 

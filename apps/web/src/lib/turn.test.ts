@@ -19,10 +19,10 @@ describe("turnInFlight", () => {
     expect(turnInFlight(snapshot({ status: "running", currentTurnId: turnId }))).toBe(true);
   });
 
-  // `thread.turn.requested` moves the status but not the id: the whole
-  // requested → started window has to count as in flight, or Escape does
-  // nothing exactly while the user is waiting for a connector to answer.
-  it("is true between requested and started, when the id is still null", () => {
+  // A turn that completes with messages queued moves the status to running
+  // before the server's drain requests the next turn and names its id: that
+  // window has to count as in flight, or a send there goes out unqueued.
+  it("is true while the queue drains, when the id is still null", () => {
     expect(turnInFlight(snapshot({ status: "running", currentTurnId: null }))).toBe(true);
   });
 

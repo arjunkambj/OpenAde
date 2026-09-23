@@ -128,7 +128,17 @@ export const applyThreadEvent = (
         updatedAt: event.occurredAt,
       };
     case "thread.turn.requested":
-      return { ...doc, status: "running", updatedAt: event.occurredAt };
+      // The turn is in flight from the moment it is requested, as on the
+      // server, whose fold sets its current turn here and whose snapshot
+      // already reports it. Waiting for `turn.started` left a window — the
+      // connector's whole startup — where a late settlement of an older turn
+      // an archive closed looked like the end of this one.
+      return {
+        ...doc,
+        status: "running",
+        currentTurnId: payload.turnId as ThreadDetailSnapshot["currentTurnId"],
+        updatedAt: event.occurredAt,
+      };
     case "thread.turn.started":
       return {
         ...doc,
@@ -161,7 +171,8 @@ export const applyThreadEvent = (
       //
       // A completion for a turn other than the one in flight is the late
       // settlement of a turn an archive closed, landing after an unarchive
-      // let a newer turn start. The server's fold ignores it; so does this.
+      // let a newer turn be requested. The server's fold ignores it; so does
+      // this.
       if (doc.currentTurnId !== null && doc.currentTurnId !== payload.turnId) {
         return { ...doc, updatedAt: event.occurredAt };
       }

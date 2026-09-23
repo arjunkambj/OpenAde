@@ -117,13 +117,12 @@ export function Composer({
     refresh: refreshTrigger,
   } = useComposerTrigger(textareaRef);
 
-  // `turnInFlight`, not `currentTurnId`: the projection fills the id on
-  // thread.turn.started, one event after status goes to "running" on
-  // thread.turn.requested. In that window this composer would have shown
-  // "Send" with no Stop button while a turn was already under way — which is
-  // exactly when a user reaches for Escape — and a message sent there would
-  // have gone out unqueued and been rejected as "a turn is already running".
-  // The header and the timeline already read the shared helper.
+  // `turnInFlight`, not `currentTurnId`: after a turn completes with messages
+  // queued, the projection goes to "running" with the id null until the
+  // server's drain requests the next turn. In that window this composer would
+  // have shown "Send" with no Stop button, and a message sent there would have
+  // gone out unqueued and been rejected as "a turn is already running". The
+  // header and the timeline already read the shared helper.
   const running = doc !== null && turnInFlight(doc);
   const { interrupting, interrupt } = useInterrupt(threadId, running, setError);
   const { sending, send: sendDraft } = useSendDraft(threadId, attachments, setError, () => {
