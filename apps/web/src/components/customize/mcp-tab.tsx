@@ -14,6 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@OpenAde/ui/components/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import type { McpServerConfig } from "@OpenAde/contracts/connectors";
 import type { ConnectorInstanceId } from "@OpenAde/contracts/ids";
 import * as Exit from "effect/Exit";
@@ -149,17 +150,24 @@ function InstanceServers({
               actions={
                 server.managed === true ? (
                   <DropdownMenu>
-                    <DropdownMenuTrigger
-                      render={
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`Actions for ${server.name}`}
-                        />
-                      }
-                    >
-                      <MoreVertical />
-                    </DropdownMenuTrigger>
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <DropdownMenuTrigger
+                            render={
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`Actions for ${server.name}`}
+                              />
+                            }
+                          />
+                        }
+                      >
+                        <MoreVertical />
+                      </TooltipTrigger>
+                      <TooltipContent>More actions</TooltipContent>
+                    </Tooltip>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => onEdit(server)}>
                         <EditIcon />

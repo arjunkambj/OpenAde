@@ -6,6 +6,7 @@
 import * as React from "react";
 
 import { Button } from "@OpenAde/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 
 import { Check, Copy as CopyIcon } from "@honeyicons/react";
 
@@ -32,15 +33,22 @@ export function CopyCommand({ command }: { readonly command: string }) {
       <code className="min-w-0 truncate rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground">
         {command}
       </code>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-xs"
-        onClick={copy}
-        aria-label={`Copy ${command}`}
-      >
-        {copied ? <Check /> : <CopyIcon />}
-      </Button>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              onClick={copy}
+              aria-label={`Copy ${command}`}
+            />
+          }
+        >
+          {copied ? <Check /> : <CopyIcon />}
+        </TooltipTrigger>
+        <TooltipContent>{copied ? "Copied" : "Copy command"}</TooltipContent>
+      </Tooltip>
     </span>
   );
 }

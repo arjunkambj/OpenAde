@@ -36,6 +36,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@OpenAde/ui/components/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import { Input } from "@OpenAde/ui/components/input";
 import { Label } from "@OpenAde/ui/components/label";
 import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
@@ -139,18 +140,25 @@ export function ThreadRowMenu({ thread }: { readonly thread: ThreadSummary }) {
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`Actions for ${thread.title}`}
-            />
-          }
-        >
-          <MoreHorizontal />
-        </DropdownMenuTrigger>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Actions for ${thread.title}`}
+                  />
+                }
+              />
+            }
+          >
+            <MoreHorizontal />
+          </TooltipTrigger>
+          <TooltipContent>More actions</TooltipContent>
+        </Tooltip>
         <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuItem onClick={() => setDialog("rename")}>
             <Edit />

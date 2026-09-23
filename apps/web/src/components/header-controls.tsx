@@ -282,19 +282,27 @@ export function ThreadSettingsControls({
           onPick={(mode) => onChange({ runtimeMode: mode as RuntimeMode })}
         />
         {canPlan || planning ? (
-          <Button
-            type="button"
-            variant={planning ? "default" : "ghost"}
-            tone={planning ? "default" : "muted"}
-            size={planning ? "default" : "icon"}
-            aria-label="Plan mode"
-            aria-pressed={planning}
-            title={planning ? "Turn off plan mode" : "Plan before making changes"}
-            onClick={() => onChange({ interactionMode: planning ? "default" : "plan" })}
-          >
-            <ListChecks data-icon={planning ? "inline-start" : undefined} />
-            {planning ? "Plan" : null}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant={planning ? "default" : "ghost"}
+                  tone={planning ? "default" : "muted"}
+                  size={planning ? "default" : "icon"}
+                  aria-label="Plan mode"
+                  aria-pressed={planning}
+                  onClick={() => onChange({ interactionMode: planning ? "default" : "plan" })}
+                />
+              }
+            >
+              <ListChecks data-icon={planning ? "inline-start" : undefined} />
+              {planning ? "Plan" : null}
+            </TooltipTrigger>
+            <TooltipContent>
+              {planning ? "Turn off plan mode" : "Plan before making changes"}
+            </TooltipContent>
+          </Tooltip>
         ) : null}
         <div className="ml-auto flex min-w-0 flex-wrap items-center rounded-full bg-muted">
           {settings.model ? (

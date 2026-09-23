@@ -13,6 +13,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { Button } from "@OpenAde/ui/components/button";
 import { Card, CardContent } from "@OpenAde/ui/components/card";
 import { Separator } from "@OpenAde/ui/components/separator";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import { makeConnectorInstanceId } from "@OpenAde/contracts/ids";
 import type { ConnectorDescriptor, ConnectorSummary } from "@OpenAde/contracts/connectors";
 import { ConnectorInstanceConfig } from "@OpenAde/contracts/settings";
@@ -88,14 +89,21 @@ function ConnectorCard({
           </span>
           {summary === undefined ? null : <ConnectorStatusBadge summary={summary} />}
           <span className="flex-1" />
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={`Remove ${conn.displayName}`}
-            onClick={onRemove}
-          >
-            <Trash />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Remove ${conn.displayName}`}
+                  onClick={onRemove}
+                />
+              }
+            >
+              <Trash />
+            </TooltipTrigger>
+            <TooltipContent>Remove connector</TooltipContent>
+          </Tooltip>
         </div>
         {summary === undefined ? null : (
           <ConnectorStatusLine summary={summary} docsUrl={descriptor?.metadata.docsUrl ?? null} />

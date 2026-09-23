@@ -6,6 +6,7 @@
 
 import { Badge } from "@OpenAde/ui/components/badge";
 import { Button } from "@OpenAde/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import type { PermissionRule } from "@OpenAde/contracts/settings";
 
 import { Edit, Trash } from "@honeyicons/react";
@@ -39,24 +40,38 @@ export function PermissionRuleRow({
         {SAVED_AT.format(new Date(rule.createdAt))}
       </time>
       <div className="flex shrink-0 items-center gap-0.5">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          disabled={disabled}
-          aria-label={`Edit rule ${rule.pattern}`}
-          onClick={onEdit}
-        >
-          <Edit />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          disabled={disabled}
-          aria-label={`Delete rule ${rule.pattern}`}
-          onClick={onDelete}
-        >
-          <Trash />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                disabled={disabled}
+                aria-label={`Edit rule ${rule.pattern}`}
+                onClick={onEdit}
+              />
+            }
+          >
+            <Edit />
+          </TooltipTrigger>
+          <TooltipContent>Edit rule</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                disabled={disabled}
+                aria-label={`Delete rule ${rule.pattern}`}
+                onClick={onDelete}
+              />
+            }
+          >
+            <Trash />
+          </TooltipTrigger>
+          <TooltipContent>Delete rule</TooltipContent>
+        </Tooltip>
       </div>
     </li>
   );
