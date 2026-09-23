@@ -18,7 +18,7 @@
 import * as Schema from "effect/Schema";
 
 import { IsoDateTime, NonEmptyString, NonNegativeInt } from "./base";
-import { ApprovalDecision, ApprovalKind, Effort, ItemKind } from "./enums";
+import { ApprovalDecision, ApprovalKind, Effort, ItemKind, RuntimeMode } from "./enums";
 import { ConnectorInstanceId, EventId, ItemId, RequestId, ThreadId, TurnId } from "./ids";
 
 // ── Shared value objects ───────────────────────────────────────
@@ -116,10 +116,25 @@ export const CapabilitySwitch = Schema.Literals(["per-turn", "in-session", "rest
 export type CapabilitySwitch = typeof CapabilitySwitch.Type;
 
 /**
- * What this connector's harness can actually do. The header controls read it to
- * decide whether the model picker applies now or next turn, and whether it is
- * disabled with a tooltip. Command Code reports per-turn model and effort, no
- * steering, plan mode, subagents, resume and fork.
+ * What this connector's harness can actually do. The renderer reads it instead
+ * of knowing which harness it is talking to: the header controls decide from
+ * `modelSwitch`/`effortSwitch` whether a pick applies now or next turn, the mode
+ * picker offers only `runtimeModes`, and the composer refuses attachments when
+ * `images` is false.
+ *
+ * - `interrupt` — what stopping cancels: only the running `turn`, or the whole
+ *   `session` (a harness whose one process serves every turn).
+ * - `rollback` — the harness can rewind its own conversation to an earlier
+ *   turn. OpenAde's checkpoints are git and do not depend on it.
+ * - `compaction` — the connector can ask the harness to compact its context on
+ *   demand. Compaction the harness does by itself needs no flag.
+ * - `questions` — the harness can put a question to the user mid-turn.
+ * - `runtimeModes` — the modes a session can honour, never empty.
+ * - `attachments` — what a turn can carry: only `images`, or any `files`.
+ *
+ * `steering` and `fork` are declared, but no UI reads them yet: every harness so
+ * far runs one turn at a time and forks nowhere OpenAde can show. They are read
+ * once a harness supports them.
  */
 export const ConnectorCapabilities = Schema.Struct({
   modelSwitch: CapabilitySwitch,
@@ -130,6 +145,12 @@ export const ConnectorCapabilities = Schema.Struct({
   images: Schema.Boolean,
   resume: Schema.Boolean,
   fork: Schema.Boolean,
+  interrupt: Schema.Literals(["turn", "session"]),
+  rollback: Schema.Boolean,
+  compaction: Schema.Boolean,
+  questions: Schema.Boolean,
+  runtimeModes: Schema.Array(RuntimeMode),
+  attachments: Schema.Literals(["images", "files"]),
 });
 export type ConnectorCapabilities = typeof ConnectorCapabilities.Type;
 

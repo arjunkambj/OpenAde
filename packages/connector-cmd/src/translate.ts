@@ -36,7 +36,7 @@
  */
 
 import { makeTurnId } from "@OpenAde/contracts/ids";
-import type { Effort } from "@OpenAde/contracts/enums";
+import { EFFORT_ORDER, type Effort } from "@OpenAde/contracts/enums";
 import type { ConnectorCapabilities, TurnStopReason } from "@OpenAde/contracts/runtime";
 
 import { EXIT_MESSAGES } from "./exitCodes";
@@ -62,11 +62,9 @@ import { makeTextRows } from "./textRows";
 
 export type { PendingRuntimeEvent } from "./items";
 
-const EFFORTS: ReadonlyArray<Effort> = ["low", "medium", "high", "xhigh", "max"];
-
 /** A frame's `effort`, when it is one the contract knows. */
 const asEffort = (value: unknown): Effort | undefined =>
-  typeof value === "string" && (EFFORTS as ReadonlyArray<string>).includes(value)
+  typeof value === "string" && (EFFORT_ORDER as ReadonlyArray<string>).includes(value)
     ? (value as Effort)
     : undefined;
 

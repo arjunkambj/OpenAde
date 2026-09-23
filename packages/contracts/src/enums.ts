@@ -36,10 +36,18 @@ export const InteractionMode = Schema.Literals(["default", "plan"]);
 export type InteractionMode = typeof InteractionMode.Type;
 
 /**
+ * The canonical reasoning-effort ladder, lowest rung first. Every harness's
+ * effort names map onto these, and the effort picker orders by this list
+ * whatever order a connector reports its rungs in.
+ */
+export const EFFORT_ORDER = ["minimal", "low", "medium", "high", "xhigh", "max"] as const;
+
+/**
  * Reasoning effort. The ladder is per model: `ModelOption.efforts` lists the
  * rungs a given model accepts, so this union is the superset, not a promise.
+ * It only ever grows — a stored thread's effort must keep decoding.
  */
-export const Effort = Schema.Literals(["low", "medium", "high", "xhigh", "max"]);
+export const Effort = Schema.Literals(EFFORT_ORDER);
 export type Effort = typeof Effort.Type;
 
 /**

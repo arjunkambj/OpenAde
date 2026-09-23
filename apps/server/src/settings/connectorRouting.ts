@@ -29,7 +29,7 @@
  * instances are open is `OpenConnectors`, below.
  */
 
-import type { Effort, RuntimeMode } from "@OpenAde/contracts/enums";
+import { Effort, RuntimeMode } from "@OpenAde/contracts/enums";
 import type { ConnectorInstanceId } from "@OpenAde/contracts/ids";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -64,8 +64,9 @@ const EMPTY: ConnectorRouting = {
   enabled: [],
 };
 
-const EFFORTS = new Set<string>(["low", "medium", "high"]);
-const RUNTIME_MODES = new Set<string>(["approval-required", "auto-accept-edits", "full-access"]);
+/** Straight from the contract, so a rung added there is never dropped here. */
+const EFFORTS = new Set<string>(Effort.literals);
+const RUNTIME_MODES = new Set<string>(RuntimeMode.literals);
 
 /**
  * The stored document is read raw rather than decoded, so a field written by a

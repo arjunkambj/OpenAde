@@ -385,6 +385,12 @@ export const makeFixtureClient = (): FixtureClient => {
       images: true,
       resume: true,
       fork: false,
+      interrupt: "turn",
+      rollback: false,
+      compaction: false,
+      questions: true,
+      runtimeModes: ["approval-required", "auto-accept-edits", "full-access"],
+      attachments: "files",
     },
     probe: { status: "ready", probedAt: NOW },
   };

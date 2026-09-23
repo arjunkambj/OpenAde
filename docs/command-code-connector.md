@@ -1012,6 +1012,29 @@ conversation with fresh item ids.
 ("with --resume/--continue, fork the session into a new one"), but nothing in
 the tree builds that argv today.
 
+### Capabilities
+
+`CMD_CAPABILITIES` in `capabilities.ts`, and why each value is what it is:
+
+| Capability                   | Value      | Why                                                                          |
+| ---------------------------- | ---------- | ---------------------------------------------------------------------------- |
+| `modelSwitch`/`effortSwitch` | `per-turn` | `--model` and `--effort` are argv of each turn's process                     |
+| `steering`                   | `false`    | one print-mode process per turn; a second message is queued                  |
+| `planMode`                   | `true`     | `--permission-mode plan`                                                     |
+| `subagents`                  | `true`     | subagent frames become progress on the `agent` row that spawned them         |
+| `images`                     | `true`     | staged and named by path; see [Attachments](#attachments)                    |
+| `resume`, `fork`             | `true`     | `--session <id>`; `--fork-session` exists but is not built yet               |
+| `interrupt`                  | `turn`     | SIGINT to the turn's process group; the session and its transcript remain    |
+| `rollback`                   | `false`    | the harness cannot rewind its conversation; OpenAde's checkpoints are git    |
+| `compaction`                 | `false`    | the harness compacts by itself; print mode cannot be asked to                |
+| `questions`                  | `true`     | `ask_user_question`, enabled on every turn                                   |
+| `runtimeModes`               | all three  | OpenAde's permission engine decides every mode through the PreToolUse hook   |
+| `attachments`                | `files`    | any file can be staged and named, though the renderer only stages images yet |
+
+Command Code's own effort ladder is `low` to `max`. The contract's `minimal`
+never appears in a model's `efforts`, because nothing recorded shows the CLI
+accepting it.
+
 ### One turn at a time
 
 `send` holds a one-permit semaphore through the whole

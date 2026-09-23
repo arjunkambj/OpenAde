@@ -160,7 +160,11 @@ const MODEL_ID = /^[a-z0-9](?:[a-z0-9._-]|\/(?=[a-z0-9]))*(?::[a-z0-9._-]+)?$/i;
 
 const EFFORT_MARKER = /\[(low|medium|high|xhigh|max)(?:,(low|medium|high|xhigh|max))*\]/i;
 
-/** Every rung the contract knows — what a row with no stated ladder offers. */
+/**
+ * Every rung Command Code has been seen to use — what a row with no stated
+ * ladder offers. The contract's `minimal` is not among them: nothing recorded
+ * shows `--effort minimal`, so offering it would invent a rung.
+ */
 const ALL_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 
 /** The lines that frame the table instead of listing a model. */

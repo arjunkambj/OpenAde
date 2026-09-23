@@ -594,6 +594,20 @@ describe("ConnectorManager", () => {
     ),
   );
 
+  it.effect("every rung of the effort ladder survives as a new-thread default", () =>
+    withFixture(({ store, sql }) =>
+      Effect.gen(function* () {
+        const current = yield* store.get;
+        // The routing read once knew only low/medium/high, so `xhigh` and `max`
+        // chosen in settings silently fell back to the decider's `medium`.
+        for (const effort of ["minimal", "xhigh", "max"] as const) {
+          yield* store.update({ defaults: { ...current.defaults, effort } });
+          expect((yield* seedThreadDefaults(sql)).effort).toBe(effort);
+        }
+      }),
+    ),
+  );
+
   it.effect("a fresh install seeds the routed connector's own first model", () =>
     withFixture(({ manager, registry, sql }) =>
       Effect.gen(function* () {

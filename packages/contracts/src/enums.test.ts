@@ -6,6 +6,7 @@ import {
   ApprovalDecision,
   ApprovalKind,
   DEFAULT_RUNTIME_MODE,
+  EFFORT_ORDER,
   Effort,
   InteractionMode,
   ItemKind,
@@ -28,7 +29,7 @@ describe("closed vocabularies", () => {
         "full-access",
       ]);
       expect(literals.interactionMode).toEqual(["default", "plan"]);
-      expect(literals.effort).toEqual(["low", "medium", "high", "xhigh", "max"]);
+      expect(literals.effort).toEqual(["minimal", "low", "medium", "high", "xhigh", "max"]);
       expect(literals.approvalKind).toEqual([
         "command",
         "file_write",
@@ -73,6 +74,27 @@ describe("closed vocabularies", () => {
     Effect.gen(function* () {
       const exit = yield* Effect.sync(() => Schema.decodeUnknownExit(RuntimeMode)("yolo"));
       expect(exit._tag).toBe("Failure");
+    }),
+  );
+});
+
+describe("Effort", () => {
+  it.effect("keeps decoding every effort a thread may already have stored", () =>
+    Effect.gen(function* () {
+      const stored = ["low", "medium", "high", "xhigh", "max"];
+      const decoded = yield* Effect.succeed(
+        stored.map((effort) => Schema.decodeUnknownSync(Effort)(effort)),
+      );
+      expect(decoded).toEqual(stored);
+    }),
+  );
+
+  it.effect("is ordered by EFFORT_ORDER, lowest rung first", () =>
+    Effect.gen(function* () {
+      const order = yield* Effect.succeed(EFFORT_ORDER);
+      expect(Effort.literals).toEqual(order);
+      expect(order[0]).toBe("minimal");
+      expect(order.at(-1)).toBe("max");
     }),
   );
 });

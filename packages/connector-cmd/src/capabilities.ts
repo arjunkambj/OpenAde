@@ -10,6 +10,7 @@ import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
 export const CMD_CAPABILITIES: ConnectorCapabilities = {
   modelSwitch: "per-turn",
   effortSwitch: "per-turn",
+  // One print-mode process per turn: a second message waits for the first.
   steering: false,
   planMode: true,
   subagents: true,
@@ -18,4 +19,18 @@ export const CMD_CAPABILITIES: ConnectorCapabilities = {
   images: true,
   resume: true,
   fork: true,
+  // Stopping signals the one turn's process group; the session outlives it and
+  // the next turn resumes the same conversation.
+  interrupt: "turn",
+  // The harness has no rewind of its own. OpenAde's checkpoints are git.
+  rollback: false,
+  // The harness compacts by itself; print mode offers no way to ask for it.
+  compaction: false,
+  // `ask_user_question`, enabled on every turn.
+  questions: true,
+  // Every mode is enforced by OpenAde's permission engine through the
+  // PreToolUse hook, which fires under `--yolo` too.
+  runtimeModes: ["approval-required", "auto-accept-edits", "full-access"],
+  // Any file can be staged and named by path, not only images.
+  attachments: "files",
 };

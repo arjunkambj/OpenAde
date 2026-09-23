@@ -29,6 +29,12 @@ const CAPABILITIES: ConnectorCapabilities = {
   images: false,
   resume: true,
   fork: true,
+  interrupt: "turn",
+  rollback: false,
+  compaction: false,
+  questions: true,
+  runtimeModes: ["approval-required", "auto-accept-edits", "full-access"],
+  attachments: "files",
 };
 
 const translator = () =>
