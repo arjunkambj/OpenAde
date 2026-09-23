@@ -1,5 +1,6 @@
 import type { ItemKind } from "@OpenAde/contracts/enums";
 import type { ItemId } from "@OpenAde/contracts/ids";
+import type { ResolvedDecision } from "@OpenAde/contracts/orchestration";
 import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
 import { describe, expect, it } from "vitest";
 
@@ -7,6 +8,7 @@ import { uuidV7Millis } from "@OpenAde/shared/ids";
 
 import {
   buildTimeline,
+  type TimelineDecisionRow,
   type TimelineTurnSummaryRow,
   type TimelineWorkGroupRow,
   type TimelineWorkingRow,
@@ -251,5 +253,135 @@ describe("buildTimeline working row", () => {
       turnStartedAt: 1_234,
     });
     expect(working(rows)).toBeUndefined();
+  });
+});
+
+describe("buildTimeline decisions", () => {
+  const decision = (over: Partial<ResolvedDecision> = {}): ResolvedDecision => ({
+    kind: "approval",
+    id: "req-1",
+    outcome: "allow-once",
+    resolvedAt: "2026-01-01T00:00:00.000Z",
+    ...over,
+  });
+
+  const labels = (rows: ReturnType<typeof buildTimeline>["rows"]) =>
+    rows.map((row) =>
+      row.kind === "item"
+        ? row.item.kind
+        : row.kind === "decision"
+          ? `decision:${row.decision.id}`
+          : row.kind,
+    );
+
+  it("places a record right after the row holding its anchor", () => {
+    const user = item("user_message");
+    const reply = item("assistant_message");
+    const { rows } = buildTimeline([user, reply, item("user_message")], {
+      turnActive: true,
+      decisions: [decision({ afterItemId: user.itemId })],
+    });
+    expect(labels(rows)).toEqual([
+      "user_message",
+      "decision:req-1",
+      "assistant_message",
+      "user_message",
+      "working",
+    ]);
+    const row = rows[1] as TimelineDecisionRow;
+    expect(row.id).toBe("decision:req-1");
+    expect(row.decision.outcome).toBe("allow-once");
+  });
+
+  it("splits a settled work run into two groups around the record", () => {
+    const first = item("tool_call");
+    const items = [
+      item("user_message"),
+      item("reasoning"),
+      first,
+      item("command_execution"),
+      item("tool_call"),
+      item("assistant_message"),
+    ];
+    const { rows } = buildTimeline(items, {
+      turnActive: false,
+      decisions: [decision({ afterItemId: first.itemId })],
+    });
+    expect(labels(rows)).toEqual([
+      "user_message",
+      "work-group",
+      "decision:req-1",
+      "work-group",
+      "assistant_message",
+      "turn-summary",
+    ]);
+    expect(workGroups(rows).map((group) => group.items.length)).toEqual([2, 2]);
+    // the record splits the groups but not the turn: one summary still covers it
+    expect(summaries(rows)).toHaveLength(1);
+  });
+
+  it("anchors a task child's record after the task", () => {
+    const task = item("task");
+    const child = item("tool_call", { parentItemId: task.itemId });
+    const { rows } = buildTimeline([item("user_message"), task, child, item("tool_call")], {
+      turnActive: false,
+      decisions: [decision({ afterItemId: child.itemId })],
+    });
+    expect(labels(rows)).toEqual([
+      "user_message",
+      "work-group",
+      "decision:req-1",
+      "work-group",
+      "turn-summary",
+    ]);
+    expect(workGroups(rows)[0].items.map((i) => i.itemId)).toEqual([task.itemId]);
+  });
+
+  it("puts a record with an unknown or missing anchor at the end, before the working row", () => {
+    const { rows } = buildTimeline([item("user_message"), item("tool_call")], {
+      turnActive: true,
+      decisions: [
+        decision({ id: "req-1", afterItemId: itemIdAt(1) }),
+        decision({ id: "req-2", kind: "question", outcome: "answered" }),
+      ],
+    });
+    expect(labels(rows)).toEqual([
+      "user_message",
+      "tool_call",
+      "decision:req-1",
+      "decision:req-2",
+      "working",
+    ]);
+  });
+
+  it("keeps row ids unique when two records share an id", () => {
+    const user = item("user_message");
+    const { rows } = buildTimeline([user], {
+      turnActive: false,
+      decisions: [
+        decision({ kind: "plan", id: "turn-1", outcome: "revise", afterItemId: user.itemId }),
+        decision({ kind: "plan", id: "turn-1", outcome: "accept", afterItemId: user.itemId }),
+      ],
+    });
+    expect(rows.map((row) => row.id)).toEqual([
+      user.itemId,
+      "decision:turn-1",
+      "decision:turn-1:2",
+    ]);
+  });
+
+  it("leaves today's rows unchanged without decisions", () => {
+    const items = [
+      item("user_message"),
+      item("tool_call"),
+      item("assistant_message"),
+      item("user_message"),
+      item("reasoning"),
+    ];
+    for (const turnActive of [false, true]) {
+      const plain = buildTimeline(items, { turnActive });
+      expect(buildTimeline(items, { turnActive, decisions: [] })).toEqual(plain);
+      expect(buildTimeline(items, { turnActive, decisions: undefined })).toEqual(plain);
+    }
   });
 });

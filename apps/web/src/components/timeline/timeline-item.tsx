@@ -1,6 +1,7 @@
 /**
  * One `ItemSnapshot` → one row component, plus the synthetic rows: the
- * `work-group` and `turn-summary` folds and the `working` indicator.
+ * `work-group` and `turn-summary` folds, `decision` records and the `working`
+ * indicator.
  * `childrenByParent` threads through so task rows (and work-group bodies) can
  * render their nested items through the same dispatcher.
  */
@@ -9,6 +10,7 @@ import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
 import { memo } from "react";
 
 import { CommandExecutionRow } from "@/components/timeline/tool-rows";
+import { DecisionRow } from "@/components/timeline/decision-row";
 import { FileChangeRow } from "@/components/timeline/file-change-row";
 import type { TimelineRow } from "@/components/timeline/fold";
 import { AssistantMessageRow, UserMessageRow } from "@/components/timeline/message-rows";
@@ -94,6 +96,9 @@ export function TimelineRowView({
   }
   if (row.kind === "turn-summary") {
     return <TurnSummaryRow summary={row} />;
+  }
+  if (row.kind === "decision") {
+    return <DecisionRow row={row} />;
   }
   return <WorkingRow row={row} />;
 }

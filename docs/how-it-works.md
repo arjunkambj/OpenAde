@@ -601,7 +601,16 @@ turns the flat item list into rows:
   start is read off the turn id, or off the last `user_message` id while the
   turn is in flight but its id is not filled in yet;
 - rows whose `parentItemId` names a task leave the top level and render nested
-  inside that task's row.
+  inside that task's row;
+- each answered approval, question and plan in the snapshot's `decisions` (§5)
+  becomes a one-line `decision` row — "Allowed once · npm test", "Allowed for
+  session · Shell(npm run \*)", "Denied · …" in the destructive colour,
+  "Answered · <question>", "Plan accepted", "Plan accepted with auto-edits",
+  "Revision requested" — placed right after the row holding its `afterItemId`
+  (after the task, for a task child's item). In a settled segment the record
+  is not folded: it ends the work run, so the work group splits around it. A
+  record whose anchor is missing or unknown goes at the end, before the
+  working row.
 
 `apps/web/src/components/timeline/timeline-item.tsx` dispatches one component
 per `ItemKind`. The list opens at its end and follows new rows while it sits
@@ -841,6 +850,8 @@ channel, so the tool call takes the hook road for a different purpose
 
 The answer is recorded in the thread's `decisions` (§5) as `question`,
 `answered`, with the first question's header — else its text — as the subject.
+Once the card closes, that record is what the timeline keeps of it: one line,
+"Answered · <question>", where the exchange happened.
 
 ---
 

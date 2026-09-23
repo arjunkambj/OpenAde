@@ -23,6 +23,7 @@ export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
         turnActive: turnInFlight(snapshot),
         turnStartedAt:
           snapshot.currentTurnId === null ? undefined : uuidV7Millis(snapshot.currentTurnId),
+        decisions: snapshot.decisions,
       }),
     [snapshot],
   );
