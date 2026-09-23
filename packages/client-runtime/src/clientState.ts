@@ -70,12 +70,6 @@ const settledStatus = (doc: ThreadDetailView) =>
   doc.currentTurnId === null ? waitingOr(doc, "idle") : "running";
 
 /**
- * The server's decision record, appended between snapshots. The snapshot
- * holds only the head of each open list, so an answer to anything behind it
- * is recorded without a subject — the server's next snapshot, which knew the
- * whole list, fills it in.
- */
-/**
  * Whether an answer the fold cannot see open was already recorded. The
  * connector echoes every answer the decider wrote, and the server records
  * only the first; the client, which sees only the head of each list, tells
@@ -84,6 +78,12 @@ const settledStatus = (doc: ThreadDetailView) =>
 const recorded = (doc: ThreadDetailView, kind: ResolvedDecision["kind"], id: unknown): boolean =>
   (doc.decisions ?? []).some((decision) => decision.kind === kind && decision.id === id);
 
+/**
+ * The server's decision record, appended between snapshots. The snapshot
+ * holds only the head of each open list, so an answer to anything behind it
+ * is recorded without a subject — the server's next snapshot, which knew the
+ * whole list, fills it in.
+ */
 const withDecision = (
   doc: ThreadDetailView,
   event: OrchestrationEvent,
