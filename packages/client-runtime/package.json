@@ -36,6 +36,10 @@
       "types": "./src/fsAtoms.ts",
       "import": "./src/fsAtoms.ts"
     },
+    "./terminalAtoms": {
+      "types": "./src/terminalAtoms.ts",
+      "import": "./src/terminalAtoms.ts"
+    },
     "./desktop": {
       "types": "./src/desktop.ts",
       "import": "./src/desktop.ts"

@@ -467,6 +467,14 @@ Everything a client needs that is not React.
   interrupt a call still in flight when the next one starts and hand the first
   caller the second's result; two threads committing at once, or two deleted
   threads removing their worktrees, must not.
+- `terminalAtoms.ts` — a thread's terminal list, the open/write/resize/close
+  calls, and `terminalAttachAtom`, which hands one terminal's output to a
+  callback item by item. It is a `runtime.fn`, not an atom over the stream,
+  because an atom built from a stream keeps only the last item of each chunk.
+  It reattaches with a fresh snapshot after a dropped socket or an overflow,
+  and reports a terminal the server no longer knows as `gone`. Input goes
+  through one lane per terminal, so keys typed while a write is in flight
+  follow it in order as the next write.
 - `connectorAtoms.ts` — `modelCatalogAtom`, every enabled connector instance
   with its models in `connectors.list` order, which the model pickers and the
   Models settings page read. It follows `connectorsAtom`, and an instance whose

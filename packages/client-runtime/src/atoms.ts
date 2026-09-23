@@ -83,7 +83,7 @@ const resubscribeSchedule = Schedule.exponential("100 millis").pipe(
  * the schedule with that same error stops the loop and hands the error to the
  * atom, where it renders as an `AsyncResult` failure.
  */
-const transportOnly = <E>(): Schedule.Schedule<Duration.Duration, E, E> =>
+export const transportOnly = <E>(): Schedule.Schedule<Duration.Duration, E, E> =>
   resubscribeSchedule.pipe(
     Schedule.setInputType<E>(),
     Schedule.tap((meta) =>
