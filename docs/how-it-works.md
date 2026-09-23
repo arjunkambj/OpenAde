@@ -370,11 +370,24 @@ function in `composer-keys.ts`:
 - an IME mid-composition, or Shift held → **insert** a newline;
 - otherwise → **send**.
 
-`Cmd+Enter` is the `composer.queue` binding: it sends with `queued: true`.
+What a send then does is `sendMode` in `send-mode.ts`:
+
+| The thread                               | Enter or the send button                     | `Cmd+Enter`                                                   |
+| ---------------------------------------- | -------------------------------------------- | ------------------------------------------------------------- |
+| idle                                     | `thread.turn.start` — a new turn             | `thread.turn.start { queued: true }`, which starts a turn too |
+| a turn running, the harness cannot steer | `thread.turn.start { queued: true }` — queue | the same                                                      |
+| a turn running, the harness steers       | `thread.turn.steer` — into the running turn  | `thread.turn.start { queued: true }` — queue                  |
+
+`Cmd+Enter` is the `composer.queue` binding, and it always queues, so a
+follow-up meant for after the turn still waits for it on a harness that steers.
+Whether the harness steers is the `steering` capability of the instance the
+thread runs on (`instanceCapabilities`, the same read the attach button uses).
 `use-send-draft.ts` uploads any attachments first (a browser `File` has no
 filesystem path, so the server must hold the bytes before the command can name
 them) and latches so one Enter cannot start two real turns. While a turn is in
-flight the send button becomes Queue and a Stop button appears — both read
+flight a Stop button appears and the send button becomes Queue — or, when the
+harness steers, "Steer turn", whose tooltip names both keys, with "Steering the
+running turn" in muted text beside the context gauge. All of it reads
 `turnInFlight` (`apps/web/src/lib/turn.ts`) rather than `currentTurnId`, which
 the projection only fills one event later.
 
@@ -974,8 +987,14 @@ it was sent, once where it was answered.
 
 The connector keeps the running turn open until its harness has answered the
 steered message too, so the turn still ends with exactly one
-`thread.turn.completed`. The composer does not send `thread.turn.steer` yet: a
-message typed mid-turn still goes through the queue.
+`thread.turn.completed`.
+
+In the composer (§4), Enter on a running thread whose harness steers sends
+`thread.turn.steer`; `Cmd+Enter` still queues, and on a harness that cannot
+steer both keys queue as they always have. The client decides from the
+instance's `capabilities.steering`, the decider from the session's; a thread
+where the two disagree gets the rejection above as the composer's error line,
+and the draft stays put to be queued instead.
 
 ---
 

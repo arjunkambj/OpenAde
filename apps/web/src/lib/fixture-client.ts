@@ -10,6 +10,8 @@
  * pushes it onto the stream, which is how the page's scenario buttons drive
  * states the server would normally produce (a mid-turn approval, a plan, a
  * question). `fixture.onCommand` is the page's dispatch log.
+ * `fixture.setSteering` flips the connector's `steering` capability, so the
+ * composer's steer state can be seen; the page refreshes `connectors.list`.
  */
 
 import { applyThreadStreamItem } from "@OpenAde/client-runtime/clientState";
@@ -189,6 +191,10 @@ export interface FixtureClient {
   readonly completeTurn: () => void;
   /** The fixture's current doc — scenario buttons read pending fields from it. */
   readonly doc: () => ThreadDetailSnapshot;
+  /** Whether the fixture connector reports that it can steer a running turn. */
+  readonly steering: () => boolean;
+  /** Flip the steering capability; `connectors.list` answers the new value. */
+  readonly setSteering: (on: boolean) => void;
   /** Restore the base document and resnapshot. */
   readonly reset: () => void;
   /** Called after every dispatch — the page renders this as the command log. */
@@ -205,12 +211,14 @@ export const makeFixtureClient = (): FixtureClient => {
   const threadId = makeThreadId();
   const projectId = makeProjectId();
   const connectorInstanceId = makeConnectorInstanceId();
+  const secondInstanceId = makeConnectorInstanceId();
   const serverInstanceId = uuidV7();
 
   const queue = Effect.runSync(Queue.unbounded<ThreadStreamItem>());
   let doc = baseDoc(threadId, projectId, connectorInstanceId);
   let streamVersion = 0;
   let keybindings: ReadonlyArray<Keybinding> = [...DEFAULT_KEYBINDINGS];
+  let steering = false;
   let handle: FixtureClient;
 
   const offer = (item: ThreadStreamItem) => Effect.runSync(Queue.offer(queue, item));
@@ -300,6 +308,52 @@ export const makeFixtureClient = (): FixtureClient => {
           },
         };
       }
+      // As the server's decider: an idle steer starts a turn, a harness that
+      // cannot steer is refused, and a steered message joins the running turn
+      // as a user row stamped with it.
+      case "thread.turn.steer": {
+        const turnId = doc.currentTurnId;
+        if (turnId === null) {
+          return {
+            events: () => {
+              const started = makeTurnId();
+              next("thread.turn.requested", {
+                turnId: started,
+                text: command.text,
+                attachments: command.attachments,
+                mentions: command.mentions,
+              });
+              next("thread.turn.started", { turnId: started });
+            },
+          };
+        }
+        if (!steering) {
+          return {
+            events: () => {},
+            reason: "this thread's harness cannot take a message mid-turn; queue it instead",
+          };
+        }
+        return {
+          events: () => {
+            const { text, attachments, mentions } = command;
+            next("thread.turn.steered", { turnId, text, attachments, mentions }, command.commandId);
+            next(
+              "thread.item.upserted",
+              {
+                turnId,
+                item: {
+                  itemId: makeItemId(),
+                  kind: "user_message",
+                  status: "completed",
+                  turnId,
+                  text,
+                },
+              },
+              command.commandId,
+            );
+          },
+        };
+      }
       case "thread.turn.interrupt": {
         const turnId = doc.currentTurnId;
         return turnId === null
@@ -386,7 +440,7 @@ export const makeFixtureClient = (): FixtureClient => {
     }
   };
 
-  const connector: ConnectorSummary = {
+  const connector = (): ConnectorSummary => ({
     connectorInstanceId,
     kind: "fixture",
     displayName: "Fixture connector",
@@ -394,7 +448,7 @@ export const makeFixtureClient = (): FixtureClient => {
     capabilities: {
       modelSwitch: "per-turn",
       effortSwitch: "per-turn",
-      steering: false,
+      steering,
       planMode: true,
       subagents: true,
       images: true,
@@ -409,22 +463,22 @@ export const makeFixtureClient = (): FixtureClient => {
     },
     extensions: { skills: true, mcpServers: false },
     probe: { status: "ready", probedAt: NOW },
-  };
+  });
 
   /**
    * A second instance of the same kind, so the model picker has two sections.
    * The fixture thread is bound to the first, so this one shows disabled.
    */
-  const secondConnector: ConnectorSummary = {
-    ...connector,
-    connectorInstanceId: makeConnectorInstanceId(),
+  const secondConnector = (): ConnectorSummary => ({
+    ...connector(),
+    connectorInstanceId: secondInstanceId,
     displayName: "Second fixture connector",
     extensions: { skills: false, mcpServers: false },
-  };
+  });
 
   /** What the fixture build "ships": the one connector kind above, with a form. */
   const descriptor: ConnectorDescriptor = {
-    kind: connector.kind,
+    kind: "fixture",
     metadata: { displayName: "Fixture connector", iconKey: "terminal", accent: "#6b7280" },
     configFields: [
       {
@@ -500,7 +554,7 @@ export const makeFixtureClient = (): FixtureClient => {
               return { mime: "image/png", size: Math.floor((base64.length * 3) / 4), base64 };
             });
         case "connectors.list":
-          return () => Effect.succeed([connector, secondConnector]);
+          return () => Effect.sync(() => [connector(), secondConnector()]);
         case "connectors.models":
           return ({ instanceId }: { instanceId: string }) =>
             Effect.succeed(
@@ -556,6 +610,10 @@ export const makeFixtureClient = (): FixtureClient => {
     startTurn,
     completeTurn,
     doc: () => doc,
+    steering: () => steering,
+    setSteering: (on) => {
+      steering = on;
+    },
     reset: () => {
       doc = baseDoc(threadId, projectId, connectorInstanceId);
       streamVersion = 0;

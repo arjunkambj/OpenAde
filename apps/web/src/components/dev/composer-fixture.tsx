@@ -7,6 +7,9 @@
  * `thread.message.queued`, and the command log shows every dispatch.
  *
  * Scenario buttons emit the events a connector/session would produce mid-turn.
+ * The Steering toggle flips the connector's `steering` capability, so a
+ * running turn shows the composer's steer state (Enter steers, the button and
+ * tooltip say so) instead of the queue.
  * Keyboard path: Enter sends, Cmd+Enter queues, 1/2/3 answer cards, 3 opens
  * the plan revision field, Escape interrupts a running turn. Every chord is
  * resolved by the one dispatcher in `@/lib/shortcuts` against the fixture's
@@ -14,8 +17,9 @@
  * live.
  */
 
-import { useAtomValue } from "@effect/atom-react";
+import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import { Button } from "@OpenAde/ui/components/button";
+import { Toggle } from "@OpenAde/ui/components/toggle";
 import { makeItemId, makeRequestId } from "@OpenAde/contracts/ids";
 import type { CommandReceipt } from "@OpenAde/contracts/orchestration";
 import * as React from "react";
@@ -64,7 +68,9 @@ function ScenarioButton({
 }
 
 function DevComposerInner({ fixture }: { readonly fixture: FixtureClient }) {
-  const { threadDetailAtom } = useClientRuntime();
+  const { threadDetailAtom, connectorsAtom } = useClientRuntime();
+  const refreshConnectors = useAtomRefresh(connectorsAtom);
+  const [steering, setSteering] = React.useState(() => fixture.steering());
   const docResult = useAtomValue(threadDetailAtom(fixture.threadId));
   const doc = AsyncResult.isSuccess(docResult) ? docResult.value : null;
   const [log, setLog] = React.useState<ReadonlyArray<LogEntry>>([]);
@@ -166,6 +172,12 @@ function DevComposerInner({ fixture }: { readonly fixture: FixtureClient }) {
     });
   };
 
+  const toggleSteering = (on: boolean) => {
+    fixture.setSteering(on);
+    setSteering(on);
+    refreshConnectors();
+  };
+
   const queueTwo = () => {
     fixture.emit("thread.message.queued", {
       message: {
@@ -214,6 +226,9 @@ function DevComposerInner({ fixture }: { readonly fixture: FixtureClient }) {
           <ScenarioButton label="Complete turn" onPress={() => fixture.completeTurn()} />
           <ScenarioButton label="Queue ×2" onPress={queueTwo} />
           <ScenarioButton label="Reset" onPress={() => fixture.reset()} />
+          <Toggle variant="outline" size="sm" pressed={steering} onPressedChange={toggleSteering}>
+            Steering {steering ? "on" : "off"}
+          </Toggle>
         </div>
       </section>
 

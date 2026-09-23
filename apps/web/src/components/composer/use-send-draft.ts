@@ -11,6 +11,10 @@
  * upload the same images again and start a second real turn — the user's model
  * credits, spent twice for one message. The latch is a ref as well as state:
  * the ref closes the window before React has re-rendered the disabled button.
+ *
+ * The draft's `mode` (`./send-mode`) picks the command: `thread.turn.steer`
+ * delivers into the running turn, `thread.turn.start` starts one or, with
+ * `queued`, waits behind it.
  */
 
 import { useAtomSet } from "@effect/atom-react";
@@ -18,6 +22,7 @@ import { makeCommandId } from "@OpenAde/contracts/ids";
 import type { ThreadId } from "@OpenAde/contracts/ids";
 import * as React from "react";
 
+import type { SendMode } from "@/components/composer/send-mode";
 import type { Attachments } from "@/components/composer/use-attachments";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
@@ -26,7 +31,7 @@ import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
 export interface Draft {
   readonly text: string;
   readonly mentions: ReadonlyArray<string>;
-  readonly queued: boolean;
+  readonly mode: SendMode;
 }
 
 export interface SendDraft {
@@ -59,17 +64,20 @@ export function useSendDraft(
     onErrorRef.current(null);
     void attachments
       .stage()
-      .then((staged) =>
-        dispatch({
+      .then((staged) => {
+        const message = {
           commandId: makeCommandId(),
           createdAt: new Date().toISOString(),
-          type: "thread.turn.start",
           threadId,
           text: draft.text,
           attachments: staged.references,
           mentions: [...draft.mentions],
-          queued: draft.queued,
-        }).then(
+        };
+        return dispatch(
+          draft.mode === "steer"
+            ? { ...message, type: "thread.turn.steer" }
+            : { ...message, type: "thread.turn.start", queued: draft.mode === "queue" },
+        ).then(
           (receipt) => {
             const rejected = receiptError(receipt, "the server rejected the message");
             if (rejected === null) {
@@ -81,8 +89,8 @@ export function useSendDraft(
             onErrorRef.current(rejected);
           },
           () => onErrorRef.current(DISPATCH_UNREACHABLE),
-        ),
-      )
+        );
+      })
       .catch(() => onErrorRef.current("the attachment could not be uploaded"))
       .finally(() => {
         sendingRef.current = false;

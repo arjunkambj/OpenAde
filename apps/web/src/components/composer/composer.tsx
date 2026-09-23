@@ -3,10 +3,10 @@
  * command popover, file attach, the queued-message strip, and the
  * interaction-card slot — one card at a time, above the input.
  *
- * Keys: Enter sends (queues while a turn runs — the decider rejects a second
- * turn, so "send" on a busy thread means queue) unless an open trigger menu has
- * a row to pick, which `composer-keys` decides; Shift+Enter newline,
- * Cmd+Enter queues explicitly, Escape closes an open trigger menu first and
+ * Keys: Enter sends — while a turn runs it steers that turn when the harness
+ * can take a message mid-turn and queues otherwise (`send-mode`) — unless an
+ * open trigger menu has a row to pick, which `composer-keys` decides;
+ * Shift+Enter newline, Cmd+Enter always queues, Escape closes an open menu and
  * otherwise reaches the `thread.interrupt` binding this component registers —
  * the toolbar's Stop button is the same call with a mouse. State reads
  * `threadDetailAtom`; mutations go through `dispatchAtom`; cards close on
@@ -32,6 +32,7 @@ import { ComposerSurface, composerInputClassName } from "@/components/composer/c
 import { ComposerChips } from "@/components/composer/composer-chips";
 import { composerEnter } from "@/components/composer/composer-keys";
 import { ComposerToolbar } from "@/components/composer/composer-toolbar";
+import { canSteer, sendMode } from "@/components/composer/send-mode";
 import { PendingCard } from "@/components/composer/pending-card";
 import { QueueStrip } from "@/components/composer/queue-strip";
 import { SlashMenu, slashMenuItems, type SlashMenuItem } from "@/components/composer/slash-menu";
@@ -124,6 +125,7 @@ export function Composer({
   // gone out unqueued and been rejected as "a turn is already running". The
   // header and the timeline already read the shared helper.
   const running = doc !== null && turnInFlight(doc);
+  const steerable = canSteer(running, capabilities);
   const { interrupting, interrupt } = useInterrupt(threadId, running, setError);
   const { sending, send: sendDraft } = useSendDraft(threadId, attachments, setError, () => {
     setText("");
@@ -216,13 +218,13 @@ export function Composer({
     }
   };
 
+  const canSend = text.trim().length > 0 || attachments.files.length > 0;
   /** The draft is the composer's; the upload and the dispatch are the hook's. */
-  const send = (queue: boolean) => {
-    const trimmed = text.trim();
-    if (trimmed.length === 0 && attachments.files.length === 0) {
-      return;
+  const send = (queueChord: boolean) => {
+    if (canSend) {
+      const mode = sendMode({ running, steerable, queueChord });
+      sendDraft({ text: text.trim(), mentions, mode });
     }
-    sendDraft({ text: trimmed, mentions, queued: queue || running });
   };
 
   const focusInput = React.useCallback(() => textareaRef.current?.focus(), []);
@@ -308,7 +310,6 @@ export function Composer({
     }
   };
 
-  const canSend = text.trim().length > 0 || attachments.files.length > 0;
   /** One line under the input: a dispatch error, else what was refused. */
   const notice = error ?? attachments.rejected;
 
@@ -375,6 +376,7 @@ export function Composer({
         <ComposerToolbar
           settings={<HeaderControls threadId={threadId} className="min-w-0 flex-1" />}
           running={running}
+          steerable={steerable}
           canSend={canSend}
           contextUsed={doc?.context?.used}
           contextLimit={doc?.context?.limit}
@@ -382,7 +384,7 @@ export function Composer({
           sending={sending}
           filesKey={attachments.files.length}
           onFilesPicked={attachments.add}
-          onSend={() => send(running)}
+          onSend={() => send(false)}
           onInterrupt={interrupt}
           attachDisabledReason={attachRefusal ?? undefined}
         />

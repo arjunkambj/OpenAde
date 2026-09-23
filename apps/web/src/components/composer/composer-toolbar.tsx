@@ -1,7 +1,8 @@
 /**
- * The composer's bottom row: attach button, live status (running notice,
- * context usage), Stop, and the send/queue button — the queue glyph while a
- * turn runs, matching what Enter would do.
+ * The composer's bottom row: attach button, live status (the steering notice,
+ * context usage), Stop, and the send button — which, like Enter, steers the
+ * running turn when the harness can take a message mid-turn and shows the
+ * queue glyph while a turn runs otherwise. The queue chord still queues.
  *
  * Stop only exists while a turn is running and is the visible half of the
  * `thread.interrupt` binding: a user who never learns the chord still has a
@@ -19,11 +20,12 @@ import * as React from "react";
 import { ATTACHMENT_ACCEPT } from "@/components/composer/attachment-rules";
 import { ShortcutKbd } from "@/lib/shortcuts";
 
-import { Add, ArrowUp, ListOrdered, Spinner, Stop as StopIcon } from "@honeyicons/react";
+import { Add, ArrowUp, ListOrdered, Send, Spinner, Stop as StopIcon } from "@honeyicons/react";
 
 export function ComposerToolbar({
   settings,
   running,
+  steerable,
   canSend,
   contextUsed,
   contextLimit,
@@ -37,6 +39,8 @@ export function ComposerToolbar({
 }: {
   readonly settings?: React.ReactNode;
   readonly running: boolean;
+  /** A turn runs and its harness takes messages into it: sending steers. */
+  readonly steerable: boolean;
   readonly canSend: boolean;
   readonly contextUsed?: number;
   readonly contextLimit?: number;
@@ -93,6 +97,7 @@ export function ComposerToolbar({
       </Tooltip>
       {settings}
       <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+        {steerable ? <span>Steering the running turn</span> : null}
         {contextUsed !== undefined && contextLimit !== undefined ? (
           <span className="tabular-nums" title="Context window used">
             {Math.round((contextUsed / Math.max(1, contextLimit)) * 100)}%
@@ -131,7 +136,7 @@ export function ComposerToolbar({
               size="icon"
               shape="pill"
               className="shrink-0"
-              aria-label={running ? "Queue message" : "Send message"}
+              aria-label={steerable ? "Steer turn" : running ? "Queue message" : "Send message"}
               disabled={!canSend || sending}
               onClick={onSend}
             />
@@ -139,6 +144,8 @@ export function ComposerToolbar({
         >
           {sending ? (
             <Spinner variant="bold" />
+          ) : steerable ? (
+            <Send variant="bold" />
           ) : running ? (
             <ListOrdered variant="bold" />
           ) : (
@@ -146,7 +153,17 @@ export function ComposerToolbar({
           )}
         </TooltipTrigger>
         <TooltipContent>
-          {running ? (
+          {steerable ? (
+            <span className="flex flex-col gap-1">
+              <span className="flex items-center gap-1.5">
+                Send to the running turn<Kbd>↵</Kbd>
+              </span>
+              <span className="flex items-center gap-1.5">
+                Queue instead
+                <ShortcutKbd id="queue" />
+              </span>
+            </span>
+          ) : running ? (
             <>
               Queue message
               <ShortcutKbd id="queue" />

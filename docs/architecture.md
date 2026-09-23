@@ -862,7 +862,7 @@ instead of the kind:
 | `rollback`                   | boolean                              | whether the harness can rewind its own conversation  |
 | `compaction`                 | boolean                              | whether compaction can be asked for on demand        |
 | `questions`                  | boolean                              | whether a turn can put a question to the user        |
-| `steering`                   | boolean                              | the decider, off the bound session: steer or refuse  |
+| `steering`                   | boolean                              | the decider (bound session) and the composer's Enter |
 | `subagents`, `resume`        | boolean                              | declared                                             |
 | `fork`                       | boolean                              | declared; read once a harness supports it            |
 

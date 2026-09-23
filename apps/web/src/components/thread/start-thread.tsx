@@ -171,7 +171,7 @@ function StartComposer({
     startingRef.current = true;
     try {
       if (await create(project.projectId, { threadId, navigate: false, settings: shownSettings })) {
-        sendDraft({ text: text.trim(), mentions: [], queued: false });
+        sendDraft({ text: text.trim(), mentions: [], mode: "start" });
       }
     } finally {
       startingRef.current = false;
@@ -221,6 +221,7 @@ function StartComposer({
         />
         <ComposerToolbar
           running={false}
+          steerable={false}
           canSend={canSend && project !== undefined}
           interrupting={false}
           sending={busy}
