@@ -1,7 +1,11 @@
 /**
- * The editable "allow always" pattern field. The preview line runs the same
+ * The editable permission pattern field. The preview line runs the same
  * matcher the server enforces — `@OpenAde/shared/permissionPattern` — against
  * the live request, so what the card claims is exactly what will persist.
+ *
+ * The Permissions settings page edits a saved rule with it too. There is no
+ * request to preview against there, so without a `subject` the status line
+ * only says whether the pattern parses.
  */
 
 import { Input } from "@OpenAde/ui/components/input";
@@ -22,12 +26,13 @@ export function PatternEditor({
 }: {
   readonly value: string;
   readonly onChange: (value: string) => void;
-  /** The pending approval the pattern would be persisted for. */
-  readonly subject: PatternSubject;
+  /** The pending approval the pattern would be persisted for, if any. */
+  readonly subject?: PatternSubject;
   readonly autoFocus?: boolean;
 }) {
   const parsed = parsePattern(value);
-  const matches = patternMatches(value, subject);
+  // With no request to test, a pattern that parses is as good as it gets.
+  const matches = subject === undefined || patternMatches(value, subject);
 
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
@@ -62,7 +67,7 @@ export function PatternEditor({
         ) : matches ? (
           <>
             <Check className="size-3.5 shrink-0" />
-            <span>Matches this request.</span>
+            <span>{subject === undefined ? "Valid pattern." : "Matches this request."}</span>
           </>
         ) : (
           <>
