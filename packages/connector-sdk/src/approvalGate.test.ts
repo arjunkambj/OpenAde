@@ -156,4 +156,69 @@ describe("makeApprovalGate", () => {
       });
     }),
   );
+  it.effect("answers deny and resolves the card when the harness withdraws the call", () =>
+    Effect.gen(function* () {
+      const { gate, events } = yield* gateWith(permissionsSaying("prompt"));
+      const subject = request();
+      const abort = new AbortController();
+      const pending = yield* Effect.forkChild(
+        gate.decide({ ...input(subject), signal: abort.signal }),
+      );
+      yield* awaitEvents(events, 1);
+
+      abort.abort();
+      expect(yield* Fiber.join(pending)).toEqual({ allowed: false, decision: "deny", via: "user" });
+      expect((yield* events).slice(1)).toEqual([
+        {
+          type: "request.resolved",
+          requestId: subject.requestId,
+          payload: { requestId: subject.requestId, decision: "deny" },
+        },
+      ]);
+      // It is no longer open: nothing else can answer it.
+      yield* gate.releaseAll("deny");
+      expect((yield* events).length).toBe(2);
+    }),
+  );
+
+  it.effect("resolves at once a call withdrawn before its card was opened", () =>
+    Effect.gen(function* () {
+      const { gate, events } = yield* gateWith(permissionsSaying("prompt"));
+      const subject = request();
+      const abort = new AbortController();
+      abort.abort();
+      expect(yield* gate.decide({ ...input(subject), signal: abort.signal })).toEqual({
+        allowed: false,
+        decision: "deny",
+        via: "user",
+      });
+      expect((yield* events).map((event) => event.type)).toEqual([
+        "request.opened",
+        "request.resolved",
+      ]);
+    }),
+  );
+
+  it.effect("keeps the user's answer when the call is withdrawn after it", () =>
+    Effect.gen(function* () {
+      const { gate, events } = yield* gateWith(permissionsSaying("prompt"));
+      const subject = request();
+      const abort = new AbortController();
+      const pending = yield* Effect.forkChild(
+        gate.decide({ ...input(subject), signal: abort.signal }),
+      );
+      yield* awaitEvents(events, 1);
+      yield* gate.respond(subject.requestId, "allow-session");
+      expect(yield* Fiber.join(pending)).toEqual({
+        allowed: true,
+        decision: "allow-session",
+        via: "user",
+      });
+      abort.abort();
+      expect((yield* events).map((event) => event.type)).toEqual([
+        "request.opened",
+        "request.resolved",
+      ]);
+    }),
+  );
 });

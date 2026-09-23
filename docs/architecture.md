@@ -1189,7 +1189,10 @@ Both end in the same helper, `makeApprovalGate` in
 nothing, while `prompt` emits `request.opened`, parks until `respond` answers
 (the connector wires it to `SessionHandle.respondToRequest`), and emits
 `request.resolved`. `releaseAll` answers every parked request when the process
-that asked has gone, so no card outlives its session. A defect inside
+that asked has gone, so no card outlives its session. A direct-path harness
+that can withdraw a question it asked passes its `AbortSignal` with the call:
+an abort answers the open request `deny` and emits its `request.resolved`,
+even when the signal fired before the card opened. A defect inside
 `decide` is answered as a prompt, never as allow. The hook bridge's
 `hookAnswers.ts` is a thin adapter over the gate: a hook post in,
 `hookSpecificOutput` out.

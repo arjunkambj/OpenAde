@@ -16,6 +16,13 @@
  *
  * A defect inside `permissions.decide` is answered as a prompt: a permissions
  * failure must never read as allow, and asking costs the user a click.
+ *
+ * A harness that can withdraw its own question — an SDK's permission callback
+ * carries an `AbortSignal` for when the call it asked about is cancelled —
+ * passes that signal in. An abort answers the open request `deny` and emits
+ * its `request.resolved`, so the card goes away with the call. A signal that
+ * fired before the request was even opened counts too: the request opens and
+ * resolves at once, rather than waiting on a listener that came too late.
  */
 
 import type { ApprovalDecision, InteractionMode, RuntimeMode } from "@OpenAde/contracts/enums";
@@ -46,6 +53,8 @@ export interface ApprovalGateInput {
   readonly threadId: ThreadId;
   readonly runtimeMode: RuntimeMode;
   readonly interactionMode: InteractionMode;
+  /** The harness withdrew the call: its open request is answered `deny`. */
+  readonly signal?: AbortSignal;
 }
 
 /**
@@ -68,6 +77,18 @@ export interface ApprovalGate {
 
 type OpenRequests = ReadonlyMap<RequestId, Deferred.Deferred<ApprovalDecision>>;
 
+/** `deny` once `signal` has fired — at once when it already had. */
+const withdrawn = (signal: AbortSignal): Effect.Effect<ApprovalDecision> =>
+  Effect.callback<ApprovalDecision>((resume) => {
+    const onAbort = () => resume(Effect.succeed("deny"));
+    if (signal.aborted) {
+      onAbort();
+      return;
+    }
+    signal.addEventListener("abort", onAbort, { once: true });
+    return Effect.sync(() => signal.removeEventListener("abort", onAbort));
+  });
+
 export const makeApprovalGate = (options: {
   readonly permissions: ConnectorPermissions;
   readonly emit: (event: ApprovalGateEvent) => Effect.Effect<void>;
@@ -87,7 +108,7 @@ export const makeApprovalGate = (options: {
         return [true, next] as const;
       });
 
-    const ask = (request: ApprovalRequest): Effect.Effect<ApprovalVerdict> =>
+    const ask = (request: ApprovalRequest, signal?: AbortSignal): Effect.Effect<ApprovalVerdict> =>
       Effect.gen(function* () {
         const released = yield* Deferred.make<ApprovalDecision>();
         yield* Ref.update(pending, (map) => new Map(map).set(request.requestId, released));
@@ -96,9 +117,16 @@ export const makeApprovalGate = (options: {
           requestId: request.requestId,
           payload: { request },
         });
+        if (signal !== undefined) {
+          // Whichever comes first — the user, `releaseAll`, or the harness
+          // withdrawing the call — settles the request; an answer that
+          // landed first stands.
+          const first = yield* Effect.raceFirst(Deferred.await(released), withdrawn(signal));
+          yield* Deferred.succeed(released, first);
+        }
         const decision = yield* Deferred.await(released);
-        // `releaseAll` already took it out and said so; only `respond` leaves
-        // the resolution to be announced here.
+        // `releaseAll` already took it out and said so; only `respond` and a
+        // withdrawal leave the resolution to be announced here.
         if (yield* take(request.requestId)) {
           yield* resolved(request.requestId, decision);
         }
@@ -111,7 +139,7 @@ export const makeApprovalGate = (options: {
           Effect.catchDefect(() => Effect.succeed<PermissionDecision>("prompt")),
           Effect.flatMap((verdict): Effect.Effect<ApprovalVerdict> =>
             verdict === "prompt"
-              ? ask(input.request)
+              ? ask(input.request, input.signal)
               : Effect.succeed({ allowed: verdict === "allow", via: "rules" }),
           ),
         ),
