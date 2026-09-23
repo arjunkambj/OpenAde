@@ -223,7 +223,7 @@ The renderer. TanStack Router routes under `apps/web/src/routes`, state through
 | `_home/index`                     | start a thread, pick a project                                     |
 | `_home/t/$threadId`               | the thread view; `?pane=` carries the dock tab                     |
 | `_home/customize/{skills,mcp}`    | what extends the agent, one tab per kind, one section per instance |
-| `settings`, four pages            | general, models, connectors, keybindings                           |
+| `settings`, five pages            | general, models, connectors, keybindings, archived threads         |
 | `browser.$threadId`               | the marker page the browser pane's `<webview>` guest loads         |
 | `dev/{timeline,composer,changes}` | fixture pages, DEV only                                            |
 
@@ -235,6 +235,8 @@ into directories and previews a file through `files.read`, paged by line offset
 because a window is capped by characters, not lines). When less than 640px
 remains beside the sidebar, the dock overlays the thread so its tabs stay
 reachable. Wider rows fit a thread column of at least 360px beside the dock.
+Archived threads leave the sidebar tree for the archived threads settings page,
+which unarchives or deletes them.
 
 The atom runtime is built once. `apps/web/src/state/app-runtime.tsx` owns the
 single `makeRuntime` instance, the shared registry and the offline layer that
