@@ -61,6 +61,8 @@ export interface TimelineTurnSummaryRow {
 export interface TimelineWorkingRow {
   readonly kind: "working";
   readonly id: string;
+  /** Epoch ms the running turn began, for its elapsed clock; undefined when unknown. */
+  readonly startedAt: number | undefined;
 }
 
 export type TimelineRow =
@@ -186,9 +188,31 @@ const turnSummaryRow = (
   };
 };
 
+export interface BuildTimelineOptions {
+  readonly turnActive: boolean;
+  /**
+   * When the running turn began, if known — the caller reads it off the turn
+   * id. Without it the working row falls back to the last user message, since
+   * a turn counts as in flight before its id is filled in.
+   */
+  readonly turnStartedAt?: number | undefined;
+}
+
+/** The start of the running turn: the given time, else the last user message's id. */
+const workingStartedAt = (
+  roots: ReadonlyArray<ItemSnapshot>,
+  turnStartedAt: number | undefined,
+): number | undefined => {
+  if (turnStartedAt !== undefined) {
+    return turnStartedAt;
+  }
+  const lastMessage = roots.findLast((item) => item.kind === "user_message");
+  return lastMessage === undefined ? undefined : uuidV7Millis(lastMessage.itemId);
+};
+
 export const buildTimeline = (
   items: ReadonlyArray<ItemSnapshot>,
-  options: { readonly turnActive: boolean },
+  options: BuildTimelineOptions,
 ): TimelineProjection => {
   const byId = new Map<string, ItemSnapshot>();
   for (const item of items) {
@@ -260,7 +284,11 @@ export const buildTimeline = (
   });
 
   if (options.turnActive) {
-    rows.push({ kind: "working", id: "working" });
+    rows.push({
+      kind: "working",
+      id: "working",
+      startedAt: workingStartedAt(roots, options.turnStartedAt),
+    });
   }
 
   return { rows, childrenByParent };

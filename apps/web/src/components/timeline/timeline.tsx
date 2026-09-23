@@ -5,6 +5,7 @@
  */
 
 import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
+import { uuidV7Millis } from "@OpenAde/shared/ids";
 import { LegendList } from "@legendapp/list/react";
 import * as React from "react";
 
@@ -15,7 +16,12 @@ import { turnInFlight } from "@/lib/turn";
 
 export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
   const projection = React.useMemo(
-    () => buildTimeline(snapshot.items, { turnActive: turnInFlight(snapshot) }),
+    () =>
+      buildTimeline(snapshot.items, {
+        turnActive: turnInFlight(snapshot),
+        turnStartedAt:
+          snapshot.currentTurnId === null ? undefined : uuidV7Millis(snapshot.currentTurnId),
+      }),
     [snapshot],
   );
 

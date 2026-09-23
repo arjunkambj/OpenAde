@@ -7,7 +7,8 @@
  *  - ×1 / ×10 / ×50 replicate the items with fresh ids — the ×50 case is the
  *    ~1,000-row virtualization check.
  *  - "Live turn" flips the last segment to in-progress so the unfolded work
- *    rows and the trailing "Working…" row are visible.
+ *    rows and the trailing "Working…" row are visible; its turn id is minted
+ *    fresh so the row's elapsed clock starts from zero.
  *  - The theme toggle exercises both token sets.
  */
 
@@ -18,6 +19,7 @@ import { Button } from "@OpenAde/ui/components/button";
 import fixture from "@OpenAde/contracts/fixtures/thread-detail-snapshot.json";
 import { decodeTurnId } from "@OpenAde/contracts/ids";
 import { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
+import { uuidV7 } from "@OpenAde/shared/ids";
 
 import { ModeToggle } from "@/components/mode-toggle";
 import { Timeline } from "@/components/timeline/timeline";
@@ -36,9 +38,7 @@ export function TimelineFixture() {
       ...baseSnapshot,
       items: cloneItems(baseSnapshot.items, multiplier),
       status: live ? "running" : baseSnapshot.status,
-      currentTurnId: live
-        ? decodeTurnId("0199c0de-0009-7000-8000-000000000001")
-        : baseSnapshot.currentTurnId,
+      currentTurnId: live ? decodeTurnId(uuidV7()) : baseSnapshot.currentTurnId,
     };
   }, [multiplier, live]);
 

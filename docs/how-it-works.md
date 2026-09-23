@@ -596,6 +596,10 @@ turns the flat item list into rows:
 - tool rows follow the tool's name with a short target — the first of
   `file_path`, `path`, `filePath`, `command`, `pattern`, `url` or `query` in
   the input, first line only, cut to 60 characters;
+- while a turn runs, a trailing `working` row shows a spinner, "Working…" and
+  the time since the turn began ("12s", "1m 05s", "1h 02m", whole seconds). The
+  start is read off the turn id, or off the last `user_message` id while the
+  turn is in flight but its id is not filled in yet;
 - rows whose `parentItemId` names a task leave the top level and render nested
   inside that task's row.
 

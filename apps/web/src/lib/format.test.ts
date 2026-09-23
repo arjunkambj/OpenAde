@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { turnSummaryLabel, turnSummaryLead, workGroupLabel } from "./format";
+import { formatElapsed, turnSummaryLabel, turnSummaryLead, workGroupLabel } from "./format";
 
 describe("workGroupLabel", () => {
   it("reports the tool count and the duration", () => {
@@ -60,5 +60,29 @@ describe("turnSummaryLabel", () => {
     expect(turnSummaryLead({ durationMs: 12_000, files: files(3) })).toBe(
       "Worked for 12s · 3 files",
     );
+  });
+});
+
+describe("formatElapsed", () => {
+  it("counts whole seconds under a minute", () => {
+    expect(formatElapsed(0)).toBe("0s");
+    expect(formatElapsed(999)).toBe("0s");
+    expect(formatElapsed(12_400)).toBe("12s");
+    expect(formatElapsed(59_999)).toBe("59s");
+  });
+
+  it("pads the seconds once minutes show", () => {
+    expect(formatElapsed(60_000)).toBe("1m 00s");
+    expect(formatElapsed(65_000)).toBe("1m 05s");
+    expect(formatElapsed(59 * 60_000 + 59_000)).toBe("59m 59s");
+  });
+
+  it("drops to hours and padded minutes past an hour", () => {
+    expect(formatElapsed(3_600_000)).toBe("1h 00m");
+    expect(formatElapsed(3_600_000 + 2 * 60_000 + 30_000)).toBe("1h 02m");
+  });
+
+  it("reads a negative span from clock skew as zero", () => {
+    expect(formatElapsed(-5_000)).toBe("0s");
   });
 });

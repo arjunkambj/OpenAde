@@ -3,7 +3,14 @@ import type { ItemId } from "@OpenAde/contracts/ids";
 import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
 import { describe, expect, it } from "vitest";
 
-import { buildTimeline, type TimelineTurnSummaryRow, type TimelineWorkGroupRow } from "./fold";
+import { uuidV7Millis } from "@OpenAde/shared/ids";
+
+import {
+  buildTimeline,
+  type TimelineTurnSummaryRow,
+  type TimelineWorkGroupRow,
+  type TimelineWorkingRow,
+} from "./fold";
 
 let sequence = 0;
 
@@ -209,5 +216,40 @@ describe("buildTimeline turn summaries", () => {
     };
     const [summary] = summaries(buildTimeline([user, sameMs], { turnActive: false }).rows);
     expect(summary.durationMs).toBeUndefined();
+  });
+});
+
+describe("buildTimeline working row", () => {
+  const working = (rows: ReturnType<typeof buildTimeline>["rows"]) =>
+    rows.find((row): row is TimelineWorkingRow => row.kind === "working");
+
+  it("starts the clock at the turn's own start when it is known", () => {
+    const items = [item("user_message"), item("tool_call")];
+    const { rows } = buildTimeline(items, { turnActive: true, turnStartedAt: 1_234 });
+    expect(working(rows)?.startedAt).toBe(1_234);
+  });
+
+  it("falls back to the last user message before the turn id is filled in", () => {
+    const first = item("user_message");
+    const reply = item("assistant_message");
+    const second = item("user_message");
+    const { rows } = buildTimeline([first, reply, second, item("reasoning")], {
+      turnActive: true,
+    });
+    expect(working(rows)?.startedAt).toBe(uuidV7Millis(second.itemId));
+    expect(working(rows)?.startedAt).toBeGreaterThan(uuidV7Millis(first.itemId) ?? 0);
+  });
+
+  it("leaves the start unknown when nothing carries a time", () => {
+    const { rows } = buildTimeline([item("assistant_message")], { turnActive: true });
+    expect(working(rows)?.startedAt).toBeUndefined();
+  });
+
+  it("adds no working row once the turn has settled", () => {
+    const { rows } = buildTimeline([item("user_message")], {
+      turnActive: false,
+      turnStartedAt: 1_234,
+    });
+    expect(working(rows)).toBeUndefined();
   });
 });

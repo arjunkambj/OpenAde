@@ -75,3 +75,24 @@ export const turnSummaryLabel = (summary: {
   const lead = turnSummaryLead(summary);
   return counts === "" ? lead : `${lead} ${counts}`;
 };
+
+const pad2 = (value: number): string => value.toString().padStart(2, "0");
+
+/**
+ * The live clock on a running turn: "0s", "12s", "1m 05s", "1h 02m". Whole
+ * seconds only and zero-padded lower units, so the label keeps its width and
+ * does not jitter as it ticks. A negative span (clock skew) reads as "0s".
+ */
+export const formatElapsed = (ms: number): string => {
+  const total = Math.max(0, Math.floor(ms / 1_000));
+  const hours = Math.floor(total / 3_600);
+  const minutes = Math.floor((total % 3_600) / 60);
+  const seconds = total % 60;
+  if (hours > 0) {
+    return `${hours}h ${pad2(minutes)}m`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m ${pad2(seconds)}s`;
+  }
+  return `${seconds}s`;
+};

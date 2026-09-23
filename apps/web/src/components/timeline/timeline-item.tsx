@@ -29,7 +29,7 @@ import {
   WebSearchRow,
 } from "@/components/timeline/tool-rows";
 import { WorkGroupRow } from "@/components/timeline/work-group-row";
-import { Spinner } from "@honeyicons/react";
+import { WorkingRow } from "@/components/timeline/working-row";
 
 export const TimelineItemView = memo(function TimelineItemView({
   item,
@@ -78,16 +78,6 @@ export const TimelineItemView = memo(function TimelineItemView({
   }
 });
 
-/** The trailing indicator while a turn is open. */
-function WorkingRow() {
-  return (
-    <div className="flex min-h-6 items-center gap-2 py-0.5 type-body text-muted-foreground">
-      <Spinner className="size-3.5" />
-      Working…
-    </div>
-  );
-}
-
 /** Row dispatch for the virtualized list: item rows vs fold summaries. */
 export function TimelineRowView({
   row,
@@ -105,5 +95,5 @@ export function TimelineRowView({
   if (row.kind === "turn-summary") {
     return <TurnSummaryRow summary={row} />;
   }
-  return <WorkingRow />;
+  return <WorkingRow row={row} />;
 }
