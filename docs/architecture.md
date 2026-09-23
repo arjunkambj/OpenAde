@@ -205,6 +205,9 @@ Owns the operating system. Nothing about orchestration lives here.
   relay: `before-input-event` and `before-mouse-event` on the guest webContents
   are the only place a pane gesture is observable, and they are relayed to the
   host, which forwards them as `browser.humanInput`.
+- `apps/desktop/src/main/updater.ts` — an update-check stub that does nothing.
+  The app has no update feed, and no UI or menu offers updates;
+  `OPENADE_UPDATER=1` only logs that no feed is configured.
 - `apps/desktop/src/backend/` — `ServerSupervisor`, the spawn spec, the public server state
   the renderer sees.
 - `apps/desktop/src/platform/` — per-platform window defaults, lifecycle, the CDP port.
