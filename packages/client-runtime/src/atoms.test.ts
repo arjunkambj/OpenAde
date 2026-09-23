@@ -399,6 +399,30 @@ describe("atoms", () => {
     ),
   );
 
+  it.live("the thread list reads as not answered until the server's snapshot", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const instance = yield* Ref.make(INSTANCE);
+        const queue = yield* Queue.unbounded<ThreadListStreamItem, unknown>();
+        const list: ListChannel = { queue: () => queue, calls: [] };
+        const { registry, threadListAtom } = yield* runtimeWith(
+          fakeClient(new Map(), instance, { list }),
+          { status: "connecting", serverInstanceId: null },
+        );
+
+        const atom = threadListAtom(null);
+        registry.mount(atom);
+        // A seed of `[]` here read as the server saying "no threads", so the
+        // archived threads page claimed there were none while it loaded.
+        expect(AsyncResult.isInitial(registry.get(atom))).toBe(true);
+
+        yield* Queue.offer(queue, { kind: "snapshot", snapshotSequence: 1, threads: [] });
+        const threads = yield* Effect.promise(() => awaitValue(registry, atom, () => true));
+        expect(threads).toEqual([]);
+      }),
+    ),
+  );
+
   it.live("the thread list survives a dropped subscription and resumes from its snapshot", () =>
     Effect.scoped(
       Effect.gen(function* () {

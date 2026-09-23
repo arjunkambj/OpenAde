@@ -296,6 +296,12 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
     ),
   );
 
+  /**
+   * Unseeded for the same reason as `projectsAtom`: `Initial` means the server
+   * has not sent its snapshot yet, so a page can say "loading" instead of
+   * reading a seed of `[]` as "there are no threads". Readers that only want
+   * the rows fall back to `[]`.
+   */
   const threadListAtom = Atom.family((projectId: ProjectId | null) =>
     runtime.atom(
       Effect.gen(function* () {
@@ -316,7 +322,6 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
           ),
         );
       }).pipe(Stream.unwrap),
-      { initialValue: [] as ReadonlyArray<ThreadSummary> },
     ),
   );
 

@@ -45,6 +45,14 @@ export const useProjects = (): ReadonlyArray<ProjectSummary> =>
 export const useThreadList = (): ReadonlyArray<ThreadSummary> =>
   AsyncResult.getOrElse(useAtomValue(getAppAtoms().threadListAtom(null)), () => []);
 
+/**
+ * The same list, but `null` until the server has sent its first snapshot — for
+ * a page whose empty state would otherwise claim there are no threads while
+ * it is still loading, or while no server is reachable.
+ */
+export const useLoadedThreadList = (): ReadonlyArray<ThreadSummary> | null =>
+  AsyncResult.getOrElse(useAtomValue(getAppAtoms().threadListAtom(null)), () => null);
+
 type ThreadDetailResult = AsyncResult.AsyncResult<
   ThreadDetailView,
   OpenAdeRpcError.OpenAdeRpcError | RpcClientError.RpcClientError | Cause.NoSuchElementError

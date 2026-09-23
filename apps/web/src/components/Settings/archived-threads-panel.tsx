@@ -32,7 +32,7 @@ import {
   threadCommandBase,
   useThreadCommand,
 } from "@/components/sidebar/thread-actions";
-import { useConnectionState, useProjects, useThreadList } from "@/state/hooks";
+import { useConnectionState, useLoadedThreadList, useProjects } from "@/state/hooks";
 import { Archive, ArchiveUp, Trash } from "@honeyicons/react";
 
 import { archivedGroups } from "./archived-groups";
@@ -90,13 +90,16 @@ function ArchivedRow({
 }
 
 export function ArchivedThreadsPanel() {
-  const threads = useThreadList();
+  const threads = useLoadedThreadList();
   const projects = useProjects();
   const connection = useConnectionState();
   const send = useThreadCommand();
   const [deleting, setDeleting] = React.useState<ThreadSummary | null>(null);
 
-  const groups = React.useMemo(() => archivedGroups(threads, projects), [threads, projects]);
+  const groups = React.useMemo(
+    () => (threads === null ? null : archivedGroups(threads, projects)),
+    [threads, projects],
+  );
   const disabled = connection.status !== "connected";
 
   const unarchive = (thread: ThreadSummary) =>
@@ -115,7 +118,13 @@ export function ArchivedThreadsPanel() {
         </p>
       </div>
 
-      {groups.length === 0 ? (
+      {groups === null ? (
+        // The list has not arrived yet. Saying "No archived threads" here
+        // would claim an answer the server has not given.
+        <p className="text-sm text-muted-foreground">
+          {disabled ? "Connect to a server to see archived threads." : "Loading archived threads…"}
+        </p>
+      ) : groups.length === 0 ? (
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
