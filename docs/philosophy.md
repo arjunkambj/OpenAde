@@ -428,6 +428,7 @@ are consumed through their `exports` map, so
 in test files only, because it is bundled to `out/main.cjs` for packaging and an
 import from `src/main.ts` would ship a test framework. `connector-cmd` is also
 allowed in exactly one production file, the composition root `boot.ts`.
+`apps/desktop` gets `testkit` in test files only, for the same reason.
 `apps/web` is deliberately not in that list. The rules are pure functions, and
 `pnpm check:boundaries` runs their tests before `scripts/check-boundaries.mjs`
 walks the tree.

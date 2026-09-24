@@ -54,10 +54,16 @@ export const IMPORT_ALLOWLIST = new Map([
  * The Claude Code connector's own tests replay its recordings through
  * testkit's `sdk-stream` replayer and record them through its tee, so they
  * get testkit too; the connector's sources never do.
+ *
+ * `apps/desktop` tests get `testkit` for the same reason: the browser
+ * bridge's tests replay the agent-browser recordings through
+ * `@OpenAde/testkit/recording` rather than resolving fixture paths by hand,
+ * and the shell's entry points are bundled, so the rule keeps it out of them.
  */
 export const TEST_ONLY_ALLOWLIST = new Map([
   ["apps/server", ["testkit", "client-runtime", "connector-cmd", "connector-claude"]],
   ["packages/connector-claude", ["testkit"]],
+  ["apps/desktop", ["testkit"]],
 ]);
 
 /**

@@ -184,10 +184,12 @@ an accidental import of any of them out of `src/main.ts`, since that file is
 bundled for packaging. Test files in `packages/connector-claude` get `testkit`,
 because they replay the connector's recordings through its `sdk-stream`
 replayer and record them through its tee; the connector's sources never import
-it. One production file gets extras of its own: `apps/server/src/boot.ts`, the
-composition root, may import `connector-cmd` and `connector-claude`. A file
-counts as a test when it ends in `.test.`/`.spec.` or sits under a `test/`
-directory.
+it. Test files in `apps/desktop` get `testkit`, so the browser bridge's tests
+read the agent-browser recordings through `@OpenAde/testkit/recording` instead
+of resolving fixture paths by hand. One production file gets extras of its
+own: `apps/server/src/boot.ts`, the composition root, may import
+`connector-cmd` and `connector-claude`. A file counts as a test when it ends in
+`.test.`/`.spec.` or sits under a `test/` directory.
 
 **Connector leaks.** Non-test sources under `apps/web`, `packages/client-runtime`
 and `apps/server` name no concrete connector: they import no `@OpenAde/connector-*`
@@ -555,7 +557,8 @@ talk to the recording instead of the harness. `cmdReplayer` wraps
 `replayConfig`.
 
 `RecordingTransport` also names the transports other connectors bring:
-`stdio-jsonrpc`, `sdk-stream` and `http-sse`. A connector that speaks one of
+`stdio-jsonrpc`, `sdk-stream` and `http-sse`, and the browser's two:
+`cdp-websocket` and `cli-json`. A connector that speaks one of
 them adds its recordings under its own `fixtures/<kind>/`, sets `transport` in
 every manifest, and uses or adds a replayer for that transport. Only `cmd` has
 a legacy layout: any other kind's manifest without `transport` is refused. The
@@ -699,6 +702,34 @@ recording hook through the same `.commandcode/settings.local.json` mechanism
 anything is spawned. `record-probe.mjs` captures the free surfaces —
 `status --json`, `--list-models`, `--version`, `--help`, and the error a bad
 `--model` produces.
+
+### agent-browser through the browser bridge
+
+`packages/testkit/fixtures/agent-browser/` holds the real agent-browser CLI
+driving real Electron webviews through the desktop's browser bridge, one
+scenario per directory: a `manifest.json` (`transport: "cdp-websocket"`, the
+CLI and Electron versions, the tabs the thread started with, and each CLI
+command with its `--json` envelope) and `frames.jsonl`, every CDP message in
+either direction as a `RecordedFrame` (`from-harness` is the CLI).
+`readFrames(kind, scenario)` loads them. It spends no plan, but it launches
+Electron and the operator's CLI, so it is run by hand:
+
+```sh
+node packages/testkit/scripts/record-agent-browser.mjs --list
+node packages/testkit/scripts/record-agent-browser.mjs            # every scenario
+node packages/testkit/scripts/record-agent-browser.mjs popup
+```
+
+The recorder serves the pages from a loopback site, bundles
+`apps/desktop/scripts/bridge-recording-host.mjs` with the desktop's esbuild,
+runs it under the desktop's Electron, and invokes the CLI with the thread's
+bridge URL in `AGENT_BROWSER_CDP` and its own `AGENT_BROWSER_NAMESPACE`,
+which it deletes afterwards. It scrubs the site and bridge ports to
+`<SITE_PORT>` and `<BRIDGE_PORT>`, the launch key and capabilities to
+`<REDACTED>`, and a screenshot's bytes to their length; the bridge's replay
+(`apps/desktop/src/main/browser/test/replay.ts`) puts a port back. Re-record
+on any agent-browser or Electron upgrade: `cdpPolicy.test.ts` fails when the
+CLI starts sending a method the bridge refuses.
 
 ### Scrubbing
 

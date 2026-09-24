@@ -151,10 +151,12 @@ package segment.
 Test files under `apps/server` get four extras: `testkit`, `client-runtime`,
 `connector-cmd` and `connector-claude`. Test files under
 `packages/connector-claude` get `testkit`, for the `sdk-stream` replayer and
-tee their recordings go through. A file counts as a test when `.test.`/`.spec.`
-precedes its extension, or when any path segment is `test` — which is how the
-end-to-end harness under `apps/server/test/e2e/` qualifies. Keeping them out of
-the production list is what makes an accidental import in
+tee their recordings go through. Test files under `apps/desktop` get
+`testkit`, so the browser bridge's tests read the agent-browser recordings
+through `@OpenAde/testkit/recording`. A file counts as a test when
+`.test.`/`.spec.` precedes its extension, or when any path segment is `test` —
+which is how the end-to-end harness under `apps/server/test/e2e/` qualifies.
+Keeping them out of the production list is what makes an accidental import in
 `apps/server/src/main.ts` fail: `apps/server` is bundled to a single file for
 packaging, and testkit must never ship. One production file has extras of its
 own: `apps/server/src/boot.ts`, the composition root, may import
@@ -222,6 +224,11 @@ Owns the operating system. Nothing about orchestration lives here.
   relay: `before-input-event` and `before-mouse-event` on the guest webContents
   are the only place a pane gesture is observable, and they are relayed to the
   host, which forwards them as `browser.humanInput`.
+- `apps/desktop/src/main/browser/` — the browser bridge: the scoped CDP
+  endpoint agent-browser drives the pane webviews through
+  ([below](#the-browser-bridge)). Electron-free — `upgradeGate.ts`,
+  `cdpPolicy.ts`, `bridgeSession.ts` and `server.ts` take the Electron side as
+  an injected `GuestPort` — and not yet wired into `index.ts`.
 - `apps/desktop/src/main/updater.ts` — an update-check stub that does nothing.
   The app has no update feed, and no UI or menu offers updates;
   `OPENADE_UPDATER=1` only logs that no feed is configured.
@@ -583,7 +590,9 @@ Dependency-light helpers both sides need: `ids.ts` (UUIDv7), `paths.ts`
 parser and matcher, shared so the renderer previews an "allow always" rule with
 the exact semantics the server enforces), `imageBytes.ts` (magic-byte sniffing
 and the attachment size cap), `decisionSubject.ts` (the one-line subject a
-resolved decision is recorded with, shared so both folds write the same words). Imports no workspace package at all.
+resolved decision is recorded with, shared so both folds write the same words),
+`browserBridge.ts` (the browser bridge's launch key and per-thread capability,
+shared because the shell verifies what the server mints). Imports no workspace package at all.
 
 ### packages/ui
 
@@ -596,11 +605,13 @@ Test infrastructure, never shipped.
 
 - `packages/testkit/fixtures/<kind>/` — real recordings of each harness, one directory per
   scenario, keyed by the connector kind. `fixtures/cmd/` holds Command Code's, indexed by its
-  `README.md`. Nothing in them is hand-written; when the CLI changes they are re-recorded.
+  `README.md`; `fixtures/agent-browser/` holds agent-browser's CDP traffic through the browser
+  bridge. Nothing in them is hand-written; when the CLI changes they are re-recorded.
 - `packages/testkit/src/recording.ts` — the transport-neutral recording format: the versioned
   manifest (`formatVersion`, `kind`, `transport`, `real: true`, with defaults for manifests that
   predate those fields), `RecordedFrame` (direction, channel, optional timestamp, data), the
-  `fixtures/<kind>/` lookup, and the `Replayer` shape each transport implements.
+  `fixtures/<kind>/` lookup, `readFrames` for a JSON-lines capture, and the `Replayer` shape
+  each transport implements.
 - `packages/testkit/bin/replay-cmd.mjs` — puts a recording back on the wire with no behaviour of
   its own; `packages/testkit/src/replayCmdProcess.ts` loads a recording through `recording.ts`,
   flattens a turn into `RecordedFrame`s, and produces the spawn configuration that makes the
@@ -621,6 +632,9 @@ Test infrastructure, never shipped.
 - `packages/testkit/scripts/record-cmd.mjs` and `record-probe.mjs` — the
   recorders. They spend a
   real account's plan, so they are never run from CI.
+- `packages/testkit/scripts/record-agent-browser.mjs` — records the real agent-browser through
+  the real bridge, in front of real Electron webviews
+  (`apps/desktop/scripts/bridge-recording-host.mjs`). Run by hand.
 
 May import `contracts`, `connector-sdk`, `shared`.
 
@@ -1690,6 +1704,62 @@ owned-chromium.
 A missing `agent-browser` binary is not fatal: the service reports no binary,
 every call fails with `AgentBrowserUnavailable`, and the pane renders an install
 prompt.
+
+### The browser bridge
+
+The in-app browser is meant to be driven through a CDP endpoint that can reach
+the thread's pane webviews and nothing else, rather than through Chromium's
+remote-debugging port, which exposes the app window itself. The bridge's core
+is in `apps/desktop/src/main/browser/` and is built and tested; the shell does
+not start it yet, so the cdp-attach mode above still runs over the opt-in port.
+
+**Shape.** One `http.Server` on `127.0.0.1:0` for every thread
+(`server.ts`). It has no HTTP surface: every plain request is a 404, and a
+WebSocket upgrade reaches `ws` only after `upgradeGate.ts` accepts it. The
+gate admits exactly `/cdp/<threadId>/<capability>` with no `Origin` header (a
+browser page always sends one) and a `Host` of `127.0.0.1:<port>` or
+`localhost:<port>` (a DNS-rebinding page does not). `/json/version`,
+`/json/list` and every other path get the same bare 404, so a probe learns
+nothing. The capability is `HMAC-SHA256(launchKey, threadId)`
+(`packages/shared/src/browserBridge.ts`): the shell mints a 32-byte launch key
+per launch, the server mints the thread's `ws://` URL from it, and the gate
+compares in constant time.
+
+**Routing** (`bridgeSession.ts`, one per connection). The root session is a
+virtual browser: `Browser.getVersion` is answered locally, and
+`Target.setDiscoverTargets`, `getTargets`, `attachToTarget` (flat only),
+`detachFromTarget`, `createTarget` and `closeTarget` are answered over the
+thread's `persist:thread-<id>` guests, each reported as a `page`. Every other
+browser-level method is refused, because a guest's own debugger can see and
+attach to the app window. A page session is a flat session on that guest's
+`webContents.debugger`; `cdpPolicy.ts` forwards a fixed list of domains
+(Runtime, Page, DOM, Accessibility, Input, Network, Emulation, CSS,
+DOMSnapshot, Overlay, Log, Performance, Fetch, WebMCP) and refuses the rest —
+cookie-jar calls, file uploads, downloads, `Page.close`/`crash`, `IO.*`,
+`Security.*`, and navigation to anything but http(s) or `about:blank`.
+`Page.reload` becomes a guest `reload()` (CDP's reload of a guest view
+reloads the whole app window), `Page.bringToFront` selects the pane tab,
+`createTarget` opens a pane tab, and native input runs one command at a time
+while the guest holds window focus, since CDP input lands in whatever widget
+has it. When a client disconnects, every session it opened is detached. The
+list fails closed: a method it does not name is an error in the tool result.
+
+**Evidence.** The design came out of a spike against agent-browser 0.38.1 and
+Electron 44.3.0, and the recordings under
+`packages/testkit/fixtures/agent-browser/` are the proof it works: the real
+CLI, given the thread URL in `AGENT_BROWSER_CDP`, connected, drove a page
+(snapshot, fill, click, keyboard, scroll, screenshot, eval, navigate),
+created a tab in an empty thread, opened and closed a tab, picked up a
+`window.open` popup and reloaded, with every command allowed and no request
+for `/json/*`. The same spike showed the raw port lets any local process
+evaluate in the app window.
+
+**Residual risk.** The endpoint is on loopback, so it is protected by a
+256-bit capability rather than by the OS; the capability sits in the
+agent-browser child's environment. The bridge owns a CDP filter, which must be
+re-checked against a fresh recording on every Electron or agent-browser
+upgrade. The focus hand-off can race a user typing at the same moment.
+Windows and Linux are unverified.
 
 ## Permissions
 

@@ -1,0 +1,217 @@
+{
+  "formatVersion": 1,
+  "kind": "agent-browser",
+  "transport": "cdp-websocket",
+  "scenario": "popup",
+  "description": "the page calls window.open; the popup arrives as a new tab of the same thread",
+  "cliVersion": "0.38.1",
+  "recordedOn": "2026-09-24",
+  "model": "none",
+  "real": true,
+  "electronVersion": "44.3.0",
+  "threadId": "rec-popup",
+  "tabs": [
+    {
+      "targetId": "38BB75563C05D21C26F08AE297DC9B26",
+      "url": "http://127.0.0.1:<SITE_PORT>/"
+    }
+  ],
+  "steps": [
+    {
+      "argv": ["click", "#popup"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "clicked": "#popup",
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 12565820771746505000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["wait", "1000"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 12565820771746505000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "ms": 1000,
+          "waited": "timeout"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["tab", "list"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 12565820771746505000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "tabs": [
+            {
+              "active": false,
+              "label": null,
+              "tabId": "t1",
+              "targetId": "38BB75563C05D21C26F08AE297DC9B26",
+              "title": "Recording home",
+              "type": "page",
+              "url": "http://127.0.0.1:<SITE_PORT>/"
+            },
+            {
+              "active": true,
+              "label": null,
+              "tabId": "t2",
+              "targetId": "128F827D3387FBE21EC2512BC073356C",
+              "title": "Popup page",
+              "type": "page",
+              "url": "http://127.0.0.1:<SITE_PORT>/popup"
+            }
+          ]
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["tab", "t1"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "label": null,
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 12565820771746505000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "tabId": "t1",
+          "targetId": "38BB75563C05D21C26F08AE297DC9B26",
+          "title": "Recording home",
+          "url": "http://127.0.0.1:<SITE_PORT>/"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["get", "title"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 12565820771746505000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "title": "Recording home"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["tab", "t2"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "label": null,
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 12565820771746505000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "tabId": "t2",
+          "targetId": "128F827D3387FBE21EC2512BC073356C",
+          "title": "Popup page",
+          "url": "http://127.0.0.1:<SITE_PORT>/popup"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["get", "title"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 12565820771746505000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "title": "Popup page"
+        },
+        "error": null
+      }
+    }
+  ]
+}

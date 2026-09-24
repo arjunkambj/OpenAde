@@ -9,7 +9,13 @@ import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { fixturesRoot, readManifest, recordingNames, RECORDING_FORMAT_VERSION } from "./recording";
+import {
+  fixturesRoot,
+  readFrames,
+  readManifest,
+  recordingNames,
+  RECORDING_FORMAT_VERSION,
+} from "./recording";
 import { cmdReplayer, loadRecording, RECORDINGS_DIR, turnFrames } from "./replayCmdProcess";
 
 describe("readManifest", () => {
@@ -51,6 +57,42 @@ describe("the fixtures/<kind>/ convention", () => {
     for (const name of names) {
       expect(readManifest("cmd", name).transport).toBe("stdio-ndjson");
       expect(loadRecording(name).turns.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("the agent-browser recordings", () => {
+  it("are real CDP captures through the bridge, one per scenario", () => {
+    expect(recordingNames("agent-browser")).toEqual([
+      "connect-and-drive",
+      "empty-thread-createTarget",
+      "popup",
+      "reload",
+      "tab-new-close",
+    ]);
+    for (const name of recordingNames("agent-browser")) {
+      const manifest = readManifest<{ readonly steps: ReadonlyArray<unknown> }>(
+        "agent-browser",
+        name,
+      );
+      expect(manifest.transport).toBe("cdp-websocket");
+      expect(manifest.cliVersion).toBe("0.38.1");
+      expect(manifest.steps.length).toBeGreaterThan(0);
+      const frames = readFrames("agent-browser", name);
+      expect(frames.some((frame) => frame.dir === "from-harness")).toBe(true);
+      expect(frames.some((frame) => frame.dir === "to-harness")).toBe(true);
+    }
+  });
+
+  it("carry no capability, launch key or port of the run that made them", () => {
+    for (const name of recordingNames("agent-browser")) {
+      const text = NodeFS.readFileSync(
+        NodePath.join(fixturesRoot("agent-browser"), name, "frames.jsonl"),
+        "utf8",
+      );
+      expect(text).not.toMatch(/\b[0-9a-f]{64}\b/);
+      expect(text).not.toMatch(/127\.0\.0\.1:\d/);
+      expect(text).not.toContain("/cdp/");
     }
   });
 });

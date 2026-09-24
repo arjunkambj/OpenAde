@@ -1,0 +1,95 @@
+{
+  "formatVersion": 1,
+  "kind": "agent-browser",
+  "transport": "cdp-websocket",
+  "scenario": "reload",
+  "description": "reload the tab: the bridge turns Page.reload into a guest reload",
+  "cliVersion": "0.38.1",
+  "recordedOn": "2026-09-24",
+  "model": "none",
+  "real": true,
+  "electronVersion": "44.3.0",
+  "threadId": "rec-reload",
+  "tabs": [
+    {
+      "targetId": "7AA57AB5F2689E656711348FFD970A7D",
+      "url": "http://127.0.0.1:<SITE_PORT>/"
+    }
+  ],
+  "steps": [
+    {
+      "argv": ["get", "text", "#loads"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 13674138140771113000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "origin": "http://127.0.0.1:<SITE_PORT>/",
+          "text": "loads: 1"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["reload"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 13674138140771113000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "url": "http://127.0.0.1:<SITE_PORT>/"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["get", "text", "#loads"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 13674138140771113000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "origin": "http://127.0.0.1:<SITE_PORT>/",
+          "text": "loads: 2"
+        },
+        "error": null
+      }
+    }
+  ]
+}

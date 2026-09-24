@@ -1,0 +1,66 @@
+{
+  "formatVersion": 1,
+  "kind": "agent-browser",
+  "transport": "cdp-websocket",
+  "scenario": "empty-thread-createTarget",
+  "description": "a thread with no tab yet: agent-browser creates one (about:blank) and opens the site",
+  "cliVersion": "0.38.1",
+  "recordedOn": "2026-09-24",
+  "model": "none",
+  "real": true,
+  "electronVersion": "44.3.0",
+  "threadId": "rec-empty-thread-createTarget",
+  "tabs": [],
+  "steps": [
+    {
+      "argv": ["open", "http://127.0.0.1:<SITE_PORT>/"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 17312765415072516000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "targetId": "DCC3640842703C08A096271D0B9CC37C",
+          "title": "Recording home",
+          "url": "http://127.0.0.1:<SITE_PORT>/"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["get", "title"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 17312765415072516000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "title": "Recording home"
+        },
+        "error": null
+      }
+    }
+  ]
+}

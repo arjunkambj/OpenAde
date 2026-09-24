@@ -45,6 +45,12 @@ describe("allowedImportsFor", () => {
   it("gives test extras only to tests, and nothing to a workspace with no rule", () => {
     expect(allowedImportsFor("apps/server/src/main.ts", "apps/server")).not.toContain("testkit");
     expect(allowedImportsFor("apps/server/src/main.test.ts", "apps/server")).toContain("testkit");
+    expect(allowedImportsFor("apps/desktop/src/main/index.ts", "apps/desktop")).not.toContain(
+      "testkit",
+    );
+    expect(
+      allowedImportsFor("apps/desktop/src/main/browser/bridgeSession.test.ts", "apps/desktop"),
+    ).toEqual(["contracts", "shared", "testkit"]);
     expect(
       allowedImportsFor("packages/connector-next/src/a.ts", "packages/connector-next"),
     ).toEqual(["connector-sdk", "contracts", "shared"]);

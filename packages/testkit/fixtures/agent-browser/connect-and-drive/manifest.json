@@ -1,0 +1,361 @@
+{
+  "formatVersion": 1,
+  "kind": "agent-browser",
+  "transport": "cdp-websocket",
+  "scenario": "connect-and-drive",
+  "description": "attach to the thread's one tab, read it, fill and click, type, press, scroll, screenshot, eval and navigate",
+  "cliVersion": "0.38.1",
+  "recordedOn": "2026-09-24",
+  "model": "none",
+  "real": true,
+  "electronVersion": "44.3.0",
+  "threadId": "rec-connect-and-drive",
+  "tabs": [
+    {
+      "targetId": "3624B85D626B86E237FD9DE465F4EF23",
+      "url": "http://127.0.0.1:<SITE_PORT>/"
+    }
+  ],
+  "steps": [
+    {
+      "argv": ["get", "title"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 14474097319786555000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "title": "Recording home"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["snapshot", "-i"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 14474097319786555000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "origin": "http://127.0.0.1:<SITE_PORT>/",
+          "refs": {
+            "e1": {
+              "name": "Recording home",
+              "role": "heading"
+            },
+            "e2": {
+              "name": "Greet",
+              "role": "button"
+            },
+            "e3": {
+              "name": "Second page",
+              "role": "link"
+            },
+            "e4": {
+              "name": "Open popup",
+              "role": "button"
+            },
+            "e5": {
+              "name": "Name ",
+              "role": "textbox"
+            }
+          },
+          "removedRefs": [],
+          "snapshot": "- heading \"Recording home\" [level=1, ref=e1]\n- textbox \"Name \" [ref=e5]\n- button \"Greet\" [ref=e2]\n- link \"Second page\" [ref=e3]\n- button \"Open popup\" [ref=e4]"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["fill", "#name", "Ada"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "filled": "#name",
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 14474097319786555000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["click", "#go"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "clicked": "#go",
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 14474097319786555000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["get", "text", "#out"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 14474097319786555000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "origin": "http://127.0.0.1:<SITE_PORT>/",
+          "text": "Hello, Ada"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["click", "#name"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "clicked": "#name",
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 14474097319786555000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["keyboard", "type", " L"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 14474097319786555000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "typed": " L"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["press", "Enter"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 14474097319786555000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "pressed": "Enter"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["scroll", "down", "300"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 14474097319786555000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "scrolled": true
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["screenshot", "<SCRATCH>/connect-and-drive.png"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 14474097319786555000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "path": "<SCRATCH>/connect-and-drive.png"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["eval", "document.getElementById('name').value"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 14474097319786555000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "origin": "http://127.0.0.1:<SITE_PORT>/",
+          "result": "Ada L"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["open", "http://127.0.0.1:<SITE_PORT>/page2"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 14474097319786555000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "targetId": "3624B85D626B86E237FD9DE465F4EF23",
+          "title": "Second page",
+          "url": "http://127.0.0.1:<SITE_PORT>/page2"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["get", "url"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 14474097319786555000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "url": "http://127.0.0.1:<SITE_PORT>/page2"
+        },
+        "error": null
+      }
+    }
+  ]
+}
