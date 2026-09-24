@@ -23,9 +23,12 @@
  * turns and OpenAde's goes on to the next. `fixtures/claude/signed-out-steer/`
  * is the run-next path recorded.
  *
- * The receipts are the CLI's `msg_lifecycle_v1` capability. A CLI that never
- * sends one leaves `reporting` false, and a `result` ends the turn as it did
- * before steering existed.
+ * The receipts are the CLI's `msg_lifecycle_v1` capability, which its
+ * `system/init` lists. Without them a steered message that runs next would
+ * run as a turn nobody opened, and its `result` would close the one after it;
+ * so a steer is taken only once the CLI has shown it sends them (`receipts`),
+ * and refused — for the caller to queue — on a CLI that does not, or before
+ * the CLI has said either way.
  */
 
 import type { TurnUsage } from "@OpenAde/contracts/orchestration";
@@ -34,33 +37,46 @@ import { asRecord, asString } from "./translate/pending";
 
 /** The lifecycle state that says a command has not reached a turn yet. */
 const QUEUED = "queued";
+/** The `system/init` capability that says the CLI sends the receipts. */
+const LIFECYCLE_CAPABILITY = "msg_lifecycle_v1";
 
 export interface SteerLedger {
-  /** Reads one SDK message; only `command_lifecycle` receipts count. */
+  /** Reads one SDK message; only `system/init` and `command_lifecycle` count. */
   readonly observe: (message: unknown) => void;
   /** A steered message the running turn has to answer before it ends. */
   readonly watch: (uuid: string) => void;
   /** True while a steered message has neither reached a turn nor ended. */
   readonly awaiting: () => boolean;
+  /**
+   * Whether the CLI sends receipts: true once it showed it does, false once
+   * its `system/init` showed it does not, undefined before either.
+   */
+  readonly receipts: () => boolean | undefined;
   /** The turn ended: nothing more is waited on. */
   readonly clear: () => void;
 }
 
 export const makeSteerLedger = (): SteerLedger => {
   const pending = new Set<string>();
-  let reporting = false;
+  let receipts: boolean | undefined;
   return {
     observe: (message) => {
       const record = asRecord(message);
+      if (record.type === "system" && record.subtype === "init" && receipts !== true) {
+        receipts =
+          Array.isArray(record.capabilities) && record.capabilities.includes(LIFECYCLE_CAPABILITY);
+        return;
+      }
       if (record.type !== "command_lifecycle") return;
-      reporting = true;
+      receipts = true;
       const uuid = asString(record.command_uuid);
       if (uuid !== undefined && record.state !== QUEUED) pending.delete(uuid);
     },
     watch: (uuid) => {
       pending.add(uuid);
     },
-    awaiting: () => reporting && pending.size > 0,
+    awaiting: () => receipts === true && pending.size > 0,
+    receipts: () => receipts,
     clear: () => {
       pending.clear();
     },

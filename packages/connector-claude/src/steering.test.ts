@@ -9,6 +9,11 @@
  * results would end OpenAde's turn one message early. The replay holds the
  * session to writing the steered message exactly where the recording has it
  * — after the init, before the first result — and the turn has to span both.
+ *
+ * `fixtures/claude/receiptless-steer/` is the other side: an older CLI build
+ * (2.1.150) whose `system/init` lists no `msg_lifecycle_v1` and which sends
+ * no receipts. There a steered message that ran next would run as a turn
+ * nobody opened, so the session refuses the steer, and says it cannot steer.
  */
 
 import * as NodeFS from "node:fs";
@@ -33,6 +38,15 @@ import { asRecord } from "./translate/pending";
 const recording = loadSdkStreamRecording(CLAUDE_KIND, "signed-out-steer");
 const [FIRST, STEERED] = recording.manifest.prompts as [string, string];
 const frames = recording.invocations[0]!.frames;
+const receiptless = loadSdkStreamRecording(CLAUDE_KIND, "receiptless-steer");
+const receiptlessFrames = receiptless.invocations[0]!.frames;
+
+/** A ledger that has read every frame the CLI sent in `list`. */
+const ledgerOver = (list: typeof frames) => {
+  const ledger = makeSteerLedger();
+  for (const frame of list) if (frame.dir === "from-harness") ledger.observe(frame.data);
+  return ledger;
+};
 
 /** Where each kind of frame sits in the recorded session. */
 const positions = (match: (data: Record<string, unknown>) => boolean): Array<number> =>
@@ -92,8 +106,18 @@ describe("makeSteerLedger", () => {
     expect(holdsAtResults(false)).toEqual([false, false]);
   });
 
-  it("holds nothing on a CLI that sends no receipts", () => {
-    const ledger = makeSteerLedger();
+  it("knows nothing of receipts before the CLI has said anything", () => {
+    expect(makeSteerLedger().receipts()).toBeUndefined();
+  });
+
+  it("knows the CLI sends receipts once it has", () => {
+    expect(ledgerOver(frames).receipts()).toBe(true);
+  });
+
+  it("knows a CLI whose init lists no msg_lifecycle_v1 sends none", () => {
+    expect(receiptless.manifest.cliVersion).toBe("2.1.150");
+    const ledger = ledgerOver(receiptlessFrames);
+    expect(ledger.receipts()).toBe(false);
     ledger.watch("never-reported");
     expect(ledger.awaiting()).toBe(false);
   });
@@ -200,6 +224,57 @@ describe("a Claude Code session replaying claude/signed-out-steer", () => {
         );
         expect(ofType(events, "event.unmapped")).toEqual([]);
         expect(ofType(events, "session.warning")).toEqual([]);
+      }),
+    ),
+  );
+});
+
+describe("a Claude Code session replaying claude/receiptless-steer", () => {
+  it.live("refuses a steer on a CLI that sends no receipts, and says it cannot steer", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const replayed = replay("receiptless-steer");
+        const workspace = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "claude-session-"));
+        const handle = yield* makeClaudeSession({
+          instanceId: makeConnectorInstanceId(),
+          threadId: makeThreadId(),
+          workspaceRoot: workspace,
+          binary: { command: replayed.binaryPath, display: replayed.binaryPath },
+          env: childEnv(process.env, {}),
+          loginCommand: `${replayed.binaryPath} auth login`,
+          services: yield* testServices(),
+          settings: {
+            model: "default",
+            runtimeMode: "approval-required",
+            interactionMode: "default",
+          },
+          limits: { maxTurns: 1, maxBudgetUsd: 0.05 },
+        });
+        const collector = yield* makeStreamCollector(handle.events);
+        const [prompt] = receiptless.manifest.prompts as [string];
+
+        yield* handle.send({ text: prompt, attachments: [], mentions: [] });
+        // The CLI's init is in: the turn runs, and the CLI said it sends no receipts.
+        yield* collector.awaitItem((event) => event.type === "mcp.status.updated");
+        const refused = yield* Effect.flip(
+          handle.steer!({ text: STEERED, attachments: [], mentions: [] }),
+        );
+        expect(refused._tag).toBe("NotSteerable");
+        yield* collector.awaitItem((event) => event.type === "turn.completed");
+
+        yield* handle.close();
+        yield* collector.awaitDone;
+        const events = yield* collector.collected;
+        replayed.assertPlayedOut();
+
+        // Unknown at the start, so the first announcement promises it; the
+        // one after the turn knows better.
+        const announced = ofType(events, "session.started");
+        expect(announced.map((event) => event.payload.capabilities?.steering)).toEqual([
+          true,
+          false,
+        ]);
+        expect(ofType(events, "turn.completed")).toHaveLength(1);
       }),
     ),
   );

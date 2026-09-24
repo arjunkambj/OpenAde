@@ -21,7 +21,9 @@ export const CLAUDE_CAPABILITIES: ConnectorCapabilities = {
   // stays open until the CLI has taken it up (`steering.ts`).
   // `signed-out-steer` has the message written mid-turn and run as the CLI's
   // next turn, inside one OpenAde turn; `steering` is the recording that will
-  // show a message folded into a running agent loop; none is made yet.
+  // show a message folded into a running agent loop; none is made yet. The
+  // session announces `false` once the CLI's init shows it sends no receipts
+  // (`receiptless-steer`), and refuses a steer until it has shown it does.
   steering: true,
   // Permission mode `plan`, with the plan handed over through ExitPlanMode
   // and raised as the plan card (`interactions.ts`). `plan-accept` is the

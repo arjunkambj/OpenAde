@@ -37,6 +37,14 @@ const SDK_OWN = new Set([
   "transcript_mirror",
 ]);
 
+/**
+ * Recordings made on an older build on purpose, each with its reason: they pin
+ * how the connector treats a CLI below the floor, which it runs with a warning.
+ */
+const BELOW_FLOOR_ON_PURPOSE: Readonly<Record<string, string>> = {
+  "receiptless-steer": "a CLI with no msg_lifecycle_v1 receipts, which cannot be steered",
+};
+
 const isObject = (value: unknown): value is Json => value !== null && typeof value === "object";
 
 /** The recordings with at least one session launch — a probe's handshake keeps none. */
@@ -49,11 +57,11 @@ const sessions = [...recordingNames(CLAUDE_KIND), "probe"].flatMap((scenario) =>
 );
 
 describe("the recorded Claude Code sessions", () => {
-  it("were all recorded at or above the oldest tested CLI version", () => {
+  it("were all recorded at or above the oldest tested CLI version, but the older ones on purpose", () => {
     for (const scenario of [...recordingNames(CLAUDE_KIND), "probe"]) {
       const { manifest } = loadSdkStreamRecording(CLAUDE_KIND, scenario);
       expect(isBelowOldestTested(manifest.cliVersion), `${scenario}: ${manifest.cliVersion}`).toBe(
-        false,
+        scenario in BELOW_FLOOR_ON_PURPOSE,
       );
     }
     expect(OLDEST_TESTED_VERSION).toMatch(/^\d+\.\d+\.\d+$/);

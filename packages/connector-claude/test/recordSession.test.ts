@@ -41,6 +41,11 @@ import { initModelOf, sdkVersion } from "./replay";
 import { testServices } from "./services";
 
 const RECORD = process.env.OPENADE_RECORD_CLAUDE === "1";
+/**
+ * An older CLI build to record against, for the scenarios about a CLI that
+ * predates a capability — e.g. `~/.local/share/claude/versions/2.1.150`.
+ */
+const OLDER_BINARY = process.env.OPENADE_RECORD_CLAUDE_OLDER_BINARY;
 const SCRATCH = "/tmp/openade-h1/scratch";
 
 const SIGNED_OUT_PROMPT = "Reply with the single word: ok";
@@ -80,12 +85,14 @@ const recordScenario = (
     readonly scenario: string;
     readonly description: string;
     readonly prompts: ReadonlyArray<string>;
+    /** The CLI to record; the one the connector would discover when absent. */
+    readonly binaryPath?: string;
   },
   drive: (recording: Recording) => Effect.Effect<void, unknown, Scope.Scope>,
 ) =>
   Effect.scoped(
     Effect.gen(function* () {
-      const real = resolveBinary({}, process.env);
+      const real = resolveBinary({ binaryPath: spec.binaryPath }, process.env);
       if (real === null) throw new Error("no claude binary to record");
       const cliVersion = parseVersion(
         execFileSync(real.command, ["--version"], { encoding: "utf8" }),
@@ -193,6 +200,39 @@ describe("session recordings", () => {
               (event) => !before.has(event) && event.type === "mcp.status.updated",
             );
             yield* recording.handle.steer!({ text: STEER, attachments: [], mentions: [] });
+            yield* recording.collector.awaitItem(
+              (event) => !before.has(event) && event.type === "turn.completed",
+            );
+          }),
+      ),
+  );
+
+  it.live.skipIf(!RECORD || OLDER_BINARY === undefined)(
+    "receiptless-steer: a steer refused on a CLI that sends no command_lifecycle receipts",
+    () =>
+      recordScenario(
+        {
+          scenario: "receiptless-steer",
+          description:
+            "One turn on an older CLI build that is not signed in and whose system/init lists no msg_lifecycle_v1: a steer attempted once the init showed the turn under way is refused by the connector before anything is written, and the CLI refuses the turn for the login. Nothing reaches the API.",
+          prompts: [SIGNED_OUT_PROMPT],
+          binaryPath: OLDER_BINARY!,
+        },
+        (recording) =>
+          Effect.gen(function* () {
+            const before = new Set(yield* recording.collector.collected);
+            yield* recording.handle.send({
+              text: SIGNED_OUT_PROMPT,
+              attachments: [],
+              mentions: [],
+            });
+            yield* recording.collector.awaitItem(
+              (event) => !before.has(event) && event.type === "mcp.status.updated",
+            );
+            const refused = yield* Effect.flip(
+              recording.handle.steer!({ text: STEER, attachments: [], mentions: [] }),
+            );
+            expect(refused._tag).toBe("NotSteerable");
             yield* recording.collector.awaitItem(
               (event) => !before.has(event) && event.type === "turn.completed",
             );

@@ -1,0 +1,44 @@
+{
+  "formatVersion": 1,
+  "kind": "claude",
+  "transport": "sdk-stream",
+  "scenario": "receiptless-steer",
+  "description": "One turn on an older CLI build that is not signed in and whose system/init lists no msg_lifecycle_v1: a steer attempted once the init showed the turn under way is refused by the connector before anything is written, and the CLI refuses the turn for the login. Nothing reaches the API.",
+  "cliVersion": "2.1.150",
+  "sdkVersion": "0.3.280",
+  "recordedOn": "2026-09-24",
+  "model": "claude-opus-4-7[1m]",
+  "real": true,
+  "prompts": ["Reply with the single word: ok"],
+  "invocations": [
+    {
+      "argv": [
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--input-format",
+        "stream-json",
+        "--max-turns",
+        "1",
+        "--max-budget-usd",
+        "0.05",
+        "--permission-prompt-tool",
+        "stdio",
+        "--mcp-config",
+        "{\"mcpServers\":{\"openade\":{\"type\":\"http\",\"url\":\"http://127.0.0.1:9/mcp\",\"headers\":{\"Authorization\":\"<REDACTED>\"}}}}",
+        "--setting-sources=user,project,local",
+        "--permission-mode",
+        "default",
+        "--allow-dangerously-skip-permissions",
+        "--include-partial-messages",
+        "--add-dir",
+        "/var/folders/fk/g7j37kcj0kd6sdfwg_czzrjh0000gn/T/claude-attachments-i2xhcV/01a0d132-59a4-7000-a1c1-d4abc2d4b1b9",
+        "--session-id=69978ba3-fda6-414f-a4da-b079c9ca1856"
+      ],
+      "cwd": "<SCRATCH>/receiptless-steer",
+      "file": "invocation-1.ndjson",
+      "exitCode": 1,
+      "signal": null
+    }
+  ]
+}

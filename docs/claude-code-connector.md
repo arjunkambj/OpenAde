@@ -641,8 +641,17 @@ runs next is `started` after it. So `steering.ts` holds OpenAde's turn open at
 a `result` while any steered message has been neither `started` nor ended, and
 the turn's usage is the sum of every `result` it spans. The steer's check and
 the end-of-turn decision are each one atomic step, so a steer racing the last
-`result` either holds the turn or finds no turn and falls back to the queue. A
-CLI that sends no receipts ends the turn at its first `result`.
+`result` either holds the turn or finds no turn and falls back to the queue.
+
+A CLI that sends no receipts cannot be steered this way: a message it ran next
+would run as a turn nobody opened, and its `result` would close the turn after
+it. So `steer` is taken only once the CLI has shown it sends them — a receipt,
+or `msg_lifecycle_v1` in its `system/init` — and refused otherwise, for the
+server to queue the message. That includes the moment before the first
+`system/init`. Once an init lists no `msg_lifecycle_v1`, the session's next
+`session.started` says `steering: false`, so the composer stops offering it.
+`fixtures/claude/receiptless-steer/` pins this on CLI 2.1.150, whose init has
+no `capabilities` at all and which sends no receipts.
 
 `fixtures/claude/signed-out-steer/` records the run-next path: the steered
 message was written after `system/init` and before the first `result`; the CLI
@@ -663,22 +672,22 @@ option is read by SDK 0.3.280's runtime but missing from its declarations.
 
 `CLAUDE_CAPABILITIES` in `capabilities.ts`, and why each value is what it is:
 
-| Capability     | Value        | Why                                                                                    |
-| -------------- | ------------ | -------------------------------------------------------------------------------------- |
-| `modelSwitch`  | `in-session` | `setModel` on the running process; `session-controls`                                  |
-| `effortSwitch` | `in-session` | `applyFlagSettings({ effortLevel })`; `session-controls`                               |
-| `steering`     | `true`       | one more message to the running CLI, the turn held by its receipts; `signed-out-steer` |
-| `planMode`     | `true`       | permission mode `plan`, the plan handed over through ExitPlanMode                      |
-| `subagents`    | `true`       | Task/Agent, the task_* messages, and nested rows                                       |
-| `images`       | `true`       | image content blocks; `session-controls` has the CLI reading one                       |
-| `resume`       | `true`       | `resume: <sessionId>` against the CLI's own transcript                                 |
-| `fork`         | `false`      | nothing recorded forks a session                                                       |
-| `interrupt`    | `session`    | `Query.interrupt()` inside the one long-lived process                                  |
-| `rollback`     | `false`      | `resumeSessionAt` exists, but nothing recorded shows it; OpenAde's checkpoints are git |
-| `compaction`   | `true`       | `/compact` runs as the CLI's command; `session-controls`                               |
-| `questions`    | `true`       | AskUserQuestion, offered to SDK sessions (recorded `system/init`)                      |
-| `runtimeModes` | all three    | the PreToolUse hook puts every call in every mode past the ladder                      |
-| `attachments`  | `files`      | images as blocks, anything else by path under a readable directory                     |
+| Capability     | Value        | Why                                                                                                                                             |
+| -------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `modelSwitch`  | `in-session` | `setModel` on the running process; `session-controls`                                                                                           |
+| `effortSwitch` | `in-session` | `applyFlagSettings({ effortLevel })`; `session-controls`                                                                                        |
+| `steering`     | `true`       | one more message to the running CLI, the turn held by its receipts; `signed-out-steer`; `false` once the CLI's init lists no `msg_lifecycle_v1` |
+| `planMode`     | `true`       | permission mode `plan`, the plan handed over through ExitPlanMode                                                                               |
+| `subagents`    | `true`       | Task/Agent, the task_* messages, and nested rows                                                                                                |
+| `images`       | `true`       | image content blocks; `session-controls` has the CLI reading one                                                                                |
+| `resume`       | `true`       | `resume: <sessionId>` against the CLI's own transcript                                                                                          |
+| `fork`         | `false`      | nothing recorded forks a session                                                                                                                |
+| `interrupt`    | `session`    | `Query.interrupt()` inside the one long-lived process                                                                                           |
+| `rollback`     | `false`      | `resumeSessionAt` exists, but nothing recorded shows it; OpenAde's checkpoints are git                                                          |
+| `compaction`   | `true`       | `/compact` runs as the CLI's command; `session-controls`                                                                                        |
+| `questions`    | `true`       | AskUserQuestion, offered to SDK sessions (recorded `system/init`)                                                                               |
+| `runtimeModes` | all three    | the PreToolUse hook puts every call in every mode past the ladder                                                                               |
+| `attachments`  | `files`      | images as blocks, anything else by path under a readable directory                                                                              |
 
 `planMode`, `subagents` and `questions` rest on the SDK's declarations and on
 reading the CLI's bundle until their recordings are made; the capability
@@ -705,7 +714,8 @@ comments say which recording will pin each.
 - **MCP configuration travels in argv,** so the bearer is visible to `ps`.
 - **`system/init` capabilities** in 2.1.280: `interrupt_receipt_v1`,
   `interrupt_cancel_queued_v1`, `msg_lifecycle_v1`, `mcp_read_resource_v1`,
-  `mcp_tool_ui_meta_v1`.
+  `mcp_tool_ui_meta_v1`. 2.1.150's init has no `capabilities` field and it
+  sends no receipts (`receiptless-steer`).
 - **A probe's handshake is stopped, not ended:** its recorded exit is 143.
 
 ## After a new CLI release

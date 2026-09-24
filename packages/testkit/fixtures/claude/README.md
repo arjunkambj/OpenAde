@@ -30,6 +30,8 @@ bearer and the operator's own skills, commands and agents.
 | `session-controls` | `packages/connector-claude/test/recordSession.test.ts` | One signed-out session: a refused turn; `set_model` to the explicit id the init named for the default, `apply_flag_settings` effort low; an image turn (content blocks), refused; `/compact`, which ran as the command and failed for the login; `set_model` back to the default. |
 | `signed-out-steer` | `packages/connector-claude/test/recordSession.test.ts` | One signed-out turn with a second message steered in after the CLI's `system/init`: the CLI queues it, refuses the first, then runs the steered one as its next turn (its `command_lifecycle` `started` after the first `result`) and refuses it too.                             |
 
+| `receiptless-steer` | `packages/connector-claude/test/recordSession.test.ts` (`OPENADE_RECORD_CLAUDE_OLDER_BINARY`) | One signed-out turn on the older build **2.1.150**, whose `system/init` has no `capabilities` and which sends no `command_lifecycle` receipts: the connector refuses a steer after the init, so nothing is written mid-turn. The one recording below the oldest tested version, on purpose. |
+
 Everything above was recorded while the CLI on the recording machine was signed
 out, so none of it spent anything. A compaction of a real conversation costs a
 summarisation request, so a signed-in `/compact` is recorded only with the

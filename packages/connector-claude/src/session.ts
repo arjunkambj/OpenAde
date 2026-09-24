@@ -34,6 +34,9 @@
  * receipts, and the session holds OpenAde's turn open across the CLI's
  * `result`s until every steered message has been taken up. Its usage is the
  * sum of those results. Stop ends the whole turn, steered messages included.
+ * A CLI that has not shown it sends those receipts is not steered: the steer
+ * is refused for the caller to queue, and once its init shows it sends none
+ * the session announces `steering: false`.
  *
  * The CLI stopping on its own — the stream ending or failing while the session
  * is open — is a crash: a fatal `runtime.error` naming the CLI's last stderr,
@@ -289,7 +292,9 @@ export const makeClaudeSession = (
         payload: {
           sessionRef: currentRef(),
           model: settings.model,
-          capabilities: CLAUDE_CAPABILITIES,
+          // A CLI whose init showed it sends no receipts cannot be steered
+          // (`steering.ts`); the next announcement says so.
+          capabilities: { ...CLAUDE_CAPABILITIES, steering: ledger.receipts() !== false },
         },
       }),
     );
@@ -478,6 +483,12 @@ export const makeClaudeSession = (
         if (active === null) return yield* notRunning;
         if (active.interrupted) {
           return yield* new NotSteerable({ threadId, reason: "the running turn is stopping" });
+        }
+        if (ledger.receipts() !== true) {
+          return yield* new NotSteerable({
+            threadId,
+            reason: "this Claude Code has not shown it reports what it did with a steered message",
+          });
         }
         const staged = yield* Effect.promise(() =>
           stageAttachments({

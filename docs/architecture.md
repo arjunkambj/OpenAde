@@ -1243,8 +1243,11 @@ and the end of the turn are one step, so a steer racing the last `result`
 either holds the turn or finds none and falls back to the queue. Stop settles
 the whole turn at its `result`, and interrupts with the SDK's `cancelQueued`
 when a steered message is still waiting, so the CLI drops it rather than
-running it afterwards. A CLI that sends no receipts ends the turn at its
-first `result`, as before. `fixtures/claude/signed-out-steer/` has a message
+running it afterwards. A CLI that has not shown it sends receipts — a receipt,
+or `msg_lifecycle_v1` in its `system/init` — is not steered: `steer` fails
+with `NotSteerable` and the server queues the message, and once an init lists
+no `msg_lifecycle_v1` the session announces `steering: false`
+(`fixtures/claude/receiptless-steer/`, CLI 2.1.150). `fixtures/claude/signed-out-steer/` has a message
 steered in after the CLI's `system/init` and run next;
 `fixtures/claude/steering/`, which will show one folded into a running loop,
 waits for a signed-in CLI.

@@ -440,7 +440,11 @@ and fails on any frame it leaves unmapped; `recordedSession.test.ts` replays
 the session launch of `plain-reply`, the approval scenarios, `plan-accept`,
 `question`, `subagent` and `steering`; `steering.test.ts` replays
 `signed-out-steer`, a message steered into a turn on a signed-out CLI that runs
-it as its next turn, and holds the session to one turn across both results;
+it as its next turn, and holds the session to one turn across both results,
+and `receiptless-steer`, a steer refused on an older build (2.1.150) that sends
+no receipts — recorded with
+`OPENADE_RECORD_CLAUDE_OLDER_BINARY=~/.local/share/claude/versions/2.1.150` on
+`test/recordSession.test.ts`;
 `sessionControls.test.ts` replays
 `session-controls`, a session on a signed-out CLI that switches model and
 effort, sends an image and runs `/compact` (recorded by
