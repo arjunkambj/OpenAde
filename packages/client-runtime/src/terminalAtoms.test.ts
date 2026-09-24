@@ -408,6 +408,22 @@ describe("terminal atoms", () => {
     }),
   );
 
+  it.live("listTerminals answers one owner's terminals, once", () =>
+    Effect.gen(function* () {
+      const thread = newRef();
+      const script = newScript();
+      script.terminals.push(summary(thread), summary(newRef()));
+      const { registry, listTerminals } = yield* runtimeWith(script);
+      registry.mount(listTerminals);
+      registry.set(listTerminals, terminalOwnerKey(thread));
+      const listed = yield* AtomRegistry.getResult(registry, listTerminals, {
+        suspendOnWaiting: true,
+      });
+      expect(listed.map((terminal) => terminal.terminalId)).toEqual([thread.terminalId]);
+      expect(script.listCalls).toBe(1);
+    }),
+  );
+
   it.live("input typed while a write is in flight follows it, in order, as one write", () =>
     Effect.gen(function* () {
       const ref = newRef();

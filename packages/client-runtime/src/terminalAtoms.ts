@@ -9,6 +9,7 @@
  *   what went wrong and the next reconnect still has a stream to refetch on.
  * - `openTerminal`, `writeTerminal`, `resizeTerminal`, `closeTerminal` — the
  *   four calls, as `runtime.fn`s.
+ * - `listTerminals` — one `terminal.list`, answered once.
  * - `adoptTerminals` — `terminal.adopt`, the hand-over of a project's
  *   terminals to the local thread the New task page just started; both
  *   owners' lists are refetched after it.
@@ -22,11 +23,18 @@
  * renderer sets it with a callback on mount and resets it on unmount, which
  * interrupts the run, and every item reaches the callback, in order.
  *
- * Every fn here is `concurrent`. A plain `runtime.fn` interrupts its previous
- * run when it is set again, which would cancel the first of two tabs opening
- * together and drop keystrokes typed while an earlier one was in flight. Input
- * goes through one lane per terminal instead (`makeInputLanes`), so it reaches
- * the shell in the order it was typed however the calls are scheduled.
+ * Every fn here but two is `concurrent`. A plain `runtime.fn` interrupts its
+ * previous run when it is set again, which would cancel the first of two tabs
+ * opening together and drop keystrokes typed while an earlier one was in
+ * flight. Input goes through one lane per terminal instead (`makeInputLanes`),
+ * so it reaches the shell in the order it was typed however the calls are
+ * scheduled.
+ *
+ * `adoptTerminals` and `listTerminals` are plain fns, because their callers
+ * read the answer. A concurrent fn answers with the first of the runs still in
+ * flight when its own is joined — another call's answer when two overlap, and
+ * none at all when its own finished before the join — so its value is not the
+ * call's. The New task hand-over makes one of each at a time.
  *
  * Like the other atom modules, this takes the `AtomRuntime` that `makeRuntime`
  * already built, so the terminal shares one connection with everything else.
@@ -297,7 +305,8 @@ export const makeTerminalAtoms = (runtime: Atom.AtomRuntime<Connection | Connect
   /**
    * Hands the project's terminals to a local thread just started from it,
    * answering with them as the thread's. Both lists are refetched whatever
-   * the outcome.
+   * the outcome. Not `concurrent`, like `listTerminals`: see the note on the
+   * two in the module doc.
    */
   const adoptTerminals = runtime.fn(
     (args: { readonly projectId: ProjectId; readonly threadId: ThreadId }, get) =>
@@ -315,7 +324,19 @@ export const makeTerminalAtoms = (runtime: Atom.AtomRuntime<Connection | Connect
           }),
         ),
       ),
-    { concurrent: true },
+  );
+
+  /**
+   * One `terminal.list`, answered once rather than kept current — for a
+   * caller that has to know what the server holds now, as the New task
+   * hand-over does after an adopt whose reply was lost. Keyed like
+   * `terminalListAtom`.
+   */
+  const listTerminals = runtime.fn((ownerKey: string) =>
+    Effect.gen(function* () {
+      const client = yield* (yield* Connection).client;
+      return yield* client["terminal.list"](decodeTerminalOwnerKey(ownerKey));
+    }),
   );
 
   const lanes = makeInputLanes();
@@ -350,6 +371,7 @@ export const makeTerminalAtoms = (runtime: Atom.AtomRuntime<Connection | Connect
     resizeTerminal,
     closeTerminal,
     adoptTerminals,
+    listTerminals,
     terminalAttachAtom,
   };
 };
