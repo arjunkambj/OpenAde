@@ -45,7 +45,12 @@ type Call =
     }
   | { readonly op: "attachChild" | "reload" | "closeTab" | "selectTab"; readonly wcId: number }
   | { readonly op: "detachChild"; readonly wcId: number; readonly sessionId: string }
-  | { readonly op: "createTab"; readonly threadId: string; readonly url: string };
+  | {
+      readonly op: "createTab";
+      readonly threadId: string;
+      readonly url: string;
+      readonly background: boolean;
+    };
 
 interface FakeGuest {
   readonly threadId: string;
@@ -120,8 +125,12 @@ export class FakeGuestPort implements GuestPort {
     this.calls.push({ op: "reload", wcId });
   };
 
-  readonly createTab = async (threadId: string, url: string): Promise<GuestInfo> => {
-    this.calls.push({ op: "createTab", threadId, url });
+  readonly createTab = async (
+    threadId: string,
+    url: string,
+    background: boolean,
+  ): Promise<GuestInfo> => {
+    this.calls.push({ op: "createTab", threadId, url, background });
     return this.addGuest(threadId, `CREATED-${this.nextWcId}`, url);
   };
 

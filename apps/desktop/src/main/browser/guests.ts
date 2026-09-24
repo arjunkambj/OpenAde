@@ -248,8 +248,8 @@ export const createGuestRegistry = (options: GuestRegistryOptions): GuestRegistr
       if (ignoreCache) wc.reloadIgnoringCache();
       else wc.reload();
     },
-    createTab: async (threadId, url) =>
-      whenRegistered(await options.tabs.create(threadId, url, true)),
+    createTab: async (threadId, url, background) =>
+      whenRegistered(await options.tabs.create(threadId, url, background)),
     closeTab: (wcId) => options.tabs.close(target(wcId).wcId),
     selectTab: (wcId) => options.tabs.select(target(wcId).wcId),
     withFocus: (wcId, operation) =>

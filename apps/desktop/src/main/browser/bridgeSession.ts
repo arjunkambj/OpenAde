@@ -74,8 +74,12 @@ export interface GuestPort {
   readonly onEvent: (listener: (event: GuestEvent) => void) => () => void;
   /** `webContents.reload()`: a CDP `Page.reload` would reload the app window. */
   readonly reload: (wcId: number, ignoreCache: boolean) => Promise<void>;
-  /** Opens a pane tab (hidden when the dock is closed); resolves once it is a target. */
-  readonly createTab: (threadId: string, url: string) => Promise<GuestInfo>;
+  /**
+   * Opens a pane tab (hidden when the dock is closed); resolves once it is a
+   * target. A tab opened in the `background` does not take the pane's
+   * selection unless the thread has no other tab.
+   */
+  readonly createTab: (threadId: string, url: string, background: boolean) => Promise<GuestInfo>;
   readonly closeTab: (wcId: number) => Promise<void>;
   readonly selectTab: (wcId: number) => Promise<void>;
   /** Runs `operation` while the guest holds window focus, then gives focus back. */
@@ -283,9 +287,12 @@ export const openBridgeSession = (options: BridgeSessionOptions): BridgeSession 
       }
       case "Target.createTarget": {
         const url = params["url"];
+        // CDP's default is a foreground tab, as in a browser: the pane shows
+        // what the agent opened unless it asked for the background.
         const guest = await port.createTab(
           threadId,
           typeof url === "string" && url !== "" ? url : "about:blank",
+          params["background"] === true,
         );
         announce(guest);
         return { targetId: guest.targetId };

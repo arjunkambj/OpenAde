@@ -76,11 +76,16 @@ describe("replaying agent-browser 0.38.1 through the router", () => {
   it("opens a pane tab for createTarget, about:blank included", async () => {
     const empty = await replayScenario("empty-thread-createTarget");
     expect(empty.port.calls.filter((call) => call.op === "createTab")).toEqual([
-      { op: "createTab", threadId: empty.threadId, url: "about:blank" },
+      { op: "createTab", threadId: empty.threadId, url: "about:blank", background: false },
     ]);
     const tabs = await replayScenario("tab-new-close");
     expect(tabs.port.calls.filter((call) => call.op === "createTab")).toEqual([
-      { op: "createTab", threadId: tabs.threadId, url: "http://127.0.0.1:4173/page2" },
+      {
+        op: "createTab",
+        threadId: tabs.threadId,
+        url: "http://127.0.0.1:4173/page2",
+        background: false,
+      },
     ]);
     expect(tabs.port.calls.filter((call) => call.op === "closeTab")).toHaveLength(1);
   });
@@ -299,6 +304,20 @@ describe("page sessions", () => {
       expect(errorOf(replyTo(sent, 10 + index)), method).toBeDefined();
     }
     expect(port.calls.filter((call) => call.op !== "attachChild")).toEqual([]);
+  });
+
+  it("opens a background tab only when createTarget asks for one", async () => {
+    const { port, session } = openSession(THREAD);
+    await session.receive({
+      id: 1,
+      method: "Target.createTarget",
+      params: { url: "http://127.0.0.1:4173/", background: true },
+    });
+    await session.receive({ id: 2, method: "Target.createTarget", params: { url: "" } });
+    expect(port.calls.filter((call) => call.op === "createTab")).toEqual([
+      { op: "createTab", threadId: THREAD, url: "http://127.0.0.1:4173/", background: true },
+      { op: "createTab", threadId: THREAD, url: "about:blank", background: false },
+    ]);
   });
 
   it("answers Target.getTargetInfo from the thread's guests", async () => {

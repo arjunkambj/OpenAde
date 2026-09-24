@@ -284,11 +284,12 @@ describe("createGuestRegistry", () => {
       return 7;
     });
 
-    await expect(registry.port.createTab("a", "about:blank")).resolves.toMatchObject({
+    await expect(registry.port.createTab("a", "about:blank", false)).resolves.toMatchObject({
       wcId: 7,
       targetId: "T7",
     });
-    expect(tabCalls).toEqual(["create a about:blank true"]);
+    // The agent's tab is a foreground one unless it asked for the background.
+    expect(tabCalls).toEqual(["create a about:blank false"]);
   });
 
   it("fails a created tab that never becomes a target", async () => {
@@ -296,7 +297,9 @@ describe("createGuestRegistry", () => {
     try {
       const { registry, onCreate } = setup();
       onCreate(() => 42);
-      const failed = expect(registry.port.createTab("a", "about:blank")).rejects.toThrow(/in time/);
+      const failed = expect(registry.port.createTab("a", "about:blank", true)).rejects.toThrow(
+        /in time/,
+      );
       await vi.advanceTimersByTimeAsync(200);
       await failed;
     } finally {
