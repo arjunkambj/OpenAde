@@ -379,6 +379,7 @@ const makeFakeSession = (input: FakeSessionInput): Effect.Effect<FakeSession, ne
             text: turn.text,
             attachments: turn.attachments,
             mentions: turn.mentions,
+            references: turn.references ?? [],
           });
           yield* refuseWhenClosed;
           const active = yield* Ref.get(activeTurn);

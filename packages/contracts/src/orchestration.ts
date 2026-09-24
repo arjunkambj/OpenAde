@@ -34,6 +34,7 @@ import {
   ApprovalRequest,
   Attachment,
   ItemSnapshot,
+  TurnReference,
   TurnStopReason,
   UserQuestion,
   UserQuestionAnswer,
@@ -52,11 +53,12 @@ import {
 } from "./thread";
 
 /**
- * A file the user attached to a turn. Defined beside the runtime events
- * because the `user_message` row carries the same references the command does;
- * re-exported here because the commands are where a reader looks for it.
+ * A file the user attached to a turn, and a skill or plugin they referenced.
+ * Defined beside the runtime events because the `user_message` row carries
+ * them as the command does; re-exported here because the commands are where
+ * a reader looks for them.
  */
-export { Attachment } from "./runtime";
+export { Attachment, TurnReference } from "./runtime";
 
 // The value objects live in `./thread`; this module is still where they are
 // imported from.
@@ -126,6 +128,7 @@ const ThreadTurnStartCommand = command("thread.turn.start", {
   text: Schema.String,
   attachments: Schema.Array(Attachment),
   mentions: Schema.Array(Mention),
+  references: Schema.optional(Schema.Array(TurnReference)),
   queued: Schema.Boolean,
 });
 
@@ -141,6 +144,7 @@ const ThreadTurnSteerCommand = command("thread.turn.steer", {
   text: Schema.String,
   attachments: Schema.Array(Attachment),
   mentions: Schema.Array(Mention),
+  references: Schema.optional(Schema.Array(TurnReference)),
 });
 
 const ThreadTurnInterruptCommand = command("thread.turn.interrupt", { threadId: ThreadId });
@@ -363,6 +367,7 @@ const ThreadTurnRequestedEvent = orchestrationEvent(
     text: Schema.String,
     attachments: Schema.Array(Attachment),
     mentions: Schema.Array(Mention),
+    references: Schema.optional(Schema.Array(TurnReference)),
   }),
 );
 
@@ -388,6 +393,7 @@ const ThreadTurnSteeredEvent = orchestrationEvent(
     text: Schema.String,
     attachments: Schema.Array(Attachment),
     mentions: Schema.Array(Mention),
+    references: Schema.optional(Schema.Array(TurnReference)),
   }),
 );
 

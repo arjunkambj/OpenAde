@@ -812,6 +812,20 @@ a session setting: the reactor strips it before `handle.updateSettings`. The ren
 model picker is where the choice is made: one section per enabled instance, and
 a pick sends the instance with the model.
 
+A turn's input is the same four fields wherever it travels —
+`thread.turn.start`, `QueuedMessage` on `thread.message.queued`,
+`thread.turn.requested`, and the connector's `TurnInput`: the `text`, the
+`attachments` (staged file references, never bytes), the `mentions`
+(workspace-relative paths) and the `references` (`TurnReference`: a
+`kind` of `skill` or `plugin` and a `name`). `references` is optional
+everywhere, so events written before it existed decode unchanged and absent
+means none; the decider leaves the field off when there are none. The
+`user_message` row the decider mints with the turn carries the attachments
+and the references, each only when there are some; mentions are not copied
+onto it. The queue drain redispatches a `QueuedMessage` field by field, so
+each of the four has to be copied there, and a resumed session re-sends the
+in-flight turn's input from the thread document, references included.
+
 ### Reactors
 
 A reactor consumes the engine's published streams and performs the side effect
@@ -1066,10 +1080,13 @@ logger that annotates lines with the thread they came from, and a clock.
 
 `SessionHandle` is the live surface of one session: `events`, `send`,
 `steer`, `interrupt`, `respondToRequest`, `respondToUserInput`,
-`respondToPlan`, `updateSettings`, `sessionRef`, `close`. `send` fails with
-`TurnInProgress` when a turn is running and `capabilities.steering` is false;
-the caller's recourse is to queue, which is what
-`thread.turn.start { queued: true }` is for. `steer` is present only when
+`respondToPlan`, `updateSettings`, `sessionRef`, `close`. `send` and `steer`
+take a `TurnInput`: text, attachments, mentions and the optional skill and
+plugin `references`. How a reference reaches the harness is the connector's
+choice, since each harness has its own syntax for invoking a skill or a
+plugin. `send` fails with `TurnInProgress` when a turn is running and
+`capabilities.steering` is false; the caller's recourse is to queue, which is
+what `thread.turn.start { queued: true }` is for. `steer` is present only when
 `capabilities.steering` is true: it delivers a message into the running turn
 with no new turn boundary, and the connector keeps that turn open until the
 harness has answered the steered message too, so the turn still completes

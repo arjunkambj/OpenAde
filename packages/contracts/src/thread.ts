@@ -12,7 +12,7 @@ import * as Schema from "effect/Schema";
 import { IsoDateTime, NonEmptyString, NonNegativeInt } from "./base";
 import { Effort, InteractionMode, RuntimeMode } from "./enums";
 import { CheckpointId, ConnectorInstanceId, ConnectorKind, ItemId, TurnId } from "./ids";
-import { Attachment, ConnectorCapabilities } from "./runtime";
+import { Attachment, ConnectorCapabilities, TurnReference } from "./runtime";
 
 /** A `#` file mention from the composer: a workspace-relative path. */
 export const Mention = NonEmptyString;
@@ -70,6 +70,7 @@ export const QueuedMessage = Schema.Struct({
   text: Schema.String,
   attachments: Schema.Array(Attachment),
   mentions: Schema.Array(Mention),
+  references: Schema.optional(Schema.Array(TurnReference)),
   queuedAt: IsoDateTime,
 });
 export type QueuedMessage = typeof QueuedMessage.Type;

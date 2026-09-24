@@ -175,6 +175,25 @@ describe("the thread fold", () => {
     expect(doc?.status).toBe("idle");
   });
 
+  it("keeps the turn's references for a resume to re-send, and none from an old event", () => {
+    const references = [{ kind: "skill" as const, name: "release-notes" }];
+    const withReferences = foldThread([
+      created(),
+      event("thread.turn.requested", {
+        turnId: makeTurnId(),
+        text: "hello",
+        attachments: [],
+        mentions: [],
+        references,
+      }),
+    ]);
+    // Written before references existed: the field is simply absent.
+    const old = foldThread([created(), turnRequested()]);
+
+    expect(withReferences?.currentTurn?.input.references).toEqual(references);
+    expect(old?.currentTurn?.input.references).toEqual([]);
+  });
+
   it("keeps the in-flight turn while an interrupt settles", () => {
     const turnId = makeTurnId();
     const doc = foldThread([

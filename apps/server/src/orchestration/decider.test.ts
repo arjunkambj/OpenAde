@@ -936,6 +936,70 @@ describe("the user's own timeline row", () => {
   });
 });
 
+describe("skill and plugin references", () => {
+  const references = [
+    { kind: "skill" as const, name: "release-notes" },
+    { kind: "plugin" as const, name: "linters" },
+  ];
+  const running = threadDoc({
+    currentTurn: {
+      turnId: makeTurnId(),
+      input: { text: "in-flight", attachments: [], mentions: [] },
+    },
+    status: "running",
+  });
+  const start = (thread: ThreadDoc, extra: Record<string, unknown>) =>
+    decide(
+      {
+        ...baseCommand,
+        type: "thread.turn.start",
+        threadId: makeThreadId(),
+        text: "write the notes",
+        attachments: [],
+        mentions: [],
+        queued: true,
+        ...extra,
+      } as Command,
+      { project: null, thread },
+      ctx(),
+      env,
+    );
+
+  it("ride on the turn request and on the user's row", () => {
+    const result = start(threadDoc(), { references });
+    expect(result.accepted).toBe(true);
+    if (!result.accepted) return;
+    const requested = result.events[0]!.payload as { references?: unknown };
+    const upserted = result.events[1]!.payload as { item: { references?: unknown } };
+    expect(requested.references).toEqual(references);
+    expect(upserted.item.references).toEqual(references);
+  });
+
+  it("stay with a message queued behind a running turn", () => {
+    const result = start(running, { references });
+    expect(result.accepted).toBe(true);
+    if (!result.accepted) return;
+    expect(result.events.map((event) => event.type)).toEqual(["thread.message.queued"]);
+    const queued = result.events[0]!.payload as { message: { references?: unknown } };
+    expect(queued.message.references).toEqual(references);
+  });
+
+  it("leave no field behind when there are none", () => {
+    for (const extra of [{}, { references: [] }]) {
+      const result = start(threadDoc(), extra);
+      if (!result.accepted) throw new Error("rejected");
+      const requested = result.events[0]!.payload as { references?: unknown };
+      const upserted = result.events[1]!.payload as { item: { references?: unknown } };
+      expect(requested.references).toBeUndefined();
+      expect(upserted.item.references).toBeUndefined();
+      const queued = start(running, extra);
+      if (!queued.accepted) throw new Error("rejected");
+      const message = queued.events[0]!.payload as { message: { references?: unknown } };
+      expect(message.message.references).toBeUndefined();
+    }
+  });
+});
+
 describe("the thread's connector instance", () => {
   const CHOSEN = makeConnectorInstanceId();
   const OTHER = makeConnectorInstanceId();

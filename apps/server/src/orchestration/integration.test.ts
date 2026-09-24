@@ -421,65 +421,75 @@ describe("orchestration with a fake connector", () => {
     }),
   );
 
-  it.effect("queue drain redispatches the message with its attachments and mentions", () =>
-    Effect.gen(function* () {
-      // The approval script holds turn.completed until the request is
-      // answered — the turn stays active while we queue behind it.
-      const { fake, instance } = yield* openFake({ script: approvalTurnScript });
-      const attachments = [{ path: "/tmp/openade-test/note.txt", mime: "text/plain" }];
-      const mentions = ["src/app.ts"];
-      yield* Effect.gen(function* () {
-        const engine = yield* OrchestrationEngine;
-        yield* engine.dispatch(createProject);
-        yield* engine.dispatch(createThread);
+  it.effect(
+    "queue drain redispatches the message with its attachments, mentions and references",
+    () =>
+      Effect.gen(function* () {
+        // The approval script holds turn.completed until the request is
+        // answered — the turn stays active while we queue behind it.
+        const { fake, instance } = yield* openFake({ script: approvalTurnScript });
+        const attachments = [{ path: "/tmp/openade-test/note.txt", mime: "text/plain" }];
+        const mentions = ["src/app.ts"];
+        const references = [
+          { kind: "skill" as const, name: "release-notes" },
+          { kind: "plugin" as const, name: "linters" },
+        ];
+        yield* Effect.gen(function* () {
+          const engine = yield* OrchestrationEngine;
+          yield* engine.dispatch(createProject);
+          yield* engine.dispatch(createThread);
 
-        const opened = yield* awaitEvent(engine, isType("thread.approval.opened"));
-        yield* engine.dispatch(turnStart("first"));
-        yield* Fiber.join(opened);
+          const opened = yield* awaitEvent(engine, isType("thread.approval.opened"));
+          yield* engine.dispatch(turnStart("first"));
+          yield* Fiber.join(opened);
 
-        yield* engine.dispatch({
-          commandId: makeCommandId(),
-          createdAt: NOW,
-          type: "thread.turn.start",
-          threadId,
-          text: "second",
-          attachments,
-          mentions,
-          queued: true,
-        });
-        expect((yield* engine.threadDetail(threadId))?.queue).toHaveLength(1);
+          yield* engine.dispatch({
+            commandId: makeCommandId(),
+            createdAt: NOW,
+            type: "thread.turn.start",
+            threadId,
+            text: "second",
+            attachments,
+            mentions,
+            references,
+            queued: true,
+          });
+          expect((yield* engine.threadDetail(threadId))?.queue).toHaveLength(1);
 
-        const requested = yield* awaitEvent(engine, isType("thread.turn.requested"));
-        // The drain's send() lands after its request event publishes; the
-        // next turn.started proves the handle got the call.
-        const secondStarted = yield* awaitEvent(engine, isType("thread.turn.started"));
-        yield* engine.dispatch({
-          commandId: makeCommandId(),
-          createdAt: NOW,
-          type: "thread.approval.respond",
-          threadId,
-          requestId: (yield* engine.threadDetail(threadId))!.pendingApproval!.requestId,
-          decision: "allow-once",
-        });
-        const event = yield* Fiber.join(requested);
-        yield* Fiber.join(secondStarted);
-        expect(Option.isSome(event)).toBe(true);
-        const payload = Option.getOrThrow(event).payload as {
-          text: string;
-          attachments: unknown;
-          mentions: unknown;
-        };
-        expect(payload.text).toBe("second");
-        expect(payload.attachments).toEqual(attachments);
-        expect(payload.mentions).toEqual(mentions);
-      }).pipe(Effect.provide(stackLayer({ instance })));
+          const requested = yield* awaitEvent(engine, isType("thread.turn.requested"));
+          // The drain's send() lands after its request event publishes; the
+          // next turn.started proves the handle got the call.
+          const secondStarted = yield* awaitEvent(engine, isType("thread.turn.started"));
+          yield* engine.dispatch({
+            commandId: makeCommandId(),
+            createdAt: NOW,
+            type: "thread.approval.respond",
+            threadId,
+            requestId: (yield* engine.threadDetail(threadId))!.pendingApproval!.requestId,
+            decision: "allow-once",
+          });
+          const event = yield* Fiber.join(requested);
+          yield* Fiber.join(secondStarted);
+          expect(Option.isSome(event)).toBe(true);
+          const payload = Option.getOrThrow(event).payload as {
+            text: string;
+            attachments: unknown;
+            mentions: unknown;
+            references: unknown;
+          };
+          expect(payload.text).toBe("second");
+          expect(payload.attachments).toEqual(attachments);
+          expect(payload.mentions).toEqual(mentions);
+          expect(payload.references).toEqual(references);
+        }).pipe(Effect.provide(stackLayer({ instance })));
 
-      const session = yield* fake.session(threadId);
-      const sends = (yield* session!.calls).filter((call) => call.method === "send");
-      const drained = sends.find((call) => call.detail.text === "second");
-      expect(drained?.detail.attachments).toEqual(attachments);
-      expect(drained?.detail.mentions).toEqual(mentions);
-    }),
+        const session = yield* fake.session(threadId);
+        const sends = (yield* session!.calls).filter((call) => call.method === "send");
+        const drained = sends.find((call) => call.detail.text === "second");
+        expect(drained?.detail.attachments).toEqual(attachments);
+        expect(drained?.detail.mentions).toEqual(mentions);
+        expect(drained?.detail.references).toEqual(references);
+      }),
   );
 
   it.effect("a drained message the decider refuses goes back into the queue", () =>

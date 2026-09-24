@@ -34,6 +34,7 @@ import type {
   PlanResponseAction,
   QueuedMessage,
   ThreadSettingsPatch,
+  TurnReference,
 } from "@OpenAde/contracts/orchestration";
 import type { UserQuestionAnswer } from "@OpenAde/contracts/runtime";
 import type { TurnInput } from "@OpenAde/connector-sdk/definition";
@@ -115,6 +116,7 @@ export const ProviderCommandReactor = Layer.effectDiscard(
         text: input.text,
         attachments: input.attachments,
         mentions: input.mentions,
+        ...(input.references === undefined ? {} : { references: input.references }),
         queued,
       });
 
@@ -186,6 +188,9 @@ export const ProviderCommandReactor = Layer.effectDiscard(
                 text: input.text,
                 attachments: input.attachments,
                 mentions: input.mentions,
+                ...(input.references === undefined || input.references.length === 0
+                  ? {}
+                  : { references: input.references }),
                 queuedAt: now,
               },
             },
@@ -245,6 +250,7 @@ export const ProviderCommandReactor = Layer.effectDiscard(
                   text: payload.text as string,
                   attachments: (payload.attachments ?? []) as ReadonlyArray<Attachment>,
                   mentions: (payload.mentions ?? []) as ReadonlyArray<Mention>,
+                  references: (payload.references ?? []) as ReadonlyArray<TurnReference>,
                 }),
               ),
               Effect.catch((error) =>
@@ -262,6 +268,7 @@ export const ProviderCommandReactor = Layer.effectDiscard(
                 text: payload.text as string,
                 attachments: (payload.attachments ?? []) as ReadonlyArray<Attachment>,
                 mentions: (payload.mentions ?? []) as ReadonlyArray<Mention>,
+                references: (payload.references ?? []) as ReadonlyArray<TurnReference>,
               },
               event.eventId,
             );
@@ -438,7 +445,7 @@ export const ProviderCommandReactor = Layer.effectDiscard(
             }
             // The queued message carries the composer's whole input —
             // redispatching just the text would silently drop its
-            // attachments and mentions.
+            // attachments, mentions and references.
             //
             // `queued: true`, and the receipt is read. The dequeue above has
             // already committed, so anything that makes the decider refuse this

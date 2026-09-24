@@ -119,6 +119,13 @@ type Emit = ReturnType<typeof event>;
 type TurnText = Extract<Command, { type: "thread.turn.start" | "thread.turn.steer" }>;
 
 /**
+ * Skill and plugin references ride on every event that holds the turn, and
+ * are left off when there are none, as attachments are on the row.
+ */
+const referencesOf = (command: TurnText) =>
+  (command.references ?? []).length === 0 ? {} : { references: command.references };
+
+/**
  * Why an existing thread may not take a message now, or `null` when it may.
  * Shared by `thread.turn.start` and `thread.turn.steer`: a steered message is
  * work on the worktree like any other, so it is barred for the same reasons.
@@ -146,6 +153,7 @@ const queueMessage = (emit: Emit, env: DecideEnv, command: TurnText): PlannedEve
       text: command.text,
       attachments: command.attachments,
       mentions: command.mentions,
+      ...referencesOf(command),
       queuedAt: env.now,
     },
   });
@@ -165,6 +173,7 @@ const userMessage = (emit: Emit, env: DecideEnv, command: TurnText, turnId: Turn
       turnId,
       text: command.text,
       ...(command.attachments.length === 0 ? {} : { attachments: command.attachments }),
+      ...referencesOf(command),
     },
   });
 
@@ -176,6 +185,7 @@ const startTurn = (emit: Emit, env: DecideEnv, command: TurnText): ReadonlyArray
       text: command.text,
       attachments: command.attachments,
       mentions: command.mentions,
+      ...referencesOf(command),
     }),
     userMessage(emit, env, command, turnId),
   ];
@@ -352,6 +362,7 @@ export const decide = (
           text: command.text,
           attachments: command.attachments,
           mentions: command.mentions,
+          ...referencesOf(command),
         }),
         userMessage(emit, env, command, turnId),
       ]);

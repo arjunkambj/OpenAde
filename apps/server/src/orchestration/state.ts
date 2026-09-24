@@ -23,6 +23,7 @@ import type {
   ThreadSettings,
   ThreadStatus,
   ThreadSummary,
+  TurnReference,
   TurnUsage,
   ContextWindowUsage,
 } from "@OpenAde/contracts/orchestration";
@@ -78,6 +79,8 @@ export interface ThreadDoc {
       readonly text: string;
       readonly attachments: ReadonlyArray<Attachment>;
       readonly mentions: ReadonlyArray<Mention>;
+      /** Optional, as on the connector's `TurnInput`; absent means none. */
+      readonly references?: ReadonlyArray<TurnReference>;
     };
   } | null;
   /**
@@ -323,6 +326,7 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
             text: payload.text as string,
             attachments: (payload.attachments ?? []) as ReadonlyArray<Attachment>,
             mentions: (payload.mentions ?? []) as ReadonlyArray<Mention>,
+            references: (payload.references ?? []) as ReadonlyArray<TurnReference>,
           },
         },
         status: "running",

@@ -24,7 +24,12 @@ import type {
   ThreadId,
   TurnId,
 } from "@OpenAde/contracts/ids";
-import type { Attachment, Mention, ThreadSettings } from "@OpenAde/contracts/orchestration";
+import type {
+  Attachment,
+  Mention,
+  ThreadSettings,
+  TurnReference,
+} from "@OpenAde/contracts/orchestration";
 import type {
   ConnectorConfigField,
   ConnectorMetadata,
@@ -224,6 +229,12 @@ export interface TurnInput {
   readonly text: string;
   readonly attachments: ReadonlyArray<Attachment>;
   readonly mentions: ReadonlyArray<Mention>;
+  /**
+   * The skills and plugins the user picked from the composer. Each connector
+   * decides how a reference reaches its harness in the prompt. Optional, so a
+   * caller with nothing to reference may leave it out; absent means none.
+   */
+  readonly references?: ReadonlyArray<TurnReference>;
 }
 
 /** Everything needed to start a fresh session for a thread. */

@@ -47,6 +47,19 @@ export const Attachment = Schema.Struct({
 });
 export type Attachment = typeof Attachment.Type;
 
+/**
+ * A skill or plugin the user picked from the composer's `@` or `$` menu. A
+ * *name*, not a body: the harness owns what the skill or plugin is, and the
+ * connector decides how the reference reaches it in the prompt. Like
+ * `Attachment`, both the command that starts a turn and the `user_message`
+ * row it mints carry it.
+ */
+export const TurnReference = Schema.Struct({
+  kind: Schema.Literals(["skill", "plugin"]),
+  name: NonEmptyString,
+});
+export type TurnReference = typeof TurnReference.Type;
+
 /** Lifecycle of one timeline item, and of one subagent task. */
 export const ItemStatus = Schema.Literals(["in_progress", "completed", "failed"]);
 export type ItemStatus = typeof ItemStatus.Type;
@@ -219,6 +232,8 @@ export const ItemSnapshot = Schema.Struct({
    * `attachments.read` when it wants to draw a thumbnail.
    */
   attachments: Schema.optional(Schema.Array(Attachment)),
+  /** The skills and plugins the user referenced — `user_message` only. */
+  references: Schema.optional(Schema.Array(TurnReference)),
   plan: Schema.optional(Schema.Struct({ markdown: Schema.String })),
   todos: Schema.optional(Schema.Array(Todo)),
   error: Schema.optional(Schema.Struct({ message: Schema.String })),

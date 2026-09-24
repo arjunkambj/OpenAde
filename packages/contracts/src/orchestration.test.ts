@@ -9,6 +9,7 @@ import {
   OrchestrationEvent,
   OrchestrationEventType,
   ThreadStreamItem,
+  TurnReference,
   commandTypes,
   orchestrationEventTypes,
   threadLocksConnector,
@@ -170,6 +171,125 @@ describe("ThreadSettings.connectorInstanceId", () => {
       );
       if (command.type !== "thread.settings.update") throw new Error(command.type);
       expect(command.connectorInstanceId).toBe(INSTANCE);
+    }),
+  );
+});
+
+describe("TurnReference", () => {
+  const decode = Schema.decodeUnknownSync(OrchestrationEvent);
+  const REFERENCES = [
+    { kind: "skill", name: "health-checks" },
+    { kind: "plugin", name: "smoke-tests" },
+  ];
+
+  const event = (type: string, sequence: number, payload: Record<string, unknown>) => ({
+    sequence,
+    eventId: `0199c0de-0006-7000-8000-00000000020${sequence}`,
+    streamKind: "thread",
+    streamId: "0199c0de-0002-7000-8000-000000000001",
+    streamVersion: sequence,
+    occurredAt: "2026-09-15T12:00:03.000Z",
+    actor: "system",
+    type,
+    payload,
+  });
+
+  const turnRequested = (extra: Record<string, unknown>) =>
+    event("thread.turn.requested", 1, {
+      turnId: "0199c0de-0004-7000-8000-000000000001",
+      text: "Add a health check",
+      attachments: [],
+      mentions: [],
+      ...extra,
+    });
+
+  const messageQueued = (extra: Record<string, unknown>) =>
+    event("thread.message.queued", 2, {
+      message: {
+        queuedMessageId: "0199c0de-0010-7000-8000-000000000001",
+        text: "Then the readiness probe",
+        attachments: [],
+        mentions: [],
+        queuedAt: "2026-09-15T12:00:00.000Z",
+        ...extra,
+      },
+    });
+
+  const userMessage = (extra: Record<string, unknown>) =>
+    event("thread.item.upserted", 3, {
+      item: {
+        itemId: "0199c0de-0005-7000-8000-000000000001",
+        kind: "user_message",
+        status: "completed",
+        text: "Add a health check",
+        ...extra,
+      },
+      turnId: "0199c0de-0004-7000-8000-000000000001",
+    });
+
+  it.effect("still decodes a turn, a queued message and a user row written before references", () =>
+    Effect.gen(function* () {
+      const requested = yield* Effect.sync(() => decode(turnRequested({})));
+      const queued = yield* Effect.sync(() => decode(messageQueued({})));
+      const upserted = yield* Effect.sync(() => decode(userMessage({})));
+      if (requested.type !== "thread.turn.requested") throw new Error(requested.type);
+      if (queued.type !== "thread.message.queued") throw new Error(queued.type);
+      if (upserted.type !== "thread.item.upserted") throw new Error(upserted.type);
+      expect(requested.payload.references).toBeUndefined();
+      expect(queued.payload.message.references).toBeUndefined();
+      expect(upserted.payload.item.references).toBeUndefined();
+    }),
+  );
+
+  it.effect("carries skill and plugin references through every event that holds a turn", () =>
+    Effect.gen(function* () {
+      for (const raw of [
+        turnRequested({ references: REFERENCES }),
+        messageQueued({ references: REFERENCES }),
+        userMessage({ references: REFERENCES }),
+      ]) {
+        const decoded = yield* Effect.sync(() => decode(raw));
+        const encoded = yield* Effect.sync(() =>
+          Schema.encodeUnknownSync(OrchestrationEvent)(decoded),
+        );
+        expect(encoded).toStrictEqual(raw);
+      }
+    }),
+  );
+
+  it.effect("travels on thread.turn.start, and may be left out", () =>
+    Effect.gen(function* () {
+      const start = (extra: Record<string, unknown>) =>
+        Schema.decodeUnknownSync(Command)({
+          commandId: "0199c0de-0008-7000-8000-000000000001",
+          createdAt: "2026-09-15T12:00:00.000Z",
+          type: "thread.turn.start",
+          threadId: "0199c0de-0002-7000-8000-000000000001",
+          text: "Add a health check",
+          attachments: [],
+          mentions: [],
+          queued: false,
+          ...extra,
+        });
+      const without = yield* Effect.sync(() => start({}));
+      const withReferences = yield* Effect.sync(() => start({ references: REFERENCES }));
+      if (without.type !== "thread.turn.start") throw new Error(without.type);
+      if (withReferences.type !== "thread.turn.start") throw new Error(withReferences.type);
+      expect(without.references).toBeUndefined();
+      expect(withReferences.references).toEqual(REFERENCES);
+    }),
+  );
+
+  it.effect("refuses a kind other than skill or plugin, and an empty name", () =>
+    Effect.gen(function* () {
+      const wrongKind = yield* Effect.sync(() =>
+        Schema.decodeUnknownExit(TurnReference)({ kind: "file", name: "a" }),
+      );
+      const emptyName = yield* Effect.sync(() =>
+        Schema.decodeUnknownExit(TurnReference)({ kind: "skill", name: "" }),
+      );
+      expect(wrongKind._tag).toBe("Failure");
+      expect(emptyName._tag).toBe("Failure");
     }),
   );
 });
