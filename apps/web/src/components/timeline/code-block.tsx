@@ -13,6 +13,11 @@
  * does the block fall back to a plain `pre`, since `File` would otherwise load
  * Shiki on the main thread.
  *
+ * The wrapper caps the height and owns both scroll axes: without wrapping,
+ * the code is laid out at its full width inside it, so a long line scrolls
+ * sideways with a scrollbar at the bottom of the visible box, not under the
+ * block's last line.
+ *
  * `cacheKey` names the block across renders (item id and offset), so the pool
  * reuses a highlight for a row the list recycled rather than tokenizing it
  * again. The library draws into its own element, so Copy reads the source
@@ -82,7 +87,17 @@ function PoolCode({
     () => ({ name, contents: code, lang: language, cacheKey }),
     [name, code, language, cacheKey],
   );
-  return <File file={file} options={options} className="block text-xs" />;
+  // Scrolling, the file is as wide as its longest line, so the capped wrapper
+  // around it scrolls both ways and its sideways scrollbar sits at the bottom
+  // of what is on screen; left to scroll itself, the library's code element
+  // would put that scrollbar under the last line, out of view in a tall block.
+  return (
+    <File
+      file={file}
+      options={options}
+      className={cn("block text-xs", !wrap && "w-max min-w-full")}
+    />
+  );
 }
 
 export const CodeBlock = React.memo(function CodeBlock({

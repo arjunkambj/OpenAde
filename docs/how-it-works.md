@@ -836,7 +836,10 @@ header shows the file the fence names or its language. The file can be named
 by `title="…"`, by a path after the language, by `lang:path`, or by a path as
 the fence's only word, and that path's extension then picks the language.
 The header also holds a wrap toggle and a Copy button that copies the source
-text. The code sits in a scroller capped at 24rem. It is highlighted
+text. The code sits in a scroller capped at 24rem that owns both axes: without
+wrapping, the code is laid out at its longest line's width inside it, so the
+sideways scrollbar sits at the bottom of the visible box rather than under
+the last line of a tall block. It is highlighted
 by `File` from `@pierre/diffs` through the same worker pool and themes as the
 inline diffs, so Shiki tokenizes off the main thread and follows light/dark.
 A fence's word, or its file's extension, is looked up in a table of common
