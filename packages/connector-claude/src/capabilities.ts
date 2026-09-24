@@ -19,7 +19,9 @@ export const CLAUDE_CAPABILITIES: ConnectorCapabilities = {
   // The SDK can push a second user message into a running turn, but the
   // session does not do it yet: until it does, a message sent mid-turn queues.
   steering: false,
-  // Permission mode `plan`, with the plan handed over through ExitPlanMode.
+  // Permission mode `plan`, with the plan handed over through ExitPlanMode
+  // and raised as the plan card (`interactions.ts`). `plan-accept` is the
+  // recording that will show it; none is made yet.
   planMode: true,
   // The Task tool and its task_* system messages.
   subagents: true,
@@ -37,7 +39,9 @@ export const CLAUDE_CAPABILITIES: ConnectorCapabilities = {
   rollback: false,
   // A `/compact` user message asks the CLI to compact its context.
   compaction: true,
-  // AskUserQuestion, answered as the tool's result.
+  // AskUserQuestion, answered through the question card as the tool's
+  // result. The CLI offers the tool to SDK sessions (recorded `system/init`);
+  // `question` is the recording that will show a card answered.
   questions: true,
   // Every mode is enforced by OpenAde's permission ladder through the session's
   // PreToolUse hook, which runs for every tool call in every permission mode.

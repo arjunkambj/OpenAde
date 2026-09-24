@@ -16,9 +16,17 @@
  *    on one consumer fiber;
  * 4. gates every tool call through OpenAde's permission ladder
  *    (`toolGate.ts`), from the first message on, and says so with a
- *    `session.warning` if a turn ran a tool call the gate never saw;
+ *    `session.warning` if a turn ran a tool call the gate never saw. The
+ *    model's questions and plans open OpenAde's cards instead
+ *    (`interactions.ts`);
  * 5. closes by releasing open cards, ending the input, closing the query,
  *    stopping the CLI's process group and proving it gone (`spawn.ts`).
+ *
+ * The CLI's permission mode follows the thread's modes (`permissionModeFor`).
+ * The session keeps the mode the CLI last reported or was last set to, and
+ * sets it again before a turn whose modes call for another — a plan turn, or
+ * the turn after one, whether the thread's modes changed or the model moved
+ * the CLI into plan mode by itself.
  *
  * The CLI stopping on its own — the stream ending or failing while the session
  * is open — is a crash: a fatal `runtime.error` naming the CLI's last stderr,
@@ -27,7 +35,8 @@
 
 import * as NodeCrypto from "node:crypto";
 import * as NodeFS from "node:fs";
-import { query, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
+import * as NodeOS from "node:os";
+import { query, type PermissionMode, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { makeApprovalGate } from "@OpenAde/connector-sdk/approvalGate";
 import type {
   ConnectorError,
@@ -49,8 +58,10 @@ import * as Stream from "effect/Stream";
 import type { ResolvedBinary } from "./binary";
 import { CLAUDE_CAPABILITIES } from "./capabilities";
 import { makeInputQueue } from "./inputQueue";
+import { makeInteractions } from "./interactions";
 import { CLAUDE_KIND } from "./kind";
 import { sdkModelFor } from "./models";
+import { plansDirFor } from "./plans";
 import {
   attachmentsDirFor,
   buildQueryOptions,
@@ -61,8 +72,8 @@ import {
 import type { ClaudeSessionRef } from "./sessionRef";
 import { makeProcessGroup } from "./spawn";
 import { makeToolGate } from "./toolGate";
-import type { PendingRuntimeEvent } from "./translate/pending";
-import { makeTranslator } from "./translate/translator";
+import { asRecord, type PendingRuntimeEvent } from "./translate/pending";
+import { isModeReport, makeTranslator } from "./translate/translator";
 import { userMessage } from "./userMessage";
 
 export interface ClaudeSessionOptions {
@@ -126,13 +137,45 @@ export const makeClaudeSession = (
         } as RuntimeEvent);
       });
 
+    const translator = makeTranslator({
+      loginCommand: options.loginCommand,
+      previousTotalCost:
+        options.sessionRef === undefined ? 0 : (options.sessionRef.totalCostUsd ?? null),
+    });
+    // The CLI's permission mode as it last stood — see the header.
+    let cliMode: PermissionMode = permissionModeFor(settings);
+
     const gate = yield* makeApprovalGate({ permissions: services.permissions, emit });
+    const interactions = yield* makeInteractions({
+      emit,
+      // The plan settles its row and raises the card, inside the running turn.
+      // ExitPlanMode only runs in the CLI's plan mode, so that is its mode now.
+      onPlan: (plan, toolUseId) =>
+        Effect.gen(function* () {
+          cliMode = "plan";
+          for (const event of translator.planProposed(toolUseId, plan.markdown)) {
+            yield* emit(event);
+          }
+          const turn = yield* Ref.get(turnRef);
+          if (turn === null) return;
+          yield* emit({
+            type: "turn.plan.proposed",
+            payload: {
+              turnId: turn.turnId,
+              planMarkdown: plan.markdown,
+              ...(plan.path === undefined ? {} : { planPath: plan.path }),
+            },
+          });
+        }),
+    });
     const toolGate = makeToolGate({
       threadId,
       permissions: services.permissions,
       gate,
       settings: () => settings,
       run,
+      interactions,
+      plansDir: plansDirFor(options.env, NodeOS.homedir()),
     });
     const mcp = yield* services.mcpEndpoint(threadId);
     const attachmentsDir = attachmentsDirFor(services.attachmentsDir, threadId);
@@ -145,11 +188,6 @@ export const makeClaudeSession = (
     });
 
     const sessionId = options.sessionRef?.sessionId ?? NodeCrypto.randomUUID();
-    const translator = makeTranslator({
-      loginCommand: options.loginCommand,
-      previousTotalCost:
-        options.sessionRef === undefined ? 0 : (options.sessionRef.totalCostUsd ?? null),
-    });
     const input = makeInputQueue<SDKUserMessage>();
     const group = makeProcessGroup({
       onStderr: (chunk) => {
@@ -245,6 +283,10 @@ export const makeClaudeSession = (
     const handle = (message: unknown): Effect.Effect<void> =>
       Effect.gen(function* () {
         if (yield* Ref.get(closedRef)) return;
+        const record = asRecord(message);
+        if (record.type === "system" && record.subtype === "status" && isModeReport(record)) {
+          cliMode = record.permissionMode as PermissionMode;
+        }
         const turn = yield* Ref.get(turnRef);
         let completed = false;
         for (const event of translator.translate(message, turn)) {
@@ -271,6 +313,7 @@ export const makeClaudeSession = (
       Effect.gen(function* () {
         if (yield* Ref.getAndSet(closedRef, true)) return;
         yield* gate.releaseAll("deny");
+        yield* interactions.releaseAll;
         input.end();
         yield* Effect.sync(() => session.close());
         if (consumerFiber !== null) yield* Fiber.interrupt(consumerFiber);
@@ -342,6 +385,10 @@ export const makeClaudeSession = (
           sightingsAtStart: toolGate.sightings(),
         });
         yield* emit({ type: "turn.started", payload: { turnId } });
+        // A plan turn needs the CLI in plan mode before it reads the message,
+        // and the turn after one needs it out again.
+        const mode = permissionModeFor(settings);
+        if (mode !== cliMode) yield* applyMode(mode);
         if (!input.push(userMessage(turn))) return yield* new SessionClosed({ threadId });
       });
 
@@ -352,6 +399,7 @@ export const makeClaudeSession = (
         yield* Ref.set(turnRef, { ...active, interrupted: true });
         // A card nobody will answer any more must not hold the stop up.
         yield* gate.releaseAll("deny");
+        yield* interactions.releaseAll;
         yield* Effect.tryPromise(() => session.interrupt()).pipe(
           Effect.catch((error) =>
             services.logger.log("warn", "claude interrupt failed", { error: error.message }),
@@ -367,6 +415,19 @@ export const makeClaudeSession = (
         ),
       );
 
+    /** The CLI's permission mode, set; kept as `cliMode` once the CLI took it. */
+    const applyMode = (mode: PermissionMode): Effect.Effect<void> =>
+      Effect.tryPromise(() => session.setPermissionMode(mode)).pipe(
+        Effect.andThen(
+          Effect.sync(() => {
+            cliMode = mode;
+          }),
+        ),
+        Effect.catch((error) =>
+          services.logger.log("warn", "claude setPermissionMode failed", { error: error.message }),
+        ),
+      );
+
     const updateSettings = (patch: ThreadSettingsPatch): Effect.Effect<void> =>
       Effect.gen(function* () {
         const before = settings;
@@ -375,9 +436,7 @@ export const makeClaudeSession = (
           yield* control("setModel", () => session.setModel(sdkModelFor(settings.model)));
         }
         const mode = permissionModeFor(settings);
-        if (mode !== permissionModeFor(before)) {
-          yield* control("setPermissionMode", () => session.setPermissionMode(mode));
-        }
+        if (mode !== cliMode) yield* applyMode(mode);
         if (settings.effort !== before.effort) {
           yield* control("applyFlagSettings", () =>
             session.applyFlagSettings({ effortLevel: sdkEffortFor(settings.effort) ?? null }),
@@ -390,11 +449,14 @@ export const makeClaudeSession = (
       send,
       interrupt,
       respondToRequest: (requestId, decision) => gate.respond(requestId, decision),
-      // Questions and plans are answered through the tool gate once the
-      // session intercepts AskUserQuestion and ExitPlanMode; until then there
-      // is nothing parked to answer.
-      respondToUserInput: () => Effect.void,
-      respondToPlan: () => Effect.void,
+      respondToUserInput: (requestId, answers) =>
+        interactions.respondToUserInput(requestId, answers),
+      // Nothing is parked on a plan: its ExitPlanMode call was answered when
+      // the plan was captured, and the CLI waits for the next message. What
+      // the answer does next — the modes, the implementation or revision turn
+      // — the server sends as settings and a turn like any other.
+      respondToPlan: (turnId, action) =>
+        services.logger.log("debug", "claude plan answered", { turnId, action }),
       updateSettings,
       sessionRef: () => Effect.sync(currentRef),
       close: () => close,

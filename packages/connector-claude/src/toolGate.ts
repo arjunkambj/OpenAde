@@ -23,7 +23,10 @@
  * Two tools pass the hook with no verdict: AskUserQuestion and ExitPlanMode.
  * They are how the model talks to the user rather than acts on the machine,
  * and the ladder, which refuses every non-read in a plan turn, would refuse
- * the very call that hands the plan over.
+ * the very call that hands the plan over. `canUseTool` answers both itself,
+ * through the question and plan cards (`interactions.ts`). In a plan turn the
+ * write of the CLI's own plan file passes too, and the CLI's plan mode
+ * decides it (`plans.ts`).
  *
  * Both fail closed. A hook that cannot reach a verdict answers `ask`, and a
  * `canUseTool` that cannot answers `deny`; a missing verdict never reads as
@@ -54,6 +57,8 @@ import type { ThreadSettings } from "@OpenAde/contracts/orchestration";
 import * as Effect from "effect/Effect";
 
 import { approvalRequestFor, ASK_USER_QUESTION, EXIT_PLAN_MODE } from "./approvals";
+import type { Interactions } from "./interactions";
+import { isPlanFileWrite } from "./plans";
 
 /** The PreToolUse output this sends back, in the SDK's shape. */
 export interface PreToolUseOutput {
@@ -107,6 +112,7 @@ export interface ToolGate {
     options: {
       readonly signal: AbortSignal;
       readonly suggestions?: ReadonlyArray<PermissionUpdate>;
+      readonly toolUseID?: string;
     },
   ) => Promise<ToolPermission>;
   /**
@@ -124,6 +130,10 @@ export const makeToolGate = (options: {
   readonly settings: () => ThreadSettings;
   /** Runs an effect from the SDK's promise callbacks, in the session's context. */
   readonly run: <A>(effect: Effect.Effect<A>) => Promise<A>;
+  /** The question and plan cards AskUserQuestion and ExitPlanMode open. */
+  readonly interactions: Interactions;
+  /** The CLI's plans directory, whose plan file a plan turn may write. */
+  readonly plansDir: string;
 }): ToolGate => {
   const modes = () => {
     const settings = options.settings();
@@ -137,11 +147,15 @@ export const makeToolGate = (options: {
       readonly hook_event_name?: unknown;
       readonly tool_name?: unknown;
       readonly tool_input?: unknown;
+      readonly permission_mode?: unknown;
     };
     if (record.hook_event_name !== "PreToolUse") return {};
     sightings += 1;
     const toolName = typeof record.tool_name === "string" ? record.tool_name : "";
     if (UNGATED_BY_HOOK.has(toolName)) return {};
+    const planning =
+      options.settings().interactionMode === "plan" || record.permission_mode === "plan";
+    if (planning && isPlanFileWrite(toolName, record.tool_input, options.plansDir)) return {};
     const verdict = await options
       .run(
         options.permissions
@@ -162,10 +176,20 @@ export const makeToolGate = (options: {
     };
   };
 
-  const canUseTool: ToolGate["canUseTool"] = async (toolName, input, { signal, suggestions }) => {
+  const canUseTool: ToolGate["canUseTool"] = async (
+    toolName,
+    input,
+    { signal, suggestions, toolUseID },
+  ) => {
     sightings += 1;
     if (signal.aborted) return { behavior: "deny", message: DENIED_BY_USER };
     try {
+      if (toolName === ASK_USER_QUESTION) {
+        return await options.run(options.interactions.ask(input, signal));
+      }
+      if (toolName === EXIT_PLAN_MODE) {
+        return await options.run(options.interactions.proposePlan(input, toolUseID));
+      }
       const verdict = await options.run(
         options.gate.decide({
           request: approvalRequestFor(toolName, input),

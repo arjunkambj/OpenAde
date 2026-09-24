@@ -13,9 +13,13 @@ import * as Effect from "effect/Effect";
 
 import type { PermissionUpdate } from "@anthropic-ai/claude-agent-sdk";
 
+import { makeInteractions } from "./interactions";
+import { PLAN_CAPTURED, type ProposedPlan } from "./plans";
 import { DENIED_BY_RULES, DENIED_BY_USER, makeToolGate, sessionPermissions } from "./toolGate";
+import type { PendingRuntimeEvent } from "./translate/pending";
 
 const threadId = makeThreadId();
+const PLANS_DIR = "/home/u/.claude/plans";
 
 const ladder = (decide: ConnectorPermissions["decide"]) =>
   Effect.gen(function* () {
@@ -30,17 +34,28 @@ const ladder = (decide: ConnectorPermissions["decide"]) =>
       runtimeMode: "approval-required",
       interactionMode: "default",
     };
+    const cards: Array<PendingRuntimeEvent> = [];
+    const plans: Array<ProposedPlan> = [];
+    const interactions = yield* makeInteractions({
+      emit: (event) => Effect.sync(() => void cards.push(event)),
+      onPlan: (plan) => Effect.sync(() => void plans.push(plan)),
+    });
     const toolGate = makeToolGate({
       threadId,
       permissions,
       gate,
       settings: () => settings,
       run: Effect.runPromise,
+      interactions,
+      plansDir: PLANS_DIR,
     });
     return {
       gate,
       toolGate,
       events,
+      cards,
+      plans,
+      interactions,
       setSettings: (next: ThreadSettings) => {
         settings = next;
       },
@@ -125,6 +140,41 @@ describe("the PreToolUse hook", () => {
         expect(yield* Effect.promise(() => toolGate.preToolUse(hook(tool)))).toEqual({});
         expect(toolGate.sightings()).toBe(1);
       }),
+  );
+
+  it.effect("lets a plan turn write the CLI's plan file with no verdict", () =>
+    Effect.gen(function* () {
+      const { toolGate, setSettings } = yield* ladder(() => Effect.die(new Error("asked")));
+      setSettings({ model: "default", runtimeMode: "approval-required", interactionMode: "plan" });
+      const write = hook("Write", { file_path: `${PLANS_DIR}/tidy-fox.md`, content: "# Plan" });
+      expect(yield* Effect.promise(() => toolGate.preToolUse(write))).toEqual({});
+    }),
+  );
+
+  it.effect("takes the CLI's own plan mode as a plan turn too", () =>
+    Effect.gen(function* () {
+      const { toolGate } = yield* ladder(() => Effect.die(new Error("asked")));
+      const edit = {
+        ...hook("Edit", { file_path: `${PLANS_DIR}/tidy-fox.md` }),
+        permission_mode: "plan",
+      };
+      expect(yield* Effect.promise(() => toolGate.preToolUse(edit))).toEqual({});
+    }),
+  );
+
+  it.effect.each([
+    ["a plan file outside a plan turn", "default", `${PLANS_DIR}/tidy-fox.md`],
+    ["another file in a plan turn", "plan", "/repo/src/app.ts"],
+    ["a path that climbs out of the plans directory", "plan", `${PLANS_DIR}/../settings.md`],
+  ] as const)("still asks the ladder for %s", ([, interactionMode, path]) =>
+    Effect.gen(function* () {
+      const { toolGate, setSettings } = yield* ladder(saying("deny"));
+      setSettings({ model: "default", runtimeMode: "approval-required", interactionMode });
+      const output = yield* Effect.promise(() =>
+        toolGate.preToolUse(hook("Write", { file_path: path })),
+      );
+      expect(output.hookSpecificOutput?.permissionDecision).toBe("deny");
+    }),
   );
 
   it.effect("counts every call it sees", () =>
@@ -285,6 +335,66 @@ describe("canUseTool", () => {
         ["request.opened", opened.requestId],
         ["request.resolved", opened.requestId],
       ]);
+    }),
+  );
+});
+
+describe("canUseTool for the model's questions and plans", () => {
+  it.effect("opens a question card for AskUserQuestion and answers with the user's choice", () =>
+    Effect.gen(function* () {
+      const { toolGate, cards, interactions, events } = yield* ladder(() =>
+        Effect.die(new Error("asked")),
+      );
+      const input = {
+        questions: [
+          {
+            question: "Which colour?",
+            header: "Colour",
+            options: [
+              { label: "Red", description: "Warm" },
+              { label: "Blue", description: "Cool" },
+            ],
+            multiSelect: false,
+          },
+        ],
+      };
+      const answer = toolGate.canUseTool("AskUserQuestion", input, { signal: signal() });
+      const requested = yield* Effect.sync(() =>
+        cards.find((event) => event.type === "user-input.requested"),
+      ).pipe(
+        Effect.flatMap((event) =>
+          event?.type === "user-input.requested" ? Effect.succeed(event) : Effect.fail("wait"),
+        ),
+        Effect.eventually,
+      );
+      yield* interactions.respondToUserInput(requested.payload.requestId, [
+        { questionId: "q1", optionIds: ["o2"] },
+      ]);
+      expect(yield* Effect.promise(() => answer)).toEqual({
+        behavior: "allow",
+        updatedInput: { ...input, answers: { "Which colour?": "Blue" } },
+      });
+      // The question is not a permission: no approval card opened.
+      expect(events).toEqual([]);
+      expect(toolGate.sightings()).toBe(1);
+    }),
+  );
+
+  it.effect("proposes the plan an ExitPlanMode call carries and stops the call", () =>
+    Effect.gen(function* () {
+      const { toolGate, plans, events } = yield* ladder(() => Effect.die(new Error("asked")));
+      const answer = yield* Effect.promise(() =>
+        toolGate.canUseTool(
+          "ExitPlanMode",
+          { plan: "# Plan\n\n1. Add it", planFilePath: `${PLANS_DIR}/tidy-fox.md` },
+          { signal: signal(), toolUseID: "toolu_1" },
+        ),
+      );
+      expect(answer).toEqual({ behavior: "deny", message: PLAN_CAPTURED });
+      expect(plans).toEqual([
+        { markdown: "# Plan\n\n1. Add it", path: `${PLANS_DIR}/tidy-fox.md` },
+      ]);
+      expect(events).toEqual([]);
     }),
   );
 });

@@ -1,7 +1,7 @@
 /**
  * The pieces a tool row is built from: which kind of row a tool is drawn as,
  * the checklist a TodoWrite carries, the diff a file change shows, and the
- * cut on long output. How whole SDK messages become rows is proven on the
+ * cut on long output, and the row a proposed plan settles. How whole SDK messages become rows is proven on the
  * real CLI's recordings, in `recordedFrames.test.ts` and
  * `recordedSession.test.ts`.
  */
@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import {
   diffOf,
   kindForTool,
+  makeToolRows,
   MAX_TOOL_OUTPUT_CHARS,
   textOfToolResult,
   todosOf,
@@ -36,7 +37,8 @@ describe("kindForTool", () => {
     ["Task", "task"],
     ["Agent", "task"],
     ["AskUserQuestion", "tool_call"],
-    ["ExitPlanMode", "tool_call"],
+    ["ExitPlanMode", "plan"],
+    ["EnterPlanMode", "plan"],
     ["SomethingNew", "tool_call"],
   ] as const)("draws %s as %s", (tool, kind) => {
     expect(kindForTool(tool)).toBe(kind);
@@ -105,5 +107,23 @@ describe("tool output", () => {
     const giant = "y".repeat(MAX_TOOL_OUTPUT_CHARS + 10);
     expect(truncateToolOutput(giant)).toBe(`${"y".repeat(MAX_TOOL_OUTPUT_CHARS)}...[truncated]`);
     expect(truncateToolOutput("short")).toBe("short");
+  });
+});
+
+describe("planProposed", () => {
+  it("settles one plan row with the markdown, and settles it once", () => {
+    const rows = makeToolRows();
+    const [event] = rows.planProposed("toolu_1", "# Plan");
+    expect(event).toMatchObject({
+      type: "item.completed",
+      payload: { item: { kind: "plan", status: "completed", text: "# Plan" } },
+    });
+    const [again] = rows.planProposed("toolu_1", "# Plan, revised");
+    expect(again?.itemId).toBe(event?.itemId);
+    // The CLI's refusal of the call, arriving after, leaves the plan row alone.
+    expect(
+      rows.finished({ tool_use_id: "toolu_1", is_error: true, content: "stopped" }, undefined),
+    ).toEqual([]);
+    expect(rows.ran()).toBe(0);
   });
 });

@@ -25,6 +25,8 @@
  *   thread keeps the id the user picked;
  * - `result` → `usage.updated`, `context.updated` and `turn.completed`
  *   (`result.ts`);
+ * - a `system/status` that only reports the CLI's permission mode → nothing;
+ *   the session reads the mode off it (`isModeReport`);
  * - `command_lifecycle` and `system/status: requesting` → nothing, on purpose.
  *   The first is the CLI's receipt for each user message the session wrote
  *   (queued, started, cancelled); the session already knows its turn from
@@ -67,6 +69,15 @@ const RESTATED_STREAM_EVENTS = new Set([
 /** `system/status` values that only say a request is under way. */
 const REQUEST_STATUSES = new Set(["requesting"]);
 
+/**
+ * A `system/status` with no status but a `permissionMode`: the CLI saying
+ * which permission mode it is in now. The session keeps that for itself
+ * (`session.ts`); the thread's modes are OpenAde's, so nothing is shown.
+ */
+export const isModeReport = (message: Json): boolean =>
+  (message.status === null || message.status === undefined) &&
+  asString(message.permissionMode) !== undefined;
+
 /** How the CLI's MCP server states read in the contract's vocabulary. */
 const MCP_STATUS: Readonly<Record<string, McpServerStatus>> = {
   connected: "connected",
@@ -87,6 +98,11 @@ export interface Translator {
   readonly totalCost: () => number | null;
   /** How many tool calls have run to a result that is not an error, so far. */
   readonly toolCallsRan: () => number;
+  /** The plan an ExitPlanMode call handed over, settled on its row. */
+  readonly planProposed: (
+    toolUseId: string | undefined,
+    markdown: string,
+  ) => ReadonlyArray<PendingRuntimeEvent>;
 }
 
 /** Why a tool row still open at the end of its turn is failed. */
@@ -249,6 +265,7 @@ export const makeTranslator = (options: {
         if (message.subtype === "status" && REQUEST_STATUSES.has(asString(message.status) ?? "")) {
           return [];
         }
+        if (message.subtype === "status" && isModeReport(message)) return [];
         return [unmapped(message)];
       case "command_lifecycle":
         return [];
@@ -274,5 +291,6 @@ export const makeTranslator = (options: {
     lastAssistantUuid: () => lastAssistantUuid,
     totalCost: () => totalCost,
     toolCallsRan: tools.ran,
+    planProposed: tools.planProposed,
   };
 };

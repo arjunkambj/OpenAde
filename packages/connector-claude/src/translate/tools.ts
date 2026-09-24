@@ -21,8 +21,15 @@
  * | TodoWrite                              | `todo`, the model's checklist              |
  * | Skill                                  | `skill`                                    |
  * | Task, Agent                            | `task`                                     |
- * | anything else, AskUserQuestion and     | `tool_call`                                |
- * | ExitPlanMode among them                |                                            |
+ * | ExitPlanMode, EnterPlanMode            | `plan`                                     |
+ * | anything else, AskUserQuestion among   | `tool_call`                                |
+ * | them                                   |                                            |
+ *
+ * An ExitPlanMode call is how a plan turn hands its plan over, and the
+ * session answers it before the CLI runs it: `planProposed` settles the row
+ * with the plan's markdown, and the refusal the CLI then writes back as the
+ * call's result leaves that row as it is. EnterPlanMode — the model putting
+ * itself in plan mode — settles as a plan row with the CLI's own line.
  *
  * A result marked `is_error` fails the row — a refused call is one: the CLI
  * tells the model the refusal as the call's error result. A finished row is
@@ -70,6 +77,8 @@ const TOOL_KIND: Readonly<Record<string, ItemKind>> = {
   Skill: "skill",
   Task: "task",
   Agent: "task",
+  ExitPlanMode: "plan",
+  EnterPlanMode: "plan",
 };
 
 /** The row kind a tool's calls are drawn as. */
@@ -175,6 +184,10 @@ const snapshotFor = (itemId: ItemId, name: string, input: Json): ItemSnapshot =>
         ...(described === undefined || described === "" ? {} : { text: described }),
         tool: { name, input },
       };
+    case "plan": {
+      const plan = asString(input.plan)?.trim() ?? "";
+      return { ...base, ...(plan === "" ? {} : { text: plan }), tool: { name, input } };
+    }
     case "skill": {
       const skill = asString(input.skill) ?? asString(input.command);
       return {
@@ -201,6 +214,15 @@ export interface ToolRows {
    * message carried this one result → the row settles.
    */
   readonly finished: (block: Json, structured: unknown) => ReadonlyArray<PendingRuntimeEvent>;
+  /**
+   * The plan an ExitPlanMode call handed over → its row, settled with the
+   * markdown. The call's own `tool_use` may not have been read yet; the row
+   * it would open is this one.
+   */
+  readonly planProposed: (
+    toolUseId: string | undefined,
+    markdown: string,
+  ) => ReadonlyArray<PendingRuntimeEvent>;
   /** Fails every row still open, saying why — the turn ended under them. */
   readonly abandonOpen: (reason: string) => ReadonlyArray<PendingRuntimeEvent>;
   /** How many calls have finished without an error: the calls that ran. */
@@ -254,10 +276,30 @@ export const makeToolRows = (): ToolRows => {
             },
           }),
       ...(failed ? { error: { message: output === "" ? "The tool call failed." : output } } : {}),
+      // A plan row reads its text; one with no plan of its own shows the CLI's line.
+      ...(prior.kind === "plan" && prior.text === undefined && !failed && output !== ""
+        ? { text: output }
+        : {}),
     };
     row.snapshot = snapshot;
     if (id !== undefined) rows.set(id, row);
     if (!failed) ran += 1;
+    return [{ itemId: snapshot.itemId, type: "item.completed", payload: { item: snapshot } }];
+  };
+
+  const planProposed = (
+    toolUseId: string | undefined,
+    markdown: string,
+  ): ReadonlyArray<PendingRuntimeEvent> => {
+    const id = toolUseId ?? `anonymous:${makeItemId()}`;
+    const known = rows.get(id);
+    const snapshot: ItemSnapshot = {
+      ...(known?.snapshot ?? { itemId: makeItemId(), kind: "plan" }),
+      kind: "plan",
+      status: "completed",
+      text: markdown,
+    };
+    rows.set(id, { name: known?.name ?? "ExitPlanMode", snapshot });
     return [{ itemId: snapshot.itemId, type: "item.completed", payload: { item: snapshot } }];
   };
 
@@ -275,5 +317,5 @@ export const makeToolRows = (): ToolRows => {
     return events;
   };
 
-  return { started, finished, abandonOpen, ran: () => ran };
+  return { started, finished, planProposed, abandonOpen, ran: () => ran };
 };
