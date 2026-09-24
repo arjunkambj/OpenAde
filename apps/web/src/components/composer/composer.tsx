@@ -280,7 +280,7 @@ export function Composer({
   const notice = error ?? attachments.rejected;
 
   return (
-    <div className={cn("flex w-full min-w-0 max-w-[760px] shrink-0 flex-col gap-2", className)}>
+    <div className={cn("flex w-full min-w-0 max-w-[684px] shrink-0 flex-col gap-2", className)}>
       <PendingCard threadId={threadId} doc={doc} />
       {doc === null ? null : <QueueStrip threadId={threadId} queue={doc.queue} />}
       <ComposerSurface

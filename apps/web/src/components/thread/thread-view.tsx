@@ -271,8 +271,8 @@ export function ThreadView({
         ) : null}
         <ThreadBody result={result} connected={connection.status !== "disconnected"} />
         {snapshot !== null ? (
-          <div className="flex w-full shrink-0 flex-col items-center gap-2 px-4 pb-4">
-            <ThreadHarnessBanner snapshot={snapshot} className="max-w-[760px]" />
+          <div className="flex w-full shrink-0 flex-col items-center gap-2 px-6 pb-4">
+            <ThreadHarnessBanner snapshot={snapshot} className="max-w-[684px]" />
             <Composer threadId={threadId} projectId={snapshot.projectId} />
           </div>
         ) : null}

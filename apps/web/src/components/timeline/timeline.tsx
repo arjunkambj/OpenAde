@@ -76,7 +76,7 @@ export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
           // The vertical padding is a value for the same reason: scroll-to-end
           // aims at the end it computes, and a `py-*` it cannot see left the
           // last row — the working clock, the turn summary — under the fold.
-          contentContainerClassName="mx-auto flex w-full max-w-[760px] flex-col px-4"
+          contentContainerClassName="mx-auto flex w-full max-w-[700px] flex-col px-6"
           contentContainerStyle={{ gap: 16, paddingTop: 24, paddingBottom: 24 }}
         />
         <JumpToLatest listRef={listRef} />

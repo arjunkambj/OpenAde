@@ -251,7 +251,7 @@ function StartComposer({
   });
 
   return (
-    <div className="flex w-full min-w-0 max-w-[760px] flex-col gap-2">
+    <div className="flex w-full min-w-0 max-w-[684px] flex-col gap-2">
       <HarnessHealthBanner
         summary={connectors.find((connector) => connector.connectorInstanceId === instanceId)}
       />
@@ -367,7 +367,7 @@ export function StartThread() {
   if (!connected || empty || project === undefined) {
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-10">
-        <div className="flex w-full max-w-[760px] flex-col items-center gap-5 text-center">
+        <div className="flex w-full max-w-[684px] flex-col items-center gap-5 text-center">
           <div className="flex flex-col gap-1.5">
             <h1 className="text-base font-medium text-foreground">
               {empty ? "No projects yet" : "Start a thread"}
@@ -389,7 +389,7 @@ export function StartThread() {
   return (
     <section className="flex min-h-0 min-w-0 flex-1 flex-col">
       <ThreadGreeting project={project} />
-      <div className="flex w-full shrink-0 justify-center px-4 pb-4">
+      <div className="flex w-full shrink-0 justify-center px-6 pb-4">
         <StartComposer projects={projects} project={project} onPickProject={rememberProject} />
       </div>
     </section>
