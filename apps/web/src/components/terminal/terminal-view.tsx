@@ -25,7 +25,7 @@ import "@xterm/xterm/css/xterm.css";
 
 import { useAtomSet } from "@effect/atom-react";
 import { detectModKey, resolveKeybinding } from "@OpenAde/client-runtime/keybindings";
-import { encodeTerminalKey, type TerminalAttachItem } from "@OpenAde/client-runtime/terminalAtoms";
+import { encodeTerminalKey } from "@OpenAde/client-runtime/terminalAtoms";
 import type { TerminalId, ThreadId } from "@OpenAde/contracts/ids";
 import type { TerminalSize } from "@OpenAde/contracts/terminal";
 import { FitAddon } from "@xterm/addon-fit";
@@ -37,6 +37,7 @@ import * as React from "react";
 
 import { useTheme } from "@/components/theme-provider";
 import { useTerminalAtoms } from "@/components/terminal/terminal-atoms";
+import { makeTerminalFeed } from "@/components/terminal/terminal-feed";
 import type { TerminalHandle } from "@/components/terminal/terminal-handle";
 import { linkToOpen } from "@/components/terminal/terminal-links";
 import { readTerminalTheme, type SearchDecorations } from "@/components/terminal/terminal-theme";
@@ -51,13 +52,6 @@ const boundedSize = (cols: number, rows: number): TerminalSize => ({
   cols: Math.max(2, Math.min(1000, cols)),
   rows: Math.max(1, Math.min(500, rows)),
 });
-
-const exitLine = (exitCode: number | null, signal: number | null): string =>
-  exitCode !== null
-    ? `[process exited with code ${exitCode}]`
-    : signal !== null
-      ? `[process ended by signal ${signal}]`
-      : "[process exited]";
 
 interface Xterm {
   readonly terminal: Terminal;
@@ -109,14 +103,6 @@ function TerminalAttachment({
 
   React.useEffect(() => {
     const ref = { threadId, terminalId };
-    let live = true;
-    // Output is kept only past this offset; the snapshot sets it.
-    let offset = -1;
-    // Snapshots still being parsed. A replay carries the shell's old queries —
-    // cursor position, device attributes, background colour — and xterm
-    // answers each one as input; those answers belong to a prompt long gone,
-    // so input is held back until the replay has been parsed.
-    let replaying = 0;
     let sent: TerminalSize | null = null;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -129,46 +115,20 @@ function TerminalAttachment({
       resize({ ...ref, ...size });
     };
 
-    const onItem = (item: TerminalAttachItem) => {
-      if (!live) {
-        return;
-      }
-      switch (item.kind) {
-        case "snapshot":
-          terminal.reset();
-          replaying += 1;
-          terminal.write(item.data, () => {
-            replaying -= 1;
-          });
-          offset = item.offset;
-          sent = { cols: item.terminal.cols, rows: item.terminal.rows };
-          sendSize();
-          return;
-        case "output":
-          if (item.offset <= offset) {
-            return;
-          }
-          terminal.write(item.data);
-          offset = item.offset;
-          return;
-        case "exited":
-          terminal.write(`\r\n${exitLine(item.exitCode, item.signal)}\r\n`);
-          handlersRef.current.onExited(terminalId, item.exitCode);
-          return;
-        case "resnapshot-required":
-          // The attach loop subscribes again; its snapshot resets the view.
-          return;
-        case "gone":
-          handlersRef.current.onGone(terminalId);
-          return;
-      }
-    };
+    const feed = makeTerminalFeed(terminal, {
+      onSnapshot: (size) => {
+        sent = size;
+        sendSize();
+      },
+      onExited: (exitCode) => handlersRef.current.onExited(terminalId, exitCode),
+      onGone: () => handlersRef.current.onGone(terminalId),
+    });
 
     // A fn atom's value is its argument, and a function would be taken for an
     // updater, so the callback goes in wrapped.
-    setAttach(() => onItem);
+    setAttach(() => feed.push);
     const input = terminal.onData((data) => {
-      if (replaying === 0) {
+      if (feed.acceptsInput()) {
         write({ ...ref, data });
       }
     });
@@ -177,7 +137,7 @@ function TerminalAttachment({
       timer = setTimeout(sendSize, RESIZE_DEBOUNCE_MS);
     });
     return () => {
-      live = false;
+      feed.stop();
       clearTimeout(timer);
       input.dispose();
       grid.dispose();

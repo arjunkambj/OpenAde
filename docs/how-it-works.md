@@ -1719,9 +1719,14 @@ keeps only the last item of each chunk, and a terminal that loses a chunk of
 output paints garbage. It subscribes again after `resnapshot-required` or a
 dropped socket, treats the end after `exited` as final, and turns a server
 `not-found` into a client-only `gone`. The xterm
-(`apps/web/src/components/terminal/terminal-view.tsx`) resets to each
-`snapshot` and drops output the snapshot already holds. While a snapshot is
-being parsed it holds its own input back: the replay contains the shell's old
+(`apps/web/src/components/terminal/terminal-view.tsx`, fed by
+`terminal-feed.ts`) resets to each `snapshot` and drops output the snapshot
+already holds. xterm parses writes from a queue that `reset()` leaves alone, so
+the reset waits until everything written before the snapshot has been parsed;
+otherwise output the old subscription had queued would land on the fresh
+screen above the snapshot. Items arriving meanwhile are held and written after
+it. Until the queue has drained and the snapshot has been parsed, the xterm
+holds its own input back: the old output and the replay contain the shell's old
 terminal queries (colours, cursor position), and xterm would otherwise answer
 each of them to the shell as fresh input.
 
