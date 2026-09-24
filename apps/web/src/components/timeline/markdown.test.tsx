@@ -53,4 +53,31 @@ describe("MarkdownBody", () => {
     expect(markup).toContain('aria-label="Code: TypeScript"');
     expect(markup).toContain("const a</code>");
   });
+
+  describe("user variant", () => {
+    const user = (text: string) =>
+      renderToStaticMarkup(<MarkdownBody text={text} id="item" variant="user" />);
+
+    it("gives inline code a chip that reads on the bubble", () => {
+      const markup = user("Run `npm test` first.");
+      expect(markup).toContain("bg-background/60");
+      expect(markup).not.toContain(INLINE_CHIP);
+    });
+
+    it("keeps a code block's line endings and renders it as a block", () => {
+      const markup = user(["```sh", "npm install", "npm test", "```"].join("\n"));
+      expect(markup).toContain('aria-label="Code: Shell"');
+      expect(markup).toContain("npm install\nnpm test</code>");
+      expect(markup).not.toContain("<br/>");
+    });
+
+    it("breaks the lines of an HTML block it shows as text", () => {
+      const markup = user(["<div>", "a block", "</div>"].join("\n"));
+      expect(markup).toMatch(/<p [^>]*>&lt;div&gt;<br\/>\s*a block<br\/>\s*&lt;\/div&gt;<\/p>/);
+    });
+
+    it("leaves the agent variant's single line endings as soft breaks", () => {
+      expect(render("first\nsecond")).not.toContain("<br/>");
+    });
+  });
 });

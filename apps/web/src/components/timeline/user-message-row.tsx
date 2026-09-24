@@ -1,16 +1,20 @@
 /**
  * The user's message: a bubble at the right edge holding what was attached,
- * the skills and plugins the user picked from `@` or `$`, and the text,
- * verbatim (`whitespace-pre-wrap` — newlines the user typed are real).
+ * the skills and plugins the user picked from `@` or `$`, and the text.
  *
  * The chips are the same the composer drew, so the bubble says what the turn
  * carried besides its text. A row from before references existed has none and
  * renders as it always did.
+ *
+ * The text renders as markdown in the `user` variant (`markdown.tsx`): lists,
+ * emphasis and code format, each line ending the user typed stays a line
+ * break, and raw HTML shows as typed.
  */
 
 import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
 
 import { Attachments } from "@/components/timeline/attachments";
+import { MarkdownBody } from "@/components/timeline/markdown";
 import { Puzzle, Sparkles } from "@honeyicons/react";
 
 function References({ item }: { readonly item: ItemSnapshot }) {
@@ -45,11 +49,11 @@ export function UserMessageRow({ item }: { item: ItemSnapshot }) {
     <div className="flex justify-end">
       <div
         aria-label="User message"
-        className="max-w-[min(400px,85%)] rounded-xl rounded-tr-sm bg-hover px-4 py-2 text-sm leading-normal whitespace-pre-wrap text-foreground"
+        className="max-w-[min(400px,85%)] min-w-0 rounded-xl rounded-tr-sm bg-hover px-4 py-2 text-sm leading-normal text-foreground"
       >
         <Attachments item={item} />
         <References item={item} />
-        {item.text ?? ""}
+        <MarkdownBody text={item.text ?? ""} id={item.itemId} variant="user" />
       </div>
     </div>
   );

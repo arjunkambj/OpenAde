@@ -798,6 +798,15 @@ the message streams and its closing fence has not arrived yet. Each block's
 highlight is cached under its item id and offset, so a recycled row does not
 tokenize it again.
 
+The user's bubble (`timeline/user-message-row.tsx`) renders its text through
+the same component in the `user` variant. Lists, emphasis, links and code
+format, and code blocks are the same `CodeBlock`. What differs is kept to what
+a person typed rather than wrote as a document
+(`timeline/remark-user-text.ts`): each line ending is a line break, raw HTML
+is turned into text before rendering, so `<b>x</b>` shows as typed, headings
+stay at the body's size, and inline code sits on a chip that reads on the
+bubble.
+
 `apps/web/src/components/timeline/timeline-item.tsx` dispatches one component
 per `ItemKind`. The list opens at its end and follows new rows while it sits
 there; scrolled more than half a screen away, it stops following and shows a

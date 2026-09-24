@@ -8,6 +8,11 @@
  * offset, so a row the list recycles for another item neither keeps the old
  * block's wrap state nor reuses its highlight. While `streaming`, a block whose
  * closing fence has not arrived stays plain.
+ *
+ * The `user` variant renders what a person typed in the user bubble: a single
+ * line ending is a line break, raw HTML shows as the text it is
+ * (`remark-user-text.ts`), headings stay at body size, and inline code sits on
+ * a lighter chip that reads on the bubble's background.
  */
 
 import * as React from "react";
@@ -18,6 +23,7 @@ import { cn } from "@/lib/utils";
 
 import { CodeBlock } from "./code-block";
 import { codeFenceInfo, type HastLike, hastText, openFenceOffset } from "./code-fence";
+import { remarkHtmlAsText, remarkSoftBreaks } from "./remark-user-text";
 
 interface BlockContext {
   readonly id: string | undefined;
@@ -112,12 +118,52 @@ const components: React.ComponentProps<typeof ReactMarkdown>["components"] = {
   ),
 };
 
-const remarkPlugins = [remarkGfm];
+// A heading someone typed stays a heading, at the size of the text around it.
+const userHeading =
+  (Tag: "h1" | "h2" | "h3" | "h4" | "h5" | "h6") =>
+  ({ children }: { readonly children?: React.ReactNode }) => (
+    <Tag className="mt-3 mb-2 text-sm font-semibold first:mt-0">{children}</Tag>
+  );
+
+const userComponents: typeof components = {
+  ...components,
+  h1: userHeading("h1"),
+  h2: userHeading("h2"),
+  h3: userHeading("h3"),
+  h4: userHeading("h4"),
+  h5: userHeading("h5"),
+  h6: userHeading("h6"),
+  code: ({ children }) => (
+    <code className="rounded-sm bg-background/60 px-1 py-0.5 font-mono text-xs">{children}</code>
+  ),
+};
+
+type MarkdownProps = React.ComponentProps<typeof ReactMarkdown>;
+
+interface Variant {
+  readonly remarkPlugins: MarkdownProps["remarkPlugins"];
+  readonly components: MarkdownProps["components"];
+  readonly className: string;
+}
+
+const VARIANTS: Readonly<Record<"agent" | "user", Variant>> = {
+  agent: {
+    remarkPlugins: [remarkGfm],
+    components,
+    className: "leading-prose",
+  },
+  user: {
+    remarkPlugins: [remarkGfm, remarkHtmlAsText, remarkSoftBreaks],
+    components: userComponents,
+    className: "leading-normal",
+  },
+};
 
 export function MarkdownBody({
   text,
   id,
   streaming = false,
+  variant = "agent",
   className,
 }: {
   text: string;
@@ -125,14 +171,17 @@ export function MarkdownBody({
   id?: string;
   /** The text is still arriving: an open fence at its end is not highlighted. */
   streaming?: boolean;
+  /** `user` for the text a person typed, `agent` (the default) for the rest. */
+  variant?: keyof typeof VARIANTS;
   className?: string;
 }) {
   const openFrom = streaming ? openFenceOffset(text) : undefined;
   const context = React.useMemo(() => ({ id, openFrom }), [id, openFrom]);
+  const config = VARIANTS[variant];
   return (
-    <div className={cn("text-sm leading-prose text-foreground", className)}>
+    <div className={cn("text-sm text-foreground", config.className, className)}>
       <MarkdownBlockContext.Provider value={context}>
-        <ReactMarkdown remarkPlugins={remarkPlugins} components={components}>
+        <ReactMarkdown remarkPlugins={config.remarkPlugins} components={config.components}>
           {text}
         </ReactMarkdown>
       </MarkdownBlockContext.Provider>
