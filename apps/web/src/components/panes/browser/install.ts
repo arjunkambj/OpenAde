@@ -9,13 +9,32 @@
  * `apps/server/src/browser/agentBrowser.ts`).
  */
 
+import type { BrowserState } from "@OpenAde/contracts/rpc";
+
 const MISSING_PREFIX = "agent-browser is not installed";
 
 export const isAgentBrowserMissing = (message: string | undefined): boolean =>
   message !== undefined && message.trim().toLowerCase().startsWith(MISSING_PREFIX);
 
-/** What the user has to run, in order. */
-export const INSTALL_COMMANDS: ReadonlyArray<{ command: string; note: string }> = [
-  { command: "npm install -g agent-browser", note: "installs the tool" },
-  { command: "agent-browser install", note: "downloads the browser it drives" },
-];
+export interface InstallCommand {
+  readonly command: string;
+  readonly note: string;
+}
+
+const INSTALL_CLI: InstallCommand = {
+  command: "npm install -g agent-browser",
+  note: "installs the tool",
+};
+
+const DOWNLOAD_CHROME: InstallCommand = {
+  command: "agent-browser install",
+  note: "downloads the browser it drives",
+};
+
+/**
+ * What the user has to run, in order. In-app, agent-browser drives the pane's
+ * own webviews, so the CLI is all it needs; only the web renderer's headless
+ * browser needs the Chrome that `agent-browser install` downloads.
+ */
+export const installCommands = (mode: BrowserState["mode"]): ReadonlyArray<InstallCommand> =>
+  mode === "owned-chromium" ? [INSTALL_CLI, DOWNLOAD_CHROME] : [INSTALL_CLI];

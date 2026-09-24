@@ -12,8 +12,13 @@
  * - `owned-chromium` (the web renderer, no desktop): the pane renders the
  *   JPEG frame stream and forwards gestures and toolbar actions; the server
  *   replays them into its own headless Chromium.
- * - `disabled` (desktop with `OPENADE_REMOTE_DEBUG=0`): no browser; the pane
- *   says so.
+ * - `disabled` (desktop with `OPENADE_REMOTE_DEBUG=0`): the agent has no
+ *   browser, and the pane says so above the tabs a person can still browse.
+ *
+ * Nothing here creates a webview: with no tab the pane shows "No page open".
+ * A tab appears on the agent's first call, a page's popup, an address typed
+ * here, or `openInThreadBrowser`. A failed attach shows as an alert with
+ * Retry — never as a silent switch to a headless browser.
  *
  * The atoms come from the one app runtime (`@/state/app-runtime`) — there is
  * a single socket to the server, and this pane is one of its subscribers.
@@ -23,6 +28,8 @@ import * as React from "react";
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import type { ThreadId } from "@OpenAde/contracts/ids";
 import type { BrowserHumanInput } from "@OpenAde/contracts/rpc";
+import { Alert, AlertAction, AlertDescription, AlertTitle } from "@OpenAde/ui/components/alert";
+import { Button } from "@OpenAde/ui/components/button";
 import {
   Empty,
   EmptyDescription,
@@ -47,8 +54,8 @@ import { AddressBar } from "./address-bar";
 import { FrameSurface } from "./frame-surface";
 import { isAgentBrowserMissing } from "./install";
 import { InstallPrompt } from "./install-prompt";
-import { frameFallback } from "./status";
-import { Globe } from "@honeyicons/react";
+import { BROWSER_DISABLED_LABEL, browserModeLabel, frameFallback } from "./status";
+import { AlertTriangle, Globe, InfoSquare, Refresh } from "@honeyicons/react";
 
 /** What the pane itself will load into a webview: the web, nothing else. */
 const WEB_URL = /^https?:\/\//i;
@@ -67,10 +74,65 @@ function NoPage() {
         </EmptyMedia>
         <EmptyTitle>No page open</EmptyTitle>
         <EmptyDescription>
-          Enter an address above, or ask the agent to open one — its tabs show here.
+          Enter an address above. The agent opens a tab here when it needs one.
         </EmptyDescription>
       </EmptyHeader>
     </Empty>
+  );
+}
+
+/** A whole-surface message: the pane has no browser to show here. */
+function NoBrowser({ title, detail }: { readonly title: string; readonly detail: string }) {
+  return (
+    <Empty>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <Globe variant="bold" />
+        </EmptyMedia>
+        <EmptyTitle>{title}</EmptyTitle>
+        <EmptyDescription>{detail}</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
+  );
+}
+
+/** The in-app browser's failure — the agent got the same message — with Retry. */
+function AttachError({
+  message,
+  onRetry,
+}: {
+  readonly message: string;
+  readonly onRetry: () => void;
+}) {
+  return (
+    <div className="px-2 pb-2">
+      <Alert variant="destructive">
+        <AlertTriangle variant="bold" />
+        <AlertTitle>The agent could not use the browser</AlertTitle>
+        <AlertDescription className="break-words">{message}</AlertDescription>
+        <AlertAction>
+          <Button type="button" variant="outline" size="xs" onClick={onRetry}>
+            <Refresh variant="bold" data-icon="inline-start" />
+            Retry
+          </Button>
+        </AlertAction>
+      </Alert>
+    </div>
+  );
+}
+
+/** The kill switch on the desktop: the agent has no browser, the person still does. */
+function DisabledNotice() {
+  return (
+    <div className="px-2 pb-2">
+      <Alert>
+        <InfoSquare variant="bold" />
+        <AlertTitle>{BROWSER_DISABLED_LABEL}</AlertTitle>
+        <AlertDescription>
+          The agent&apos;s browser tools are off for this run. You can still browse here.
+        </AlertDescription>
+      </Alert>
+    </div>
   );
 }
 
@@ -95,7 +157,14 @@ export function BrowserPane({ threadId }: BrowserPaneProps) {
   // through, so it takes the whole surface instead of a truncated chip.
   const missing =
     state !== null && state.status === "error" && isAgentBrowserMissing(state.message);
-  const inApp = !missing && hostsTabs && (state === null || state.mode === "in-app");
+  // The desktop hosts the thread's tabs, whether or not the agent may use them.
+  const inApp = !missing && hostsTabs && (state === null || state.mode !== "owned-chromium");
+  const attachError =
+    inApp && state !== null && state.status === "error" ? (state.message ?? "error") : null;
+  const retry = React.useCallback(
+    () => dispatch({ kind: "history", direction: "reload" }),
+    [dispatch],
+  );
 
   // In-app, the toolbar moves the selected tab's webview directly — or, with
   // no tab yet, opens one on the address typed — and the server only hears
@@ -138,16 +207,35 @@ export function BrowserPane({ threadId }: BrowserPaneProps) {
 
   const tabUrl = tab === null || !WEB_URL.test(tab.url) ? "" : tab.url;
 
+  const modeLabel = state === null ? null : browserModeLabel(state.mode);
+
   return (
     // Focus anywhere in the pane — the address bar, its buttons — reads as
     // `browserFocus`, so the app's Mod+L and Mod+[ / Mod+] leave it alone.
     <div data-context={FOCUS_SURFACE.browser} className="flex h-full min-h-0 flex-col">
       <AddressBar state={state} url={inApp ? tabUrl : undefined} onAction={onToolbar} />
+      {state?.mode === "owned-chromium" && modeLabel !== null ? (
+        <p className="px-3 pb-1.5 type-micro text-muted-foreground">{modeLabel}</p>
+      ) : null}
+      {inApp && state?.mode === "disabled" ? <DisabledNotice /> : null}
+      {attachError === null ? null : <AttachError message={attachError} onRetry={retry} />}
       {missing ? (
-        <InstallPrompt onRetry={() => dispatch({ kind: "history", direction: "reload" })} />
+        <InstallPrompt mode={state.mode} onRetry={retry} />
       ) : inApp ? (
         <BrowserSlot threadId={threadId}>{tab === null ? <NoPage /> : null}</BrowserSlot>
-      ) : state !== null && state.status !== "stopped" && state.mode !== "disabled" ? (
+      ) : state !== null && state.mode === "in-app" ? (
+        // A plain browser tab on a desktop's server: the tabs live in the
+        // desktop window, and there is no headless browser to fall back to.
+        <NoBrowser
+          title="The in-app browser shows in the OpenAde window"
+          detail="The agent drives this thread's browser in the desktop app."
+        />
+      ) : state !== null && state.mode === "disabled" ? (
+        <NoBrowser
+          title={BROWSER_DISABLED_LABEL}
+          detail="The agent's browser tools are off for this run."
+        />
+      ) : state !== null && state.status !== "stopped" ? (
         <FrameSurface state={state} onGesture={dispatch} />
       ) : (
         // A stopped session has no frame and nothing to forward input to, so

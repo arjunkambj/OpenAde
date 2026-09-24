@@ -24,20 +24,39 @@ const hostOf = (url: string): string => {
   }
 };
 
+/** The kill switch, as the pane words it. */
+export const BROWSER_DISABLED_LABEL = "In-app browser is disabled (OPENADE_REMOTE_DEBUG=0)";
+
+/**
+ * Which browser the pane is showing, when it is not the ordinary in-app one:
+ * the web renderer's headless Chromium, or no browser at all.
+ */
+export const browserModeLabel = (mode: BrowserState["mode"]): string | null => {
+  switch (mode) {
+    case "in-app":
+      return null;
+    case "owned-chromium":
+      return "Headless browser (web mode)";
+    case "disabled":
+      return BROWSER_DISABLED_LABEL;
+  }
+};
+
 export const browserStatus = (state: BrowserState | null): BrowserStatusChip => {
-  if (state === null) return { dot: "bg-muted-foreground/40", label: "connecting" };
+  if (state === null) return { dot: "bg-muted-foreground", label: "connecting" };
+  if (state.mode === "disabled") return { dot: "bg-muted-foreground", label: "disabled" };
   if (typeof state.activeTool === "string" && state.activeTool !== "") {
-    return { dot: "bg-amber-500 animate-pulse", label: `agent: ${state.activeTool}` };
+    return { dot: "bg-permission animate-pulse", label: `agent: ${state.activeTool}` };
   }
   switch (state.status) {
     case "ready":
-      return { dot: "bg-emerald-500", label: state.url === null ? "ready" : hostOf(state.url) };
+      return { dot: "bg-added", label: state.url === null ? "ready" : hostOf(state.url) };
     case "starting":
-      return { dot: "bg-amber-500 animate-pulse", label: "starting" };
+      return { dot: "bg-permission animate-pulse", label: "starting" };
     case "error":
-      return { dot: "bg-red-500", label: state.message ?? "error" };
+      return { dot: "bg-destructive", label: state.message ?? "error" };
     case "stopped":
-      return { dot: "bg-muted-foreground/40", label: "stopped" };
+      return { dot: "bg-muted-foreground", label: "stopped" };
   }
 };
 

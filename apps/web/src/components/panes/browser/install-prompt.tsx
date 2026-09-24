@@ -1,17 +1,27 @@
 /**
- * What the pane shows when the browser tool is missing: the two commands to
- * run, each copyable, and a retry that asks the server to open the browser
- * again (a reload gesture with no driver open starts one).
+ * What the pane shows when the browser tool is missing, on the stock `Empty`:
+ * the commands the mode needs, each copyable, and a retry (a reload gesture —
+ * in-app it clears the error for the agent's next call, in owned mode it
+ * starts the browser again).
  *
  * This replaces the error string being squeezed into the toolbar chip — the
  * one failure the user can actually fix deserves the whole surface.
  */
 import * as React from "react";
 
+import type { BrowserState } from "@OpenAde/contracts/rpc";
 import { Button } from "@OpenAde/ui/components/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@OpenAde/ui/components/empty";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 
-import { INSTALL_COMMANDS } from "./install";
+import { installCommands } from "./install";
 import { Check, Copy as CopyIcon, Globe } from "@honeyicons/react";
 
 function CommandRow({ command, note }: { command: string; note: string }) {
@@ -58,29 +68,36 @@ function CommandRow({ command, note }: { command: string; note: string }) {
   );
 }
 
-export function InstallPrompt({ onRetry }: { readonly onRetry: () => void }) {
+export function InstallPrompt({
+  mode,
+  onRetry,
+}: {
+  readonly mode: BrowserState["mode"];
+  readonly onRetry: () => void;
+}) {
+  const commands = installCommands(mode);
   return (
-    <div className="flex flex-1 items-center justify-center overflow-y-auto p-6">
-      <div className="flex w-full max-w-md flex-col gap-3">
-        <div className="flex items-center gap-2">
-          <Globe variant="bold" className="size-5 text-muted-foreground" />
-          <h2 className="type-body font-medium">The browser tool is not installed</h2>
-        </div>
-        <p className="type-body text-muted-foreground">
-          Threads drive a real browser through <code className="font-mono">agent-browser</code>. Run
-          these two commands, then try again.
-        </p>
-        <div className="flex flex-col gap-1.5">
-          {INSTALL_COMMANDS.map((entry) => (
-            <CommandRow key={entry.command} command={entry.command} note={entry.note} />
-          ))}
-        </div>
+    <Empty>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <Globe variant="bold" />
+        </EmptyMedia>
+        <EmptyTitle>The browser tool is not installed</EmptyTitle>
+        <EmptyDescription>
+          The agent drives the browser through <code className="font-mono">agent-browser</code>.{" "}
+          {commands.length === 1 ? "Run this command" : "Run these commands"}, then try again.
+        </EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent className="max-w-md items-stretch">
+        {commands.map((entry) => (
+          <CommandRow key={entry.command} command={entry.command} note={entry.note} />
+        ))}
         <div>
           <Button type="button" variant="outline" size="sm" onClick={onRetry}>
             Try again
           </Button>
         </div>
-      </div>
-    </div>
+      </EmptyContent>
+    </Empty>
   );
 }

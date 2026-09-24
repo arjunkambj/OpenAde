@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { makeThreadId } from "@OpenAde/contracts/ids";
 import type { BrowserState } from "@OpenAde/contracts/rpc";
 
-import { browserStatus, frameFallback } from "./status";
+import { BROWSER_DISABLED_LABEL, browserModeLabel, browserStatus, frameFallback } from "./status";
 
 const base: BrowserState = {
   threadId: makeThreadId(),
@@ -28,6 +28,33 @@ describe("browserStatus", () => {
   it("goes back to the page once the call settles", () => {
     // The service writes `activeTool: null` on release — not `undefined`.
     expect(browserStatus({ ...base, activeTool: null }).label).toBe("example.com");
+  });
+
+  it("colours the dot with theme tokens, never a raw palette colour", () => {
+    expect(browserStatus(base).dot).toBe("bg-added");
+    expect(browserStatus({ ...base, activeTool: "browser_click" }).dot).toBe(
+      "bg-permission animate-pulse",
+    );
+    expect(browserStatus({ ...base, status: "starting" }).dot).toBe("bg-permission animate-pulse");
+    expect(browserStatus({ ...base, status: "error", message: "boom" }).dot).toBe("bg-destructive");
+    expect(browserStatus({ ...base, status: "stopped" }).dot).toBe("bg-muted-foreground");
+    expect(browserStatus(null).dot).toBe("bg-muted-foreground");
+    const every = [
+      base,
+      { ...base, activeTool: "browser_click" },
+      { ...base, status: "starting" as const },
+      { ...base, status: "error" as const },
+      { ...base, status: "stopped" as const },
+      { ...base, mode: "disabled" as const },
+    ].map((state) => browserStatus(state).dot);
+    for (const dot of every) {
+      expect(dot).not.toMatch(/-(amber|emerald|red|green|yellow)-\d/);
+    }
+  });
+
+  it("says disabled under the kill switch, whatever the status", () => {
+    const chip = browserStatus({ ...base, mode: "disabled", status: "stopped" });
+    expect(chip.label).toBe("disabled");
   });
 
   it("reports starting, errors and stopped sessions", () => {
@@ -68,5 +95,19 @@ describe("frameFallback", () => {
     expect(frameFallback(state({ status: "error", message: "agent-browser not found" }))).toBe(
       "agent-browser not found",
     );
+  });
+});
+
+describe("browserModeLabel", () => {
+  it("labels the web renderer's headless browser and the kill switch", () => {
+    expect(browserModeLabel("owned-chromium")).toBe("Headless browser (web mode)");
+    expect(browserModeLabel("disabled")).toBe(
+      "In-app browser is disabled (OPENADE_REMOTE_DEBUG=0)",
+    );
+    expect(BROWSER_DISABLED_LABEL).toBe(browserModeLabel("disabled"));
+  });
+
+  it("says nothing for the ordinary in-app browser", () => {
+    expect(browserModeLabel("in-app")).toBeNull();
   });
 });
