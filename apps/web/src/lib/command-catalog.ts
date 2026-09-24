@@ -41,6 +41,8 @@ import {
   GitDiff,
   Globe,
   Keyboard,
+  LayoutAlignBottom,
+  LayoutAlignRight,
   Lightning,
   ListChecks,
   ListOrdered,
@@ -53,13 +55,11 @@ import {
   Server,
   Settings,
   SidebarLeft,
-  SidebarRight,
   Sparkles,
   SquarePen,
   Stop,
   Target,
   Trash,
-  Terminal,
   TextSize,
   UnfoldLess,
   UnfoldMore,
@@ -162,11 +162,11 @@ export const COMMAND_CATALOG: ReadonlyArray<CatalogCommand> = [
 
   // View
   command("View", "sidebar.toggle", "Toggle sidebar", SidebarLeft),
-  command("View", "dock.toggle", "Toggle right dock", SidebarRight),
+  command("View", "dock.toggle", "Toggle right dock", LayoutAlignRight),
   command("View", "dock.changes", "Show changes", GitDiff),
   command("View", "dock.files", "Show files", FileCode),
   command("View", "browserPane.toggle", "Toggle browser", AppWindow),
-  command("View", "terminal.toggle", "Toggle terminal", Terminal),
+  command("View", "terminal.toggle", "Toggle terminal", LayoutAlignBottom),
   // The browser pane's keys answer only while focus is in the pane, which the
   // palette never holds.
   command("View", "browser.focusUrl", "Focus browser address", Globe, { palette: false }),
