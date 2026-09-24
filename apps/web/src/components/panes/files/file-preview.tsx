@@ -10,8 +10,11 @@
  * window short when its character cap bites, so Next resumes at the last line
  * it actually sent and Previous walks back over the offsets already visited.
  *
- * The parent mounts this with `key={path}`, so opening another file starts at
- * the top instead of inheriting this file's position.
+ * The page — the offset and the offsets behind it — is the parent's, kept in
+ * the thread's Files view (`./files-view`) with the scroll, so leaving the
+ * dock tab and coming back reopens the file where it was read. The parent
+ * mounts this with `key={path}`, so opening another file starts at the top
+ * instead of inheriting this file's position.
  */
 
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
@@ -20,10 +23,10 @@ import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
 import type { FileContent } from "@OpenAde/contracts/rpc";
 import { Button } from "@OpenAde/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 
 import { useFileAtoms } from "./file-atoms";
+import type { useKeptScroll } from "./files-view";
 import { PaneMessage } from "./pane-message";
 import { looksBinary, PAGE_LINES, pagePosition, previewLines, windowFor } from "./preview";
 import {
@@ -36,10 +39,18 @@ import {
   WifiOff,
 } from "@honeyicons/react";
 
-function LineTable({ offset, content }: { offset: number; content: FileContent }) {
+function LineTable({
+  offset,
+  content,
+  scroll,
+}: {
+  offset: number;
+  content: FileContent;
+  scroll: ReturnType<typeof useKeptScroll>;
+}) {
   const lines = previewLines(offset, content);
   return (
-    <div className="min-h-0 flex-1 overflow-auto">
+    <div ref={scroll.ref} onScroll={scroll.onScroll} className="min-h-0 flex-1 overflow-auto">
       <table className="w-full border-collapse font-mono text-xs">
         <tbody>
           {lines.map((line) => (
@@ -63,17 +74,25 @@ export function FilePreview({
   threadId,
   path,
   connected,
+  page,
+  onPageChange,
+  scroll,
 }: {
   readonly projectId: ProjectId;
   readonly threadId: ThreadId;
   readonly path: string;
   readonly connected: boolean;
+  /**
+   * The page shown, and the offsets Next came from, so Previous lands back on
+   * the exact windows the reader saw — a page the server cut short is not
+   * PAGE_LINES wide.
+   */
+  readonly page: { readonly offset: number; readonly visited: ReadonlyArray<number> };
+  readonly onPageChange: (offset: number, visited: ReadonlyArray<number>) => void;
+  readonly scroll: ReturnType<typeof useKeptScroll>;
 }) {
   const atoms = useFileAtoms();
-  const [offset, setOffset] = React.useState(0);
-  // The offsets Next came from, so Previous lands back on the exact windows the
-  // reader saw — a page the server cut short is not PAGE_LINES wide.
-  const [visited, setVisited] = React.useState<ReadonlyArray<number>>([]);
+  const { offset, visited } = page;
   const atom = atoms.fileContentAtom({ projectId, threadId, path, ...windowFor(offset) });
   const result = useAtomValue(atom);
   const refresh = useAtomRefresh(atom);
@@ -130,7 +149,7 @@ export function FilePreview({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <LineTable offset={offset} content={content} />
+      <LineTable offset={offset} content={content} scroll={scroll} />
       <div className="flex h-8 shrink-0 items-center gap-1.5 px-2 type-micro text-muted-foreground">
         <span className="min-w-0 truncate">{position.label}</span>
         {position.capped || (content.truncated && !position.hasNext) ? (
@@ -146,10 +165,12 @@ export function FilePreview({
                   size="icon-sm"
                   aria-label="Previous page"
                   disabled={!position.hasPrevious}
-                  onClick={() => {
-                    setOffset(visited.at(-1) ?? Math.max(0, offset - PAGE_LINES));
-                    setVisited((stack) => stack.slice(0, -1));
-                  }}
+                  onClick={() =>
+                    onPageChange(
+                      visited.at(-1) ?? Math.max(0, offset - PAGE_LINES),
+                      visited.slice(0, -1),
+                    )
+                  }
                 />
               }
             >
@@ -166,10 +187,7 @@ export function FilePreview({
                   size="icon-sm"
                   aria-label="Next page"
                   disabled={!position.hasNext}
-                  onClick={() => {
-                    setVisited((stack) => [...stack, offset]);
-                    setOffset(position.nextOffset);
-                  }}
+                  onClick={() => onPageChange(position.nextOffset, [...visited, offset])}
                 />
               }
             >

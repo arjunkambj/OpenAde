@@ -16,6 +16,12 @@
  * Everything else — loading, an empty query, no matches, a server error, an
  * offline socket — has its own honest block rather than an empty list.
  *
+ * Where the tab was left — the search, the open file and its page, the
+ * scroll of the list and of the file — is kept per thread in `./files-view`,
+ * so switching to another dock tab and back finds it as it was. The dock
+ * mounts this per thread (`key`), so one thread's scroll is never saved as
+ * another's.
+ *
  * `focusSearch` puts the cursor in the search field — the dock's Files key
  * sets it when it opens this tab — and `onSearchFocused` reports that it was
  * used, so the request is spent once rather than on every later mount.
@@ -35,6 +41,7 @@ import { cn } from "@/lib/utils";
 
 import { FilePreview } from "./file-preview";
 import { useFileAtoms } from "./file-atoms";
+import { openedPreview, useFilesView, useKeptScroll } from "./files-view";
 import { PaneMessage } from "./pane-message";
 import { splitPath } from "./preview";
 import {
@@ -94,6 +101,7 @@ function SearchBody({
   onOpen,
   onRetry,
   connected,
+  scroll,
 }: {
   readonly query: string;
   readonly results: Query;
@@ -102,6 +110,8 @@ function SearchBody({
   readonly onOpen: (result: FileSearchResult) => void;
   readonly onRetry: () => void;
   readonly connected: boolean;
+  /** Keeps the list's scroll across a trip to another tab (`useKeptScroll`). */
+  readonly scroll: ReturnType<typeof useKeptScroll>;
 }) {
   if (!connected) {
     return <PaneMessage icon={WifiOff} text="Not connected to the server." />;
@@ -136,7 +146,11 @@ function SearchBody({
     return <PaneMessage icon={SearchIcon} text="No files match this search." />;
   }
   return (
-    <div className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto", stale && "opacity-60")}>
+    <div
+      ref={scroll.ref}
+      onScroll={scroll.onScroll}
+      className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto", stale && "opacity-60")}
+    >
       <div className="flex flex-col gap-px p-1.5">
         {results.value.map((result) => (
           <ResultRow key={result.path} result={result} onOpen={onOpen} />
@@ -172,8 +186,29 @@ export function FilesPane({
       onSearchFocused?.();
     }
   }, [focusSearch, onSearchFocused]);
-  const [query, setQuery] = React.useState("");
-  const [openPath, setOpenPath] = React.useState<string | null>(null);
+  const [view, updateView] = useFilesView(threadId);
+  const { query, preview } = view;
+  const setQuery = (next: string) =>
+    updateView((current) => ({ ...current, query: next, listScroll: 0, preview: null }));
+  const setOpenPath = (path: string | null) =>
+    updateView((current) => ({ ...current, preview: path === null ? null : openedPreview(path) }));
+
+  // The scroll offsets live in refs while the pane is up and are saved as it
+  // goes, rather than written to the atom on every scroll event.
+  const listScroll = React.useRef(view.listScroll);
+  const previewScroll = React.useRef(preview?.scroll ?? 0);
+  const keptList = useKeptScroll(listScroll);
+  const keptPreview = useKeptScroll(previewScroll);
+  React.useEffect(
+    () => () =>
+      updateView((current) => ({
+        ...current,
+        listScroll: listScroll.current,
+        preview:
+          current.preview === null ? null : { ...current.preview, scroll: previewScroll.current },
+      })),
+    [updateView],
+  );
 
   // The family key is the trimmed query, so leading and trailing spaces do not
   // each open their own atom — and it is deferred, the way the composer's
@@ -211,10 +246,11 @@ export function FilesPane({
   // becomes its contents.
   const open = (hit: FileSearchResult) => {
     if (hit.isDirectory) {
+      listScroll.current = 0;
       setQuery(`${hit.path}/`);
-      setOpenPath(null);
       return;
     }
+    previewScroll.current = 0;
     setOpenPath(hit.path);
   };
 
@@ -227,12 +263,12 @@ export function FilesPane({
           placeholder="Search files…"
           aria-label="Search files"
           onChange={(event) => {
+            listScroll.current = 0;
             setQuery(event.target.value);
-            setOpenPath(null);
           }}
         />
       </div>
-      {openPath === null ? (
+      {preview === null ? (
         <SearchBody
           query={trimmed}
           results={shown}
@@ -240,6 +276,7 @@ export function FilesPane({
           onOpen={open}
           onRetry={refresh}
           connected={connected}
+          scroll={keptList}
         />
       ) : (
         <>
@@ -260,16 +297,28 @@ export function FilesPane({
               </TooltipTrigger>
               <TooltipContent>Back to results</TooltipContent>
             </Tooltip>
-            <span className="min-w-0 truncate font-mono text-xs text-foreground" title={openPath}>
-              {openPath}
+            <span
+              className="min-w-0 truncate font-mono text-xs text-foreground"
+              title={preview.path}
+            >
+              {preview.path}
             </span>
           </div>
           <FilePreview
-            key={openPath}
+            key={preview.path}
             projectId={projectId}
             threadId={threadId}
-            path={openPath}
+            path={preview.path}
             connected={connected}
+            page={preview}
+            onPageChange={(offset, visited) =>
+              updateView((current) =>
+                current.preview?.path === preview.path
+                  ? { ...current, preview: { ...current.preview, offset, visited } }
+                  : current,
+              )
+            }
+            scroll={keptPreview}
           />
         </>
       )}
