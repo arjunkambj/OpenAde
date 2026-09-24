@@ -32,6 +32,7 @@ import {
 } from "@/state/browser-tabs";
 import { useConnectionState, useLoadedThreadList } from "@/state/hooks";
 
+import { AgentCursor, useAgentPointers } from "./agent-cursor";
 import { placeTab } from "./host-geometry";
 import { TabWebview } from "./tab-webview";
 import { useGuestKeys } from "./use-guest-keys";
@@ -64,6 +65,7 @@ function InAppBrowserHost({ bridge }: { readonly bridge: PaneBridge }) {
   useThreadTeardown(bridge, state, threads, connected, setTabs);
   useGuestKeys(bridge, state);
   useHistoryRecorder(state, threads);
+  const pointers = useAgentPointers(bridge);
 
   const slot = useBrowserSlot();
   const slotRect = useElementRect(slot?.element ?? null);
@@ -85,15 +87,20 @@ function InAppBrowserHost({ bridge }: { readonly bridge: PaneBridge }) {
           lastPane,
           viewport,
         );
+        const mark = tab.wcId === null ? undefined : pointers.get(tab.wcId);
         return (
-          <TabWebview
-            key={tab.tabId}
-            threadId={threadId}
-            tab={tab}
-            rect={placement.rect}
-            visible={placement.visible}
-            onPatch={onPatch}
-          />
+          <React.Fragment key={tab.tabId}>
+            <TabWebview
+              threadId={threadId}
+              tab={tab}
+              rect={placement.rect}
+              visible={placement.visible}
+              onPatch={onPatch}
+            />
+            {placement.visible && mark !== undefined ? (
+              <AgentCursor mark={mark} box={placement.rect} zoomLevel={tab.zoomLevel} />
+            ) : null}
+          </React.Fragment>
         );
       })}
     </div>
