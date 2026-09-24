@@ -133,6 +133,6 @@ export const openOwnedDriver = (
       exec: (argv, execOptions) => session.exec(argv, execOptions),
       sendInput,
       location: locationOf(session.exec),
-      close: session.exec(["close"]).pipe(Effect.ignore),
+      close: session.shutdown,
     };
   });

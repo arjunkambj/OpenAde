@@ -19,6 +19,13 @@
  * - **owned-chromium** — no desktop at all (the web renderer, or
  *   `pnpm -F server dev`): agent-browser runs its own headless Chrome.
  *
+ * Every daemon we start lives in our own agent-browser namespace,
+ * `openade-<hash of OPENADE_HOME>` (`namespaceFor`), so `close --all` reaps
+ * ours and never the user's own sessions, and two OpenAde homes never share a
+ * daemon. `reap` is that `close --all`; a session's `shutdown` is `close`, and
+ * when the daemon does not answer even that, a SIGKILL of the pid it wrote to
+ * its socket directory.
+ *
  * Discovery order: `OPENADE_AGENT_BROWSER` → `agent-browser` on PATH. The probe
  * runs `--version` once at layer build; a missing binary is not fatal — the
  * service reports `binary: null` and every exec fails with
@@ -26,6 +33,10 @@
  */
 
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
+import { readFile, rm } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 import * as Context from "effect/Context";
 import * as Data from "effect/Data";
@@ -41,6 +52,7 @@ import {
   BRIDGE_KEY_ENV,
   bridgeThreadUrl,
 } from "@OpenAde/shared/browserBridge";
+import { configDir } from "@OpenAde/shared/paths";
 
 /**
  * What the pane reads when the binary is missing. The renderer keys its
@@ -55,14 +67,69 @@ export const AGENT_BROWSER_MISSING_MESSAGE =
 /** What every browser tool answers while the shell has the bridge switched off. */
 export const BROWSER_DISABLED_MESSAGE = "the in-app browser is disabled (OPENADE_REMOTE_DEBUG=0)";
 
-/** The daemon session name for a thread — `ade-<threadId>`. */
-export const sessionNameFor = (threadId: string): string => `ade-${threadId}`;
+/** A short, stable hex digest: names that end up in a socket path. */
+const digest = (text: string, length: number): string =>
+  createHash("sha256").update(text).digest("hex").slice(0, length);
+
+/**
+ * The daemon session name for a thread: `ade-<12 hex of its id>`.
+ *
+ * Not the id itself. The daemon's socket is
+ * `~/.agent-browser/namespaces/<ns>/run/<session>.sock`, and a Unix socket
+ * path is capped at 103 bytes on macOS: a 36-character thread id in our
+ * namespace came to 109 on a short home directory, and the CLI refused it.
+ * Hashed, the path is about 80 bytes for `/Users/<name>` with a short name.
+ */
+export const sessionNameFor = (threadId: string): string => `ade-${digest(threadId, 12)}`;
 
 /** Every call gets this long before the child is SIGKILLed (spec: 30s ceiling). */
 const COMMAND_TIMEOUT_MS = 30_000;
 
+/**
+ * How long `close` gets before the daemon is killed instead. Short: the
+ * desktop gives the server 5s between SIGINT and SIGKILL on quit, and every
+ * open session closes inside that.
+ */
+const CLOSE_TIMEOUT_MS = 3_000;
+
+/** How long the boot-time `close --all` gets before it kills what is listed. */
+const REAP_TIMEOUT_MS = 5_000;
+
+/** `session list` reads socket files and never waits on a daemon. */
+const LIST_TIMEOUT_MS = 2_000;
+
+/** How long the reap waits for closed daemons to exit, and how often it looks. */
+const REAP_SETTLE_MS = 3_000;
+const SETTLE_POLL_MS = 100;
+
+const now = Effect.clockWith((clock) => clock.currentTimeMillis);
+
 /** A daemon exits this long after its last command if we never close it. */
 export const IDLE_TIMEOUT_MS = 300_000;
+
+/** `AgentBrowserError.code` for a child that ran past its timeout and was killed. */
+export const TIMEOUT_CODE = "timeout";
+
+/**
+ * Our agent-browser namespace for one OpenAde home. The daemon keeps its
+ * sockets, pids and per-session state under `~/.agent-browser/namespaces/<ns>`,
+ * so everything we start stays out of the user's own default namespace, and
+ * `close --all` in it closes ours alone.
+ */
+export const namespaceFor = (home: string): string => `openade-${digest(home, 8)}`;
+
+/** Everything agent-browser keeps for one namespace. */
+const namespaceDir = (home: string, namespace: string): string =>
+  join(home, ".agent-browser", "namespaces", namespace);
+
+/**
+ * Where a daemon writes its pid: `<socketDir>/<session>.pid`, with the socket
+ * directory `session info` reports (recorded in
+ * `packages/testkit/fixtures/agent-browser/cli-reap`). The child never
+ * inherits an `AGENT_BROWSER_*` that could move it.
+ */
+export const daemonPidPath = (home: string, namespace: string, session: string): string =>
+  join(namespaceDir(home, namespace), "run", `${session}.pid`);
 
 /**
  * The env one session's invocations run with, beyond the allowlist.
@@ -71,9 +138,11 @@ export const IDLE_TIMEOUT_MS = 300_000;
  * close (a crashed server) still reaps itself.
  */
 export const sessionEnvFor = (
+  namespace: string,
   extra?: Readonly<Record<string, string>>,
 ): Readonly<Record<string, string>> => ({
   AGENT_BROWSER_IDLE_TIMEOUT_MS: String(IDLE_TIMEOUT_MS),
+  AGENT_BROWSER_NAMESPACE: namespace,
   ...extra,
 });
 
@@ -232,6 +301,8 @@ export interface ChildResult {
   readonly stdout: string;
   readonly stderr: string;
   readonly error: string | null;
+  /** The child ran past its timeout and was killed. */
+  readonly timedOut?: boolean;
 }
 
 /**
@@ -261,6 +332,9 @@ const runChild: ChildRunner = (binary, args, options) =>
             stdout: String(stdout),
             stderr: String(stderr),
             error: error === null ? null : error.message,
+            // `killed` is set only by execFile's own timeout here: our
+            // interrupt kills the child too, but nobody reads that result.
+            timedOut: error !== null && error.killed === true,
           }),
         ),
     );
@@ -323,14 +397,90 @@ export interface ExecOptions {
   readonly timeoutMs?: number;
 }
 
-/** One thread's invocation channel: `agent-browser --session ade-<id> --json <argv>`. */
+type ExecError = AgentBrowserError | AgentBrowserUnavailable;
+
+/** An exec that failed because the child ran out of time and was killed. */
+export const isTimeout = (error: ExecError): boolean =>
+  error._tag === "AgentBrowserError" && error.code === TIMEOUT_CODE;
+
+/** One thread's invocation channel: `agent-browser --session <sessionNameFor> --json <argv>`. */
 export interface AgentBrowserSession {
   readonly session: string;
   readonly exec: (
     argv: ReadonlyArray<string>,
     options?: ExecOptions,
-  ) => Effect.Effect<Record<string, unknown>, AgentBrowserError | AgentBrowserUnavailable>;
+  ) => Effect.Effect<Record<string, unknown>, ExecError>;
+  /**
+   * Stops the thread's daemon: `close`, and when the daemon does not answer
+   * that in time either, a SIGKILL. Never fails. In in-app mode `close` sends
+   * no CDP (spike G), so the pane's tabs survive it: they are the user's.
+   */
+  readonly shutdown: Effect.Effect<void>;
 }
+
+/**
+ * Kills the daemon behind a session that will not answer `close`. The real
+ * one reads the pid file; tests replace it to see who would have been killed.
+ */
+export type DaemonKiller = (session: string) => Effect.Effect<void>;
+
+/** The command name of a live pid, or `null` (no such process, or no `ps`). */
+const commandOf = (pid: number): Effect.Effect<string | null> =>
+  process.platform === "win32"
+    ? Effect.succeed(null)
+    : runChild("ps", ["-o", "comm=", "-p", String(pid)], {
+        env: browserEnv(process.env),
+        timeoutMs: LIST_TIMEOUT_MS,
+      }).pipe(Effect.map((result) => (result.error === null ? result.stdout.trim() : null)));
+
+/** The direct children of a pid: an owned-mode daemon's Chrome. */
+const childrenOf = (pid: number): Effect.Effect<ReadonlyArray<number>> =>
+  runChild("pgrep", ["-P", String(pid)], {
+    env: browserEnv(process.env),
+    timeoutMs: LIST_TIMEOUT_MS,
+  }).pipe(
+    Effect.map((result) =>
+      result.stdout
+        .split(/\s+/)
+        .map((entry) => Number.parseInt(entry, 10))
+        .filter((child) => Number.isInteger(child) && child > 1),
+    ),
+  );
+
+const sigkill = (pid: number) =>
+  Effect.sync(() => {
+    try {
+      process.kill(pid, "SIGKILL");
+    } catch {
+      // Gone between the check and the kill: what we wanted.
+    }
+  });
+
+/**
+ * SIGKILLs the daemon whose pid is in `pidPath`, and its children first — in
+ * owned mode that is the Chrome it launched, which would otherwise outlive
+ * it. A pid file outlives its daemon, and the pid may since have been reused,
+ * so only a process that is still agent-browser is killed. Anything else is
+ * logged and left to the daemon's idle timeout.
+ */
+const killDaemonAt = (pidPath: string): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    const text = yield* Effect.tryPromise(() => readFile(pidPath, "utf8")).pipe(Effect.option);
+    const pid = text._tag === "Some" ? Number.parseInt(text.value.trim(), 10) : Number.NaN;
+    if (!Number.isInteger(pid) || pid <= 1) {
+      yield* Effect.logWarning(`browser: no daemon pid at ${pidPath}; left to its idle timeout`);
+      return;
+    }
+    const command = yield* commandOf(pid);
+    if (command === null || !command.includes("agent-browser")) {
+      yield* Effect.logWarning(`browser: pid ${pid} is not an agent-browser daemon; not killed`);
+      return;
+    }
+    const children = yield* childrenOf(pid);
+    yield* Effect.forEach(children, sigkill, { discard: true });
+    yield* sigkill(pid);
+    yield* Effect.logWarning(`browser: killed agent-browser daemon ${pid}, which did not close`);
+  });
 
 export class AgentBrowser extends Context.Service<
   AgentBrowser,
@@ -340,8 +490,16 @@ export class AgentBrowser extends Context.Service<
     readonly version: string | null;
     /** Which browser every session drives; fixed for the server's life. */
     readonly mode: BrowserState["mode"];
+    /** The agent-browser namespace every daemon of ours runs in. */
+    readonly namespace: string;
     /** The thread's session: its own bridge URL in in-app mode. */
     readonly session: (threadId: string) => AgentBrowserSession;
+    /**
+     * `close --all` in our namespace: the daemons a crashed or killed run left
+     * behind. Waits for them to exit, kills what does not close in time, and
+     * clears the namespace's leftover files. Bounded; never fails.
+     */
+    readonly reap: Effect.Effect<void>;
   }
 >()("server/browser/AgentBrowser") {
   static readonly layer = Layer.effect(
@@ -377,61 +535,180 @@ export const makeAgentBrowser = (options: {
   readonly bridge: BridgeConfig;
   /** The environment the allowlist filters; the server's own by default. */
   readonly env?: Readonly<Record<string, string | undefined>>;
+  /** Our namespace; by default the one for the environment's `OPENADE_HOME`. */
+  readonly namespace?: string;
   readonly run?: ChildRunner;
+  readonly kill?: DaemonKiller;
 }): AgentBrowser["Service"] => {
   const run = options.run ?? runChild;
   const bridge = options.bridge;
+  const env = options.env ?? process.env;
+  const namespace = options.namespace ?? namespaceFor(configDir(env));
+  const home = env.HOME ?? homedir();
+  const kill: DaemonKiller =
+    options.kill ?? ((session) => killDaemonAt(daemonPidPath(home, namespace, session)));
+
+  /** One run of the binary in our namespace, with `cdp` as its bridge URL. */
+  const invoke = (
+    argv: ReadonlyArray<string>,
+    invocation: {
+      readonly session?: string;
+      readonly cdp?: string;
+      readonly timeoutMs: number;
+    },
+  ): Effect.Effect<Record<string, unknown>, ExecError> =>
+    Effect.suspend((): Effect.Effect<Record<string, unknown>, ExecError> => {
+      const binary = options.binary;
+      if (binary === null) {
+        return Effect.fail(new AgentBrowserUnavailable({ message: AGENT_BROWSER_MISSING_MESSAGE }));
+      }
+      const command = `agent-browser ${argv.join(" ")}`;
+      const extra: Record<string, string> =
+        invocation.cdp === undefined ? {} : { AGENT_BROWSER_CDP: invocation.cdp };
+      const args = [
+        ...(invocation.session === undefined ? [] : ["--session", invocation.session]),
+        "--json",
+        ...argv,
+      ];
+      return run(binary, args, {
+        env: browserEnv(env, sessionEnvFor(namespace, extra)),
+        timeoutMs: invocation.timeoutMs,
+      }).pipe(
+        Effect.flatMap((result) =>
+          result.timedOut === true
+            ? Effect.fail(
+                new AgentBrowserError({
+                  command,
+                  message: `${command} timed out after ${Math.round(invocation.timeoutMs / 1000)}s`,
+                  code: TIMEOUT_CODE,
+                  data: null,
+                }),
+              )
+            : decodeResult(command, result),
+        ),
+      );
+    });
 
   const session = (threadId: string): AgentBrowserSession => {
     const name = sessionNameFor(threadId);
     const exec = (
       argv: ReadonlyArray<string>,
       execOptions: ExecOptions = {},
-    ): Effect.Effect<Record<string, unknown>, AgentBrowserError | AgentBrowserUnavailable> =>
-      Effect.suspend(
-        (): Effect.Effect<Record<string, unknown>, AgentBrowserError | AgentBrowserUnavailable> => {
-          const binary = options.binary;
-          if (binary === null) {
-            return Effect.fail(
-              new AgentBrowserUnavailable({ message: AGENT_BROWSER_MISSING_MESSAGE }),
-            );
-          }
-          const command = `agent-browser ${argv.join(" ")}`;
-          if (bridge === BRIDGE_DISABLED) {
+    ): Effect.Effect<Record<string, unknown>, ExecError> =>
+      Effect.suspend((): Effect.Effect<Record<string, unknown>, ExecError> => {
+        if (bridge === BRIDGE_DISABLED) {
+          return Effect.fail(
+            new AgentBrowserError({
+              command: `agent-browser ${argv.join(" ")}`,
+              message: BROWSER_DISABLED_MESSAGE,
+              code: null,
+              data: null,
+            }),
+          );
+        }
+        // The bridge URL goes in the child's env, never its argv.
+        let cdp: string | undefined;
+        if (bridge !== null) {
+          try {
+            cdp = bridgeThreadUrl(bridge.base, bridge.key, threadId);
+          } catch (error) {
             return Effect.fail(
               new AgentBrowserError({
-                command,
-                message: BROWSER_DISABLED_MESSAGE,
+                command: `agent-browser ${argv.join(" ")}`,
+                message: String(error),
                 code: null,
                 data: null,
               }),
             );
           }
-          // The bridge URL goes in the child's env, never its argv.
-          let cdp: Record<string, string> = {};
-          if (bridge !== null) {
-            try {
-              cdp = { AGENT_BROWSER_CDP: bridgeThreadUrl(bridge.base, bridge.key, threadId) };
-            } catch (error) {
-              return Effect.fail(
-                new AgentBrowserError({ command, message: String(error), code: null, data: null }),
-              );
-            }
-          }
-          const env = browserEnv(options.env ?? process.env, sessionEnvFor(cdp));
-          return run(binary, ["--session", name, "--json", ...argv], {
-            env,
-            timeoutMs: execOptions.timeoutMs ?? COMMAND_TIMEOUT_MS,
-          }).pipe(Effect.flatMap((result) => decodeResult(command, result)));
-        },
-      );
-    return { session: name, exec };
+        }
+        return invoke(argv, {
+          session: name,
+          ...(cdp === undefined ? {} : { cdp }),
+          timeoutMs: execOptions.timeoutMs ?? COMMAND_TIMEOUT_MS,
+        });
+      });
+    const shutdown = exec(["close"], { timeoutMs: CLOSE_TIMEOUT_MS }).pipe(
+      Effect.asVoid,
+      Effect.catch((error) => (isTimeout(error) ? kill(name) : Effect.void)),
+    );
+    return { session: name, exec, shutdown };
   };
+
+  /** The sessions `session list` names; it reads socket files, not daemons. */
+  const listed = invoke(["session", "list"], { timeoutMs: LIST_TIMEOUT_MS }).pipe(
+    Effect.map((data) =>
+      Array.isArray(data.sessions)
+        ? data.sessions.filter((entry): entry is string => typeof entry === "string")
+        : [],
+    ),
+    Effect.orElseSucceed((): ReadonlyArray<string> => []),
+  );
+
+  const killAll = (names: ReadonlyArray<string>) =>
+    Effect.forEach(names, kill, { concurrency: "unbounded", discard: true });
+
+  /**
+   * Waits for `names` to leave `session list`. `close --all` answers before
+   * its daemons have exited (recorded in `cli-reap`), and a thread's first
+   * call after a restart would start a daemon under the same session name
+   * while the old one was still removing its socket. What is still listed
+   * when the time is up is returned.
+   */
+  const settle = (names: ReadonlyArray<string>) =>
+    Effect.gen(function* () {
+      const deadline = (yield* now) + REAP_SETTLE_MS;
+      while (true) {
+        const live = new Set(yield* listed);
+        const remaining = names.filter((name) => live.has(name));
+        if (remaining.length === 0 || (yield* now) >= deadline) return remaining;
+        yield* Effect.sleep(SETTLE_POLL_MS);
+      }
+    });
+
+  const closeAll: Effect.Effect<void> = invoke(["close", "--all"], {
+    timeoutMs: REAP_TIMEOUT_MS,
+  }).pipe(
+    Effect.flatMap((data) => {
+      const closed = Array.isArray(data.sessions)
+        ? data.sessions.filter((entry): entry is string => typeof entry === "string")
+        : [];
+      if (closed.length === 0) return Effect.void;
+      return Effect.andThen(
+        Effect.logInfo(`browser: closed ${closed.length} agent-browser daemon(s) left running`),
+        Effect.flatMap(settle(closed), killAll),
+      );
+    }),
+    Effect.catch((error) =>
+      isTimeout(error)
+        ? Effect.flatMap(listed, killAll)
+        : Effect.logWarning(`browser: close --all failed: ${error.message}`),
+    ),
+  );
+
+  // With nothing left running, the namespace's leftovers go too: `close`
+  // leaves each session's `.config` and `.target` behind, and the whole
+  // directory is ours.
+  const reap: Effect.Effect<void> =
+    options.binary === null
+      ? Effect.void
+      : closeAll.pipe(
+          Effect.andThen(listed),
+          Effect.flatMap((live) =>
+            live.length > 0
+              ? Effect.void
+              : Effect.tryPromise(() =>
+                  rm(namespaceDir(home, namespace), { recursive: true, force: true }),
+                ).pipe(Effect.ignore),
+          ),
+        );
 
   return AgentBrowser.of({
     binary: options.binary,
     version: options.version,
     mode: modeFor(bridge),
+    namespace,
     session,
+    reap,
   });
 };

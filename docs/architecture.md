@@ -1738,6 +1738,32 @@ A missing `agent-browser` binary is not fatal: the service reports no binary,
 every call fails with `AgentBrowserUnavailable`, and the pane renders an install
 prompt.
 
+**Daemon lifecycle.** Every session runs in the namespace
+`openade-<8 hex of OPENADE_HOME>` (`AGENT_BROWSER_NAMESPACE`), which is what
+bounds `close --all` to the app's own daemons, and is named
+`ade-<12 hex of the thread id>`: the daemon's socket is
+`~/.agent-browser/namespaces/<ns>/run/<session>.sock`, and with a raw thread id
+the CLI refused the path as longer than macOS's 103-byte limit. Three things
+close daemons, so none outlives the server that started it:
+
+- the service's build forks a **reap** — `close --all`, a wait for the list to
+  empty, a kill of what stays, and removal of the namespace directory — and
+  the first driver waits for it;
+- the service scope's **finalizer** closes every driver at once within 4 s,
+  inside the supervisor's SIGINT→SIGKILL grace;
+- **teardown** on thread close takes the session's queue before it closes.
+
+A command timeout (30 s; 15 s for a screenshot, since an unpainted guest never
+answers `Page.captureScreenshot`) closes that driver. `close` gets 3 s; a
+daemon that does not answer is SIGKILLed through `<session>.pid` in the socket
+directory, after checking the pid still names an agent-browser process and
+killing its children (owned mode's Chrome) first. Where the pid file is not
+there — a layout this was not verified on — it is logged and the 300 s idle
+timeout is the net. The layout, `session list` emptying only after
+`close --all` has answered, and a SIGSTOPped daemon hanging `close` and
+`session info` alike while `session list` still answers, were checked against
+agent-browser 0.38.1 on macOS; `cli-reap` records the envelopes.
+
 ### The browser bridge
 
 The in-app browser is driven through a CDP endpoint that can reach the

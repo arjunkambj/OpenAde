@@ -1748,9 +1748,12 @@ then `agent-browser` on `PATH`) and runs every call as argv-form `execFile`,
 never a shell. A missing binary is not fatal: the service reports `binary:
 null`, every call fails with `AgentBrowserUnavailable`, and the pane renders an
 install prompt keyed off the exact message constant. The daemon session is
-named `ade-<threadId>` and carries a 300 s idle timeout as a net behind
-`close`, which in-app mode can call freely: it sends no CDP, so the pane's
-tabs survive it. The child's environment is an allowlist that keeps the
+named `ade-<12 hex of the thread id>` — hashed so the daemon's socket path fits
+the 103-byte Unix socket limit — and carries a 300 s idle timeout as a net
+behind `close`, which in-app mode can call freely: it sends no CDP, so the
+pane's tabs survive it. Every daemon runs in the agent-browser namespace
+`openade-<8 hex of OPENADE_HOME>`, so the app's sessions never mix with your
+own agent-browser use and two homes never share one. The child's environment is an allowlist that keeps the
 operator's own `AGENT_BROWSER_*` and `CHROME_*` out; the thread's bridge URL
 reaches it as `AGENT_BROWSER_CDP`, never in argv.
 
@@ -1775,8 +1778,13 @@ The catalogue is `apps/server/src/browser/tools.ts`: `browser_open`,
 `browser_snapshot`, `browser_click`, `browser_fill`, `browser_type`,
 `browser_press`, `browser_scroll`, `browser_wait`, `browser_get`,
 `browser_screenshot`, `browser_eval`, `browser_tabs`. Calls are serialized per
-thread. Results cap at 64 KiB of text, counted in bytes;
-`browser_screenshot` adds an image block.
+thread. Results cap at 64 KiB of text, counted in bytes, and the
+`structuredContent` beside it at the same 64 KiB serialized — over it, a
+snapshot's text and refs go and only `origin`, `url`, `title` and `targetId`
+stay, with `truncated: true`. `browser_screenshot` adds an image block, and
+gets 15 s instead of the CLI's usual 30: a guest that is not painted never
+answers a capture, so the agent reads "the page did not paint — is the
+browser pane laid out?" rather than waiting.
 
 Timeline rows for `mcp__openade__browser_*` come from the harness transcript
 like any other tool call — the gateway emits none, or every row would appear
@@ -1802,7 +1810,33 @@ marks human control — otherwise the agent's own navigations would look like a
 takeover.
 
 Teardown runs off `thread.deleted` / `thread.archived`, because the engine is
-the only writer of durable thread state.
+the only writer of durable thread state. It takes its turn in the thread's
+queue, so a call in flight finishes first, then closes the driver and
+publishes `stopped`; a call that queued behind it finds the thread closed and
+opens nothing.
+
+### Daemons
+
+No agent-browser daemon outlives what started it
+(`apps/server/src/browser/agentBrowser.ts`, `BrowserService.ts`):
+
+- **Boot.** Building the service runs `close --all` in our namespace beside the
+  rest of the build — the daemons a crashed or SIGKILLed run left behind. It
+  waits (up to 3 s) for them to leave `session list`, since `close --all`
+  answers before they exit, kills what is still listed, and removes the
+  namespace's leftover `.config` / `.target` files. The first driver waits for
+  it, so a restarted thread never races its old daemon for the same socket.
+- **Shutdown.** Closing the service's scope — SIGINT from the desktop's
+  supervisor on quit — closes every open driver at once, bounded to 4 s, inside
+  the 5 s the supervisor gives before its SIGKILL. What that SIGKILL cuts short,
+  the next boot reaps.
+- **A hung command.** A command that runs past its timeout closes its driver
+  and the thread's state goes to `error` with the message; the next call opens
+  a fresh one. A driver's close is `close` with 3 s to answer; a daemon that
+  does not is SIGKILLed through the pid it wrote to its socket directory
+  (`~/.agent-browser/namespaces/<ns>/run/<session>.pid`, the directory
+  `session info` reports) — only if that pid is still an agent-browser process,
+  and its children first, which in owned mode is the Chrome it launched.
 
 ---
 

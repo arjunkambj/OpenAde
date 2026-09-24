@@ -162,7 +162,8 @@ export const openInAppDriver = (
       sendInput: () => Effect.void,
       location: locationOf(exec),
       // In CDP mode `close` stops the daemon and sends no CDP (spike G), so
-      // the pane's tabs survive it: they are the user's, not ours.
-      close: session.exec(["close"]).pipe(Effect.ignore),
+      // the pane's tabs survive it: they are the user's, not ours. A daemon
+      // that will not answer `close` is killed.
+      close: session.shutdown,
     } satisfies BrowserDriver;
   });

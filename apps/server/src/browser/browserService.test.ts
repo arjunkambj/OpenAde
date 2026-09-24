@@ -16,12 +16,17 @@
  *   reactor and closes the driver.
  * - `teardown` stops the session and is idempotent.
  * - Sessions are per-thread.
+ * - No daemon outlives what started it: closing the service's scope closes
+ *   every driver, teardown waits for the call in flight before it closes, a
+ *   command timeout closes the driver it hung on, and the boot reap finishes
+ *   before the first driver opens.
  */
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -36,11 +41,12 @@ import { ReadModelStore } from "../persistence/ReadModels";
 import { testLayer as sqliteTestLayer } from "../persistence/Sqlite";
 import { PermissionService } from "../permissions/PermissionService";
 import { BrowserService } from "../rpc/services";
-import { AgentBrowserError, BROWSER_DISABLED_MESSAGE } from "./agentBrowser";
+import { AgentBrowserError, BROWSER_DISABLED_MESSAGE, TIMEOUT_CODE } from "./agentBrowser";
 import { makeService, type OpenDriverOptions } from "./BrowserService";
 import type { BrowserDriver } from "./driver";
 import { makeFakeDriver, type FakePage } from "./fakeDriver";
 import { TAB_GONE_MESSAGE } from "./inAppDriver";
+import { SCREENSHOT_TIMEOUT_MESSAGE } from "./tools";
 
 const threadId = makeThreadId();
 const NOW = "2026-01-02T03:04:05.000Z";
@@ -69,6 +75,7 @@ type OpenDriver = (
 const buildStack = (
   openDriver: OpenDriver,
   mode: "in-app" | "owned-chromium" | "disabled" = "owned-chromium",
+  reap?: Effect.Effect<void>,
 ) =>
   Effect.gen(function* () {
     const sqliteContext = yield* Layer.build(sqliteTestLayer());
@@ -78,9 +85,10 @@ const buildStack = (
       Layer.mergeAll(EventStore.layer, ReadModelStore.layer).pipe(Layer.provide(sqlite)),
     );
     const engine = OrchestrationEngine.layer.pipe(Layer.provide(persistence));
-    const browser = Layer.effect(BrowserService, makeService({ mode, openDriver })).pipe(
-      Layer.provide(Layer.mergeAll(engine, permissionsStub)),
-    );
+    const browser = Layer.effect(
+      BrowserService,
+      makeService({ mode, openDriver, ...(reap === undefined ? {} : { reap }) }),
+    ).pipe(Layer.provide(Layer.mergeAll(engine, permissionsStub)));
     const context = yield* Layer.build(Layer.mergeAll(engine, browser));
     return {
       browser: Context.get(context, BrowserService),
@@ -602,6 +610,212 @@ describe("BrowserService", () => {
         const untouched = yield* currentState(browser, other);
         expect(untouched?.status).toBe("stopped");
         expect(untouched?.url).toBeNull();
+      }),
+    ),
+  );
+});
+
+/** Lets every forked fiber run until it blocks on something. */
+const settle = Effect.forEach(Array.from({ length: 20 }), () => Effect.yieldNow, {
+  discard: true,
+});
+
+describe("BrowserService daemon lifecycle", () => {
+  it.live("closing the service's scope closes every open driver", () =>
+    Effect.gen(function* () {
+      const closed: Array<string> = [];
+      const scope = yield* Scope.make();
+      const { browser } = yield* Scope.provide(scope)(
+        buildStack(({ threadId: id }) =>
+          Effect.succeed(
+            makeFakeDriver(fakePage(), {
+              onClose: () =>
+                Effect.sync(() => {
+                  closed.push(id);
+                }),
+            }),
+          ),
+        ),
+      );
+      const other = makeThreadId();
+      yield* browser.callTool(threadId, "browser_open", { url: "https://a.example" });
+      yield* browser.callTool(other, "browser_open", { url: "https://b.example" });
+      expect(closed).toEqual([]);
+
+      // The server shutting down.
+      yield* Scope.close(scope, Exit.void);
+      expect([...closed].sort()).toEqual([threadId, other].sort());
+    }),
+  );
+
+  it.live("teardown waits for the call in flight before it closes the driver", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const order: Array<string> = [];
+        const started = yield* Deferred.make<void>();
+        const release = yield* Deferred.make<void>();
+        const { browser } = yield* buildStack(() =>
+          Effect.succeed(
+            makeFakeDriver(fakePage(), {
+              onExec: (argv) =>
+                argv[0] === "eval"
+                  ? Effect.gen(function* () {
+                      yield* Deferred.succeed(started, undefined);
+                      yield* Deferred.await(release);
+                      order.push("eval done");
+                    })
+                  : Effect.void,
+              onClose: () =>
+                Effect.sync(() => {
+                  order.push("closed");
+                }),
+            }),
+          ),
+        );
+
+        const call = yield* browser
+          .callTool(threadId, "browser_eval", { js: "1" })
+          .pipe(Effect.forkChild);
+        yield* Deferred.await(started);
+        const teardown = yield* browser.teardown(threadId).pipe(Effect.forkChild);
+        yield* settle;
+        // Still waiting its turn: the daemon is mid-command.
+        expect(order).toEqual([]);
+
+        yield* Deferred.succeed(release, undefined);
+        const outcome = yield* Fiber.join(call);
+        yield* Fiber.join(teardown);
+        expect(outcome.kind).toBe("ok");
+        expect(order).toEqual(["eval done", "closed"]);
+      }),
+    ),
+  );
+
+  it.live("a call queued behind teardown opens no driver", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        let opened = 0;
+        const started = yield* Deferred.make<void>();
+        const release = yield* Deferred.make<void>();
+        const { browser } = yield* buildStack(() =>
+          Effect.sync(() => {
+            opened += 1;
+            return makeFakeDriver(fakePage(), {
+              onExec: (argv) =>
+                argv[0] === "eval"
+                  ? Effect.andThen(Deferred.succeed(started, undefined), Deferred.await(release))
+                  : Effect.void,
+            });
+          }),
+        );
+
+        const first = yield* browser
+          .callTool(threadId, "browser_eval", { js: "1" })
+          .pipe(Effect.forkChild);
+        yield* Deferred.await(started);
+        const teardown = yield* browser.teardown(threadId).pipe(Effect.forkChild);
+        yield* settle;
+        const queued = yield* browser
+          .callTool(threadId, "browser_snapshot", {})
+          .pipe(Effect.forkChild);
+        yield* settle;
+        yield* Deferred.succeed(release, undefined);
+        yield* Fiber.join(first);
+        yield* Fiber.join(teardown);
+
+        const outcome = yield* Fiber.join(queued);
+        expect(outcome.kind).toBe("error");
+        expect(opened).toBe(1);
+      }),
+    ),
+  );
+
+  it.live("a command timeout closes the driver, and the next call opens a fresh one", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        let opened = 0;
+        let closes = 0;
+        const timeouts: Array<number | undefined> = [];
+        const { browser } = yield* buildStack(
+          () =>
+            Effect.sync(() => {
+              opened += 1;
+              return makeFakeDriver(fakePage(), {
+                mode: "in-app",
+                onExec: (argv, options) =>
+                  argv[0] === "screenshot" && opened === 1
+                    ? Effect.andThen(
+                        Effect.sync(() => {
+                          timeouts.push(options?.timeoutMs);
+                        }),
+                        // What the session's exec fails with once the CLI
+                        // child has been killed for running out of time.
+                        new AgentBrowserError({
+                          command: "agent-browser screenshot",
+                          message: "agent-browser screenshot timed out after 15s",
+                          code: TIMEOUT_CODE,
+                          data: null,
+                        }),
+                      )
+                    : Effect.void,
+                onClose: () =>
+                  Effect.sync(() => {
+                    closes += 1;
+                  }),
+              });
+            }),
+          "in-app",
+        );
+
+        const shot = yield* browser.callTool(threadId, "browser_screenshot", {});
+        // An unpainted guest is the usual reason, so the agent is told that.
+        expect(shot).toEqual({ kind: "error", message: SCREENSHOT_TIMEOUT_MESSAGE });
+        expect(timeouts).toEqual([15_000]);
+        expect(closes).toBe(1);
+        const state = yield* currentState(browser, threadId);
+        expect(state?.status).toBe("error");
+        expect(state?.message).toBe(SCREENSHOT_TIMEOUT_MESSAGE);
+
+        const next = yield* browser.callTool(threadId, "browser_snapshot", {});
+        expect(next.kind).toBe("ok");
+        expect(opened).toBe(2);
+        expect((yield* currentState(browser, threadId))?.status).toBe("ready");
+      }),
+    ),
+  );
+
+  it.live("the first driver waits for the boot reap", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const order: Array<string> = [];
+        const reapStarted = yield* Deferred.make<void>();
+        const reapRelease = yield* Deferred.make<void>();
+        const reap = Effect.gen(function* () {
+          yield* Deferred.succeed(reapStarted, undefined);
+          yield* Deferred.await(reapRelease);
+          order.push("reaped");
+        });
+        const { browser } = yield* buildStack(
+          () =>
+            Effect.sync(() => {
+              order.push("opened");
+              return makeFakeDriver(fakePage());
+            }),
+          "owned-chromium",
+          reap,
+        );
+
+        // The build did not wait for the reap.
+        yield* Deferred.await(reapStarted);
+        const call = yield* browser
+          .callTool(threadId, "browser_open", { url: "https://a.example" })
+          .pipe(Effect.forkChild);
+        yield* settle;
+        expect(order).toEqual([]);
+
+        yield* Deferred.succeed(reapRelease, undefined);
+        expect((yield* Fiber.join(call)).kind).toBe("ok");
+        expect(order).toEqual(["reaped", "opened"]);
       }),
     ),
   );

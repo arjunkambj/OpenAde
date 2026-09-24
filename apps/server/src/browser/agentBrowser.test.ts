@@ -1,7 +1,15 @@
 /**
  * The CLI wrapper: the session name, the env one session's invocations run
- * with, the bridge handoff, and the envelope parse.
+ * with, the bridge handoff, the envelope parse, and the daemon's end — the
+ * namespace every session runs in, the boot `close --all`, and a session's
+ * shutdown that kills a daemon which will not close. Every envelope a runner
+ * answers with here is one the real CLI printed (`cli-reap`).
  */
+
+import { spawn } from "node:child_process";
+import * as NodeFS from "node:fs";
+import * as NodeOS from "node:os";
+import * as NodePath from "node:path";
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
@@ -16,13 +24,17 @@ import {
   AgentBrowser,
   BROWSER_DISABLED_MESSAGE,
   browserEnv,
+  daemonPidPath,
   decodeResult,
   makeAgentBrowser,
   modeFor,
+  namespaceFor,
   readBridgeConfig,
   sessionEnvFor,
   sessionNameFor,
   takeBridgeConfig,
+  TIMEOUT_CODE,
+  type ChildResult,
   type ChildRunner,
 } from "./agentBrowser";
 
@@ -50,13 +62,17 @@ describe("agentBrowser", () => {
   });
 
   it("names a thread's daemon session", () => {
-    expect(sessionNameFor("t-1")).toBe("ade-t-1");
+    // Hashed, so the daemon's socket path fits the 103-byte limit whatever
+    // the id; stable, so every call for the thread reaches the same daemon.
+    expect(sessionNameFor("t-1")).toMatch(/^ade-[0-9a-f]{12}$/);
+    expect(sessionNameFor("t-1")).toBe(sessionNameFor("t-1"));
+    expect(sessionNameFor("t-2")).not.toBe(sessionNameFor("t-1"));
   });
 
   it("gives every session an idle timeout", () => {
     // The safety net behind `close`: a daemon the server never closed (it
     // crashed) still reaps itself.
-    expect(sessionEnvFor().AGENT_BROWSER_IDLE_TIMEOUT_MS).toBe("300000");
+    expect(sessionEnvFor("openade-x").AGENT_BROWSER_IDLE_TIMEOUT_MS).toBe("300000");
   });
 
   it("hands the child an allowlist, not the server's whole environment", () => {
@@ -77,7 +93,7 @@ describe("agentBrowser", () => {
         OPENADE_SERVER_TOKEN: "server-token",
         OPENADE_HOME: "/Users/someone/.openade",
       },
-      sessionEnvFor(),
+      sessionEnvFor("openade-x"),
     );
 
     expect(env).toEqual({
@@ -87,6 +103,7 @@ describe("agentBrowser", () => {
       DISPLAY: ":0",
       LC_ALL: "en_GB.UTF-8",
       AGENT_BROWSER_IDLE_TIMEOUT_MS: "300000",
+      AGENT_BROWSER_NAMESPACE: "openade-x",
     });
   });
 
@@ -191,7 +208,13 @@ describe("agentBrowser", () => {
         yield* agentBrowser.session("thread-1").exec(["get", "title"]);
 
         const [only] = runs;
-        expect(only?.args).toEqual(["--session", "ade-thread-1", "--json", "get", "title"]);
+        expect(only?.args).toEqual([
+          "--session",
+          sessionNameFor("thread-1"),
+          "--json",
+          "get",
+          "title",
+        ]);
         expect(only?.env.AGENT_BROWSER_CDP).toMatch(
           /^ws:\/\/127\.0\.0\.1:47000\/cdp\/thread-1\/[0-9a-f]{64}$/,
         );
@@ -251,4 +274,297 @@ describe("agentBrowser", () => {
       expect(failed.data).toMatchObject({ lastUrl: "http://127.0.0.1:<SITE_PORT>/" });
     }),
   );
+});
+
+/**
+ * The real CLI's envelopes for one command of the `cli-reap` recording, in
+ * the order it answered them: `session list` before and after `close --all`.
+ */
+const reapEnvelopes = (argv: ReadonlyArray<string>): ReadonlyArray<unknown> => {
+  const manifest = readManifest<{
+    steps: ReadonlyArray<{ argv?: ReadonlyArray<string>; envelope?: unknown }>;
+  }>("agent-browser", "cli-reap");
+  const steps = manifest.steps.filter((entry) => entry.argv?.join(" ") === argv.join(" "));
+  if (steps.length === 0) throw new Error(`cli-reap recorded no \`${argv.join(" ")}\``);
+  return steps.map((step) => step.envelope);
+};
+
+const reapEnvelope = (argv: ReadonlyArray<string>): unknown => reapEnvelopes(argv)[0];
+
+/**
+ * A runner that answers each command with its next `cli-reap` envelope (the
+ * last one again once they run out), or runs out of time for the commands in
+ * `hang` — what `execFile` reports once it has killed a child whose daemon
+ * never answered.
+ */
+const reapRunner = (hang: ReadonlyArray<string> = []) => {
+  const runs: Array<{ args: ReadonlyArray<string>; env: Record<string, string> }> = [];
+  const answered = new Map<string, number>();
+  const run: ChildRunner = (_binary, args, options) =>
+    Effect.sync((): ChildResult => {
+      runs.push({ args, env: options.env });
+      const argv = args.slice(args.indexOf("--json") + 1);
+      const command = argv.join(" ");
+      if (hang.includes(command)) {
+        return { stdout: "", stderr: "", error: "Command failed", timedOut: true };
+      }
+      const envelopes = reapEnvelopes(argv);
+      const index = answered.get(command) ?? 0;
+      answered.set(command, index + 1);
+      const envelope = envelopes[Math.min(index, envelopes.length - 1)];
+      return { stdout: JSON.stringify(envelope), stderr: "", error: null };
+    });
+  return { runs, run };
+};
+
+/** A home holding a stale file in `namespace`, as `close` leaves behind. */
+const homeWithLeftovers = (namespace: string) => {
+  const home = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "openade-reap-"));
+  const run = NodePath.join(home, ".agent-browser", "namespaces", namespace, "run");
+  NodeFS.mkdirSync(run, { recursive: true });
+  NodeFS.writeFileSync(NodePath.join(run, "ade-000000000000.config"), "0");
+  return { home, dir: NodePath.dirname(run) };
+};
+
+describe("the daemon's namespace and end", () => {
+  it("names one namespace per OpenAde home", () => {
+    const home = namespaceFor("/Users/someone/.openade");
+    expect(home).toMatch(/^openade-[0-9a-f]{8}$/);
+    expect(namespaceFor("/Users/someone/.openade")).toBe(home);
+    expect(namespaceFor("/tmp/openade-f8")).not.toBe(home);
+  });
+
+  it("keeps a thread's daemon socket inside the 103-byte limit", () => {
+    // The layout `session info` reported in cli-reap, for a macOS home with a
+    // longish user name and a real thread id.
+    const socket = daemonPidPath(
+      "/Users/someone.lastname",
+      namespaceFor("/Users/someone.lastname/.openade"),
+      sessionNameFor("01a0d127-a895-7000-874c-44c1cdb57ff0"),
+    ).replace(/\.pid$/, ".sock");
+    expect(Buffer.byteLength(socket)).toBeLessThanOrEqual(103);
+  });
+
+  it("follows OPENADE_HOME by default", () => {
+    const agentBrowser = makeAgentBrowser({
+      binary: "agent-browser",
+      version: "0.38.1",
+      bridge: null,
+      env: { OPENADE_HOME: "/tmp/openade-f8" },
+    });
+    expect(agentBrowser.namespace).toBe(namespaceFor("/tmp/openade-f8"));
+  });
+
+  it("finds a daemon's pid where the recorded session info says it lives", () => {
+    const info = reapEnvelope(["session", "info"]) as {
+      data: { socketDir: string; session: string; namespace: string; pid: number };
+    };
+    expect(info.data.pid).toBeGreaterThan(1);
+    expect(daemonPidPath("<HOME>", info.data.namespace, info.data.session)).toBe(
+      `${info.data.socketDir}/${info.data.session}.pid`,
+    );
+  });
+
+  it.effect("runs every session of every thread in our namespace", () =>
+    Effect.gen(function* () {
+      for (const bridge of [{ base: BASE, key: KEY }, null] as const) {
+        const { runs, run } = capture();
+        const agentBrowser = makeAgentBrowser({
+          binary: "agent-browser",
+          version: "0.38.1",
+          bridge,
+          env: { PATH: "/usr/bin", AGENT_BROWSER_NAMESPACE: "the-users-own" },
+          namespace: "openade-ours",
+          run,
+        });
+        yield* agentBrowser.session("thread-1").exec(["get", "title"]);
+        yield* agentBrowser.session("thread-2").exec(["tab", "list"]);
+        yield* agentBrowser.session("thread-2").shutdown;
+        expect(runs).toHaveLength(3);
+        for (const entry of runs) {
+          expect(entry.env.AGENT_BROWSER_NAMESPACE).toBe("openade-ours");
+        }
+      }
+    }),
+  );
+
+  it.live("reaps with close --all scoped to our namespace, and waits for the daemons to go", () =>
+    Effect.gen(function* () {
+      const { runs, run } = reapRunner();
+      const killed: Array<string> = [];
+      const { home, dir } = homeWithLeftovers("openade-ours");
+      const agentBrowser = makeAgentBrowser({
+        binary: "agent-browser",
+        version: "0.38.1",
+        bridge: { base: BASE, key: KEY },
+        env: { HOME: home, PATH: "/usr/bin", AGENT_BROWSER_NAMESPACE: "the-users-own" },
+        namespace: "openade-ours",
+        run,
+        kill: (session) => Effect.sync(() => void killed.push(session)),
+      });
+      yield* agentBrowser.reap;
+
+      // No session and no bridge: it is the namespace that bounds `--all`.
+      expect(runs[0]?.args).toEqual(["--json", "close", "--all"]);
+      for (const entry of runs) {
+        expect(entry.env.AGENT_BROWSER_NAMESPACE).toBe("openade-ours");
+        expect(entry.env.AGENT_BROWSER_CDP).toBeUndefined();
+      }
+      // The recorded list still named the daemon right after `close --all`,
+      // and was empty the next time: it exited by itself, so nothing was
+      // killed, and the namespace's leftovers are gone.
+      expect(runs.map((entry) => entry.args.slice(1).join(" "))).toEqual([
+        "close --all",
+        "session list",
+        "session list",
+        "session list",
+      ]);
+      expect(killed).toEqual([]);
+      expect(NodeFS.existsSync(dir)).toBe(false);
+      NodeFS.rmSync(home, { recursive: true, force: true });
+    }),
+  );
+
+  it.live("a reap that times out kills each listed daemon", () =>
+    Effect.gen(function* () {
+      const { runs, run } = reapRunner(["close --all"]);
+      const killed: Array<string> = [];
+      const { home } = homeWithLeftovers("openade-ours");
+      const agentBrowser = makeAgentBrowser({
+        binary: "agent-browser",
+        version: "0.38.1",
+        bridge: "disabled",
+        env: { HOME: home, PATH: "/usr/bin" },
+        namespace: "openade-ours",
+        run,
+        kill: (session) => Effect.sync(() => void killed.push(session)),
+      });
+      // Orphans from an in-app run are reaped even with the bridge off now.
+      yield* agentBrowser.reap;
+      expect(runs.map((entry) => entry.args.slice(1).join(" ")).slice(0, 2)).toEqual([
+        "close --all",
+        "session list",
+      ]);
+      expect(killed).toEqual(["rec-cli-reap"]);
+      NodeFS.rmSync(home, { recursive: true, force: true });
+    }),
+  );
+
+  it.effect("a reap with no binary runs nothing", () =>
+    Effect.gen(function* () {
+      const { runs, run } = reapRunner();
+      yield* makeAgentBrowser({ binary: null, version: null, bridge: null, run }).reap;
+      expect(runs).toEqual([]);
+    }),
+  );
+
+  it.effect("a command that runs out of time fails as a timeout", () =>
+    Effect.gen(function* () {
+      const { run } = reapRunner(["screenshot /tmp/shot.png"]);
+      const failed = yield* makeAgentBrowser({
+        binary: "agent-browser",
+        version: "0.38.1",
+        bridge: { base: BASE, key: KEY },
+        run,
+      })
+        .session("thread-1")
+        .exec(["screenshot", "/tmp/shot.png"], { timeoutMs: 15_000 })
+        .pipe(Effect.flip);
+      expect(failed._tag === "AgentBrowserError" ? failed.code : null).toBe(TIMEOUT_CODE);
+      expect(failed.message).toContain("timed out after 15s");
+    }),
+  );
+
+  it.effect("shutdown closes, and kills only a daemon that will not close", () =>
+    Effect.gen(function* () {
+      const killed: Array<string> = [];
+      const kill = (session: string) => Effect.sync(() => void killed.push(session));
+      const closeEnvelope = readManifest<{
+        steps: ReadonlyArray<{ argv?: ReadonlyArray<string>; envelope?: unknown }>;
+      }>("agent-browser", "cli-attach").steps.find(
+        (step) => step.argv?.join(" ") === "close",
+      )?.envelope;
+
+      const { runs, run } = capture(closeEnvelope);
+      yield* makeAgentBrowser({
+        binary: "agent-browser",
+        version: "0.38.1",
+        bridge: { base: BASE, key: KEY },
+        run,
+        kill,
+      }).session("thread-1").shutdown;
+      expect(runs[0]?.args).toEqual(["--session", sessionNameFor("thread-1"), "--json", "close"]);
+      expect(killed).toEqual([]);
+
+      const hung = reapRunner(["close"]);
+      yield* makeAgentBrowser({
+        binary: "agent-browser",
+        version: "0.38.1",
+        bridge: { base: BASE, key: KEY },
+        run: hung.run,
+        kill,
+      }).session("thread-1").shutdown;
+      expect(killed).toEqual([sessionNameFor("thread-1")]);
+    }),
+  );
+
+  describe.skipIf(process.platform === "win32")("the kill behind a hung close", () => {
+    /** A home whose namespace holds thread-1's pid file naming `pid`. */
+    const homeWithPid = (pid: number) => {
+      const home = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "openade-kill-"));
+      const pidPath = daemonPidPath(home, "openade-ours", sessionNameFor("thread-1"));
+      NodeFS.mkdirSync(NodePath.dirname(pidPath), { recursive: true });
+      NodeFS.writeFileSync(pidPath, `${pid}`);
+      return home;
+    };
+
+    const shutdownHung = (home: string) =>
+      makeAgentBrowser({
+        binary: "agent-browser",
+        version: "0.38.1",
+        bridge: { base: BASE, key: KEY },
+        env: { HOME: home, PATH: process.env.PATH },
+        namespace: "openade-ours",
+        run: reapRunner(["close"]).run,
+      }).session("thread-1").shutdown;
+
+    it.live("never kills a reused pid that is not agent-browser", () =>
+      Effect.gen(function* () {
+        // This test's own process: a stale pid file naming it must not be
+        // taken at its word.
+        const home = homeWithPid(process.pid);
+        yield* shutdownHung(home);
+        expect(() => process.kill(process.pid, 0)).not.toThrow();
+        NodeFS.rmSync(home, { recursive: true, force: true });
+      }),
+    );
+
+    it.live("tolerates a missing pid file", () =>
+      Effect.gen(function* () {
+        const home = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "openade-kill-"));
+        yield* shutdownHung(home);
+        NodeFS.rmSync(home, { recursive: true, force: true });
+      }),
+    );
+
+    it.live("SIGKILLs the process the pid file names when it is agent-browser", () =>
+      Effect.gen(function* () {
+        // A process whose name is agent-browser's — a copy of `sleep`, not a
+        // CLI: nothing here stands in for what agent-browser answers.
+        const dir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "openade-kill-"));
+        const standIn = NodePath.join(dir, "agent-browser-daemon");
+        NodeFS.copyFileSync("/bin/sleep", standIn);
+        const child = spawn(standIn, ["30"], { stdio: "ignore" });
+        const exited = new Promise<NodeJS.Signals | null>((resolve) =>
+          child.on("exit", (_code, signal) => resolve(signal)),
+        );
+        const home = homeWithPid(child.pid ?? 0);
+        yield* shutdownHung(home);
+        const signal = yield* Effect.promise(() => exited);
+        expect(signal).toBe("SIGKILL");
+        NodeFS.rmSync(home, { recursive: true, force: true });
+        NodeFS.rmSync(dir, { recursive: true, force: true });
+      }),
+    );
+  });
 });

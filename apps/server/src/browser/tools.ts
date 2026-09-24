@@ -32,6 +32,10 @@ export interface PreparedCall {
   readonly mutating: boolean;
   /** Result carries a screenshot file at `data.path` to inline as an image. */
   readonly screenshot: boolean;
+  /** Overrides the CLI's 30s per-command timeout. */
+  readonly timeoutMs?: number;
+  /** What the agent reads instead of the bare timeout when the call runs out. */
+  readonly timeoutMessage?: string;
 }
 
 export type PrepareResult =
@@ -74,6 +78,11 @@ const string = { type: "string" };
 const number = { type: "number" };
 const boolean = { type: "boolean" };
 
+/** How long a screenshot may take before the page is taken to be unpainted. */
+const SCREENSHOT_TIMEOUT_MS = 15_000;
+
+export const SCREENSHOT_TIMEOUT_MESSAGE = "the page did not paint — is the browser pane laid out?";
+
 const SEL_DOC = "An element ref like @e3 from browser_snapshot, or a CSS/XPath/role selector.";
 
 interface MakeOptions {
@@ -84,6 +93,8 @@ interface MakeOptions {
   readonly input?: boolean;
   readonly mutating?: boolean;
   readonly screenshot?: boolean;
+  readonly timeoutMs?: number;
+  readonly timeoutMessage?: string;
   readonly toArgv: (args: Record<string, unknown>) => ReadonlyArray<string> | { error: string };
 }
 
@@ -113,6 +124,8 @@ const makeTool = (name: BrowserToolName, options: MakeOptions): BrowserToolSpec 
         argv,
         mutating: options.mutating ?? false,
         screenshot: options.screenshot ?? false,
+        ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
+        ...(options.timeoutMessage === undefined ? {} : { timeoutMessage: options.timeoutMessage }),
       },
     };
   },
@@ -322,6 +335,11 @@ export const BROWSER_TOOLS: ReadonlyArray<BrowserToolSpec> = [
       [],
     ),
     screenshot: true,
+    // A guest that is not painted (hidden with display:none, off-screen or
+    // 0×0) never answers `Page.captureScreenshot`; the daemon waits on it
+    // well past the CLI's own timeout (spike D). Fail sooner, and say why.
+    timeoutMs: SCREENSHOT_TIMEOUT_MS,
+    timeoutMessage: SCREENSHOT_TIMEOUT_MESSAGE,
     toArgv: (args) => ["screenshot", "{shot}", ...(args.full === true ? ["--full"] : [])],
   }),
 

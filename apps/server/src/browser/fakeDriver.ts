@@ -36,7 +36,10 @@ export const makeFakeDriver = (
   page: FakePage,
   hooks?: {
     /** Failing here is how a test plays back a daemon error (e.g. `tab_gone`). */
-    readonly onExec?: (argv: ReadonlyArray<string>) => Effect.Effect<void, AgentBrowserError>;
+    readonly onExec?: (
+      argv: ReadonlyArray<string>,
+      options?: { readonly timeoutMs?: number },
+    ) => Effect.Effect<void, AgentBrowserError>;
     readonly onInput?: (input: BrowserHumanInput) => Effect.Effect<void>;
     readonly onClose?: () => Effect.Effect<void>;
     /** The mode the driver reports; `owned-chromium` unless a test says otherwise. */
@@ -59,9 +62,10 @@ export const makeFakeDriver = (
 
   const exec = (
     argv: ReadonlyArray<string>,
+    options?: { readonly timeoutMs?: number },
   ): Effect.Effect<Record<string, unknown>, AgentBrowserError> =>
     Effect.gen(function* () {
-      if (hooks?.onExec !== undefined) yield* hooks.onExec(argv);
+      if (hooks?.onExec !== undefined) yield* hooks.onExec(argv, options);
       const [command, ...rest] = argv;
       switch (command) {
         case "open":

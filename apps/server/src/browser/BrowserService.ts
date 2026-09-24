@@ -31,15 +31,26 @@
  *
  * Teardown runs on `thread.deleted`/`thread.archived` — the only writer of
  * durable thread state is the engine, so this service listens for its events
- * rather than being called by the session manager. Closing the driver plus
- * publishing a final `stopped` state is all it does; token revocation is the
- * MCP gateway's job.
+ * rather than being called by the session manager. It waits its turn in the
+ * session's queue, so an in-flight call finishes first; then it closes the
+ * driver and publishes a final `stopped` state. Token revocation is the MCP
+ * gateway's job.
+ *
+ * No agent-browser daemon outlives what started it:
+ *
+ * - At build, `reap` closes whatever a crashed or killed run left in our
+ *   namespace; the first driver waits for it.
+ * - Closing the service's scope — the server shutting down — closes every
+ *   driver at once, bounded to fit inside the desktop's SIGINT→SIGKILL grace.
+ * - A command that times out closes its driver (the driver's close kills a
+ *   daemon that will not answer); the next call opens a fresh one.
  */
 
 import { readFile, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
@@ -57,13 +68,23 @@ import type { BrowserFrame, BrowserHumanInput, BrowserState } from "@OpenAde/con
 import { OrchestrationEngine } from "../orchestration/Engine";
 import { PermissionService } from "../permissions/PermissionService";
 import { BrowserService } from "../rpc/services";
-import { AgentBrowser, BROWSER_DISABLED_MESSAGE } from "./agentBrowser";
+import { AgentBrowser, BROWSER_DISABLED_MESSAGE, isTimeout } from "./agentBrowser";
 import type { BrowserDriver, DriverEvents } from "./driver";
 import { openInAppDriver } from "./inAppDriver";
 import { openOwnedDriver } from "./ownedDriver";
 import { findBrowserTool, type BrowserCallOutcome, type PreparedCall } from "./tools";
 
 const STOPPED_STATUS = "stopped" as const;
+
+/**
+ * How long shutdown gives every driver together to close. The desktop sends
+ * the server SIGINT and SIGKILLs it 5s later; a driver's close is itself
+ * bounded (`close`, then a kill), so this is the backstop inside that grace.
+ */
+const SHUTDOWN_TIMEOUT_MS = 4_000;
+
+/** What a call waiting in a closed thread's queue answers. */
+const CLOSED_MESSAGE = "the thread's browser was closed";
 
 type BrowserMode = BrowserState["mode"];
 
@@ -72,6 +93,8 @@ interface Session {
   readonly state: SubscriptionRef.SubscriptionRef<BrowserState>;
   readonly epoch: Ref.Ref<number>;
   readonly queue: Semaphore.Semaphore;
+  /** Set by teardown and shutdown: nothing opens a driver for it again. */
+  readonly closed: Ref.Ref<boolean>;
   /** The open driver plus the scope its stream/fibers live under. */
   readonly driver: Ref.Ref<{
     readonly driver: BrowserDriver;
@@ -109,6 +132,8 @@ export const makeService = (injected: {
   readonly openDriver: (
     options: OpenDriverOptions,
   ) => Effect.Effect<BrowserDriver, { readonly message: string }, Scope.Scope>;
+  /** Closes what an earlier run left behind; the first driver waits for it. */
+  readonly reap?: Effect.Effect<void>;
 }): Effect.Effect<
   BrowserService["Service"],
   never,
@@ -121,6 +146,14 @@ export const makeService = (injected: {
     const mode = injected.mode;
 
     const sessions = yield* Ref.make(new Map<ThreadId, Session>());
+
+    // The boot reap runs beside the rest of the build rather than holding it
+    // up; a driver opened before it finished would be closed by it.
+    const reaped = yield* Deferred.make<void>();
+    yield* Effect.forkIn(
+      (injected.reap ?? Effect.void).pipe(Effect.ensuring(Deferred.succeed(reaped, undefined))),
+      serviceScope,
+    );
     // Serializes session-record creation across threads of the map.
     const registryLock = yield* Semaphore.make(1);
 
@@ -134,6 +167,7 @@ export const makeService = (injected: {
             state: yield* SubscriptionRef.make(initialState(threadId, mode)),
             epoch: yield* Ref.make(0),
             queue: yield* Semaphore.make(1),
+            closed: yield* Ref.make(false),
             driver: yield* Ref.make<{
               readonly driver: BrowserDriver;
               readonly scope: Scope.Closeable;
@@ -161,6 +195,12 @@ export const makeService = (injected: {
       Effect.gen(function* () {
         const current = yield* Ref.get(session.driver);
         if (current !== null) return current.driver;
+        // A call that queued behind teardown must not open a driver nobody
+        // will close.
+        if (yield* Ref.get(session.closed)) {
+          return yield* Effect.fail<BrowserCallOutcome>({ kind: "error", message: CLOSED_MESSAGE });
+        }
+        yield* Deferred.await(reaped);
 
         yield* SubscriptionRef.update(session.state, (state) => ({
           ...state,
@@ -273,8 +313,12 @@ export const makeService = (injected: {
     const screenshotPath = () =>
       join(tmpdir(), `openade-shot-${Math.random().toString(16).slice(2)}.png`);
 
-    const execOnce = (driver: BrowserDriver, argv: ReadonlyArray<string>) =>
-      driver.exec(argv).pipe(
+    const execOnce = (
+      driver: BrowserDriver,
+      argv: ReadonlyArray<string>,
+      options?: { readonly timeoutMs: number },
+    ) =>
+      driver.exec(argv, options).pipe(
         Effect.map((data) => ({ ok: true as const, data })),
         Effect.catch((error) => Effect.succeed({ ok: false as const, error })),
       );
@@ -307,12 +351,29 @@ export const makeService = (injected: {
               // A `tab_gone` comes back as an error like any other: the in-app
               // driver has already dropped the dead binding, so the agent's
               // next call attaches to the pane's current tab.
-              const executed = yield* execOnce(driver, argv);
+              const executed = yield* execOnce(
+                driver,
+                argv,
+                call.timeoutMs === undefined ? undefined : { timeoutMs: call.timeoutMs },
+              );
               if (!executed.ok) {
-                return {
-                  kind: "error",
-                  message: executed.error.message,
-                } satisfies BrowserCallOutcome;
+                if (!isTimeout(executed.error)) {
+                  return {
+                    kind: "error",
+                    message: executed.error.message,
+                  } satisfies BrowserCallOutcome;
+                }
+                // A daemon stuck on one command is stuck for the next one too.
+                // Close it (a kill if it will not close); the next call opens
+                // a fresh one.
+                const message = call.timeoutMessage ?? executed.error.message;
+                yield* releaseDriver(session);
+                yield* SubscriptionRef.update(session.state, (state) => ({
+                  ...state,
+                  status: "error" as const,
+                  message,
+                }));
+                return { kind: "error", message } satisfies BrowserCallOutcome;
               }
               const data = executed.data;
 
@@ -456,7 +517,14 @@ export const makeService = (injected: {
       Effect.gen(function* () {
         const session = (yield* Ref.get(sessions)).get(threadId);
         if (session === undefined) return;
-        yield* releaseDriver(session);
+        // In the queue: a call in flight finishes before its driver closes,
+        // and whatever queued behind this finds the session closed.
+        yield* session.queue.withPermits(1)(
+          Effect.gen(function* () {
+            yield* Ref.set(session.closed, true);
+            yield* releaseDriver(session);
+          }),
+        );
         yield* SubscriptionRef.set(session.state, {
           ...initialState(session.threadId, mode),
           status: STOPPED_STATUS,
@@ -467,6 +535,19 @@ export const makeService = (injected: {
           return next;
         });
       }).pipe(Effect.ignore);
+
+    // Shutdown closes every driver at once and waits for no queue: a call in
+    // flight is being interrupted with the rest of the server.
+    yield* Effect.addFinalizer(() =>
+      Effect.gen(function* () {
+        const open = [...(yield* Ref.get(sessions)).values()];
+        yield* Effect.forEach(
+          open,
+          (session) => Effect.andThen(Ref.set(session.closed, true), releaseDriver(session)),
+          { concurrency: "unbounded", discard: true },
+        );
+      }).pipe(Effect.timeout(SHUTDOWN_TIMEOUT_MS), Effect.ignore),
+    );
 
     // Thread close tears the browser down — deleted or archived.
     //
@@ -513,10 +594,14 @@ export const layer: Layer.Layer<
       mode: agentBrowser.mode,
       openDriver: ({ threadId, events }) => {
         const session = agentBrowser.session(threadId);
-        return agentBrowser.mode === "in-app"
-          ? openInAppDriver(session)
-          : openOwnedDriver(session, events);
+        const opened =
+          agentBrowser.mode === "in-app"
+            ? openInAppDriver(session)
+            : openOwnedDriver(session, events);
+        // An open that failed part-way may have started the daemon.
+        return opened.pipe(Effect.tapError(() => session.shutdown));
       },
+      reap: agentBrowser.reap,
     });
   }),
 );

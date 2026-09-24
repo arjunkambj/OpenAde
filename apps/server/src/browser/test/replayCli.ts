@@ -39,6 +39,9 @@ export interface ReplayedRun {
   readonly env: Readonly<Record<string, string>>;
 }
 
+/** The namespace every replayed run carries, as the server's would. */
+const REPLAY_NAMESPACE = "openade-replay";
+
 /** A bridge of the right shape; the recordings scrubbed the real key and port. */
 const REPLAY_BRIDGE = { base: "ws://127.0.0.1:47000", key: "0".repeat(64) } as const;
 
@@ -76,6 +79,7 @@ export const replayCli = (scenario: string) => {
     version: "0.38.1",
     bridge: REPLAY_BRIDGE,
     env: { HOME: "/home/someone", PATH: "/usr/bin" },
+    namespace: REPLAY_NAMESPACE,
     run,
   });
 
