@@ -87,7 +87,7 @@ export function AgentBrowserIndicator({ onShow }: { readonly onShow: () => void 
   return (
     <span
       role="status"
-      className="inline-flex min-w-0 shrink items-center gap-1.5 rounded-full bg-hover py-0.5 pr-0.5 pl-2 type-micro text-muted-foreground"
+      className="inline-flex min-w-0 shrink items-center gap-1.5 rounded-full bg-hover py-0.5 pr-1 pl-2 type-micro text-muted-foreground"
     >
       <Globe variant="bold" className="size-3 shrink-0 animate-pulse" />
       <span className="truncate">Agent is using the browser</span>
