@@ -3,13 +3,18 @@
  * cannot get from the server: every output item reaches the callback even when
  * several arrive in one chunk, an overflow or a dropped socket reattaches with
  * a fresh snapshot, a terminal the server forgot is reported once as `gone`,
- * the list follows reconnects and opens, and input reaches the shell in order.
+ * the list follows reconnects and opens, input reaches the shell in order, and
+ * a failed write does not leave the rest of a paste to arrive later.
  */
 
 import { describe, expect, it } from "@effect/vitest";
 import { makeTerminalId, makeThreadId } from "@OpenAde/contracts/ids";
 import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
-import type { TerminalStreamItem, TerminalSummary } from "@OpenAde/contracts/terminal";
+import {
+  TERMINAL_WRITE_MAX_CHARS,
+  type TerminalStreamItem,
+  type TerminalSummary,
+} from "@OpenAde/contracts/terminal";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -77,6 +82,10 @@ interface Script {
   readonly input: Array<string>;
   /** When set, the first write waits on it, so a test can queue more behind it. */
   gate?: { entered: Deferred.Deferred<void>; release: Deferred.Deferred<void> };
+  /** Failures the next writes end in, one each, recorded as `failed <length>`. */
+  readonly writeFailures: Array<unknown>;
+  /** Called after each write or resize is recorded, failed or not. */
+  readonly onInput: Set<() => void>;
 }
 
 const newScript = (subscriptions: Array<Subscription> = []): Script => ({
@@ -85,7 +94,29 @@ const newScript = (subscriptions: Array<Subscription> = []): Script => ({
   listCalls: 0,
   terminals: [],
   input: [],
+  writeFailures: [],
+  onInput: new Set(),
 });
+
+/**
+ * Resolves once `count` writes and resizes have reached the stub. A failed run
+ * leaves the fn's atom a failure, so this waits on the stub, not the atom.
+ */
+const awaitInput = (script: Script, count: number): Promise<void> =>
+  new Promise((resolve) => {
+    const check = () => {
+      if (script.input.length < count) return;
+      script.onInput.delete(check);
+      resolve();
+    };
+    script.onInput.add(check);
+    check();
+  });
+
+const record = (script: Script, line: string) => {
+  script.input.push(line);
+  for (const listener of script.onInput) listener();
+};
 
 const fakeClient = (script: Script): OpenAdeRpcClient =>
   new Proxy({} as OpenAdeRpcClient, {
@@ -123,12 +154,16 @@ const fakeClient = (script: Script): OpenAdeRpcClient =>
                 yield* Deferred.succeed(gate.entered, undefined);
                 yield* Deferred.await(gate.release);
               }
-              script.input.push(`write ${payload.data}`);
+              if (script.writeFailures.length > 0) {
+                record(script, `failed ${payload.data.length}`);
+                return yield* Effect.fail(script.writeFailures.shift());
+              }
+              record(script, `write ${payload.data}`);
             });
         case "terminal.resize":
           return (payload: { cols: number; rows: number }) =>
             Effect.sync(() => {
-              script.input.push(`resize ${payload.cols}x${payload.rows}`);
+              record(script, `resize ${payload.cols}x${payload.rows}`);
             });
         default:
           return () => Effect.die(`unimplemented rpc ${String(key)}`);
@@ -311,6 +346,51 @@ describe("terminal atoms", () => {
       );
       // The queued keys leave together after the first; only the last size is sent.
       expect(script.input).toEqual(["write l", "resize 120x40", "write s\r"]);
+    }),
+  );
+
+  /** A paste one write cannot hold, whose first write waits on the gate. */
+  const pasteThroughGate = (script: Script) =>
+    Effect.gen(function* () {
+      const ref = newRef();
+      const entered = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      script.gate = { entered, release };
+      const atoms = yield* runtimeWith(script);
+      atoms.registry.mount(atoms.writeTerminal);
+      atoms.registry.set(atoms.writeTerminal, {
+        ...ref,
+        data: "p".repeat(TERMINAL_WRITE_MAX_CHARS + 5),
+      });
+      yield* Deferred.await(entered);
+      return { ...atoms, ref, release };
+    });
+
+  it.live("a failed write drops the rest of its paste but not what was typed after", () =>
+    Effect.gen(function* () {
+      const script = newScript();
+      script.writeFailures.push({ _tag: "RpcClientError", message: "socket closed" });
+      const { registry, writeTerminal, ref, release } = yield* pasteThroughGate(script);
+      registry.set(writeTerminal, { ...ref, data: "y" });
+      yield* Deferred.succeed(release, undefined);
+
+      yield* Effect.promise(() => awaitInput(script, 2));
+      expect(script.input).toEqual([`failed ${TERMINAL_WRITE_MAX_CHARS}`, "write y"]);
+    }),
+  );
+
+  it.live("a write answered not-found drops everything queued for that terminal", () =>
+    Effect.gen(function* () {
+      const script = newScript();
+      script.writeFailures.push(new OpenAdeRpcError({ code: "not-found", message: "closed" }));
+      const { registry, writeTerminal, ref, release } = yield* pasteThroughGate(script);
+      registry.set(writeTerminal, { ...ref, data: "y" });
+      yield* Deferred.succeed(release, undefined);
+      yield* Effect.promise(() => awaitInput(script, 1));
+
+      registry.set(writeTerminal, { ...ref, data: "z" });
+      yield* Effect.promise(() => awaitInput(script, 2));
+      expect(script.input).toEqual([`failed ${TERMINAL_WRITE_MAX_CHARS}`, "write z"]);
     }),
   );
 });

@@ -1735,9 +1735,11 @@ each of them to the shell as fresh input.
 
 Input goes through one lane per terminal, so keys typed while a write is in
 flight follow it in order as the next write, split at `TERMINAL_WRITE_MAX_CHARS`
-if a paste is larger. The xterm fits itself to the drawer and sends a resize,
-debounced by 100ms and only when the grid changed; only the latest pending size
-is sent.
+if a paste is larger. A write that fails takes with it the input queued behind
+it when it left, the rest of a split paste above all, so that never reaches the
+shell later with the next key; a terminal answered `not-found` drops its whole
+lane. The xterm fits itself to the drawer and sends a resize, debounced by
+100ms and only when the grid changed; only the latest pending size is sent.
 
 The theme is read from our own tokens at runtime
 (`apps/web/src/components/terminal/terminal-theme.ts`): background,

@@ -141,6 +141,14 @@ const nextWrite = (data: string): string => {
  * lock sends everything pending, so keys typed while a write is in flight
  * leave together as the next write, in order. A resize keeps only the latest
  * size.
+ *
+ * A failed call loses what it carried, and on purpose takes with it the input
+ * that was already queued behind it when it left — the rest of a paste split
+ * across writes, above all — since that was meant to follow what was lost and
+ * would otherwise reach the shell with the user's next key, possibly much
+ * later. Input typed while the call was in flight has its own call queued and
+ * is still sent. A terminal the server answers `not-found` for is gone for
+ * good, so its whole lane goes.
  */
 const makeInputLanes = () => {
   const lock = Semaphore.makeUnsafe(1);
@@ -165,14 +173,31 @@ const makeInputLanes = () => {
           lane.size = null;
           yield* client["terminal.resize"]({ ...ref, ...size });
         } else if (lane.data.length > 0) {
-          const data = nextWrite(lane.data);
-          lane.data = lane.data.slice(data.length);
-          yield* client["terminal.write"]({ ...ref, data });
+          const current = lane;
+          const data = nextWrite(current.data);
+          current.data = current.data.slice(data.length);
+          const queuedBehind = current.data.length;
+          yield* client["terminal.write"]({ ...ref, data }).pipe(
+            Effect.tapError(() =>
+              Effect.sync(() => {
+                current.data = current.data.slice(queuedBehind);
+              }),
+            ),
+          );
         } else {
           pending.delete(key);
         }
       }
-    }).pipe(lock.withPermits(1));
+    }).pipe(
+      Effect.tapError((error) =>
+        Effect.sync(() => {
+          const lane = pending.get(key);
+          if (lane === undefined) return;
+          if (isGone(error) || (lane.data.length === 0 && lane.size === null)) pending.delete(key);
+        }),
+      ),
+      lock.withPermits(1),
+    );
 
   const write = (ref: TerminalRef, data: string) =>
     Effect.suspend(() => {
