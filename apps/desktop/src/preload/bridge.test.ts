@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 import { POINTER_CHANNEL } from "../main/browser/agentPointer";
 import { CHORDS_CHANNEL, COMMAND_CHANNEL } from "../main/browser/guestChords";
 import {
+  CAPTURE_CHANNEL,
   CLEAR_THREAD_CHANNEL,
   NO_TAB_HOST,
   TAB_ANSWER_CHANNEL,
@@ -263,5 +264,14 @@ describe("makeOpenAdeBridge", () => {
     fake.push(POINTER_CHANNEL, { ...pointer, kind: "move" });
     expect(seen).toEqual([pointer]);
     expect(fake.listenerCount(POINTER_CHANNEL)).toBe(0);
+  });
+
+  it("asks main for a pane tab's PNG by its guest id", async () => {
+    const fake = fakeIpc();
+    const png = new Uint8Array([0x89, 0x50]);
+    fake.answer(CAPTURE_CHANNEL, png);
+    const pane = makeOpenAdeBridge(fake.ipc).browserPane;
+    await expect(pane.capture(12)).resolves.toBe(png);
+    expect(fake.invokes).toEqual([{ channel: CAPTURE_CHANNEL, args: [12] }]);
   });
 });

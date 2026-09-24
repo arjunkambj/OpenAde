@@ -28,6 +28,8 @@ export interface WebviewElement extends HTMLElement {
   getZoomLevel(): number;
   setZoomLevel(level: number): void;
   openDevTools(): void;
+  /** Runs `code` in the page; resolves with its (structured-cloned) result. */
+  executeJavaScript(code: string): Promise<unknown>;
 }
 
 const views = new Map<string, WebviewElement>();

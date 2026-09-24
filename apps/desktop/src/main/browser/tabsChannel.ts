@@ -24,6 +24,11 @@ export const TAB_ANSWER_CHANNEL = "openade:browser-tab-answer";
  * preload imports this module and `./clearThread` pulls in `node:crypto`.
  */
 export const CLEAR_THREAD_CHANNEL = "openade:browser-clear-thread";
+/**
+ * The window asks main for a PNG of a pane tab, by its guest's `webContents`
+ * id — the pane's "screenshot to chat". Only a pane guest is captured.
+ */
+export const CAPTURE_CHANNEL = "openade:browser-capture";
 
 /** What a window with no tab host answers; the preload sends it on the renderer's behalf. */
 export const NO_TAB_HOST = "the OpenAde window cannot open browser tabs";

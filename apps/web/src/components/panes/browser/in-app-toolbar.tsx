@@ -1,6 +1,6 @@
 /**
- * The in-app pane's chrome above the page: the tab strip, the address bar
- * and the "more" menu, all acting on the thread's tabs — the webviews the
+ * The in-app pane's chrome above the page: the tab strip, the address bar,
+ * the element picker and screenshot (`./page-actions`) and the "more" menu, all acting on the thread's tabs — the webviews the
  * browser host renders — directly (`./tab-actions`).
  *
  * It also owns the pane's keys. `browser.focusAddress`, `browser.reload`,
@@ -31,6 +31,7 @@ import {
 import { AddressBar } from "./address-bar";
 import { isPaneUrl } from "./address";
 import { MoreMenu } from "./more-menu";
+import { PageActions } from "./page-actions";
 import { TabStrip } from "./tab-strip";
 import type { SuggestionSource } from "./use-suggestions";
 import {
@@ -160,6 +161,7 @@ export function InAppToolbar({ threadId, state, dispatch, suggest }: InAppToolba
             <TooltipContent>Reset zoom</TooltipContent>
           </Tooltip>
         )}
+        <PageActions threadId={threadId} tab={tab} />
         <MoreMenu tab={tab} onZoom={zoom} />
       </AddressBar>
     </div>

@@ -15,13 +15,13 @@
  * - the bridge registry (`./browser/guests.ts`), which attaches its debugger
  *   when the bridge is running.
  * The window answers tab requests (`./browser/tabsChannel.ts`) on its own
- * channel, and asks for a deleted thread's partition to be cleared
- * (`./browser/clearThread.ts`).
+ * channel, asks for a deleted thread's partition to be cleared
+ * (`./browser/clearThread.ts`), and asks for a PNG of a pane tab.
  */
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-import { app, BrowserWindow, dialog, ipcMain, session, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, session, shell, webContents } from "electron";
 import type { WebContents } from "electron";
 
 import type { ServerSupervisor } from "../backend/ServerSupervisor";
@@ -37,7 +37,12 @@ import {
 } from "./browser/guestChords";
 import { makeGuestInputRelay } from "./browser/guestInput";
 import { popupUrl, type GuestRegistry } from "./browser/guests";
-import { CLEAR_THREAD_CHANNEL, TAB_ANSWER_CHANNEL, type TabsChannel } from "./browser/tabsChannel";
+import {
+  CAPTURE_CHANNEL,
+  CLEAR_THREAD_CHANNEL,
+  TAB_ANSWER_CHANNEL,
+  type TabsChannel,
+} from "./browser/tabsChannel";
 import { registerServerStateBridge } from "./serverStateBridge";
 
 /** The browser pane's main-process side, built in `./index.ts`. */
@@ -83,6 +88,17 @@ export function registerIpc(supervisor: ServerSupervisor, pane: PaneGuests) {
   });
   ipcMain.handle(CLEAR_THREAD_CHANNEL, async (_event, threadId: unknown) => {
     await clearThread(threadId);
+  });
+  // Only the window may ask, and only for a pane guest: never the window itself.
+  ipcMain.handle(CAPTURE_CHANNEL, async (event, wcId: unknown) => {
+    if (event.sender.getType() !== "window") throw new Error("not a window");
+    if (typeof wcId !== "number" || pane.guests.threadOf(wcId) === null) {
+      throw new Error("not a browser tab");
+    }
+    const guest = webContents.fromId(wcId);
+    if (guest === undefined || guest.isDestroyed()) throw new Error("the tab is closed");
+    const image = await guest.capturePage();
+    return new Uint8Array(image.toPNG());
   });
   app.on("browser-window-created", (_event, win) => {
     const id = win.webContents.id;

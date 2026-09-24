@@ -136,6 +136,8 @@ declare global {
           handler: (request: BrowserPaneTabRequest) => Promise<{ readonly wcId?: number }>,
         ) => () => void;
         readonly clearThread?: (threadId: string) => Promise<void>;
+        /** A PNG of the pane tab whose guest is `wcId`. */
+        readonly capture?: (wcId: number) => Promise<Uint8Array>;
         /** Hands the shell the `browser.*` chords to match inside pane pages. */
         readonly setChords?: (chords: ReadonlyArray<BrowserPaneChord>) => Promise<void>;
         /** A pane chord pressed while a pane page had focus. */

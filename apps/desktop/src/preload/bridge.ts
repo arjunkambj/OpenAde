@@ -17,6 +17,7 @@ import {
   type GuestCommandPayload,
 } from "../main/browser/guestChords";
 import {
+  CAPTURE_CHANNEL,
   CLEAR_THREAD_CHANNEL,
   NO_TAB_HOST,
   TAB_ANSWER_CHANNEL,
@@ -157,6 +158,9 @@ export const makeOpenAdeBridge = (ipc: PreloadIpc) => {
       onInput: (callback: (payload: BrowserPaneGuestInput) => void): (() => void) =>
         subscribe<BrowserPaneGuestInput>(ipc, "openade:browser-input", callback),
       serveTabs,
+      /** A PNG of the pane tab whose guest is `wcId`, as it is drawn now. */
+      capture: (wcId: number): Promise<Uint8Array> =>
+        ipc.invoke(CAPTURE_CHANNEL, wcId) as Promise<Uint8Array>,
       clearThread: async (threadId: string): Promise<void> => {
         await ipc.invoke(CLEAR_THREAD_CHANNEL, threadId);
       },
