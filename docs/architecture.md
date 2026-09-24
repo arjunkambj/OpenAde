@@ -238,8 +238,10 @@ The renderer. TanStack Router routes under `apps/web/src/routes`, state through
 
 The shell is a left sidebar (projects → threads), the thread column (the
 timeline, then the composer with any open approval, question or plan card
-docked above its input) and a right dock with three tabs: **changes** (a turn
-selector over `git.diff`), **browser** (the pane) and **files** (a search
+docked above its input) and a right dock with three tabs: **changes**
+(`git.diff` in three scopes — this turn's checkpoints with the restore
+controls, the branch against its base through `mergeBase`, and the uncommitted
+working tree — with a split/unified toggle), **browser** (the pane) and **files** (a search
 over `files.search` that drills into directories and previews a file through
 `files.read`, paged by line offset because a window is capped by characters,
 not lines). When less than 640px remains beside the sidebar, the dock overlays
@@ -282,8 +284,8 @@ instance; `apps/web/src/lib/client-runtime.tsx` publishes it to React
 
 Presentation state that never reaches the server lives in
 `apps/web/src/state/ui.ts` and the browser's own storage — row disclosure, dock
-width, the per-thread dock tab, each thread's last pull request link, and the
-"last seen" stamp behind the unread dot.
+width, the per-thread dock tab, each thread's last pull request link, the
+Changes pane's scope and diff style, and the "last seen" stamp behind the unread dot.
 There is no `unread` flag on the wire: whether this window has looked at a
 thread is not the server's business, and a thread with no stamp is deliberately
 not unread.
@@ -617,7 +619,9 @@ creates a branch only for a local thread; a worktree thread's branch is its
 own. Beside it, the git actions control
 (`apps/web/src/components/git/git-actions-control.tsx`) commits, pushes and
 opens a pull request from the thread's root, as stacked steps planned by
-`apps/web/src/lib/git-actions.ts`.
+`apps/web/src/lib/git-actions.ts`. The Changes pane's "Branch vs base" scope
+compares the thread's root with the worktree's `baseBranch`, or with the
+repository's default branch for a local thread.
 Deleting such a thread is where one goes: the delete confirmation offers to
 remove the worktree after the delete is accepted, never with `force` unless
 the user confirms twice (`apps/web/src/components/sidebar/delete-thread.ts`).
@@ -1361,7 +1365,7 @@ the client in the terminal `incompatible` state.
 | `attachments.stage`           | call   | Uploads one composer image; returns a reference, never echoes bytes                 |
 | `attachments.read`            | call   | Reads a staged image back for a thumbnail                                           |
 | `git.status`                  | call   | Branch, ahead/behind and changed paths; `threadId` reads the thread's root          |
-| `git.diff`                    | call   | Worktree against HEAD or a merge base, or between two checkpoint refs               |
+| `git.diff`                    | call   | Worktree against HEAD or a `mergeBase`, or between two refs; `threadId` as above    |
 | `git.branches`                | call   | Local and remote branches, the current and default branch, the remotes              |
 | `git.branch.create`           | call   | Cuts an untracked branch, optionally switching to it; answers the new list          |
 | `git.checkout`                | call   | Switches branch; `conflict` on a dirty tracked tree or a running turn in that root  |

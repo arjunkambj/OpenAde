@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   emptyComposerDraft,
+  parseChangesScope,
   parseCollapsedProjects,
+  parseDiffStyle,
   parseDockTabs,
   parsePullRequestLinks,
   parseWorkspaceModes,
@@ -158,5 +160,35 @@ describe("pull request link memory", () => {
         JSON.stringify({ t1: URL_7, t2: 7, t3: "file:///etc/passwd", t4: "javascript:alert(1)" }),
       ),
     ).toEqual({ t1: URL_7 });
+  });
+});
+
+describe("parseChangesScope", () => {
+  it("reads each scope back", () => {
+    expect(parseChangesScope("turn")).toBe("turn");
+    expect(parseChangesScope("branch")).toBe("branch");
+    expect(parseChangesScope("uncommitted")).toBe("uncommitted");
+  });
+
+  it("opens on This turn when nothing, or something unknown, was stored", () => {
+    expect(parseChangesScope(null)).toBe("turn");
+    expect(parseChangesScope(undefined)).toBe("turn");
+    expect(parseChangesScope("")).toBe("turn");
+    expect(parseChangesScope('"branch"')).toBe("turn");
+    expect(parseChangesScope("Branch")).toBe("turn");
+  });
+});
+
+describe("parseDiffStyle", () => {
+  it("reads both styles back", () => {
+    expect(parseDiffStyle("split")).toBe("split");
+    expect(parseDiffStyle("unified")).toBe("unified");
+  });
+
+  it("falls back to unified for anything else", () => {
+    expect(parseDiffStyle(null)).toBe("unified");
+    expect(parseDiffStyle(undefined)).toBe("unified");
+    expect(parseDiffStyle("side-by-side")).toBe("unified");
+    expect(parseDiffStyle("{}")).toBe("unified");
   });
 });

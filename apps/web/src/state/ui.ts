@@ -4,8 +4,9 @@
  * Row disclosure lives in a single override map keyed by itemId so expanding a
  * tool row survives virtualization (the row unmounts, the state does not).
  * Sidebar and dock widths, the per-thread dock tab, the start screen's
- * per-project workspace mode and each thread's last pull request link persist
- * through localStorage — durable layout and conveniences, nothing more.
+ * per-project workspace mode, each thread's last pull request link and the
+ * Changes pane's scope and diff style persist through localStorage — durable
+ * layout and conveniences, nothing more.
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
@@ -570,3 +571,72 @@ export const usePullRequestLink = (threadId: string) => {
   );
   return [url, remember] as const;
 };
+
+/**
+ * One remembered choice out of a fixed set, stored as the plain string. A
+ * stored value outside the set — written by an older build, or by hand —
+ * reads as the default rather than as a choice the UI cannot show.
+ */
+const parseChoice =
+  <A extends string>(choices: ReadonlyArray<A>, fallback: A) =>
+  (raw: string | null | undefined): A =>
+    choices.find((choice) => choice === raw) ?? fallback;
+
+const readChoice = <A extends string>(key: string, parse: (raw: string | null) => A): A => {
+  try {
+    return parse(globalThis.localStorage?.getItem(key) ?? null);
+  } catch {
+    return parse(null);
+  }
+};
+
+/** `[value, remember]` over a choice's atom, mirroring each write to localStorage. */
+const useRememberedChoice = <A extends string>(atom: Atom.Writable<A>, key: string) => {
+  const value = useAtomValue(atom);
+  const setValue = useAtomSet(atom);
+  const remember = React.useCallback(
+    (next: A) => {
+      try {
+        globalThis.localStorage?.setItem(key, next);
+      } catch {
+        // localStorage can throw (private mode, quota); the atom still updates.
+      }
+      setValue(next);
+    },
+    [setValue, key],
+  );
+  return [value, remember] as const;
+};
+
+/**
+ * What the Changes pane compares: this turn's checkpoints (the turn selector),
+ * the branch against its base, or the uncommitted working tree.
+ */
+export type ChangesScope = "turn" | "branch" | "uncommitted";
+
+/** Absent or unknown storage means "This turn", what the pane has always opened on. */
+export const parseChangesScope = parseChoice<ChangesScope>(
+  ["turn", "branch", "uncommitted"],
+  "turn",
+);
+
+/** How a patch is laid out: one column, or old and new side by side. */
+export type DiffStyle = "unified" | "split";
+
+/** Absent or unknown storage means unified, the layout the timeline uses. */
+export const parseDiffStyle = parseChoice<DiffStyle>(["unified", "split"], "unified");
+
+const CHANGES_SCOPE_KEY = "openade:changes-scope";
+const DIFF_STYLE_KEY = "openade:diff-style";
+
+const changesScopeAtom = Atom.make<ChangesScope>(readChoice(CHANGES_SCOPE_KEY, parseChangesScope));
+const diffStyleAtom = Atom.make<DiffStyle>(readChoice(DIFF_STYLE_KEY, parseDiffStyle));
+
+/**
+ * `[scope, setScope]` for the Changes pane. One choice for every thread: it is
+ * how someone likes to review, not a property of the thread.
+ */
+export const useChangesScope = () => useRememberedChoice(changesScopeAtom, CHANGES_SCOPE_KEY);
+
+/** `[style, setStyle]` for the Changes pane's diffs; timeline rows stay unified. */
+export const useDiffStyle = () => useRememberedChoice(diffStyleAtom, DIFF_STYLE_KEY);

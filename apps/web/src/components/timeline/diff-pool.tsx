@@ -6,15 +6,15 @@
  */
 
 import { PatchDiff, WorkerPoolContextProvider } from "@pierre/diffs/react";
-import type { FileDiffOptions } from "@pierre/diffs/react";
 import DiffsWorker from "@pierre/diffs/worker/worker.js?worker";
 import * as React from "react";
 
 import { useTheme } from "@/components/theme-provider";
 import { hasHunkHeader } from "@/lib/diff-stats";
 import { cn } from "@/lib/utils";
+import type { DiffStyle } from "@/state/ui";
 
-const DIFF_THEMES = { light: "pierre-light", dark: "pierre-dark" } as const;
+import { DIFF_THEMES, inlineDiffOptions } from "./diff-options";
 
 const poolOptions = {
   workerFactory: () => new DiffsWorker(),
@@ -31,17 +31,20 @@ export function DiffWorkerPoolProvider({ children }: { children: React.ReactNode
   );
 }
 
-export function InlineDiff({ patch, className }: { patch: string; className?: string }) {
+/** `diffStyle` defaults to unified; only the Changes pane offers split. */
+export function InlineDiff({
+  patch,
+  className,
+  diffStyle,
+}: {
+  patch: string;
+  className?: string;
+  diffStyle?: DiffStyle;
+}) {
   const { resolvedTheme } = useTheme();
-  const options = React.useMemo<FileDiffOptions<undefined, undefined>>(
-    () => ({
-      theme: DIFF_THEMES,
-      themeType: resolvedTheme === "dark" ? "dark" : "light",
-      diffStyle: "unified",
-      disableFileHeader: true,
-      overflow: "scroll",
-    }),
-    [resolvedTheme],
+  const options = React.useMemo(
+    () => inlineDiffOptions(resolvedTheme === "dark" ? "dark" : "light", diffStyle),
+    [resolvedTheme, diffStyle],
   );
   // `PatchDiff` renders an empty element for a patch it cannot parse, which
   // reads exactly like "no changes". Show the text the server actually sent

@@ -1,188 +1,64 @@
 /**
  * The dock's Changes tab — the M4 surface over `git.status` and `git.diff`.
  *
- * A turn selector picks the comparison (working tree, one turn's checkpoint,
- * or checkpoint to checkpoint); the diff for that comparison is the file list,
- * because `GitDiff.files` already carries the path, the `+`/`-` counts and the
- * per-file patch. Each patch renders through `InlineDiff`, so highlighting
- * stays on the shared worker pool and the dock never blocks the main thread.
+ * The scope bar picks what to compare (`selection.ts`): this turn's
+ * checkpoints through the turn selector, the branch against its base, or the
+ * uncommitted working tree. `ChangesList` renders that comparison's files.
+ * Every read runs in the thread's own root — its worktree, when it has one.
  *
  * `git.status` is read alongside it for the branch line and, because the server
  * answers a missing project or a non-repository root with an empty status
  * rather than an error, to tell "this is not a git repo" from "nothing changed".
  *
- * Restore lives behind `RestoreCheckpointDialog` and is disabled while a turn
- * is running — the server rejects it anyway, but a disabled button with a
- * reason beats a rejection after the fact.
+ * Restore lives behind `RestoreCheckpointDialog`, only in the "This turn"
+ * scope, and is disabled while a turn is running — the server rejects it
+ * anyway, but a disabled button with a reason beats a rejection after the
+ * fact.
  *
- * Nothing here refetches on a command receipt. The git atoms only fetch on a
- * connected epoch, and both writes that move the worktree — a restore and an
- * agent turn — finish after the command that started them: the checkpoint
- * reactor runs `hook.restore` off the durable `thread.checkpoint.restored`
- * event, and a turn touches files until it completes. So the pane watches the
- * thread snapshot instead: a restore records the sequence it was accepted at
- * and refetches once the snapshot passes it, and a turn refetches when
- * `currentTurnId` falls back to null.
+ * Refresh — the button, a landed restore and a finished turn
+ * (`use-changes-refresh.ts`) — rereads every git read of the project, so the
+ * header's branch picker and git actions follow along with the pane.
  */
 
 import * as React from "react";
 
-import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
+import { RegistryContext, useAtomValue } from "@effect/atom-react";
 import type { ThreadDetailView } from "@OpenAde/client-runtime/clientState";
-import { isRepoless, type GitQuery } from "@OpenAde/client-runtime/gitAtoms";
+import type { GitBranchList } from "@OpenAde/contracts/git";
 import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
-import type { GitDiff, GitDiffFile, GitStatus } from "@OpenAde/contracts/rpc";
-import { Button } from "@OpenAde/ui/components/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import { AsyncResult } from "effect/unstable/reactivity";
+import type { GitStatus } from "@OpenAde/contracts/rpc";
 
 import { PaneMessage } from "@/components/panes/files/pane-message";
-import { InlineDiff } from "@/components/timeline/diff-pool";
-import { DisclosureRow } from "@/components/timeline/row-shell";
 import { turnInFlight } from "@/lib/turn";
 import { useConnectionState } from "@/state/hooks";
-import { useRowDisclosure } from "@/state/ui";
+import { useChangesScope, useDiffStyle } from "@/state/ui";
 
+import { BaseLine, BranchLine, RestoreProgress } from "./changes-header";
+import { ChangesList, NotARepository, queryValue } from "./changes-list";
 import { useGitAtoms } from "./git-atoms";
 import { RestoreCheckpointDialog } from "./restore-dialog";
-import { HEAD_VALUE, WORKTREE_VALUE, checkpointLabel, diffRangeFor, resolveRef } from "./selection";
-import { TurnSelector } from "./turn-selector";
+import { ScopeBar } from "./scope-bar";
 import {
-  type HoneyIcon,
-  AlertTriangle,
-  Edit,
-  FileAdd,
-  FileRemove,
-  GitBranch,
-  GitDiff as GitDiffIcon,
-  Repeat,
-  Spinner,
-  WifiOff,
-} from "@honeyicons/react";
-
-const KIND_ICON: Record<GitDiffFile["kind"], HoneyIcon> = {
-  create: FileAdd,
-  edit: Edit,
-  delete: FileRemove,
-};
-
-function FileRow({ file, rangeKey }: { file: GitDiffFile; rangeKey: string }) {
-  const rowId = `changes-${rangeKey}-${file.path}`;
-  // `DisclosureRow` keeps its content mounted, so mounting every `InlineDiff`
-  // up front would hand the whole patch set to the two-worker highlight pool
-  // the moment the list renders — and a working-tree diff against HEAD can be
-  // hundreds of files and megabytes of patch text. Read the same disclosure
-  // state the row uses and render a placeholder until it is opened;
-  // non-undefined, so the row still counts as expandable.
-  const [open] = useRowDisclosure(rowId);
-  return (
-    <DisclosureRow
-      rowId={rowId}
-      icon={KIND_ICON[file.kind]}
-      label={
-        <span className="font-mono text-xs">
-          {file.oldPath === undefined ? file.path : `${file.oldPath} → ${file.path}`}
-        </span>
-      }
-      meta={
-        file.additions > 0 || file.deletions > 0 ? (
-          <span className="ml-1 inline-flex shrink-0 gap-1.5 font-mono text-xs tabular-nums">
-            {file.additions > 0 ? <span className="text-added">+{file.additions}</span> : null}
-            {file.deletions > 0 ? <span className="text-removed">−{file.deletions}</span> : null}
-          </span>
-        ) : null
-      }
-    >
-      {file.diff === "" ? undefined : open ? <InlineDiff patch={file.diff} /> : <div />}
-    </DisclosureRow>
-  );
-}
-
-/** The branch line: what the worktree is on, and how far it has drifted. */
-function BranchLine({ status, onRefresh }: { status: GitStatus | null; onRefresh: () => void }) {
-  return (
-    <div className="flex h-7 items-center gap-1.5 type-micro text-muted-foreground">
-      <GitBranch variant="bold" className="size-3.5 shrink-0" />
-      <span className="min-w-0 truncate">{status?.branch ?? "no branch"}</span>
-      {status !== null && status.ahead > 0 ? <span>↑{status.ahead}</span> : null}
-      {status !== null && status.behind > 0 ? <span>↓{status.behind}</span> : null}
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Refresh changes"
-              className="ml-auto"
-              onClick={onRefresh}
-            />
-          }
-        >
-          <Repeat variant="bold" />
-        </TooltipTrigger>
-        <TooltipContent>Refresh changes</TooltipContent>
-      </Tooltip>
-    </div>
-  );
-}
-
-/**
- * What the pane renders from one git atom.
- *
- * `GitQuery` covers the RPC's own outcomes, which the atom turns into values so
- * a bad ref does not kill the stream. `broken` is the case above that: the
- * atom's error channel, which is inhabited by defects the stream cannot catch
- * (a client that dies on every `git.*` call, for one). There is no value to
- * show and no reconnect will produce one, so it has to read as an error with a
- * retry rather than as a load that never finishes.
- */
-type PaneQuery<A> = GitQuery<A> | { readonly _tag: "broken" };
-
-const BROKEN = { _tag: "broken" } as const;
-
-/** The state of a git atom, or `null` while it has not answered yet. */
-const queryValue = <A,>(
-  result: AsyncResult.AsyncResult<GitQuery<A>, unknown>,
-): PaneQuery<A> | null =>
-  AsyncResult.isSuccess(result) ? result.value : AsyncResult.isFailure(result) ? BROKEN : null;
-
-/**
- * The tail of a restore: running, or the reason git refused the last one. The
- * failure line stays up until another restore is ordered — it is the only
- * place that message is ever shown, and it arrives long after the dialog that
- * started the restore has closed.
- */
-function RestoreProgress({
-  restoring,
-  failure,
-}: {
-  restoring: CheckpointSummary | null;
-  failure: { readonly message: string } | null;
-}) {
-  if (restoring !== null) {
-    return (
-      <div role="status" className="flex items-center gap-2 type-micro text-muted-foreground">
-        <Spinner variant="bold" className="size-3.5" />
-        <span className="min-w-0 truncate">Restoring the worktree…</span>
-      </div>
-    );
-  }
-  if (failure !== null) {
-    return (
-      <div role="alert" className="flex items-start gap-2 type-micro text-removed">
-        <AlertTriangle variant="bold" className="mt-px size-3.5 shrink-0" />
-        <span className="min-w-0">Restore failed: {failure.message}</span>
-      </div>
-    );
-  }
-  return null;
-}
+  HEAD_VALUE,
+  WORKTREE_VALUE,
+  branchBaseFor,
+  checkpointLabel,
+  diffRangeFor,
+  resolveRef,
+  type ChangesSelection,
+} from "./selection";
+import { TurnSelector } from "./turn-selector";
+import { useChangesRefresh } from "./use-changes-refresh";
+import { GitBranch, Spinner, WifiOff } from "@honeyicons/react";
 
 export function ChangesPane({ snapshot }: { snapshot: ThreadDetailView }) {
   const atoms = useGitAtoms();
+  const registry = React.useContext(RegistryContext);
   const connection = useConnectionState();
+  const connected = connection.status === "connected";
   const checkpoints = snapshot.checkpoints;
+  const [changesScope, setChangesScope] = useChangesScope();
+  const [diffStyle, setDiffStyle] = useDiffStyle();
 
   const [baseChoice, setBaseChoice] = React.useState(HEAD_VALUE);
   const [targetChoice, setTargetChoice] = React.useState(WORKTREE_VALUE);
@@ -190,43 +66,31 @@ export function ChangesPane({ snapshot }: { snapshot: ThreadDetailView }) {
   const base = resolveRef(baseChoice, checkpoints, HEAD_VALUE);
   const target = resolveRef(targetChoice, checkpoints, WORKTREE_VALUE);
 
-  const scope = { projectId: snapshot.projectId, threadId: snapshot.threadId };
-  const range = diffRangeFor(scope, base, target);
+  const projectId = snapshot.projectId;
+  const scope = { projectId, threadId: snapshot.threadId };
+  const status = queryValue<GitStatus>(useAtomValue(atoms.gitStatusAtom(scope)));
+  const branches = queryValue<GitBranchList>(useAtomValue(atoms.gitBranchesAtom(scope)));
+  const branchList = branches?._tag === "ok" ? branches.value : null;
 
-  const statusAtom = atoms.gitStatusAtom(scope);
-  const diffAtom = atoms.gitDiffAtom(range);
-  const status = queryValue<GitStatus>(useAtomValue(statusAtom));
-  const diff = queryValue<GitDiff>(useAtomValue(diffAtom));
-  const refreshStatus = useAtomRefresh(statusAtom);
-  const refreshDiff = useAtomRefresh(diffAtom);
-  const refresh = React.useCallback(() => {
-    refreshStatus();
-    refreshDiff();
-  }, [refreshStatus, refreshDiff]);
+  // "Branch vs base" waits for the branch list only when the thread did not
+  // record its own base; a list that failed leaves nothing to compare with.
+  const mergeBase = branchBaseFor(
+    snapshot.worktree?.baseBranch,
+    branches === null ? undefined : (branchList?.defaultBranch ?? null),
+  );
+  const selection: ChangesSelection =
+    changesScope === "turn"
+      ? { scope: "turn", base, target }
+      : changesScope === "branch"
+        ? { scope: "branch", mergeBase: mergeBase ?? null }
+        : { scope: "uncommitted" };
+  const range = diffRangeFor(scope, selection);
 
-  // The sequence the pane was at when a restore was accepted, or null when no
-  // restore is outstanding. The `thread.checkpoint.restored` event bumps
-  // `snapshotSequence`, and the reactor's git work runs off that same event, so
-  // a later sequence is the earliest point worth rereading the worktree at.
-  const [restoreAcceptedAt, setRestoreAcceptedAt] = React.useState<number | null>(null);
-  const sequence = snapshot.snapshotSequence;
-  React.useEffect(() => {
-    if (restoreAcceptedAt !== null && sequence > restoreAcceptedAt) {
-      setRestoreAcceptedAt(null);
-      refresh();
-    }
-  }, [sequence, restoreAcceptedAt, refresh]);
-
-  // A finished turn has written whatever it was going to write.
-  const currentTurnId = snapshot.currentTurnId;
-  const lastTurnId = React.useRef(currentTurnId);
-  React.useEffect(() => {
-    const previous = lastTurnId.current;
-    lastTurnId.current = currentTurnId;
-    if (previous !== null && currentTurnId === null) {
-      refresh();
-    }
-  }, [currentTurnId, refresh]);
+  const refresh = React.useCallback(
+    () => atoms.refreshProject(registry, projectId),
+    [atoms, registry, projectId],
+  );
+  const onRestoreAccepted = useChangesRefresh(snapshot, refresh);
 
   const baseCheckpoint: CheckpointSummary | null =
     checkpoints.find((checkpoint) => checkpoint.ref === base) ?? null;
@@ -242,23 +106,43 @@ export function ChangesPane({ snapshot }: { snapshot: ThreadDetailView }) {
   const restoring = snapshot.restoring ?? null;
   const restoreFailure = snapshot.restoreFailure ?? null;
 
-  const restoreDisabledReason =
-    connection.status !== "connected"
-      ? "Not connected to the server."
-      : restoring !== null
-        ? "A restore is already running."
-        : checkpoints.length === 0
-          ? "This thread has no checkpoints yet."
-          : baseCheckpoint === null
-            ? "Pick a turn under From to restore it."
-            : // `turnInFlight`, not `currentTurnId`: the server rejects on its
-              // own `currentTurn`, which it sets on `thread.turn.requested`,
-              // while the client only fills the id on `thread.turn.started`.
-              // Between the two the button would be live and the dispatch
-              // would come back rejected.
-              turnInFlight(snapshot)
-              ? "A turn is running — stop it before restoring."
-              : null;
+  const restoreDisabledReason = !connected
+    ? "Not connected to the server."
+    : restoring !== null
+      ? "A restore is already running."
+      : checkpoints.length === 0
+        ? "This thread has no checkpoints yet."
+        : baseCheckpoint === null
+          ? "Pick a turn under From to restore it."
+          : // `turnInFlight`, not `currentTurnId`: the server rejects on its
+            // own `currentTurn`, which it sets on `thread.turn.requested`,
+            // while the client only fills the id on `thread.turn.started`.
+            // Between the two the button would be live and the dispatch
+            // would come back rejected.
+            turnInFlight(snapshot)
+            ? "A turn is running — stop it before restoring."
+            : null;
+
+  const body =
+    range !== null ? (
+      <ChangesList
+        range={range}
+        status={status}
+        connected={connected}
+        diffStyle={diffStyle}
+        onRetry={refresh}
+      />
+    ) : branchList?.isRepository === false ? (
+      <NotARepository />
+    ) : mergeBase === undefined ? (
+      connected ? (
+        <PaneMessage icon={Spinner} text="Loading branches…" />
+      ) : (
+        <PaneMessage icon={WifiOff} text="Not connected to the server." />
+      )
+    ) : (
+      <PaneMessage icon={GitBranch} text="No base branch to compare with" />
+    );
 
   // `h-full` so the file list scrolls inside the pane and the selector stays
   // put; the dock's own scroller then never has anything to scroll.
@@ -266,99 +150,45 @@ export function ChangesPane({ snapshot }: { snapshot: ThreadDetailView }) {
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 flex-col gap-2 p-2">
         <BranchLine status={status?._tag === "ok" ? status.value : null} onRefresh={refresh} />
-        <TurnSelector
-          checkpoints={checkpoints}
-          base={base}
-          target={target}
-          onBaseChange={setBaseChoice}
-          onTargetChange={setTargetChoice}
+        <ScopeBar
+          scope={changesScope}
+          onScopeChange={setChangesScope}
+          diffStyle={diffStyle}
+          onDiffStyleChange={setDiffStyle}
         />
-        <div className="flex items-center justify-between gap-2">
-          <span className="min-w-0 truncate type-micro text-muted-foreground">
-            {checkpoints.length === 0
-              ? "No turn checkpoints yet"
-              : `${checkpoints.length} turn checkpoint${checkpoints.length === 1 ? "" : "s"}`}
-          </span>
-          <RestoreCheckpointDialog
-            threadId={snapshot.threadId}
-            checkpoint={baseCheckpoint}
-            label={
-              baseCheckpoint === null ? "this turn" : checkpointLabel(baseCheckpoint, baseIndex)
-            }
-            disabledReason={restoreDisabledReason}
-            onAccepted={() => setRestoreAcceptedAt(sequence)}
-          />
-        </div>
-        <RestoreProgress restoring={restoring} failure={restoreFailure} />
+        {changesScope === "turn" ? (
+          <>
+            <TurnSelector
+              checkpoints={checkpoints}
+              base={base}
+              target={target}
+              onBaseChange={setBaseChoice}
+              onTargetChange={setTargetChoice}
+            />
+            <div className="flex items-center justify-between gap-2">
+              <span className="min-w-0 truncate type-micro text-muted-foreground">
+                {checkpoints.length === 0
+                  ? "No turn checkpoints yet"
+                  : `${checkpoints.length} turn checkpoint${checkpoints.length === 1 ? "" : "s"}`}
+              </span>
+              <RestoreCheckpointDialog
+                threadId={snapshot.threadId}
+                checkpoint={baseCheckpoint}
+                label={
+                  baseCheckpoint === null ? "this turn" : checkpointLabel(baseCheckpoint, baseIndex)
+                }
+                disabledReason={restoreDisabledReason}
+                onAccepted={onRestoreAccepted}
+              />
+            </div>
+            <RestoreProgress restoring={restoring} failure={restoreFailure} />
+          </>
+        ) : null}
+        {changesScope === "branch" && range?.mergeBase !== undefined ? (
+          <BaseLine base={range.mergeBase} current={branchList?.current ?? null} />
+        ) : null}
       </div>
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        <ChangesBody
-          diff={diff}
-          status={status}
-          connected={connection.status === "connected"}
-          rangeKey={`${base}:${target}`}
-          onRetry={refresh}
-        />
-      </div>
-    </div>
-  );
-}
-
-function ChangesBody({
-  diff,
-  status,
-  connected,
-  rangeKey,
-  onRetry,
-}: {
-  diff: PaneQuery<GitDiff> | null;
-  status: PaneQuery<GitStatus> | null;
-  connected: boolean;
-  rangeKey: string;
-  onRetry: () => void;
-}) {
-  const retry = (
-    <Button type="button" variant="ghost" size="sm" onClick={onRetry}>
-      <Repeat variant="bold" />
-      Try again
-    </Button>
-  );
-
-  if (diff === null) {
-    return connected ? (
-      <PaneMessage icon={Spinner} text="Loading changes…" />
-    ) : (
-      <PaneMessage icon={WifiOff} text="Not connected to the server." />
-    );
-  }
-  if (diff._tag === "error") {
-    return <PaneMessage icon={AlertTriangle} text={diff.message} action={retry} />;
-  }
-  if (diff._tag === "broken") {
-    return (
-      <PaneMessage
-        icon={AlertTriangle}
-        text="Could not read the changes for this comparison."
-        action={retry}
-      />
-    );
-  }
-  if (status?._tag === "ok" && isRepoless(status.value)) {
-    return (
-      <PaneMessage
-        icon={GitDiffIcon}
-        text="This workspace is not a git repository, so there is nothing to compare."
-      />
-    );
-  }
-  if (diff.value.files.length === 0) {
-    return <PaneMessage icon={GitDiffIcon} text="No changes in this comparison." />;
-  }
-  return (
-    <div className="flex flex-col gap-1 p-2">
-      {diff.value.files.map((file) => (
-        <FileRow key={file.path} file={file} rangeKey={rangeKey} />
-      ))}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{body}</div>
     </div>
   );
 }

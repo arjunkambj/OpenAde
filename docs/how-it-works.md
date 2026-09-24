@@ -1190,18 +1190,40 @@ button that can only be rejected.
 ### The Changes pane
 
 `apps/web/src/components/panes/changes/changes-pane.tsx` is the dock's first
-tab. A turn selector picks the comparison — working tree, one turn's
-checkpoint, or checkpoint to checkpoint — and `git.diff` answers with the file
-list, because `GitDiff.files` already carries the path, the `+`/`-` counts and
-the per-file patch. `git.status` is read alongside for the branch line and to
-tell "not a git repository" (`isRepository: false`) from "nothing changed".
-Both calls name the thread, so a worktree thread's pane shows its worktree.
+tab. A scope select at the top picks what to compare
+(`selection.ts` turns each choice into one `git.diff` payload):
+
+- **This turn** — the turn selector and the restore controls, which show in
+  this scope only. The selector picks the working tree, one turn's checkpoint,
+  or checkpoint to checkpoint.
+- **Branch vs base** — `git.diff` with `mergeBase`: everything the branch has
+  done since it forked, commits and uncommitted work together. The base is
+  the worktree's own `baseBranch` for a thread started in one, else the
+  repository's default branch from `git.branches`; with neither the pane says
+  "No base branch to compare with". On the base branch itself the fork point
+  is `HEAD`, so a line under the select says only uncommitted work shows.
+- **Uncommitted** — the working tree against `HEAD`, both ends omitted.
+
+`git.diff` answers with the file list, because `GitDiff.files` already
+carries the path, the `+`/`-` counts and the per-file patch. `git.status` is
+read alongside for the branch line and to tell "not a git repository"
+(`isRepository: false`) from "nothing changed". Every call names the thread,
+so a worktree thread's pane shows its worktree.
+
+A Split toggle beside the select lays each patch out side by side
+(`InlineDiff`'s `diffStyle`, passed to `@pierre/diffs`); it defaults to
+unified, and the timeline's own file-change rows are always unified. The
+scope and the diff style are remembered for every thread in localStorage
+(`useChangesScope`, `useDiffStyle` in `state/ui.ts`); a stored value the pane
+does not know reads as the default.
 
 Nothing refetches on a command receipt, because both writes that move the
 worktree finish _after_ the command that started them. The pane watches the
-thread snapshot instead: a restore records the sequence it was accepted at and
-refetches once the snapshot passes it; a turn refetches when `currentTurnId`
-falls back to null.
+thread snapshot instead (`use-changes-refresh.ts`): a restore records the
+sequence it was accepted at and refetches once the snapshot passes it; a turn
+refetches when `currentTurnId` falls back to null. A refresh — those two and
+the refresh button — rereads every git read of the project, the same
+per-project revision a branch switch bumps, so the header follows along.
 
 `checkpoints.list` intersects the timeline's own fold of
 `thread.checkpoint.created` with the refs that still exist in the repository,
