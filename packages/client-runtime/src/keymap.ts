@@ -53,6 +53,11 @@ export const KEYBINDING_CONTEXT_KEYS: ReadonlyArray<KeybindingContextKey> = [
   },
   { name: "isMac", description: "The app is running on macOS.", kind: "builtin" },
   { name: "threadOpen", description: "A thread is on screen.", kind: "published" },
+  {
+    name: "newTaskOpen",
+    description: "The New task page is on screen, with a project picked.",
+    kind: "published",
+  },
   { name: "dockOpen", description: "The right dock is open.", kind: "published" },
   { name: "changesOpen", description: "The dock is showing the Changes pane.", kind: "published" },
   {
@@ -96,6 +101,7 @@ export const CONTEXT_AXIOMS = {
   exclusive: [
     ["composerFocus", "terminalFocus", "browserFocus"],
     ["approvalPending", "questionPending", "planPending"],
+    ["threadOpen", "newTaskOpen"],
   ],
   platform: "isMac",
 } as const;

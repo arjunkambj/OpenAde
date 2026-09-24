@@ -92,7 +92,7 @@ describe("DEFAULT_KEYBINDINGS", () => {
       expect(row("shortcuts.open")).toBe("Mod+/|");
       expect(row("thread.delete")).toBe("Mod+Alt+Backspace|threadOpen");
       expect(row("nav.back")).toBe("Mod+[|!browserFocus");
-      expect(row("dock.files")).toBe("Mod+P|threadOpen");
+      expect(row("dock.files")).toBe("Mod+P|threadOpen || newTaskOpen");
       expect(row("font.increase")).toBe("Mod+Alt+=|");
       expect(row("timeline.jumpToLatest")).toBe("Mod+Shift+J|threadOpen");
       expect(row("timeline.previousMessage")).toBe("Alt+Shift+ArrowUp|threadOpen && !inputFocus");

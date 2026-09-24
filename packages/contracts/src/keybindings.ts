@@ -52,6 +52,11 @@ export const THREAD_JUMP_COMMANDS: ReadonlyArray<string> = Array.from(
  * its own page history.
  */
 const THREAD = "threadOpen";
+/**
+ * The right dock's keys: live beside a thread, and on the New task page,
+ * whose dock shows the picked project before any thread exists.
+ */
+const DOCK = "threadOpen || newTaskOpen";
 const OUTSIDE_BROWSER = "!browserFocus";
 const TIMELINE_KEYS = "threadOpen && !inputFocus";
 
@@ -119,9 +124,9 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<Keybinding> = [
   { command: "composer.clearDraft", shortcut: "Mod+Shift+Backspace", when: "composerFocus" },
   // View
   { command: "sidebar.toggle", shortcut: "Mod+B" },
-  { command: "dock.toggle", shortcut: "Mod+Alt+B", when: THREAD },
-  { command: "dock.changes", shortcut: "Mod+Shift+D", when: THREAD },
-  { command: "dock.files", shortcut: "Mod+P", when: THREAD },
+  { command: "dock.toggle", shortcut: "Mod+Alt+B", when: DOCK },
+  { command: "dock.changes", shortcut: "Mod+Shift+D", when: DOCK },
+  { command: "dock.files", shortcut: "Mod+P", when: DOCK },
   { command: "browserPane.toggle", shortcut: "Mod+Shift+B" },
   { command: "terminal.toggle", shortcut: "Mod+J" },
   { command: "font.increase", shortcut: "Mod+Alt+=" },
@@ -137,7 +142,8 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<Keybinding> = [
   // Changes
   { command: "changes.nextFile", shortcut: "Alt+ArrowDown", when: CHANGES_PANE_KEYS },
   { command: "changes.previousFile", shortcut: "Alt+ArrowUp", when: CHANGES_PANE_KEYS },
-  // Git, answered by the thread header while a thread is open
+  // Git, answered by the thread header while a thread is open, and by the
+  // New task page's header for the picked project's folder
   { command: "git.commit", shortcut: "Mod+Alt+C" },
   { command: "git.push", shortcut: "Mod+Alt+P" },
   { command: "git.branchPicker", shortcut: "Mod+Shift+G" },
