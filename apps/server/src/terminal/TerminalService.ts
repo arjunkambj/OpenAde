@@ -307,11 +307,17 @@ export const makeTerminalService = (
         Effect.map(find(threadId, terminalId), (session) => session.write(data)),
       resize: (threadId, terminalId, cols, rows) =>
         Effect.map(find(threadId, terminalId), (session) => session.resize(cols, rows)),
+      // Uninterruptible from the lookup on: once the terminal is out of the
+      // registry, this call is the only thing that can still end its shell,
+      // so a client that interrupts the call (or drops its connection) must
+      // not stop the kill part way.
       close: (threadId, terminalId) =>
-        Effect.flatMap(find(threadId, terminalId), (session) => {
-          remove(threadId, terminalId);
-          return session.kill;
-        }),
+        Effect.uninterruptible(
+          Effect.flatMap(find(threadId, terminalId), (session) => {
+            remove(threadId, terminalId);
+            return session.kill;
+          }),
+        ),
       list: (threadId) =>
         Effect.sync((): ReadonlyArray<TerminalSummary> =>
           [...(registry.get(threadId)?.values() ?? [])].map((session) => session.summary()),

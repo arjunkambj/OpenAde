@@ -10,7 +10,8 @@
  * - Resize reaches the shell; open is idempotent by id; the per-thread limit
  *   holds.
  * - An exited shell stays listed with its output until it is closed.
- * - Close, thread.deleted and the service's scope closing each end the shell.
+ * - Close, thread.deleted and the service's scope closing each end the
+ *   shell; a close interrupted part way still ends it.
  *
  * Every wait is on output the shell computed or on an exit, never on time: the
  * terminal echoes what is typed, so matching the typed text would pass without
@@ -35,6 +36,7 @@ import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
+import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
@@ -301,6 +303,44 @@ describe.skipIf(process.platform === "win32")("TerminalService", () => {
         expect(yield* failureCode(terminals.close(threadId, terminalId))).toBe("not-found");
       }),
     ),
+  );
+
+  it.live(
+    "a close interrupted while the shell ignores SIGHUP still ends it",
+    () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const stack = yield* buildStack;
+          const exits: Array<Deferred.Deferred<PtyExit>> = [];
+          const capture: typeof spawnPty = (options) =>
+            Effect.tap(spawnPty(options), (pty) =>
+              Effect.sync(() => {
+                const exit = Deferred.makeUnsafe<PtyExit>();
+                pty.onExit((result) => Deferred.doneUnsafe(exit, Effect.succeed(result)));
+                exits.push(exit);
+              }),
+            );
+          const terminals = yield* stack.service(yield* Effect.scope, capture);
+          const threadId = yield* stack.thread;
+          const terminalId = makeTerminalId();
+          yield* terminals.open({ threadId, terminalId, ...SIZE });
+          const output = yield* watch(terminals.subscribe(threadId, terminalId));
+          yield* terminals.write(threadId, terminalId, "trap '' HUP; echo trapped-$((1+1))\n");
+          yield* awaitText(output, line("trapped-2"));
+
+          // Started at once, the close runs up to its wait for the exit after
+          // SIGHUP; the interrupt then lands where a client's would — and
+          // must wait for the SIGKILL rather than cut the kill short.
+          const closing = yield* Effect.forkChild(terminals.close(threadId, terminalId), {
+            startImmediately: true,
+          });
+          expect(yield* terminals.list(threadId)).toEqual([]);
+          yield* Fiber.interrupt(closing);
+          expect(yield* Deferred.isDone(exits[0]!)).toBe(true);
+          expect((yield* Deferred.await(exits[0]!)).signal).not.toBeNull();
+        }),
+      ),
+    15_000,
   );
 
   it.live("thread.deleted ends that thread's shells and no other's", () =>

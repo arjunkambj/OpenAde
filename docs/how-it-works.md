@@ -1788,7 +1788,11 @@ waiting for the exit (the `ps` read below is bounded at two seconds too). The
 shell has job control on, so each job runs in a group of its own and SIGKILL to
 the shell's group alone would miss it; the processes under the shell come from
 one `ps -A -o pid=,ppid=,pgid=` read while the shell is still alive (`apps/server/src/terminal/reap.ts`), since once it dies its jobs
-are re-parented to init and nothing ties them to it. A shell that obeys SIGHUP
+are re-parented to init and nothing ties them to it. The kill cannot be
+interrupted: `terminal.close` takes the terminal out of the registry before
+killing it, so a client that cancels the call or disconnects during the grace
+second would otherwise leave a shell that ignores SIGHUP with nothing left to
+reach it. A shell that obeys SIGHUP
 passes it on to its jobs itself; a job started with `nohup` keeps running, as
 it would after closing any terminal.
 

@@ -75,7 +75,9 @@ export interface TerminalSession {
    * grace SIGKILL to the shell, to every process under it and to every group
    * they are in — with job control on, each job is a group of its own (see
    * `reap.ts`). Resolves once the exit has arrived, or once the settle bound
-   * has passed.
+   * has passed. Uninterruptible: a kill cut short after the SIGHUP would leave
+   * a shell that ignores it running with no handle left to reach it, and
+   * every step is already bounded.
    */
   readonly kill: Effect.Effect<void>;
 }
@@ -135,15 +137,17 @@ export const makeSession = (
       Deferred.doneUnsafe(exitDeferred, Effect.succeed(result));
     });
 
-    const kill: Effect.Effect<void> = Effect.gen(function* () {
-      if (exit !== null) return;
-      pty.kill();
-      const graceful = yield* Deferred.await(exitDeferred).pipe(Effect.timeoutOption(KILL_GRACE));
-      if (Option.isSome(graceful)) return;
-      if (platform !== "win32") yield* killTree(pty.pid, () => exit === null);
-      pty.kill("SIGKILL");
-      yield* Deferred.await(exitDeferred).pipe(Effect.timeoutOption(KILL_SETTLE));
-    });
+    const kill: Effect.Effect<void> = Effect.uninterruptible(
+      Effect.gen(function* () {
+        if (exit !== null) return;
+        pty.kill();
+        const graceful = yield* Deferred.await(exitDeferred).pipe(Effect.timeoutOption(KILL_GRACE));
+        if (Option.isSome(graceful)) return;
+        if (platform !== "win32") yield* killTree(pty.pid, () => exit === null);
+        pty.kill("SIGKILL");
+        yield* Deferred.await(exitDeferred).pipe(Effect.timeoutOption(KILL_SETTLE));
+      }),
+    );
 
     return {
       terminalId: options.terminalId,
