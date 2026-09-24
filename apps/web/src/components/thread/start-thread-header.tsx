@@ -55,7 +55,9 @@ export function StartThreadHeader({
       <div className="flex-1" />
       {controls === null ? null : (
         <div className={cn("flex shrink-0 items-center gap-2", chrome && "app-region-no-drag")}>
-          <GitActionsControl projectId={controls.projectId} />
+          {/* Per project: a dialog, a draft or a run in flight for one
+              project must not carry over to the next one picked. */}
+          <GitActionsControl key={controls.projectId} projectId={controls.projectId} />
           <HeaderToggles
             terminalKey={terminalOwnerKey({ projectId: controls.projectId })}
             dockTab={controls.dockTab}
