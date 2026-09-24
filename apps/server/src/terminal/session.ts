@@ -70,8 +70,6 @@ export interface TerminalSession {
   /** A no-op once the shell has exited. */
   readonly write: (data: string) => void;
   readonly resize: (cols: number, rows: number) => void;
-  /** Resolves with the exit; see `kill` for how long it can take. */
-  readonly exited: Effect.Effect<PtyExit>;
   /**
    * Ends the shell: SIGHUP, what a closing terminal sends, then after a short
    * grace SIGKILL to the shell, to every process under it and to every group
@@ -160,7 +158,6 @@ export const makeSession = (
         pty.resize(cols, rows);
         summary = { ...summary, cols, rows };
       },
-      exited: Deferred.await(exitDeferred),
       kill,
     };
   });
