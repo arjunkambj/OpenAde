@@ -1,9 +1,10 @@
 /**
  * The dock's tab strip: `Changes | Browser | Files` and the close button.
  *
- * A `tablist` in the ARIA sense. Each tab names the one panel below it
- * (`aria-controls`), which names the tab back while a tab is shown; in the
- * launcher no tab is selected, and the panel is the launcher's menu instead.
+ * A `tablist` in the ARIA sense. While a tab is shown, each tab names the one
+ * panel below it (`aria-controls`), a `tabpanel` that names the selected tab
+ * back. In the launcher no tab is selected and the panel holds the launcher's
+ * menu, not a tab's content, so the tabs name no panel there.
  * Only one tab is in the Tab order — the selected one, or the first while the
  * launcher shows — and Left/Right move along the strip from the focused tab,
  * wrapping, opening the tab they land on and keeping the focus on it
@@ -46,6 +47,7 @@ function DockTabButton({
   baseId,
   tab,
   active,
+  controlsPanel,
   focusable,
   count,
   onSelect,
@@ -53,6 +55,8 @@ function DockTabButton({
   baseId: string;
   tab: DockTab;
   active: boolean;
+  /** The panel below is a tab's `tabpanel`, not the launcher. */
+  controlsPanel: boolean;
   /** The strip's one Tab stop. */
   focusable: boolean;
   /** A badge beside the label; `null` shows none. */
@@ -70,7 +74,7 @@ function DockTabButton({
             id={dockTabId(baseId, tab)}
             data-dock-tab={tab}
             aria-selected={active}
-            aria-controls={dockPanelId(baseId)}
+            aria-controls={controlsPanel ? dockPanelId(baseId) : undefined}
             aria-label={
               count === null
                 ? undefined
@@ -144,6 +148,7 @@ export function DockTabStrip({
             baseId={baseId}
             tab={tab}
             active={tab === pane}
+            controlsPanel={isDockTab(pane)}
             focusable={pane === tab || (index === 0 && !isDockTab(pane))}
             count={tab === "changes" ? count : null}
             onSelect={onTabChange}
