@@ -4,8 +4,7 @@
  * The diff is the file list, because `GitDiff.files` already carries the path,
  * the `+`/`-` counts and the per-file patch. It reads as an overview first:
  * one compact row per file — its kind, directory and name, and counts — with
- * every patch closed until the user opens it (`startsOpen` in `./review` has
- * the one exception). An open file's patch scrolls under its sticky header, so
+ * every patch closed until the user opens it. An open file's patch scrolls under its sticky header, so
  * the pane still reads top to bottom like one review. Which files are open is
  * the thread's own and kept per path (`useChangesReview`), so a new turn or
  * another comparison does not open them all again. Each patch renders through

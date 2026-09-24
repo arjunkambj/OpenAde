@@ -28,7 +28,6 @@ import {
   isOpen,
   isViewed,
   patchHash,
-  startsOpen,
   stepFile,
   viewedCount,
   withOpen,
@@ -120,7 +119,6 @@ export function ReviewList({
   onRevealed: () => void;
 }) {
   const [review, updateReview] = useChangesReview(threadId);
-  const byDefault = startsOpen(files);
   // Hashed once per answer from git, not per render: a patch can be megabytes.
   const hashed = React.useMemo(
     () => files.map((file) => ({ file, path: file.path, hash: patchHash(file.diff) })),
@@ -190,7 +188,7 @@ export function ReviewList({
       <ReviewSummary
         files={files}
         viewed={viewedCount(review, hashed)}
-        allOpen={everyFileOpen(review, files, byDefault)}
+        allOpen={everyFileOpen(review, files)}
         onAllOpenChange={(open) =>
           setOpen(
             files.filter((file) => file.diff !== "").map((file) => file.path),
@@ -207,7 +205,7 @@ export function ReviewList({
             key={file.path}
             threadId={threadId}
             file={file}
-            open={isOpen(review, file.path, byDefault)}
+            open={isOpen(review, file.path)}
             onOpenChange={(open) => {
               cursor.current = file.path;
               setOpen([file.path], open);
