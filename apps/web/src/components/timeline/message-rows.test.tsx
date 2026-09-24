@@ -10,7 +10,7 @@ import { uuidV7Millis } from "@OpenAde/shared/ids";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { UserMessageRow } from "@/components/timeline/message-rows";
+import { AssistantMessageRow, UserMessageRow } from "@/components/timeline/message-rows";
 import { type TimelineThread, TimelineThreadProvider } from "@/components/timeline/thread-context";
 import { ClientRuntimeProvider } from "@/lib/client-runtime";
 import { makeFixtureClient } from "@/lib/fixture-client";
@@ -169,5 +169,32 @@ describe("the user message footer", () => {
       inThread(thread({ restoreBlockedReason: "A turn is running" }), { turnId: t2 }),
     );
     expect(markup).toMatch(/<button[^>]*disabled=""[^>]*Restore the workspace/);
+  });
+});
+
+describe("AssistantMessageRow", () => {
+  const answer = (fields: Partial<ItemSnapshot>): ItemSnapshot =>
+    row({
+      kind: "assistant_message",
+      text: "Added **the endpoint**.\n\nIt answers 200.",
+      ...fields,
+    });
+  const FADE = "motion-safe:*:starting:opacity-0";
+
+  it("streams in the body colour, fading in what is new", () => {
+    const markup = renderToStaticMarkup(
+      <AssistantMessageRow item={answer({ status: "in_progress" })} />,
+    );
+    expect(markup).not.toContain("text-muted-foreground");
+    expect(markup).toContain("text-foreground");
+    expect(markup).toContain(FADE);
+    expect(markup).toContain("motion-safe:*:transition-opacity");
+  });
+
+  it("stops fading once the message has settled", () => {
+    const markup = renderToStaticMarkup(<AssistantMessageRow item={answer({})} />);
+    expect(markup).not.toContain(FADE);
+    expect(markup).toContain("<strong>the endpoint</strong>");
+    expect(markup).toContain("It answers 200.");
   });
 });

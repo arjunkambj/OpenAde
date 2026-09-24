@@ -54,6 +54,20 @@ describe("MarkdownBody", () => {
     expect(markup).toContain("const a</code>");
   });
 
+  it("renders block by block into the same flat body", () => {
+    const markup = render(["# Title", "", "First.", "", "- a", "", "- b", "", "Last."].join("\n"));
+    // One list for the loose items, and every element a child of the body.
+    expect(markup.match(/<ul/g)).toHaveLength(1);
+    expect(markup).toMatch(/^<div class="[^"]*"><h1 [^>]*>Title<\/h1><p [^>]*>First\.<\/p><ul /);
+    expect(markup).toMatch(/<p [^>]*>Last\.<\/p><\/div>$/);
+  });
+
+  it("resolves a reference link whose definition is in another block", () => {
+    const markup = render("See [the docs][1].\n\n[1]: https://example.com/docs");
+    expect(markup).toContain('href="https://example.com/docs"');
+    expect(markup).not.toContain("[1]");
+  });
+
   describe("user variant", () => {
     const user = (text: string) =>
       renderToStaticMarkup(<MarkdownBody text={text} id="item" variant="user" />);

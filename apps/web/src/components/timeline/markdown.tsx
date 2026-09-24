@@ -3,11 +3,20 @@
  * heading/code/list styling stays consistent between the timeline and cards.
  * Elements are mapped to styled tags rather than arbitrary-variant selectors.
  *
+ * The text renders block by block (`markdown-blocks.ts`): each top-level
+ * block is its own memoised `ReactMarkdown`, so while a message streams only
+ * the block at its end parses again on each delta. The blocks render no
+ * wrapper of their own — their elements are the body's direct children, as a
+ * single parse would leave them — and while `streaming` each element the body
+ * gains fades in (opacity only, and not under reduced motion; the list
+ * measures row heights itself, so a height never animates).
+ *
  * Fenced blocks render as a `CodeBlock` (header, copy, wrap, highlighting).
  * The body's `id` — the item it belongs to — keys each block by item and
- * offset, so a row the list recycles for another item neither keeps the old
- * block's wrap state nor reuses its highlight. While `streaming`, a block whose
- * closing fence has not arrived stays plain.
+ * offset in the whole text, so a row the list recycles for another item
+ * neither keeps the old block's wrap state nor reuses its highlight. While
+ * `streaming`, a block whose closing fence has not arrived stays plain, which
+ * also keeps the highlighter from tokenizing it again on every delta.
  *
  * The `user` variant renders what a person typed in the user bubble: a single
  * line ending is a line break, raw HTML shows as the text it is
@@ -28,6 +37,7 @@ import { cn } from "@/lib/utils";
 
 import { CodeBlock } from "./code-block";
 import { codeFenceInfo, type HastLike, hastText, openFenceOffset } from "./code-fence";
+import { splitMarkdownBlocks } from "./markdown-blocks";
 import { InlineCode, MarkdownLink } from "./markdown-paths";
 import { PathChipsProvider } from "./path-chips";
 import { collectPathCandidates, parsePathLink } from "./path-links";
@@ -35,12 +45,15 @@ import { remarkHtmlAsText, remarkSoftBreaks } from "./remark-user-text";
 
 interface BlockContext {
   readonly id: string | undefined;
-  /** Where an unterminated fence opens in the text, while it streams. */
+  /** Where the block starts in the whole text: node offsets count from it. */
+  readonly base: number;
+  /** Where an unterminated fence opens in the block, while it streams. */
   readonly openFrom: number | undefined;
 }
 
 const MarkdownBlockContext = React.createContext<BlockContext>({
   id: undefined,
+  base: 0,
   openFrom: undefined,
 });
 
@@ -58,7 +71,7 @@ interface HastElementLike extends HastLike {
  * override only ever sees inline code.
  */
 function FencedBlock({ node }: { readonly node: HastElementLike | undefined }) {
-  const { id, openFrom } = React.useContext(MarkdownBlockContext);
+  const { id, base, openFrom } = React.useContext(MarkdownBlockContext);
   const code = node?.children?.find(
     (child): child is HastElementLike => (child as HastElementLike).tagName === "code",
   );
@@ -70,10 +83,10 @@ function FencedBlock({ node }: { readonly node: HastElementLike | undefined }) {
   // mdast-util-to-hast appends a newline to a fence's text; the source has none.
   const text = code === undefined ? "" : hastText(code).replace(/\n$/, "");
   const offset = node?.position?.start.offset ?? 0;
-  const key = id === undefined ? undefined : `${id}:${offset}`;
+  const key = id === undefined ? undefined : `${id}:${base + offset}`;
   return (
     <CodeBlock
-      key={key ?? offset}
+      key={key ?? base + offset}
       code={text}
       info={info}
       cacheKey={key === undefined ? undefined : `${key}:${text.length}`}
@@ -163,6 +176,37 @@ const VARIANTS: Readonly<Record<"agent" | "user", Variant>> = {
   },
 };
 
+type VariantName = keyof typeof VARIANTS;
+
+/** One top-level block, parsed on its own; it renders again only when its source does. */
+const MarkdownBlock = React.memo(function MarkdownBlock({
+  source,
+  id,
+  base,
+  openFrom,
+  variant,
+}: {
+  readonly source: string;
+  readonly id: string | undefined;
+  readonly base: number;
+  readonly openFrom: number | undefined;
+  readonly variant: VariantName;
+}) {
+  const context = React.useMemo(() => ({ id, base, openFrom }), [id, base, openFrom]);
+  const config = VARIANTS[variant];
+  return (
+    <MarkdownBlockContext.Provider value={context}>
+      <ReactMarkdown
+        remarkPlugins={config.remarkPlugins}
+        components={config.components}
+        urlTransform={urlTransform}
+      >
+        {source}
+      </ReactMarkdown>
+    </MarkdownBlockContext.Provider>
+  );
+});
+
 export function MarkdownBody({
   text,
   id,
@@ -173,14 +217,13 @@ export function MarkdownBody({
   text: string;
   /** The item the text belongs to, which keys its code blocks. */
   id?: string;
-  /** The text is still arriving: an open fence at its end is not highlighted. */
+  /** The text is still arriving: new elements fade in, an open fence stays plain. */
   streaming?: boolean;
   /** `user` for the text a person typed, `agent` (the default) for the rest. */
-  variant?: keyof typeof VARIANTS;
+  variant?: VariantName;
   className?: string;
 }) {
-  const openFrom = streaming ? openFenceOffset(text) : undefined;
-  const context = React.useMemo(() => ({ id, openFrom }), [id, openFrom]);
+  const { blocks, definitions } = React.useMemo(() => splitMarkdownBlocks(text), [text]);
   const config = VARIANTS[variant];
   // Only an agent's text is asked about: what a person typed stays as typed.
   const candidates = React.useMemo(
@@ -188,18 +231,34 @@ export function MarkdownBody({
     [variant, text],
   );
   return (
-    <div className={cn("text-sm text-foreground", config.className, className)}>
-      <MarkdownBlockContext.Provider value={context}>
-        <PathChipsProvider candidates={candidates}>
-          <ReactMarkdown
-            remarkPlugins={config.remarkPlugins}
-            components={config.components}
-            urlTransform={urlTransform}
-          >
-            {text}
-          </ReactMarkdown>
-        </PathChipsProvider>
-      </MarkdownBlockContext.Provider>
+    <div
+      className={cn(
+        "text-sm text-foreground",
+        config.className,
+        streaming &&
+          "motion-safe:*:transition-opacity motion-safe:*:duration-300 motion-safe:*:starting:opacity-0",
+        className,
+      )}
+    >
+      <PathChipsProvider candidates={candidates}>
+        {blocks.map((block) => (
+          <MarkdownBlock
+            key={block.key}
+            // A reference link resolves against definitions in any block; a
+            // definition renders nothing, so they ride along at the end. An
+            // open fence would swallow them as code.
+            source={
+              definitions !== "" && !block.open && block.source.includes("]")
+                ? `${block.source}\n\n${definitions}`
+                : block.source
+            }
+            id={id}
+            base={block.start}
+            openFrom={streaming && block.open ? openFenceOffset(block.source) : undefined}
+            variant={variant}
+          />
+        ))}
+      </PathChipsProvider>
     </div>
   );
 }

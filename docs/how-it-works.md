@@ -799,6 +799,20 @@ the message streams and its closing fence has not arrived yet. Each block's
 highlight is cached under its item id and offset, so a recycled row does not
 tokenize it again.
 
+A body renders block by block (`timeline/markdown-blocks.ts`): the text is
+cut at top-level blank lines — never inside a fence or an HTML comment, and
+not where an indented line, the next list item or the next `>` line carries
+a list or blockquote on — and each block is its own memoised parse. While a
+message streams (the server coalesces its deltas every 50 ms) only the block
+at the end parses again; the ones before it keep their source and do not
+render again. The blocks' elements are the body's direct children, as one
+parse would leave them. Link reference definitions are gathered from the
+whole text and added to every block that could use one, so `[docs][1]`
+resolves wherever `[1]:` sits; a footnote whose definition is in another
+block stays as typed. A streaming message renders in the body colour like a
+settled one, and each element it gains — a paragraph, a list, a code block —
+fades in (opacity only, and not under reduced motion).
+
 The user's bubble (`timeline/user-message-row.tsx`) renders its text through
 the same component in the `user` variant. Lists, emphasis, links and code
 format, and code blocks are the same `CodeBlock`. What differs is kept to what
