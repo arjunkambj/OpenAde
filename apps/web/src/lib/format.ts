@@ -1,7 +1,7 @@
 /**
- * `formatDurationMs(4_250)` → `"4.3s"`. The work-group and turn-summary labels
- * and the final answer's footer use this: sub-second precision matters,
- * minute-plus durations read as `1m 5s`.
+ * `formatDurationMs(4_250)` → `"4.3s"`. A reasoning group's "Thought for", the
+ * turn summary and the final answer's footer use this: sub-second precision
+ * matters, minute-plus durations read as `1m 5s`.
  */
 export const formatDurationMs = (ms: number): string => {
   if (ms < 1_000) {
@@ -21,27 +21,6 @@ const measured = (ms: number | undefined): string | undefined =>
 
 const plural = (count: number, one: string, many: string): string =>
   `${count} ${count === 1 ? one : many}`;
-
-/**
- * The folded work-group label: "3 tools · 4s", "1 tool" when the ids carry no
- * timing, "Thought for 2s" for a reasoning-only fold. The turn's closing
- * summary owns "Worked for", so the group names what it holds instead.
- *
- * A zero duration is treated as no timing rather than as a measurement: it
- * means the group's items share a millisecond, and "0ms" reads as a broken
- * clock where leaving it out reads as a fact.
- */
-export const workGroupLabel = (group: {
-  readonly toolCount: number;
-  readonly durationMs: number | undefined;
-}): string => {
-  const duration = measured(group.durationMs);
-  if (group.toolCount === 0) {
-    return duration === undefined ? "Thought" : `Thought for ${duration}`;
-  }
-  const tools = plural(group.toolCount, "tool", "tools");
-  return duration === undefined ? tools : `${tools} · ${duration}`;
-};
 
 /**
  * The turn summary up to its diff counts: "Worked for 12s · 3 files", "Worked

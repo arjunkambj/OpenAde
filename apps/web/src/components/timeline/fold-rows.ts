@@ -12,15 +12,14 @@ import type { ItemKind } from "@OpenAde/contracts/enums";
 import type { FileChangeKind, ItemSnapshot } from "@OpenAde/contracts/runtime";
 import { uuidV7Millis } from "@OpenAde/shared/ids";
 
+import { countFailed, mergeKind } from "@/components/timeline/work-summary";
 import { diffStats } from "@/lib/diff-stats";
 
-/** One folded run of work rows inside a settled turn. */
+/** One folded run of work rows. Its label is `workGroupLabel` over `items`. */
 export interface TimelineWorkGroupRow {
   readonly kind: "work-group";
   readonly id: string;
   readonly items: ReadonlyArray<ItemSnapshot>;
-  /** Rows that did something observable — reasoning folds but does not count. */
-  readonly toolCount: number;
   readonly failedCount: number;
   readonly durationMs: number | undefined;
 }
@@ -59,38 +58,16 @@ export const FOLDABLE_KINDS: ReadonlySet<ItemKind> = new Set([
   "skill",
 ]);
 
-/** Foldable kinds that count as tools in the summary label. */
-const TOOL_KINDS: ReadonlySet<ItemKind> = new Set([
-  "command_execution",
-  "file_change",
-  "tool_call",
-  "mcp_tool_call",
-  "web_search",
-  "task",
-  "skill",
-]);
-
 export const workGroupRow = (items: ReadonlyArray<ItemSnapshot>): TimelineWorkGroupRow => {
   const firstMs = uuidV7Millis(items[0].itemId);
   const lastMs = uuidV7Millis(items[items.length - 1].itemId);
   const durationMs =
     firstMs !== undefined && lastMs !== undefined ? Math.max(0, lastMs - firstMs) : undefined;
-  let toolCount = 0;
-  let failedCount = 0;
-  for (const item of items) {
-    if (TOOL_KINDS.has(item.kind)) {
-      toolCount += 1;
-    }
-    if (item.status === "failed") {
-      failedCount += 1;
-    }
-  }
   return {
     kind: "work-group",
     id: `work-group:${items[0].itemId}`,
     items,
-    toolCount,
-    failedCount,
+    failedCount: countFailed(items),
     durationMs,
   };
 };
@@ -126,14 +103,6 @@ export const spanMs = (items: ReadonlyArray<ItemSnapshot>): number | undefined =
     ? lastMs - firstMs
     : undefined;
 };
-
-/**
- * A path touched twice keeps the kind that describes the turn's net effect:
- * a file the turn created and then edited is still new; anything else takes
- * the latest kind.
- */
-const mergeKind = (earlier: FileChangeKind, later: FileChangeKind): FileChangeKind =>
-  earlier === "create" && later === "edit" ? "create" : later;
 
 export const turnSummaryRow = (
   segment: ReadonlyArray<ItemSnapshot>,

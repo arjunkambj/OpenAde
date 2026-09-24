@@ -748,8 +748,14 @@ turns the flat item list into rows:
   a turn runs) renders its work rows inline;
 - a settled segment folds each maximal run of work kinds — `reasoning`,
   `command_execution`, `file_change`, `tool_call`, `mcp_tool_call`,
-  `web_search`, `task`, `skill` — into one `work-group` row, the
-  "N tools · 4s" disclosure ("Thought for 2s" when the run is only reasoning);
+  `web_search`, `task`, `skill` — into one `work-group` row, a disclosure
+  that says what the run did: "Ran 2 commands, edited 1 file"
+  (`timeline/work-summary.ts`), or "Thought for 2s" when the run is only
+  reasoning, with "1 failed" beside it when a step failed. Each item counts
+  as one kind of action, sorted by its kind and, for a tool call, by the
+  words in its name and the keys of its input — never by which harness sent
+  it. Files count once per path, and past three kinds of action the rest
+  read "and N more";
 - a settled segment that a `user_message` opened and that did any work ends
   with one `turn-summary` row, "Worked for 12s · 3 files +20 −4" (just "Worked
   for 12s" when no file changed). Its time runs from the user message to the

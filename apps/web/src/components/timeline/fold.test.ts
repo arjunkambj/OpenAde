@@ -62,8 +62,6 @@ describe("buildTimeline", () => {
     expect(rows.map((row) => row.kind)).toEqual(["item", "work-group", "item", "turn-summary"]);
     const group = workGroups(rows)[0];
     expect(group.items).toHaveLength(3);
-    // reasoning folds but is not a tool
-    expect(group.toolCount).toBe(2);
   });
 
   it("keeps the live segment unfolded and appends a working row", () => {
@@ -104,7 +102,7 @@ describe("buildTimeline", () => {
       "turn-summary",
     ]);
     const groups = workGroups(rows);
-    expect(groups.map((group) => group.toolCount)).toEqual([1, 1]);
+    expect(groups.map((group) => group.items.length)).toEqual([1, 1]);
   });
 
   it("nests task children under the parent and keeps orphans at top level", () => {

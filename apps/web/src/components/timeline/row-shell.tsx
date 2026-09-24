@@ -129,6 +129,14 @@ export function DisclosureRow({
   );
 }
 
+/** "1 failed" in the destructive colour beside a fold's label, or nothing. */
+export function FailedCount({ count }: { count: number }) {
+  if (count === 0) {
+    return null;
+  }
+  return <span className="ml-1 shrink-0 type-micro text-destructive">{count} failed</span>;
+}
+
 /** A `<pre>` block for command output and tool payloads. */
 export function MonoBlock({ children, className }: { children: ReactNode; className?: string }) {
   return (

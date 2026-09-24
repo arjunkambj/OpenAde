@@ -7,37 +7,7 @@ import {
   relativeTime,
   turnSummaryLabel,
   turnSummaryLead,
-  workGroupLabel,
 } from "./format";
-
-describe("workGroupLabel", () => {
-  it("reports the tool count and the duration", () => {
-    expect(workGroupLabel({ toolCount: 3, durationMs: 4_250 })).toBe("3 tools · 4.3s");
-    expect(workGroupLabel({ toolCount: 1, durationMs: 65_000 })).toBe("1 tool · 1m 5s");
-  });
-
-  it("calls a fold with no tools a thought", () => {
-    expect(workGroupLabel({ toolCount: 0, durationMs: 2_000 })).toBe("Thought for 2s");
-  });
-
-  it("drops the duration when the ids carry no timing", () => {
-    expect(workGroupLabel({ toolCount: 6, durationMs: undefined })).toBe("6 tools");
-    expect(workGroupLabel({ toolCount: 0, durationMs: undefined })).toBe("Thought");
-  });
-
-  it("treats a zero duration as no timing rather than as 0ms", () => {
-    expect(workGroupLabel({ toolCount: 6, durationMs: 0 })).toBe("6 tools");
-    expect(workGroupLabel({ toolCount: 0, durationMs: 0 })).toBe("Thought");
-  });
-
-  it("keeps sub-second runs honest", () => {
-    expect(workGroupLabel({ toolCount: 2, durationMs: 40 })).toBe("2 tools · 40ms");
-  });
-
-  it("leaves 'Worked for' to the turn summary", () => {
-    expect(workGroupLabel({ toolCount: 3, durationMs: 4_000 })).not.toContain("Worked");
-  });
-});
 
 describe("turnSummaryLabel", () => {
   const files = (count: number) => Array.from({ length: count }, (_, index) => index);
