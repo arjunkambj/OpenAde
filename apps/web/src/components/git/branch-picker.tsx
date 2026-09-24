@@ -153,7 +153,10 @@ export function BranchPicker({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
                 size="sm"
                 disabled={disabledReason !== null || pending}
                 aria-label={branch === null ? "Branch" : `Branch ${branch}`}
-                className="min-w-0"
+                // The stock Button does not shrink; this one must, or a long
+                // branch overflows onto the controls beside it instead of
+                // truncating.
+                className="min-w-0 max-w-full shrink"
               />
             }
           >
