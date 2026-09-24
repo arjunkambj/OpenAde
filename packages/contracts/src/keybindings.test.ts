@@ -99,6 +99,10 @@ describe("DEFAULT_KEYBINDINGS", () => {
       expect(row("git.commit")).toBe("Mod+Alt+C|");
       expect(row("git.push")).toBe("Mod+Alt+P|");
       expect(row("git.branchPicker")).toBe("Mod+Shift+G|");
+      expect(row("browser.focusUrl")).toBe("Mod+L|browserFocus");
+      expect(row("browser.reload")).toBe("Mod+R|browserFocus");
+      expect(row("browser.back")).toBe("Mod+[|browserFocus");
+      expect(row("browser.forward")).toBe("Mod+]|browserFocus");
       expect(THREAD_JUMP_COMMANDS).toHaveLength(9);
       for (const [index, command] of THREAD_JUMP_COMMANDS.entries()) {
         expect(row(command)).toBe(`Mod+${index + 1}|`);
@@ -110,10 +114,6 @@ describe("DEFAULT_KEYBINDINGS", () => {
     Effect.gen(function* () {
       const reserved = yield* Effect.succeed(RESERVED_KEYBINDINGS);
       const byCommand = new Map(reserved.map((row) => [row.command, row]));
-      expect(byCommand.get("browser.reload")).toMatchObject({
-        shortcut: "Mod+R",
-        when: "browserFocus",
-      });
       expect(byCommand.get("composer.steer")?.shortcut).toBe("Mod+Shift+Enter");
     }),
   );

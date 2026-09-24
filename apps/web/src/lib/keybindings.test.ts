@@ -3,7 +3,13 @@ import { DEFAULT_KEYBINDINGS } from "@OpenAde/contracts/keybindings";
 import type { Keybinding } from "@OpenAde/contracts/settings";
 import { resolveKeybinding } from "@OpenAde/client-runtime/keybindings";
 
-import { effectiveKeybindings, keycapsFor, shortcutFor, yieldsToTerminal } from "./keybindings";
+import {
+  effectiveKeybindings,
+  guestChordsFor,
+  keycapsFor,
+  shortcutFor,
+  yieldsToTerminal,
+} from "./keybindings";
 
 describe("effectiveKeybindings", () => {
   it("is exactly the shipped defaults when nothing is overridden", () => {
@@ -21,6 +27,41 @@ describe("effectiveKeybindings", () => {
   it("leaves a command unbound by a -command row unbound", () => {
     const table = effectiveKeybindings([{ command: "-sidebar.toggle", shortcut: "Cmd+B" }]);
     expect(shortcutFor(table, "sidebar.toggle")).toBeNull();
+  });
+});
+
+describe("guestChordsFor", () => {
+  const chord = (command: string, key: string, meta: boolean, control: boolean) => ({
+    command,
+    key,
+    meta,
+    control,
+    alt: false,
+    shift: false,
+  });
+
+  it("resolves the browser chords for the shell, with the platform modifier", () => {
+    expect(guestChordsFor(DEFAULT_KEYBINDINGS, "meta")).toEqual([
+      chord("browser.focusUrl", "l", true, false),
+      chord("browser.reload", "r", true, false),
+      chord("browser.back", "[", true, false),
+      chord("browser.forward", "]", true, false),
+    ]);
+    expect(guestChordsFor(DEFAULT_KEYBINDINGS, "ctrl")[1]).toEqual(
+      chord("browser.reload", "r", false, true),
+    );
+  });
+
+  it("leaves out other commands, other scopes and unparseable chords", () => {
+    const table: ReadonlyArray<Keybinding> = [
+      { command: "thread.new", shortcut: "Mod+N" },
+      { command: "browser.reload", shortcut: "Mod+R", when: "composerFocus" },
+      { command: "browser.back", shortcut: "Mod+", when: "browserFocus" },
+      { command: "browser.forward", shortcut: "Alt+ArrowRight" },
+    ];
+    expect(guestChordsFor(table, "meta")).toEqual([
+      { command: "browser.forward", key: "arrowright", meta: false, control: false, alt: true, shift: false },
+    ]);
   });
 });
 
@@ -117,6 +158,16 @@ describe("the default table and the matcher agree", () => {
     });
     expect(resolve(azerty("&", "Digit1", { metaKey: true }))).toBe("thread.jump.1");
     expect(resolve(azerty("&", "Digit1"), { approvalPending: true })).toBe("approval.allowOnce");
+  });
+
+  it("fires the browser pane's keys only while the pane has focus", () => {
+    const inPane = { browserFocus: true };
+    expect(resolve(press("r", { metaKey: true }))).toBeNull();
+    expect(resolve(press("l", { metaKey: true }))).toBe("composer.focus");
+    expect(resolve(press("r", { metaKey: true }), inPane)).toBe("browser.reload");
+    expect(resolve(press("l", { metaKey: true }), inPane)).toBe("browser.focusUrl");
+    expect(resolve(press("[", { metaKey: true }), inPane)).toBe("browser.back");
+    expect(resolve(press("]", { metaKey: true }), inPane)).toBe("browser.forward");
   });
 
   it("does not fire a bare chord when an extra modifier is held", () => {

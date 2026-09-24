@@ -124,6 +124,14 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<Keybinding> = [
   { command: "git.commit", shortcut: "Mod+Alt+C" },
   { command: "git.push", shortcut: "Mod+Alt+P" },
   { command: "git.branchPicker", shortcut: "Mod+Shift+G" },
+  // The browser pane's own keys, live only while focus is in the pane — its
+  // toolbar, or the page itself, whose keys the shell relays. `Mod+L`,
+  // `Mod+[` and `Mod+]` are the composer's and the app history's everywhere
+  // else, and `Mod+R` reloads the page instead of the window.
+  { command: "browser.focusUrl", shortcut: "Mod+L", when: "browserFocus" },
+  { command: "browser.reload", shortcut: "Mod+R", when: "browserFocus" },
+  { command: "browser.back", shortcut: "Mod+[", when: "browserFocus" },
+  { command: "browser.forward", shortcut: "Mod+]", when: "browserFocus" },
   // Cards
   { command: "approval.allowOnce", shortcut: "1", when: APPROVAL_CARD },
   { command: "approval.allowSession", shortcut: "2", when: APPROVAL_CARD },
@@ -158,30 +166,6 @@ export interface ReservedKeybinding extends Keybinding {
  * read, never bindings; the test refuses a plain chord on any of them.
  */
 export const RESERVED_KEYBINDINGS: ReadonlyArray<ReservedKeybinding> = [
-  {
-    command: "browser.focusUrl",
-    shortcut: "Mod+L",
-    when: "browserFocus",
-    for: "Focus the browser pane's address bar",
-  },
-  {
-    command: "browser.reload",
-    shortcut: "Mod+R",
-    when: "browserFocus",
-    for: "Reload the browser pane's page, instead of the window",
-  },
-  {
-    command: "browser.back",
-    shortcut: "Mod+[",
-    when: "browserFocus",
-    for: "Go back in the browser pane",
-  },
-  {
-    command: "browser.forward",
-    shortcut: "Mod+]",
-    when: "browserFocus",
-    for: "Go forward in the browser pane",
-  },
   {
     command: "composer.steer",
     shortcut: "Mod+Shift+Enter",

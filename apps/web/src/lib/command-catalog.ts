@@ -37,6 +37,7 @@ import {
   GitBranch,
   GitCommit,
   GitDiff,
+  Globe,
   Keyboard,
   Lightning,
   ListChecks,
@@ -45,6 +46,7 @@ import {
   OctagonX,
   Paperclip,
   Play,
+  Refresh,
   Search,
   Server,
   Settings,
@@ -163,6 +165,12 @@ export const COMMAND_CATALOG: ReadonlyArray<CatalogCommand> = [
   command("View", "dock.files", "Show files", FileCode),
   command("View", "browserPane.toggle", "Toggle browser", AppWindow),
   command("View", "terminal.toggle", "Toggle terminal", Terminal),
+  // The browser pane's keys answer only while focus is in the pane, which the
+  // palette never holds.
+  command("View", "browser.focusUrl", "Focus browser address", Globe, { palette: false }),
+  command("View", "browser.reload", "Reload browser page", Refresh, { palette: false }),
+  command("View", "browser.back", "Browser back", ArrowLeft, { palette: false }),
+  command("View", "browser.forward", "Browser forward", ArrowRight, { palette: false }),
   command("View", "font.increase", "Larger text", ZoomIn),
   command("View", "font.decrease", "Smaller text", ZoomOut),
   command("View", "font.reset", "Reset text size", TextSize),

@@ -7,7 +7,8 @@
  * `@/lib/shortcuts`, which is the only place that listens for keys.
  */
 
-import { parseShortcut, type ModKey } from "@OpenAde/client-runtime/keybindings";
+import type { BrowserPaneChord } from "@OpenAde/client-runtime/resolver";
+import { evaluateWhen, parseShortcut, type ModKey } from "@OpenAde/client-runtime/keybindings";
 import { DEFAULT_KEYBINDINGS, resolveKeymap } from "@OpenAde/contracts/keybindings";
 import type { Keybinding } from "@OpenAde/contracts/settings";
 
@@ -35,6 +36,39 @@ export const TERMINAL_TOGGLE_COMMAND = "terminal.toggle";
  */
 export const yieldsToTerminal = (command: string, focusedContext: string | undefined): boolean =>
   focusedContext === "terminal" && command !== TERMINAL_TOGGLE_COMMAND;
+
+/**
+ * The `browser.*` bindings that apply while a pane page has focus — no `when`,
+ * or one that holds with `browserFocus` set and nothing else — as chords the
+ * shell can match (`apps/desktop/src/main/browser/guestChords.ts`). A key
+ * pressed inside the page never reaches this window, so the shell matches
+ * these for it and relays the command.
+ */
+export const guestChordsFor = (
+  table: ReadonlyArray<Keybinding>,
+  modKey: ModKey,
+): ReadonlyArray<BrowserPaneChord> =>
+  table.flatMap((binding) => {
+    if (!binding.command.startsWith("browser.")) return [];
+    if (
+      binding.when !== undefined &&
+      !evaluateWhen(binding.when, (name) => name === "browserFocus")
+    ) {
+      return [];
+    }
+    const parsed = parseShortcut(binding.shortcut);
+    if (parsed === null) return [];
+    return [
+      {
+        command: binding.command,
+        key: parsed.key,
+        meta: modKey === "meta" && parsed.mod,
+        control: parsed.ctrl || (modKey === "ctrl" && parsed.mod),
+        alt: parsed.alt,
+        shift: parsed.shift,
+      },
+    ];
+  });
 
 /** The chord bound to a command, or null when the table does not bind it. */
 export const shortcutFor = (table: ReadonlyArray<Keybinding>, command: string): string | null =>
