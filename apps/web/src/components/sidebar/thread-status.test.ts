@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { threadStatusMark } from "./thread-status";
-import { AlertTriangle, Bell, ClipboardCheck, Spinner } from "@honeyicons/react";
+import {
+  AlertTriangle,
+  Bell,
+  ClipboardCheck,
+  SpinnerOrbit,
+  SpinnerWave,
+} from "@honeyicons/react";
 
 const NEEDS_YOU = { icon: Bell, label: "Needs you", tone: "text-permission" };
 
@@ -40,11 +46,17 @@ describe("threadStatusMark", () => {
     expect(threadStatusMark({ status: "waiting", awaitingInput: false })).toEqual(NEEDS_YOU);
   });
 
-  it("a plain running turn shows the spinner", () => {
+  it("a running turn with no tool in flight is thinking", () => {
     const mark = threadStatusMark({ status: "running", awaitingInput: false });
-    expect(mark?.label).toBe("Running");
-    expect(mark?.icon).toBe(Spinner);
+    expect(mark?.label).toBe("Thinking");
+    expect(mark?.icon).toBe(SpinnerOrbit);
     expect(mark?.tone).toBe("text-muted-foreground");
+  });
+
+  it("a running turn with a tool in flight is working", () => {
+    const mark = threadStatusMark({ status: "running", awaitingInput: false, activity: "working" });
+    expect(mark?.label).toBe("Working");
+    expect(mark?.icon).toBe(SpinnerWave);
   });
 
   it("an error outranks nothing but is reported", () => {

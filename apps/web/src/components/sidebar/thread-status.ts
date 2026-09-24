@@ -19,10 +19,21 @@
  * A summary written before `awaiting` existed, or a `waiting` status with no
  * open decision, still reads as "Needs you" — the louder of the two is the
  * safe guess.
+ *
+ * A running thread says which half of the turn it is in, from `activity`:
+ * the orbit while the model thinks, the diagonal while a tool runs. A summary
+ * without `activity` reads as thinking.
  */
 
 import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
-import { type HoneyIcon, AlertTriangle, Bell, ClipboardCheck, Spinner } from "@honeyicons/react";
+import {
+  type HoneyIcon,
+  AlertTriangle,
+  Bell,
+  ClipboardCheck,
+  SpinnerOrbit,
+  SpinnerWave,
+} from "@honeyicons/react";
 
 /** What the row draws, or `null` for a thread with nothing to report. */
 export interface ThreadStatusMark {
@@ -46,7 +57,7 @@ const PLAN_READY: ThreadStatusMark = {
 };
 
 export const threadStatusMark = (
-  thread: Pick<ThreadSummary, "status" | "awaitingInput" | "awaiting">,
+  thread: Pick<ThreadSummary, "status" | "awaitingInput" | "awaiting" | "activity">,
 ): ThreadStatusMark | null => {
   switch (thread.awaiting) {
     case "approval":
@@ -60,11 +71,9 @@ export const threadStatusMark = (
   }
   switch (thread.status) {
     case "running":
-      return {
-        icon: Spinner,
-        label: "Running",
-        tone: "text-muted-foreground",
-      };
+      return thread.activity === "working"
+        ? { icon: SpinnerWave, label: "Working", tone: "text-muted-foreground" }
+        : { icon: SpinnerOrbit, label: "Thinking", tone: "text-muted-foreground" };
     case "error":
       return {
         icon: AlertTriangle,
