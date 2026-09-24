@@ -19,7 +19,6 @@
 import { existsSync, mkdirSync, realpathSync } from "node:fs";
 import * as nodePath from "node:path";
 import type { GitWorktreeInfo, ThreadWorktree } from "@OpenAde/contracts/git";
-import { branchSlug } from "@OpenAde/shared/branchSlug";
 import { worktreesDir } from "@OpenAde/shared/paths";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -28,6 +27,7 @@ import * as Layer from "effect/Layer";
 import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
 
 import { canonicalPath } from "../orchestration/workspaceRoot";
+import { branchSlug } from "./branchSlug";
 import { isSafeRefArg, listBranches, refExists, validRef } from "./Branches";
 import { run } from "./process";
 

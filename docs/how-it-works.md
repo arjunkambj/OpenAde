@@ -1381,7 +1381,7 @@ only) and offered as View pull request, which opens it in the system browser
 `git.worktree.create` (`apps/server/src/git/Worktrees.ts`) gives a new thread a
 directory of its own. The branch is the settings document's `git.branchPrefix`
 (default `openade/`) followed by `branchSlug` of the free-text name
-(`packages/shared/src/branchSlug.ts`: lowercase ASCII, digits and single
+(`apps/server/src/git/branchSlug.ts`: lowercase ASCII, digits and single
 dashes, at most 40 characters cut at a word boundary, `thread` when nothing is
 left). A prefix that makes an invalid name is refused as `invalid`, naming the
 setting. The base is the payload's, else the default branch, and it has to

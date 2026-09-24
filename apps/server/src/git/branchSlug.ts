@@ -6,8 +6,8 @@
  * never a leading or trailing dash, at most `BRANCH_SLUG_MAX` characters, cut
  * at a word boundary when there is one. Accents are folded to their base
  * letter rather than dropped (`café` → `cafe`). Text with nothing usable in it
- * becomes `thread`. Shared so the server that names the worktree and a client
- * that previews the name agree on it.
+ * becomes `thread`. `Worktrees.ts` names the branch, the worktree directory
+ * and the project's folder under the worktrees root with it.
  */
 
 export const BRANCH_SLUG_MAX = 40;

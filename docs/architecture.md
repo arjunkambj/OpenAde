@@ -481,8 +481,7 @@ Dependency-light helpers both sides need: `ids.ts` (UUIDv7), `paths.ts`
 parser and matcher, shared so the renderer previews an "allow always" rule with
 the exact semantics the server enforces), `imageBytes.ts` (magic-byte sniffing
 and the attachment size cap), `decisionSubject.ts` (the one-line subject a
-resolved decision is recorded with, shared so both folds write the same words),
-`branchSlug.ts` (the slug a worktree's branch and directory are named with). Imports no workspace package at all.
+resolved decision is recorded with, shared so both folds write the same words). Imports no workspace package at all.
 
 ### packages/ui
 

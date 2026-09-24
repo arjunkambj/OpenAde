@@ -4,10 +4,6 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./branchSlug": {
-      "types": "./src/branchSlug.ts",
-      "import": "./src/branchSlug.ts"
-    },
     "./decisionSubject": {
       "types": "./src/decisionSubject.ts",
       "import": "./src/decisionSubject.ts"
