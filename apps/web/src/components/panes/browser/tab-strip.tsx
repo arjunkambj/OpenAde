@@ -47,20 +47,20 @@ function TabIcon({ tab }: { readonly tab: BrowserTab }) {
 
 export function TabStrip({ tabs, onSelect, onClose, onNew }: TabStripProps) {
   return (
-    <div className="flex items-center gap-1 overflow-x-auto px-2 pt-1.5">
-      <div role="tablist" aria-label="Browser tabs" className="flex min-w-0 items-center gap-1">
+    <div className="flex items-center gap-0.5 overflow-x-auto px-2 pb-1.5">
+      <div role="tablist" aria-label="Browser tabs" className="flex min-w-0 items-center gap-0.5">
         {tabs.tabs.map((tab) => {
           const selected = tab.tabId === tabs.selected;
           const label = tabLabel(tab);
           return (
-            <div key={tab.tabId} className="flex max-w-48 min-w-0 shrink items-center">
+            <div key={tab.tabId} className="flex max-w-40 min-w-0 shrink items-center">
               <Button
                 type="button"
                 role="tab"
                 aria-selected={selected}
                 variant={selected ? "secondary" : "ghost"}
                 tone={selected ? "default" : "muted"}
-                size="xs"
+                size="mini"
                 title={tab.url === "" ? label : `${label}\n${tab.url}`}
                 className="min-w-0 shrink justify-start"
                 onClick={() => onSelect(tab.tabId)}
@@ -75,7 +75,7 @@ export function TabStrip({ tabs, onSelect, onClose, onNew }: TabStripProps) {
                       type="button"
                       variant="ghost"
                       tone="muted"
-                      size="icon-xs"
+                      size="icon-mini"
                       aria-label={`Close ${label}`}
                       onClick={() => onClose(tab.tabId)}
                     />
@@ -96,7 +96,7 @@ export function TabStrip({ tabs, onSelect, onClose, onNew }: TabStripProps) {
               type="button"
               variant="ghost"
               tone="muted"
-              size="icon-xs"
+              size="icon-mini"
               aria-label="New tab"
               onClick={onNew}
             />

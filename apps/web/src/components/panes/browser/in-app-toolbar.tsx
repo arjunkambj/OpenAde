@@ -1,5 +1,5 @@
 /**
- * The in-app pane's chrome above the page: the tab strip, the address bar,
+ * The in-app pane's chrome above the page: the address bar, the tab strip under it,
  * the element picker and screenshot (`./page-actions`) and the "more" menu, all acting on the thread's tabs — the webviews the
  * browser host renders — directly (`./tab-actions`).
  *
@@ -127,14 +127,6 @@ export function InAppToolbar({ threadId, state, dispatch, suggest }: InAppToolba
 
   return (
     <div>
-      {threadTabs.tabs.length === 0 ? null : (
-        <TabStrip
-          tabs={threadTabs}
-          onSelect={(tabId) => setTabs((current) => selectTab(current, threadId, tabId))}
-          onClose={(tabId) => setTabs((current) => closeTab(current, threadId, tabId))}
-          onNew={newTab}
-        />
-      )}
       <AddressBar
         state={state}
         url={tab === null || !WEB_URL.test(tab.url) ? "" : tab.url}
@@ -156,6 +148,14 @@ export function InAppToolbar({ threadId, state, dispatch, suggest }: InAppToolba
         <PageActions threadId={threadId} tab={tab} />
         <MoreMenu tab={tab} onZoom={zoom} />
       </AddressBar>
+      {threadTabs.tabs.length === 0 ? null : (
+        <TabStrip
+          tabs={threadTabs}
+          onSelect={(tabId) => setTabs((current) => selectTab(current, threadId, tabId))}
+          onClose={(tabId) => setTabs((current) => closeTab(current, threadId, tabId))}
+          onNew={newTab}
+        />
+      )}
     </div>
   );
 }
