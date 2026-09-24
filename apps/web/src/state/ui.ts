@@ -13,6 +13,16 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import * as Atom from "effect/unstable/reactivity/Atom";
 import * as React from "react";
 
+/**
+ * An atom for a choice persisted in localStorage, read once when this module
+ * loads. `keepAlive`, because a plain atom is dropped when its last subscriber
+ * unmounts, and the next mount starts again from that load-time value: a
+ * choice made since would be lost on the next tab switch or route change, and
+ * come back only after a reload.
+ */
+export const rememberedAtom = <A>(initial: A): Atom.Writable<A> =>
+  Atom.keepAlive(Atom.make<A>(initial));
+
 /** Per-row disclosure overrides: `itemId -> open`. Absent = the row's default. */
 const rowDisclosureAtom = Atom.make<Readonly<Record<string, boolean>>>({});
 
@@ -456,7 +466,8 @@ const readWorkspaceModes = (): Readonly<Record<string, WorkspaceMode>> => {
  * opens on it again. Persisted: someone who works in worktrees on one project
  * should not have to pick it every time.
  */
-const workspaceModesAtom = Atom.make<Readonly<Record<string, WorkspaceMode>>>(readWorkspaceModes());
+const workspaceModesAtom =
+  rememberedAtom<Readonly<Record<string, WorkspaceMode>>>(readWorkspaceModes());
 
 /** `[mode, setMode]` for one project on the start screen. */
 export const useWorkspaceMode = (projectId: string) => {
@@ -542,7 +553,8 @@ const readPullRequestLinks = (): Readonly<Record<string, string>> => {
  * each thread, so "View pull request" survives a reload. It is a convenience:
  * the server keeps no record of it, and a cleared store only hides the item.
  */
-const pullRequestLinksAtom = Atom.make<Readonly<Record<string, string>>>(readPullRequestLinks());
+const pullRequestLinksAtom =
+  rememberedAtom<Readonly<Record<string, string>>>(readPullRequestLinks());
 
 /** `[url, remember]` for one thread; `url` is `null` until a pull request is known. */
 export const usePullRequestLink = (threadId: string) => {
@@ -629,8 +641,10 @@ export const parseDiffStyle = parseChoice<DiffStyle>(["unified", "split"], "unif
 const CHANGES_SCOPE_KEY = "openade:changes-scope";
 const DIFF_STYLE_KEY = "openade:diff-style";
 
-const changesScopeAtom = Atom.make<ChangesScope>(readChoice(CHANGES_SCOPE_KEY, parseChangesScope));
-const diffStyleAtom = Atom.make<DiffStyle>(readChoice(DIFF_STYLE_KEY, parseDiffStyle));
+const changesScopeAtom = rememberedAtom<ChangesScope>(
+  readChoice(CHANGES_SCOPE_KEY, parseChangesScope),
+);
+const diffStyleAtom = rememberedAtom<DiffStyle>(readChoice(DIFF_STYLE_KEY, parseDiffStyle));
 
 /**
  * `[scope, setScope]` for the Changes pane. One choice for every thread: it is

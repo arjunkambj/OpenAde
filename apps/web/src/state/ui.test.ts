@@ -1,3 +1,5 @@
+import * as Atom from "effect/unstable/reactivity/Atom";
+import * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -8,6 +10,7 @@ import {
   parseDockTabs,
   parsePullRequestLinks,
   parseWorkspaceModes,
+  rememberedAtom,
   withComposerDraft,
   withPullRequestLink,
   withWorkspaceMode,
@@ -190,5 +193,39 @@ describe("parseDiffStyle", () => {
     expect(parseDiffStyle(undefined)).toBe("unified");
     expect(parseDiffStyle("side-by-side")).toBe("unified");
     expect(parseDiffStyle("{}")).toBe("unified");
+  });
+});
+
+describe("rememberedAtom", () => {
+  /** Subscribes, picks "branch", lets the last subscriber go, then reads it back. */
+  const pickAndLeave = (atom: Atom.Writable<string>) => {
+    // The registry drops an unobserved node in a scheduled task; run those by hand.
+    const tasks: Array<() => void> = [];
+    const registry = AtomRegistry.make({
+      scheduleTask: (task) => {
+        tasks.push(task);
+        return () => {
+          const index = tasks.indexOf(task);
+          if (index !== -1) {
+            tasks.splice(index, 1);
+          }
+        };
+      },
+    });
+    const release = registry.subscribe(atom, () => {});
+    registry.set(atom, "branch");
+    release();
+    for (const task of tasks.splice(0)) {
+      task();
+    }
+    return registry.get(atom);
+  };
+
+  it("keeps a choice after its last subscriber unmounts", () => {
+    expect(pickAndLeave(rememberedAtom("turn"))).toBe("branch");
+  });
+
+  it("is needed: a plain atom falls back to its initial value", () => {
+    expect(pickAndLeave(Atom.make("turn"))).toBe("turn");
   });
 });
