@@ -258,7 +258,7 @@ function TerminalDrawer({
         <div
           role="tablist"
           aria-label="Terminals"
-          className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
+          className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [scrollbar-width:none]"
         >
           {state.tabs.map((tab) => (
             <TerminalTabButton

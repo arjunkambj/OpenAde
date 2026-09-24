@@ -14,7 +14,7 @@ import {
   EmptyTitle,
 } from "@OpenAde/ui/components/empty";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import type * as React from "react";
+import * as React from "react";
 
 import type { TerminalTab } from "@/components/terminal/drawer-state";
 import { Close, Terminal } from "@honeyicons/react";
@@ -71,8 +71,17 @@ export function TerminalTabButton({
   onSelect: () => void;
   onClose: () => void;
 }) {
+  // The strip scrolls sideways once the tabs outgrow it; the tab in front —
+  // one just opened, say — is scrolled into sight so the strip always shows
+  // which terminal the xterm below is.
+  const ref = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (active) {
+      ref.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+  }, [active]);
   return (
-    <div className="flex shrink-0 items-center">
+    <div ref={ref} className="flex shrink-0 items-center">
       <Button
         type="button"
         role="tab"
