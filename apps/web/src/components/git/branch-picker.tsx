@@ -20,7 +20,7 @@
  * is disabled and its tooltip says why, rather than the header failing.
  */
 
-import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react";
+import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import { AsyncResult } from "effect/unstable/reactivity";
 import * as React from "react";
 import { toast } from "sonner";
@@ -32,7 +32,7 @@ import type { GitQuery } from "@OpenAde/client-runtime/gitAtoms";
 import type { GitBranchList } from "@OpenAde/contracts/git";
 import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
 
-import { useGitAtoms } from "@/components/panes/changes/git-atoms";
+import { useBranchWrites, useGitAtoms } from "@/components/panes/changes/git-atoms";
 import { turnInFlight } from "@/lib/turn";
 import { useConnectionState } from "@/state/hooks";
 import { GitBranch, GitFork, Spinner } from "@honeyicons/react";
@@ -68,14 +68,13 @@ const branchesState = (
 const RUNNING_REASON = "A turn is running — stop it before switching branches.";
 
 export function BranchPicker({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
-  const { gitBranchesAtom, gitCheckoutAtom, gitCreateBranchAtom } = useGitAtoms();
+  const { gitBranchesAtom } = useGitAtoms();
+  const { checkout, createBranch } = useBranchWrites();
   const connection = useConnectionState();
   const scope = { projectId: snapshot.projectId, threadId: snapshot.threadId };
   const branchesAtom = gitBranchesAtom(scope);
   const state = branchesState(useAtomValue(branchesAtom), connection.status === "connected");
   const refreshBranches = useAtomRefresh(branchesAtom);
-  const checkout = useAtomSet(gitCheckoutAtom, { mode: "promiseExit" });
-  const createBranch = useAtomSet(gitCreateBranchAtom, { mode: "promiseExit" });
 
   const [open, setOpen] = React.useState(false);
   const [pending, setPending] = React.useState(false);

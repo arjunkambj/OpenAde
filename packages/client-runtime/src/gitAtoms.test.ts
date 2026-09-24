@@ -11,6 +11,7 @@ import type { GitBranchList } from "@OpenAde/contracts/git";
 import type { GitDiff, GitStatus } from "@OpenAde/contracts/rpc";
 import type * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
 import * as SubscriptionRef from "effect/SubscriptionRef";
@@ -308,7 +309,7 @@ describe("git atoms", () => {
           const threadId = makeThreadId();
           const calls: Calls = { status: [], diff: [], branches: [], checkout: [] };
           const failing = yield* Ref.make(false);
-          const { registry, gitBranchesAtom, gitStatusAtom, gitCheckoutAtom } = yield* runtimeWith(
+          const { registry, gitBranchesAtom, gitStatusAtom, checkout } = yield* runtimeWith(
             fakeClient(calls, failing),
             CONNECTED,
           );
@@ -325,8 +326,10 @@ describe("git atoms", () => {
           );
           expect(calls.branches).toEqual([{ projectId, threadId }]);
 
-          registry.mount(gitCheckoutAtom);
-          registry.set(gitCheckoutAtom, { projectId, threadId, branch: "feature" });
+          const result = yield* Effect.promise(() =>
+            checkout(registry, { projectId, threadId, branch: "feature" }),
+          );
+          expect(Exit.isSuccess(result) && result.value.current).toBe("feature");
           const switched = yield* Effect.promise(() =>
             awaitValue<GitQuery<GitBranchList>, Cause.NoSuchElementError>(
               registry,
@@ -336,8 +339,6 @@ describe("git atoms", () => {
           );
           expect(switched._tag).toBe("ok");
           expect(calls.checkout).toEqual([{ projectId, threadId, branch: "feature" }]);
-          const result = registry.get(gitCheckoutAtom);
-          expect(AsyncResult.isSuccess(result) && result.value.current).toBe("feature");
           // The status atom of the same scope is refetched as well.
           yield* Effect.promise(() =>
             awaitValue<GitQuery<GitStatus>, Cause.NoSuchElementError>(
@@ -361,7 +362,7 @@ describe("git atoms", () => {
           const otherProject = makeProjectId();
           const calls: Calls = { status: [], diff: [], branches: [], checkout: [] };
           const failing = yield* Ref.make(false);
-          const { registry, gitBranchesAtom, gitDiffAtom, gitCheckoutAtom } = yield* runtimeWith(
+          const { registry, gitBranchesAtom, gitDiffAtom, checkout } = yield* runtimeWith(
             fakeClient(calls, failing),
             CONNECTED,
           );
@@ -382,8 +383,9 @@ describe("git atoms", () => {
           );
           yield* Effect.promise(() => expect.poll(() => calls.diff.length).toBe(2));
 
-          registry.mount(gitCheckoutAtom);
-          registry.set(gitCheckoutAtom, { projectId, threadId, branch: "feature" });
+          yield* Effect.promise(() =>
+            checkout(registry, { projectId, threadId, branch: "feature" }),
+          );
           yield* Effect.promise(() =>
             awaitValue<GitQuery<GitBranchList>, Cause.NoSuchElementError>(
               registry,
@@ -404,26 +406,11 @@ describe("git atoms", () => {
         const projectId = makeProjectId();
         const calls: Calls = { status: [], diff: [], branches: [], checkout: [] };
         const failing = yield* Ref.make(false);
-        const { registry, gitCheckoutAtom } = yield* runtimeWith(
-          fakeClient(calls, failing),
-          CONNECTED,
+        const { registry, checkout } = yield* runtimeWith(fakeClient(calls, failing), CONNECTED);
+        const failure = yield* Effect.promise(() =>
+          checkout(registry, { projectId, branch: "dirty" }),
         );
-        registry.mount(gitCheckoutAtom);
-        registry.set(gitCheckoutAtom, { projectId, branch: "dirty" });
-        const failure = yield* Effect.promise(
-          () =>
-            new Promise<AsyncResult.AsyncResult<GitBranchList, unknown>>((resolve) => {
-              const check = (result: AsyncResult.AsyncResult<GitBranchList, unknown>) => {
-                if (AsyncResult.isFailure(result)) {
-                  unmount();
-                  resolve(result);
-                }
-              };
-              const unmount = registry.subscribe(gitCheckoutAtom, check);
-              check(registry.get(gitCheckoutAtom));
-            }),
-        );
-        expect(AsyncResult.isFailure(failure)).toBe(true);
+        expect(Exit.isFailure(failure)).toBe(true);
         expect(calls.checkout).toEqual([]);
       }),
     ),

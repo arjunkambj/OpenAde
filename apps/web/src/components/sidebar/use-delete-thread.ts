@@ -1,13 +1,14 @@
 /**
  * The renderer's side of `./delete-thread`: binds its steps to the thread
- * command, the worktree remove atom and the toasts.
+ * command, the worktree remove and the toasts.
  *
  * The flow outlives the surface that started it. A sidebar row disappears the
  * moment its thread is deleted, so the second confirmation a forced removal
  * needs cannot be a dialog inside that row: the request goes into
  * `forceRemovalRequestAtom`, and `WorktreeForceRemovalHost`, mounted once above
- * the routes, shows it. The remove atom lives in the app's registry, not in
- * the row, so its call finishes after the row is gone.
+ * the routes, shows it. The remove is a one-shot call on the app's registry,
+ * not tied to the row, so it finishes after the row is gone — and a second
+ * delete started meanwhile runs beside it instead of interrupting it.
  */
 
 import { useAtomSet } from "@effect/atom-react";
@@ -37,8 +38,7 @@ export const forceRemovalRequestAtom = Atom.keepAlive(Atom.make<ForceRemovalRequ
 /** `remove(thread, alsoRemoveWorktree)` — see `./delete-thread` for the order and the guards. */
 export const useDeleteThread = () => {
   const send = useThreadCommand();
-  const { worktreeRemoveAtom } = useGitCommands();
-  const removeWorktree = useAtomSet(worktreeRemoveAtom, { mode: "promiseExit" });
+  const { worktreeRemove: removeWorktree } = useGitCommands();
   const requestForce = useAtomSet(forceRemovalRequestAtom);
 
   /**

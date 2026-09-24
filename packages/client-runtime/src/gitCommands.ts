@@ -2,7 +2,7 @@
  * The git writes a thread's start, end and header need, built on the same
  * runtime and git atoms as the Changes pane's reads.
  *
- * - `worktreeCreateAtom` — `git.worktree.create`: cuts a new thread's branch
+ * - `worktreeCreate` — `git.worktree.create`: cuts a new thread's branch
  *   and directory, and resolves with the `ThreadWorktree` that `thread.create`
  *   records.
  * - `worktreeSetupAtom` — `git.worktree.setup`: runs the project's setup
@@ -11,13 +11,20 @@
  *   start screen shows the output while it grows, and a `promise`-mode setter
  *   resolves with the finished run. Interrupting the atom ends the stream,
  *   which kills the script on the server.
- * - `worktreeRemoveAtom` — `git.worktree.remove`: discards a worktree, keeping
+ * - `worktreeRemove` — `git.worktree.remove`: discards a worktree, keeping
  *   its branch.
  *
- * - `gitCommitAtom`, `gitPushAtom`, `gitPullRequestAtom` — `git.commit`,
- *   `git.push` and `git.pullRequest.create`, the header's git actions control
- *   runs them as stacked steps. Each fails with the server's refusal for the
- *   step's toast to show.
+ * - `commit`, `push`, `openPullRequest` — `git.commit`, `git.push` and
+ *   `git.pullRequest.create`, the header's git actions control runs them as
+ *   stacked steps. Each fails with the server's refusal for the step's toast
+ *   to show.
+ *
+ * Every write but the setup is a one-shot call (`./oneShot`) on the app's
+ * registry, resolving with its own `Exit`. Two threads may commit or push at
+ * once, and a second deleted thread may remove its worktree while the first
+ * one's removal still runs; a shared write atom would interrupt the call in
+ * flight — killing its git process halfway — and hand its caller the other
+ * call's result.
  *
  * The worktree writes refresh the project's branch list: a create adds a
  * branch and a remove frees one that was checked out elsewhere. A commit or a
@@ -32,9 +39,11 @@ import type { ProjectId } from "@OpenAde/contracts/ids";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
 import type * as Atom from "effect/unstable/reactivity/Atom";
+import type * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry";
 
 import { Connection, type ConnectionStateRef } from "./connection";
 import type { GitAtoms, GitScope } from "./gitAtoms";
+import { runOneShot } from "./oneShot";
 
 /**
  * A setup run so far. `exit` is `null` until the script has finished; `code`
@@ -115,19 +124,20 @@ export const makeGitCommands = (
   const client = Effect.flatMap(Connection, (connection) => connection.client);
 
   /** Fails with the server's refusal: not a repository, a bad prefix, an unknown base. */
-  const worktreeCreateAtom = runtime.fn((input: WorktreeCreate, get) =>
-    Effect.gen(function* () {
-      const worktree: ThreadWorktree = yield* Effect.flatMap(client, (c) =>
-        c["git.worktree.create"]({
-          projectId: input.projectId,
-          name: input.name,
-          ...(input.baseBranch === undefined ? {} : { baseBranch: input.baseBranch }),
-        }),
-      );
-      get.registry.refresh(git.gitBranchesAtom({ projectId: input.projectId }));
-      return worktree;
-    }),
-  );
+  const worktreeCreate = (registry: AtomRegistry.AtomRegistry, input: WorktreeCreate) =>
+    runOneShot(runtime, registry, () =>
+      Effect.gen(function* () {
+        const worktree: ThreadWorktree = yield* Effect.flatMap(client, (c) =>
+          c["git.worktree.create"]({
+            projectId: input.projectId,
+            name: input.name,
+            ...(input.baseBranch === undefined ? {} : { baseBranch: input.baseBranch }),
+          }),
+        );
+        registry.refresh(git.gitBranchesAtom({ projectId: input.projectId }));
+        return worktree;
+      }),
+    );
 
   const worktreeSetupAtom = runtime.fn((input: WorktreeTarget) =>
     Effect.map(client, (c) =>
@@ -136,61 +146,65 @@ export const makeGitCommands = (
   );
 
   /** Fails with `conflict` while a thread works there, or on unsaved work without `force`. */
-  const worktreeRemoveAtom = runtime.fn((input: WorktreeRemove, get) =>
-    Effect.gen(function* () {
-      yield* Effect.flatMap(client, (c) =>
-        c["git.worktree.remove"]({
-          projectId: input.projectId,
-          path: input.path,
-          ...(input.force === undefined ? {} : { force: input.force }),
-        }),
-      );
-      get.registry.refresh(git.gitBranchesAtom({ projectId: input.projectId }));
-    }),
-  );
+  const worktreeRemove = (registry: AtomRegistry.AtomRegistry, input: WorktreeRemove) =>
+    runOneShot(runtime, registry, () =>
+      Effect.gen(function* () {
+        yield* Effect.flatMap(client, (c) =>
+          c["git.worktree.remove"]({
+            projectId: input.projectId,
+            path: input.path,
+            ...(input.force === undefined ? {} : { force: input.force }),
+          }),
+        );
+        registry.refresh(git.gitBranchesAtom({ projectId: input.projectId }));
+      }),
+    );
 
   /** Fails with `conflict` on nothing to commit, a hook's refusal or a running turn. */
-  const gitCommitAtom = runtime.fn((input: GitCommit, get) =>
-    Effect.gen(function* () {
-      const result = yield* Effect.flatMap(client, (c) =>
-        c["git.commit"]({
-          ...scopePayload(input),
-          message: input.message,
-          ...(input.paths === undefined ? {} : { paths: input.paths }),
-        }),
-      );
-      git.refreshProject(get.registry, input.projectId);
-      return result;
-    }),
-  );
+  const commit = (registry: AtomRegistry.AtomRegistry, input: GitCommit) =>
+    runOneShot(runtime, registry, () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.flatMap(client, (c) =>
+          c["git.commit"]({
+            ...scopePayload(input),
+            message: input.message,
+            ...(input.paths === undefined ? {} : { paths: input.paths }),
+          }),
+        );
+        git.refreshProject(registry, input.projectId);
+        return result;
+      }),
+    );
 
   /** Fails with `unavailable` without a remote, or with git's own refusal. */
-  const gitPushAtom = runtime.fn((input: GitScope, get) =>
-    Effect.gen(function* () {
-      const result = yield* Effect.flatMap(client, (c) => c["git.push"](scopePayload(input)));
-      git.refreshProject(get.registry, input.projectId);
-      return result;
-    }),
-  );
+  const push = (registry: AtomRegistry.AtomRegistry, input: GitScope) =>
+    runOneShot(runtime, registry, () =>
+      Effect.gen(function* () {
+        const result = yield* Effect.flatMap(client, (c) => c["git.push"](scopePayload(input)));
+        git.refreshProject(registry, input.projectId);
+        return result;
+      }),
+    );
 
   /** Fails with `unavailable` when `gh` is missing or signed out. */
-  const gitPullRequestAtom = runtime.fn((input: GitPullRequest) =>
-    Effect.flatMap(client, (c) =>
-      c["git.pullRequest.create"]({
-        ...scopePayload(input),
-        title: input.title,
-        body: input.body,
-      }),
-    ),
-  );
+  const openPullRequest = (registry: AtomRegistry.AtomRegistry, input: GitPullRequest) =>
+    runOneShot(runtime, registry, () =>
+      Effect.flatMap(client, (c) =>
+        c["git.pullRequest.create"]({
+          ...scopePayload(input),
+          title: input.title,
+          body: input.body,
+        }),
+      ),
+    );
 
   return {
-    worktreeCreateAtom,
+    worktreeCreate,
     worktreeSetupAtom,
-    worktreeRemoveAtom,
-    gitCommitAtom,
-    gitPushAtom,
-    gitPullRequestAtom,
+    worktreeRemove,
+    commit,
+    push,
+    openPullRequest,
   };
 };
 

@@ -1,6 +1,6 @@
 /**
  * Binds the git actions control's steps (`@/lib/git-actions`) to the git
- * write atoms, sonner and the thread's remembered pull request link.
+ * writes, sonner and the thread's remembered pull request link.
  *
  * Each step's toast has its own id for the run, so its "…ing" toast turns
  * into the done or failed one in place. A pull request's toast carries an
@@ -8,7 +8,6 @@
  * control's "View pull request" comes from.
  */
 
-import { useAtomSet } from "@effect/atom-react";
 import type { GitCommitResult, GitPullRequestResult, GitPushResult } from "@OpenAde/contracts/git";
 import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
 import * as Exit from "effect/Exit";
@@ -63,10 +62,7 @@ const toastNotice = (run: number) => (notice: StepNotice) => {
 };
 
 export const useGitActions = (snapshot: ThreadDetailSnapshot) => {
-  const { gitCommitAtom, gitPushAtom, gitPullRequestAtom } = useGitCommands();
-  const commit = useAtomSet(gitCommitAtom, { mode: "promiseExit" });
-  const push = useAtomSet(gitPushAtom, { mode: "promiseExit" });
-  const openPullRequest = useAtomSet(gitPullRequestAtom, { mode: "promiseExit" });
+  const { commit, push, openPullRequest } = useGitCommands();
   const [pullRequestUrl, rememberPullRequest] = usePullRequestLink(snapshot.threadId);
   const scope = { projectId: snapshot.projectId, threadId: snapshot.threadId };
 

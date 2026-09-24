@@ -460,6 +460,11 @@ Everything a client needs that is not React.
   remove; and the header's commit, push and pull request. Built on
   `gitAtoms`: a worktree write refreshes the project's branch list, a commit
   or push refetches every git read of the project.
+- `oneShot.ts` — `runOneShot`, how every git write but the setup runs: a
+  fresh atom per call, held until it settles. A shared `runtime.fn` atom would
+  interrupt a call still in flight when the next one starts and hand the first
+  caller the second's result; two threads committing at once, or two deleted
+  threads removing their worktrees, must not.
 - `connectorAtoms.ts` — `modelCatalogAtom`, every enabled connector instance
   with its models in `connectors.list` order, which the model pickers and the
   Models settings page read. It follows `connectorsAtom`, and an instance whose

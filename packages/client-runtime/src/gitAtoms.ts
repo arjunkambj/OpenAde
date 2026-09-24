@@ -9,8 +9,9 @@
  *   turn checkpoint"; supplying both diffs checkpoint to checkpoint, and
  *   `mergeBase` diffs the working tree against where the branch forked.
  * - `gitBranchesAtom(scope)` — `git.branches`, the branch picker's list.
- * - `gitCreateBranchAtom` / `gitCheckoutAtom` — the picker's two writes. Each
- *   resolves with the new branch list and refetches every git read of the
+ * - `createBranch` / `checkout` — the picker's two writes, each a one-shot
+ *   call (`./oneShot`) that resolves with its own `Exit`: the new branch list,
+ *   or the server's refusal. A success refetches every git read of the
  *   project — branches, status and diffs, for every thread — so the header
  *   and the Changes pane follow the switch. A switch in the project's folder
  *   moves every local thread of it at once, so refetching only the scope that
@@ -44,6 +45,7 @@ import type * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry";
 import * as Atom from "effect/unstable/reactivity/Atom";
 
 import { Connection, ConnectionStateRef, type OpenAdeRpcClient } from "./connection";
+import { runOneShot } from "./oneShot";
 
 /**
  * A git RPC's outcome as a value. `error` carries the server's message so the
@@ -226,40 +228,45 @@ export const makeGitAtoms = (runtime: Atom.AtomRuntime<Connection | ConnectionSt
   const refreshProject = (registry: AtomRegistry.AtomRegistry, projectId: ProjectId) =>
     registry.update(projectRevisionAtom(projectId), (revision) => revision + 1);
 
-  /** Fails with the server's refusal (a bad name, a dirty tree) for the caller to show. */
-  const gitCreateBranchAtom = runtime.fn((input: GitCreateBranch, get) =>
-    Effect.gen(function* () {
-      const client = yield* (yield* Connection).client;
-      const list = yield* client["git.branch.create"]({
-        ...scopePayload(input),
-        name: input.name,
-        ...(input.from === undefined ? {} : { from: input.from }),
-        checkout: input.checkout,
-      });
-      refreshProject(get.registry, input.projectId);
-      return list;
-    }),
-  );
+  /**
+   * The branch picker's new branch. Fails with the server's refusal (a bad
+   * name, a dirty tree) for the caller to show.
+   */
+  const createBranch = (registry: AtomRegistry.AtomRegistry, input: GitCreateBranch) =>
+    runOneShot(runtime, registry, () =>
+      Effect.gen(function* () {
+        const client = yield* (yield* Connection).client;
+        const list = yield* client["git.branch.create"]({
+          ...scopePayload(input),
+          name: input.name,
+          ...(input.from === undefined ? {} : { from: input.from }),
+          checkout: input.checkout,
+        });
+        refreshProject(registry, input.projectId);
+        return list;
+      }),
+    );
 
-  /** Fails with `conflict` on a dirty tracked tree or a running turn in that root. */
-  const gitCheckoutAtom = runtime.fn((input: GitCheckout, get) =>
-    Effect.gen(function* () {
-      const client = yield* (yield* Connection).client;
-      const list = yield* client["git.checkout"]({
-        ...scopePayload(input),
-        branch: input.branch,
-      });
-      refreshProject(get.registry, input.projectId);
-      return list;
-    }),
-  );
+  /** The branch picker's switch. Fails with `conflict` on a dirty tracked tree or a running turn in that root. */
+  const checkout = (registry: AtomRegistry.AtomRegistry, input: GitCheckout) =>
+    runOneShot(runtime, registry, () =>
+      Effect.gen(function* () {
+        const client = yield* (yield* Connection).client;
+        const list = yield* client["git.checkout"]({
+          ...scopePayload(input),
+          branch: input.branch,
+        });
+        refreshProject(registry, input.projectId);
+        return list;
+      }),
+    );
 
   return {
     gitStatusAtom,
     gitDiffAtom,
     gitBranchesAtom,
-    gitCreateBranchAtom,
-    gitCheckoutAtom,
+    createBranch,
+    checkout,
     refreshProject,
   };
 };

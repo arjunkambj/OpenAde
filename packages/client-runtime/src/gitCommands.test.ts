@@ -3,14 +3,17 @@
  * the setup atom shows the output while the script is still running, a
  * finished run resolves with everything it printed and its exit status, and
  * the writes send the payload the server expects. What the git actions
- * control relies on: a commit or a push refetches the status it shows.
+ * control relies on: a commit or a push refetches the status it shows, and
+ * two writes in flight at once each finish with their own result.
  */
 
 import { describe, expect, it } from "@effect/vitest";
 import type { GitBranchList, WorktreeSetupFrame } from "@OpenAde/contracts/git";
 import { makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
 import type * as Cause from "effect/Cause";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Queue from "effect/Queue";
 import * as Stream from "effect/Stream";
@@ -44,6 +47,8 @@ interface Calls {
   readonly push: Array<unknown>;
   readonly pullRequest: Array<unknown>;
   readonly status: Array<unknown>;
+  /** Calls cut short before they answered. */
+  readonly interrupted: Array<unknown>;
 }
 
 const branchList = (branches: ReadonlyArray<string>): GitBranchList => ({
@@ -54,9 +59,13 @@ const branchList = (branches: ReadonlyArray<string>): GitBranchList => ({
   branches: branches.map((name) => ({ name, kind: "local" as const, isCurrent: name === "main" })),
 });
 
+/** A commit whose message is `SLOW` waits for `gate` before it answers. */
+const SLOW = "slow";
+
 const fakeClient = (
   calls: Calls,
   frames: Queue.Queue<WorktreeSetupFrame, Cause.Done>,
+  gate: Deferred.Deferred<void>,
 ): OpenAdeRpcClient =>
   new Proxy({} as OpenAdeRpcClient, {
     get: (_target, key) => {
@@ -88,11 +97,18 @@ const fakeClient = (
               );
             });
         case "git.commit":
-          return (payload: unknown) =>
-            Effect.sync(() => {
+          return (payload: { readonly message: string }) =>
+            Effect.gen(function* () {
               calls.commit.push(payload);
-              return { sha: "abc1234def", subject: "Fix the login", branch: WORKTREE.branch };
-            });
+              if (payload.message === SLOW) {
+                yield* Deferred.await(gate);
+              }
+              return {
+                sha: payload.message === SLOW ? "5105105" : "abc1234def",
+                subject: payload.message,
+                branch: WORKTREE.branch,
+              };
+            }).pipe(Effect.onInterrupt(() => Effect.sync(() => calls.interrupted.push(payload))));
         case "git.push":
           return (payload: unknown) =>
             Effect.sync(() => {
@@ -138,7 +154,9 @@ const setupWith = Effect.gen(function* () {
     push: [],
     pullRequest: [],
     status: [],
+    interrupted: [],
   };
+  const gate = yield* Deferred.make<void>();
   const frames = yield* Queue.unbounded<WorktreeSetupFrame, Cause.Done>();
   const stateRef = yield* SubscriptionRef.make<ConnectionState>({
     status: "connected",
@@ -146,7 +164,7 @@ const setupWith = Effect.gen(function* () {
   });
   const layer = Layer.mergeAll(
     Layer.succeed(Connection, {
-      client: Effect.succeed(fakeClient(calls, frames)),
+      client: Effect.succeed(fakeClient(calls, frames, gate)),
       state: stateRef,
     }),
     Layer.succeed(ConnectionStateRef, stateRef),
@@ -156,6 +174,7 @@ const setupWith = Effect.gen(function* () {
   return {
     calls,
     frames,
+    gate,
     registry: AtomRegistry.make(),
     git,
     ...makeGitCommands(base.runtime, git),
@@ -246,19 +265,17 @@ describe("git commands", () => {
   it.live("a create sends the name and base, and refetches the project's branches", () =>
     Effect.gen(function* () {
       const projectId = makeProjectId();
-      const { calls, registry, git, worktreeCreateAtom } = yield* setupWith;
+      const { calls, registry, git, worktreeCreate } = yield* setupWith;
       const branchesAtom = git.gitBranchesAtom({ projectId });
       registry.mount(branchesAtom);
       yield* Effect.promise(() =>
         awaitResult(registry, branchesAtom, (result) => AsyncResult.isSuccess(result)),
       );
 
-      registry.mount(worktreeCreateAtom);
-      registry.set(worktreeCreateAtom, { projectId, name: "Fix the login", baseBranch: "main" });
       const created = yield* Effect.promise(() =>
-        awaitResult(registry, worktreeCreateAtom, (result) => AsyncResult.isSuccess(result)),
+        worktreeCreate(registry, { projectId, name: "Fix the login", baseBranch: "main" }),
       );
-      expect(AsyncResult.isSuccess(created) && created.value.branch).toBe(WORKTREE.branch);
+      expect(Exit.isSuccess(created) && created.value.branch).toBe(WORKTREE.branch);
       expect(calls.create).toEqual([{ projectId, name: "Fix the login", baseBranch: "main" }]);
 
       const refreshed = yield* Effect.promise(() =>
@@ -278,20 +295,11 @@ describe("git commands", () => {
   it.live("a remove sends force only when asked", () =>
     Effect.gen(function* () {
       const projectId = makeProjectId();
-      const { calls, registry, worktreeRemoveAtom } = yield* setupWith;
-      registry.mount(worktreeRemoveAtom);
-      registry.set(worktreeRemoveAtom, { projectId, path: WORKTREE.path, force: true });
+      const { calls, registry, worktreeRemove } = yield* setupWith;
       yield* Effect.promise(() =>
-        awaitResult(registry, worktreeRemoveAtom, (result) => AsyncResult.isSuccess(result)),
+        worktreeRemove(registry, { projectId, path: WORKTREE.path, force: true }),
       );
-      registry.set(worktreeRemoveAtom, { projectId, path: WORKTREE.path });
-      yield* Effect.promise(() =>
-        awaitResult(
-          registry,
-          worktreeRemoveAtom,
-          (result) => AsyncResult.isSuccess(result) && !result.waiting && calls.remove.length === 2,
-        ),
-      );
+      yield* Effect.promise(() => worktreeRemove(registry, { projectId, path: WORKTREE.path }));
       expect(calls.remove).toEqual([
         { projectId, path: WORKTREE.path, force: true },
         { projectId, path: WORKTREE.path },
@@ -303,7 +311,7 @@ describe("git commands", () => {
     Effect.gen(function* () {
       const projectId = makeProjectId();
       const threadId = makeThreadId();
-      const { calls, registry, git, gitCommitAtom } = yield* setupWith;
+      const { calls, registry, git, commit } = yield* setupWith;
       const statusAtom = git.gitStatusAtom({ projectId, threadId });
       registry.mount(statusAtom);
       yield* Effect.promise(() =>
@@ -317,17 +325,15 @@ describe("git commands", () => {
         ),
       );
 
-      registry.mount(gitCommitAtom);
-      registry.set(gitCommitAtom, {
-        projectId,
-        threadId,
-        message: "Fix the login",
-        paths: ["src/login.ts"],
-      });
       const committed = yield* Effect.promise(() =>
-        awaitResult(registry, gitCommitAtom, (result) => AsyncResult.isSuccess(result)),
+        commit(registry, {
+          projectId,
+          threadId,
+          message: "Fix the login",
+          paths: ["src/login.ts"],
+        }),
       );
-      expect(AsyncResult.isSuccess(committed) && committed.value.sha).toBe("abc1234def");
+      expect(Exit.isSuccess(committed) && committed.value.sha).toBe("abc1234def");
       expect(calls.commit).toEqual([
         { projectId, threadId, message: "Fix the login", paths: ["src/login.ts"] },
       ]);
@@ -351,15 +357,14 @@ describe("git commands", () => {
     Effect.gen(function* () {
       const projectId = makeProjectId();
       const threadId = makeThreadId();
-      const { calls, registry, git, gitPushAtom, gitPullRequestAtom } = yield* setupWith;
+      const { calls, registry, git, push, openPullRequest } = yield* setupWith;
       const statusAtom = git.gitStatusAtom({ projectId, threadId });
       registry.mount(statusAtom);
       yield* Effect.promise(() =>
         awaitResult(registry, statusAtom, (result) => AsyncResult.isSuccess(result)),
       );
 
-      registry.mount(gitPushAtom);
-      registry.set(gitPushAtom, { projectId, threadId });
+      yield* Effect.promise(() => push(registry, { projectId, threadId }));
       yield* Effect.promise(() =>
         awaitResult(
           registry,
@@ -372,16 +377,35 @@ describe("git commands", () => {
       );
       expect(calls.push).toEqual([{ projectId, threadId }]);
 
-      registry.mount(gitPullRequestAtom);
-      registry.set(gitPullRequestAtom, { projectId, threadId, title: "Fix the login", body: "" });
       const opened = yield* Effect.promise(() =>
-        awaitResult(registry, gitPullRequestAtom, (result) => AsyncResult.isSuccess(result)),
+        openPullRequest(registry, { projectId, threadId, title: "Fix the login", body: "" }),
       );
-      expect(AsyncResult.isSuccess(opened) && opened.value.url).toBe(
-        "https://github.com/acme/app/pull/7",
-      );
+      expect(Exit.isSuccess(opened) && opened.value.url).toBe("https://github.com/acme/app/pull/7");
       expect(calls.pullRequest).toEqual([
         { projectId, threadId, title: "Fix the login", body: "" },
+      ]);
+    }),
+  );
+
+  it.live("overlapping writes neither interrupt each other nor swap results", () =>
+    Effect.gen(function* () {
+      const projectId = makeProjectId();
+      const { calls, gate, registry, commit } = yield* setupWith;
+      // Thread A's commit is still running (a slow hook) when thread B commits.
+      const first = commit(registry, { projectId, threadId: makeThreadId(), message: SLOW });
+      yield* Effect.promise(() => expect.poll(() => calls.commit.length).toBe(1));
+      const second = yield* Effect.promise(() =>
+        commit(registry, { projectId, threadId: makeThreadId(), message: "Fix the login" }),
+      );
+      expect(Exit.isSuccess(second) && second.value.sha).toBe("abc1234def");
+
+      yield* Deferred.succeed(gate, undefined);
+      const settled = yield* Effect.promise(() => first);
+      expect(Exit.isSuccess(settled) && settled.value.sha).toBe("5105105");
+      expect(calls.interrupted).toEqual([]);
+      expect(calls.commit.map((call) => (call as { message: string }).message)).toEqual([
+        SLOW,
+        "Fix the login",
       ]);
     }),
   );

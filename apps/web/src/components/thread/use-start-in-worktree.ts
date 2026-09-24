@@ -53,11 +53,9 @@ export interface WorktreeThreadStart {
 const IDLE: WorktreeStartState = { step: "idle" };
 
 export const useStartInWorktree = (projectId: ProjectId, thread: WorktreeThreadStart) => {
-  const { worktreeCreateAtom, worktreeSetupAtom, worktreeRemoveAtom } = useGitCommands();
-  const createWorktree = useAtomSet(worktreeCreateAtom, { mode: "promise" });
+  const { worktreeCreate, worktreeSetupAtom, worktreeRemove: removeWorktree } = useGitCommands();
   const runSetup = useAtomSet(worktreeSetupAtom, { mode: "promiseExit" });
   const controlSetup = useAtomSet(worktreeSetupAtom);
-  const removeWorktree = useAtomSet(worktreeRemoveAtom, { mode: "promiseExit" });
 
   const live = useAtomValue(worktreeSetupAtom);
   // A stopped run is a failure that keeps the output it had so far.
@@ -74,7 +72,13 @@ export const useStartInWorktree = (projectId: ProjectId, thread: WorktreeThreadS
 
   const steps = React.useCallback(
     (name: string, baseBranch: string | undefined): WorktreeStartSteps => ({
-      createWorktree: () => createWorktree({ projectId, name, baseBranch }),
+      createWorktree: async () => {
+        const exit = await worktreeCreate({ projectId, name, baseBranch });
+        if (Exit.isSuccess(exit)) {
+          return exit.value;
+        }
+        throw Cause.squash(exit.cause);
+      },
       runSetup: async (worktree) => {
         stoppedRef.current = false;
         const exit = await runSetup({ projectId, path: worktree.path });
@@ -93,7 +97,7 @@ export const useStartInWorktree = (projectId: ProjectId, thread: WorktreeThreadS
       send: () => threadRef.current.send(),
       onStep: setState,
     }),
-    [createWorktree, projectId, runSetup],
+    [worktreeCreate, projectId, runSetup],
   );
 
   const settle = (outcome: WorktreeStartOutcome) => {
