@@ -1066,7 +1066,8 @@ A harness that can take a message mid-turn says so with
 `capabilities.steering`. Its `session.started` carries the capabilities, and
 `RuntimeIngestion` copies them onto `thread.session.bound`, so the thread's
 session in the read model knows what its harness can do. Command Code
-declares `steering: false`, and its threads keep the queue exactly as above.
+declares `steering: false`, and its threads keep the queue exactly as above;
+Claude Code declares `steering: true`.
 
 `thread.turn.steer` carries the same input as a send — text, attachments,
 mentions — and the decider answers it from the thread as it is:
@@ -1097,9 +1098,21 @@ directly, as a refused drain does. The row the decider already wrote stays in
 the turn it was meant for, so a message that fell back shows twice: once where
 it was sent, once where it was answered.
 
-The connector keeps the running turn open until its harness has answered the
-steered message too, so the turn still ends with exactly one
-`thread.turn.completed`.
+The connector writes the message into its harness while the turn runs, with no
+new `turn.started`, and keeps the running turn open until its harness has
+answered the steered message too, so the turn still ends with exactly one
+`thread.turn.completed`. A harness may take the message into the work it is
+doing, or finish what it was doing and then answer the message on its own; a
+connector tells the two apart from what its harness reports about each
+message, not by counting the harness's own completions, and holds the turn
+open across any completion that leaves a steered message unanswered. Usage
+reported along the way adds up into the one turn's. A connector checks there is
+still a turn to join in the same step that would end it, so a steer that races
+the turn's end either joins it or is refused and falls back to the queue as
+above. Stop ends the whole turn, and a steered message the harness had not
+taken up yet is withdrawn with it rather than answered afterwards. The Claude
+Code connector's reading of its harness is in
+[architecture.md](architecture.md#the-claude-code-connector).
 
 In the composer (§4), Enter on a running thread whose harness steers sends
 `thread.turn.steer`; `Cmd+Enter` still queues, and on a harness that cannot

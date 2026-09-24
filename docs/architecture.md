@@ -415,8 +415,9 @@ prompt), `queryOptions.ts`, `toolGate.ts` (the PreToolUse hook and
 tools in OpenAde's approval vocabulary), `interactions.ts` (the question and
 plan cards AskUserQuestion and ExitPlanMode open), `questions.ts` and
 `plans.ts` (their shapes), `attachments.ts` (images as content blocks, other
-files by path), `userMessage.ts`, `sessionRef.ts`, `session.ts` (one
-long-lived CLI process per thread), and `translate/` (SDK messages →
+files by path), `userMessage.ts`, `sessionRef.ts`, `steering.ts` (when a
+steered turn is over), `session.ts` (one long-lived CLI process per thread),
+and `translate/` (SDK messages →
 `RuntimeEvent`; `tools.ts` holds the tool rows, `subagents.ts` the tasks and
 their nested rows, `compaction.ts` the compaction row). `makeClaudeConnectorDefinition`
 takes the turn and budget caps a recording puts on every session; production
@@ -1221,6 +1222,26 @@ file from elsewhere copied into the thread's attachments directory, which is
 among the CLI's readable directories. A file that cannot be read or copied is
 still named by its path, with a `session.warning`. `fixtures/claude/image/` is
 the recording that will show a model answering from an image.
+
+**Steering.** `steering` is true: `steer` writes one more user message to the
+running CLI, with no `turn.started`. The CLI queues it and takes it one of two
+ways — folded into the running agent loop between two of its requests, so the
+turn's one `result` answers both, or, when the loop ended first, run next as a
+turn of the CLI's own with a `result` of its own. Its `command_lifecycle`
+receipts, which name each message by the uuid the session stamped on it, say
+which: a message is `started` before the running turn's `result` when it was
+folded, after it when it runs next. So `steering.ts` holds OpenAde's turn open
+at a `result` while a steered message has been neither `started` nor ended,
+and the session sums the usage of every `result` the turn spans. The decision
+and the end of the turn are one step, so a steer racing the last `result`
+either holds the turn or finds none and falls back to the queue. Stop settles
+the whole turn at its `result`, and interrupts with the SDK's `cancelQueued`
+when a steered message is still waiting, so the CLI drops it rather than
+running it afterwards. A CLI that sends no receipts ends the turn at its
+first `result`, as before. `fixtures/claude/signed-out-steer/` has a message
+steered in after the CLI's `system/init` and run next;
+`fixtures/claude/steering/`, which will show one folded into a running loop,
+waits for a signed-in CLI.
 
 **Signed out.** A CLI that is not signed in answers each message with its own
 "Not logged in" line and an error result, without calling the API. The

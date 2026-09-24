@@ -389,6 +389,7 @@ the thread: the cards, their answers, and the rows.
 | `subagent.test.ts`   | `subagent`              | a Task delegation, its rows nested under the task row        |
 | `model.test.ts`      | `model-switch`          | the model and effort switched between turns, in session      |
 | `attachment.test.ts` | `image`                 | a staged PNG sent as an image block, and its colour named    |
+| `steering.test.ts`   | `steering`              | a message steered in while a command runs, answered in-turn  |
 
 A scenario whose recording has not been made yet is skipped under replay, and
 its title says so. `packages/testkit/fixtures/claude/README.md` lists which
@@ -411,7 +412,10 @@ The connector's own suites replay the same fixtures without a server:
 `recordedFrames.test.ts` feeds every recorded session through the translator
 and fails on any frame it leaves unmapped; `recordedSession.test.ts` replays
 the session launch of `plain-reply`, the approval scenarios, `plan-accept`,
-`question` and `subagent`; `sessionControls.test.ts` replays
+`question`, `subagent` and `steering`; `steering.test.ts` replays
+`signed-out-steer`, a message steered into a turn on a signed-out CLI that runs
+it as its next turn, and holds the session to one turn across both results;
+`sessionControls.test.ts` replays
 `session-controls`, a session on a signed-out CLI that switches model and
 effort, sends an image and runs `/compact` (recorded by
 `test/recordSession.test.ts`, free because nothing reaches the API);
