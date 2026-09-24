@@ -71,7 +71,7 @@ describe("DEFAULT_KEYBINDINGS", () => {
         ]);
       }
       expect(rows("thread.interrupt")).toEqual([
-        "Escape|turnRunning && !dialogOpen && (inputFocus || !approvalPending)",
+        "Escape|turnRunning && !dialogOpen && (composerFocus || (!inputFocus && !approvalPending))",
       ]);
     }),
   );

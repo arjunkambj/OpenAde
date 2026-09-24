@@ -1140,10 +1140,12 @@ nothing and denies the call.
 
 The Stop button and the `thread.interrupt` binding both dispatch
 `thread.turn.interrupt`. The binding is `Escape` with
-`when: turnRunning && !dialogOpen && (inputFocus || !approvalPending)`: it
-fires only while a turn runs and no dialog or menu is open, and not when an
-approval card is up and focus is outside a text field — there Escape denies the
-call instead (§5). The composer publishes `turnRunning` and answers the
+`when: turnRunning && !dialogOpen && (composerFocus || (!inputFocus && !approvalPending))`:
+it fires only while a turn runs and no dialog or menu is open, with focus in
+the composer or outside every text field. In any other field — the browser
+pane's address bar, the terminal — Escape cancels that field's edit and leaves
+the turn alone. With an approval card up and focus outside a text field,
+Escape denies the call instead (§5). The composer publishes `turnRunning` and answers the
 command. The decider rejects it when no turn is
 running or one is already stopping, and otherwise emits
 `thread.turn.interrupted`, which sets `interrupting` on the thread document
@@ -2025,44 +2027,44 @@ fields entirely.
 `DEFAULT_KEYBINDINGS` in `packages/contracts/src/keybindings.ts`. An empty
 "when" means the binding holds everywhere.
 
-| area     | command                                               | shortcut                      | when                                                               |
-| -------- | ----------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------ |
-| General  | `commandPalette.toggle`                               | `Mod+K`                       |                                                                    |
-| General  | `shortcuts.open`                                      | `Mod+/`                       |                                                                    |
-| General  | `settings.open`                                       | `Mod+,`                       |                                                                    |
-| General  | `skills.open`                                         | `Mod+Shift+S`                 |                                                                    |
-| General  | `mcp.open`                                            | unbound                       |                                                                    |
-| General  | `project.add`                                         | `Mod+Shift+O`                 |                                                                    |
-| Threads  | `thread.new`                                          | `Mod+N`                       |                                                                    |
-| Threads  | `thread.newInProject`                                 | `Mod+Shift+N`                 |                                                                    |
-| Threads  | `thread.jump.1` … `thread.jump.9`                     | `Mod+1` … `Mod+9`             |                                                                    |
-| Threads  | `thread.previous` / `thread.next`                     | `Mod+Shift+[` / `Mod+Shift+]` |                                                                    |
-| Threads  | `thread.rename`                                       | `Mod+Alt+R`                   | `threadOpen`                                                       |
-| Threads  | `thread.archive`                                      | `Mod+Shift+A`                 | `threadOpen`                                                       |
-| Threads  | `thread.delete`                                       | `Mod+Alt+Backspace`           | `threadOpen`                                                       |
-| Threads  | `nav.back` / `nav.forward`                            | `Mod+[` / `Mod+]`             | `!browserFocus`                                                    |
-| Composer | `composer.planMode.toggle`                            | `Shift+Tab`                   | `composerFocus`                                                    |
-| Composer | `composer.runtimeMode.cycle`                          | `Mod+Shift+L`                 |                                                                    |
-| Composer | `composer.modelPicker.open`                           | `Mod+Shift+M`                 |                                                                    |
-| Composer | `composer.effortPicker.open`                          | `Mod+Shift+E`                 |                                                                    |
-| Composer | `composer.effort.increase` / `decrease`               | `Mod+Shift+.` / `Mod+Shift+,` |                                                                    |
-| Composer | `composer.focus`                                      | `Mod+L`                       | `!browserFocus`                                                    |
-| Composer | `composer.queue`                                      | `Mod+Enter`                   |                                                                    |
-| Composer | `thread.interrupt`                                    | `Escape`                      | `turnRunning && !dialogOpen && (inputFocus \|\| !approvalPending)` |
-| Composer | `composer.attach`                                     | `Mod+U`                       |                                                                    |
-| Composer | `composer.clearDraft`                                 | `Mod+Shift+Backspace`         | `composerFocus`                                                    |
-| View     | `sidebar.toggle`                                      | `Mod+B`                       |                                                                    |
-| View     | `dock.toggle`                                         | `Mod+Alt+B`                   | `threadOpen`                                                       |
-| View     | `dock.changes` / `dock.files`                         | `Mod+Shift+D` / `Mod+P`       | `threadOpen`                                                       |
-| View     | `browserPane.toggle`                                  | `Mod+Shift+B`                 |                                                                    |
-| View     | `terminal.toggle`                                     | `Mod+J`                       |                                                                    |
-| View     | `font.increase` / `decrease` / `reset`                | `Mod+Alt+=` / `-` / `0`       |                                                                    |
-| Timeline | `timeline.jumpToLatest`                               | `Mod+Shift+J`                 | `threadOpen`                                                       |
-| Timeline | `timeline.collapseAll` / `expandAll`                  | `Mod+Alt+[` / `Mod+Alt+]`     | `threadOpen`                                                       |
-| Cards    | `approval.allowOnce` / `allowSession` / `allowAlways` | `1` / `2` / `3`               | `approvalPending && !inputFocus && !dialogOpen`                    |
-| Cards    | `approval.deny`                                       | `D`, `Escape`                 | the same                                                           |
-| Cards    | `plan.accept` / `acceptAndRun` / `revise`             | `1` / `2` / `3`               | `planPending && !inputFocus && !dialogOpen`                        |
-| Cards    | `question.option.1` … `question.option.9`             | `1` … `9`                     | `questionPending && !inputFocus && !dialogOpen`                    |
+| area     | command                                               | shortcut                      | when                                                                                   |
+| -------- | ----------------------------------------------------- | ----------------------------- | -------------------------------------------------------------------------------------- |
+| General  | `commandPalette.toggle`                               | `Mod+K`                       |                                                                                        |
+| General  | `shortcuts.open`                                      | `Mod+/`                       |                                                                                        |
+| General  | `settings.open`                                       | `Mod+,`                       |                                                                                        |
+| General  | `skills.open`                                         | `Mod+Shift+S`                 |                                                                                        |
+| General  | `mcp.open`                                            | unbound                       |                                                                                        |
+| General  | `project.add`                                         | `Mod+Shift+O`                 |                                                                                        |
+| Threads  | `thread.new`                                          | `Mod+N`                       |                                                                                        |
+| Threads  | `thread.newInProject`                                 | `Mod+Shift+N`                 |                                                                                        |
+| Threads  | `thread.jump.1` … `thread.jump.9`                     | `Mod+1` … `Mod+9`             |                                                                                        |
+| Threads  | `thread.previous` / `thread.next`                     | `Mod+Shift+[` / `Mod+Shift+]` |                                                                                        |
+| Threads  | `thread.rename`                                       | `Mod+Alt+R`                   | `threadOpen`                                                                           |
+| Threads  | `thread.archive`                                      | `Mod+Shift+A`                 | `threadOpen`                                                                           |
+| Threads  | `thread.delete`                                       | `Mod+Alt+Backspace`           | `threadOpen`                                                                           |
+| Threads  | `nav.back` / `nav.forward`                            | `Mod+[` / `Mod+]`             | `!browserFocus`                                                                        |
+| Composer | `composer.planMode.toggle`                            | `Shift+Tab`                   | `composerFocus`                                                                        |
+| Composer | `composer.runtimeMode.cycle`                          | `Mod+Shift+L`                 |                                                                                        |
+| Composer | `composer.modelPicker.open`                           | `Mod+Shift+M`                 |                                                                                        |
+| Composer | `composer.effortPicker.open`                          | `Mod+Shift+E`                 |                                                                                        |
+| Composer | `composer.effort.increase` / `decrease`               | `Mod+Shift+.` / `Mod+Shift+,` |                                                                                        |
+| Composer | `composer.focus`                                      | `Mod+L`                       | `!browserFocus`                                                                        |
+| Composer | `composer.queue`                                      | `Mod+Enter`                   |                                                                                        |
+| Composer | `thread.interrupt`                                    | `Escape`                      | `turnRunning && !dialogOpen && (composerFocus \|\| (!inputFocus && !approvalPending))` |
+| Composer | `composer.attach`                                     | `Mod+U`                       |                                                                                        |
+| Composer | `composer.clearDraft`                                 | `Mod+Shift+Backspace`         | `composerFocus`                                                                        |
+| View     | `sidebar.toggle`                                      | `Mod+B`                       |                                                                                        |
+| View     | `dock.toggle`                                         | `Mod+Alt+B`                   | `threadOpen`                                                                           |
+| View     | `dock.changes` / `dock.files`                         | `Mod+Shift+D` / `Mod+P`       | `threadOpen`                                                                           |
+| View     | `browserPane.toggle`                                  | `Mod+Shift+B`                 |                                                                                        |
+| View     | `terminal.toggle`                                     | `Mod+J`                       |                                                                                        |
+| View     | `font.increase` / `decrease` / `reset`                | `Mod+Alt+=` / `-` / `0`       |                                                                                        |
+| Timeline | `timeline.jumpToLatest`                               | `Mod+Shift+J`                 | `threadOpen`                                                                           |
+| Timeline | `timeline.collapseAll` / `expandAll`                  | `Mod+Alt+[` / `Mod+Alt+]`     | `threadOpen`                                                                           |
+| Cards    | `approval.allowOnce` / `allowSession` / `allowAlways` | `1` / `2` / `3`               | `approvalPending && !inputFocus && !dialogOpen`                                        |
+| Cards    | `approval.deny`                                       | `D`, `Escape`                 | the same                                                                               |
+| Cards    | `plan.accept` / `acceptAndRun` / `revise`             | `1` / `2` / `3`               | `planPending && !inputFocus && !dialogOpen`                                            |
+| Cards    | `question.option.1` … `question.option.9`             | `1` … `9`                     | `questionPending && !inputFocus && !dialogOpen`                                        |
 
 Enter sends and Shift+Enter inserts a newline. In the `/` and `@` menus,
 Up/Down or Tab/Shift+Tab move, Enter picks and Escape closes. These keys are

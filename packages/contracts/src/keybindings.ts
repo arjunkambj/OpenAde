@@ -97,10 +97,12 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<Keybinding> = [
   { command: "composer.effort.decrease", shortcut: "Mod+Shift+," },
   { command: "composer.focus", shortcut: "Mod+L", when: OUTSIDE_BROWSER },
   { command: "composer.queue", shortcut: "Mod+Enter" },
+  // Escape cancels an edit in any other field — the browser pane's address
+  // bar, the terminal — so there it must not also stop the turn.
   {
     command: "thread.interrupt",
     shortcut: "Escape",
-    when: "turnRunning && !dialogOpen && (inputFocus || !approvalPending)",
+    when: "turnRunning && !dialogOpen && (composerFocus || (!inputFocus && !approvalPending))",
   },
   { command: "composer.attach", shortcut: "Mod+U" },
   { command: "composer.clearDraft", shortcut: "Mod+Shift+Backspace", when: "composerFocus" },

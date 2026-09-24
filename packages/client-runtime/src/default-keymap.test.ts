@@ -10,7 +10,13 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_KEYBINDINGS, RESERVED_KEYBINDINGS } from "@OpenAde/contracts/keybindings";
 import type { Keybinding } from "@OpenAde/contracts/settings";
 
-import { parseShortcut, parseWhen, whenNeedsTextFocus, type ModKey } from "./keybindings";
+import {
+  parseShortcut,
+  parseWhen,
+  resolveKeybinding,
+  whenNeedsTextFocus,
+  type ModKey,
+} from "./keybindings";
 import { findKeybindingConflicts, reservedChordReason, whenOverlaps } from "./keymap";
 
 const PLATFORMS: ReadonlyArray<ModKey> = ["meta", "ctrl"];
@@ -178,5 +184,43 @@ describe("the collision checks themselves", () => {
       { command: "browser.stop", shortcut: "Mod+[", when: "browserFocus" },
     ];
     expect(describeConflicts(scoped, "meta")).toEqual([]);
+  });
+});
+
+describe("Escape in the shipped table", () => {
+  const escape = {
+    key: "Escape",
+    code: "Escape",
+    metaKey: false,
+    ctrlKey: false,
+    altKey: false,
+    shiftKey: false,
+  };
+  const resolve = (...flags: ReadonlyArray<string>) =>
+    resolveKeybinding(DEFAULT_KEYBINDINGS, escape, (name) => flags.includes(name), "meta")
+      ?.command ?? null;
+
+  it("stops the turn from the composer, even with an approval up", () => {
+    expect(resolve("turnRunning", "inputFocus", "composerFocus")).toBe("thread.interrupt");
+    expect(resolve("turnRunning", "inputFocus", "composerFocus", "approvalPending")).toBe(
+      "thread.interrupt",
+    );
+  });
+
+  it("stops the turn from the page, and denies an approval there instead", () => {
+    expect(resolve("turnRunning")).toBe("thread.interrupt");
+    expect(resolve("turnRunning", "approvalPending")).toBe("approval.deny");
+  });
+
+  it("leaves any other text field its own Escape", () => {
+    expect(resolve("turnRunning", "inputFocus")).toBeNull();
+    expect(resolve("turnRunning", "inputFocus", "browserFocus")).toBeNull();
+    expect(resolve("turnRunning", "inputFocus", "terminalFocus")).toBeNull();
+    expect(resolve("turnRunning", "inputFocus", "approvalPending")).toBeNull();
+  });
+
+  it("does nothing with a dialog open or no turn running", () => {
+    expect(resolve("turnRunning", "dialogOpen")).toBeNull();
+    expect(resolve("inputFocus", "composerFocus")).toBeNull();
   });
 });
