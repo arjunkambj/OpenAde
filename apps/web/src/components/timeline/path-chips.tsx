@@ -1,7 +1,8 @@
 /**
  * Which paths a row names are files in the thread's workspace, for the rows
- * that turn them into chips: markdown bodies, file changes, read targets and
- * the turn summary's file list.
+ * that turn them into chips: markdown bodies, file changes and read targets.
+ * The turn summary's file list resolves its paths here too, to label each
+ * one relative to the workspace, but draws no chips: its lines open Changes.
  *
  * `PathChipsProvider` asks once for the row's candidates (`usePathChips`) and
  * provides the confirmed files; `PathChip` shows one path as its chip once
