@@ -56,3 +56,48 @@ export const everyFileOpen = (
   const expandable = files.filter((file) => file.diff !== "");
   return expandable.length > 0 && expandable.every((file) => isOpen(review, file.path, byDefault));
 };
+
+/**
+ * A cheap fingerprint of one patch — FNV-1a over its text, with the length
+ * beside it — for the viewed marks. It only has to notice that a file's patch
+ * moved since it was marked, not resist anyone, so a 32-bit hash is plenty.
+ */
+export const patchHash = (patch: string): string => {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < patch.length; index += 1) {
+    hash ^= patch.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `${patch.length.toString(36)}.${(hash >>> 0).toString(36)}`;
+};
+
+/** Whether `path` is marked viewed for the patch it has now; a mark on an older patch has lapsed. */
+export const isViewed = (review: ChangesReview, path: string, hash: string): boolean =>
+  review.viewed[path] === hash;
+
+/**
+ * The review with `path` marked viewed against `hash`, or unmarked for `null`.
+ * Marking also closes the file — a file read is a file done with — while
+ * unmarking leaves it as it is.
+ */
+export const withViewed = (
+  review: ChangesReview,
+  path: string,
+  hash: string | null,
+): ChangesReview => {
+  if (hash === null) {
+    const viewed = { ...review.viewed };
+    delete viewed[path];
+    return { ...review, viewed };
+  }
+  return {
+    open: { ...review.open, [path]: false },
+    viewed: { ...review.viewed, [path]: hash },
+  };
+};
+
+/** How many of `files` are viewed as they are now. */
+export const viewedCount = (
+  review: ChangesReview,
+  files: ReadonlyArray<{ readonly path: string; readonly hash: string }>,
+): number => files.filter((file) => isViewed(review, file.path, file.hash)).length;

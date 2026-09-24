@@ -3,9 +3,14 @@
  * its patch scrolls under it, and the patch itself once the row is opened. A
  * closed file keeps nothing mounted, so a long list of closed rows costs no
  * highlighting at all.
+ *
+ * The checkbox at the row's end marks the file viewed, which also closes it;
+ * a viewed file's name dims, so what is left to read stands out.
  */
 
 import type { GitDiffFile } from "@OpenAde/contracts/rpc";
+import { Checkbox } from "@OpenAde/ui/components/checkbox";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 
 import { InlineDiff } from "@/components/timeline/diff-pool";
 import { cn } from "@/lib/utils";
@@ -32,15 +37,17 @@ export function LineCounts({ additions, deletions }: { additions: number; deleti
   );
 }
 
-/** A path as a muted directory and a bright file name, the name never cut. */
-function FilePath({ path }: { path: string }) {
+/** A path as a muted directory and a bright file name, the name never cut; all muted once viewed. */
+function FilePath({ path, viewed }: { path: string; viewed: boolean }) {
   const slash = path.lastIndexOf("/");
   return (
     <span className="flex min-w-0 flex-1 font-mono text-xs" title={path}>
       {slash === -1 ? null : (
         <span className="min-w-0 truncate text-muted-foreground">{path.slice(0, slash + 1)}</span>
       )}
-      <span className="shrink-0 text-foreground">{path.slice(slash + 1)}</span>
+      <span className={cn("shrink-0", viewed ? "text-muted-foreground" : "text-foreground")}>
+        {path.slice(slash + 1)}
+      </span>
     </span>
   );
 }
@@ -49,24 +56,28 @@ export function FileSection({
   file,
   open,
   onOpenChange,
+  viewed,
+  onViewedChange,
   diffStyle,
 }: {
   file: GitDiffFile;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  viewed: boolean;
+  onViewedChange: (viewed: boolean) => void;
   diffStyle: DiffStyle;
 }) {
   const Glyph = KIND_ICON[file.kind];
   const expandable = file.diff !== "";
   return (
     <section>
-      <div className="sticky top-0 z-10 flex h-7 items-center border-b border-border bg-sidebar hover:bg-hover">
+      <div className="sticky top-0 z-10 flex h-7 items-center gap-1.5 border-b border-border bg-sidebar pr-3 hover:bg-hover">
         <button
           type="button"
           disabled={!expandable}
           aria-expanded={expandable ? open : undefined}
           onClick={() => onOpenChange(!open)}
-          className="flex h-full min-w-0 flex-1 items-center gap-2 px-3 py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset enabled:cursor-pointer"
+          className="flex h-full min-w-0 flex-1 items-center gap-2 py-1 pr-2 pl-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset enabled:cursor-pointer"
         >
           <ChevronRight
             variant="bold"
@@ -78,15 +89,27 @@ export function FileSection({
           />
           <Glyph variant="bold" className="size-3.5 shrink-0 text-foreground/85" />
           {file.oldPath === undefined ? (
-            <FilePath path={file.path} />
+            <FilePath path={file.path} viewed={viewed} />
           ) : (
             <span className="flex min-w-0 flex-1 gap-1 font-mono text-xs">
               <span className="min-w-0 truncate text-muted-foreground">{file.oldPath} →</span>
-              <FilePath path={file.path} />
+              <FilePath path={file.path} viewed={viewed} />
             </span>
           )}
           <LineCounts additions={file.additions} deletions={file.deletions} />
         </button>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Checkbox
+                aria-label={`Viewed ${file.path}`}
+                checked={viewed}
+                onCheckedChange={(checked) => onViewedChange(checked)}
+              />
+            }
+          />
+          <TooltipContent>{viewed ? "Viewed" : "Mark as viewed"}</TooltipContent>
+        </Tooltip>
       </div>
       {open && expandable ? (
         <div className="border-b border-border">

@@ -23,13 +23,23 @@ import type { GitDiff, GitDiffFile, GitStatus } from "@OpenAde/contracts/rpc";
 import { Button } from "@OpenAde/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import { AsyncResult } from "effect/unstable/reactivity";
+import * as React from "react";
 
 import { PaneMessage } from "@/components/panes/files/pane-message";
 import { useChangesReview, type DiffStyle } from "@/state/ui";
 
 import { FileSection, LineCounts } from "./file-section";
 import { useGitAtoms } from "./git-atoms";
-import { everyFileOpen, isOpen, startsOpen, withOpen } from "./review";
+import {
+  everyFileOpen,
+  isOpen,
+  isViewed,
+  patchHash,
+  startsOpen,
+  viewedCount,
+  withOpen,
+  withViewed,
+} from "./review";
 import {
   AlertTriangle,
   GitDiff as GitDiffIcon,
@@ -115,15 +125,17 @@ export function ChangesList({
 }
 
 /**
- * The line over the files: `3 files · +20 −4`, and the toggle that opens every
- * file or closes them all.
+ * The line over the files: `3 files · +20 −4 · 1 viewed`, and the toggle that
+ * opens every file or closes them all.
  */
 function ReviewSummary({
   files,
+  viewed,
   allOpen,
   onAllOpenChange,
 }: {
   files: ReadonlyArray<GitDiffFile>;
+  viewed: number;
   allOpen: boolean;
   onAllOpenChange: (open: boolean) => void;
 }) {
@@ -145,6 +157,8 @@ function ReviewSummary({
           <LineCounts additions={additions} deletions={deletions} />
         </>
       ) : null}
+      <span aria-hidden>·</span>
+      <span className="shrink-0">{viewed} viewed</span>
       <div className="flex-1" />
       <Tooltip>
         <TooltipTrigger
@@ -182,12 +196,18 @@ function ReviewList({
 }) {
   const [review, updateReview] = useChangesReview(threadId);
   const byDefault = startsOpen(files);
+  // Hashed once per answer from git, not per render: a patch can be megabytes.
+  const hashed = React.useMemo(
+    () => files.map((file) => ({ file, path: file.path, hash: patchHash(file.diff) })),
+    [files],
+  );
   const setOpen = (paths: ReadonlyArray<string>, open: boolean) =>
     updateReview((current) => withOpen(current, paths, open));
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <ReviewSummary
         files={files}
+        viewed={viewedCount(review, hashed)}
         allOpen={everyFileOpen(review, files, byDefault)}
         onAllOpenChange={(open) =>
           setOpen(
@@ -197,12 +217,16 @@ function ReviewList({
         }
       />
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto border-t border-border">
-        {files.map((file) => (
+        {hashed.map(({ file, hash }) => (
           <FileSection
             key={file.path}
             file={file}
             open={isOpen(review, file.path, byDefault)}
             onOpenChange={(open) => setOpen([file.path], open)}
+            viewed={isViewed(review, file.path, hash)}
+            onViewedChange={(viewed) =>
+              updateReview((current) => withViewed(current, file.path, viewed ? hash : null))
+            }
             diffStyle={diffStyle}
           />
         ))}

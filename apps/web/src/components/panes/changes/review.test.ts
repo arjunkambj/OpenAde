@@ -1,13 +1,23 @@
 /**
- * The Changes pane's review rules: which files start open, and how the
- * thread's own choices override that default per path.
+ * The Changes pane's review rules: which files start open, how the thread's
+ * own choices override that default per path, and when a viewed mark lapses.
  */
 
 import { describe, expect, it } from "vitest";
 
 import { emptyChangesReview } from "@/state/ui";
 
-import { everyFileOpen, isOpen, OPEN_LINES_LIMIT, startsOpen, withOpen } from "./review";
+import {
+  everyFileOpen,
+  isOpen,
+  isViewed,
+  OPEN_LINES_LIMIT,
+  patchHash,
+  startsOpen,
+  viewedCount,
+  withOpen,
+  withViewed,
+} from "./review";
 
 const file = (additions: number, deletions = 0) => ({ additions, deletions });
 
@@ -54,5 +64,39 @@ describe("changes review", () => {
     );
     // Nothing to open is nothing to collapse.
     expect(everyFileOpen(emptyChangesReview, [{ path: "logo.png", diff: "" }], true)).toBe(false);
+  });
+
+  it("marks a file viewed and closes it, and the mark lapses when its patch changes", () => {
+    const before = "@@ -1 +1 @@\n-a\n+b\n";
+    const after = "@@ -1 +1 @@\n-a\n+c\n";
+    const opened = withOpen(emptyChangesReview, ["a.ts"], true);
+    const viewed = withViewed(opened, "a.ts", patchHash(before));
+    expect(isViewed(viewed, "a.ts", patchHash(before))).toBe(true);
+    expect(isOpen(viewed, "a.ts", true)).toBe(false);
+    // The agent edits the file again: the mark no longer holds, with nothing
+    // having to reset it, and the file keeps the closed state it was left in.
+    expect(isViewed(viewed, "a.ts", patchHash(after))).toBe(false);
+    expect(isOpen(viewed, "a.ts", true)).toBe(false);
+    // Unmarking drops the mark and leaves the file as it was.
+    const unmarked = withViewed(withOpen(viewed, ["a.ts"], true), "a.ts", null);
+    expect(isViewed(unmarked, "a.ts", patchHash(before))).toBe(false);
+    expect(isOpen(unmarked, "a.ts", false)).toBe(true);
+  });
+
+  it("fingerprints a patch by its text, cheaply and stably", () => {
+    expect(patchHash("+a")).toBe(patchHash("+a"));
+    expect(patchHash("+a")).not.toBe(patchHash("+b"));
+    expect(patchHash("")).not.toBe(patchHash(" "));
+  });
+
+  it("counts only the marks that still hold", () => {
+    const review = withViewed(withViewed(emptyChangesReview, "a.ts", "h1"), "b.ts", "h2");
+    const files = [
+      { path: "a.ts", hash: "h1" },
+      // b.ts changed since it was marked.
+      { path: "b.ts", hash: "h3" },
+      { path: "c.ts", hash: "h4" },
+    ];
+    expect(viewedCount(review, files)).toBe(1);
   });
 });
