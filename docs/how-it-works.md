@@ -2432,7 +2432,9 @@ the running count and a tooltip such as "2 terminals running in this
 project's folder", sits beside the New task header's terminal toggle and on
 the project's sidebar row, and shows nothing while none is running. It
 counts the project's `terminal.list`, reread on connecting, after every open,
-close, exit the drawer sees and hand-over, and on a return to the window.
+close, exit the drawer sees and hand-over, and on a return to the window —
+once per project, since both badges share its list atom and its return
+refetch (`useSharedWindowReturn` in `apps/web/src/lib/window-return.ts`).
 
 The shell comes from `resolveShell` in
 `apps/server/src/terminal/shell.ts`: `$SHELL` when it is an absolute path,

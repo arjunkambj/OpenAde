@@ -12,7 +12,10 @@
  * It reads the project's `terminal.list` (`./running-terminals` counts it):
  * refetched on connecting, after every open, close and hand-over, and on a
  * return to the window, since a shell nobody is watching can exit without
- * the client hearing of it. Nothing shows while none is running.
+ * the client hearing of it. Both badges of a project read the same list atom,
+ * and the return refetch is shared by that atom (`useSharedWindowReturn`), so
+ * the list is fetched once per trigger however many badges show it. Nothing
+ * shows while none is running.
  */
 
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
@@ -27,14 +30,14 @@ import {
   runningTerminalsLabel,
 } from "@/components/terminal/running-terminals";
 import { useTerminalAtoms } from "@/components/terminal/terminal-atoms";
-import { useWindowReturn } from "@/lib/window-return";
+import { useSharedWindowReturn } from "@/lib/window-return";
 import { Terminal } from "@honeyicons/react";
 
 export function ProjectTerminalsBadge({ projectId }: { projectId: ProjectId }) {
   const listAtom = useTerminalAtoms().terminalListAtom(terminalOwnerKey({ projectId }));
   const list = useAtomValue(listAtom);
   const refresh = useAtomRefresh(listAtom);
-  useWindowReturn(refresh);
+  useSharedWindowReturn(listAtom, refresh);
 
   const count = runningTerminalCount(AsyncResult.isSuccess(list) ? list.value : null);
   if (count === 0) {
