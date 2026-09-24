@@ -156,7 +156,7 @@ function SearchBody({
       onScroll={scroll.onScroll}
       className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto", stale && "opacity-60")}
     >
-      <div className="flex flex-col gap-px p-1.5">
+      <div className="flex flex-col gap-px px-1.5 py-1">
         {results.value.map((result) => (
           <ResultRow key={result.path} result={result} onOpen={onOpen} />
         ))}
@@ -271,7 +271,7 @@ export function FilesPane({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 p-2">
+      <div className="shrink-0 px-2 py-1.5">
         <Input
           ref={searchRef}
           value={query}

@@ -10,6 +10,7 @@ function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (
     <SelectPrimitive.Group
       data-slot="select-group"
+      // padding-ok: a menu group's inset
       className={cn("scroll-my-1 p-1", className)}
       {...props}
     />

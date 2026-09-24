@@ -35,7 +35,7 @@ function SetupOutput({ output }: { readonly output: string }) {
     <pre
       ref={ref}
       aria-label="Setup script output"
-      className="mt-1.5 max-h-48 overflow-auto rounded-md bg-hover p-2 font-mono text-xs whitespace-pre-wrap break-all text-foreground"
+      className="mt-1.5 max-h-48 overflow-auto rounded-md bg-hover px-2.5 py-1.5 font-mono text-xs whitespace-pre-wrap break-all text-foreground"
     >
       {output}
     </pre>

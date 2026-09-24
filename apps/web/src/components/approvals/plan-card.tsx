@@ -53,7 +53,10 @@ const markdownComponents = {
     <code className="rounded-sm bg-muted px-1 font-mono text-xs" {...props} />
   ),
   pre: (props: React.HTMLAttributes<HTMLPreElement>) => (
-    <pre className="my-1 overflow-auto rounded-lg bg-muted p-2 font-mono text-xs" {...props} />
+    <pre
+      className="my-1 overflow-auto rounded-lg bg-muted px-2.5 py-1.5 font-mono text-xs"
+      {...props}
+    />
   ),
   /**
    * A plan is model output, so its links are whatever the agent read. They

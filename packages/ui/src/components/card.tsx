@@ -24,6 +24,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-header"
       className={cn(
+        // padding-ok: a bordered header closes with the card's own inset
         "group/card-header @container/card-header grid auto-rows-min items-start gap-1 rounded-t-xl px-(--card-spacing) has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-(--card-spacing)",
         className,
       )}
@@ -75,6 +76,7 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-footer"
+      // padding-ok: the footer band keeps the card's one inset on every side
       className={cn("flex items-center rounded-b-xl bg-muted/50 p-(--card-spacing)", className)}
       {...props}
     />

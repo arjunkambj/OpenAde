@@ -34,7 +34,7 @@ function DevChangesRoute() {
     return <Page />;
   }
   return (
-    <p className="p-8 text-sm text-muted-foreground">
+    <p className="px-8 py-6 text-sm text-muted-foreground">
       {import.meta.env.DEV
         ? "Loading the changes fixture…"
         : "Fixture pages are not part of this build."}

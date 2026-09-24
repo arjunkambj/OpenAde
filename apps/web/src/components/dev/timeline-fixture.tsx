@@ -235,7 +235,7 @@ function TimelineFixturePage({ client }: { readonly client: FixtureClient }) {
             aria-label="Files"
             className="flex min-h-0 w-80 shrink-0 flex-col border-l border-border bg-sidebar"
           >
-            <div className="flex shrink-0 items-center justify-between py-1 pr-1 pl-3 type-body font-medium">
+            <div className="flex shrink-0 items-center justify-between py-0.5 pr-1.5 pl-3 type-body font-medium">
               Files
               <Tooltip>
                 <TooltipTrigger

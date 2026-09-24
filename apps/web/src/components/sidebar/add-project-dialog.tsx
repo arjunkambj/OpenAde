@@ -199,7 +199,7 @@ export function AddProjectDialog({
                     </Button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 py-2 pr-2 pl-3.5">
+                  <div className="flex items-center gap-2 py-1.5 pr-2 pl-3.5">
                     <Folder variant="bold" className="size-4 shrink-0 text-foreground/85" />
                     {/* Still typeable: the pickers fill it, a person can fix it. */}
                     <input

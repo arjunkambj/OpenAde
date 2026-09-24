@@ -72,13 +72,14 @@ export function TriggerMenu<T extends TriggerMenuItem>({
       role="listbox"
       aria-label={label}
     >
+      {/* padding-ok: menu list */}
       <div ref={listRef} className="max-h-64 overflow-y-auto p-1">
         {items.map((item, index) => (
           <React.Fragment key={item.id}>
             {item.group === undefined || item.group === items[index - 1]?.group ? null : (
               <div
                 role="presentation"
-                className="px-2 pt-2 pb-1 text-xs font-medium text-muted-foreground"
+                className="px-2 pt-1.5 pb-1 text-xs font-medium text-muted-foreground"
               >
                 {item.group}
               </div>

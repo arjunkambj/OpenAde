@@ -132,7 +132,7 @@ function AttachError({
   readonly onRetry: () => void;
 }) {
   return (
-    <div className="px-2 pb-2">
+    <div className="px-2 pb-1.5">
       <Alert variant="destructive">
         <AlertTriangle variant="bold" />
         <AlertTitle>The agent could not use the browser</AlertTitle>
@@ -151,7 +151,7 @@ function AttachError({
 /** The kill switch on the desktop: the agent has no browser, the person still does. */
 function DisabledNotice() {
   return (
-    <div className="px-2 pb-2">
+    <div className="px-2 pb-1.5">
       <Alert>
         <InfoSquare variant="bold" />
         <AlertTitle>{BROWSER_DISABLED_LABEL}</AlertTitle>

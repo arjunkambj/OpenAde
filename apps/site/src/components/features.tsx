@@ -35,7 +35,7 @@ export const Features = () => (
         {features.map((feature) => (
           <div
             key={feature.title}
-            className="rounded-lg border border-border bg-card p-5 text-card-foreground"
+            className="rounded-lg border border-border bg-card px-5 py-4 text-card-foreground"
           >
             <h3 className="font-medium text-strong">{feature.title}</h3>
             <p className="mt-2 text-sm text-muted-foreground">{feature.body}</p>

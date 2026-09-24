@@ -37,7 +37,7 @@ const collapsibleContentVariants = cva("", {
       default: "",
       indented:
         "overflow-hidden border-l border-border py-2 pr-0 pl-3.5 type-body leading-relaxed text-muted-foreground transition-reveal duration-150 ease-out data-closed:-translate-y-0.5 data-closed:py-0 data-closed:opacity-0",
-      card: "px-3 pb-3",
+      card: "px-3 pb-2",
     },
   },
   defaultVariants: {

@@ -53,7 +53,7 @@ export function InlineDiff({
     return (
       <pre
         className={cn(
-          "overflow-x-auto rounded-lg bg-hover p-2 font-mono text-xs whitespace-pre text-muted-foreground",
+          "overflow-x-auto rounded-lg bg-hover px-2.5 py-1.5 font-mono text-xs whitespace-pre text-muted-foreground",
           className,
         )}
       >

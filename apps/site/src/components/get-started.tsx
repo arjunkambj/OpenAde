@@ -27,7 +27,7 @@ export const GetStarted = () => (
     </p>
     <ol className="mt-10 grid gap-6 sm:grid-cols-3">
       {steps.map((step, index) => (
-        <li key={step.title} className="rounded-lg border border-border bg-card p-5">
+        <li key={step.title} className="rounded-lg border border-border bg-card px-5 py-4">
           <div className="text-sm font-medium text-muted-foreground">Step {index + 1}</div>
           <h3 className="mt-1 font-medium text-strong">{step.title}</h3>
           <p className="mt-2 text-sm text-muted-foreground">{step.body}</p>

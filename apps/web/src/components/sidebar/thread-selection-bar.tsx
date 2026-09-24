@@ -180,7 +180,7 @@ export function ThreadSelectionBar({
         <div
           role="toolbar"
           aria-label="Selected threads"
-          className="mt-2 flex items-center gap-1 rounded-xl bg-sidebar-accent py-1 pr-1 pl-3 text-sm text-sidebar-accent-foreground"
+          className="mt-2 flex items-center gap-1 rounded-xl bg-sidebar-accent py-0.5 pr-1.5 pl-3 text-sm text-sidebar-accent-foreground"
         >
           <span className="min-w-0 flex-1 truncate tabular-nums">{threads.length} selected</span>
           <BarAction label="Archive" onClick={() => void archive()}>

@@ -150,7 +150,7 @@ export function MonoBlock({ children, className }: { children: ReactNode; classN
   return (
     <pre
       className={cn(
-        "overflow-x-auto rounded-lg bg-muted p-3 font-mono text-xs leading-prose whitespace-pre-wrap text-foreground",
+        "overflow-x-auto rounded-lg bg-muted px-3 py-2 font-mono text-xs leading-prose whitespace-pre-wrap text-foreground",
         className,
       )}
     >

@@ -111,6 +111,7 @@ export function ThemeCards() {
             >
               <div
                 className={cn(
+                  // padding-ok: the preview's even frame
                   "aspect-[16/10] w-full rounded-xl p-0.5",
                   isSelected && "ring-2 ring-foreground",
                 )}
