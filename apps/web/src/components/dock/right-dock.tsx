@@ -37,10 +37,12 @@
  * Each tab has a key (`dock.changes`, `browserPane.toggle`, `dock.files`) and
  * the dock one (`dock.toggle`); `ThreadView` answers them, and the tab and
  * close tooltips show the chords. Opening Files from its key focuses the
- * Files search (`focusFilesSearch`). The Files tab keeps its search, open
- * file and scroll per thread (`@/components/panes/files/files-view`), so it
- * is unmounted like the others when another tab shows and still comes back
- * as it was left.
+ * Files search (`focusFilesSearch`), and opening the dock onto the launcher
+ * focuses its first row (`focusLauncher`) — only then, so a dock that
+ * reopens on arrival or a reload never takes the focus from the thread. The
+ * Files tab keeps its search, open file and scroll per thread
+ * (`@/components/panes/files/files-view`), so it is unmounted like the others
+ * when another tab shows and still comes back as it was left.
  *
  * Opening, the dock grows in from the right edge, and closing it shrinks back
  * (`@/lib/use-presence`, which keeps it mounted until it is gone); overlaid on
@@ -135,6 +137,8 @@ export function RightDock({
   snapshot,
   focusFilesSearch = false,
   onFilesSearchFocused,
+  focusLauncher = false,
+  onLauncherFocused,
 }: {
   pane: DockPane;
   phase: Presence;
@@ -143,6 +147,9 @@ export function RightDock({
   /** Focus the Files search as the Files tab mounts — set by its key. */
   focusFilesSearch?: boolean;
   onFilesSearchFocused?: () => void;
+  /** Focus the launcher's first enabled row — set when the user opens the dock onto it. */
+  focusLauncher?: boolean;
+  onLauncherFocused?: () => void;
 }) {
   const resize = useDockResize();
   const connection = useConnectionState();
@@ -200,7 +207,14 @@ export function RightDock({
           aria-labelledby={isDockTab(pane) ? dockTabId(baseId, pane) : undefined}
           className="min-h-0 flex-1 overflow-y-auto"
         >
-          {pane === DOCK_HOME ? <DockLauncher snapshot={snapshot} onPick={onPick} /> : null}
+          {pane === DOCK_HOME ? (
+            <DockLauncher
+              snapshot={snapshot}
+              onPick={onPick}
+              focusFirst={focusLauncher}
+              onFocused={onLauncherFocused}
+            />
+          ) : null}
           {pane === "changes" ? <ChangesPane snapshot={snapshot} /> : null}
           {/*
             Unmounting the pane is safe: its tabs are webviews the browser

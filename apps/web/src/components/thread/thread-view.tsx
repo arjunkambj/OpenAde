@@ -43,6 +43,7 @@ import type * as RpcClientError from "effect/unstable/rpc/RpcClientError";
 
 import { Composer } from "@/components/composer/composer";
 import {
+  DOCK_HOME,
   dockArrivalTarget,
   dockToggleTarget,
   noteDockShown,
@@ -161,6 +162,10 @@ export function ThreadView({
   // Set by the Files key, read once by the Files pane as it mounts; any other
   // move of the dock clears it, so a later click on the tab does not focus.
   const [focusFilesSearch, setFocusFilesSearch] = React.useState(false);
+  // The same for the launcher's first row: set only when the user opens the
+  // dock onto it, so arriving at a thread whose dock was left on the launcher
+  // (or reloading onto one) leaves the focus where it is.
+  const [focusLauncher, setFocusLauncher] = React.useState(false);
   const navigateDock = React.useCallback(
     (tab: DockPane | null) =>
       void navigate({
@@ -183,6 +188,7 @@ export function ThreadView({
   const setDockTab = React.useCallback(
     (tab: DockPane | null) => {
       setFocusFilesSearch(false);
+      setFocusLauncher(false);
       noteUserDock(dockTab, tab ?? undefined);
       updateDockMemory((memory) => rememberDockMove(memory, tab));
       navigateDock(tab);
@@ -211,12 +217,17 @@ export function ThreadView({
   React.useEffect(() => {
     updateDockMemory((memory) => noteDockShown(memory, dockTab));
   }, [dockTab, updateDockMemory]);
-  const toggleDock = () => setDockTab(dockToggleTarget(dockTab, dockMemory?.lastTab));
+  const toggleDock = () => {
+    const target = dockToggleTarget(dockTab, dockMemory?.lastTab);
+    setDockTab(target);
+    setFocusLauncher(target === DOCK_HOME);
+  };
   const showDockTab = (tab: DockTab | null, focus = false) => {
     setDockTab(tab);
     setFocusFilesSearch(focus && tab === "files");
   };
   const onFilesSearchFocused = React.useCallback(() => setFocusFilesSearch(false), []);
+  const onLauncherFocused = React.useCallback(() => setFocusLauncher(false), []);
 
   const snapshot = snapshotOf(result);
 
@@ -294,6 +305,8 @@ export function ThreadView({
           snapshot={snapshot}
           focusFilesSearch={focusFilesSearch}
           onFilesSearchFocused={onFilesSearchFocused}
+          focusLauncher={focusLauncher}
+          onLauncherFocused={onLauncherFocused}
         />
       ) : null}
     </div>

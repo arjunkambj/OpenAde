@@ -13,10 +13,13 @@
  * - Browser: the thread's open tabs, and whether the agent is driving them.
  * - Files: the directory the Files tab searches.
  *
- * The first enabled row takes focus as the launcher opens, so the keyboard
- * goes on from the key that opened it: the arrows (and Home/End) move between
- * rows, Enter or Space opens one, and a row's first letter — C, B or F —
- * opens it straight away. The tabs' own keys keep working as they always do.
+ * The first enabled row takes focus when the user opens the dock onto the
+ * launcher (`focusFirst`), so the keyboard goes on from the key that opened
+ * it: the arrows (and Home/End) move between rows, Enter or Space opens one,
+ * and a row's first letter — C, B or F — opens it straight away. The tabs'
+ * own keys keep working as they always do. A launcher that shows without
+ * being asked for — reopened on arriving at a thread, or reloaded from a
+ * `?pane=home` link — leaves the focus where it is.
  */
 
 import * as React from "react";
@@ -86,10 +89,16 @@ function Totals({ status }: { status: LauncherStatus }) {
 export function DockLauncher({
   snapshot,
   onPick,
+  focusFirst = false,
+  onFocused,
 }: {
   snapshot: ThreadDetailSnapshot;
   /** Open this tab. */
   onPick: (tab: DockTab) => void;
+  /** Focus the first enabled row — the user opened the dock onto the launcher. */
+  focusFirst?: boolean;
+  /** `focusFirst` was acted on, so the request is spent once. */
+  onFocused?: () => void;
 }) {
   const statuses = useLauncherStatuses(snapshot);
   const rows = dockTabs.map((tab) => ({
@@ -106,26 +115,49 @@ export function DockLauncher({
     buttons.current[index]?.focus();
   };
 
-  // Focus the first enabled row as the launcher opens, and later move focus
-  // off a row that turns disabled under it (the Changes row learns only after
-  // its status loads that the workspace is not a repository) — but only while
-  // the focus is still the launcher's, or was dropped with that row.
-  const opened = React.useRef(false);
   const enabledKey = enabled.join();
+
+  // Focus the first enabled row when the user opened the dock onto the
+  // launcher, and only then.
+  React.useEffect(() => {
+    if (!focusFirst) {
+      return;
+    }
+    const target = enabledKey.split(",").indexOf("true");
+    if (target >= 0) {
+      setFocusIndex(target);
+      buttons.current[target]?.focus();
+    }
+    onFocused?.();
+  }, [focusFirst, onFocused, enabledKey]);
+
+  // Whether a row had the focus last. A row that turns disabled under it (the
+  // Changes row learns only after its status loads that the workspace is not
+  // a repository) drops the focus to the page, and this tells that apart from
+  // a launcher the user never focused.
+  const holdsFocus = React.useRef(false);
+  const onMenuFocus = () => {
+    holdsFocus.current = true;
+  };
+  const onMenuBlur = (event: React.FocusEvent<HTMLDivElement>) => {
+    const to = event.relatedTarget;
+    if (to !== null && !event.currentTarget.contains(to)) {
+      holdsFocus.current = false;
+    }
+  };
+
+  // Move the focus off a row that turns disabled, to the first enabled one —
+  // only while the focus is still on a row, or was dropped with one.
   React.useEffect(() => {
     const flags = enabledKey.split(",").map((flag) => flag === "true");
     const active = document.activeElement;
-    const focusIsOurs =
-      !opened.current ||
-      active === null ||
-      active === document.body ||
-      buttons.current.some((button) => button === active);
-    opened.current = true;
-    if (!focusIsOurs) {
+    const current = buttons.current.findIndex((button) => button === active);
+    const dropped =
+      current < 0 && holdsFocus.current && (active === null || active === document.body);
+    if ((current < 0 && !dropped) || flags[current] === true) {
       return;
     }
-    const current = buttons.current.findIndex((button) => button === active);
-    const target = flags[current] === true ? current : flags.indexOf(true);
+    const target = flags.indexOf(true);
     if (target >= 0) {
       setFocusIndex(target);
       buttons.current[target]?.focus();
@@ -157,6 +189,8 @@ export function DockLauncher({
         aria-label="Open a dock tab"
         aria-orientation="vertical"
         onKeyDown={onKeyDown}
+        onFocus={onMenuFocus}
+        onBlur={onMenuBlur}
         className="flex flex-col gap-px"
       >
         {rows.map((row, index) => {
