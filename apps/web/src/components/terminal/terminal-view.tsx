@@ -130,7 +130,7 @@ function TerminalAttachment({
     // updater, so the callback goes in wrapped.
     setAttach(() => feed.push);
     const input = terminal.onData((data) => {
-      if (feed.acceptsInput()) {
+      if (feed.sends(data)) {
         write({ ...ref, data });
       }
     });

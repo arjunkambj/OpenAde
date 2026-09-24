@@ -1728,10 +1728,13 @@ already holds. xterm parses writes from a queue that `reset()` leaves alone, so
 the reset waits until everything written before the snapshot has been parsed;
 otherwise output the old subscription had queued would land on the fresh
 screen above the snapshot. Items arriving meanwhile are held and written after
-it. Until the queue has drained and the snapshot has been parsed, the xterm
-holds its own input back: the old output and the replay contain the shell's old
+it. Until the queue has drained and the snapshot has been parsed, the xterm's
+own answers are not sent: the old output and the replay contain the shell's old
 terminal queries (colours, cursor position), and xterm would otherwise answer
-each of them to the shell as fresh input.
+each of them to the shell as fresh input. The user's keys and pastes come out of
+the same `onData` and are still sent; the feed tells them apart by shape, since
+each answer is one whole report sequence of the few kinds xterm sends
+(`isTerminalReport`).
 
 Input goes through one lane per terminal, so keys typed while a write is in
 flight follow it in order as the next write, split at `TERMINAL_WRITE_MAX_CHARS`

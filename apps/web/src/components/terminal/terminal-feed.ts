@@ -11,11 +11,15 @@
  * been parsed, and items arriving meanwhile are held and written after the
  * snapshot, in order.
  *
- * Input is held back while that queue drains and while a snapshot is parsed:
- * both carry the shell's old terminal queries — cursor position, device
- * attributes, background colour — and xterm answers each one through `onData`,
- * as if typed; those answers belong to a prompt long gone. A query in live
- * output is answered as usual, since a program is waiting for it.
+ * While that queue drains and while a snapshot is parsed, xterm's answers are
+ * not sent: both carry the shell's old terminal queries — cursor position,
+ * device attributes, background colour — and xterm answers each one through
+ * `onData`, as if typed; those answers belong to a prompt long gone. The
+ * user's own keys and pastes arrive through the same `onData` and still go
+ * through, so the feed tells the two apart by shape: each answer is one whole
+ * report sequence of the few kinds xterm sends (`isTerminalReport`), while
+ * typed input practically never is. A query in live output is answered as
+ * usual, since a program is waiting for it.
  */
 
 import type { TerminalAttachItem } from "@OpenAde/client-runtime/terminalAtoms";
@@ -36,8 +40,8 @@ export interface TerminalFeedHandlers {
 
 export interface TerminalFeed {
   readonly push: (item: TerminalAttachItem) => void;
-  /** Whether what xterm hands `onData` now is the user's, to send to the shell. */
-  readonly acceptsInput: () => boolean;
+  /** Whether `data`, which xterm has just handed `onData`, is to be sent to the shell. */
+  readonly sends: (data: string) => boolean;
   /** Write nothing more; items still held are dropped. */
   readonly stop: () => void;
 }
@@ -48,6 +52,44 @@ export const exitLine = (exitCode: number | null, signal: number | null): string
     : signal !== null
       ? `[process ended by signal ${signal}]`
       : "[process exited]";
+
+const ESC = "\u001b";
+const BEL = "\u0007";
+const ST = `${ESC}\\`;
+/** What follows the ESC of a control sequence report. */
+const CSI_REPORT = /^\[[?>]?[\d;]*(?:[nRct]|\$y)$/;
+/** What lies between the ESC and the terminator of a string report. */
+const STRING_REPORTS = [/^P[01]\$r/, /^\](?:4;\d+|1[012]);rgb:[\da-f/]*$/i];
+
+/**
+ * The answers xterm writes to `onData` by itself, each as one call holding one
+ * sequence: device status and cursor position (`CSI … n`, `CSI … R`), device
+ * attributes (`CSI ? … c`, `CSI > … c`), a mode report (`CSI … $ y`), a window
+ * size report (`CSI … t`), a setting report (`DCS … $ r … ST`) and a colour
+ * report (`OSC 4/10/11/12 ; rgb:… ST`). Typed keys, pastes and mouse reports
+ * have other shapes; the one key that shares a shape, a modified F3
+ * (`CSI 1 ; m R`), is only ever mistaken for an answer while a snapshot is
+ * being replayed.
+ */
+export const isTerminalReport = (data: string): boolean => {
+  if (!data.startsWith(ESC)) {
+    return false;
+  }
+  if (data[1] === "[") {
+    return CSI_REPORT.test(data.slice(1));
+  }
+  const inner = data.endsWith(ST)
+    ? data.slice(1, -ST.length)
+    : data.endsWith(BEL)
+      ? data.slice(1, -BEL.length)
+      : null;
+  return (
+    inner !== null &&
+    !inner.includes(ESC) &&
+    !inner.includes(BEL) &&
+    STRING_REPORTS.some((pattern) => pattern.test(inner))
+  );
+};
 
 export const makeTerminalFeed = (
   terminal: FeedTerminal,
@@ -113,7 +155,7 @@ export const makeTerminalFeed = (
         apply(item);
       }
     },
-    acceptsInput: () => held === null && replaying === 0,
+    sends: (data) => (held === null && replaying === 0) || !isTerminalReport(data),
     stop: () => {
       live = false;
       held = null;
