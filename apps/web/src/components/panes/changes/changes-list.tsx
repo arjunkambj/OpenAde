@@ -2,9 +2,10 @@
  * The Changes pane's file list for one comparison.
  *
  * The diff is the file list, because `GitDiff.files` already carries the path,
- * the `+`/`-` counts and the per-file patch. Each patch renders through
- * `InlineDiff`, so highlighting stays on the shared worker pool and the dock
- * never blocks the main thread.
+ * the `+`/`-` counts and the per-file patch. The files stack, each open under
+ * its own sticky header, so the pane reads top to bottom like one review. Each
+ * patch renders through `InlineDiff`, so highlighting stays on the shared
+ * worker pool and the dock never blocks the main thread.
  */
 
 import { useAtomValue } from "@effect/atom-react";
@@ -15,7 +16,7 @@ import { AsyncResult } from "effect/unstable/reactivity";
 
 import { PaneMessage } from "@/components/panes/files/pane-message";
 import { InlineDiff } from "@/components/timeline/diff-pool";
-import { DisclosureRow } from "@/components/timeline/row-shell";
+import { cn } from "@/lib/utils";
 import { useRowDisclosure, type DiffStyle } from "@/state/ui";
 
 import { useGitAtoms } from "./git-atoms";
@@ -23,6 +24,7 @@ import { rangeKeyOf } from "./selection";
 import {
   type HoneyIcon,
   AlertTriangle,
+  ChevronRight,
   Edit,
   FileAdd,
   FileRemove,
@@ -58,47 +60,92 @@ const KIND_ICON: Record<GitDiffFile["kind"], HoneyIcon> = {
   delete: FileRemove,
 };
 
-function FileRow({
+/**
+ * Past either limit the files start closed: every open file hands its patch to
+ * the two-worker highlight pool at once, and a working-tree diff against HEAD
+ * can be hundreds of files and megabytes of patch text.
+ */
+const OPEN_FILES_LIMIT = 30;
+const OPEN_LINES_LIMIT = 400;
+
+/** `+12 −3`, each side only when it is not zero. */
+function LineCounts({ additions, deletions }: { additions: number; deletions: number }) {
+  if (additions === 0 && deletions === 0) {
+    return null;
+  }
+  return (
+    <span className="inline-flex shrink-0 gap-1.5 font-mono text-xs tabular-nums">
+      {additions > 0 ? <span className="text-added">+{additions}</span> : null}
+      {deletions > 0 ? <span className="text-removed">−{deletions}</span> : null}
+    </span>
+  );
+}
+
+/** A path as a muted directory and a bright file name, the name never cut. */
+function FilePath({ path }: { path: string }) {
+  const slash = path.lastIndexOf("/");
+  return (
+    <span className="flex min-w-0 flex-1 font-mono text-xs" title={path}>
+      {slash === -1 ? null : (
+        <span className="min-w-0 truncate text-muted-foreground">{path.slice(0, slash + 1)}</span>
+      )}
+      <span className="shrink-0 text-foreground">{path.slice(slash + 1)}</span>
+    </span>
+  );
+}
+
+/**
+ * One file of the stack: a header that sticks to the top while its patch
+ * scrolls under it, and the patch. A closed file keeps nothing mounted.
+ */
+function FileSection({
   file,
   rangeKey,
   diffStyle,
+  defaultOpen,
 }: {
   file: GitDiffFile;
   rangeKey: string;
   diffStyle: DiffStyle;
+  defaultOpen: boolean;
 }) {
-  const rowId = `changes-${rangeKey}-${file.path}`;
-  // `DisclosureRow` keeps its content mounted, so mounting every `InlineDiff`
-  // up front would hand the whole patch set to the two-worker highlight pool
-  // the moment the list renders — and a working-tree diff against HEAD can be
-  // hundreds of files and megabytes of patch text. Read the same disclosure
-  // state the row uses and render a placeholder until it is opened;
-  // non-undefined, so the row still counts as expandable.
-  const [open] = useRowDisclosure(rowId);
+  const [open, setOpen] = useRowDisclosure(`changes-${rangeKey}-${file.path}`, defaultOpen);
+  const Glyph = KIND_ICON[file.kind];
+  const expandable = file.diff !== "";
   return (
-    <DisclosureRow
-      rowId={rowId}
-      icon={KIND_ICON[file.kind]}
-      label={
-        <span className="font-mono text-xs">
-          {file.oldPath === undefined ? file.path : `${file.oldPath} → ${file.path}`}
-        </span>
-      }
-      meta={
-        file.additions > 0 || file.deletions > 0 ? (
-          <span className="ml-1 inline-flex shrink-0 gap-1.5 font-mono text-xs tabular-nums">
-            {file.additions > 0 ? <span className="text-added">+{file.additions}</span> : null}
-            {file.deletions > 0 ? <span className="text-removed">−{file.deletions}</span> : null}
+    <section>
+      <button
+        type="button"
+        disabled={!expandable}
+        aria-expanded={expandable ? open : undefined}
+        onClick={() => setOpen(!open)}
+        className="sticky top-0 z-10 flex w-full items-center gap-2 border-b border-border bg-sidebar px-3 py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring enabled:cursor-pointer enabled:hover:bg-hover"
+      >
+        <ChevronRight
+          variant="bold"
+          className={cn(
+            "size-3.5 shrink-0 text-muted-foreground transition-transform duration-150 ease-out",
+            open && expandable && "rotate-90",
+            !expandable && "invisible",
+          )}
+        />
+        <Glyph variant="bold" className="size-3.5 shrink-0 text-foreground/85" />
+        {file.oldPath === undefined ? (
+          <FilePath path={file.path} />
+        ) : (
+          <span className="flex min-w-0 flex-1 gap-1 font-mono text-xs">
+            <span className="min-w-0 truncate text-muted-foreground">{file.oldPath} →</span>
+            <FilePath path={file.path} />
           </span>
-        ) : null
-      }
-    >
-      {file.diff === "" ? undefined : open ? (
-        <InlineDiff patch={file.diff} diffStyle={diffStyle} />
-      ) : (
-        <div />
-      )}
-    </DisclosureRow>
+        )}
+        <LineCounts additions={file.additions} deletions={file.deletions} />
+      </button>
+      {open && expandable ? (
+        <div className="border-b border-border">
+          <InlineDiff patch={file.diff} diffStyle={diffStyle} className="rounded-none" />
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -152,10 +199,18 @@ export function ChangesList({
   if (diff.value.files.length === 0) {
     return <PaneMessage icon={GitDiffIcon} text="No changes in this comparison." />;
   }
+  const files = diff.value.files;
+  const fewFiles = files.length <= OPEN_FILES_LIMIT;
   return (
-    <div className="flex flex-col gap-1 p-2">
-      {diff.value.files.map((file) => (
-        <FileRow key={file.path} file={file} rangeKey={rangeKey} diffStyle={diffStyle} />
+    <div className="flex flex-col border-t border-border">
+      {files.map((file) => (
+        <FileSection
+          key={file.path}
+          file={file}
+          rangeKey={rangeKey}
+          diffStyle={diffStyle}
+          defaultOpen={fewFiles && file.additions + file.deletions <= OPEN_LINES_LIMIT}
+        />
       ))}
     </div>
   );
@@ -168,4 +223,20 @@ export function NotARepository() {
       text="This workspace is not a git repository, so there is nothing to compare."
     />
   );
+}
+
+/** The comparison's summed `+`/`−`, read off the same `git.diff` atom as the list. */
+export function DiffTotals({ range }: { range: GitDiffRange }) {
+  const { gitDiffAtom } = useGitAtoms();
+  const diff = queryValue<GitDiff>(useAtomValue(gitDiffAtom(range)));
+  if (diff?._tag !== "ok") {
+    return null;
+  }
+  let additions = 0;
+  let deletions = 0;
+  for (const file of diff.value.files) {
+    additions += file.additions;
+    deletions += file.deletions;
+  }
+  return <LineCounts additions={additions} deletions={deletions} />;
 }
