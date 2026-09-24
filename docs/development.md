@@ -384,6 +384,8 @@ the thread: the cards, their answers, and the rows.
 | `approval.test.ts`   | `edit-approval`         | a write asked about, then allowed once                       |
 | `approval.test.ts`   | `deny`                  | a command denied, and the file it would have made absent     |
 | `approval.test.ts`   | `sensitive-full-access` | `cat .env` under full access still opens a card              |
+| `plan.test.ts`       | `plan-accept`           | the plan card, then the accepted plan implemented            |
+| `question.test.ts`   | `question`              | the question card, and the answer written to `colour.txt`    |
 
 A scenario whose recording has not been made yet is skipped under replay, and
 its title says so. `packages/testkit/fixtures/claude/README.md` lists which
@@ -401,7 +403,8 @@ its raw capture, under `/tmp/openade-h1`.
 The connector's own suites replay the same fixtures without a server:
 `recordedFrames.test.ts` feeds every recorded session through the translator
 and fails on any frame it leaves unmapped; `recordedSession.test.ts` replays
-`plain-reply`'s session launch; `conformance.test.ts` runs
+the session launch of `plain-reply`, the approval scenarios, `plan-accept` and
+`question`; `conformance.test.ts` runs
 `runConnectorConformance` against `conformance`, which is the suite itself
 recorded through the tee, one session launch per case
 (`OPENADE_RECORD_CLAUDE=1` on that file re-records it).

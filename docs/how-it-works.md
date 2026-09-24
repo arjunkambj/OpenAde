@@ -923,6 +923,37 @@ accepting.
 The answer is recorded in the thread's `decisions` as §5 describes: kind
 `plan`, the turn id, the action, and the plan file's name as its subject.
 
+### Plan mode, on Claude Code
+
+A plan turn runs the Claude Code CLI in its own `plan` permission mode, set
+with `setPermissionMode` before the turn's message is written; the next turn
+out of plan mode sets it back (`packages/connector-claude/src/session.ts`).
+The ladder above does run here — the PreToolUse hook fires in every mode — and
+its plan rung refuses every non-read, which is what keeps the turn read-only.
+
+```
+model writes its plan file      <config dir>/plans/<name>.md
+   │  the hook lets this one write through with no verdict;
+   │  the CLI's plan mode allows its own plan file and nothing else
+   ▼
+model calls ExitPlanMode
+   │  the CLI fills in the input: plan (the file's markdown), planFilePath
+   ▼
+canUseTool   packages/connector-claude/src/interactions.ts
+   ├─ item.completed  a `plan` row with the markdown
+   ├─ turn.plan.proposed { planMarkdown, planPath }
+   └─ { behavior: "deny", message: "…stop here…" }
+        │
+        ▼
+the model stops; the CLI's result ends the turn
+```
+
+The card and the answers are the ones above: the reactor's settings change
+reaches the session as `setPermissionMode`, and "Implement the approved plan
+at `<path>`" names the CLI's own plan file, which the implementation turn can
+read. Task and its subagents are refused in a plan turn by the same rung that
+refuses writes.
+
 ### Questions
 
 `ask_user_question` is withheld from a headless run, which is why every turn
@@ -947,6 +978,17 @@ The answer is recorded in the thread's `decisions` (§5) as `question`,
 Once the card closes, that record is what the timeline keeps of it: one line,
 "Answered · <question>", where the exchange happened. A question the process
 exit released reads "Not answered · <question>" instead (§5).
+
+On Claude Code, AskUserQuestion is offered to SDK sessions as it is, and it
+takes the direct path (`packages/connector-claude/src/interactions.ts`):
+`canUseTool` emits `user-input.requested` — ids minted by position, every
+question `freeform` because the CLI always lets the user type their own
+answer — and holds the call until `thread.userInput.respond`. The tool is
+then **allowed**, with the answers in its `updatedInput`: `answers` keyed by
+each question's text, the chosen labels joined by ", " and the user's own text
+after them. The CLI runs the tool with them and the model reads the result as
+the user's answer. A stopped turn or a closed session answers the card with
+nothing and denies the call.
 
 ---
 

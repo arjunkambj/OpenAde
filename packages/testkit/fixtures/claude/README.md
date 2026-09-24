@@ -36,19 +36,21 @@ out, so none of it spent anything.
 These scenarios have their tests and recorders in place, and are skipped under
 replay — the skip says so in its title — until they are recorded:
 
-| Scenario                | Test                                            | What it will show                                                                                                   |
-| ----------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `plain-reply`           | `apps/server/test/e2e-claude/turn.test.ts`      | One answered turn: streamed text, usage, `end_turn`. Also replayed by `recordedSession.test.ts`.                    |
-| `interrupt`             | `apps/server/test/e2e-claude/interrupt.test.ts` | A turn interrupted after its first text, then a follow-up: whether the same process serves the next.                |
-| `resume`                | `apps/server/test/e2e-claude/resume.test.ts`    | Two turns with the server restarted between: the second session launch is `--resume`.                               |
-| `edit-approval`         | `apps/server/test/e2e-claude/approval.test.ts`  | Approval-required: a write to `hello.txt` asked about, allowed once, written after. Also `recordedSession.test.ts`. |
-| `deny`                  | `apps/server/test/e2e-claude/approval.test.ts`  | Approval-required: `touch denied.txt` denied at every card; the file is absent. Also `recordedSession.test.ts`.     |
-| `sensitive-full-access` | `apps/server/test/e2e-claude/approval.test.ts`  | Full access (`bypassPermissions`): `cat .env` still opens a card, which is denied. Also `recordedSession.test.ts`.  |
+| Scenario                | Test                                            | What it will show                                                                                                                           |
+| ----------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `plain-reply`           | `apps/server/test/e2e-claude/turn.test.ts`      | One answered turn: streamed text, usage, `end_turn`. Also replayed by `recordedSession.test.ts`.                                            |
+| `interrupt`             | `apps/server/test/e2e-claude/interrupt.test.ts` | A turn interrupted after its first text, then a follow-up: whether the same process serves the next.                                        |
+| `resume`                | `apps/server/test/e2e-claude/resume.test.ts`    | Two turns with the server restarted between: the second session launch is `--resume`.                                                       |
+| `edit-approval`         | `apps/server/test/e2e-claude/approval.test.ts`  | Approval-required: a write to `hello.txt` asked about, allowed once, written after. Also `recordedSession.test.ts`.                         |
+| `deny`                  | `apps/server/test/e2e-claude/approval.test.ts`  | Approval-required: `touch denied.txt` denied at every card; the file is absent. Also `recordedSession.test.ts`.                             |
+| `sensitive-full-access` | `apps/server/test/e2e-claude/approval.test.ts`  | Full access (`bypassPermissions`): `cat .env` still opens a card, which is denied. Also `recordedSession.test.ts`.                          |
+| `plan-accept`           | `apps/server/test/e2e-claude/plan.test.ts`      | A plan turn stopped at ExitPlanMode with the plan card, then accepted and implemented out of plan mode. Also `recordedSession.test.ts`.     |
+| `question`              | `apps/server/test/e2e-claude/question.test.ts`  | AskUserQuestion as a question card, answered with its first option, and the colour written to `colour.txt`. Also `recordedSession.test.ts`. |
 
 Record them, once `claude auth status` says `loggedIn: true` in the operator's
 own shell, with:
 
-    OPENADE_RECORD_CLAUDE=1 pnpm -F server exec vitest run test/e2e-claude/turn.test.ts test/e2e-claude/interrupt.test.ts test/e2e-claude/resume.test.ts test/e2e-claude/approval.test.ts
+    OPENADE_RECORD_CLAUDE=1 pnpm -F server exec vitest run test/e2e-claude/turn.test.ts test/e2e-claude/interrupt.test.ts test/e2e-claude/resume.test.ts test/e2e-claude/approval.test.ts test/e2e-claude/plan.test.ts test/e2e-claude/question.test.ts
 
 and re-record `conformance` signed in the same way from its own file, so the
 suite's turns are answered ones. That recording also takes the suite's

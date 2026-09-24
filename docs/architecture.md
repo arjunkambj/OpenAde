@@ -412,7 +412,9 @@ zero-turn SDK handshake that lists the models), `models.ts`, `capabilities.ts`,
 process group, and the proof it is gone), `inputQueue.ts` (the streaming-input
 prompt), `queryOptions.ts`, `toolGate.ts` (the PreToolUse hook and
 `canUseTool`, both through the permission ladder), `approvals.ts` (the CLI's
-tools in OpenAde's approval vocabulary), `userMessage.ts`,
+tools in OpenAde's approval vocabulary), `interactions.ts` (the question and
+plan cards AskUserQuestion and ExitPlanMode open), `questions.ts` and
+`plans.ts` (their shapes), `userMessage.ts`,
 `sessionRef.ts`, `session.ts` (one long-lived CLI process per thread), and
 `translate/` (SDK messages → `RuntimeEvent`; `tools.ts` holds the tool rows). `makeClaudeConnectorDefinition`
 takes the turn and budget caps a recording puts on every session; production
@@ -1102,7 +1104,8 @@ and answers allow, deny, or — for "prompt" — ask, which routes the call to
 permission mode, so "ask" outranks the CLI's own allow rules too, and the CLI
 hands a hook's ask to `canUseTool` without consulting its mode, which is what
 lets full access run as `bypassPermissions` and still ask about a sensitive
-path. AskUserQuestion and ExitPlanMode pass the hook with no verdict.
+path. AskUserQuestion and ExitPlanMode pass the hook with no verdict, and
+`canUseTool` answers them itself (below).
 `approvals.ts` maps the CLI's tools onto OpenAde's vocabulary: Bash →
 `command`, `Shell(<first word> *)`; Edit, MultiEdit, Write, NotebookEdit →
 `file_write`, `Edit(<path>)` (NotebookEdit's `notebook_path` is handed to the
@@ -1119,8 +1122,43 @@ gate saw none ends with a `session.warning`.
 
 **Runtime modes.** Ask, auto-accept edits and full access run the CLI in
 `default`, `acceptEdits` and `bypassPermissions`, a plan turn in `plan`; a
-change mid-session is `setPermissionMode`. The ladder reads the thread's own
-modes, as they are at each call.
+change mid-session is `setPermissionMode`. The session keeps the mode the CLI
+last reported (a `system/status` with a `permissionMode`) or was last set to,
+and sets it again before a turn whose modes call for another, so the turn
+after a plan runs out of plan mode even when the model put the CLI there
+itself (EnterPlanMode). The ladder reads the thread's own modes, as they are
+at each call.
+
+**Plans.** In plan mode the model writes its plan to a markdown file of the
+CLI's own, directly under `<config dir>/plans/`, and calls ExitPlanMode; the
+CLI puts the file's markdown and path into the call's input (`plan`,
+`planFilePath`) before asking `canUseTool`. The connector settles the call's
+row as a `plan` item with that markdown, emits `turn.plan.proposed` with the
+path, and denies the call with a message telling the model the plan is with
+the user and to stop, so the turn ends on the CLI's result. `respondToPlan`
+has nothing to release: accepting, accepting with auto-accept and revising are
+the server's settings change and next turn, as on every connector. The ladder
+refuses every write in a plan turn, the plan file's included, so a Write, Edit
+or MultiEdit of a `.md` file directly in that directory passes the hook with
+no verdict in a plan turn, and the CLI's own plan mode — which allows its one
+plan file and nothing else — decides it; every other write still reaches the
+ladder and is refused. Plans kept elsewhere through the CLI's `plansDirectory`
+setting are not recognised: their write is refused, ExitPlanMode arrives with
+no plan, and the model is told to write the plan file and call it again. The
+same rung refuses Task and its subagents in a plan turn, since they are not
+reads.
+
+**Questions.** AskUserQuestion opens the question card: each question's text,
+`header`, options (label and description) and `multiSelect`, with ids minted
+by position (`q<n>`, `o<n>`) and `freeform` always on, because the CLI lets
+the user type an answer of their own. The call waits for
+`respondToUserInput`; the answer goes back as its `updatedInput`, the
+questions plus `answers` keyed by question text — the chosen labels joined by
+", ", then the user's own text — and the CLI hands the model the result. A
+withdrawn call, an interrupt or a close answers the card with nothing and the
+call `deny`; `user-input.resolved` closes the card either way. The CLI offers
+AskUserQuestion to an SDK session without any environment switch: the tool
+list in the recorded `system/init` has it.
 
 **Tool rows.** Each `tool_use` block opens a row keyed by its id, and the
 `tool_result` the CLI writes back settles it — failed when `is_error`, which is
@@ -1128,8 +1166,10 @@ how a refused call reads. Bash is a `command_execution` with its output and
 the exit code the CLI names; the edit tools are `file_change` rows whose diff
 comes from the result's structured patch (a created file's from its content);
 WebFetch and WebSearch are `web_search`, MCP tools `mcp_tool_call` naming the
-server, TodoWrite a `todo`, Skill a `skill`, Task and Agent a `task`, and
-anything else a `tool_call`. Output is cut at 64KB. A row still open when its
+server, TodoWrite a `todo`, Skill a `skill`, Task and Agent a `task`,
+ExitPlanMode and EnterPlanMode a `plan`, and anything else, AskUserQuestion
+among them, a `tool_call`. A plan row carries the plan; the refusal the CLI
+writes back after it leaves the row as it is. Output is cut at 64KB. A row still open when its
 turn's result arrives is failed there.
 
 **Signed out.** A CLI that is not signed in answers each message with its own
