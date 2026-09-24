@@ -164,6 +164,8 @@ describe("the user message footer", () => {
     const markup = footer(inThread(thread(), { turnId: t2 }));
     expect(markup).toContain(restoreLabel);
     expect(markup).not.toMatch(/<button[^>]*disabled=""[^>]*Restore the workspace/);
+    expect(markup).not.toMatch(/<button[^>]*aria-disabled="true"[^>]*Restore the workspace/);
+    expect(markup).not.toContain("aria-describedby");
   });
 
   it("names the turn a steered message joined as what its restore goes back before", () => {
@@ -179,11 +181,17 @@ describe("the user message footer", () => {
     expect(inThread(thread({ checkpoints: [] }), { turnId: t2 })).not.toContain(restoreLabel);
   });
 
-  it("disables the restore while one cannot start", () => {
+  it("disables the restore while one cannot start, keeping it focusable with its reason", () => {
     const markup = footer(
       inThread(thread({ restoreBlockedReason: "A turn is running" }), { turnId: t2 }),
     );
-    expect(markup).toMatch(/<button[^>]*disabled=""[^>]*Restore the workspace/);
+    const button = /<button[^>]*Restore the workspace[^>]*>/.exec(markup)?.[0] ?? "";
+    expect(button).toContain('aria-disabled="true"');
+    // Not the native attribute, which would drop it from the tab order.
+    expect(button).not.toMatch(/\sdisabled=""/);
+    const describedBy = /aria-describedby="([^"]+)"/.exec(button)?.[1];
+    expect(describedBy).toBeDefined();
+    expect(markup).toContain(`id="${describedBy}" class="sr-only">A turn is running</span>`);
   });
 });
 

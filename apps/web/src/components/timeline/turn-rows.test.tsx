@@ -87,10 +87,18 @@ describe("TurnSummaryRow", () => {
     expect(markup).not.toContain("more</button>");
   });
 
+  /** The opening tag of the Undo button. */
+  const undoTag = (markup: string) =>
+    markup
+      .split("<button")
+      .find((chunk) => chunk.includes("Undo</button>"))
+      ?.split(">")[0];
+
   it("offers Undo when a checkpoint precedes the turn", () => {
     const markup = render(summary(1), thread());
-    expect(markup).toMatch(/<button[^>]*>.*Undo<\/button>/);
-    expect(markup).not.toMatch(/<button[^>]*disabled=""[^>]*>.*Undo<\/button>/);
+    expect(undoTag(markup)).toBeDefined();
+    expect(undoTag(markup)).not.toContain('aria-disabled="true"');
+    expect(undoTag(markup)).not.toMatch(/\sdisabled=""/);
     expect(markup).toContain("Open in Changes");
   });
 
@@ -100,9 +108,13 @@ describe("TurnSummaryRow", () => {
     expect(render(summary(1), thread({ checkpoints: [] }))).not.toContain("Undo");
   });
 
-  it("disables Undo while a restore cannot start", () => {
+  it("disables Undo while a restore cannot start, keeping it focusable with its reason", () => {
     const markup = render(summary(1), thread({ restoreBlockedReason: "A turn is running" }));
-    expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>.*Undo<\/button>/);
+    const tag = undoTag(markup) ?? "";
+    expect(tag).toContain('aria-disabled="true"');
+    expect(tag).not.toMatch(/\sdisabled=""/);
+    const describedBy = /aria-describedby="([^"]+)"/.exec(tag)?.[1];
+    expect(markup).toContain(`id="${describedBy}" class="sr-only">A turn is running</span>`);
   });
 });
 

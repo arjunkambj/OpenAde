@@ -8,7 +8,10 @@
  * There is nothing to restore before the thread's first turn or in a
  * workspace without git, so the button is left out there, as it is outside a
  * timeline. While a turn runs, a restore is running or the server is out of
- * reach it is disabled, and its tooltip says why. When the turn right before
+ * reach it is disabled, and its tooltip says why. It stays focusable then
+ * (`aria-disabled`, clicks ignored) and carries the reason as its
+ * description, so the keyboard reaches the tooltip and a screen reader hears
+ * why, not just a dimmed button. When the turn right before
  * has no checkpoint of its own the dialog falls back to an earlier one and
  * says that it undoes that turn too.
  *
@@ -23,6 +26,16 @@ import * as React from "react";
 import { RestoreCheckpointDialog } from "@/components/panes/changes/restore-dialog";
 import { useTimelineThread } from "@/components/timeline/thread-context";
 import { checkpointBefore, skipsTurns } from "@/components/timeline/turn-checkpoints";
+
+export interface RestoreButtonProps {
+  readonly disabled: boolean;
+  /** Disabled, it keeps its focus stop: the tooltip and description say why. */
+  readonly focusableWhenDisabled: true;
+  readonly "aria-describedby": string | undefined;
+  /** Dims it while disabled: `aria-disabled`, not the native attribute. */
+  readonly className: string;
+  readonly onClick: () => void;
+}
 
 export function RestoreBeforeTurn({
   turnId,
@@ -39,10 +52,12 @@ export function RestoreBeforeTurn({
   readonly description: string;
   /** Shown when the checkpoint falls back past a turn that has none. */
   readonly skippedNote: string;
-  readonly renderButton: (props: { disabled: boolean; onClick: () => void }) => React.ReactNode;
+  /** The button, spreading these props; it is also the tooltip's trigger. */
+  readonly renderButton: (props: RestoreButtonProps) => React.ReactElement;
 }) {
   const thread = useTimelineThread();
   const [open, setOpen] = React.useState(false);
+  const reasonId = React.useId();
   if (thread === null) {
     return null;
   }
@@ -54,13 +69,22 @@ export function RestoreBeforeTurn({
   return (
     <>
       <Tooltip>
-        {/* The trigger wraps the button: a disabled button takes no pointer
-            events, and the tooltip is where it says why it is disabled. */}
-        <TooltipTrigger render={<span className="inline-flex" />}>
-          {renderButton({ disabled: blocked !== null, onClick: () => setOpen(true) })}
-        </TooltipTrigger>
+        <TooltipTrigger
+          render={renderButton({
+            disabled: blocked !== null,
+            focusableWhenDisabled: true,
+            "aria-describedby": blocked === null ? undefined : reasonId,
+            className: "aria-disabled:opacity-50",
+            onClick: () => setOpen(true),
+          })}
+        />
         <TooltipContent>{blocked ?? tooltip}</TooltipContent>
       </Tooltip>
+      {blocked === null ? null : (
+        <span id={reasonId} className="sr-only">
+          {blocked}
+        </span>
+      )}
       <RestoreCheckpointDialog
         open={open}
         onOpenChange={setOpen}

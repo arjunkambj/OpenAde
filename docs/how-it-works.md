@@ -1687,7 +1687,10 @@ project, the list among them, and the Changes pane with it.
 
 The buttons are disabled, with the reason in the tooltip, while the server is
 out of reach, while a restore is running, and while a turn is in flight
-(`turnInFlight`, since the server holds its turn from `turn.requested`). Each
+(`turnInFlight`, since the server holds its turn from `turn.requested`).
+Disabled, they keep their focus stop (`aria-disabled`, a click does nothing)
+and carry the reason as their accessible description, so the keyboard reaches
+the tooltip and a screen reader says why. Each
 opens the Changes pane's restore dialog (`panes/changes/restore-dialog.tsx`,
 the app's one restore confirmation) with its own title and wording; it
 confirms, dispatches `thread.checkpoint.restore` and reports a rejected
