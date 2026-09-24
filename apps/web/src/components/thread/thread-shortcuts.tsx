@@ -10,6 +10,11 @@
  * `@/components/sidebar/thread-actions` and `use-delete-thread`. Archive
  * unarchives a thread that is already archived, as the menu offers. Delete
  * only ever opens the confirmation — nothing is deleted from a key alone.
+ *
+ * `DockShortcuts` holds the right dock's keys for the same view:
+ * `dock.toggle`, `dock.changes`, `dock.files` and `browserPane.toggle`, with
+ * the targets from `@/components/dock/dock-toggle`. Opening Files from its key
+ * also asks the Files pane to focus its search.
  */
 
 import * as React from "react";
@@ -17,6 +22,8 @@ import * as React from "react";
 import type { ThreadId } from "@OpenAde/contracts/ids";
 import type { ThreadStatus } from "@OpenAde/contracts/orchestration";
 
+import { dockTabTarget } from "@/components/dock/dock-toggle";
+import type { DockTab } from "@/components/dock/right-dock";
 import { DeleteThreadDialog } from "@/components/sidebar/delete-thread-dialog";
 import { threadCommandBase, useThreadCommand } from "@/components/sidebar/thread-actions";
 import { RenameThreadDialog } from "@/components/sidebar/thread-menu";
@@ -80,4 +87,25 @@ export function ThreadShortcuts({
       />
     </>
   );
+}
+
+export function DockShortcuts({
+  dockTab,
+  onToggle,
+  onShow,
+}: {
+  readonly dockTab: DockTab | undefined;
+  /** Open on the last tab, or close — the header button's own action. */
+  readonly onToggle: () => void;
+  /** Move the dock to a tab (null closes it); `focus` asks that tab to take focus. */
+  readonly onShow: (tab: DockTab | null, focus?: boolean) => void;
+}) {
+  useKeybindingCommand("dock.toggle", onToggle);
+  useKeybindingCommand("dock.changes", () => onShow(dockTabTarget(dockTab, "changes")));
+  useKeybindingCommand("dock.files", () => {
+    const target = dockTabTarget(dockTab, "files");
+    onShow(target, target === "files");
+  });
+  useKeybindingCommand("browserPane.toggle", () => onShow(dockTabTarget(dockTab, "browser")));
+  return null;
 }

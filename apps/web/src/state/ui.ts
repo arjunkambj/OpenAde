@@ -45,6 +45,26 @@ export const useRowDisclosure = (rowId: string, defaultOpen = false) => {
   return [isOpen, setOpen] as const;
 };
 
+/**
+ * Opens or closes many disclosures at once — `timeline.collapseAll` and
+ * `expandAll` — by writing an override for each id, which beats every row's
+ * own default the same way a click does.
+ */
+export const useSetRowDisclosures = () => {
+  const setOverrides = useAtomSet(rowDisclosureAtom);
+  return React.useCallback(
+    (rowIds: ReadonlyArray<string>, open: boolean) =>
+      setOverrides((overrides) => {
+        const next = { ...overrides };
+        for (const rowId of rowIds) {
+          next[rowId] = open;
+        }
+        return next;
+      }),
+    [setOverrides],
+  );
+};
+
 /** Clamp to `[min, max]`, with `min` winning when a narrow window inverts the two. */
 const clampWidth = (width: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, Math.round(width)));

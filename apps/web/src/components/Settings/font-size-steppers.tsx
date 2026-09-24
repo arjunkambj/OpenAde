@@ -1,6 +1,3 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react";
-import { AsyncResult } from "effect/unstable/reactivity";
-
 import { Button } from "@OpenAde/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import {
@@ -11,8 +8,7 @@ import {
   type FontSize,
 } from "@OpenAde/contracts/settings";
 
-import { useAppAtoms } from "@/lib/app-runtime";
-import { applyFontSizes } from "@/lib/font-size";
+import { useFontSizes } from "@/lib/use-font-sizes";
 import { Add, Minus } from "@honeyicons/react";
 
 function PxStepper({
@@ -77,15 +73,15 @@ function PxStepper({
   );
 }
 
-/** The main and sidebar text sizes, in px. The sidebar size covers the left sidebar and the right dock. */
+/**
+ * The main and sidebar text sizes, in px. The sidebar size covers the left
+ * sidebar and the right dock. The `font.*` keys step both through the same
+ * `useFontSizes`, so these read the new value as soon as the settings do.
+ */
 export function FontSizeSteppers() {
-  const atoms = useAppAtoms();
-  const result = useAtomValue(atoms.settingsAtom);
-  const updateSettings = useAtomSet(atoms.settingsUpdateAtom, { mode: "value" });
-
-  const settings = AsyncResult.isSuccess(result) ? result.value : null;
-  const main = settings?.mainFontSize ?? DEFAULT_FONT_SIZE;
-  const sidebar = settings?.sidebarFontSize ?? DEFAULT_FONT_SIZE;
+  const { sizes, setSizes } = useFontSizes();
+  const main = sizes?.main ?? DEFAULT_FONT_SIZE;
+  const sidebar = sizes?.sidebar ?? DEFAULT_FONT_SIZE;
 
   return (
     <div className="max-w-3xl">
@@ -95,19 +91,13 @@ export function FontSizeSteppers() {
           label="Main"
           description="The thread and everything outside the sidebars."
           value={main}
-          onChange={(next) => {
-            applyFontSizes({ main: next, sidebar });
-            updateSettings({ mainFontSize: next });
-          }}
+          onChange={(next) => setSizes({ main: next, sidebar })}
         />
         <PxStepper
           label="Sidebar"
           description="The left sidebar and the right dock."
           value={sidebar}
-          onChange={(next) => {
-            applyFontSizes({ main, sidebar: next });
-            updateSettings({ sidebarFontSize: next });
-          }}
+          onChange={(next) => setSizes({ main, sidebar: next })}
         />
       </div>
     </div>

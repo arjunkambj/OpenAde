@@ -27,6 +27,7 @@ import type { ThreadDetailSnapshot, ThreadStatus } from "@OpenAde/contracts/orch
 import type { DockTab } from "@/components/dock/right-dock";
 import { BranchPicker } from "@/components/git/branch-picker";
 import { GitActionsControl } from "@/components/git/git-actions-control";
+import { CommandKbd } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import { SidebarRight, Spinner } from "@honeyicons/react";
 
@@ -92,7 +93,10 @@ export function ThreadHeader({
               className={cn(dockTab !== undefined && "text-foreground")}
             />
           </TooltipTrigger>
-          <TooltipContent>{dockTab === undefined ? "Open dock" : "Close dock"}</TooltipContent>
+          <TooltipContent>
+            {dockTab === undefined ? "Open dock" : "Close dock"}
+            <CommandKbd command="dock.toggle" />
+          </TooltipContent>
         </Tooltip>
       </span>
     </header>

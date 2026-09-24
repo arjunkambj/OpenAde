@@ -2054,13 +2054,13 @@ list it.
 | Composer | `composer.attach`                                     | `Mod+U`                       |                                                                    |
 | Composer | `composer.clearDraft`                                 | `Mod+Shift+Backspace`         | `composerFocus`                                                    |
 | View     | `sidebar.toggle`                                      | `Mod+B`                       |                                                                    |
-| View     | `dock.toggle` (inert)                                 | `Mod+Alt+B`                   | `threadOpen`                                                       |
-| View     | `dock.changes` / `dock.files` (inert)                 | `Mod+Shift+D` / `Mod+P`       | `threadOpen`                                                       |
+| View     | `dock.toggle`                                         | `Mod+Alt+B`                   | `threadOpen`                                                       |
+| View     | `dock.changes` / `dock.files`                         | `Mod+Shift+D` / `Mod+P`       | `threadOpen`                                                       |
 | View     | `browserPane.toggle`                                  | `Mod+Shift+B`                 |                                                                    |
 | View     | `terminal.toggle`                                     | `Mod+J`                       |                                                                    |
-| View     | `font.increase` / `decrease` / `reset` (inert)        | `Mod+Alt+=` / `-` / `0`       |                                                                    |
-| Timeline | `timeline.jumpToLatest` (inert)                       | `Mod+Shift+J`                 | `threadOpen`                                                       |
-| Timeline | `timeline.collapseAll` / `expandAll` (inert)          | `Mod+Alt+[` / `Mod+Alt+]`     | `threadOpen`                                                       |
+| View     | `font.increase` / `decrease` / `reset`                | `Mod+Alt+=` / `-` / `0`       |                                                                    |
+| Timeline | `timeline.jumpToLatest`                               | `Mod+Shift+J`                 | `threadOpen`                                                       |
+| Timeline | `timeline.collapseAll` / `expandAll`                  | `Mod+Alt+[` / `Mod+Alt+]`     | `threadOpen`                                                       |
 | Cards    | `approval.allowOnce` / `allowSession` / `allowAlways` | `1` / `2` / `3`               | `approvalPending && !inputFocus && !dialogOpen`                    |
 | Cards    | `approval.deny`                                       | `D`, `Escape`                 | the same                                                           |
 | Cards    | `plan.accept` / `acceptAndRun` / `revise`             | `1` / `2` / `3`               | `planPending && !inputFocus && !dialogOpen`                        |
@@ -2077,6 +2077,15 @@ and the standard text-editing chords. The app sets no application menu, so the
 Electron default one is live: Mod+R reloads, Mod+=/-/0 zoom, Mod+W closes. Font
 size therefore uses `Mod+Alt+=`/`-`/`0`. When macOS Accessibility zoom is
 turned on (it is off by default), it takes those same chords first.
+
+The font keys step the main and sidebar text sizes together by half a pixel,
+each clamped to 11–20px, and reset puts both back on 14px. They write the
+settings document through the same `useFontSizes` hook as the Appearance
+steppers, so the steppers follow. `timeline.collapseAll` and `expandAll` set
+every disclosure in the open thread: tool, reasoning, file-change, task and
+plan rows, work groups and the rows folded in them, task children, turn
+summaries and answered-decision records (`disclosureIds` in
+`components/timeline/disclosure.ts`).
 
 `RESERVED_KEYBINDINGS`, in the same module, holds chords for features that are
 still being built, so that nothing ships on them first. Nothing dispatches

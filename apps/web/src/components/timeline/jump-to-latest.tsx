@@ -2,6 +2,8 @@
  * The round "jump to latest" button over the bottom of the timeline. It shows
  * only while the list sits away from its end — where `maintainScrollAtEnd`
  * stops following new rows — and scrolls back down when pressed.
+ * `timeline.jumpToLatest` does the same from the keyboard; the timeline
+ * answers it, and the tooltip shows its chord.
  */
 
 import { Button } from "@OpenAde/ui/components/button";
@@ -9,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/
 import type { LegendListRef } from "@legendapp/list/react";
 import * as React from "react";
 
+import { CommandKbd } from "@/lib/shortcuts";
 import { ArrowDown } from "@honeyicons/react";
 
 export function JumpToLatest({ listRef }: { listRef: React.RefObject<LegendListRef | null> }) {
@@ -39,7 +42,10 @@ export function JumpToLatest({ listRef }: { listRef: React.RefObject<LegendListR
         >
           <ArrowDown variant="bold" />
         </TooltipTrigger>
-        <TooltipContent>Jump to latest</TooltipContent>
+        <TooltipContent>
+          Jump to latest
+          <CommandKbd command="timeline.jumpToLatest" />
+        </TooltipContent>
       </Tooltip>
     </div>
   );

@@ -12,9 +12,13 @@
  *   so the Nth thread is the Nth row on screen.
  * - `thread.newInProject` starts a thread in the open thread's project, else
  *   the last project used, else the first, through the one create flow.
+ * - `font.increase` / `font.decrease` / `font.reset` step the main and sidebar
+ *   text sizes together, through the same settings write as the Appearance
+ *   steppers (`useFontSizes`). Their chords carry Alt (`Mod+Alt+=` and so on)
+ *   because the Electron default menu keeps `Mod+=`/`-`/`0` for page zoom.
  *
  * A command is claimed only while it has something to act on — no threads, no
- * stepping; no project, no new thread — so the palette never offers a row
+ * stepping; no project, no new thread; no settings yet, no font steps — so the palette never offers a row
  * that does nothing. The numbered jumps stay claimed and a number past the end
  * does nothing; the palette does not list them.
  */
@@ -32,7 +36,9 @@ import {
   projectForNewThread,
   sidebarThreadOrder,
 } from "@/components/sidebar/thread-order";
+import { stepFontSizes, type FontSizes } from "@/lib/font-size";
 import { useKeybindingCommand } from "@/lib/shortcuts";
+import { useFontSizes } from "@/lib/use-font-sizes";
 import { useCreateThread } from "@/lib/use-create-thread";
 import { useProjects, useThreadList } from "@/state/hooks";
 import { useCollapsedProjects, useLastProject } from "@/state/ui";
@@ -101,6 +107,25 @@ function NewInProjectShortcut({ projectId }: { readonly projectId: ProjectId }) 
   return null;
 }
 
+function FontShortcuts({
+  sizes,
+  setSizes,
+}: {
+  readonly sizes: FontSizes;
+  readonly setSizes: (next: FontSizes) => void;
+}) {
+  const step = (direction: 1 | -1 | "reset") => {
+    const next = stepFontSizes(sizes, direction);
+    if (next.main !== sizes.main || next.sidebar !== sizes.sidebar) {
+      setSizes(next);
+    }
+  };
+  useKeybindingCommand("font.increase", () => step(1));
+  useKeybindingCommand("font.decrease", () => step(-1));
+  useKeybindingCommand("font.reset", () => step("reset"));
+  return null;
+}
+
 export function AppShortcuts() {
   const projects = useProjects();
   const threads = useThreadList();
@@ -114,6 +139,7 @@ export function AppShortcuts() {
     () => sidebarThreadOrder(projects, threads, collapsed, openThreadId),
     [projects, threads, collapsed, openThreadId],
   );
+  const { sizes, setSizes } = useFontSizes();
   const openThreadProject = threads.find((thread) => thread.threadId === openThreadId)?.projectId;
   const newThreadProject = projectForNewThread(projects, openThreadProject, lastProject);
 
@@ -140,6 +166,7 @@ export function AppShortcuts() {
       {newThreadProject === undefined ? null : (
         <NewInProjectShortcut projectId={newThreadProject.projectId} />
       )}
+      {sizes === null ? null : <FontShortcuts sizes={sizes} setSizes={setSizes} />}
     </>
   );
 }

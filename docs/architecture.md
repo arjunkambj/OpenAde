@@ -260,6 +260,11 @@ split/unified toggle), **browser** (the pane) and **files** (a search over
 `files.read`, paged by line offset because a window is capped by characters,
 not lines). When less than 640px remains beside the sidebar, the dock overlays
 the thread so its tabs stay reachable. Wider rows fit a thread column of at least 360px beside the dock.
+The dock has keys of its own, answered by the thread view: `dock.toggle`
+(Mod+Alt+B) closes it or reopens it on the tab it was closed on, and
+`dock.changes` (Mod+Shift+D), `browserPane.toggle` (Mod+Shift+B) and
+`dock.files` (Mod+P) open their tab, or close the dock when it already shows
+that tab. Opening Files by its key also puts the cursor in the Files search.
 Archived threads leave the sidebar tree for the archived threads settings page,
 which unarchives or deletes them.
 

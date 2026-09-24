@@ -15,6 +15,10 @@
  * Opening a row swaps the list for `FilePreview`; the breadcrumb goes back.
  * Everything else — loading, an empty query, no matches, a server error, an
  * offline socket — has its own honest block rather than an empty list.
+ *
+ * `focusSearch` puts the cursor in the search field — the dock's Files key
+ * sets it when it opens this tab — and `onSearchFocused` reports that it was
+ * used, so the request is spent once rather than on every later mount.
  */
 
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
@@ -151,12 +155,23 @@ export function FilesPane({
   projectId,
   threadId,
   connected,
+  focusSearch = false,
+  onSearchFocused,
 }: {
   readonly projectId: ProjectId;
   readonly threadId: ThreadId;
   readonly connected: boolean;
+  readonly focusSearch?: boolean;
+  readonly onSearchFocused?: () => void;
 }) {
   const atoms = useFileAtoms();
+  const searchRef = React.useRef<HTMLInputElement>(null);
+  React.useEffect(() => {
+    if (focusSearch) {
+      searchRef.current?.focus();
+      onSearchFocused?.();
+    }
+  }, [focusSearch, onSearchFocused]);
   const [query, setQuery] = React.useState("");
   const [openPath, setOpenPath] = React.useState<string | null>(null);
 
@@ -207,6 +222,7 @@ export function FilesPane({
     <div className="flex h-full min-h-0 flex-col">
       <div className="shrink-0 p-2">
         <Input
+          ref={searchRef}
           value={query}
           placeholder="Search files…"
           aria-label="Search files"

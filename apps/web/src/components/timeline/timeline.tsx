@@ -2,6 +2,11 @@
  * The virtualized thread timeline: `ItemSnapshot[]` from the detail atom,
  * folded by `buildTimeline`, rendered through `LegendList`. Row state that
  * must survive recycling (disclosure) lives in atoms, not component state.
+ *
+ * The timeline answers its own keys while it is on screen:
+ * `timeline.jumpToLatest` scrolls to the end the way the jump button does, and
+ * `timeline.collapseAll` / `expandAll` write a disclosure override for every
+ * row that folds (`disclosureIds`), nested and grouped rows included.
  */
 
 import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
@@ -9,11 +14,14 @@ import { uuidV7Millis } from "@OpenAde/shared/ids";
 import { LegendList, type LegendListRef } from "@legendapp/list/react";
 import * as React from "react";
 
+import { disclosureIds } from "@/components/timeline/disclosure";
 import { buildTimeline } from "@/components/timeline/fold";
 import { JumpToLatest } from "@/components/timeline/jump-to-latest";
 import { TimelineThreadProvider } from "@/components/timeline/thread-context";
 import { TimelineRowView } from "@/components/timeline/timeline-item";
+import { useKeybindingCommand } from "@/lib/shortcuts";
 import { turnInFlight } from "@/lib/turn";
+import { useSetRowDisclosures } from "@/state/ui";
 
 export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
   const listRef = React.useRef<LegendListRef>(null);
@@ -27,6 +35,16 @@ export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
       }),
     [snapshot],
   );
+
+  const setDisclosures = useSetRowDisclosures();
+  useKeybindingCommand(
+    "timeline.jumpToLatest",
+    () => void listRef.current?.scrollToEnd({ animated: true }),
+  );
+  useKeybindingCommand("timeline.collapseAll", () =>
+    setDisclosures(disclosureIds(projection), false),
+  );
+  useKeybindingCommand("timeline.expandAll", () => setDisclosures(disclosureIds(projection), true));
 
   const renderItem = React.useCallback(
     ({ item }: { item: (typeof projection.rows)[number] }) => (

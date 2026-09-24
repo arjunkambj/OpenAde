@@ -7,7 +7,12 @@
  * them; the settings document only arrives once the server connection is up.
  */
 
-import { DEFAULT_FONT_SIZE } from "@OpenAde/contracts/settings";
+import {
+  DEFAULT_FONT_SIZE,
+  FONT_SIZE_STEP,
+  MAX_FONT_SIZE,
+  MIN_FONT_SIZE,
+} from "@OpenAde/contracts/settings";
 
 const STORAGE_KEY = "openade:font-sizes";
 
@@ -15,6 +20,23 @@ export interface FontSizes {
   readonly main: number;
   readonly sidebar: number;
 }
+
+const clampFontSize = (size: number): number =>
+  Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, size));
+
+/**
+ * The sizes after one `font.increase` / `font.decrease` / `font.reset`: main
+ * and sidebar move together by `FONT_SIZE_STEP`, each clamped to the range on
+ * its own — a sidebar already at the ceiling stays there while main still
+ * grows — and reset puts both back on `DEFAULT_FONT_SIZE`.
+ */
+export const stepFontSizes = (sizes: FontSizes, direction: 1 | -1 | "reset"): FontSizes =>
+  direction === "reset"
+    ? { main: DEFAULT_FONT_SIZE, sidebar: DEFAULT_FONT_SIZE }
+    : {
+        main: clampFontSize(sizes.main + direction * FONT_SIZE_STEP),
+        sidebar: clampFontSize(sizes.sidebar + direction * FONT_SIZE_STEP),
+      };
 
 const setScales = ({ main, sidebar }: FontSizes) => {
   const style = document.documentElement.style;

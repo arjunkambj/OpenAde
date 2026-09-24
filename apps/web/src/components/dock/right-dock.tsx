@@ -14,6 +14,11 @@
  * tabs unreachable on a narrow window with no hint that they existed. The
  * resize edge is the one part that stays behind — there is nothing to resize
  * when the panel is already full width.
+ *
+ * Each tab has a key (`dock.changes`, `browserPane.toggle`, `dock.files`) and
+ * the dock one (`dock.toggle`); `ThreadView` answers them, and the tab and
+ * close tooltips show the chords. Opening Files from its key focuses the
+ * Files search (`focusFilesSearch`).
  */
 
 import * as React from "react";
@@ -25,6 +30,7 @@ import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
 import { BrowserPane } from "@/components/panes/browser/browser-pane";
 import { ChangesPane } from "@/components/panes/changes/changes-pane";
 import { FilesPane } from "@/components/panes/files/files-pane";
+import { CommandKbd } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import { useConnectionState } from "@/state/hooks";
 import { DOCK_WIDTH_MAX_FRACTION, THREAD_COLUMN_MIN, useDockWidth } from "@/state/ui";
@@ -36,10 +42,10 @@ export type DockTab = (typeof DOCK_TABS)[number];
 export const isDockTab = (value: unknown): value is DockTab =>
   typeof value === "string" && (DOCK_TABS as ReadonlyArray<string>).includes(value);
 
-const TAB_META: Record<DockTab, { icon: HoneyIcon; label: string }> = {
-  changes: { icon: GitDiff, label: "Changes" },
-  browser: { icon: Globe, label: "Browser" },
-  files: { icon: Folder, label: "Files" },
+const TAB_META: Record<DockTab, { icon: HoneyIcon; label: string; command: string }> = {
+  changes: { icon: GitDiff, label: "Changes", command: "dock.changes" },
+  browser: { icon: Globe, label: "Browser", command: "browserPane.toggle" },
+  files: { icon: Folder, label: "Files", command: "dock.files" },
 };
 
 /** Drag the left edge to resize; the width atom persists every frame. */
@@ -81,17 +87,27 @@ function DockTabButton({
 }) {
   const meta = TAB_META[tab];
   return (
-    <Button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      variant={active ? "secondary" : "ghost"}
-      tone={active ? "default" : "muted"}
-      onClick={() => onSelect(tab)}
-    >
-      <meta.icon variant="bold" />
-      {meta.label}
-    </Button>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            type="button"
+            role="tab"
+            aria-selected={active}
+            variant={active ? "secondary" : "ghost"}
+            tone={active ? "default" : "muted"}
+            onClick={() => onSelect(tab)}
+          />
+        }
+      >
+        <meta.icon variant="bold" />
+        {meta.label}
+      </TooltipTrigger>
+      <TooltipContent>
+        {meta.label}
+        <CommandKbd command={meta.command} />
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -99,10 +115,15 @@ export function RightDock({
   tab,
   onTabChange,
   snapshot,
+  focusFilesSearch = false,
+  onFilesSearchFocused,
 }: {
   tab: DockTab;
   onTabChange: (tab: DockTab | null) => void;
   snapshot: ThreadDetailSnapshot;
+  /** Focus the Files search as the Files tab mounts — set by its key. */
+  focusFilesSearch?: boolean;
+  onFilesSearchFocused?: () => void;
 }) {
   const { width, onPointerDown } = useDockResize();
   const connection = useConnectionState();
@@ -154,7 +175,10 @@ export function RightDock({
             >
               <CloseIcon variant="bold" />
             </TooltipTrigger>
-            <TooltipContent>Close dock</TooltipContent>
+            <TooltipContent>
+              Close dock
+              <CommandKbd command="dock.toggle" />
+            </TooltipContent>
           </Tooltip>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
@@ -174,6 +198,8 @@ export function RightDock({
               projectId={snapshot.projectId}
               threadId={snapshot.threadId}
               connected={connection.status === "connected"}
+              focusSearch={focusFilesSearch}
+              onSearchFocused={onFilesSearchFocused}
             />
           ) : null}
         </div>
