@@ -451,17 +451,20 @@ in Command Code it drops the session's context, no command in the union does
 that, and binding it to emptying the textarea would throw away the sentence the
 user was writing while keeping every token they meant to drop.
 
-`#` searches the thread's files — its worktree, or the project's folder —
-through `files.search` (`use-file-mentions.ts`), and says "No files match" when nothing does,
-"Searching…" while the search runs and "Could not search files" when it
-fails. The turn
-carries the bare workspace-relative paths as `mentions`, and the connector
-decides how to name them to its harness. Because `#` is also markdown and issue
-numbers, it needs a query that starts with neither another `#` nor a digit. So
-a lone `#` then Enter sends, `# Heading` closes at the space, and `##`
-headings, `fixes #12`, `a#b` and `https://x.dev/#frag` never open it. The digit
-rule matters because `files.search` is a substring match: `#12` would list
-every path with a 12 in it, and Enter would pick one instead of sending.
+`#` searches the thread's files — its worktree, or the project's folder; on
+the start screen, before there is a thread, the project's folder — through
+`files.search` (`use-file-mentions.ts`), and says "No files match" when nothing
+does, "Searching…" while the first search runs and "Could not search files"
+when it fails. Each keystroke is a new search; until it answers, the menu keeps
+the rows the last one gave rather than emptying (`heldMenuSource` in
+`menu-source.ts`). The turn carries the bare workspace-relative paths as
+`mentions`, and the connector decides how to name them to its harness. Because
+`#` is also markdown and issue numbers, it needs a query that starts with
+neither another `#` nor a digit. So a lone `#` then Enter sends, `# Heading`
+closes at the space, and `##` headings, `fixes #12`, `a#b` and
+`https://x.dev/#frag` never open it. The digit rule matters because
+`files.search` is a substring match: `#12` would list every path with a 12 in
+it, and Enter would pick one instead of sending.
 
 `@` lists the thread instance's enabled plugins under "Plugins", then its
 enabled skills under "Skills" (`pluginsAtom` and `skillsAtom`, wired in

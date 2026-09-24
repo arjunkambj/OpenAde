@@ -20,7 +20,7 @@ import {
 } from "@OpenAde/client-runtime/composerTrigger";
 import * as React from "react";
 
-import { fileMenuEmptyLabel, menuSource } from "@/components/composer/menu-source";
+import { fileMenuEmptyLabel, heldMenuSource, menuSource } from "@/components/composer/menu-source";
 import type { TriggerMenuItem } from "@/components/composer/trigger-menu";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { File as FileIcon, Folder } from "@honeyicons/react";
@@ -29,6 +29,8 @@ import { File as FileIcon, Folder } from "@honeyicons/react";
 const fileMentionToken = (path: string): string => `#${path}`;
 
 const ITEM_PREFIX = "file:";
+
+const NO_FILES: ReadonlyArray<FileSearchResult> = [];
 
 const mentionItems = (files: ReadonlyArray<FileSearchResult>): ReadonlyArray<TriggerMenuItem> =>
   files.map((file) => ({
@@ -74,8 +76,23 @@ export function useFileMentions({
 
   // Debounce via React — the atom family keys per query, so the deferred value
   // is what actually reaches files.search.
-  const deferredQuery = React.useDeferredValue(open ? trigger.query : "");
-  const search = menuSource(useAtomValue(fileSearchAtom(projectId, threadId)(deferredQuery)));
+  const query = open ? trigger.query : "";
+  const deferredQuery = React.useDeferredValue(query);
+  const current = menuSource(useAtomValue(fileSearchAtom(projectId, threadId)(deferredQuery)));
+  const settled = deferredQuery === query;
+
+  // The rows the open menu last answered with, shown while the next query is
+  // asked (`heldMenuSource`); forgotten when the menu closes.
+  const [held, setHeld] = React.useState<ReadonlyArray<FileSearchResult>>(NO_FILES);
+  const nextHeld = !open
+    ? NO_FILES
+    : settled && current.status === "ready"
+      ? current.entries
+      : held;
+  if (nextHeld !== held) {
+    setHeld(nextHeld);
+  }
+  const search = heldMenuSource(current, settled, nextHeld);
   const searchFiles = search.entries;
 
   const items = React.useMemo<ReadonlyArray<TriggerMenuItem>>(

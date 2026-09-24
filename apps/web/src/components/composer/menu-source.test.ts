@@ -3,7 +3,7 @@ import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { describe, expect, it } from "vitest";
 
-import { fileMenuEmptyLabel, menuSource } from "@/components/composer/menu-source";
+import { fileMenuEmptyLabel, heldMenuSource, menuSource } from "@/components/composer/menu-source";
 
 const rpcFailure = (code: OpenAdeRpcError["code"]) =>
   AsyncResult.failure<ReadonlyArray<string>, OpenAdeRpcError>(
@@ -45,6 +45,39 @@ describe("menuSource", () => {
 
   it("reads an instance without the extension as having none", () => {
     expect(menuSource(rpcFailure("unavailable"))).toEqual({ status: "ready", entries: [] });
+  });
+});
+
+describe("heldMenuSource", () => {
+  const ready = (entries: ReadonlyArray<string>) => ({ status: "ready" as const, entries });
+  const inFlight = { status: "loading" as const, entries: [] as ReadonlyArray<string> };
+
+  it("says searching, not no match, while the menu opens on the closed menu's empty answer", () => {
+    // The first render after `#x` opens still reads the `""` query's answer:
+    // a finished, empty list.
+    expect(heldMenuSource(ready([]), false, [])).toEqual({ status: "loading", entries: [] });
+  });
+
+  it("keeps the last rows while the next query's answer is behind the draft", () => {
+    expect(heldMenuSource(ready(["src"]), false, ["src"])).toEqual({
+      status: "loading",
+      entries: ["src"],
+    });
+  });
+
+  it("keeps the last rows while the next query's atom is still in flight", () => {
+    expect(heldMenuSource(inFlight, true, ["src"])).toEqual({
+      status: "loading",
+      entries: ["src"],
+    });
+    expect(heldMenuSource(inFlight, true, [])).toEqual({ status: "loading", entries: [] });
+  });
+
+  it("shows the answer once it has caught up with the draft", () => {
+    expect(heldMenuSource(ready(["docs"]), true, ["src"])).toEqual(ready(["docs"]));
+    expect(heldMenuSource(ready([]), true, ["src"])).toEqual(ready([]));
+    const failed = { status: "failed" as const, entries: [] as ReadonlyArray<string> };
+    expect(heldMenuSource(failed, true, ["src"])).toEqual(failed);
   });
 });
 

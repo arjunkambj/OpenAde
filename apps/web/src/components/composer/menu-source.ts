@@ -46,6 +46,29 @@ export const menuSource = <A>(
   return { status: "loading", entries: [] };
 };
 
+/**
+ * What a menu that asks again on every keystroke shows while its answer
+ * catches up with the draft.
+ *
+ * The `#` menu keys `files.search` by the deferred query, and each new query is
+ * a new atom that starts as an in-flight empty list. Read as-is, the menu would
+ * open on the answer for the query it had while closed (`""`, answered empty:
+ * "No files match") and then fall to a lone "Searching…" row on every
+ * keystroke. So until the search has caught up (`settled`) and while it has
+ * nothing new to show, the menu keeps the rows it last had (`held`) and says it
+ * is loading; with nothing held yet, that is "Searching…".
+ */
+export const heldMenuSource = <A>(
+  current: MenuSource<A>,
+  settled: boolean,
+  held: ReadonlyArray<A>,
+): MenuSource<A> => {
+  if (!settled || (current.status === "loading" && current.entries.length === 0)) {
+    return { status: "loading", entries: held };
+  }
+  return current;
+};
+
 /** The `#` menu's row when it lists no files. */
 export const fileMenuEmptyLabel = (status: MenuSourceStatus): string =>
   status === "loading"
