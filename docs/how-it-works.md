@@ -1758,6 +1758,25 @@ that is archived or not in the list, forwards the guests' gestures as
 tabs down when it is archived — and when it is deleted, also clears its
 `persist:thread-<id>` partition through the shell.
 
+The pane itself is closed by default too. Opening the app, a project or a
+thread opens no dock tab the user did not leave open, and an empty pane shows
+"No page open" with the address bar. When the agent's first call creates the
+thread's tab, the dock stays as it was: the thread header shows "Agent is
+using the browser — Show" for as long as a `browser_*` call runs or a tab the
+agent opened is open, and the pane is not on screen. Settings →
+`browser.openPaneOnAgentUse` (off by default) opens the pane instead, once per
+agent activity; closing it while the agent is active keeps it closed for that
+thread until you open it yourself, and an auto-open is not remembered as the
+thread's dock tab. Other surfaces — the terminal's links — call
+`openInThreadBrowser(threadId, url, { reveal })`, which accepts only http(s),
+opens or selects the thread's tab on it and shows the pane.
+
+A failed attach shows in the pane as an alert with the message and Retry; the
+agent's own call failed with the same message. Under `OPENADE_REMOTE_DEBUG=0`
+the pane reads "In-app browser is disabled (OPENADE_REMOTE_DEBUG=0)" and a
+person can still browse its tabs. The web renderer's frame stream is labelled
+"Headless browser (web mode)".
+
 `apps/server/src/browser/agentBrowser.ts` finds the CLI (`OPENADE_AGENT_BROWSER`,
 then `agent-browser` on `PATH`) and runs every call as argv-form `execFile`,
 never a shell. A missing binary is not fatal: the service reports `binary:

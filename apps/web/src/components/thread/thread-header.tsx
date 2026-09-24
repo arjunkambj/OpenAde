@@ -1,6 +1,6 @@
 /**
  * The thread's slim header: its title, the branch picker, the git actions,
- * its status and the dock toggle.
+ * the agent-browser indicator, its status and the dock toggle.
  *
  * The branch picker (`components/git/branch-picker.tsx`) sits beside the
  * title: the branch the thread's workspace is on, switchable for a local
@@ -27,6 +27,7 @@ import type { ThreadDetailSnapshot, ThreadStatus } from "@OpenAde/contracts/orch
 import type { DockTab } from "@/components/dock/right-dock";
 import { BranchPicker } from "@/components/git/branch-picker";
 import { GitActionsControl } from "@/components/git/git-actions-control";
+import { AgentBrowserIndicator } from "@/components/thread/agent-browser-indicator";
 import { CommandKbd } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import { SidebarRight, Spinner } from "@honeyicons/react";
@@ -60,10 +61,13 @@ export function ThreadHeader({
   snapshot,
   dockTab,
   onDockToggle,
+  onShowBrowser,
 }: {
   snapshot: ThreadDetailSnapshot;
   dockTab: DockTab | undefined;
   onDockToggle: () => void;
+  /** Set while the agent uses the browser and its pane is not on screen. */
+  onShowBrowser: (() => void) | null;
 }) {
   return (
     <header className="@container/header flex min-h-11 shrink-0 items-center gap-2 px-4 py-1.5">
@@ -72,6 +76,7 @@ export function ThreadHeader({
       </h1>
       <BranchPicker snapshot={snapshot} />
       <div className="flex-1" />
+      {onShowBrowser === null ? null : <AgentBrowserIndicator onShow={onShowBrowser} />}
       <GitActionsControl snapshot={snapshot} />
       <StatusPill status={snapshot.status} />
       <span className="inline-flex shrink-0">

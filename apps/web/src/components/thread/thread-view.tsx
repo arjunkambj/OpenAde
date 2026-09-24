@@ -40,6 +40,7 @@ import { Composer } from "@/components/composer/composer";
 import { dockToggleTarget } from "@/components/dock/dock-toggle";
 import { isDockTab, RightDock, type DockTab } from "@/components/dock/right-dock";
 import { ThreadTerminal } from "@/components/terminal/terminal-drawer";
+import { useAgentBrowser } from "@/components/thread/agent-browser-indicator";
 import { ThreadHarnessBanner } from "@/components/thread/harness-health-banner";
 import { ThreadHeader } from "@/components/thread/thread-header";
 import { ThreadGreeting } from "@/components/thread/thread-greeting";
@@ -47,6 +48,7 @@ import { DockShortcuts, ThreadShortcuts } from "@/components/thread/thread-short
 import { Timeline } from "@/components/timeline/timeline";
 import { useKeybindingFlag } from "@/lib/shortcuts";
 import { useConnectionState, useProjects, useThreadDetail } from "@/state/hooks";
+import { useBrowserRevealRequests } from "@/state/browser-activity";
 import { useDockTabMemory } from "@/state/ui";
 import { AlertTriangle, Spinner, WifiOff } from "@honeyicons/react";
 
@@ -146,19 +148,38 @@ export function ThreadView({
   // Set by the Files key, read once by the Files pane as it mounts; any other
   // move of the dock clears it, so a later click on the tab does not focus.
   const [focusFilesSearch, setFocusFilesSearch] = React.useState(false);
-  const setDockTab = React.useCallback(
-    (tab: DockTab | null) => {
-      setFocusFilesSearch(false);
-      rememberDockTab(threadId, tab);
+  const navigateDock = React.useCallback(
+    (tab: DockTab | null) =>
       void navigate({
         to: "/t/$threadId",
         params: { threadId },
         search: { pane: tab ?? undefined },
         replace: true,
-      });
-    },
-    [navigate, rememberDockTab, threadId],
+      }),
+    [navigate, threadId],
   );
+
+  // The agent's use of the browser: the header's indicator, and the
+  // auto-open setting. An auto-open is not remembered as the thread's dock
+  // tab — only the user's own choice is.
+  const autoOpenBrowser = React.useCallback(() => navigateDock("browser"), [navigateDock]);
+  const agentBrowser = useAgentBrowser(threadId, dockTab, autoOpenBrowser);
+  const { noteUserDock } = agentBrowser;
+
+  /** Every dock move the user makes: remembered for the thread, and noted. */
+  const setDockTab = React.useCallback(
+    (tab: DockTab | null) => {
+      setFocusFilesSearch(false);
+      noteUserDock(dockTab, tab ?? undefined);
+      rememberDockTab(threadId, tab);
+      navigateDock(tab);
+    },
+    [dockTab, noteUserDock, rememberDockTab, navigateDock, threadId],
+  );
+
+  const showBrowser = React.useCallback(() => setDockTab("browser"), [setDockTab]);
+  // `openInThreadBrowser` asks for the pane from outside the thread view.
+  useBrowserRevealRequests(threadId, showBrowser);
 
   // Arriving with no `?pane=` — a sidebar link, a relaunch — restores the tab
   // this thread was last left on. Closing the dock forgets it, so this cannot
@@ -232,7 +253,12 @@ export function ThreadView({
           </>
         ) : null}
         {snapshot !== null ? (
-          <ThreadHeader snapshot={snapshot} dockTab={dockTab} onDockToggle={toggleDock} />
+          <ThreadHeader
+            snapshot={snapshot}
+            dockTab={dockTab}
+            onDockToggle={toggleDock}
+            onShowBrowser={agentBrowser.indicator ? showBrowser : null}
+          />
         ) : null}
         <ThreadBody result={result} connected={connection.status !== "disconnected"} />
         {snapshot !== null ? (

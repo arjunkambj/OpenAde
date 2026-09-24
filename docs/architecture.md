@@ -424,6 +424,28 @@ list for 2 s while connected, 10 s when the list is empty, since that is also
 what a resnapshot looks like before its snapshot lands — and asks the shell to
 clear that thread's partition. On quit the webviews go with the window. The
 web renderer has no preload bridge, so the host renders nothing there.
+
+**Closed by default.** Nothing opens the dock or the Browser pane, and
+nothing creates a webview, at start, project open or thread open; a dock tab
+comes back only because the user left the thread on it (`useDockTabMemory`).
+While the agent uses the browser — a `browser_*` call in flight, or a tab it
+opened — and the pane is not on screen, the thread header shows "Agent is
+using the browser" with a Show button
+(`apps/web/src/components/thread/agent-browser-indicator.tsx`). The
+`browser.openPaneOnAgentUse` setting (off by default) opens the pane once per
+agent activity, never over a pane the user closed while the agent was active,
+and without remembering it as the thread's dock tab; the rules are pure
+(`apps/web/src/components/panes/browser/auto-open.ts`) and the per-thread
+record is in `apps/web/src/state/browser-activity.ts`, in memory only. Other
+surfaces open a page through one entry point, `openInThreadBrowser(threadId,
+url, { reveal })` (`apps/web/src/components/panes/browser/open-in-browser.ts`):
+http(s) only, it selects the thread's tab already on the url or opens one,
+and asks the thread view to show the pane (in the web renderer it navigates
+the headless browser instead). A failed attach is a destructive `Alert` over
+the pane with Retry, whose `reload` gesture only clears the server's error;
+under the kill switch the pane says "In-app browser is disabled
+(OPENADE_REMOTE_DEBUG=0)" and still lets a person browse; the web renderer
+labels its frame stream "Headless browser (web mode)".
 There is no `unread` flag on the wire: whether this window has looked at a
 thread is not the server's business, and a thread with no stamp is deliberately
 not unread.

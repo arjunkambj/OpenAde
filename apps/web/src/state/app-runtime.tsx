@@ -32,6 +32,12 @@ export type AppAtoms = ReturnType<typeof makeRuntime>;
 
 const appAtomRegistry = AtomRegistry.make({ scheduleTask });
 
+/**
+ * The registry itself, for code that runs outside React — an entry point a
+ * click handler calls, like `openInThreadBrowser`.
+ */
+export const getAppAtomRegistry = (): AtomRegistry.AtomRegistry => appAtomRegistry;
+
 export function AppAtomRegistryProvider({ children }: { children?: ReactNode }) {
   return <RegistryContext.Provider value={appAtomRegistry}>{children}</RegistryContext.Provider>;
 }

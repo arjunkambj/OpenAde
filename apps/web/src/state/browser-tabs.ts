@@ -15,6 +15,7 @@
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
+import type { AtomRegistry } from "effect/unstable/reactivity";
 import * as Atom from "effect/unstable/reactivity/Atom";
 import * as React from "react";
 
@@ -238,6 +239,12 @@ const browserTabsAtom = Atom.keepAlive(Atom.make<BrowserTabsState>({}));
 export const useBrowserTabs = (): BrowserTabsState => useAtomValue(browserTabsAtom);
 
 export const useSetBrowserTabs = () => useAtomSet(browserTabsAtom);
+
+/** The tabs in `registry`, updated from outside React (`openInThreadBrowser`). */
+export const updateBrowserTabs = (
+  registry: AtomRegistry.AtomRegistry,
+  update: (state: BrowserTabsState) => BrowserTabsState,
+): void => registry.update(browserTabsAtom, update);
 
 /** One thread's tabs. */
 export const useThreadTabs = (threadId: string): ThreadTabs =>
