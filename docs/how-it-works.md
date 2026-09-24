@@ -2256,10 +2256,39 @@ it, and a shortcut added later would never reach it. The rule is per command
   something registers that command.
 
 So an empty list means "every default", and it is what a fresh install writes.
-The editor shows and edits the effective table, and Save posts
-`diffKeymap(DEFAULT_KEYBINDINGS, draft)`: a command left at its default stores
-nothing and keeps following the defaults, and a command whose last row was
-removed is stored as `-X` and stays unbound.
+
+Settings → Keybindings is the editor
+(`apps/web/src/components/keybindings/keybindings-editor.tsx`, one command per
+`keybinding-row.tsx`). It has one section per area and one row per catalog
+command, plus an "Other" section for rows that name a command this build does
+not know; those stay visible and removable, and do nothing. A row shows the
+command's title and id, a "Modified" badge when its bindings differ from the
+defaults, and one line per binding: the chord (click, then press the new
+keys), its `when` clause as an editable field whose info tooltip lists
+`KEYBINDING_CONTEXT_KEYS`, and a remove button. "Add" records another chord for
+the command, and a command with none says "Unbound". A warning icon on a line
+names what is wrong, on this platform:
+
+- a conflict: another command's binding on the same physical chord whose
+  context can hold at the same time (`findKeybindingConflicts`), and which of
+  the two fires first there;
+- a system chord (`reservedChordReason`), which the OS or the Electron shell
+  may take before the app sees it;
+- a clause that does not parse, which disables the binding.
+
+A chord that does not parse is marked "invalid chord".
+
+The draft is the effective table, and every edit is normalised
+(`apps/web/src/lib/keybinding-draft.ts`): it is diffed against the defaults and
+resolved again, so the rows are in the order they will have after a reload —
+an override comes before the default it may shadow — and a command edited back
+to its defaults stops being an override. Reset on a row drops that command's
+overrides; "Reset all", behind a confirmation, drops them all. Nothing is
+stored until Save, which posts `diffKeymap(DEFAULT_KEYBINDINGS, draft)`: a
+command left at its default stores nothing and keeps following the defaults,
+and a command whose last row was removed is stored as `-X` and stays unbound.
+Revert goes back to what is stored. The page also has a button that opens the
+shortcuts sheet, and says which key `Mod` is on this computer.
 
 `keybindingsFormat: "overrides"` marks a document written this way. A document
 without it is from before overrides and holds the whole keymap of its build.

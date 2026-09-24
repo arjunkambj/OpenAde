@@ -1,23 +1,35 @@
 /**
- * The capture field for one keybinding row. Click to arm; the next keydown
+ * The capture field for one keybinding. Click to arm; the next keydown
  * becomes the chord (any key, Escape included — arming again or blurring
  * cancels instead). The notation comes from `formatEventAsShortcut`, the same
- * module the matcher uses, so what the editor shows is what will match.
+ * module the matcher uses, so what the editor shows is what will match. The
+ * armed press is stopped here, so the global listener never acts on it.
+ *
+ * With an empty `value` it is an "add" control: `placeholder` is drawn in
+ * place of the keycaps.
  */
 
 import { Button } from "@OpenAde/ui/components/button";
-import { Kbd } from "@OpenAde/ui/components/kbd";
+import { Kbd, KbdGroup } from "@OpenAde/ui/components/kbd";
 import { detectModKey, formatEventAsShortcut } from "@OpenAde/client-runtime/keybindings";
 import * as React from "react";
+
+import { keycapsFor } from "@/lib/keybindings";
 
 export function ShortcutRecorder({
   value,
   onRecord,
+  placeholder,
+  label,
 }: {
   readonly value: string;
   readonly onRecord: (shortcut: string) => void;
+  readonly placeholder?: React.ReactNode;
+  /** The accessible name while idle; defaults to "Change shortcut …". */
+  readonly label?: string;
 }) {
   const [armed, setArmed] = React.useState(false);
+  const caps = keycapsFor(value, detectModKey());
 
   const onKeyDown = (event: React.KeyboardEvent) => {
     if (!armed) {
@@ -34,19 +46,34 @@ export function ShortcutRecorder({
     onRecord(shortcut);
   };
 
+  const idle =
+    value === "" ? (
+      placeholder
+    ) : caps.length === 0 ? (
+      <Kbd>{value}</Kbd>
+    ) : (
+      <KbdGroup>
+        {caps.map((cap) => (
+          <Kbd key={cap}>{cap}</Kbd>
+        ))}
+      </KbdGroup>
+    );
+
   return (
     <Button
       type="button"
       variant={armed ? "secondary" : "ghost"}
       size="sm"
-      aria-label={armed ? "Recording — press the new shortcut" : `Change shortcut ${value}`}
+      aria-label={
+        armed ? "Recording — press the new shortcut" : (label ?? `Change shortcut ${value}`)
+      }
       aria-live="polite"
-      className="min-w-24 justify-start"
+      className={value === "" ? undefined : "min-w-24 justify-start"}
       onClick={() => setArmed((current) => !current)}
       onBlur={() => setArmed(false)}
       onKeyDown={onKeyDown}
     >
-      {armed ? <span className="text-muted-foreground">press keys…</span> : <Kbd>{value}</Kbd>}
+      {armed ? <span className="text-muted-foreground">press keys…</span> : idle}
     </Button>
   );
 }

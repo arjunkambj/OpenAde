@@ -266,7 +266,12 @@ The dock has keys of its own, answered by the thread view: `dock.toggle`
 `dock.files` (Mod+P) open their tab, or close the dock when it already shows
 that tab. Opening Files by its key also puts the cursor in the Files search.
 Archived threads leave the sidebar tree for the archived threads settings page,
-which unarchives or deletes them.
+which unarchives or deletes them. The keybindings settings page
+(`apps/web/src/components/keybindings/keybindings-editor.tsx`) lists every
+catalog command by area, each with its chords and `when` clauses, and warns
+when a chord collides with another binding in a context that can overlap, when
+the system owns it, or when it does not parse. A command resets on its own, or
+every command at once, and Save stores only the overrides.
 
 A thread row is built on the stock sidebar menu parts
 (`apps/web/src/components/sidebar/thread-row.tsx`). A fixed status slot sits
