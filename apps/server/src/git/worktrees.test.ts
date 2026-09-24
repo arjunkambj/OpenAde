@@ -22,7 +22,9 @@ import {
 import type { ThreadWorktree, WorktreeSetupFrame } from "@OpenAde/contracts/git";
 import type { OrchestrationEvent } from "@OpenAde/contracts/orchestration";
 import * as Context from "effect/Context";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";
 
@@ -573,6 +575,44 @@ describe("git.worktree.setup", () => {
         const pid = Number.parseInt(readFileSync(pidFile, "utf8").trim(), 10);
         expect(pid).toBeGreaterThan(0);
         expect(() => process.kill(pid, 0)).toThrow();
+      }),
+    ),
+  );
+
+  it.live("a removal right after an interrupted setup waits for the script to stop", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = makeRepo();
+        const { git: service, addProject, settings } = yield* stack;
+        const projectId = yield* addProject(root);
+        const worktree = yield* service.createWorktree(projectId, { name: "unwinding" });
+        const pidFile = nodePath.join(tempDir("openade-setup-pid-"), "sh.pid");
+        // Like a package manager: SIGTERM is trapped and unwinding takes a while.
+        yield* settings.update({
+          projectSettings: {
+            [projectId]: {
+              setupScript: `echo $$ > '${pidFile}'; trap 'sleep 0.5; exit 0' TERM; echo started; while :; do sleep 0.05; done`,
+            },
+          },
+        });
+
+        const started = yield* Deferred.make<void>();
+        const setup = yield* Effect.forkChild(
+          Stream.runForEach(service.setupWorktree(projectId, worktree.path), (frame) =>
+            frame.kind === "output" && frame.text.includes("started")
+              ? Deferred.succeed(started, undefined)
+              : Effect.void,
+          ),
+        );
+        yield* Deferred.await(started);
+        const pid = Number.parseInt(readFileSync(pidFile, "utf8").trim(), 10);
+        // The client interrupts and removes at once, without waiting for the
+        // server's stop to finish.
+        yield* Effect.forkChild(Fiber.interrupt(setup));
+        yield* service.removeWorktree(projectId, { path: worktree.path, force: true });
+
+        expect(() => process.kill(pid, 0)).toThrow();
+        expect(existsSync(worktree.path)).toBe(false);
       }),
     ),
   );

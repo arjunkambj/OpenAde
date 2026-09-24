@@ -1405,7 +1405,8 @@ and a missing or blank one answers a single `skipped` frame. It runs as
 stdout and stderr arrive as `output` frames, capped at 1 MiB with a notice,
 and an `exit` frame carries the exit code (or the signal) last. A stream that
 ends first — the client went away — kills the whole group, SIGTERM and then
-SIGKILL, so nothing the script started outlives it.
+SIGKILL, so nothing the script started outlives it. `git.worktree.remove`
+waits for any such stop in that worktree to finish before it removes anything.
 
 ### Starting a thread in a worktree
 
@@ -1443,7 +1444,10 @@ The pickers and the composer wait from step 1 until the thread starts or the
 worktree is discarded, and the draft stays put throughout, so a discarded
 attempt can be sent again. Leaving the start screen before then leaves nobody
 to choose (`use-start-in-worktree.ts`): a running setup is stopped and the
-worktree removed with `force`, as is one waiting on Start anyway or Discard,
+worktree removed with `force` — the server holds a removal until any setup run
+in that worktree has finished stopping, so a script still unwinding from
+SIGTERM is not writing into a tree git is deleting — as is one waiting on Start
+anyway or Discard,
 each with a toast saying so and that the branch is kept. A thread that was
 already being created when the user left is kept, but its first message is
 not sent and the screen does not pull the user to it — the draft waits in that

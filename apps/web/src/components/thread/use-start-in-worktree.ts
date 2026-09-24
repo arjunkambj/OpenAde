@@ -204,7 +204,9 @@ export const useStartInWorktree = (projectId: ProjectId, thread: WorktreeThreadS
     return () => {
       abandonedRef.current = true;
       if (runningRef.current) {
-        // The sequence discards the worktree once the stopped setup returns.
+        // The sequence discards the worktree once the interrupted setup
+        // returns; the server holds that removal until the script's process
+        // group has actually stopped.
         controlSetup(Atom.Interrupt);
         return;
       }

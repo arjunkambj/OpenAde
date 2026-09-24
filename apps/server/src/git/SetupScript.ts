@@ -15,6 +15,12 @@
  * SIGKILL for whatever is still there after a grace period. Killing the
  * shell alone would leave `pnpm install` or a `sleep` it started running
  * with nobody to read it.
+ *
+ * That stop takes a while — a package manager traps SIGTERM and unwinds — and
+ * an interrupted client moves on at once, typically to remove the worktree it
+ * gave up on. So every run is registered under its directory until its stop
+ * has finished, and `setupsStopped` lets the removal wait for that rather than
+ * delete a tree the script is still writing into.
  */
 import { spawn } from "node:child_process";
 import type { WorktreeSetupFrame } from "@OpenAde/contracts/git";
@@ -70,6 +76,33 @@ const stopGroup = (pgid: number) =>
     signalGroup(pgid, "SIGKILL");
     yield* waitForGroupExit(pgid, KILL_GRACE_MS);
   });
+
+/** Runs not yet fully stopped, per directory, each settled once it has. */
+const running = new Map<string, Set<Promise<void>>>();
+
+/** Registers a run in `cwd`; the answer marks it stopped. */
+const register = (cwd: string): (() => void) => {
+  let settle = () => {};
+  const stopped = new Promise<void>((resolve) => {
+    settle = resolve;
+  });
+  const runs = running.get(cwd) ?? new Set<Promise<void>>();
+  runs.add(stopped);
+  running.set(cwd, runs);
+  return () => {
+    runs.delete(stopped);
+    if (runs.size === 0 && running.get(cwd) === runs) running.delete(cwd);
+    settle();
+  };
+};
+
+/**
+ * Waits until every setup run in `cwd` — the path exactly as it was handed to
+ * `runSetupScript` — has ended and, if it was cut short, has had its process
+ * group stopped.
+ */
+export const setupsStopped = (cwd: string): Effect.Effect<void> =>
+  Effect.promise(() => Promise.all(running.get(cwd) ?? []).then(() => undefined));
 
 /**
  * Runs `script` in `cwd` and streams what it prints, then its exit. The
@@ -130,11 +163,16 @@ export const runSetupScript = (options: {
           finish(null, null);
         });
         child.on("close", (code, signal) => finish(code, signal));
-        return { child, state };
+        // Registered once nothing above can throw, so the release that
+        // settles it is guaranteed to run.
+        const stopped = register(options.cwd);
+        return { child, state, stopped };
       }),
-      ({ child, state }) =>
+      ({ child, state, stopped }) =>
         // Ended before the script did: nobody is reading any more, so
         // nothing it started may keep running.
-        state.finished || child.pid === undefined ? Effect.void : stopGroup(child.pid),
+        (state.finished || child.pid === undefined ? Effect.void : stopGroup(child.pid)).pipe(
+          Effect.ensuring(Effect.sync(stopped)),
+        ),
     ),
   );

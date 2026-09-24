@@ -46,7 +46,7 @@ import { make as checkpointStore } from "./CheckpointStore";
 import { commit, push } from "./Commits";
 import { createPullRequest, GhRunner } from "./GitHubCli";
 import { GitError, isRepository, run } from "./process";
-import { runSetupScript } from "./SetupScript";
+import { runSetupScript, setupsStopped } from "./SetupScript";
 import {
   createWorktree,
   listWorktrees,
@@ -552,6 +552,9 @@ export const layer = Layer.effect(
               }),
             );
           }
+          // A setup cut short a moment ago may still be stopping; removing
+          // the tree under it would race its last writes.
+          yield* setupsStopped(worktree.path);
           yield* removeWorktree(project.workspaceRoot, worktree, options.force);
         }).pipe(Effect.mapError(asRpcError)),
 
