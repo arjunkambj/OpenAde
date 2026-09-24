@@ -1,33 +1,20 @@
 /**
  * The commit dialog the git actions control opens before any action that
- * commits: the message, and the files to include.
+ * commits: one button per action — Commit, Commit & push, and Commit & create
+ * PR. The X in the corner (or Escape) aborts.
  *
- * The message opens as `commitMessageDraft` — the thread's title and the
- * checked paths — and is the user's to edit; nothing here writes one for
- * them. Until the user types, it follows the draft: the control refetches the
- * status as the dialog opens, and the message must list the same files as the
- * checkboxes — once that answer lands, and as files are unchecked — not the
- * ones cached before it or left out since (`commitSelection`). The first
- * keystroke makes it the user's, and nothing replaces it after that. Every
- * file `git.status` reports is listed, untracked ones included, all checked.
- * `paths` is sent only when something was unchecked; with everything checked
- * the server stages everything (`git add -A`), which also takes a file that
- * appeared after the dialog opened. The confirm button is labelled with the
- * action it runs, and disabled on an empty message.
+ * There is no message box and no file list. The commit takes every change in
+ * the workspace (the server stages everything with `git add -A`) under
+ * `commitMessageDraft` — the thread's title and the changed paths — and the
+ * description shows its subject, so the user sees what the commit will be
+ * called.
  *
- * With every file unchecked there is nothing to commit. A plain commit is
- * disabled then; an action that also pushes or opens a pull request can still
- * do that, without the commit — the button says what is left
- * (`withoutCommitLabel`, e.g. "Push & create PR"), and the choice comes back
- * with an empty `paths`. That keeps a pull request reachable when the only
- * change left is a file the user does not want committed.
+ * The action the dialog was opened for — the header's Commit or a key — is
+ * the filled button and has the focus, so Enter runs it; the others are
+ * outlined. A button whose action cannot run is disabled, and its tooltip
+ * says why (`reasons`, from the control's `availableActions`).
  *
- * The control mounts a fresh dialog (a new `key`) for each opening, so each
- * opening starts from the draft again.
- *
- * A long list of changes must not push the title and the buttons off-screen:
- * the message box and the file list each scroll past a fixed height, and the
- * dialog itself scrolls on a short window.
+ * The dialog scrolls on a short window.
  */
 
 import * as React from "react";
@@ -41,24 +28,27 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@OpenAde/ui/components/dialog";
-import { Label } from "@OpenAde/ui/components/label";
-import { Textarea } from "@OpenAde/ui/components/textarea";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import type { GitFileChange } from "@OpenAde/contracts/rpc";
 
-import { commitSelection } from "@/lib/git-actions";
-import { CommitFileList } from "./commit-file-list";
+import { commitSelection, GIT_ACTIONS, type GitAction } from "@/lib/git-actions";
 
 export interface CommitChoice {
   readonly message: string;
-  /** Absent when every file is included; empty when none is, and nothing is committed. */
-  readonly paths?: ReadonlyArray<string>;
 }
+
+/** The dialog's buttons are side by side, so the pull request's is shorter than the menu's item. */
+const BUTTON_LABEL: Record<GitAction, string> = {
+  commit: "Commit",
+  "commit-push": "Commit & push",
+  "commit-push-pr": "Commit & create PR",
+};
 
 export function CommitDialog({
   open,
   onOpenChange,
-  actionLabel,
-  withoutCommitLabel,
+  initialAction,
+  reasons,
   threadTitle,
   branch,
   files,
@@ -66,95 +56,64 @@ export function CommitDialog({
 }: {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
-  readonly actionLabel: string;
-  /** The button's label with every file unchecked; `null` when nothing would be left to run. */
-  readonly withoutCommitLabel: string | null;
-  /** The thread's title, the subject of the suggested message. */
+  /** The action the dialog was opened for: the filled, focused button. */
+  readonly initialAction: GitAction;
+  /** Why each action cannot run; `null` when it can. */
+  readonly reasons: Readonly<Record<GitAction, string | null>>;
+  /** The thread's title, the subject of the commit message. */
   readonly threadTitle: string;
   readonly branch: string | null;
   readonly files: ReadonlyArray<GitFileChange>;
-  readonly onSubmit: (choice: CommitChoice) => void;
+  readonly onSubmit: (action: GitAction, choice: CommitChoice) => void;
 }) {
-  const [edited, setEdited] = React.useState<string | null>(null);
-  const [excluded, setExcluded] = React.useState<ReadonlySet<string>>(() => new Set());
+  const primary = React.useRef<HTMLButtonElement>(null);
 
-  const { included, message, paths } = commitSelection(threadTitle, files, excluded, edited);
-  const committing = included.length > 0;
-  const submitLabel = committing ? actionLabel : withoutCommitLabel;
-  const canSubmit = message.trim() !== "" && submitLabel !== null;
+  const { message } = commitSelection(threadTitle, files, new Set());
+  const subject = message.split("\n")[0] ?? "";
 
-  const toggle = (path: string, include: boolean) =>
-    setExcluded((current) => {
-      const next = new Set(current);
-      if (include) {
-        next.delete(path);
-      } else {
-        next.add(path);
-      }
-      return next;
-    });
-
-  const submit = () => {
-    if (!canSubmit) {
-      return;
-    }
+  const submit = (action: GitAction) => {
     onOpenChange(false);
-    onSubmit({ message: message.trim(), ...(paths === undefined ? {} : { paths }) });
+    onSubmit(action, { message });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
+      <DialogContent
+        className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg"
+        initialFocus={primary}
+      >
         <DialogHeader>
-          <DialogTitle>{actionLabel}</DialogTitle>
+          <DialogTitle>Commit changes</DialogTitle>
           <DialogDescription>
-            {branch === null
-              ? "Commits on a detached HEAD, with your own git identity and hooks."
-              : `Commits on ${branch}, with your own git identity and hooks.`}
+            {`Commits on ${branch ?? "a detached HEAD"} as “${subject}”, with your own git identity and hooks.`}
           </DialogDescription>
         </DialogHeader>
-        <form
-          className="flex min-w-0 flex-col gap-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-            submit();
-          }}
-        >
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="commit-message">Message</Label>
-            <Textarea
-              id="commit-message"
-              value={message}
-              rows={6}
-              autoFocus
-              spellCheck
-              className="max-h-48 overflow-y-auto"
-              onChange={(event) => setEdited(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-                  event.preventDefault();
-                  submit();
-                }
-              }}
-            />
-          </div>
-          <CommitFileList
-            files={files}
-            excluded={excluded}
-            onToggle={toggle}
-            onToggleAll={(include) =>
-              setExcluded(include ? new Set() : new Set(files.map((file) => file.path)))
-            }
-          />
-          <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={!canSubmit}>
-              {submitLabel ?? actionLabel}
-            </Button>
-          </DialogFooter>
-        </form>
+        <DialogFooter>
+          {GIT_ACTIONS.map((action) => {
+            const reason = reasons[action];
+            const button = (
+              <Button
+                ref={action === initialAction ? primary : undefined}
+                type="button"
+                variant={action === initialAction ? "default" : "outline"}
+                disabled={reason !== null}
+                onClick={() => submit(action)}
+              >
+                {BUTTON_LABEL[action]}
+              </Button>
+            );
+            return reason === null ? (
+              <React.Fragment key={action}>{button}</React.Fragment>
+            ) : (
+              <Tooltip key={action}>
+                <TooltipTrigger render={<span className="inline-flex *:w-full" />}>
+                  {button}
+                </TooltipTrigger>
+                <TooltipContent>{reason}</TooltipContent>
+              </Tooltip>
+            );
+          })}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

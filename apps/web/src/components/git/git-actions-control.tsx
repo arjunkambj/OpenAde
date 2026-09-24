@@ -1,22 +1,22 @@
 /**
- * The thread header's git actions: a Commit button and a menu with Commit,
- * Commit & push, and Commit, push & create PR — plus View pull request once
- * this thread has opened (or found) one.
+ * The thread header's git actions: a single Commit button. It opens the
+ * commit dialog, which offers Commit, Commit & push, and Commit & create PR
+ * as buttons.
  *
  * An action is planned from the workspace's status and branches
  * (`@/lib/git-actions`): any action that commits opens the commit dialog
- * first, and a pull request made in the same run takes its title and body
- * from the commit message. Unchecking every file there skips the commit and
- * runs what is left. With nothing to commit, a push runs straight away and a
- * pull request asks only for its title and body. The steps then run in
+ * first, with the one asked for filled in, and a pull request made in the
+ * same run takes its title and body from the drafted commit message. With
+ * nothing to commit, a push (from its key) runs straight away and a pull
+ * request asks only for its title and body. The steps then run in
  * order with one toast each, and stop at the first refusal with the server's
  * message (`./use-git-actions`).
  *
  * The whole control is disabled while this thread's turn runs, and each
- * action that cannot run says why — in the button's tooltip, or under the
- * menu item. The status is refetched when a turn finishes, because the agent
- * changes files, and when the user comes back to the window or opens the
- * menu, because an editor or a terminal changes them too — without that, a
+ * action that cannot run says why — in the button's tooltip, or in the
+ * dialog's. The status is refetched when a turn finishes, because the agent
+ * changes files, and when the user comes back to the window, because an
+ * editor or a terminal changes them too — without that, a
  * Commit disabled as "No changes to commit" would stay so after an outside
  * edit, with no click of its own to refresh it. When the status cannot be
  * read (offline, or a client that serves no git) the control is disabled
@@ -24,7 +24,7 @@
  * renders nothing.
  *
  * It answers `git.commit` (Mod+Alt+C) as the Commit button and `git.push`
- * (Mod+Alt+P) as Commit & push, which pushes straight away when there is
+ * (Mod+Alt+P) as the dialog's Commit & push, which pushes straight away when there is
  * nothing to commit; an action that cannot run does nothing from its key.
  */
 
@@ -33,13 +33,6 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import * as React from "react";
 
 import { Button } from "@OpenAde/ui/components/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@OpenAde/ui/components/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import type { GitQuery } from "@OpenAde/client-runtime/gitAtoms";
 import type { GitBranchList } from "@OpenAde/contracts/git";
@@ -47,12 +40,9 @@ import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
 import type { GitStatus } from "@OpenAde/contracts/rpc";
 
 import { useGitAtoms } from "@/components/panes/changes/git-atoms";
-import { openExternal } from "@/lib/desktop";
 import { useKeybindingCommand } from "@/lib/shortcuts";
 import {
   availableActions,
-  GIT_ACTION_LABEL,
-  GIT_ACTIONS,
   planGitAction,
   planWithoutCommit,
   pullRequestFromMessage,
@@ -65,14 +55,7 @@ import {
 import { turnInFlight } from "@/lib/turn";
 import { useWindowReturn } from "@/lib/window-return";
 import { useConnectionState } from "@/state/hooks";
-import {
-  ChevronDown,
-  CloudUpload,
-  ExternalLink,
-  Git,
-  GitPullRequest,
-  Spinner,
-} from "@honeyicons/react";
+import { Git, Spinner } from "@honeyicons/react";
 
 import { CommitDialog, type CommitChoice } from "./commit-dialog";
 import { PullRequestDialog } from "./pull-request-dialog";
@@ -101,11 +84,11 @@ const readOf = <A,>(
     : { _tag: "unavailable", reason: result.value.message };
 };
 
-const ACTION_ICON: Record<GitAction, typeof Git> = {
-  commit: Git,
-  "commit-push": CloudUpload,
-  "commit-push-pr": GitPullRequest,
-};
+const actionRecord = <A,>(of: (action: GitAction) => A): Record<GitAction, A> => ({
+  commit: of("commit"),
+  "commit-push": of("commit-push"),
+  "commit-push-pr": of("commit-push-pr"),
+});
 
 /** Which dialog is up. `key` remounts it per opening, so each opening starts from a fresh draft. */
 type OpenDialog =
@@ -121,7 +104,7 @@ export function GitActionsControl({ snapshot }: { snapshot: ThreadDetailSnapshot
   const status = readOf<GitStatus>(useAtomValue(statusAtom), connected);
   const branches = readOf<GitBranchList>(useAtomValue(gitBranchesAtom(scope)), connected);
   const refreshStatus = useAtomRefresh(statusAtom);
-  const { run, pullRequestUrl } = useGitActions(snapshot);
+  const { run } = useGitActions(snapshot);
 
   const [dialog, setDialog] = React.useState<OpenDialog | null>(null);
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -139,7 +122,7 @@ export function GitActionsControl({ snapshot }: { snapshot: ThreadDetailSnapshot
   }, [currentTurnId, refreshStatus]);
   useWindowReturn(() => refreshProject(registry, snapshot.projectId));
 
-  // `git.commit` and `git.push` do what the button and the menu's Commit &
+  // `git.commit` and `git.push` do what the button and the dialog's Commit &
   // push do. The hooks run before the early return below; `start` is assigned
   // further down in the same render, and stays unset outside a repository.
   let start: ((action: GitAction) => void) | undefined;
@@ -209,7 +192,7 @@ export function GitActionsControl({ snapshot }: { snapshot: ThreadDetailSnapshot
 
   const commitChosen = (action: GitAction, choice: CommitChoice) =>
     void execute(action, {
-      ...(choice.paths?.length === 0 ? {} : { commit: choice }),
+      commit: choice,
       ...(action === "commit-push-pr"
         ? { pullRequest: pullRequestFromMessage(choice.message) }
         : {}),
@@ -239,76 +222,18 @@ export function GitActionsControl({ snapshot }: { snapshot: ThreadDetailSnapshot
         </TooltipTrigger>
         <TooltipContent>{commitReason ?? "Commit the changes in this workspace"}</TooltipContent>
       </Tooltip>
-      <DropdownMenu
-        onOpenChange={(open) => {
-          if (open) refreshStatus();
-        }}
-      >
-        <Tooltip>
-          <TooltipTrigger render={<span className="inline-flex" />}>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  disabled={disabled}
-                  aria-label="More git actions"
-                />
-              }
-            >
-              <ChevronDown variant="bold" />
-            </DropdownMenuTrigger>
-          </TooltipTrigger>
-          <TooltipContent>{blocked ?? "More git actions"}</TooltipContent>
-        </Tooltip>
-        <DropdownMenuContent align="end" className="w-64">
-          {GIT_ACTIONS.map((action) => {
-            const Icon = ACTION_ICON[action];
-            const reason = reasonFor(action);
-            return (
-              <DropdownMenuItem
-                key={action}
-                disabled={reason !== null}
-                onClick={() => start(action)}
-              >
-                <Icon variant="bold" />
-                <span className="flex min-w-0 flex-col">
-                  <span>{GIT_ACTION_LABEL[action]}</span>
-                  {reason === null ? null : (
-                    <span className="text-xs text-muted-foreground">{reason}</span>
-                  )}
-                </span>
-              </DropdownMenuItem>
-            );
-          })}
-          {pullRequestUrl === null ? null : (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => openExternal(pullRequestUrl)}>
-                <ExternalLink variant="bold" />
-                View pull request
-              </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
 
       {dialog?.kind === "commit" ? (
         <CommitDialog
           key={dialog.key}
           open={dialogOpen}
           onOpenChange={setDialogOpen}
-          actionLabel={GIT_ACTION_LABEL[dialog.action]}
-          withoutCommitLabel={
-            ready === null
-              ? null
-              : stepsLabel(planWithoutCommit(dialog.action, ready.status, ready.branches))
-          }
+          initialAction={dialog.action}
+          reasons={actionRecord(reasonFor)}
           threadTitle={snapshot.title}
           branch={branch}
           files={files}
-          onSubmit={(choice) => commitChosen(dialog.action, choice)}
+          onSubmit={commitChosen}
         />
       ) : null}
       {dialog?.kind === "pull-request" ? (

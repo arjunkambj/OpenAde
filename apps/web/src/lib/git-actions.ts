@@ -1,7 +1,7 @@
 /**
  * The pure half of the thread header's git actions control: which steps an
  * action takes, why an action is unavailable, how the steps run and report,
- * and the commit message the dialog opens with.
+ * and the commit message the dialog commits with.
  *
  * An action is a stack of up to three steps — commit, push, open a pull
  * request — and the plan drops the ones with nothing to do: no commit on a
@@ -11,8 +11,8 @@
  * one toast that starts as "…ing" and ends as done or failed; the toast
  * binding and the RPC calls are injected, which is what the tests swap.
  *
- * The draft is plain text from what the thread already has — its title and
- * the changed paths. Nothing here writes a message for the user.
+ * The message is plain text from what the thread already has — its title and
+ * the changed paths. The dialog has no message box: this is what it commits.
  */
 
 import type {
@@ -27,7 +27,7 @@ export type GitAction = "commit" | "commit-push" | "commit-push-pr";
 
 export type GitStep = "commit" | "push" | "pr";
 
-/** The menu's order, and the labels its items and the dialog's button use. */
+/** The menu's and the dialog's order, and the labels the menu's items use. */
 export const GIT_ACTIONS: ReadonlyArray<GitAction> = ["commit", "commit-push", "commit-push-pr"];
 
 export const GIT_ACTION_LABEL: Record<GitAction, string> = {
@@ -260,7 +260,7 @@ export const runGitSteps = async (
 };
 
 /**
- * The commit dialog's opening message: the thread's title as the subject —
+ * The commit dialog's message: the thread's title as the subject —
  * or `Update N files` while the title is still the default — then a blank
  * line and the changed paths.
  */
@@ -274,16 +274,15 @@ export const commitMessageDraft = (title: string, paths: ReadonlyArray<string>):
 };
 
 /**
- * What the commit dialog would commit: the files still checked, the message —
- * the user's once they have typed, else the draft for exactly those files, so
- * an unchecked file is neither counted nor listed — and the `paths` to send,
- * absent when every file is checked (the server then stages everything).
+ * What the commit dialog would commit: the files still checked, the message
+ * drafted for exactly those files, so an unchecked file is neither counted
+ * nor listed, and the `paths` to send, absent when every file is checked (the
+ * server then stages everything).
  */
 export const commitSelection = (
   title: string,
   files: ReadonlyArray<GitFileChange>,
   excluded: ReadonlySet<string>,
-  edited: string | null,
 ): {
   readonly included: ReadonlyArray<GitFileChange>;
   readonly message: string;
@@ -293,7 +292,7 @@ export const commitSelection = (
   const paths = included.map((file) => file.path);
   return {
     included,
-    message: edited ?? commitMessageDraft(title, paths),
+    message: commitMessageDraft(title, paths),
     ...(included.length === files.length ? {} : { paths }),
   };
 };
