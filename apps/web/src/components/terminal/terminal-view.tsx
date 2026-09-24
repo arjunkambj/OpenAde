@@ -14,8 +14,9 @@
  *
  * The drawer's toolbar reaches the xterm only through the `TerminalHandle`
  * this view hands up while it is mounted — selection and find (xterm's search
- * addon, highlighted in colours mixed from our tokens). A mod-click on a printed http(s)
- * link goes to `onOpenLink` (`./terminal-links`); a plain click only selects.
+ * addon, highlighted in colours mixed from our tokens). A mod-click on a
+ * printed http(s) link goes to `onOpenLink` (`./terminal-links`); a plain
+ * click only selects.
  *
  * Keys: the chord bound to `terminal.toggle` is refused to xterm through
  * `attachCustomKeyEventHandler`, so it bubbles to the app's one keybinding

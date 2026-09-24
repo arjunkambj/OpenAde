@@ -115,8 +115,8 @@ export function SettingsGroup({ onDone }: GroupProps) {
  * Things to do rather than places to go. Add project, Toggle sidebar and
  * Toggle terminal fire the command their surface claims, and are read on
  * mount — this content mounts on every open — so a route without that surface
- * gets no row for it instead of a row that quietly does nothing. Picking a project starts a
- * thread through the one create flow.
+ * gets no row for it instead of a row that quietly does nothing. Picking a
+ * project starts a thread through the one create flow.
  */
 export function ActionsGroup({ onDone }: GroupProps) {
   const fire = useKeybindingDispatch();
