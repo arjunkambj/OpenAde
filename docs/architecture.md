@@ -1044,14 +1044,15 @@ transaction. Ids must be contiguous from 1 and existing files are never edited
 once merged; a lineage test enforces both. Every layer that reads a table
 provides the migrations layer, so the graph itself says the schema exists first.
 
-| Migration                  | What it adds                                                  |
-| -------------------------- | ------------------------------------------------------------- |
-| `0001_events`              | `events`, its indexes, `command_receipts`, `projection_state` |
-| `0002_projections`         | `projects`, `threads` and their indexes                       |
-| `0003_settings`            | `settings`, `permission_rules`                                |
-| `0004_projector_version`   | `projection_state.projector_version`                          |
-| `0005_events_type_index`   | `events(type, sequence)`                                      |
-| `0006_terminal_keybinding` | `terminal.toggle` → `Cmd+J` in a stored keybinding table      |
+| Migration                  | What it adds                                                          |
+| -------------------------- | --------------------------------------------------------------------- |
+| `0001_events`              | `events`, its indexes, `command_receipts`, `projection_state`         |
+| `0002_projections`         | `projects`, `threads` and their indexes                               |
+| `0003_settings`            | `settings`, `permission_rules`                                        |
+| `0004_projector_version`   | `projection_state.projector_version`                                  |
+| `0005_events_type_index`   | `events(type, sequence)`                                              |
+| `0006_terminal_keybinding` | `terminal.toggle` → `Cmd+J` in a stored keybinding table              |
+| `0007_dock_keys_new_task`  | stored dock keys' `threadOpen` clause → `threadOpen \|\| newTaskOpen` |
 
 ### Rebuilding projections
 

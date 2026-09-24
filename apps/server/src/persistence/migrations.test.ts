@@ -189,3 +189,92 @@ describe("0006_terminal_keybinding", () => {
     }),
   );
 });
+
+describe("0007_dock_keys_new_task", () => {
+  const WIDE = "threadOpen || newTaskOpen";
+
+  /** Every migration before 0007. */
+  const upTo0006 = Migrator.make({})({
+    loader: Migrator.fromRecord(
+      Object.fromEntries(
+        Object.entries(migrations).filter(([key]) => Number(key.split("_")[0]) < 7),
+      ),
+    ),
+    table: "schema_migrations",
+  });
+
+  /** Stores `row` (or nothing) as the settings document, runs 0007 and returns the document after. */
+  const migrate = (row: string | null) =>
+    Effect.gen(function* () {
+      const sql = yield* SqlClient.SqlClient;
+      yield* upTo0006;
+      if (row !== null) {
+        yield* sql`
+          INSERT INTO settings (key, value_json, updated_at)
+          VALUES ('settings', ${row}, '2026-01-01T00:00:00.000Z')
+        `;
+      }
+      const applied = yield* runMigrations;
+      expect(applied.map(([id]) => id)).toEqual([7]);
+      const rows = yield* sql<{ readonly value_json: string }>`
+        SELECT value_json FROM settings WHERE key = 'settings'
+      `;
+      return rows[0]?.value_json ?? null;
+    }).pipe(Effect.provide(testLayer()));
+
+  const stored = (keybindings: unknown) =>
+    JSON.stringify({ theme: "dark", keybindings, permissions: [], keybindingsFormat: "overrides" });
+
+  it.effect("widens a dock key saved with the old threadOpen clause", () =>
+    Effect.gen(function* () {
+      const after = yield* migrate(
+        stored([
+          { command: "dock.toggle", shortcut: "Mod+Alt+D", when: "threadOpen" },
+          { command: "dock.changes", shortcut: "Mod+Shift+C", when: "threadOpen" },
+          { command: "dock.files", shortcut: "Mod+O", when: "threadOpen" },
+        ]),
+      );
+      expect(JSON.parse(after!).keybindings).toEqual([
+        { command: "dock.toggle", shortcut: "Mod+Alt+D", when: WIDE },
+        { command: "dock.changes", shortcut: "Mod+Shift+C", when: WIDE },
+        { command: "dock.files", shortcut: "Mod+O", when: WIDE },
+      ]);
+    }),
+  );
+
+  it.effect("keeps everything else as it was, in order", () =>
+    Effect.gen(function* () {
+      const before = [
+        { command: "thread.rename", shortcut: "Mod+Alt+R", when: "threadOpen" },
+        { command: "dock.toggle", shortcut: "Mod+Alt+B", when: "threadOpen" },
+        { command: "dock.files", shortcut: "Mod+P", when: "threadOpen && !inputFocus" },
+        { command: "dock.changes", shortcut: "Mod+Shift+D" },
+        { command: "-dock.files", shortcut: "Mod+P" },
+      ];
+      const after = yield* migrate(stored(before));
+      expect(JSON.parse(after!).keybindings).toEqual([
+        before[0],
+        { command: "dock.toggle", shortcut: "Mod+Alt+B", when: WIDE },
+        before[2],
+        before[3],
+        before[4],
+      ]);
+    }),
+  );
+
+  it.effect("writes nothing when no dock key has the old clause", () =>
+    Effect.gen(function* () {
+      const row = stored([{ command: "dock.toggle", shortcut: "Mod+Alt+B", when: WIDE }]);
+      expect(yield* migrate(row)).toBe(row);
+      expect(yield* migrate(null)).toBeNull();
+    }),
+  );
+
+  it.effect("leaves a row it cannot parse to the unreadable-row path", () =>
+    Effect.gen(function* () {
+      for (const row of ["{not json", "[]", JSON.stringify({ theme: "dark" })]) {
+        expect(yield* migrate(row)).toBe(row);
+      }
+    }),
+  );
+});

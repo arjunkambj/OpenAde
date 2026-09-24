@@ -2933,6 +2933,14 @@ every start. The `keybindings.get`/`update` RPCs kept their shape, so there was
 no protocol bump — an older server's full table still resolves to the same
 keys, because each of its rows replaces only its own command's defaults.
 
+The dock keys once defaulted to `when: threadOpen`, and the editor keeps a
+row's clause when its chord is rebound, so a stored override of `dock.toggle`,
+`dock.changes` or `dock.files` could still carry that clause and stay dead on
+the New task page. The `0007_dock_keys_new_task` migration rewrites exactly
+those rows — one of the three commands, with a clause that is exactly
+`threadOpen` — to `threadOpen || newTaskOpen`, once; any other clause is the
+user's own and is left alone.
+
 ### Connector instances
 
 `ConnectorManager` treats the settings document as desired state and the

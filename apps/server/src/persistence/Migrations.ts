@@ -21,6 +21,7 @@ import m0003 from "./migrations/0003_settings";
 import m0004 from "./migrations/0004_projector_version";
 import m0005 from "./migrations/0005_events_type_index";
 import m0006 from "./migrations/0006_terminal_keybinding";
+import m0007 from "./migrations/0007_dock_keys_new_task";
 
 /** The migration record in apply order. `fromRecord` sorts by id. */
 export const migrations = {
@@ -30,6 +31,7 @@ export const migrations = {
   "0004_projector_version": m0004,
   "0005_events_type_index": m0005,
   "0006_terminal_keybinding": m0006,
+  "0007_dock_keys_new_task": m0007,
 } as const;
 
 export type MigrationKey = keyof typeof migrations;
