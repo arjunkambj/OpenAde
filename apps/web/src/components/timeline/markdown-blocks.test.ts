@@ -87,6 +87,17 @@ describe("splitMarkdownBlocks", () => {
     expect(sources("<!-- one line -->\n\nShown.")).toEqual(["<!-- one line -->", "Shown."]);
   });
 
+  it("opens a comment only at the start of a line, so a fence after an inline one holds", () => {
+    const fence = "```html\n<!-- x -->\n\n<p>hi</p>\n```";
+    const text = `Use \`<!--\` to open a comment.\n\n${fence}\n\nDone.`;
+    expect(sources(text)).toEqual(["Use `<!--` to open a comment.", fence, "Done."]);
+    expect(sources("Say <!-- here\n\nand after.")).toEqual(["Say <!-- here", "and after."]);
+    expect(sources("   <!-- indented\n\nhidden -->\n\nShown.")).toEqual([
+      "   <!-- indented\n\nhidden -->",
+      "Shown.",
+    ]);
+  });
+
   it("keeps each block's key and source as the text grows", () => {
     const full =
       "First paragraph.\n\n```ts\nconst a = 1;\n\nconst b = 2;\n```\n\n- one\n\n- two\n\nEnd.";

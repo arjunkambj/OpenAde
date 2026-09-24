@@ -13,7 +13,7 @@
  *   item's next paragraph, a nested list, indented code;
  * - a list marker after a list, and `>` after a blockquote, continue it too, so
  *   a loose list stays one list and keeps its numbering;
- * - an HTML comment runs until it closes.
+ * - an HTML comment that starts a line runs until it closes.
  *
  * Keys are the block's index (`b0`, `b1`, …): text only ever grows at the end,
  * so a block keeps its key and its source once the next one has begun. A
@@ -50,6 +50,9 @@ const LIST_MARKER = /^ {0,3}([-+*]|\d{1,9}[.)])(\s|$)/;
 const QUOTE = /^ {0,3}>/;
 const INDENTED = /^[ \t]/;
 const DEFINITION = /^ {0,3}\[(?!\^)[^\]]+\]:\s*\S/;
+// An HTML comment block starts only at the start of a line; a `<!--` in a
+// sentence or a code span is text.
+const COMMENT_START = /^ {0,3}<!--/;
 
 const kindOf = (line: string, current: BlockKind): BlockKind => {
   if (LIST_MARKER.test(line)) {
@@ -130,7 +133,7 @@ export const splitMarkdownBlocks = (text: string): MarkdownBlocks => {
     // A backtick fence's info string may not itself hold a backtick.
     if (opener !== null && !(opener[1]![0] === "`" && opener[2]!.includes("`"))) {
       fence = { char: opener[1]![0]!, length: opener[1]!.length };
-    } else if (/<!--/.test(line) && !/<!--[\s\S]*-->/.test(line)) {
+    } else if (COMMENT_START.test(line) && !/<!--[\s\S]*-->/.test(line)) {
       comment = true;
     } else if (DEFINITION.test(line)) {
       definitions.push(line.trim());

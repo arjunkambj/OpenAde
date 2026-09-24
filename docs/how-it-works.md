@@ -846,7 +846,8 @@ highlight is cached under its item id and offset, so a recycled row does not
 tokenize it again.
 
 A body renders block by block (`timeline/markdown-blocks.ts`): the text is
-cut at top-level blank lines — never inside a fence or an HTML comment, and
+cut at top-level blank lines — never inside a fence or an HTML comment (one
+that starts a line; a `<!--` mid-sentence or in a code span is text), and
 not where an indented line, the next list item or the next `>` line carries
 a list or blockquote on — and each block is its own memoised parse. While a
 message streams (the server coalesces its deltas every 50 ms) only the block
