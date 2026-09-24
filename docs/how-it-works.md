@@ -1006,7 +1006,10 @@ the viewport top. The tick of the turn in view is solid: the last message at or
 above the row 24px below the top, or, with the list at its end, the last
 message on screen, since a short last turn cannot reach the top. The rail reads
 this from the scroll offset and the list's row positions once a frame while the
-list scrolls or its rows settle. It is hidden with fewer than two messages, and
+list scrolls or its rows settle. Its entries depend only on each message's row id and
+place (`railKey`), and each message's preview is worked out once per
+snapshot of it, so a streamed delta, which rebuilds the rows, rebuilds and
+rerenders nothing of the rail. It is hidden with fewer than two messages, and
 when the timeline is narrower than 800px, measured by its own container query.
 Each tick is a 24px target until they no longer fit, then they shrink together
 to share the rail's height. `timeline.previousMessage` and

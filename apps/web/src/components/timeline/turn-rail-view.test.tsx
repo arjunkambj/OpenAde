@@ -14,7 +14,10 @@ const render = (count: number) =>
   renderToStaticMarkup(
     <TurnRail
       listRef={{ current: null }}
-      navigation={{ items: Array.from({ length: count }, (_, i) => item(i)), goTo: () => {} }}
+      navigation={{
+        items: Array.from({ length: count }, (_, i) => item(i)),
+        goTo: () => {},
+      }}
     />,
   );
 

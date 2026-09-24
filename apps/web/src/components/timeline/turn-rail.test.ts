@@ -9,6 +9,7 @@ import {
   neighbour,
   RAIL_PREVIEW_MAX,
   railItems,
+  railKey,
   railPreview,
   railTarget,
   rowAtOffset,
@@ -51,6 +52,21 @@ describe("railItems", () => {
 
   it("is empty without user messages", () => {
     expect(railItems([row("a"), row("b", "reasoning")])).toEqual([]);
+  });
+});
+
+describe("railKey", () => {
+  it("names each user message and where it sits", () => {
+    expect(railKey(rows)).toBe("u1@1 u2@4 u3@6 ");
+    expect(railKey([row("a")])).toBe("");
+  });
+
+  it("stays the same while a reply streams, and moves when a message does", () => {
+    const streamed = [...rows.slice(0, -1), row("a4", "assistant_message", { text: "more" })];
+    expect(railKey(streamed)).toBe(railKey(rows));
+    // A fold opening above a message moves it down the list.
+    expect(railKey([row("opened"), ...rows])).not.toBe(railKey(rows));
+    expect(railKey([...rows, user("u4")])).not.toBe(railKey(rows));
   });
 });
 

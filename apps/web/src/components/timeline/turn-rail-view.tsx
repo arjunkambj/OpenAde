@@ -15,6 +15,10 @@
  * the rail is on screen. Either one hands the scroll to the reader first
  * (`release`), so a held send anchor lets go instead of pulling the list
  * back.
+ *
+ * The rows are a new array on every streamed delta. The entries are rebuilt
+ * only when a message is added or moves (`railKey`), so the rail, a memo,
+ * does not rerender and its listeners are not rebuilt while a reply streams.
  */
 
 import { Button } from "@OpenAde/ui/components/button";
@@ -31,6 +35,7 @@ import {
   type RailDirection,
   type RailItem,
   railItems,
+  railKey,
   railTarget,
   rowAtOffset,
 } from "./turn-rail";
@@ -128,7 +133,11 @@ export function useTurnNavigation({
   /** Hand the scroll to the reader, as their own scroll would. */
   release: () => void;
 }): TurnNavigation {
-  const items = React.useMemo(() => railItems(rows), [rows]);
+  const key = React.useMemo(() => railKey(rows), [rows]);
+  const rowsRef = React.useRef(rows);
+  rowsRef.current = rows;
+  // Keyed by the messages' ids and places, not by the rows array itself.
+  const items = React.useMemo(() => (key === "" ? [] : railItems(rowsRef.current)), [key]);
   const goTo = React.useCallback(
     (item: RailItem) => {
       release();
@@ -154,10 +163,10 @@ export function useTurnNavigation({
   };
   useKeybindingCommand("timeline.previousMessage", () => step("previous"));
   useKeybindingCommand("timeline.nextMessage", () => step("next"));
-  return { items, goTo };
+  return React.useMemo(() => ({ items, goTo }), [items, goTo]);
 }
 
-export function TurnRail({
+export const TurnRail = React.memo(function TurnRail({
   listRef,
   navigation,
 }: {
@@ -216,4 +225,4 @@ export function TurnRail({
       </nav>
     </div>
   );
-}
+});

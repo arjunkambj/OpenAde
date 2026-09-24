@@ -75,13 +75,41 @@ export const railPreview = (
   return "Empty message";
 };
 
+// A message's preview, per snapshot of it: a streamed delta rebuilds the rows
+// but hands back the same user message objects, whose text has not changed.
+const previews = new WeakMap<ItemSnapshot, string>();
+const cachedPreview = (item: ItemSnapshot): string => {
+  let preview = previews.get(item);
+  if (preview === undefined) {
+    preview = railPreview(item);
+    previews.set(item, preview);
+  }
+  return preview;
+};
+
 /** One entry per `user_message` row, in order. */
 export const railItems = (rows: ReadonlyArray<TimelineRow>): ReadonlyArray<RailItem> =>
   rows.flatMap((row, rowIndex) =>
     row.kind === "item" && row.item.kind === "user_message"
-      ? [{ rowId: row.id, rowIndex, preview: railPreview(row.item) }]
+      ? [{ rowId: row.id, rowIndex, preview: cachedPreview(row.item) }]
       : [],
   );
+
+/**
+ * What the rail's entries depend on, as one string: each user message's row
+ * id and index. The rows are a new array on every streamed delta, but this
+ * only changes when a message is added or a fold moves the rows around one,
+ * so the rail can rebuild its entries, and rerender, only then.
+ */
+export const railKey = (rows: ReadonlyArray<TimelineRow>): string => {
+  let key = "";
+  rows.forEach((row, rowIndex) => {
+    if (row.kind === "item" && row.item.kind === "user_message") {
+      key += `${row.id}@${rowIndex} `;
+    }
+  });
+  return key;
+};
 
 /**
  * The index of the row at `offset` in the list's content: the last one whose
