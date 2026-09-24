@@ -11,8 +11,8 @@
  *   disabled and says why. The Changes tab's badge is the same count.
  * - Browser counts the thread's open tabs, or says the agent is using the
  *   browser while it is (`agentUsingBrowser`).
- * - Files names the directory the Files tab searches: the thread's worktree,
- *   or the project's folder.
+ * - Files names the project's folder — the project root's own name, even when
+ *   the thread works in a worktree, whose folder name says little.
  *
  * Rows move with the arrow keys (and Home/End), skipping disabled ones; while
  * the launcher has focus a row's first letter — C, B, F — picks it.

@@ -11,7 +11,7 @@
  *   atoms the Changes tab and the header's git actions read, so nothing is
  *   fetched twice. A workspace git does not track disables the row.
  * - Browser: the thread's open tabs, and whether the agent is driving them.
- * - Files: the directory the Files tab searches.
+ * - Files: the project's folder name.
  *
  * The first enabled row takes focus when the user opens the dock onto the
  * launcher (`focusFirst`), so the keyboard goes on from the key that opened
@@ -62,7 +62,10 @@ function useLauncherStatuses(snapshot: ThreadDetailSnapshot): Record<DockTab, La
   const browserState = AsyncResult.isSuccess(browserResult) ? browserResult.value : null;
 
   const project = useProjects().find((entry) => entry.projectId === snapshot.projectId);
-  const root = snapshot.worktree?.path ?? project?.workspaceRoot ?? null;
+  // The project root's own name, even for a thread in a worktree: it is the
+  // name the user knows the project by. Until the project list loads, the row
+  // says "This project's files".
+  const root = project?.workspaceRoot ?? null;
 
   return {
     changes: changesStatus(connected, status, diff),
