@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { toolTarget } from "./tool-target";
+import { toolPathTarget, toolTarget } from "./tool-target";
 
 describe("toolTarget", () => {
   it("takes the first known key that holds a string", () => {
@@ -28,5 +28,28 @@ describe("toolTarget", () => {
     expect(toolTarget("src/app.ts")).toBeUndefined();
     expect(toolTarget(null)).toBeUndefined();
     expect(toolTarget(undefined)).toBeUndefined();
+  });
+});
+
+describe("toolPathTarget", () => {
+  it("reads the file a tool names, whole", () => {
+    const long = `apps/web/src/components/${"deep/".repeat(12)}file.ts`;
+    expect(toolPathTarget({ file_path: long })).toBe(long);
+    expect(toolPathTarget({ path: " src/app.ts " })).toBe("src/app.ts");
+    expect(toolPathTarget({ filePath: "/abs/src/app.ts", command: "cat" })).toBe("/abs/src/app.ts");
+  });
+
+  it("names no file for a command, a pattern or a query", () => {
+    expect(toolPathTarget({ command: "cat src/app.ts" })).toBeUndefined();
+    expect(toolPathTarget({ pattern: "src/*.ts" })).toBeUndefined();
+    expect(toolPathTarget({ query: "README.md" })).toBeUndefined();
+  });
+
+  it("skips empty, multi-line and non-string values", () => {
+    expect(toolPathTarget({ file_path: "  ", path: "src/a.ts" })).toBe("src/a.ts");
+    expect(toolPathTarget({ file_path: "a.ts\nb.ts" })).toBeUndefined();
+    expect(toolPathTarget({ path: 3 })).toBeUndefined();
+    expect(toolPathTarget("src/app.ts")).toBeUndefined();
+    expect(toolPathTarget(null)).toBeUndefined();
   });
 });

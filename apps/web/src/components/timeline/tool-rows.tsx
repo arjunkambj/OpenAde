@@ -3,16 +3,18 @@
  * mcp_tool_call and web_search. Each is an icon + one-line label with an
  * expandable detail body; disclosure state is keyed by item id in
  * `rowDisclosureAtom`. Tool rows follow the name with a short target (see
- * `toolTarget`); the agent's in-app browser calls read as what they did to
- * the page (`browserToolLabel`).
+ * `toolTarget`), and a target that is a file the workspace confirms is a file
+ * chip; the agent's in-app browser calls read as what they did to the page
+ * (`browserToolLabel`).
  */
 
 import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
 import type { ReactNode } from "react";
 
 import { browserToolLabel } from "@/components/timeline/browser-tool";
+import { PathChip, PathChipsProvider } from "@/components/timeline/path-chips";
 import { DisclosureRow, JsonBlock, MonoBlock } from "@/components/timeline/row-shell";
-import { toolTarget } from "@/components/timeline/tool-target";
+import { toolPathTarget, toolTarget } from "@/components/timeline/tool-target";
 import { cn } from "@/lib/utils";
 import { Close, Globe, Lightbulb, Server, Terminal } from "@honeyicons/react";
 
@@ -41,13 +43,34 @@ const field = (input: unknown, key: string): unknown =>
     ? (input as Record<string, unknown>)[key]
     : undefined;
 
-/** The target after a tool's name, muted so the name leads. */
+/** The target after a tool's name, muted so the name leads — or its file chip. */
 function ToolTarget({ input }: { input: unknown }) {
   const target = toolTarget(input);
   if (target === undefined) {
     return null;
   }
-  return <span className="ml-1.5 font-mono text-xs text-muted-foreground">{target}</span>;
+  const text = <span className="ml-1.5 font-mono text-xs text-muted-foreground">{target}</span>;
+  const path = toolPathTarget(input);
+  return path === undefined ? text : <PathChip path={path} fallback={text} className="ml-1.5" />;
+}
+
+/**
+ * Asks the workspace about the file a tool names, for `ToolTarget`. A row with
+ * such a file names its trigger, since the chip cannot sit inside it.
+ */
+function ToolPathScope({
+  input,
+  children,
+}: {
+  input: unknown;
+  children: (triggerLabel: string | undefined) => ReactNode;
+}) {
+  const path = toolPathTarget(input);
+  return (
+    <PathChipsProvider candidates={path === undefined ? [] : [path]}>
+      {children(path)}
+    </PathChipsProvider>
+  );
 }
 
 function ToolPayload({ input, output }: { input: unknown; output: unknown }) {
@@ -127,19 +150,24 @@ export function ToolCallRow({ item }: { item: ItemSnapshot }) {
   const tool = item.tool;
   const name = tool?.name ?? item.text ?? "tool call";
   return (
-    <DisclosureRow
-      rowId={item.itemId}
-      icon={Close}
-      label={
-        <>
-          {name}
-          <ToolTarget input={tool?.input} />
-        </>
-      }
-      status={item.status}
-    >
-      {tool !== undefined ? <ToolPayload input={tool.input} output={tool.output} /> : undefined}
-    </DisclosureRow>
+    <ToolPathScope input={tool?.input}>
+      {(path) => (
+        <DisclosureRow
+          rowId={item.itemId}
+          icon={Close}
+          label={
+            <>
+              {name}
+              <ToolTarget input={tool?.input} />
+            </>
+          }
+          triggerLabel={path === undefined ? undefined : `${name} ${path}`}
+          status={item.status}
+        >
+          {tool !== undefined ? <ToolPayload input={tool.input} output={tool.output} /> : undefined}
+        </DisclosureRow>
+      )}
+    </ToolPathScope>
   );
 }
 
@@ -155,22 +183,29 @@ export function McpToolCallRow({ item }: { item: ItemSnapshot }) {
     );
   }
   return (
-    <DisclosureRow
-      rowId={item.itemId}
-      icon={Server}
-      label={
-        <>
-          {tool?.server !== undefined ? (
-            <span className="mr-1 rounded-sm bg-hover px-1 font-mono text-xs">{tool.server}</span>
-          ) : null}
-          {name}
-          <ToolTarget input={tool?.input} />
-        </>
-      }
-      status={item.status}
-    >
-      {tool !== undefined ? <ToolPayload input={tool.input} output={tool.output} /> : undefined}
-    </DisclosureRow>
+    <ToolPathScope input={tool?.input}>
+      {(path) => (
+        <DisclosureRow
+          rowId={item.itemId}
+          icon={Server}
+          label={
+            <>
+              {tool?.server !== undefined ? (
+                <span className="mr-1 rounded-sm bg-hover px-1 font-mono text-xs">
+                  {tool.server}
+                </span>
+              ) : null}
+              {name}
+              <ToolTarget input={tool?.input} />
+            </>
+          }
+          triggerLabel={path === undefined ? undefined : `${name} ${path}`}
+          status={item.status}
+        >
+          {tool !== undefined ? <ToolPayload input={tool.input} output={tool.output} /> : undefined}
+        </DisclosureRow>
+      )}
+    </ToolPathScope>
   );
 }
 

@@ -763,7 +763,8 @@ turns the flat item list into rows:
   shown as "0ms";
 - tool rows follow the tool's name with a short target — the first of
   `file_path`, `path`, `filePath`, `command`, `pattern`, `url` or `query` in
-  the input, first line only, cut to 60 characters;
+  the input, first line only, cut to 60 characters. A target from one of the
+  first three keys is a file chip once the workspace confirms it;
 - while a turn runs, a trailing `working` row shows a spinner, "Working…" and
   the time since the turn began ("12s", "1m 05s", "1h 02m", whole seconds). The
   start is read off the turn id, or off the last `user_message` id while the
@@ -817,6 +818,40 @@ collapse-all and expand-all shortcuts leave it alone.
 Attachment thumbnails (`timeline/attachments.tsx`) are buttons: each opens
 the full image in a dialog titled with the file name, which Esc closes,
 returning focus to the thumbnail.
+
+Files an agent names become file chips (`timeline/file-chip.tsx`): the file's
+icon, its name and the line, with the whole relative path in the tooltip. In
+an agent message (and a plan body) two things can name a file
+(`timeline/path-links.ts`). One is a link whose target is a path, with an
+optional `:12`, `:12:3`, `#L12` or `#L12-L20`, or a `file://` URL. The other
+is inline code that has a `/` or a file extension and does not read as a
+command, a flag, a glob, a variable or a URL. Each message scans its text for
+both and asks `files.stat` about all of them in one batch. Only a path the
+thread's workspace confirms, and that is a file, becomes a chip; until the
+answer comes, and for good when the workspace does not have the path, the
+text stays as written. A path link that is not confirmed renders as its text,
+since following it would open the app's own origin at that path. Links that
+are not paths stay links. When two chips in one message share a name, each
+shows the parent folders that tell them apart (`lib/format.ts`,
+`src/format.ts`). A file-change row shows its path the same way, relative to
+the workspace even when the agent reported it absolute, as does a tool row's
+file target. Those chips show the whole relative path, and a row whose label holds one keeps its toggle under the rest
+of the line (`DisclosureRow`'s `triggerLabel`), since a chip cannot sit
+inside a button.
+
+Clicking a chip opens the file in the dock's Files tab at that line: the
+chip writes a per-thread request (`state/file-reveal.ts`) that the thread
+view answers by opening the dock on Files. The preview opens on the page that
+shows the line, a hundred lines above it when it is further down the file
+(`offsetForLine` in `panes/files/preview.ts`), marks its row and scrolls it
+into view. The file goes into the thread's Files view (`useRevealFile` in
+`panes/files/files-view.ts`), the same per-thread state that keeps the tab's
+search, open file and scroll, so the scroll to the line happens once and a
+later trip back to the tab finds the file where the reader left it. The turn
+summary's file list is the one place a changed path is not a chip: each path
+there opens that file's diff for that turn in the Changes pane instead (see
+below), which is what a list of a turn's changes is for. A chip's context menu opens the file too, and copies the path
+relative to the workspace or in full.
 
 `apps/web/src/components/timeline/timeline-item.tsx` dispatches one component
 per `ItemKind`. The list opens at its end and follows new rows while it sits

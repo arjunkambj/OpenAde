@@ -55,7 +55,7 @@ export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
   );
 
   return (
-    <TimelineThreadProvider threadId={snapshot.threadId}>
+    <TimelineThreadProvider threadId={snapshot.threadId} projectId={snapshot.projectId}>
       <div className="relative flex min-h-0 flex-1 flex-col">
         <LegendList
           ref={listRef}

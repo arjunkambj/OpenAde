@@ -4,6 +4,11 @@
  * `rowDisclosureAtom` keyed by item id so virtualization can recycle the row
  * without losing it. Rows without a body render as a static line instead of a
  * disabled disclosure.
+ *
+ * A label that holds a control of its own — a file chip — cannot sit inside
+ * the trigger, which is a button. Such a row passes `triggerLabel`: the
+ * trigger then holds the icon alone, named by that label, and stretches under
+ * the whole line, so a click anywhere but the chip still toggles the row.
  */
 
 import type { ReactNode } from "react";
@@ -38,6 +43,7 @@ export function DisclosureRow({
   meta,
   status,
   defaultOpen = false,
+  triggerLabel,
   children,
 }: {
   rowId: string;
@@ -46,6 +52,8 @@ export function DisclosureRow({
   meta?: ReactNode;
   status?: ItemStatus;
   defaultOpen?: boolean;
+  /** The trigger's name when `label` holds its own controls (see above). */
+  triggerLabel?: string;
   children?: ReactNode;
 }) {
   const [open, setOpen] = useRowDisclosure(rowId, defaultOpen);
@@ -62,32 +70,61 @@ export function DisclosureRow({
     );
   }
 
+  const glyphs = (
+    <span className="relative size-3.5 shrink-0">
+      <ChevronRight
+        variant="bold"
+        className={cn(
+          triggerIconClass,
+          "absolute inset-0 opacity-0 transition-reveal group-hover/summary:opacity-100 group-focus-visible/summary:opacity-100 group-data-open/row:rotate-90 group-data-open/row:opacity-100",
+        )}
+      />
+      <Glyph
+        variant="bold"
+        className={cn(
+          triggerIconClass,
+          "group-hover/summary:opacity-0 group-focus-visible/summary:opacity-0 group-data-open/row:opacity-0",
+        )}
+      />
+    </span>
+  );
+  const content = (
+    <CollapsibleContent keepMounted variant="indented" className="ml-1.5">
+      {children}
+    </CollapsibleContent>
+  );
+
+  if (triggerLabel !== undefined) {
+    // The label's controls are positioned, so they paint above the trigger's
+    // stretched hit area; its plain text does not, and clicks through to it.
+    return (
+      <Collapsible open={open} onOpenChange={setOpen} className="group/row">
+        <div className="relative flex min-h-6 items-center gap-2 py-0.5 type-body leading-compact text-muted-foreground transition-colors duration-150 ease-out hover:text-sidebar-foreground">
+          <CollapsibleTrigger
+            variant="summary"
+            aria-label={triggerLabel}
+            className="static min-h-0 w-auto shrink-0 after:absolute after:inset-0"
+          >
+            {glyphs}
+          </CollapsibleTrigger>
+          <span className="min-w-0 flex-1 truncate text-left">{label}</span>
+          <ItemStatusIcon status={status ?? "completed"} />
+          {meta}
+        </div>
+        {content}
+      </Collapsible>
+    );
+  }
+
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="group/row">
       <CollapsibleTrigger variant="summary">
-        <span className="relative size-3.5 shrink-0">
-          <ChevronRight
-            variant="bold"
-            className={cn(
-              triggerIconClass,
-              "absolute inset-0 opacity-0 transition-reveal group-hover/summary:opacity-100 group-focus-visible/summary:opacity-100 group-data-open/row:rotate-90 group-data-open/row:opacity-100",
-            )}
-          />
-          <Glyph
-            variant="bold"
-            className={cn(
-              triggerIconClass,
-              "group-hover/summary:opacity-0 group-focus-visible/summary:opacity-0 group-data-open/row:opacity-0",
-            )}
-          />
-        </span>
+        {glyphs}
         <span className="min-w-0 flex-1 truncate text-left">{label}</span>
         <ItemStatusIcon status={status ?? "completed"} />
         {meta}
       </CollapsibleTrigger>
-      <CollapsibleContent keepMounted variant="indented" className="ml-1.5">
-        {children}
-      </CollapsibleContent>
+      {content}
     </Collapsible>
   );
 }

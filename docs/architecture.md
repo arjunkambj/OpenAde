@@ -747,8 +747,12 @@ Everything a client needs that is not React.
   atom factories. `browserAtoms.ts` holds `devServersAtom(threadId)`, which a
   failed call leaves an empty list rather than an error. `fileAtoms.ts` holds
   `fileStatAtom`, keyed by the sorted, deduplicated set of paths so the same
-  candidates are one call and then a cached answer; a set larger than one
-  `files.stat` carries goes out as several calls.
+  candidates are one call and then a cached answer, held five minutes after its
+  last reader so a timeline row scrolled away and back does not ask again; a
+  set larger than one `files.stat` carries goes out as several calls. The
+  renderer builds these file atoms once per client runtime
+  (`panes/files/file-atoms.ts`), so the fixture pages get them over their
+  scripted client.
 - `gitCommands.ts` — the worktree writes: create, the setup script (a stream
   atom whose value is the run so far, so the output shows as it arrives) and
   remove; and the header's commit, push and pull request. Built on

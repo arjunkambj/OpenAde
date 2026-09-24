@@ -124,6 +124,15 @@ const languageOfFile = (fileName: string): readonly [string, string] | undefined
   return dot > 0 ? lookup(base.slice(dot + 1)) : undefined;
 };
 
+/** Languages that are prose or plain text, not code. */
+const PROSE = new Set(["text", "markdown", "mdx", "log"]);
+
+/** Whether a file's name says it holds code — a file chip picks its icon by it. */
+export const isCodeFile = (path: string): boolean => {
+  const language = languageOfFile(path)?.[0];
+  return language !== undefined && !PROSE.has(language);
+};
+
 /** `title="x"`, `filename='x'` or `file=x` anywhere in the meta. */
 const titleInMeta = (meta: string): string | undefined => {
   const match = /(?:^|\s)(?:title|filename|file)=(?:"([^"]*)"|'([^']*)'|(\S+))/.exec(meta);

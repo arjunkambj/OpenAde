@@ -1,5 +1,6 @@
 /**
- * Which thread the rows on screen belong to.
+ * Which thread the rows on screen belong to, and its project — the pair a
+ * row needs to read the thread's workspace (`files.stat` for file chips).
  *
  * Rows are dispatched by kind through `TimelineItemView`, and nesting (tasks,
  * work groups) recurses through the same dispatcher — so threading a thread id
@@ -10,21 +11,30 @@
  * to fetch from, and says so by not fetching.
  */
 
-import type { ThreadId } from "@OpenAde/contracts/ids";
+import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
 import * as React from "react";
 
-const TimelineThreadContext = React.createContext<ThreadId | null>(null);
+export interface TimelineThread {
+  readonly threadId: ThreadId;
+  readonly projectId: ProjectId;
+}
+
+const TimelineThreadContext = React.createContext<TimelineThread | null>(null);
 
 export function TimelineThreadProvider({
   threadId,
+  projectId,
   children,
 }: {
   readonly threadId: ThreadId;
+  readonly projectId: ProjectId;
   readonly children: React.ReactNode;
 }) {
-  return (
-    <TimelineThreadContext.Provider value={threadId}>{children}</TimelineThreadContext.Provider>
-  );
+  const value = React.useMemo(() => ({ threadId, projectId }), [threadId, projectId]);
+  return <TimelineThreadContext.Provider value={value}>{children}</TimelineThreadContext.Provider>;
 }
 
-export const useTimelineThreadId = (): ThreadId | null => React.useContext(TimelineThreadContext);
+export const useTimelineThread = (): TimelineThread | null =>
+  React.useContext(TimelineThreadContext);
+
+export const useTimelineThreadId = (): ThreadId | null => useTimelineThread()?.threadId ?? null;

@@ -12,7 +12,9 @@
  * - `fileStatAtom(batch)` — `files.stat` over a set of candidate paths, to
  *   learn which exist inside the workspace. The key is the sorted, deduplicated
  *   set, so one message's candidates make one call whatever order they were
- *   found in, and asking again for the same set reads the cached answer.
+ *   found in, and asking again for the same set reads the cached answer —
+ *   for five minutes after its last reader, so a timeline row that scrolls
+ *   away and back does not ask again.
  *
  * The shapes mirror `gitAtoms` on purpose, for the same two reasons:
  *
@@ -133,6 +135,9 @@ export const decodeFileStat = (encoded: string): FileStatKey => {
   return { projectId, ...(threadId === null ? {} : { threadId }), paths };
 };
 
+/** How long a `files.stat` answer outlives its last reader. */
+const STAT_IDLE_TTL = "5 minutes";
+
 /** `paths` in runs the contract accepts in one `files.stat` call. */
 const statBatches = (paths: ReadonlyArray<string>): ReadonlyArray<ReadonlyArray<string>> => {
   const batches: Array<ReadonlyArray<string>> = [];
@@ -206,7 +211,7 @@ export const makeFileAtoms = (runtime: Atom.AtomRuntime<Connection | ConnectionS
     ),
   );
 
-  const fileStatByKeyAtom = Atom.family((encoded: string) =>
+  const fileStatQuery = (encoded: string) =>
     runtime.atom(
       connectedEpochs.pipe(
         Stream.mapEffect(() =>
@@ -229,7 +234,12 @@ export const makeFileAtoms = (runtime: Atom.AtomRuntime<Connection | ConnectionS
           ),
         ),
       ),
-    ),
+    );
+  // Held for a while after its last reader goes: a message scrolled out of the
+  // timeline and back reads the answer it had, instead of showing its paths
+  // plain again until the same question is answered twice.
+  const fileStatByKeyAtom = Atom.family((encoded: string) =>
+    Atom.setIdleTTL(fileStatQuery(encoded), STAT_IDLE_TTL),
   );
 
   /** The pane's handles: one atom per request, shared across mounts. */

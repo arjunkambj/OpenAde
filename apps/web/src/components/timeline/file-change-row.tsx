@@ -1,12 +1,15 @@
 /**
  * `file_change` — path chip + change kind, with the unified diff rendered
- * inline through the worker pool when the item carries one.
+ * inline through the worker pool when the item carries one. The path is the
+ * one the agent reported, often absolute; once the workspace confirms it, it
+ * shows as a file chip with its path relative to the workspace.
  */
 
 import type { FileChangeKind, ItemSnapshot } from "@OpenAde/contracts/runtime";
 
 import { InlineDiff } from "@/components/timeline/diff-pool";
 import { fileChangeFallbackLabel } from "@/components/timeline/file-change";
+import { PathChip, PathChipsProvider } from "@/components/timeline/path-chips";
 import { DisclosureRow } from "@/components/timeline/row-shell";
 import { diffStats } from "@/lib/diff-stats";
 import { cn } from "@/lib/utils";
@@ -73,27 +76,33 @@ export function FileChangeRow({ item }: { item: ItemSnapshot }) {
     );
   }
   return (
-    <DisclosureRow
-      rowId={item.itemId}
-      icon={Edit}
-      label={
-        <>
-          <span className="font-mono text-xs">{fileChange.path}</span>
-          <FileChangeKindBadge kind={fileChange.kind} />
-        </>
-      }
-      status={item.status}
-      meta={diff !== undefined ? <DiffCount diff={diff} /> : null}
-      defaultOpen={diff !== undefined}
-    >
-      {diff === undefined ? (
-        <p className="whitespace-pre-wrap">{item.text ?? "No diff recorded."}</p>
-      ) : open ? (
-        <InlineDiff patch={diff} />
-      ) : (
-        // Non-undefined, so the row still counts as expandable.
-        <div />
-      )}
-    </DisclosureRow>
+    <PathChipsProvider candidates={[fileChange.path]}>
+      <DisclosureRow
+        rowId={item.itemId}
+        icon={Edit}
+        label={
+          <>
+            <PathChip
+              path={fileChange.path}
+              fallback={<span className="font-mono text-xs">{fileChange.path}</span>}
+            />
+            <FileChangeKindBadge kind={fileChange.kind} />
+          </>
+        }
+        triggerLabel={`${KIND_LABEL[fileChange.kind]} ${fileChange.path}`}
+        status={item.status}
+        meta={diff !== undefined ? <DiffCount diff={diff} /> : null}
+        defaultOpen={diff !== undefined}
+      >
+        {diff === undefined ? (
+          <p className="whitespace-pre-wrap">{item.text ?? "No diff recorded."}</p>
+        ) : open ? (
+          <InlineDiff patch={diff} />
+        ) : (
+          // Non-undefined, so the row still counts as expandable.
+          <div />
+        )}
+      </DisclosureRow>
+    </PathChipsProvider>
   );
 }

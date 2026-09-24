@@ -13,16 +13,24 @@
  * line ending is a line break, raw HTML shows as the text it is
  * (`remark-user-text.ts`), headings stay at body size, and inline code sits on
  * a lighter chip that reads on the bubble's background.
+ *
+ * An agent's text names files: a link or an inline code span whose path the
+ * thread's workspace confirms renders as a file chip (`markdown-paths.tsx`).
+ * The URL filter lets a path with a line (`README.md:12`) and a `file://` URL
+ * through to that check, since it would otherwise read them as schemes.
  */
 
 import * as React from "react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { cn } from "@/lib/utils";
 
 import { CodeBlock } from "./code-block";
 import { codeFenceInfo, type HastLike, hastText, openFenceOffset } from "./code-fence";
+import { InlineCode, MarkdownLink } from "./markdown-paths";
+import { PathChipsProvider } from "./path-chips";
+import { collectPathCandidates, parsePathLink } from "./path-links";
 import { remarkHtmlAsText, remarkSoftBreaks } from "./remark-user-text";
 
 interface BlockContext {
@@ -87,16 +95,7 @@ const components: React.ComponentProps<typeof ReactMarkdown>["components"] = {
   ul: ({ children }) => <ul className="mb-3 list-disc pl-5 last:mb-0">{children}</ul>,
   ol: ({ children }) => <ol className="mb-3 list-decimal pl-5 last:mb-0">{children}</ol>,
   li: ({ children }) => <li className="mb-1">{children}</li>,
-  a: ({ children, href }) => (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      className="text-file underline underline-offset-2"
-    >
-      {children}
-    </a>
-  ),
+  a: ({ children, href }) => <MarkdownLink href={href}>{children}</MarkdownLink>,
   blockquote: ({ children }) => (
     <blockquote className="mb-3 border-l-2 border-border pl-3 text-muted-foreground last:mb-0">
       {children}
@@ -114,9 +113,14 @@ const components: React.ComponentProps<typeof ReactMarkdown>["components"] = {
   td: ({ children }) => <td className="border-b border-border px-2 py-1 align-top">{children}</td>,
   pre: ({ node }) => <FencedBlock node={node} />,
   code: ({ children }) => (
-    <code className="rounded-sm bg-hover px-1 py-0.5 font-mono text-xs">{children}</code>
+    <InlineCode className="rounded-sm bg-hover px-1 py-0.5 font-mono text-xs">
+      {children}
+    </InlineCode>
   ),
 };
+
+const urlTransform = (url: string): string =>
+  parsePathLink(url) === null ? defaultUrlTransform(url) : url;
 
 // A heading someone typed stays a heading, at the size of the text around it.
 const userHeading =
@@ -178,12 +182,23 @@ export function MarkdownBody({
   const openFrom = streaming ? openFenceOffset(text) : undefined;
   const context = React.useMemo(() => ({ id, openFrom }), [id, openFrom]);
   const config = VARIANTS[variant];
+  // Only an agent's text is asked about: what a person typed stays as typed.
+  const candidates = React.useMemo(
+    () => (variant === "agent" ? collectPathCandidates(text) : []),
+    [variant, text],
+  );
   return (
     <div className={cn("text-sm text-foreground", config.className, className)}>
       <MarkdownBlockContext.Provider value={context}>
-        <ReactMarkdown remarkPlugins={config.remarkPlugins} components={config.components}>
-          {text}
-        </ReactMarkdown>
+        <PathChipsProvider candidates={candidates}>
+          <ReactMarkdown
+            remarkPlugins={config.remarkPlugins}
+            components={config.components}
+            urlTransform={urlTransform}
+          >
+            {text}
+          </ReactMarkdown>
+        </PathChipsProvider>
       </MarkdownBlockContext.Provider>
     </div>
   );
