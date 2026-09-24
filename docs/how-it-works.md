@@ -1784,10 +1784,10 @@ watches on the engine's event stream the way the browser pane's teardown does,
 and when the server shuts down. Killing is bounded: SIGHUP, what a closing
 terminal sends, then after one second SIGKILL to the shell, to every process
 under it and to every process group they are in, and at most two seconds more
-waiting for the exit (the `ps` read below is bounded at two seconds too). The shell has job control on, so each job runs in a group
-of its own and SIGKILL to the shell's group alone would miss it; the processes
-under the shell come from one `ps -A -o pid=,ppid=,pgid=` read while the shell
-is still alive (`apps/server/src/terminal/reap.ts`), since once it dies its jobs
+waiting for the exit (the `ps` read below is bounded at two seconds too). The
+shell has job control on, so each job runs in a group of its own and SIGKILL to
+the shell's group alone would miss it; the processes under the shell come from
+one `ps -A -o pid=,ppid=,pgid=` read while the shell is still alive (`apps/server/src/terminal/reap.ts`), since once it dies its jobs
 are re-parented to init and nothing ties them to it. A shell that obeys SIGHUP
 passes it on to its jobs itself; a job started with `nohup` keeps running, as
 it would after closing any terminal.
@@ -1910,9 +1910,9 @@ leaves every other chord to the shell without calling `preventDefault`, so
 `Escape` reaches vim instead of interrupting the turn, and `Cmd+K` and `Cmd+B`
 reach the program running there (`yieldsToTerminal` in
 `apps/web/src/lib/keybindings.ts`). `when` clauses can read `terminalFocus`
-the same way they read `composerFocus`. A surface that owns a command registers a handler
-while it is mounted, and a surface that is not mounted does not answer its
-command: `thread.interrupt` belongs to the composer, so it is inert on the
+the same way they read `composerFocus`. A surface that owns a command registers
+a handler while it is mounted, and a surface that is not mounted does not
+answer its command: `thread.interrupt` belongs to the composer, so it is inert on the
 settings page rather than reaching into a thread nobody is looking at.
 Registration is a stack per command id, so two surfaces claiming the same id
 hand it back in order instead of blanking it
@@ -1926,9 +1926,9 @@ settings once, so a default added later arrives through a one-time migration:
 `0006_terminal_keybinding` appends `terminal.toggle` → `Cmd+J` to a stored,
 non-empty table that neither binds the command nor uses the chord, and leaves
 every other document untouched. Running once is the point — a user who then
-removes the binding keeps it removed. The editor shows that same effective table rather than the raw
-one — showing the empty list would let someone add one row, save, and silently
-unbind everything else.
+removes the binding keeps it removed. The editor shows that same effective
+table rather than the raw one — showing the empty list would let someone add
+one row, save, and silently unbind everything else.
 
 ### Connector instances
 
@@ -2124,8 +2124,8 @@ holding `~/.openade/state.sqlite` against the next launch. A second quit while
 the app waits falls straight through to Electron, so a wedged server cannot make
 the app unquittable.
 
-On the server side, closing `boot`'s scope shuts everything down. Two
-finalizers matter:
+On the server side, closing `boot`'s scope shuts everything down. Three
+finalizers matter — the sockets', the sessions' and the terminals':
 
 - the WebSocket sockets are destroyed first. `http.Server.close()` waits for
   every open connection to end by itself, and a WebSocket never does, so a

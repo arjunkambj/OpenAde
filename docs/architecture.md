@@ -1719,9 +1719,10 @@ Unit suites sit beside their subjects in every workspace. Above them:
   the view a pane renders. Eleven scenarios — `turn`, `approval`, `question`,
   `plan`, `interrupt`, `resume`, `checkpoints`, `attachment`, `mcp`,
   `settings`, `terminal`. The `terminal` scenario involves no harness, so it
-  runs once rather than per driver, against a real shell. Nothing waits on a clock: commands are awaited through their
-  receipts and everything else through the subscription, so a scenario that
-  never happens ends as a failed wait rather than a slow pass.
+  runs once rather than per driver, against a real shell. Nothing waits on a
+  clock: commands are awaited through their receipts and everything else
+  through the subscription, so a scenario that never happens ends as a failed
+  wait rather than a slow pass.
 
 The end-to-end suite and the live conformance test have two drivers, differing
 only in the binary: the gate runs recordings through
