@@ -94,8 +94,6 @@ export function ThreadRow({
       <SidebarMenuButton
         size="sm"
         isActive={selecting ? selected : active}
-        // The highlight marks the open row; only unread changes the weight.
-        className="data-active:font-normal"
         render={
           <Link
             to="/t/$threadId"
@@ -127,7 +125,9 @@ export function ThreadRow({
             // The time is pinned to the corner, so the last inline piece
             // keeps clear of the hover menu on its own.
             thread.worktree === undefined && "mr-6",
-            unread && "font-medium text-foreground",
+            // The highlight marks the open row; only unread changes the
+            // weight, so the title and the time undo the active row's.
+            unread ? "font-medium text-foreground" : "font-normal",
             // Archiving is a real state change that the row otherwise showed
             // nothing for: `threadStatusMark` has no mark for it by design.
             // Only the open thread can be listed while archived.
@@ -150,7 +150,7 @@ export function ThreadRow({
         <time
           dateTime={updatedAt}
           title={new Date(updatedAt).toLocaleString()}
-          className="absolute top-1/2 right-2 -translate-y-1/2 type-micro text-muted-foreground tabular-nums transition-opacity duration-150 ease-out group-focus-within/menu-item:opacity-0 group-hover/menu-item:opacity-0 group-has-data-popup-open/menu-item:opacity-0 max-md:hidden"
+          className="absolute top-1/2 right-2 -translate-y-1/2 type-micro font-normal text-muted-foreground tabular-nums transition-opacity duration-150 ease-out group-focus-within/menu-item:opacity-0 group-hover/menu-item:opacity-0 group-has-data-popup-open/menu-item:opacity-0 max-md:hidden"
         >
           {relativeTime(now, updatedAt)}
         </time>
