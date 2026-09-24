@@ -12,6 +12,12 @@
  * On hover the time fades and the overflow menu takes its place; a
  * right-click on the row opens that same menu. The time is a label, not a clock: `ProjectTree` owns the one
  * minute tick and passes `now` down, so a long list runs a single interval.
+ *
+ * Cmd/Ctrl-click and Shift-click pick rows instead of following the link —
+ * left to the browser, they would open the app in a new window, which the
+ * desktop shell hands to the OS browser. A middle click is kept in too. While
+ * anything is picked, the picked rows carry the highlight rather than the open
+ * thread — see `./thread-selection`.
  */
 
 import { Link, useMatchRoute } from "@tanstack/react-router";
@@ -22,6 +28,7 @@ import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
 
 import { ThreadContextMenu, ThreadRowMenu } from "@/components/sidebar/thread-menu";
 import { isUnread, useThreadSeen } from "@/components/sidebar/thread-seen";
+import { selectGestureOf, type SelectGesture } from "@/components/sidebar/thread-selection";
 import { threadStatusMark } from "@/components/sidebar/thread-status";
 import { relativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -49,7 +56,24 @@ function ThreadStatusSlot({ thread, unread }: { thread: ThreadSummary; unread: b
   );
 }
 
-export function ThreadRow({ thread, now }: { thread: ThreadSummary; now: number }) {
+export function ThreadRow({
+  thread,
+  now,
+  selected,
+  selecting,
+  onSelect,
+  onOpen,
+}: {
+  thread: ThreadSummary;
+  now: number;
+  /** Picked for a bulk action. */
+  selected: boolean;
+  /** Whether any row is picked; the open thread gives up its highlight then. */
+  selecting: boolean;
+  onSelect: (gesture: SelectGesture) => void;
+  /** A plain click, which opens the thread and lets go of any selection. */
+  onOpen: () => void;
+}) {
   const matchRoute = useMatchRoute();
   const active = Boolean(matchRoute({ to: "/t/$threadId", params: { threadId: thread.threadId } }));
   const [seen, remember] = useThreadSeen();
@@ -68,12 +92,28 @@ export function ThreadRow({ thread, now }: { thread: ThreadSummary; now: number 
   return (
     <ThreadContextMenu thread={thread} active={active} row={<SidebarMenuItem />}>
       <SidebarMenuButton
-        isActive={active}
+        isActive={selecting ? selected : active}
         render={
           <Link
             to="/t/$threadId"
             params={{ threadId }}
             aria-current={active ? "page" : undefined}
+            aria-selected={selecting ? selected : undefined}
+            onClick={(event) => {
+              const gesture = selectGestureOf(event);
+              if (gesture === null) {
+                onOpen();
+                return;
+              }
+              // Also stops the router, which skips a prevented click.
+              event.preventDefault();
+              onSelect(gesture);
+            }}
+            onAuxClick={(event) => {
+              if (event.button === 1) {
+                event.preventDefault();
+              }
+            }}
           />
         }
       >

@@ -22,6 +22,10 @@
  * archived, for the same reason and because its menu carries Unarchive — see
  * `./visible-threads`.
  *
+ * Cmd/Ctrl-click and Shift-click pick several thread rows; the picked ones
+ * can be archived or deleted together from the bar under the tree — see
+ * `./thread-selection` and `./thread-selection-bar`.
+ *
  * Every row has an overflow menu, revealed on hover: rename/archive/delete for
  * a thread, remove for a project. A thread row also offers archive on its own.
  * Those four commands existed end to end — decider, reactors, tests — with
@@ -54,6 +58,12 @@ import { AddProjectDialog } from "@/components/sidebar/add-project-dialog";
 import { ProjectRowMenu } from "@/components/sidebar/project-menu";
 import { ThreadRow } from "@/components/sidebar/thread-row";
 import { sidebarThreadGroups } from "@/components/sidebar/thread-order";
+import { selectedRows } from "@/components/sidebar/thread-selection";
+import { ThreadSelectionBar } from "@/components/sidebar/thread-selection-bar";
+import {
+  useThreadSelection,
+  type ThreadSelectionControls,
+} from "@/components/sidebar/use-thread-selection";
 import { useCreateThread } from "@/lib/use-create-thread";
 import { useNow } from "@/lib/use-now";
 import { cn } from "@/lib/utils";
@@ -119,6 +129,15 @@ export function ProjectTree() {
     () => sidebarThreadGroups(projects, threads, collapsed, openThreadId),
     [projects, threads, collapsed, openThreadId],
   );
+  // Rows top to bottom, as `sidebarThreadOrder` walks them.
+  const order = React.useMemo(
+    () => [
+      ...projects.flatMap((project) => threadsByProject.get(project.projectId) ?? []),
+      ...orphanThreads,
+    ],
+    [projects, threadsByProject, orphanThreads],
+  );
+  const selection = useThreadSelection(order, openThreadId);
   // Removing a project deletes its archived threads too, so the removal copy
   // counts every thread, not only the listed ones — and the worktrees among
   // them, which it leaves on disk.
@@ -166,6 +185,7 @@ export function ProjectTree() {
               threads={threadsByProject.get(project.projectId) ?? []}
               counts={threadCounts.get(project.projectId) ?? NO_THREADS}
               now={now}
+              selection={selection}
             />
           ))}
           {orphanThreads.length > 0 ? (
@@ -176,14 +196,44 @@ export function ProjectTree() {
               </div>
               <SidebarMenu>
                 {orphanThreads.map((thread) => (
-                  <ThreadRow key={thread.threadId} thread={thread} now={now} />
+                  <SelectableThreadRow
+                    key={thread.threadId}
+                    thread={thread}
+                    now={now}
+                    selection={selection}
+                  />
                 ))}
               </SidebarMenu>
             </>
           ) : null}
         </div>
       </SidebarGroupContent>
+      <ThreadSelectionBar
+        threads={selectedRows(order, selection.selection)}
+        onClear={selection.clear}
+      />
     </SidebarGroup>
+  );
+}
+
+function SelectableThreadRow({
+  thread,
+  now,
+  selection: { selection, select, clear },
+}: {
+  thread: ThreadSummary;
+  now: number;
+  selection: ThreadSelectionControls;
+}) {
+  return (
+    <ThreadRow
+      thread={thread}
+      now={now}
+      selected={selection.ids.has(thread.threadId)}
+      selecting={selection.ids.size > 0}
+      onSelect={(gesture) => select(thread.threadId, gesture)}
+      onOpen={clear}
+    />
   );
 }
 
@@ -192,12 +242,14 @@ function ProjectSection({
   threads,
   counts,
   now,
+  selection,
 }: {
   project: ProjectSummary;
   /** The listed threads, folding already applied: the open one only, when folded. */
   threads: ReadonlyArray<ThreadSummary>;
   counts: ThreadCounts;
   now: number;
+  selection: ThreadSelectionControls;
 }) {
   const [collapsed, setCollapsed] = useProjectCollapsed(project.projectId);
 
@@ -245,7 +297,12 @@ function ProjectSection({
       {threads.length > 0 ? (
         <SidebarMenu>
           {threads.map((thread) => (
-            <ThreadRow key={thread.threadId} thread={thread} now={now} />
+            <SelectableThreadRow
+              key={thread.threadId}
+              thread={thread}
+              now={now}
+              selection={selection}
+            />
           ))}
         </SidebarMenu>
       ) : null}
