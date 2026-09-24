@@ -1268,7 +1268,8 @@ and a branch checked out in another worktree is listed but disabled. Picking a
 branch runs `git.checkout`; a query that looks like a branch name and names no
 existing branch — local, remote, or a remote's short name — offers
 `Create branch "<query>"`, which cuts it from the current branch with
-`checkout`. A refusal (a dirty tracked tree, a running turn in a sibling local
+`checkout`; a query git would refuse as a name offers no create, and the list
+says which rule it breaks (no spaces, `..`, a leading `-`, and so on). A refusal (a dirty tracked tree, a running turn in a sibling local
 thread) is a toast with the server's message, and nothing is stashed. The
 trigger is disabled while the thread's own turn runs, and the popover says that
 a switch moves every local thread of the project. For a worktree thread the

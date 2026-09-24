@@ -7,6 +7,7 @@ import {
   branchToCreate,
   branchWriteFailure,
   groupBranches,
+  branchNameProblem,
   looksLikeBranchName,
   remoteShortName,
 } from "./branches";
@@ -59,6 +60,27 @@ describe("groupBranches", () => {
   it("answers empty groups for a repository with no branches", () => {
     const empty: GitBranchList = { ...LIST, current: null, branches: [] };
     expect(groupBranches(empty, "x")).toEqual({ local: [], remote: [] });
+  });
+});
+
+describe("branchNameProblem", () => {
+  it("says nothing for a blank query or an acceptable name", () => {
+    for (const name of ["", "fix", "openade/fix-login", "me/v1.2"]) {
+      expect(branchNameProblem(name), name).toBeNull();
+    }
+  });
+
+  it("names the rule a refused name breaks", () => {
+    expect(branchNameProblem("review/new branch")).toBe("A branch name can't hold spaces.");
+    expect(branchNameProblem("a..b")).toBe("A branch name can't hold “..” or “@{”.");
+    expect(branchNameProblem("feature/")).toBe(
+      "A branch name can't start or end with “/” or hold “//”.",
+    );
+    expect(branchNameProblem("-x")).toBe("A branch name can't start with “-”.");
+    expect(branchNameProblem("a:b")).toBe("A branch name can't hold ~ ^ : ? * [ or \\.");
+    expect(branchNameProblem("x.lock")).toBe("A branch name can't end with “.” or “.lock”.");
+    expect(branchNameProblem("a/.hidden")).toBe("No part of a branch name can start with “.”.");
+    expect(branchNameProblem("@")).toBe("A branch can't be named “@”.");
   });
 });
 

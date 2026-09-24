@@ -61,25 +61,45 @@ const isControl = (char: string): boolean => {
 };
 
 /**
- * Whether `name` looks like a branch git would accept. The server has the
- * last word (`git check-ref-format --branch`); this only keeps the picker from
- * offering a create it can already tell will be refused.
+ * Why git would refuse `name` as a branch, or null when it looks acceptable
+ * (or is blank, which is nothing to refuse yet). The server has the last word
+ * (`git check-ref-format --branch`); this keeps the picker from offering a
+ * create it can already tell will be refused, and says why in its place.
  */
+export const branchNameProblem = (name: string): string | null => {
+  if (name === "") {
+    return null;
+  }
+  if (name === "@") {
+    return "A branch can't be named “@”.";
+  }
+  if (name.startsWith("-")) {
+    return "A branch name can't start with “-”.";
+  }
+  if (name.startsWith("/") || name.endsWith("/") || name.includes("//")) {
+    return "A branch name can't start or end with “/” or hold “//”.";
+  }
+  if (/\s/.test(name)) {
+    return "A branch name can't hold spaces.";
+  }
+  if (name.includes("..") || name.includes("@{")) {
+    return "A branch name can't hold “..” or “@{”.";
+  }
+  if (/[~^:?*[\\]/.test(name) || [...name].some(isControl)) {
+    return "A branch name can't hold ~ ^ : ? * [ or \\.";
+  }
+  if (name.endsWith(".") || name.endsWith(".lock")) {
+    return "A branch name can't end with “.” or “.lock”.";
+  }
+  if (name.split("/").some((part) => part.startsWith("."))) {
+    return "No part of a branch name can start with “.”.";
+  }
+  return null;
+};
+
+/** Whether `name` looks like a branch git would accept — see `branchNameProblem`. */
 export const looksLikeBranchName = (name: string): boolean =>
-  name !== "" &&
-  name !== "@" &&
-  !name.startsWith("-") &&
-  !name.startsWith("/") &&
-  !name.endsWith("/") &&
-  !name.endsWith(".") &&
-  !name.endsWith(".lock") &&
-  !name.includes("//") &&
-  !name.includes("..") &&
-  !name.includes("@{") &&
-  !/\s/.test(name) &&
-  !/[~^:?*[\\]/.test(name) &&
-  ![...name].some(isControl) &&
-  !name.split("/").some((part) => part.startsWith("."));
+  name !== "" && branchNameProblem(name) === null;
 
 /**
  * The name a `Create branch "<query>"` item would create, or null when it is

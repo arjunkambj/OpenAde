@@ -7,6 +7,10 @@
  *
  * A branch checked out in another worktree cannot be switched to — git
  * refuses to check one branch out twice — so it is listed but disabled.
+ *
+ * A query git would refuse as a name matches no branch and offers no create;
+ * the empty line then says why (`branchNameProblem`) rather than only that
+ * nothing matched.
  */
 
 import * as React from "react";
@@ -23,7 +27,7 @@ import type { GitBranch, GitBranchList } from "@OpenAde/contracts/git";
 
 import { Add, Cloud, GitBranch as GitBranchIcon, GitFork } from "@honeyicons/react";
 
-import { branchToCreate, groupBranches } from "./branches";
+import { branchNameProblem, branchToCreate, groupBranches } from "./branches";
 
 function BranchItem({ branch, onSelect }: { branch: GitBranch; onSelect: (name: string) => void }) {
   const elsewhere = branch.worktreePath !== undefined;
@@ -60,6 +64,7 @@ export function BranchList({
   const [query, setQuery] = React.useState("");
   const groups = groupBranches(list, query);
   const toCreate = branchToCreate(list, query);
+  const problem = branchNameProblem(query.trim());
   const select = (name: string) => {
     if (name !== list.current) {
       onSwitch(name);
@@ -76,7 +81,15 @@ export function BranchList({
           aria-label="Search branches"
         />
         <CommandList>
-          <CommandEmpty>No branch matches.</CommandEmpty>
+          <CommandEmpty>
+            {problem === null ? (
+              "No branch matches."
+            ) : (
+              <span role="alert" className="text-destructive">
+                “{query.trim()}” is not a valid branch name. {problem}
+              </span>
+            )}
+          </CommandEmpty>
           {groups.local.length === 0 ? null : (
             <CommandGroup heading="Local">
               {groups.local.map((branch) => (
