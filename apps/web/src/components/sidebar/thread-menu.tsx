@@ -10,10 +10,9 @@
  *
  * Delete is behind a confirmation, on the precedent `RestoreCheckpointDialog`
  * set: it is durable and there is no undo. For a worktree thread the same
- * dialog offers to remove the worktree too (`./delete-thread-dialog`).
- * Archive is not — the thread stays,
- * and an archived row offers Unarchive in place of Archive, as the Archived
- * threads settings page does.
+ * dialog offers to remove the worktree too (`./delete-thread-dialog`). Archive
+ * is not — the thread stays, and an archived row offers Unarchive in place of
+ * Archive, as the Archived threads settings page does.
  *
  * Both dialogs are siblings of the menu, not children of it: two modal
  * surfaces each own a focus trap, and a menu that is closing while a dialog

@@ -4,9 +4,8 @@ import * as NodePath from "node:path";
 /**
  * Where OpenAde keeps everything it owns on disk: the SQLite database, the
  * generated Command Code hook script, the threads' git worktrees, the dev
- * connection file. `~/.openade` by
- * default; set `OPENADE_HOME` to point a test, a sandbox or a second install
- * somewhere else.
+ * connection file. `~/.openade` by default; set `OPENADE_HOME` to point a test,
+ * a sandbox or a second install somewhere else.
  */
 
 export const CONFIG_DIR_NAME = ".openade";

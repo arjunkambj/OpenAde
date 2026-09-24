@@ -8,11 +8,11 @@
  * `SetupScript.ts`; this layer resolves the root, reads the settings those
  * need, and adds the guards that need the read models — no switch or commit
  * while a turn runs in the same root, no removing a worktree a thread still
- * works in. Each call runs in the thread's own root
- * when it names a thread (see `orchestration/workspaceRoot.ts`). A missing
- * `projectId` or a non-repository root answers `isRepository: false` with
- * empty results rather than an RPC error, so the pane can say "not a git
- * repository" instead of showing what looks like a clean tree.
+ * works in. Each call runs in the thread's own root when it names a thread (see
+ * `orchestration/workspaceRoot.ts`). A missing `projectId` or a non-repository
+ * root answers `isRepository: false` with empty results rather than an RPC
+ * error, so the pane can say "not a git repository" instead of showing what
+ * looks like a clean tree.
  */
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
