@@ -289,8 +289,8 @@ export const pullRequestTitleDraft = (title: string, branch: string | null): str
 
 /**
  * What `action` still does when the user commits nothing — every file left
- * unchecked in the commit dialog, say because the only change is a harness's
- * own untracked config. The push and the pull request can still run.
+ * unchecked in the commit dialog, say because the only change is a scratch
+ * file nobody wants committed. The push and the pull request can still run.
  */
 export const planWithoutCommit = (
   action: GitAction,

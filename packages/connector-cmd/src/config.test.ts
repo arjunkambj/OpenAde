@@ -15,6 +15,7 @@ import * as Effect from "effect/Effect";
 import type * as Scope from "effect/Scope";
 
 import {
+  HOOK_EXCLUDE_PATTERN,
   installProjectHooks,
   OPENADE_MCP_NAME,
   removeMcpEntry,
@@ -245,6 +246,102 @@ describe("installProjectHooks", () => {
       // deleting a file we did not create.
       expect(installed.created).toBe(false);
       expect(readJson(installed.path).hooks).toBeDefined();
+    }),
+  );
+});
+
+/** Runs git in `cwd` as a throwaway identity; stdout, trimmed. */
+const git = (cwd: string, ...args: ReadonlyArray<string>): string => {
+  const result = spawnSync(
+    "git",
+    ["-c", "user.name=Test", "-c", "user.email=test@example.com", ...args],
+    { cwd, encoding: "utf8" },
+  );
+  expect(result.status, result.stderr).toBe(0);
+  return result.stdout.trim();
+};
+
+/** A repository with one commit, so worktrees can be added to it. */
+const tempRepo = (): Effect.Effect<string, never, Scope.Scope> =>
+  Effect.map(tempDir(), (root) => {
+    git(root, "init", "-q", "-b", "main");
+    NodeFS.writeFileSync(NodePath.join(root, "README.md"), "hello\n");
+    git(root, "add", "-A");
+    git(root, "commit", "-q", "-m", "init");
+    return root;
+  });
+
+const excludeFile = (root: string): string =>
+  NodePath.resolve(NodeFS.realpathSync(root), git(root, "rev-parse", "--git-path", "info/exclude"));
+
+const excludeHasHookLine = (root: string): boolean =>
+  NodeFS.readFileSync(excludeFile(root), "utf8").split("\n").includes(HOOK_EXCLUDE_PATTERN);
+
+describe("the hook file and the user's commits", () => {
+  it.effect("keeps the hook file out of a stage-everything commit while it is installed", () =>
+    Effect.gen(function* () {
+      const root = yield* tempRepo();
+      const before = NodeFS.readFileSync(excludeFile(root), "utf8");
+      const installed = yield* install(root, "/h/cmd-hook.mjs");
+      expect(installed.gitExclude).toBe(excludeFile(root));
+
+      // The file is on disk, yet `git add -A` — what the commit dialog runs
+      // with everything checked — neither lists nor stages it.
+      expect(NodeFS.existsSync(installed.path)).toBe(true);
+      expect(git(root, "status", "--porcelain", "--untracked-files=all")).toBe("");
+      NodeFS.writeFileSync(NodePath.join(root, "work.txt"), "work\n");
+      git(root, "add", "-A");
+      git(root, "commit", "-q", "-m", "work");
+      expect(git(root, "show", "--name-only", "--format=", "HEAD")).toBe("work.txt");
+
+      // Teardown deletes the untracked file and takes the line back out, so the
+      // tree is clean and the exclude file is what it was.
+      yield* uninstallProjectHooks(root, "/h/cmd-hook.mjs", installed);
+      expect(NodeFS.existsSync(installed.path)).toBe(false);
+      expect(git(root, "status", "--porcelain", "--untracked-files=all")).toBe("");
+      expect(NodeFS.readFileSync(excludeFile(root), "utf8")).toBe(before);
+    }),
+  );
+
+  it.effect("holds one line for every worktree of the repository until the last closes", () =>
+    Effect.gen(function* () {
+      const root = yield* tempRepo();
+      const parent = yield* tempDir();
+      const linked = NodePath.join(parent, "linked");
+      git(root, "worktree", "add", "-q", "-b", "side", linked);
+
+      const first = yield* install(root, "/h/cmd-hook.mjs");
+      const second = yield* install(linked, "/h/cmd-hook.mjs");
+      // `info/exclude` lives in the common git dir, shared by both checkouts.
+      expect(second.gitExclude).toBe(first.gitExclude);
+      expect(git(linked, "status", "--porcelain", "--untracked-files=all")).toBe("");
+      const lines = NodeFS.readFileSync(excludeFile(root), "utf8").split("\n");
+      expect(lines.filter((line) => line === HOOK_EXCLUDE_PATTERN)).toHaveLength(1);
+
+      yield* uninstallProjectHooks(root, "/h/cmd-hook.mjs", first);
+      expect(excludeHasHookLine(root)).toBe(true);
+      yield* uninstallProjectHooks(linked, "/h/cmd-hook.mjs", second);
+      expect(excludeHasHookLine(root)).toBe(false);
+    }),
+  );
+
+  it.effect("adds no line when the repository already ignores the file", () =>
+    Effect.gen(function* () {
+      const root = yield* tempRepo();
+      NodeFS.writeFileSync(NodePath.join(root, ".gitignore"), ".commandcode/\n");
+      const installed = yield* install(root, "/h/cmd-hook.mjs");
+      expect(excludeHasHookLine(root)).toBe(false);
+      yield* uninstallProjectHooks(root, "/h/cmd-hook.mjs", installed);
+      expect(excludeHasHookLine(root)).toBe(false);
+    }),
+  );
+
+  it.effect("leaves a directory outside any repository alone", () =>
+    Effect.gen(function* () {
+      const root = yield* tempDir();
+      const installed = yield* install(root, "/h/cmd-hook.mjs");
+      expect(installed.gitExclude).toBeUndefined();
+      yield* uninstallProjectHooks(root, "/h/cmd-hook.mjs", installed);
     }),
   );
 });

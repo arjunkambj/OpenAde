@@ -1143,7 +1143,9 @@ channel print mode has.
 (`config.ts`): the PreToolUse hook block in
 `<workspaceRoot>/.commandcode/settings.local.json`, reverted only while the file
 still hashes to the bytes we wrote and only once the last session in that
-project has closed; and the `openade` MCP entry in the CLI's local scope,
+project has closed, with a line in the repository's `info/exclude` that keeps
+it out of the user's commits meanwhile; and the `openade` MCP entry in the
+CLI's local scope,
 written and removed _through the CLI_ (`cmd mcp add-json` / `cmd mcp remove`)
 because the directory it lives in is a slug of the workspace path that only the
 CLI knows how to spell.

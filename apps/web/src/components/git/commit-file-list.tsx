@@ -1,9 +1,10 @@
 /**
  * The commit dialog's file list: every path `git.status` reports — untracked
  * files included — with a checkbox each, all checked unless the user unchecks
- * them. An untracked file is often not the user's work at all (a harness
- * writes its own config into the workspace), which is why it is listed and
- * can be left out.
+ * them. An untracked file is not always work the user wants committed (a
+ * scratch file, a local note), which is why it is listed and can be left out.
+ * The harness's own hook config never shows up here: the connector keeps it in
+ * the repository's `info/exclude` while a session holds it.
  *
  * The dialog keeps the *unchecked* paths, not the checked ones, so a file that
  * appears while the dialog is open starts checked like the rest.

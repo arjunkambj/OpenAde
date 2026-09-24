@@ -21,6 +21,11 @@
  * since edited is left alone. And a per-path retain count keeps the first
  * session to close from pulling the hook out from under a second session
  * running in the same project.
+ *
+ * While the hook block is in place the repository's `info/exclude` carries a
+ * line for the hook file (see `holdGitExclude`), so a commit made meanwhile
+ * never picks up a hook that names this machine's script; the line goes when
+ * the block does.
  */
 
 import * as NodeChildProcess from "node:child_process";
@@ -48,6 +53,8 @@ export interface InstalledFile {
   readonly path: string;
   readonly hash: string;
   readonly created: boolean;
+  /** The `info/exclude` file holding the hook file out of commits, if any. */
+  readonly gitExclude?: string;
 }
 
 /**
@@ -276,6 +283,105 @@ const revert = (installed: InstalledFile, next: JsonObject): void => {
   writeJsonObject(installed.path, next);
 };
 
+// ── keeping the hook block out of the user's commits ───────────
+
+/** The `info/exclude` pattern for the hook file, anchored at the worktree root. */
+export const HOOK_EXCLUDE_PATTERN = "/.commandcode/settings.local.json";
+
+/** Open holds per exclude file, and whether the first holder added our line. */
+const excludeHolds = new Map<string, { count: number; readonly added: boolean }>();
+
+/** A git call's trimmed stdout, or null when git is missing or refused. */
+const gitOutput = (cwd: string, args: ReadonlyArray<string>): string | null => {
+  try {
+    return NodeChildProcess.execFileSync("git", args, {
+      cwd,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return null;
+  }
+};
+
+const excludeLines = (content: string): Array<string> => content.split(/\r?\n/);
+
+/**
+ * Keeps the hook file out of the user's commits while it holds our block.
+ *
+ * The block names this machine's hook script by absolute path, so a commit
+ * that picks the file up — `git add -A`, or the commit dialog with everything
+ * checked — would push a hook that points nowhere on any other machine, and
+ * the teardown that deletes the file would then leave a tracked deletion
+ * behind. The repository's `info/exclude` (shared by all of its worktrees,
+ * never committed) gets an anchored line for the file, unless git already
+ * ignores or tracks it. Answers the exclude file this hold is on, for
+ * `releaseGitExclude` — which takes our line out again once the last holder
+ * closes — or `undefined` outside a repository.
+ */
+const holdGitExclude = (projectRoot: string): string | undefined => {
+  const gitPath = gitOutput(projectRoot, ["rev-parse", "--git-path", "info/exclude"]);
+  if (gitPath === null || gitPath === "") {
+    return undefined;
+  }
+  // Canonical, so two worktrees reaching the same file through different
+  // spellings (a relative answer in one, a symlinked temp dir) share a hold.
+  let base = projectRoot;
+  try {
+    base = NodeFS.realpathSync(projectRoot);
+  } catch {
+    // Keyed on the path we were given.
+  }
+  const excludePath = NodePath.resolve(base, gitPath);
+  const held = excludeHolds.get(excludePath);
+  if (held !== undefined) {
+    held.count += 1;
+    return excludePath;
+  }
+  const relative = HOOK_EXCLUDE_PATTERN.slice(1);
+  const ignored = gitOutput(projectRoot, ["check-ignore", "-q", "--", relative]) !== null;
+  const tracked = gitOutput(projectRoot, ["ls-files", "--error-unmatch", "--", relative]) !== null;
+  let added = false;
+  if (!ignored && !tracked) {
+    try {
+      const existing = NodeFS.existsSync(excludePath)
+        ? NodeFS.readFileSync(excludePath, "utf8")
+        : "";
+      const separator = existing === "" || existing.endsWith("\n") ? "" : "\n";
+      NodeFS.mkdirSync(NodePath.dirname(excludePath), { recursive: true });
+      NodeFS.writeFileSync(excludePath, `${existing}${separator}${HOOK_EXCLUDE_PATTERN}\n`, "utf8");
+      added = true;
+    } catch {
+      // An unwritable git dir leaves the file listed; the session still runs.
+    }
+  }
+  excludeHolds.set(excludePath, { count: 1, added });
+  return excludePath;
+};
+
+/** Drops one hold; the last one out removes the line `holdGitExclude` added. */
+const releaseGitExclude = (excludePath: string): void => {
+  const held = excludeHolds.get(excludePath);
+  if (held !== undefined && held.count > 1) {
+    held.count -= 1;
+    return;
+  }
+  excludeHolds.delete(excludePath);
+  if (held === undefined || !held.added) {
+    return;
+  }
+  try {
+    const lines = excludeLines(NodeFS.readFileSync(excludePath, "utf8"));
+    const index = lines.indexOf(HOOK_EXCLUDE_PATTERN);
+    if (index !== -1) {
+      lines.splice(index, 1);
+      NodeFS.writeFileSync(excludePath, lines.join("\n"), "utf8");
+    }
+  } catch {
+    // The exclude file (or the whole worktree) is gone; nothing to take out.
+  }
+};
+
 // ── the PreToolUse hook block ──────────────────────────────────
 
 /**
@@ -303,7 +409,9 @@ export const installProjectHooks = (
     const kept = stripOurs(Array.isArray(existing) ? existing : [], hookPath);
     hooks.PreToolUse = [...kept, ourEntry(hookPath)];
     const hash = writeJsonObject(path, { ...settings, hooks });
-    return { path, hash, created: retain(path, fresh) };
+    const created = retain(path, fresh);
+    const gitExclude = holdGitExclude(projectRoot);
+    return { path, hash, created, ...(gitExclude === undefined ? {} : { gitExclude }) };
   });
 
 /**
@@ -340,6 +448,9 @@ export const uninstallProjectHooks = (
     };
     if (installed !== undefined) {
       revert(installed, compute());
+      if (installed.gitExclude !== undefined) {
+        releaseGitExclude(installed.gitExclude);
+      }
       return;
     }
     const existing = (readJsonObject(path).hooks as JsonObject | undefined)?.PreToolUse;

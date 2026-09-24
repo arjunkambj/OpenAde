@@ -1337,9 +1337,11 @@ the thread's title — `Update N files` while the title is still `New thread` �
 then a blank line and `Changed files:` with one `- path` line each; nothing
 writes the message for the user. Opening the dialog refetches the status, and
 until the user types the message follows it, so it lists the same files as the
-checkboxes rather than the ones read before the dialog opened. Every path `git.status` reports is listed
-with a checkbox, untracked files included and all checked, so a file the user
-does not want (a harness's own untracked config, say) can be left out. `paths`
+checkboxes rather than the ones read before the dialog opened. Every path
+`git.status` reports is listed with a checkbox, untracked files included and all
+checked, so a file the user does not want can be left out. OpenAde's own hook
+file never appears there: while a session holds it, `info/exclude` keeps it out
+of the status (see "The CLI's own config files"). `paths`
 is sent only when something is unchecked. With every file unchecked there is
 nothing to commit: a plain commit is disabled, while the other two actions skip
 the commit and run what is left (the button then reads `Push`,
@@ -1730,8 +1732,11 @@ decided per _hook command_, so a user hook sharing an entry with ours survives
 removal. Teardown is guarded twice: the install records the hash of the bytes it
 wrote and reverts only while the file still hashes to that, and a per-path
 retain count keeps the first session to close from pulling the hook out from
-under a second session in the same project. A file that exists but is not strict
-JSON is never rewritten — the session runs without the gate and says so.
+under a second session in the same project. While the block is in place, a
+line in the repository's `info/exclude` keeps the file out of `git status` and
+of every commit — the hook it names is this machine's — and the teardown takes
+that line out again. A file that exists but is not strict JSON is never
+rewritten — the session runs without the gate and says so.
 
 **The local MCP scope** gets an `openade` entry. That file lives at
 `~/.commandcode/projects/<slug>/mcp.json`, and the slug is a private rule the

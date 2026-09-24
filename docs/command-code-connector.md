@@ -1152,6 +1152,18 @@ per-path retain count keeps the first session to close from pulling the hook out
 from under a second session running in the same project. A file we created and
 left empty is deleted rather than left as a husk.
 
+While the block is in place the file is kept out of the user's commits. The
+block names this machine's hook script by absolute path, so a commit that picked
+it up — `git add -A`, or the commit dialog with every file checked — would push
+a hook that points nowhere anywhere else, and the teardown's delete would then
+leave a tracked deletion in the tree. So the install adds the anchored line
+`/.commandcode/settings.local.json` to the repository's `info/exclude` (from
+`git rev-parse --git-path info/exclude`, which every worktree of the repository
+shares; it is never committed), unless git already ignores or tracks the file.
+A retain count per exclude file keeps the line until the last session in any of
+the repository's worktrees closes, and the teardown then takes out just that
+line.
+
 ### The MCP entry
 
 The `openade` server goes into the **local scope**, which is
