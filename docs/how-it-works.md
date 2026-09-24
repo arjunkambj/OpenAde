@@ -901,7 +901,9 @@ the text exactly as typed, and "Restore to here" (§8). The footer appears
 while the pointer is over the row or focus is inside it, and always on a
 coarse pointer such as touch, where there is no hover. Only its opacity
 changes; it always takes its height, so revealing it never reflows a row the
-list has measured.
+list has measured. The time, and an answer's duration below, are focus stops
+of their own, so their tooltips open from the keyboard as well, and they
+carry the tooltip's words as their accessible name.
 
 The final answer of a settled turn has a footer too, left-aligned under it
 and revealed the same way: Copy (the markdown source), the time the answer

@@ -14,7 +14,7 @@ import { AssistantMessageRow, UserMessageRow } from "@/components/timeline/messa
 import { type TimelineThread, TimelineThreadProvider } from "@/components/timeline/thread-context";
 import { ClientRuntimeProvider } from "@/lib/client-runtime";
 import { makeFixtureClient } from "@/lib/fixture-client";
-import { formatClock, formatDurationMs } from "@/lib/format";
+import { formatClock, formatDurationMs, formatFullDate } from "@/lib/format";
 
 const row = (fields: Partial<ItemSnapshot>): ItemSnapshot => ({
   itemId: makeItemId(),
@@ -145,6 +145,9 @@ describe("the user message footer", () => {
     const itemId = makeItemId();
     const markup = footer(render({ itemId }));
     expect(markup).toContain(`>${formatClock(uuidV7Millis(itemId) ?? 0)}</time>`);
+    // The full date is a focus stop away, and the time's name, not a hover only.
+    const full = formatFullDate(uuidV7Millis(itemId) ?? 0);
+    expect(markup).toMatch(new RegExp(`<time[^>]*tabindex="0"[^>]*aria-label="${full}"`));
     expect(markup).toContain('aria-label="Copy message"');
     expect(markup).toContain("opacity-0");
     expect(markup).toContain("group-hover/message:opacity-100");
@@ -228,6 +231,9 @@ describe("AssistantMessageRow", () => {
     expect(footer).toContain(`>${formatClock(uuidV7Millis(itemId) ?? 0)}</time>`);
     expect(footer).toContain(`>${formatDurationMs(123_000)}</span>`);
     expect(formatDurationMs(123_000)).toBe("2m 3s");
+    // The tooltips' words reach the keyboard and a screen reader too.
+    expect(footer).toMatch(/<time[^>]*tabindex="0"[^>]*aria-label="[^"]+"/);
+    expect(footer).toMatch(/<span[^>]*tabindex="0"[^>]*aria-label="The turn took 2m 3s"/);
     expect(footer).toContain("group-hover/message:opacity-100");
     expect(footer).not.toContain("Restore");
   });

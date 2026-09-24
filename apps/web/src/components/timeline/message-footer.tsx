@@ -5,7 +5,9 @@
  * when the answer began, and how long the turn took.
  *
  * - The time comes from the item's UUIDv7 id — the moment the server recorded
- *   the message — shown as "14:05" with the full date in its tooltip.
+ *   the message — shown as "14:05" with the full date in its tooltip. The
+ *   time and the duration take keyboard focus, so their tooltips do not need
+ *   a mouse, and name themselves with the same words.
  * - Copy copies the text exactly as typed, markdown and all — for an answer,
  *   its markdown source.
  * - The turn's duration is the fold's (`TurnEnd`): its first item to when it
@@ -39,6 +41,12 @@ import { formatClock, formatDurationMs, formatFullDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Undo } from "@honeyicons/react";
 
+// The time and the duration are focus stops of their own, so the tooltip that
+// says more reaches the keyboard too; their names carry the same words for a
+// screen reader.
+const FOCUSABLE_TEXT =
+  "rounded-sm px-1 type-micro text-muted-foreground tabular-nums outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
+
 function SentAt({ ms }: { readonly ms: number }) {
   return (
     <Tooltip>
@@ -46,7 +54,9 @@ function SentAt({ ms }: { readonly ms: number }) {
         render={
           <time
             dateTime={new Date(ms).toISOString()}
-            className="px-1 type-micro text-muted-foreground tabular-nums"
+            tabIndex={0}
+            aria-label={formatFullDate(ms)}
+            className={FOCUSABLE_TEXT}
           />
         }
       >
@@ -120,7 +130,9 @@ function TurnDuration({ ms }: { readonly ms: number }) {
   return (
     <Tooltip>
       <TooltipTrigger
-        render={<span className="px-1 type-micro text-muted-foreground tabular-nums" />}
+        render={
+          <span tabIndex={0} aria-label={`The turn took ${duration}`} className={FOCUSABLE_TEXT} />
+        }
       >
         {duration}
       </TooltipTrigger>
