@@ -5,7 +5,8 @@
  * highlighting at all.
  *
  * The checkbox at the row's end marks the file viewed, which also closes it;
- * a viewed file's name dims, so what is left to read stands out.
+ * a viewed file's name dims, so what is left to read stands out. The "…"
+ * menu after it holds the file's own actions (`./file-actions`).
  */
 
 import type { GitDiffFile } from "@OpenAde/contracts/rpc";
@@ -15,6 +16,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/
 import { InlineDiff } from "@/components/timeline/diff-pool";
 import { cn } from "@/lib/utils";
 import type { DiffStyle } from "@/state/ui";
+
+import { FileActions } from "./file-actions";
 
 import { type HoneyIcon, ChevronRight, Edit, FileAdd, FileRemove } from "@honeyicons/react";
 
@@ -53,6 +56,7 @@ function FilePath({ path, viewed }: { path: string; viewed: boolean }) {
 }
 
 export function FileSection({
+  threadId,
   file,
   open,
   onOpenChange,
@@ -60,6 +64,7 @@ export function FileSection({
   onViewedChange,
   diffStyle,
 }: {
+  threadId: string;
   file: GitDiffFile;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -71,7 +76,7 @@ export function FileSection({
   const expandable = file.diff !== "";
   return (
     <section>
-      <div className="sticky top-0 z-10 flex h-7 items-center gap-1.5 border-b border-border bg-sidebar pr-3 hover:bg-hover">
+      <div className="sticky top-0 z-10 flex h-7 items-center gap-1.5 border-b border-border bg-sidebar pr-1 hover:bg-hover">
         <button
           type="button"
           disabled={!expandable}
@@ -110,6 +115,7 @@ export function FileSection({
           />
           <TooltipContent>{viewed ? "Viewed" : "Mark as viewed"}</TooltipContent>
         </Tooltip>
+        <FileActions threadId={threadId} path={file.path} />
       </div>
       {open && expandable ? (
         <div className="border-b border-border">

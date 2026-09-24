@@ -220,6 +220,7 @@ function ReviewList({
         {hashed.map(({ file, hash }) => (
           <FileSection
             key={file.path}
+            threadId={threadId}
             file={file}
             open={isOpen(review, file.path, byDefault)}
             onOpenChange={(open) => setOpen([file.path], open)}
