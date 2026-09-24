@@ -23,7 +23,8 @@
  * width: wide, model and effort sit together beside Send, styled like the
  * runtime-mode picker; narrow, they take a line of their own and the model
  * name truncates, so the pair never wraps inside itself and the runtime mode
- * shows only its icon when even the first line runs short.
+ * shows only its icon when even the first line runs short. The context meter
+ * (`./composer/context-meter`) stays beside Send either way.
  *
  * Keys: `ThreadSettingsKeys` (`./thread-settings-keys`) answers plan mode
  * (Shift+Tab in the composer), the runtime-mode cycle, the pickers and the
@@ -44,7 +45,11 @@ import type { ConnectorModels } from "@OpenAde/client-runtime/connectorAtoms";
 import { DEFAULT_RUNTIME_MODE, type Effort, RuntimeMode } from "@OpenAde/contracts/enums";
 import { makeCommandId } from "@OpenAde/contracts/ids";
 import type { ConnectorInstanceId, ThreadId } from "@OpenAde/contracts/ids";
-import { threadLocksConnector, type ThreadSettingsPatch } from "@OpenAde/contracts/orchestration";
+import {
+  type ContextWindowUsage,
+  threadLocksConnector,
+  type ThreadSettingsPatch,
+} from "@OpenAde/contracts/orchestration";
 import type { CapabilitySwitch } from "@OpenAde/contracts/runtime";
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
@@ -58,6 +63,7 @@ import { RUNTIME_MODE_LABELS, runtimeModeOptions } from "@/lib/runtime-modes";
 import { CommandKbd } from "@/lib/shortcuts";
 import { Lightning, ListChecks, Lock } from "@honeyicons/react";
 
+import { ContextMeter } from "./composer/context-meter";
 import { type HeaderOption, HeaderSelect, NEXT_TURN_HINT, RESTART_TOOLTIP } from "./header-select";
 import { ThreadSettingsKeys } from "./thread-settings-keys";
 import { ModelPicker } from "./model-picker";
@@ -127,6 +133,7 @@ export function HeaderControls({
         effortSwitch={capabilities?.effortSwitch ?? "per-turn"}
         canPlan={capabilities?.planMode ?? true}
         runtimeModes={runtimeModes}
+        context={doc.context}
         onChange={update}
       />
       {error === null ? null : (
@@ -147,6 +154,7 @@ export function ThreadSettingsControls({
   effortSwitch = "next-turn",
   canPlan = true,
   runtimeModes = RuntimeMode.literals,
+  context = null,
   onChange,
 }: {
   readonly settings: ThreadSettingsPatch;
@@ -161,6 +169,8 @@ export function ThreadSettingsControls({
   readonly canPlan?: boolean;
   /** The modes the thread's connector can honour; every mode when unknown. */
   readonly runtimeModes?: ReadonlyArray<RuntimeMode>;
+  /** The thread's last reported usage; `null` before its first turn reports. */
+  readonly context?: ContextWindowUsage | null;
   readonly onChange: (patch: ThreadSettingsPatch) => void;
 }) {
   const currentModel =
@@ -185,6 +195,9 @@ export function ThreadSettingsControls({
             disabled: true,
           },
     );
+
+  // Before a turn reports usage, the meter reads 0 of the model's window.
+  const contextLimit = context?.limit ?? currentModel?.contextWindow ?? 0;
 
   const planning = settings.interactionMode === "plan";
   const effort = settings.effort ?? "medium";
@@ -276,6 +289,9 @@ export function ThreadSettingsControls({
             />
           </div>
         </div>
+        {contextLimit > 0 ? (
+          <ContextMeter className="order-2" used={context?.used ?? 0} limit={contextLimit} />
+        ) : null}
       </div>
     </TooltipProvider>
   );

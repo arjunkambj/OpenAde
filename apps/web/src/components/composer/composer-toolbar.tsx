@@ -1,8 +1,8 @@
 /**
- * The composer's bottom row: attach button, live status (the steering notice,
- * context usage), Stop, and the send button — which, like Enter, steers the
- * running turn when the harness can take a message mid-turn and shows the
- * queue glyph while a turn runs otherwise. The queue chord still queues.
+ * The composer's bottom row: attach button, the steering notice, Stop, and
+ * the send button — which, like Enter, steers the running turn when the
+ * harness can take a message mid-turn and shows the queue glyph while a turn
+ * runs otherwise. The queue chord still queues.
  *
  * Stop only exists while a turn is running and is the visible half of the
  * `thread.interrupt` binding: a user who never learns the chord still has a
@@ -10,9 +10,9 @@
  *
  * The row is its own size container. `settings` renders `contents`, so its
  * pickers sit in this row as flex items: wide, model and effort sit beside
- * Send; below `@xl/toolbar` the pair drops to a line of its own under the row
- * (`order-3 basis-full`, see `../header-controls`) instead of wrapping inside
- * itself.
+ * Send, with the context meter between them and it; below `@xl/toolbar` the
+ * pair drops to a line of its own under the row (`order-3 basis-full`, see
+ * `../header-controls`) instead of wrapping inside itself.
  *
  * Attach is disabled, with the reason as its tooltip, when the thread's
  * connector cannot take attachments (`@/lib/attachment-support`). The file
@@ -35,8 +35,6 @@ export function ComposerToolbar({
   running,
   steerable,
   canSend,
-  contextUsed,
-  contextLimit,
   interrupting,
   sending,
   filesKey,
@@ -51,8 +49,6 @@ export function ComposerToolbar({
   /** A turn runs and its harness takes messages into it: sending steers. */
   readonly steerable: boolean;
   readonly canSend: boolean;
-  readonly contextUsed?: number;
-  readonly contextLimit?: number;
   /** An interrupt is in flight — the turn has not settled yet. */
   readonly interrupting: boolean;
   /** A message is on its way out — the button stays down until it lands. */
@@ -114,14 +110,9 @@ export function ComposerToolbar({
         </Tooltip>
         {settings}
         <span aria-hidden className="flex-1" />
-        <span className="order-2 flex items-center gap-2 text-xs text-muted-foreground">
-          {steerable ? <span>Steering the running turn</span> : null}
-          {contextUsed !== undefined && contextLimit !== undefined ? (
-            <span className="tabular-nums" title="Context window used">
-              {Math.round((contextUsed / Math.max(1, contextLimit)) * 100)}%
-            </span>
-          ) : null}
-        </span>
+        {steerable ? (
+          <span className="order-2 text-xs text-muted-foreground">Steering the running turn</span>
+        ) : null}
         {running ? (
           <Tooltip>
             <TooltipTrigger

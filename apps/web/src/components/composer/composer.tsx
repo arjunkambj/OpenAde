@@ -338,8 +338,6 @@ export function Composer({
           running={running}
           steerable={steerable}
           canSend={canSend}
-          contextUsed={doc?.context?.used}
-          contextLimit={doc?.context?.limit}
           interrupting={interrupting}
           sending={sending}
           filesKey={attachments.files.length}
