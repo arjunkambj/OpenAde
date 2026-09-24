@@ -1301,7 +1301,14 @@ the hook's own output, and a commit is refused like a switch while a turn runs
 in that root. The index is saved (`git write-tree`) before anything is staged
 and put back (`git read-tree`) whenever no commit comes of the call — a path git
 cannot stage, nothing staged, a hook's refusal — so a failed commit never costs
-the user what they had staged.
+the user what they had staged. The reset names the whole repository (`:/`)
+rather than being pathless, because a pathless `git reset` also ends a merge
+or cherry-pick in progress. Two states are refused before anything is touched,
+both `conflict`: unresolved conflicts ("Resolve the conflicts in … before
+committing.", since staging them would record the markers as the resolution),
+and, as `git commit -- <paths>` refuses, a commit of chosen paths while a
+merge, cherry-pick or revert waits for its commit — that commit takes every
+change. Committing everything mid-merge makes the merge commit.
 
 A push goes to the branch's `branch.<name>.remote`, else `origin`, else the
 only remote; no remote is `unavailable`. A branch with an upstream is pushed

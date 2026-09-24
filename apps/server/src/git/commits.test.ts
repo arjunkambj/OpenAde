@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "@effect/vitest";
 import { execFileSync } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import {
@@ -354,6 +354,111 @@ describe("git.commit", () => {
         }
         expect(git(root, "rev-list", "--count", "HEAD").trim()).toBe("1");
         expect(git(root, "show", ":a.txt")).toBe("staged\n");
+      }),
+    ),
+  );
+
+  it.live("keeps a merge in progress: no partial commit, and a whole one has both parents", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = makeRepo();
+        git(root, "switch", "-q", "-c", "side");
+        write(root, "b.txt", "side\n");
+        git(root, "add", "b.txt");
+        git(root, "commit", "-qm", "side");
+        git(root, "switch", "-q", "main");
+        write(root, "c.txt", "main\n");
+        git(root, "add", "c.txt");
+        git(root, "commit", "-qm", "main");
+        git(root, "merge", "-q", "--no-commit", "--no-ff", "side");
+        write(root, "a.txt", "one\nresolved\n");
+        const mergeHead = git(root, "rev-parse", "MERGE_HEAD").trim();
+        const stagedBefore = git(root, "diff", "--cached");
+        const { projectId, git: service } = yield* stack(root);
+
+        // `git commit -- b.txt` refuses mid-merge; so does this, and the merge
+        // and the index stay as they were.
+        const partial = yield* service
+          .commit({ projectId }, { message: "Merge side", paths: ["b.txt"] })
+          .pipe(Effect.flip);
+        expect(partial.code).toBe("conflict");
+        expect(partial.message).toContain("merge is in progress");
+        expect(git(root, "rev-parse", "MERGE_HEAD").trim()).toBe(mergeHead);
+        expect(git(root, "diff", "--cached")).toBe(stagedBefore);
+
+        // A hook that refuses the whole commit leaves the merge in progress too.
+        const hook = nodePath.join(root, ".git", "hooks", "pre-commit");
+        writeFileSync(hook, "#!/bin/sh\nexit 1\n");
+        chmodSync(hook, 0o755);
+        git(root, "config", "core.hooksPath", nodePath.dirname(hook));
+        yield* service.commit({ projectId }, { message: "Merge side" }).pipe(Effect.flip);
+        expect(git(root, "rev-parse", "MERGE_HEAD").trim()).toBe(mergeHead);
+
+        rmSync(hook);
+        yield* service.commit({ projectId }, { message: "Merge side" });
+        expect(git(root, "rev-list", "--parents", "-1", "HEAD").trim().split(" ")).toHaveLength(3);
+        expect(git(root, "show", "HEAD:a.txt")).toBe("one\nresolved\n");
+      }),
+    ),
+  );
+
+  it.live("refuses to commit over unresolved conflicts, leaving them in the index", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = makeRepo();
+        git(root, "switch", "-q", "-c", "side");
+        write(root, "a.txt", "side\n");
+        git(root, "commit", "-qam", "side");
+        git(root, "switch", "-q", "main");
+        write(root, "a.txt", "main\n");
+        git(root, "commit", "-qam", "main");
+        // The merge stops on the conflict, which is what it exits 1 for.
+        expect(() => git(root, "merge", "-q", "side")).toThrow();
+        write(root, "b.txt", "new\n");
+        const conflictStages = git(root, "ls-files", "--unmerged");
+        const { projectId, git: service } = yield* stack(root);
+
+        for (const paths of [undefined, ["b.txt"]]) {
+          const refused = yield* service
+            .commit({ projectId }, { message: "x", ...(paths === undefined ? {} : { paths }) })
+            .pipe(Effect.flip);
+          expect(refused.code).toBe("conflict");
+          expect(refused.message).toBe("Resolve the conflicts in a.txt before committing.");
+          expect(git(root, "ls-files", "--unmerged")).toBe(conflictStages);
+          expect(git(root, "rev-parse", "-q", "--verify", "MERGE_HEAD").trim()).not.toBe("");
+        }
+        expect(git(root, "rev-list", "--count", "HEAD").trim()).toBe("2");
+      }),
+    ),
+  );
+
+  it.live("refuses a partial commit mid-cherry-pick, keeping the pick", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = makeRepo();
+        git(root, "switch", "-q", "-c", "side");
+        write(root, "b.txt", "picked\n");
+        git(root, "add", "b.txt");
+        git(root, "commit", "-qm", "pick me");
+        git(root, "switch", "-q", "main");
+        git(root, "cherry-pick", "--no-commit", "side");
+        write(root, "c.txt", "other\n");
+        // `--no-commit` records no CHERRY_PICK_HEAD, so write the one a
+        // cherry-pick that stopped for the user leaves.
+        writeFileSync(
+          nodePath.join(root, ".git", "CHERRY_PICK_HEAD"),
+          git(root, "rev-parse", "side"),
+        );
+        const { projectId, git: service } = yield* stack(root);
+
+        const refused = yield* service
+          .commit({ projectId }, { message: "x", paths: ["b.txt"] })
+          .pipe(Effect.flip);
+        expect(refused.code).toBe("conflict");
+        expect(refused.message).toContain("cherry-pick is in progress");
+        expect(git(root, "rev-parse", "CHERRY_PICK_HEAD").trim()).toBe(
+          git(root, "rev-parse", "side").trim(),
+        );
       }),
     ),
   );

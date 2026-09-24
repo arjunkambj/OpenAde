@@ -74,6 +74,75 @@ const withRenameSources = (cwd: string, paths: ReadonlyArray<string>) =>
   );
 
 /**
+ * The operation a commit would conclude — a merge, cherry-pick or revert that
+ * stopped for the user — or `null`. Its `*_HEAD` ref is what makes the
+ * commit a merge commit or carries the picked commit's author.
+ */
+const pendingOperation = (cwd: string) =>
+  Effect.gen(function* () {
+    for (const [ref, name] of [
+      ["MERGE_HEAD", "merge"],
+      ["CHERRY_PICK_HEAD", "cherry-pick"],
+      ["REVERT_HEAD", "revert"],
+    ] as const) {
+      const found = yield* run(cwd, ["rev-parse", "-q", "--verify", ref], {
+        allowNonZeroExit: true,
+      });
+      if (found.exitCode === 0) return name;
+    }
+    return null;
+  });
+
+/**
+ * The paths with unresolved conflicts, repository-relative. `-u` prints one
+ * `mode sha stage<TAB>path` entry per conflict stage, so a path repeats.
+ */
+const unmergedPaths = (cwd: string) =>
+  run(cwd, ["ls-files", "--unmerged", "-z", "--full-name", "--", ":/"]).pipe(
+    Effect.map((result) => [
+      ...new Set(
+        result.stdout
+          .split("\0")
+          .map((entry) => entry.slice(entry.indexOf("\t") + 1))
+          .filter((path) => path.length > 0),
+      ),
+    ]),
+  );
+
+const listed = (paths: ReadonlyArray<string>) =>
+  paths.length <= 3
+    ? paths.join(", ")
+    : `${paths.slice(0, 3).join(", ")} and ${paths.length - 3} more`;
+
+/**
+ * Refuses a commit git would refuse, or one that would lose the user's
+ * in-progress state. Unresolved conflicts first: staging them would record
+ * the conflict markers as the resolution, and the index they live in cannot
+ * be saved to put back. Then, like `git commit -- <paths>`, a partial commit
+ * mid-merge, cherry-pick or revert: that commit has to take every change, and
+ * committing some of them would drop the other parent or the picked commit.
+ */
+const refuseUnfinished = (cwd: string, paths: ReadonlyArray<string> | undefined) =>
+  Effect.gen(function* () {
+    const unmerged = yield* unmergedPaths(cwd);
+    if (unmerged.length > 0) {
+      return yield* Effect.fail(
+        conflict(`Resolve the conflicts in ${listed(unmerged)} before committing.`),
+      );
+    }
+    if (paths === undefined) return;
+    const pending = yield* pendingOperation(cwd);
+    if (pending !== null) {
+      return yield* Effect.fail(
+        conflict(
+          `A ${pending} is in progress, and its commit takes every change. ` +
+            `Commit all the files, or finish the ${pending} in a terminal.`,
+        ),
+      );
+    }
+  });
+
+/**
  * Stages what the commit should contain.
  *
  * Without `paths`, everything: `git add -A`, the "commit all my changes" the
@@ -106,7 +175,10 @@ const stage = (cwd: string, paths: ReadonlyArray<string> | undefined) =>
       return yield* Effect.fail(invalid("Choose at least one file to commit."));
     }
     const picked = yield* withRenameSources(cwd, paths);
-    yield* run(cwd, ["reset", "-q"]);
+    // `:/` is the whole repository, as a bare `reset` would be — but a reset
+    // with a pathspec only unstages; it never clears a merge's or a
+    // cherry-pick's state the way a pathless one does.
+    yield* run(cwd, ["reset", "-q", "--", ":/"]);
     const added = yield* run(cwd, ["--literal-pathspecs", "add", "-A", "--", ...picked], {
       allowNonZeroExit: true,
     });
@@ -117,8 +189,8 @@ const stage = (cwd: string, paths: ReadonlyArray<string> | undefined) =>
 
 /**
  * The index as a tree object, so a failed commit can put back what the user
- * had staged; `null` when it cannot be written (unmerged entries mid-merge),
- * and there is then nothing to restore to.
+ * had staged; `null` when it cannot be written. `refuseUnfinished` has
+ * already turned away the unmerged entries that would make it fail.
  */
 const saveIndex = (cwd: string) =>
   run(cwd, ["write-tree"], { allowNonZeroExit: true }).pipe(
@@ -132,14 +204,16 @@ const restoreIndex = (cwd: string, tree: string | null) =>
 /**
  * Commits the working tree's changes — all of them, or only `paths` — with
  * `message`, and answers the commit that was made. A call that makes no
- * commit — a path git cannot stage, nothing staged, a hook that refuses —
- * leaves the index as the user had it, as `git commit` itself does.
+ * commit — unresolved conflicts, some files picked mid-merge, a path git
+ * cannot stage, nothing staged, a hook that refuses — leaves the index and
+ * any merge in progress as the user had them, as `git commit` itself does.
  */
 export const commit = (
   cwd: string,
   options: { readonly message: string; readonly paths?: ReadonlyArray<string> | undefined },
 ) =>
   Effect.gen(function* () {
+    yield* refuseUnfinished(cwd, options.paths);
     const saved = yield* saveIndex(cwd);
     yield* Effect.gen(function* () {
       yield* stage(cwd, options.paths);
