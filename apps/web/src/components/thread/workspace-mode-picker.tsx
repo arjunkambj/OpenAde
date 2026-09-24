@@ -116,13 +116,18 @@ function BaseBranchPicker({
           <SelectValue placeholder="Default branch" />
         </span>
       </SelectTrigger>
-      <SelectContent align="start" alignItemWithTrigger={false} className="min-w-48">
+      <SelectContent align="start" alignItemWithTrigger={false} className="min-w-64 max-w-80">
         {groups.map((group) => (
           <SelectGroup key={group.label}>
             <SelectLabel>{group.label}</SelectLabel>
             {group.branches.map((branch) => (
-              <SelectItem key={branch.name} value={branch.name}>
-                <span className="truncate font-mono text-xs">{branch.name}</span>
+              // `*:min-w-0` lets the item's text wrapper narrow below its
+              // content, so a long name ellipsizes instead of being clipped;
+              // the full name is in the tooltip.
+              <SelectItem key={branch.name} value={branch.name} className="*:min-w-0">
+                <span className="truncate font-mono text-xs" title={branch.name}>
+                  {branch.name}
+                </span>
               </SelectItem>
             ))}
           </SelectGroup>
