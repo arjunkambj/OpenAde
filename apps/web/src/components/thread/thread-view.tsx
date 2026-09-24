@@ -47,6 +47,7 @@ import { ThreadGreeting } from "@/components/thread/thread-greeting";
 import { DockShortcuts, ThreadShortcuts } from "@/components/thread/thread-shortcuts";
 import { Timeline } from "@/components/timeline/timeline";
 import { useKeybindingFlag } from "@/lib/shortcuts";
+import { usePresence } from "@/lib/use-presence";
 import { useConnectionState, useProjects, useThreadDetail } from "@/state/hooks";
 import { useBrowserRevealRequests } from "@/state/browser-activity";
 import { useDockTabMemory } from "@/state/ui";
@@ -230,6 +231,14 @@ export function ThreadView({
   useKeybindingFlag("threadOpen", true);
   useKeybindingFlag("dockOpen", dockTab !== undefined);
 
+  // The dock stays up through its close, showing the tab it closed on.
+  const dockPhase = usePresence(dockTab !== undefined);
+  const heldDockTab = React.useRef(dockTab);
+  if (dockTab !== undefined) {
+    heldDockTab.current = dockTab;
+  }
+  const shownDockTab = dockTab ?? heldDockTab.current;
+
   // `thread.interrupt`, `composer.queue` and the `turnRunning` flag belong to
   // the `Composer` below, not here. Both components used to register all three,
   // and which one won depended on whether the thread detail was already cached
@@ -275,9 +284,10 @@ export function ThreadView({
           />
         ) : null}
       </section>
-      {dockTab !== undefined && snapshot !== null ? (
+      {dockPhase !== null && shownDockTab !== undefined && snapshot !== null ? (
         <RightDock
-          tab={dockTab}
+          tab={shownDockTab}
+          phase={dockPhase}
           onTabChange={setDockTab}
           snapshot={snapshot}
           focusFilesSearch={focusFilesSearch}

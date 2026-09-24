@@ -19,6 +19,11 @@
  * the dock one (`dock.toggle`); `ThreadView` answers them, and the tab and
  * close tooltips show the chords. Opening Files from its key focuses the
  * Files search (`focusFilesSearch`).
+ *
+ * Opening, the dock grows in from the right edge, and closing it shrinks back
+ * (`@/lib/use-presence`, which keeps it mounted until it is gone); overlaid on
+ * a narrow row, it slides in and out instead. It eases only while it opens or
+ * closes, so dragging its edge still tracks the pointer.
  */
 
 import * as React from "react";
@@ -31,6 +36,7 @@ import { BrowserPane } from "@/components/panes/browser/browser-pane";
 import { ChangesPane } from "@/components/panes/changes/changes-pane";
 import { FilesPane } from "@/components/panes/files/files-pane";
 import { CommandKbd } from "@/lib/shortcuts";
+import type { Presence } from "@/lib/use-presence";
 import { cn } from "@/lib/utils";
 import { useConnectionState } from "@/state/hooks";
 import { DOCK_WIDTH_MAX_FRACTION, THREAD_COLUMN_MIN, useDockWidth } from "@/state/ui";
@@ -113,12 +119,14 @@ function DockTabButton({
 
 export function RightDock({
   tab,
+  phase,
   onTabChange,
   snapshot,
   focusFilesSearch = false,
   onFilesSearchFocused,
 }: {
   tab: DockTab;
+  phase: Presence;
   onTabChange: (tab: DockTab | null) => void;
   snapshot: ThreadDetailSnapshot;
   /** Focus the Files search as the Files tab mounts — set by its key. */
@@ -132,10 +140,17 @@ export function RightDock({
     <aside
       aria-label="Thread dock"
       data-font-scope="sidebar"
+      inert={phase === "leaving"}
       className={cn(
         // Split only when the row fits a 360px thread and a 280px dock.
         "absolute inset-0 z-20 flex min-h-0 w-full border-l border-border bg-sidebar [&_svg:not([class*='text-'],[class*='opacity-'])]:opacity-80",
         "@min-[640px]/thread:relative @min-[640px]/thread:inset-auto @min-[640px]/thread:z-auto @min-[640px]/thread:w-(--dock-width) @min-[640px]/thread:shrink-0",
+        phase !== "shown" &&
+          "overflow-hidden transition-all duration-200 ease-out motion-reduce:transition-none",
+        phase === "entering" &&
+          "starting:translate-x-full @min-[640px]/thread:starting:w-0 @min-[640px]/thread:starting:translate-x-0",
+        phase === "leaving" &&
+          "translate-x-full @min-[640px]/thread:w-0 @min-[640px]/thread:translate-x-0",
       )}
       style={
         {
@@ -150,7 +165,14 @@ export function RightDock({
         onPointerDown={onPointerDown}
         className="absolute inset-y-0 -left-1 z-10 hidden w-2 cursor-col-resize @min-[640px]/thread:block"
       />
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div
+        className={cn(
+          "flex min-h-0 min-w-0 flex-1 flex-col",
+          // While the width eases, hold the content at the dock's floor so it
+          // is uncovered rather than squeezed.
+          phase !== "shown" && "min-w-70",
+        )}
+      >
         <div className="flex h-11 shrink-0 items-center gap-0.5 px-2">
           {DOCK_TABS.map((dockTab) => (
             <DockTabButton
