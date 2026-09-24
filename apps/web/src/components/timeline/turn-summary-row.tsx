@@ -74,7 +74,9 @@ function SummaryFile({
         <Button
           variant="ghost"
           size="xs"
-          className="min-w-0"
+          // The stock button never shrinks; this one must, so a long path
+          // truncates inside the row instead of running past it.
+          className="max-w-full min-w-0 shrink"
           title={`Open ${file.path} in Changes`}
           onClick={() => onOpen(file.path)}
         >
