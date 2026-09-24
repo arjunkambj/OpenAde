@@ -19,8 +19,8 @@ import {
   type ComposerTrigger,
 } from "@OpenAde/client-runtime/composerTrigger";
 import * as React from "react";
-import { AsyncResult } from "effect/unstable/reactivity";
 
+import { fileMenuEmptyLabel, menuSource } from "@/components/composer/menu-source";
 import type { TriggerMenuItem } from "@/components/composer/trigger-menu";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { File as FileIcon, Folder } from "@honeyicons/react";
@@ -41,7 +41,8 @@ const mentionItems = (files: ReadonlyArray<FileSearchResult>): ReadonlyArray<Tri
 export interface FileMentions {
   /** The menu rows; empty unless the open trigger is a `file` one. */
   readonly items: ReadonlyArray<TriggerMenuItem>;
-  readonly searching: boolean;
+  /** The row shown when there are none: searching, failed, or no match. */
+  readonly emptyLabel: string;
   readonly pick: (item: TriggerMenuItem) => void;
   /** Pick the row at `index`, if there is one — Enter on the highlighted row. */
   readonly pickAt: (index: number) => void;
@@ -73,9 +74,8 @@ export function useFileMentions({
   // Debounce via React — the atom family keys per query, so the deferred value
   // is what actually reaches files.search.
   const deferredQuery = React.useDeferredValue(open ? trigger.query : "");
-  const searchResult = useAtomValue(fileSearchAtom(projectId, threadId)(deferredQuery));
-  const searchFiles = AsyncResult.isSuccess(searchResult) ? searchResult.value : [];
-  const searching = !AsyncResult.isSuccess(searchResult);
+  const search = menuSource(useAtomValue(fileSearchAtom(projectId, threadId)(deferredQuery)));
+  const searchFiles = search.entries;
 
   const items = React.useMemo<ReadonlyArray<TriggerMenuItem>>(
     () => (open ? mentionItems(searchFiles) : []),
@@ -107,5 +107,5 @@ export function useFileMentions({
   const retain = (nextText: string) =>
     setMentions((current) => retainComposerReferences(current, nextText, fileMentionToken));
 
-  return { items, searching, pick, pickAt, remove, retain };
+  return { items, emptyLabel: fileMenuEmptyLabel(search.status), pick, pickAt, remove, retain };
 }

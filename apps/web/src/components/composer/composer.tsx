@@ -323,8 +323,7 @@ export function Composer({
               activeIndex={activeIndex}
               onSelect={fileMentions.pick}
               onHover={setActiveIndex}
-              emptyLabel="No files match"
-              loading={fileMentions.searching}
+              emptyLabel={fileMentions.emptyLabel}
               label="File mentions"
             />
           ) : referenceOpen ? (

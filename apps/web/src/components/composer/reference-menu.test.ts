@@ -1,8 +1,10 @@
 import type { PluginSummary, SkillSummary } from "@OpenAde/contracts/connectors";
 import { describe, expect, it } from "vitest";
 
+import type { MenuSource } from "@/components/composer/menu-source";
 import {
   REFERENCE_MENU_LABELS,
+  referenceMenuEmptyLabel,
   referenceMenuItems,
   referenceToken,
   sameReference,
@@ -72,7 +74,7 @@ describe("referenceMenuItems for @", () => {
 
   it("is empty when the harness reports neither", () => {
     expect(referenceMenuItems({ kind: "mention", query: "", plugins: [], skills: [] })).toEqual([]);
-    expect(REFERENCE_MENU_LABELS.mention.empty).toBe("No plugins or skills");
+    expect(REFERENCE_MENU_LABELS.mention).toBe("Plugins and skills");
   });
 
   it("keeps a plugin and a skill of the same name apart", () => {
@@ -116,7 +118,55 @@ describe("referenceMenuItems for $", () => {
 
   it("is empty when the harness reports no skills", () => {
     expect(referenceMenuItems({ kind: "skill", query: "", plugins, skills: [] })).toEqual([]);
-    expect(REFERENCE_MENU_LABELS.skill.empty).toBe("No skills");
+    expect(REFERENCE_MENU_LABELS.skill).toBe("Skills");
+  });
+});
+
+const ready = <A>(entries: ReadonlyArray<A>): MenuSource<A> => ({ status: "ready", entries });
+const loading: MenuSource<never> = { status: "loading", entries: [] };
+const failed: MenuSource<never> = { status: "failed", entries: [] };
+
+describe("referenceMenuEmptyLabel", () => {
+  const label = (
+    kind: "mention" | "skill",
+    query: string,
+    sources: { plugins?: MenuSource<PluginSummary>; skills?: MenuSource<SkillSummary> },
+  ) =>
+    referenceMenuEmptyLabel({
+      kind,
+      query,
+      plugins: sources.plugins ?? ready([]),
+      skills: sources.skills ?? ready([]),
+    });
+
+  it("says the harness has none only when every list answered empty", () => {
+    expect(label("mention", "", {})).toBe("No plugins or skills");
+    expect(label("skill", "", {})).toBe("No skills");
+    // Only disabled entries: nothing the menu could offer.
+    expect(label("skill", "x", { skills: ready([skills[2]!]) })).toBe("No skills");
+  });
+
+  it("says nothing matches when a query filtered every entry out", () => {
+    expect(label("skill", "HOME", { skills: ready(skills) })).toBe("No skills match");
+    expect(label("mention", "zzz", { plugins: ready(plugins) })).toBe("No plugins or skills match");
+    expect(label("mention", "zzz", { skills: ready(skills) })).toBe("No plugins or skills match");
+  });
+
+  it("says it is loading while a list it shows is still being asked", () => {
+    expect(label("skill", "", { skills: loading })).toBe("Loading skills…");
+    expect(label("mention", "", { plugins: loading })).toBe("Loading plugins and skills…");
+    expect(label("mention", "", { skills: loading })).toBe("Loading plugins and skills…");
+    // `$` does not show plugins, so their load does not hold it up.
+    expect(label("skill", "", { plugins: loading })).toBe("No skills");
+  });
+
+  it("names the list that could not be read", () => {
+    expect(label("skill", "", { skills: failed })).toBe("Could not list skills");
+    expect(label("mention", "", { plugins: failed })).toBe("Could not list plugins");
+    expect(label("mention", "", { plugins: failed, skills: failed })).toBe(
+      "Could not list plugins or skills",
+    );
+    expect(label("skill", "", { plugins: failed })).toBe("No skills");
   });
 });
 

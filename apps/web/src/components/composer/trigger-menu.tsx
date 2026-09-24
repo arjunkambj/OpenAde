@@ -52,15 +52,14 @@ export function TriggerMenu<T extends TriggerMenuItem>({
   onSelect,
   onHover,
   emptyLabel,
-  loading = false,
   label,
 }: {
   readonly items: ReadonlyArray<T>;
   readonly activeIndex: number;
   readonly onSelect: (item: T) => void;
   readonly onHover: (index: number) => void;
+  /** The row shown when there are none — including while the list loads. */
   readonly emptyLabel: string;
-  readonly loading?: boolean;
   /** Accessible name, e.g. "File mentions". */
   readonly label: string;
 }) {
@@ -113,9 +112,7 @@ export function TriggerMenu<T extends TriggerMenuItem>({
           </React.Fragment>
         ))}
         {items.length === 0 ? (
-          <div className="px-2 py-3 text-center text-xs text-muted-foreground">
-            {loading ? "Searching…" : emptyLabel}
-          </div>
+          <div className="px-2 py-3 text-center text-xs text-muted-foreground">{emptyLabel}</div>
         ) : null}
       </div>
     </div>

@@ -444,22 +444,29 @@ that, and binding it to emptying the textarea would throw away the sentence the
 user was writing while keeping every token they meant to drop.
 
 `#` searches the thread's files — its worktree, or the project's folder —
-through `files.search` (`use-file-mentions.ts`), and says "No files match" when
-nothing does. The turn carries the bare workspace-relative paths as `mentions`,
-and the connector decides how to name them to its harness. Because `#` is also
-markdown and issue numbers, it needs a query that starts with neither another
-`#` nor a digit. So a lone `#` then Enter sends, `# Heading` closes at the
-space, and `##` headings, `fixes #12`, `a#b` and `https://x.dev/#frag` never
-open it. The digit rule matters because `files.search` is a substring match:
-`#12` would list every path with a 12 in it, and Enter would pick one instead
-of sending.
+through `files.search` (`use-file-mentions.ts`), and says "No files match" when nothing does,
+"Searching…" while the search runs and "Could not search files" when it
+fails. The turn
+carries the bare workspace-relative paths as `mentions`, and the connector
+decides how to name them to its harness. Because `#` is also markdown and issue
+numbers, it needs a query that starts with neither another `#` nor a digit. So
+a lone `#` then Enter sends, `# Heading` closes at the space, and `##`
+headings, `fixes #12`, `a#b` and `https://x.dev/#frag` never open it. The digit
+rule matters because `files.search` is a substring match: `#12` would list
+every path with a 12 in it, and Enter would pick one instead of sending.
 
 `@` lists the thread instance's enabled plugins under "Plugins", then its
 enabled skills under "Skills" (`pluginsAtom` and `skillsAtom`, wired in
 `use-reference-mentions.ts`; the rows come from `reference-menu.ts`). `$` lists
 the skills alone, ungrouped. An instance without the plugins extension answers
-no plugins, so `@` then shows its skills; with neither, the menu says "No
-plugins or skills" (`$` says "No skills"). Both open on an empty query, like
+no plugins, so `@` then shows its skills. A menu with no rows says why
+(`referenceMenuEmptyLabel`): "No plugins or skills" (`$`: "No skills") only
+when the harness answered with none, "No plugins or skills match" when the
+query filtered them all out, "Loading plugins and skills…" while a list is
+still being asked, and "Could not list plugins" (or skills) when one failed.
+The atoms start from `[]`, so `menu-source.ts` reads their in-flight `waiting`
+flag rather than trusting an empty success, and treats an `unavailable` answer
+(no such extension) as none. Both open on an empty query, like
 `/`, so `me@x.com` and `a$b` stay closed but a bare `@` lists everything. `$`
 also stays closed when its query starts with a digit, so `$5` and `costs $20`
 never open. `$HOME` does open, but both menus match the query against names

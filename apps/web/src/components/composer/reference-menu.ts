@@ -18,6 +18,7 @@
 import type { PluginSummary, SkillSummary } from "@OpenAde/contracts/connectors";
 import type { TurnReference } from "@OpenAde/contracts/runtime";
 
+import type { MenuSource } from "@/components/composer/menu-source";
 import { matchesQuery, type TriggerMenuItem } from "@/components/composer/trigger-menu";
 import { Puzzle, Sparkles } from "@honeyicons/react";
 
@@ -36,12 +37,42 @@ export const referenceToken = (reference: TurnReference): string =>
 export const sameReference = (a: TurnReference, b: TurnReference): boolean =>
   a.kind === b.kind && a.name === b.name;
 
-/** What the menu shows when it has no rows, and what it is called. */
-export const REFERENCE_MENU_LABELS: Readonly<
-  Record<ReferenceMenuKind, { readonly empty: string; readonly label: string }>
-> = {
-  mention: { empty: "No plugins or skills", label: "Plugins and skills" },
-  skill: { empty: "No skills", label: "Skills" },
+/** What each menu is called, for its listbox. */
+export const REFERENCE_MENU_LABELS: Readonly<Record<ReferenceMenuKind, string>> = {
+  mention: "Plugins and skills",
+  skill: "Skills",
+};
+
+/**
+ * What the menu says when it has no rows. "No skills" claims the harness has
+ * none, so it is said only when that is what the lists answered: while one is
+ * still being asked the menu says so, a list that could not be read is named,
+ * and a query that filtered every entry out says nothing matches.
+ */
+export const referenceMenuEmptyLabel = (input: {
+  readonly kind: ReferenceMenuKind;
+  readonly query: string;
+  readonly plugins: MenuSource<PluginSummary>;
+  readonly skills: MenuSource<SkillSummary>;
+}): string => {
+  const { kind, query, plugins, skills } = input;
+  const sources: ReadonlyArray<readonly [string, MenuSource<{ readonly enabled: boolean }>]> =
+    kind === "skill"
+      ? [["skills", skills]]
+      : [
+          ["plugins", plugins],
+          ["skills", skills],
+        ];
+  const nouns = kind === "skill" ? "skills" : "plugins or skills";
+  if (sources.some(([, source]) => source.status === "loading")) {
+    return kind === "skill" ? "Loading skills…" : "Loading plugins and skills…";
+  }
+  const failed = sources.filter(([, source]) => source.status === "failed");
+  if (failed.length > 0) {
+    return `Could not list ${failed.map(([noun]) => noun).join(" or ")}`;
+  }
+  const listsAny = sources.some(([, source]) => source.entries.some((entry) => entry.enabled));
+  return query.trim().length > 0 && listsAny ? `No ${nouns} match` : `No ${nouns}`;
 };
 
 const listed = <Entry extends { readonly name: string; readonly enabled: boolean }>(

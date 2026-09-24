@@ -6,6 +6,8 @@
  *
  * An instance whose harness has no plugins answers `[]` (see `pluginsAtom`),
  * so `@` then lists skills alone; one with neither shows the empty state.
+ * While a list is still being asked, or when it fails, the empty row says that
+ * instead (`menuSource`, `referenceMenuEmptyLabel`).
  * How a reference reaches the harness is the connector's business: the turn
  * carries only `{ kind, name }`.
  */
@@ -20,10 +22,11 @@ import {
   type ComposerTrigger,
 } from "@OpenAde/client-runtime/composerTrigger";
 import * as React from "react";
-import { AsyncResult } from "effect/unstable/reactivity";
 
+import { menuSource } from "@/components/composer/menu-source";
 import {
   REFERENCE_MENU_LABELS,
+  referenceMenuEmptyLabel,
   referenceMenuItems,
   referenceToken,
   sameReference,
@@ -64,8 +67,10 @@ export function useReferenceMentions({
   const { pluginsAtom, skillsAtom } = useClientRuntime();
   const pluginsResult = useAtomValue(pluginsAtom(instanceId)(projectId));
   const skillsResult = useAtomValue(skillsAtom(instanceId)(projectId));
-  const plugins = AsyncResult.isSuccess(pluginsResult) ? pluginsResult.value : [];
-  const skills = AsyncResult.isSuccess(skillsResult) ? skillsResult.value : [];
+  const pluginSource = menuSource(pluginsResult);
+  const skillSource = menuSource(skillsResult);
+  const plugins = pluginSource.entries;
+  const skills = skillSource.entries;
   const kind = trigger?.kind === "mention" || trigger?.kind === "skill" ? trigger.kind : null;
   const query = trigger?.query ?? "";
 
@@ -73,7 +78,12 @@ export function useReferenceMentions({
     () => (kind === null ? [] : referenceMenuItems({ kind, query, plugins, skills })),
     [kind, query, plugins, skills],
   );
-  const labels = REFERENCE_MENU_LABELS[kind ?? "mention"];
+  const emptyLabel = referenceMenuEmptyLabel({
+    kind: kind ?? "mention",
+    query,
+    plugins: pluginSource,
+    skills: skillSource,
+  });
 
   const pick = (item: ReferenceMenuItem) => {
     if (trigger === null) {
@@ -103,5 +113,13 @@ export function useReferenceMentions({
   const retain = (nextText: string) =>
     setReferences((current) => retainComposerReferences(current, nextText, referenceToken));
 
-  return { items, emptyLabel: labels.empty, label: labels.label, pick, pickAt, remove, retain };
+  return {
+    items,
+    emptyLabel,
+    label: REFERENCE_MENU_LABELS[kind ?? "mention"],
+    pick,
+    pickAt,
+    remove,
+    retain,
+  };
 }
