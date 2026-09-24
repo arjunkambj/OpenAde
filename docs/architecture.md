@@ -615,7 +615,10 @@ their shapes (`GitBranch`, `GitBranchList`, `GitCommitResult`, `GitPushResult`,
 the setup script streams); they are defined there rather than in `rpc.ts`,
 their names are spread into `RPC_METHODS`, and `rpc.ts` lists them in the
 group. `OpenAdeRpcError` lives in `rpcError.ts` so `git` can name it without an
-import cycle, and `rpc` re-exports it.
+import cycle, and `rpc` re-exports it. `browser.ts` holds the browser pane's
+payloads (`BrowserState`, `BrowserHumanInput`, `DevServer`,
+`BrowserToolStatus`); `rpc` re-exports them too, so they are read from
+`@OpenAde/contracts/rpc`.
 `thread.ts` holds the value objects of a thread and is reached through
 `orchestration`, which re-exports it, rather than as a module of its own.
 `decisions` holds the record a thread keeps of each settled approval, question
