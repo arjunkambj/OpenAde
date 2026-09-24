@@ -33,8 +33,22 @@ const FIXTURES = NodePath.join(
 /** The manifest format this module reads. */
 export const RECORDING_FORMAT_VERSION = 1;
 
-/** How the harness talked to its connector when the recording was taken. */
-export type RecordingTransport = "stdio-ndjson" | "stdio-jsonrpc" | "sdk-stream" | "http-sse";
+/**
+ * How the harness talked to its connector when the recording was taken.
+ *
+ * The last two are the browser's: `cdp-websocket` is agent-browser's CDP
+ * traffic through the desktop's browser bridge, and `cli-json` is its
+ * `--json` command envelopes. agent-browser is a tool the server drives rather
+ * than a connector's harness, but it is recorded and replayed by the same
+ * rules, under `fixtures/agent-browser/`.
+ */
+export type RecordingTransport =
+  | "stdio-ndjson"
+  | "stdio-jsonrpc"
+  | "sdk-stream"
+  | "http-sse"
+  | "cdp-websocket"
+  | "cli-json";
 
 /** One unit on the wire, in the order it was captured. */
 export interface RecordedFrame {
@@ -124,6 +138,24 @@ export const readManifest = <Extra extends object = Record<string, unknown>>(
     model: raw.model ?? "unknown",
     real: true,
   };
+};
+
+/**
+ * A scenario's frames from a JSON-lines capture beside its manifest
+ * (`frames.jsonl` unless named), in the order they were captured. The
+ * manifest is read first, so a recording that is not marked real never
+ * yields a frame.
+ */
+export const readFrames = (
+  kind: string,
+  scenario: string,
+  file = "frames.jsonl",
+): ReadonlyArray<RecordedFrame> => {
+  readManifest(kind, scenario);
+  return NodeFS.readFileSync(NodePath.join(fixturesRoot(kind), scenario, file), "utf8")
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .map((line) => JSON.parse(line) as RecordedFrame);
 };
 
 /**
