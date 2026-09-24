@@ -1,9 +1,11 @@
 /**
  * The pieces a tool row is built from: which kind of row a tool is drawn as,
  * the checklist a TodoWrite carries, the diff a file change shows, and the
- * cut on long output, and the row a proposed plan settles. How whole SDK messages become rows is proven on the
- * real CLI's recordings, in `recordedFrames.test.ts` and
- * `recordedSession.test.ts`.
+ * cut on long output, and the row a proposed plan settles. How whole SDK
+ * messages become rows is for the real CLI's recordings to prove, in
+ * `recordedFrames.test.ts` and `recordedSession.test.ts`, once the tool
+ * scenarios are recorded with a signed-in CLI; no recording has a tool call
+ * yet.
  */
 
 import { describe, expect, it } from "vitest";

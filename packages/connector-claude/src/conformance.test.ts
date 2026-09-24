@@ -15,7 +15,9 @@
  * The suite's approval case asks for a file write, which the test ladder
  * (every call "prompt") stops on a card. It runs whenever the recording has
  * it — a recording made signed in does, since the case's prompt is in its
- * manifest — and always when recording.
+ * manifest — and always when recording. The recording here was made signed
+ * out, where the CLI refuses every turn before any tool call, so the case is
+ * not in it; a skipped case says so until it is re-recorded signed in.
  *
  * `isProcessGone` looks from outside, as the suite requires: in a replay, at
  * the pid every replayed process drops; in a recording, at the process groups
@@ -34,7 +36,7 @@ import {
   makeTeeLauncher,
 } from "@OpenAde/testkit/sdkStreamRecording";
 import * as Effect from "effect/Effect";
-import { afterAll } from "vitest";
+import { afterAll, it } from "vitest";
 
 import { initModelOf, isPidGone, replay, sdkVersion } from "../test/replay";
 import { testServices } from "../test/services";
@@ -137,3 +139,7 @@ runConnectorConformance(
     isProcessGone: () => Effect.sync(driver.isGone),
   },
 );
+
+if (!WITH_APPROVAL) {
+  it.skip(`resolves every approval request it opens — fixtures/claude/${SCENARIO}/ has no approval case yet: re-record it with a signed-in CLI`, () => {});
+}

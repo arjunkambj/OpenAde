@@ -14,9 +14,11 @@
  * its task lifecycle, and the subagent's rows nested under the task's row.
  * `steering`: a message steered in while the turn's shell command ran, and
  * one turn that answers both.
- * The recordings were made through the real server; only their session launch
+ * The recordings are made through the real server; only their session launch
  * is played here — the probe's launches are a different class and are never
- * asked for.
+ * asked for. None of them is made yet: each needs a signed-in CLI, and until
+ * its recording exists a scenario's suite is skipped under a title that says
+ * so (`packages/testkit/fixtures/claude/README.md` lists them).
  *
  * The ladder here stands in for the server's, as far as these recordings
  * need it: a plan turn refuses every non-read, a sensitive path asks, a read
@@ -49,6 +51,18 @@ import { CLAUDE_KIND } from "./kind";
 import { makeClaudeSession } from "./session";
 
 const recorded = (scenario: string): boolean => recordingNames(CLAUDE_KIND).includes(scenario);
+
+/** A scenario's suite; skipped, and titled so, while its recording is missing. */
+const describeRecorded = (scenario: string, title: string, body: () => void): void => {
+  if (recorded(scenario)) {
+    describe(title, body);
+    return;
+  }
+  describe.skip(
+    `${title} — has no recording yet: record fixtures/claude/${scenario}/ with a signed-in CLI`,
+    body,
+  );
+};
 
 const ofType = <T extends RuntimeEvent["type"]>(events: ReadonlyArray<RuntimeEvent>, type: T) =>
   events.filter((event): event is Extract<RuntimeEvent, { type: T }> => event.type === type);
@@ -154,69 +168,62 @@ const rows = (events: ReadonlyArray<RuntimeEvent>, kind: string) =>
     .map((event) => event.payload.item)
     .filter((item) => item.kind === kind);
 
-describe.skipIf(!recorded("plain-reply"))(
-  "a Claude Code session replaying claude/plain-reply",
-  () => {
-    it.live("answers the turn with streamed text, usage and end_turn", () =>
-      Effect.scoped(
-        Effect.gen(function* () {
-          const events = yield* replayTurn("plain-reply", "approval-required", "deny");
-          const completed = ofType(events, "turn.completed")[0];
-          expect(completed?.payload.stopReason).toBe("end_turn");
-          expect(ofType(events, "runtime.error")).toEqual([]);
-          expect(ofType(events, "event.unmapped")).toEqual([]);
+describeRecorded("plain-reply", "a Claude Code session replaying claude/plain-reply", () => {
+  it.live("answers the turn with streamed text, usage and end_turn", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const events = yield* replayTurn("plain-reply", "approval-required", "deny");
+        const completed = ofType(events, "turn.completed")[0];
+        expect(completed?.payload.stopReason).toBe("end_turn");
+        expect(ofType(events, "runtime.error")).toEqual([]);
+        expect(ofType(events, "event.unmapped")).toEqual([]);
 
-          // The answer streamed as deltas onto one row that the snapshot settled.
-          const deltas = ofType(events, "content.delta");
-          expect(deltas.length).toBeGreaterThan(0);
-          const settled = rows(events, "assistant_message");
-          expect(settled).toHaveLength(1);
-          expect((settled[0]!.text ?? "").toLowerCase()).toContain("pong");
-          expect(new Set(deltas.map((event) => event.payload.itemId))).toEqual(
-            new Set([settled[0]!.itemId]),
-          );
+        // The answer streamed as deltas onto one row that the snapshot settled.
+        const deltas = ofType(events, "content.delta");
+        expect(deltas.length).toBeGreaterThan(0);
+        const settled = rows(events, "assistant_message");
+        expect(settled).toHaveLength(1);
+        expect((settled[0]!.text ?? "").toLowerCase()).toContain("pong");
+        expect(new Set(deltas.map((event) => event.payload.itemId))).toEqual(
+          new Set([settled[0]!.itemId]),
+        );
 
-          const usage = ofType(events, "usage.updated")[0]?.payload;
-          expect(usage?.output).toBeGreaterThan(0);
-          expect(usage?.costUsd).toBeGreaterThan(0);
-          expect(ofType(events, "context.updated").length).toBeGreaterThan(0);
-        }),
-      ),
-    );
-  },
-);
+        const usage = ofType(events, "usage.updated")[0]?.payload;
+        expect(usage?.output).toBeGreaterThan(0);
+        expect(usage?.costUsd).toBeGreaterThan(0);
+        expect(ofType(events, "context.updated").length).toBeGreaterThan(0);
+      }),
+    ),
+  );
+});
 
-describe.skipIf(!recorded("edit-approval"))(
-  "a Claude Code session replaying claude/edit-approval",
-  () => {
-    it.live("asks before the write, and settles the write as a file change once allowed", () =>
-      Effect.scoped(
-        Effect.gen(function* () {
-          const events = yield* replayTurn("edit-approval", "approval-required", "allow-once");
-          expectGated(events);
-          const first = ofType(events, "request.opened")[0]!.payload.request;
-          expect(first.kind).toBe("file_write");
-          expect(first.patternSuggestion).toMatch(/^Edit\(.*hello\.txt\)$/);
+describeRecorded("edit-approval", "a Claude Code session replaying claude/edit-approval", () => {
+  it.live("asks before the write, and settles the write as a file change once allowed", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const events = yield* replayTurn("edit-approval", "approval-required", "allow-once");
+        expectGated(events);
+        const first = ofType(events, "request.opened")[0]!.payload.request;
+        expect(first.kind).toBe("file_write");
+        expect(first.patternSuggestion).toMatch(/^Edit\(.*hello\.txt\)$/);
 
-          const write = rows(events, "file_change").find((item) =>
-            item.fileChange?.path.endsWith("hello.txt"),
-          );
-          expect(write?.status).toBe("completed");
-          expect(write?.fileChange?.diff).toContain("+hi");
-          // The row settled only after the card was answered.
-          const resolvedAt = events.findIndex((event) => event.type === "request.resolved");
-          const settledAt = events.findIndex(
-            (event) =>
-              event.type === "item.completed" && event.payload.item.itemId === write?.itemId,
-          );
-          expect(settledAt).toBeGreaterThan(resolvedAt);
-        }),
-      ),
-    );
-  },
-);
+        const write = rows(events, "file_change").find((item) =>
+          item.fileChange?.path.endsWith("hello.txt"),
+        );
+        expect(write?.status).toBe("completed");
+        expect(write?.fileChange?.diff).toContain("+hi");
+        // The row settled only after the card was answered.
+        const resolvedAt = events.findIndex((event) => event.type === "request.resolved");
+        const settledAt = events.findIndex(
+          (event) => event.type === "item.completed" && event.payload.item.itemId === write?.itemId,
+        );
+        expect(settledAt).toBeGreaterThan(resolvedAt);
+      }),
+    ),
+  );
+});
 
-describe.skipIf(!recorded("deny"))("a Claude Code session replaying claude/deny", () => {
+describeRecorded("deny", "a Claude Code session replaying claude/deny", () => {
   it.live("fails the denied command's row and tells the model it was refused", () =>
     Effect.scoped(
       Effect.gen(function* () {
@@ -235,7 +242,8 @@ describe.skipIf(!recorded("deny"))("a Claude Code session replaying claude/deny"
   );
 });
 
-describe.skipIf(!recorded("sensitive-full-access"))(
+describeRecorded(
+  "sensitive-full-access",
   "a Claude Code session replaying claude/sensitive-full-access",
   () => {
     it.live("opens a card for .env under full access", () =>
@@ -252,70 +260,65 @@ describe.skipIf(!recorded("sensitive-full-access"))(
   },
 );
 
-describe.skipIf(!recorded("plan-accept"))(
-  "a Claude Code session replaying claude/plan-accept",
-  () => {
-    it.live("proposes the plan, stops the plan turn, and implements it out of plan mode", () =>
-      Effect.scoped(
-        Effect.gen(function* () {
-          const events = yield* replaySession(
-            "plan-accept",
-            { runtimeMode: "approval-required", interactionMode: "plan" },
-            "allow-once",
-            ({ handle, collector, prompts }) =>
-              Effect.gen(function* () {
-                yield* handle.send({ text: prompts[0]!, attachments: [], mentions: [] });
-                const proposed = yield* collector.awaitItem(
-                  (event) => event.type === "turn.plan.proposed",
-                );
-                const planTurn = yield* collector.awaitItem(
-                  (event) => event.type === "turn.completed",
-                );
-                if (proposed.type !== "turn.plan.proposed") return;
-                // Accepting, as the server carries it out: out of plan mode,
-                // then the implementation turn naming the plan file.
-                yield* handle.respondToPlan(proposed.payload.turnId, "accept");
-                yield* handle.updateSettings({ interactionMode: "default" });
-                const path = proposed.payload.planPath;
-                yield* handle.send({
-                  text:
-                    path === undefined
-                      ? "Implement the approved plan."
-                      : `Implement the approved plan at ${path}`,
-                  attachments: [],
-                  mentions: [],
-                });
-                yield* collector.awaitItem(
-                  (event) =>
-                    event.type === "turn.completed" &&
-                    planTurn.type === "turn.completed" &&
-                    event.payload.turnId !== planTurn.payload.turnId,
-                );
-              }),
-          );
-          expect(ofType(events, "event.unmapped")).toEqual([]);
-          const proposed = ofType(events, "turn.plan.proposed");
-          expect(proposed).toHaveLength(1);
-          expect(proposed[0]!.payload.planMarkdown.length).toBeGreaterThan(0);
-          // The plan turn ended cleanly on the CLI's result after the refusal.
-          const [planTurn, implementation] = ofType(events, "turn.completed");
-          expect(planTurn?.payload.stopReason).toBe("end_turn");
-          expect(planTurn?.payload.turnId).toBe(proposed[0]!.payload.turnId);
-          const planRows = rows(events, "plan");
-          expect(planRows.some((item) => item.text === proposed[0]!.payload.planMarkdown)).toBe(
-            true,
-          );
-          // The implementation turn wrote the change.
-          expect(implementation?.payload.stopReason).toBe("end_turn");
-          const writes = rows(events, "file_change").filter((item) => item.status === "completed");
-          expect(writes.length).toBeGreaterThan(0);
-        }),
-      ),
-    );
-  },
-);
+describeRecorded("plan-accept", "a Claude Code session replaying claude/plan-accept", () => {
+  it.live("proposes the plan, stops the plan turn, and implements it out of plan mode", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const events = yield* replaySession(
+          "plan-accept",
+          { runtimeMode: "approval-required", interactionMode: "plan" },
+          "allow-once",
+          ({ handle, collector, prompts }) =>
+            Effect.gen(function* () {
+              yield* handle.send({ text: prompts[0]!, attachments: [], mentions: [] });
+              const proposed = yield* collector.awaitItem(
+                (event) => event.type === "turn.plan.proposed",
+              );
+              const planTurn = yield* collector.awaitItem(
+                (event) => event.type === "turn.completed",
+              );
+              if (proposed.type !== "turn.plan.proposed") return;
+              // Accepting, as the server carries it out: out of plan mode,
+              // then the implementation turn naming the plan file.
+              yield* handle.respondToPlan(proposed.payload.turnId, "accept");
+              yield* handle.updateSettings({ interactionMode: "default" });
+              const path = proposed.payload.planPath;
+              yield* handle.send({
+                text:
+                  path === undefined
+                    ? "Implement the approved plan."
+                    : `Implement the approved plan at ${path}`,
+                attachments: [],
+                mentions: [],
+              });
+              yield* collector.awaitItem(
+                (event) =>
+                  event.type === "turn.completed" &&
+                  planTurn.type === "turn.completed" &&
+                  event.payload.turnId !== planTurn.payload.turnId,
+              );
+            }),
+        );
+        expect(ofType(events, "event.unmapped")).toEqual([]);
+        const proposed = ofType(events, "turn.plan.proposed");
+        expect(proposed).toHaveLength(1);
+        expect(proposed[0]!.payload.planMarkdown.length).toBeGreaterThan(0);
+        // The plan turn ended cleanly on the CLI's result after the refusal.
+        const [planTurn, implementation] = ofType(events, "turn.completed");
+        expect(planTurn?.payload.stopReason).toBe("end_turn");
+        expect(planTurn?.payload.turnId).toBe(proposed[0]!.payload.turnId);
+        const planRows = rows(events, "plan");
+        expect(planRows.some((item) => item.text === proposed[0]!.payload.planMarkdown)).toBe(true);
+        // The implementation turn wrote the change.
+        expect(implementation?.payload.stopReason).toBe("end_turn");
+        const writes = rows(events, "file_change").filter((item) => item.status === "completed");
+        expect(writes.length).toBeGreaterThan(0);
+      }),
+    ),
+  );
+});
 
-describe.skipIf(!recorded("question"))("a Claude Code session replaying claude/question", () => {
+describeRecorded("question", "a Claude Code session replaying claude/question", () => {
   it.live("asks through a question card and hands the answer back to the model", () =>
     Effect.scoped(
       Effect.gen(function* () {
@@ -364,7 +367,7 @@ describe.skipIf(!recorded("question"))("a Claude Code session replaying claude/q
   );
 });
 
-describe.skipIf(!recorded("subagent"))("a Claude Code session replaying claude/subagent", () => {
+describeRecorded("subagent", "a Claude Code session replaying claude/subagent", () => {
   it.live("opens a task for the delegation and nests the subagent's rows under it", () =>
     Effect.scoped(
       Effect.gen(function* () {
@@ -395,7 +398,7 @@ describe.skipIf(!recorded("subagent"))("a Claude Code session replaying claude/s
   );
 });
 
-describe.skipIf(!recorded("steering"))("a Claude Code session replaying claude/steering", () => {
+describeRecorded("steering", "a Claude Code session replaying claude/steering", () => {
   it.live("takes a steered message into the running turn and answers both in it", () =>
     Effect.scoped(
       Effect.gen(function* () {

@@ -2,8 +2,9 @@
  * The pieces a subagent's row is built from: how a task's state reads as a
  * row's status, the title a Task or Agent call gives its task, and the hold
  * that keeps a subagent's messages until its task's row is open. How the
- * SDK's own messages become nested rows is proven on the real CLI's
- * recordings, in `recordedFrames.test.ts` and `recordedSession.test.ts`.
+ * SDK's own messages become nested rows is for the real CLI's recordings to
+ * prove, in `recordedFrames.test.ts` and `recordedSession.test.ts`, once
+ * `subagent` is recorded with a signed-in CLI; no recording has a subagent yet.
  */
 
 import { makeItemId } from "@OpenAde/contracts/ids";

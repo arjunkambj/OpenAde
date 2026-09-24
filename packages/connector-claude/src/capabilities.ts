@@ -2,8 +2,11 @@
  * What a Claude Code session can do, as the engine and the renderer read it.
  *
  * Its own module because the definition, the probe and the session all need
- * it. A value here is a promise the session keeps; the ones no recording
- * backs yet say so, and stay at the answer that promises least.
+ * it. A value here is a promise the session keeps. Each comment says what
+ * backs it: a recording, or — where the recording needs a signed-in CLI and
+ * is not made yet — the SDK's declarations and a reading of the CLI's bundle,
+ * with the recording that will pin it named. What neither backs (`fork`,
+ * `rollback`) stays at the answer that promises least.
  */
 
 import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";

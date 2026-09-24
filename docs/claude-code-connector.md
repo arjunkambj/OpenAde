@@ -22,7 +22,10 @@ those are written and wait for a signed-in CLI
 (`packages/testkit/fixtures/claude/README.md` lists them). Where a claim about
 that half rests on the SDK's declarations or on reading the CLI's own bundled
 code instead of a recording, this document says so, and names the recording
-that will pin it.
+that will pin it. Until those exist their replays are skipped in the gate
+under titles that say so, and so is the conformance suite's approval case:
+Claude Code can be made to ask on demand, so that case is owed, not optional
+([philosophy.md](philosophy.md#4-a-connectors-promises-are-executable)).
 
 Its companions: [architecture.md](architecture.md#the-claude-code-connector)
 for the shape of the connector inside OpenAde,
