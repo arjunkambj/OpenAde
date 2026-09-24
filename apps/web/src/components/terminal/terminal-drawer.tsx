@@ -23,7 +23,7 @@
  * eases only while it opens or closes, so a drag still tracks the pointer.
  */
 
-import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react";
+import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import { makeTerminalId, type TerminalId, type ThreadId } from "@OpenAde/contracts/ids";
 import {
   TERMINALS_PER_OWNER,
@@ -43,7 +43,7 @@ import {
   TerminalTabStrip,
 } from "@/components/terminal/drawer-parts";
 import { nextTitle, useDrawerState } from "@/components/terminal/drawer-state";
-import { useTerminalAtoms } from "@/components/terminal/terminal-atoms";
+import { useOpenTerminal, useTerminalAtoms } from "@/components/terminal/terminal-atoms";
 import { TerminalFind } from "@/components/terminal/terminal-find";
 import type { TerminalHandle } from "@/components/terminal/terminal-handle";
 import { useDrawerBound } from "@/components/terminal/use-drawer-bound";
@@ -119,7 +119,7 @@ export function TerminalDrawer({
   const connected = useConnectionState().status === "connected";
   const list = useAtomValue(atoms.terminalListAtom(ownerKey));
   const refreshList = useAtomRefresh(atoms.terminalListAtom(ownerKey));
-  const openTerminal = useAtomSet(atoms.openTerminal, { mode: "promiseExit" });
+  const openTerminal = useOpenTerminal();
   const [state, dispatch] = useDrawerState(ownerKey);
   const drawerRef = React.useRef<HTMLDivElement>(null);
   const { shown, onPointerDown } = useDrawerResize(drawerRef);

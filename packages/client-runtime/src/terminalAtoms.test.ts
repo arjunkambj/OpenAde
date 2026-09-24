@@ -3,9 +3,10 @@
  * cannot get from the server: every output item reaches the callback even when
  * several arrive in one chunk, an overflow or a dropped socket reattaches with
  * a fresh snapshot, a terminal the server forgot is reported once as `gone`,
- * the list follows reconnects and opens, a project's terminals are listed apart
- * from a thread's and follow a hand-over to one, input reaches the shell in
- * order, and a failed write does not leave the rest of a paste to arrive later.
+ * the list follows reconnects and opens, each open resolves with its own
+ * terminal, a project's terminals are listed apart from a thread's and follow a
+ * hand-over to one, input reaches the shell in order, and a failed write does
+ * not leave the rest of a paste to arrive later.
  */
 
 import { describe, expect, it } from "@effect/vitest";
@@ -27,6 +28,7 @@ import {
 } from "@OpenAde/contracts/terminal";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
@@ -96,6 +98,10 @@ interface Script {
   readonly writeFailures: Array<unknown>;
   /** Called after each write or resize is recorded, failed or not. */
   readonly onInput: Set<() => void>;
+  /** Opens of these terminal ids wait on their deferred before answering. */
+  readonly openGates: Map<string, Deferred.Deferred<void>>;
+  /** Failures the next opens end in, one each. */
+  readonly openFailures: Array<unknown>;
 }
 
 const newScript = (subscriptions: Array<Subscription> = []): Script => ({
@@ -106,6 +112,8 @@ const newScript = (subscriptions: Array<Subscription> = []): Script => ({
   input: [],
   writeFailures: [],
   onInput: new Set(),
+  openGates: new Map(),
+  openFailures: [],
 });
 
 /**
@@ -149,7 +157,12 @@ const fakeClient = (script: Script): OpenAdeRpcClient =>
             });
         case "terminal.open":
           return (payload: TerminalRef) =>
-            Effect.sync(() => {
+            Effect.gen(function* () {
+              const gate = script.openGates.get(payload.terminalId);
+              if (gate !== undefined) yield* Deferred.await(gate);
+              if (script.openFailures.length > 0) {
+                return yield* Effect.fail(script.openFailures.shift());
+              }
               const opened = summary({
                 ...terminalOwnerOf(payload),
                 terminalId: payload.terminalId,
@@ -332,7 +345,6 @@ describe("terminal atoms", () => {
       const { registry, stateRef, terminalListAtom, openTerminal } = yield* runtimeWith(script);
       const list = terminalListAtom(terminalOwnerKey(ref));
       registry.mount(list);
-      registry.mount(openTerminal);
 
       const isOk =
         (length: number) =>
@@ -341,7 +353,7 @@ describe("terminal atoms", () => {
       yield* Effect.promise(() => awaitValue(registry, list, isOk(0)));
       expect(script.listCalls).toBe(1);
 
-      registry.set(openTerminal, { ...ref, cols: 80, rows: 24 });
+      void openTerminal(registry, { ...ref, cols: 80, rows: 24 });
       const opened = yield* Effect.promise(() => awaitValue(registry, list, isOk(1)));
       expect(opened._tag === "ok" && opened.terminals[0]?.terminalId).toBe(ref.terminalId);
       expect(script.listCalls).toBe(2);
@@ -367,11 +379,10 @@ describe("terminal atoms", () => {
       const projectList = terminalListAtom(terminalOwnerKey(project));
       registry.mount(threadList);
       registry.mount(projectList);
-      registry.mount(openTerminal);
 
       const ids = (length: number) => (query: TerminalListQuery) =>
         query._tag === "ok" && query.terminals.length === length;
-      registry.set(openTerminal, { ...project, cols: 80, rows: 24 });
+      void openTerminal(registry, { ...project, cols: 80, rows: 24 });
       const listed = yield* Effect.promise(() => awaitValue(registry, projectList, ids(1)));
       expect(listed._tag === "ok" && listed.terminals[0]).toMatchObject(project);
       yield* Effect.promise(() => awaitValue(registry, threadList, ids(0)));
@@ -390,12 +401,11 @@ describe("terminal atoms", () => {
       const threadList = terminalListAtom(terminalOwnerKey({ threadId }));
       registry.mount(projectList);
       registry.mount(threadList);
-      registry.mount(openTerminal);
       registry.mount(adoptTerminals);
 
       const count = (length: number) => (query: TerminalListQuery) =>
         query._tag === "ok" && query.terminals.length === length;
-      registry.set(openTerminal, { ...project, cols: 80, rows: 24 });
+      void openTerminal(registry, { ...project, cols: 80, rows: 24 });
       yield* Effect.promise(() => awaitValue(registry, projectList, count(1)));
 
       registry.set(adoptTerminals, { projectId, threadId });
@@ -421,6 +431,67 @@ describe("terminal atoms", () => {
       });
       expect(listed.map((terminal) => terminal.terminalId)).toEqual([thread.terminalId]);
       expect(script.listCalls).toBe(1);
+    }),
+  );
+
+  it.live("an open resolves with its own terminal once it has finished", () =>
+    Effect.gen(function* () {
+      const ref = newRef();
+      const { registry, openTerminal } = yield* runtimeWith(newScript());
+
+      const exit = yield* Effect.promise(() =>
+        openTerminal(registry, { ...ref, cols: 80, rows: 24 }),
+      );
+      expect(Exit.isSuccess(exit) && exit.value.terminalId).toBe(ref.terminalId);
+    }),
+  );
+
+  it.live("two opens in flight at once each resolve with their own terminal", () =>
+    Effect.gen(function* () {
+      const threadId = makeThreadId();
+      const first = { threadId, terminalId: makeTerminalId() };
+      const second = { threadId, terminalId: makeTerminalId() };
+      const script = newScript();
+      const releaseFirst = yield* Deferred.make<void>();
+      const releaseSecond = yield* Deferred.make<void>();
+      script.openGates.set(first.terminalId, releaseFirst);
+      script.openGates.set(second.terminalId, releaseSecond);
+      const { registry, openTerminal } = yield* runtimeWith(script);
+
+      const openingFirst = openTerminal(registry, { ...first, cols: 80, rows: 24 });
+      const openingSecond = openTerminal(registry, { ...second, cols: 80, rows: 24 });
+      // The second finishes first, and neither run cuts the other short.
+      yield* Deferred.succeed(releaseSecond, undefined);
+      const secondExit = yield* Effect.promise(() => openingSecond);
+      yield* Deferred.succeed(releaseFirst, undefined);
+      const firstExit = yield* Effect.promise(() => openingFirst);
+
+      expect(Exit.isSuccess(firstExit) && firstExit.value.terminalId).toBe(first.terminalId);
+      expect(Exit.isSuccess(secondExit) && secondExit.value.terminalId).toBe(second.terminalId);
+      expect(script.terminals.map((terminal) => terminal.terminalId)).toEqual([
+        second.terminalId,
+        first.terminalId,
+      ]);
+    }),
+  );
+
+  it.live("a refused open resolves with the refusal and still refetches the list", () =>
+    Effect.gen(function* () {
+      const ref = newRef();
+      const script = newScript();
+      const refusal = new OpenAdeRpcError({ code: "conflict", message: "too many terminals" });
+      script.openFailures.push(refusal);
+      const { registry, terminalListAtom, openTerminal } = yield* runtimeWith(script);
+      const list = terminalListAtom(terminalOwnerKey(ref));
+      registry.mount(list);
+      yield* Effect.promise(() => awaitValue(registry, list));
+      expect(script.listCalls).toBe(1);
+
+      const exit = yield* Effect.promise(() =>
+        openTerminal(registry, { ...ref, cols: 80, rows: 24 }),
+      );
+      expect(exit).toStrictEqual(Exit.fail(refusal));
+      yield* Effect.promise(() => awaitValue(registry, list, () => script.listCalls === 2));
     }),
   );
 

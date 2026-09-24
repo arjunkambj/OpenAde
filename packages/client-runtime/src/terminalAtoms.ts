@@ -7,8 +7,10 @@
  *   `openTerminal` / `closeTerminal`. A failure is a value
  *   (`TerminalListQuery`), not the atom's error channel, so the drawer can say
  *   what went wrong and the next reconnect still has a stream to refetch on.
- * - `openTerminal`, `writeTerminal`, `resizeTerminal`, `closeTerminal` — the
- *   four calls, as `runtime.fn`s.
+ * - `openTerminal` — `terminal.open`, a one-shot call (`./oneShot`) on the
+ *   caller's registry that resolves with its own `Exit`.
+ * - `writeTerminal`, `resizeTerminal`, `closeTerminal` — the other three
+ *   calls, as `runtime.fn`s.
  * - `listTerminals` — one `terminal.list`, answered once.
  * - `adoptTerminals` — `terminal.adopt`, the hand-over of a project's
  *   terminals to the local thread the New task page just started; both
@@ -23,18 +25,20 @@
  * renderer sets it with a callback on mount and resets it on unmount, which
  * interrupts the run, and every item reaches the callback, in order.
  *
- * Every fn here but two is `concurrent`. A plain `runtime.fn` interrupts its
- * previous run when it is set again, which would cancel the first of two tabs
- * opening together and drop keystrokes typed while an earlier one was in
- * flight. Input goes through one lane per terminal instead (`makeInputLanes`),
- * so it reaches the shell in the order it was typed however the calls are
- * scheduled.
+ * The write, resize and close fns are `concurrent`. A plain `runtime.fn`
+ * interrupts its previous run when it is set again, which would drop keystrokes
+ * typed while an earlier one was in flight. Input goes through one lane per
+ * terminal instead (`makeInputLanes`), so it reaches the shell in the order it
+ * was typed however the calls are scheduled.
  *
- * `adoptTerminals` and `listTerminals` are plain fns, because their callers
- * read the answer. A concurrent fn answers with the first of the runs still in
- * flight when its own is joined — another call's answer when two overlap, and
- * none at all when its own finished before the join — so its value is not the
- * call's. The New task hand-over makes one of each at a time.
+ * A concurrent fn's answer is not its call's, though: it answers with the
+ * first of the runs still in flight when its own is joined — another call's
+ * answer when two overlap, and none at all when its own finished before the
+ * join. That is fine for the three calls nobody reads the answer of. The drawer
+ * reads the summary `openTerminal` answers with, so that one is a one-shot: two
+ * tabs opening together each get their own terminal. `adoptTerminals` and
+ * `listTerminals` are plain fns, because their callers read the answer too; the
+ * New task hand-over makes one of each at a time.
  *
  * Like the other atom modules, this takes the `AtomRuntime` that `makeRuntime`
  * already built, so the terminal shares one connection with everything else.
@@ -58,10 +62,12 @@ import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
 import * as Atom from "effect/unstable/reactivity/Atom";
+import type * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry";
 import type * as RpcClientError from "effect/unstable/rpc/RpcClientError";
 
 import { transportOnly } from "./atoms";
 import { Connection, ConnectionStateRef } from "./connection";
+import { runOneShot } from "./oneShot";
 
 /** `terminal.list` as a value: the owner's terminals, or why they could not be listed. */
 export type TerminalListQuery =
@@ -269,11 +275,15 @@ export const makeTerminalAtoms = (runtime: Atom.AtomRuntime<Connection | Connect
   );
 
   /**
-   * Starts the shell, or answers the one already running under this id. The
-   * list is refetched whatever the outcome: it is the truth either way.
+   * Starts the shell, or answers the one already running under this id, and
+   * resolves with that terminal's summary. The list is refetched whatever the
+   * outcome: it is the truth either way.
    */
-  const openTerminal = runtime.fn(
-    ({ title, ...args }: TerminalOpenArgs, get) =>
+  const openTerminal = (
+    registry: AtomRegistry.AtomRegistry,
+    { title, ...args }: TerminalOpenArgs,
+  ) =>
+    runOneShot(runtime, registry, () =>
       Effect.gen(function* () {
         const client = yield* (yield* Connection).client;
         return yield* client["terminal.open"]({
@@ -282,11 +292,10 @@ export const makeTerminalAtoms = (runtime: Atom.AtomRuntime<Connection | Connect
         });
       }).pipe(
         Effect.ensuring(
-          Effect.sync(() => get.registry.refresh(terminalListAtom(terminalOwnerKey(args)))),
+          Effect.sync(() => registry.refresh(terminalListAtom(terminalOwnerKey(args)))),
         ),
       ),
-    { concurrent: true },
-  );
+    );
 
   /** Kills the shell and forgets it; the list is refetched whatever the outcome. */
   const closeTerminal = runtime.fn(
