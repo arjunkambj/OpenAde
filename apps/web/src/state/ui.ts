@@ -91,7 +91,7 @@ const writeStoredWidth = (key: string, width: number) => {
 };
 
 const DOCK_WIDTH_KEY = "openade:dock-width";
-const DOCK_WIDTH_DEFAULT = 380;
+const DOCK_WIDTH_DEFAULT = 480;
 const DOCK_WIDTH_MIN = 280;
 /**
  * The dock may take up to this share of the area beside the sidebar, and never
@@ -105,7 +105,7 @@ export const THREAD_COLUMN_MIN = 360;
 const DOCK_WIDTH_MAX_FALLBACK = 1600;
 
 /** Right-dock width in px; mirrored to localStorage on every write. */
-const dockWidthAtom = Atom.make<number>(
+const dockWidthAtom = rememberedAtom<number>(
   readStoredWidth(DOCK_WIDTH_KEY, DOCK_WIDTH_DEFAULT, DOCK_WIDTH_MIN, DOCK_WIDTH_MAX_FALLBACK),
 );
 
@@ -133,7 +133,7 @@ const SIDEBAR_WIDTH_MIN = 220;
 const SIDEBAR_WIDTH_MAX = 480;
 
 /** Left-sidebar width in px; mirrored to localStorage on every write. */
-const sidebarWidthAtom = Atom.make<number>(
+const sidebarWidthAtom = rememberedAtom<number>(
   readStoredWidth(SIDEBAR_WIDTH_KEY, SIDEBAR_WIDTH_DEFAULT, SIDEBAR_WIDTH_MIN, SIDEBAR_WIDTH_MAX),
 );
 
