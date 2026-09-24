@@ -25,8 +25,18 @@ describe("userMessageOverflows", () => {
     expect(userMessageOverflows("a".repeat(USER_MESSAGE_MAX_CHARS + 1))).toBe(true);
   });
 
-  it("counts a trailing newline as a line of its own", () => {
-    expect(userMessageOverflows(`${lines(USER_MESSAGE_MAX_LINES)}\n`)).toBe(true);
+  it("does not count a trailing newline, which renders no line", () => {
+    expect(userMessageOverflows(`${lines(USER_MESSAGE_MAX_LINES)}\n`)).toBe(false);
+    expect(userMessageOverflows(`\n\n${lines(USER_MESSAGE_MAX_LINES)}\n\n  \n`)).toBe(false);
+  });
+
+  it("counts only lines with text, so paragraphs that fit are not clamped", () => {
+    // Six one-line paragraphs: eleven lines as typed, six lines and five gaps on screen.
+    const paragraphs = lines(6, "\n\n");
+    expect(paragraphs.split("\n")).toHaveLength(11);
+    expect(userMessageOverflows(paragraphs)).toBe(false);
+    expect(userMessageOverflows(lines(USER_MESSAGE_MAX_LINES, "\n\n\n"))).toBe(false);
+    expect(userMessageOverflows(lines(USER_MESSAGE_MAX_LINES + 1, "\n\n"))).toBe(true);
   });
 
   it("counts a CRLF as one line break and one character", () => {

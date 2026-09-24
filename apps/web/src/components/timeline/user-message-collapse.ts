@@ -7,6 +7,13 @@
  * measures rows itself, and a threshold that needs no layout pass keeps the
  * row's first render its final one. A CRLF counts as one line break and one
  * character, the same as the LF the composer would have sent.
+ *
+ * Only lines with text count. A blank line between paragraphs renders as a
+ * paragraph gap, shorter than a line, and blank lines at either end render
+ * nothing — counted, six short paragraphs would read as eleven lines and clamp
+ * a bubble that fits, fading text that is all on screen behind a "Show more"
+ * that reveals nothing. Past ten lines with text the bubble is always taller
+ * than the ten-line clamp, whatever the gaps.
  */
 
 /** Lines a message may have and still show in full. */
@@ -16,9 +23,15 @@ export const USER_MESSAGE_MAX_LINES = 10;
 export const USER_MESSAGE_MAX_CHARS = 600;
 
 export const userMessageOverflows = (text: string): boolean => {
-  const normalized = text.replace(/\r\n?/g, "\n");
+  const normalized = text.replace(/\r\n?/g, "\n").trim();
   if (normalized.length > USER_MESSAGE_MAX_CHARS) {
     return true;
   }
-  return normalized.split("\n").length > USER_MESSAGE_MAX_LINES;
+  let lines = 0;
+  for (const line of normalized.split("\n")) {
+    if (line.trim() !== "") {
+      lines += 1;
+    }
+  }
+  return lines > USER_MESSAGE_MAX_LINES;
 };

@@ -878,8 +878,10 @@ is turned into text before rendering, so `<b>x</b>` shows as typed, headings
 stay at the body's size, and inline code sits on a chip that reads on the
 bubble.
 
-A user message over 10 lines or 600 characters
-(`timeline/user-message-collapse.ts`, a CRLF counting as one) is clamped to
+A user message over 10 lines with text or 600 characters
+(`timeline/user-message-collapse.ts`, a CRLF counting as one; blank lines
+render as shorter paragraph gaps, or as nothing at either end, so they do not
+count, and a message that fits is never clamped) is clamped to
 ten lines that fade out at the bottom, with a "Show more"/"Show less" button
 under it. Whether it is open is kept in the row disclosure map under
 `user-message:<itemId>`, so it holds when the row scrolls away and back; the
