@@ -188,7 +188,9 @@ export function RightDock({
             host keeps above the routes, and the pane only marks where the
             selected one goes.
           */}
-          {tab === "browser" ? <BrowserPane threadId={snapshot.threadId} /> : null}
+          {tab === "browser" ? (
+            <BrowserPane threadId={snapshot.threadId} projectId={snapshot.projectId} />
+          ) : null}
           {tab === "files" ? (
             <FilesPane
               projectId={snapshot.projectId}

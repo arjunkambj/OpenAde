@@ -5,6 +5,10 @@
  * and the status chip that shows who is driving — `agent: browser_click`
  * while a `browser_*` call runs. What is typed goes through `./address`: only
  * an http(s) url or `about:blank` is ever loaded.
+ *
+ * Focusing the field opens its suggestions (`./address-suggestions`): the
+ * project's running dev servers and the pages its tabs visited. The arrow
+ * keys highlight one, and Enter loads it instead of what was typed.
  */
 import * as React from "react";
 
@@ -15,7 +19,10 @@ import { Input } from "@OpenAde/ui/components/input";
 
 import { cn } from "@/lib/utils";
 import { normalizeAddress } from "./address";
+import { AddressSuggestions } from "./address-suggestions";
 import { browserStatus } from "./status";
+import { moveActive, suggestionsFor } from "./suggestions";
+import type { SuggestionSource } from "./use-suggestions";
 import { ChevronLeft, ChevronRight, Repeat, Stop } from "@honeyicons/react";
 
 /** What the in-app pane knows about the selected tab's history. */
@@ -36,7 +43,9 @@ export interface AddressBarProps {
   readonly nav?: TabNavigation | undefined;
   readonly onAction: (input: BrowserHumanInput) => void;
   /** The address field, for `browser.focusAddress`. */
-  readonly inputRef?: React.Ref<HTMLInputElement>;
+  readonly inputRef?: React.RefObject<HTMLInputElement | null>;
+  /** The dev servers and history the field suggests; absent, it suggests nothing. */
+  readonly suggest?: SuggestionSource | undefined;
   /** Trailing controls: the in-app pane's zoom and "more" menu. */
   readonly children?: React.ReactNode;
 }
@@ -72,11 +81,37 @@ function ToolbarButton({
   );
 }
 
-export function AddressBar({ state, url, nav, onAction, inputRef, children }: AddressBarProps) {
+const NO_SOURCE: SuggestionSource = { servers: [], history: [], refresh: () => undefined };
+
+export function AddressBar({
+  state,
+  url,
+  nav,
+  onAction,
+  inputRef,
+  suggest = NO_SOURCE,
+  children,
+}: AddressBarProps) {
   const [draft, setDraft] = React.useState("");
   const [editing, setEditing] = React.useState(false);
+  const [listOpen, setListOpen] = React.useState(false);
+  const [active, setActive] = React.useState<string | null>(null);
+  const ownRef = React.useRef<HTMLInputElement | null>(null);
+  const fieldRef = inputRef ?? ownRef;
   const displayUrl = url ?? state?.url ?? "";
   const status = browserStatus(state);
+  const suggestions = listOpen
+    ? suggestionsFor(draft, displayUrl, suggest.servers, suggest.history)
+    : [];
+
+  const openList = () => {
+    if (!listOpen) suggest.refresh();
+    setListOpen(true);
+  };
+  const closeList = () => {
+    setListOpen(false);
+    setActive(null);
+  };
 
   // The address mirrors the live url unless the human is mid-edit.
   React.useEffect(() => {
@@ -84,7 +119,8 @@ export function AddressBar({ state, url, nav, onAction, inputRef, children }: Ad
   }, [displayUrl, editing]);
 
   const submit = () => {
-    const value = draft.trim();
+    const value = active ?? draft.trim();
+    closeList();
     if (value === "" || value === displayUrl) {
       setEditing(false);
       return;
@@ -92,6 +128,13 @@ export function AddressBar({ state, url, nav, onAction, inputRef, children }: Ad
     const target = normalizeAddress(value);
     if (target !== null) onAction({ kind: "navigate", url: target });
     setEditing(false);
+  };
+
+  const pick = (picked: string) => {
+    closeList();
+    setEditing(false);
+    if (picked !== displayUrl) onAction({ kind: "navigate", url: picked });
+    fieldRef.current?.blur();
   };
 
   const history = (direction: "back" | "forward" | "reload" | "stop") => () =>
@@ -118,30 +161,59 @@ export function AddressBar({ state, url, nav, onAction, inputRef, children }: Ad
           <Repeat variant="bold" />
         </ToolbarButton>
       )}
-      <Input
-        ref={inputRef}
-        value={draft}
-        onChange={(event) => {
-          setDraft(event.target.value);
-          setEditing(true);
-        }}
-        onBlur={() => setEditing(false)}
-        onFocus={(event) => {
-          setEditing(true);
-          event.currentTarget.select();
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") submit();
-          if (event.key === "Escape") {
-            setDraft(displayUrl);
+      <AddressSuggestions
+        open={listOpen}
+        suggestions={suggestions}
+        active={active}
+        onActiveChange={setActive}
+        onPick={pick}
+        onDismiss={closeList}
+      >
+        <Input
+          ref={fieldRef}
+          value={draft}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            setEditing(true);
+            setActive(null);
+            openList();
+          }}
+          onBlur={() => {
             setEditing(false);
-          }
-        }}
-        placeholder="Search or enter address"
-        spellCheck={false}
-        className="h-7 flex-1"
-        aria-label="Address"
-      />
+            closeList();
+          }}
+          onFocus={(event) => {
+            setEditing(true);
+            openList();
+            event.currentTarget.select();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+              event.preventDefault();
+              if (!listOpen) openList();
+              else
+                setActive(
+                  moveActive(suggestions, active, event.key === "ArrowDown" ? "down" : "up"),
+                );
+            }
+            if (event.key === "Enter") submit();
+            if (event.key === "Escape") {
+              if (listOpen && suggestions.length > 0) {
+                closeList();
+                return;
+              }
+              setDraft(displayUrl);
+              setEditing(false);
+            }
+          }}
+          placeholder="Search or enter address"
+          spellCheck={false}
+          className="h-7 flex-1"
+          aria-label="Address"
+          aria-autocomplete="list"
+          aria-expanded={suggestions.length > 0}
+        />
+      </AddressSuggestions>
       <div
         className="text-muted-foreground flex max-w-[40%] items-center gap-1.5 truncate px-1 text-xs"
         title={status.label}

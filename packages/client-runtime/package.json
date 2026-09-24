@@ -32,6 +32,10 @@
       "types": "./src/fileAtoms.ts",
       "import": "./src/fileAtoms.ts"
     },
+    "./browserAtoms": {
+      "types": "./src/browserAtoms.ts",
+      "import": "./src/browserAtoms.ts"
+    },
     "./fsAtoms": {
       "types": "./src/fsAtoms.ts",
       "import": "./src/fsAtoms.ts"

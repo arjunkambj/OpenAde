@@ -16,9 +16,10 @@
  * - `disabled` (desktop with `OPENADE_REMOTE_DEBUG=0`): the agent has no
  *   browser, and the pane says so above the tabs a person can still browse.
  *
- * Nothing here creates a webview: with no tab the pane shows "No page open".
- * A tab appears on the agent's first call, a page's popup, an address typed
- * here, or `openInThreadBrowser`. A failed attach shows as an alert with
+ * Nothing here creates a webview: with no tab the pane shows "No page open",
+ * with the project's running dev servers (`browser.discoverServers`) to open
+ * in one click. A tab appears on the agent's first call, a page's popup, an
+ * address typed or a server picked here, or `openInThreadBrowser`. A failed attach shows as an alert with
  * Retry — never as a silent switch to a headless browser.
  *
  * The atoms come from the one app runtime (`@/state/app-runtime`) — there is
@@ -31,8 +32,10 @@ import type { ThreadId } from "@OpenAde/contracts/ids";
 import type { BrowserHumanInput } from "@OpenAde/contracts/rpc";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@OpenAde/ui/components/alert";
 import { Button } from "@OpenAde/ui/components/button";
+import type { DevServer } from "@OpenAde/contracts/rpc";
 import {
   Empty,
+  EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
@@ -43,21 +46,32 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { BrowserSlot } from "@/components/browser-host/browser-slot";
 import { FOCUS_SURFACE } from "@/lib/keybinding-context";
 import { getAppAtoms } from "@/state/app-runtime";
+import { useRecordVisit } from "@/state/browser-history";
 import { selectedTab, useThreadTabs } from "@/state/browser-tabs";
 import { AddressBar } from "./address-bar";
 import { FrameSurface } from "./frame-surface";
 import { InAppToolbar } from "./in-app-toolbar";
 import { isAgentBrowserMissing } from "./install";
 import { InstallPrompt } from "./install-prompt";
+import { openInThreadBrowser } from "./open-in-browser";
 import { BROWSER_DISABLED_LABEL, browserModeLabel, frameFallback } from "./status";
-import { AlertTriangle, Globe, InfoSquare, Refresh } from "@honeyicons/react";
+import { useSuggestionSource } from "./use-suggestions";
+import { AlertTriangle, Globe, InfoSquare, Refresh, Server } from "@honeyicons/react";
 
 export interface BrowserPaneProps {
   readonly threadId: ThreadId;
+  /** The thread's project: whose history the address bar suggests; null when unknown. */
+  readonly projectId: string | null;
 }
 
-/** What the slot shows while the thread has no tab. */
-function NoPage() {
+/** What the slot shows while the thread has no tab: the project's servers, one click each. */
+function NoPage({
+  servers,
+  onOpen,
+}: {
+  readonly servers: ReadonlyArray<DevServer>;
+  readonly onOpen: (url: string) => void;
+}) {
   return (
     <Empty>
       <EmptyHeader>
@@ -66,9 +80,30 @@ function NoPage() {
         </EmptyMedia>
         <EmptyTitle>No page open</EmptyTitle>
         <EmptyDescription>
-          Enter an address above. The agent opens a tab here when it needs one.
+          {servers.length === 0
+            ? "Enter an address above. The agent opens a tab here when it needs one."
+            : "Open one of this project's dev servers, or enter an address above."}
         </EmptyDescription>
       </EmptyHeader>
+      {servers.length === 0 ? null : (
+        <EmptyContent>
+          {servers.map((server) => (
+            <Button
+              key={server.port}
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onOpen(server.url)}
+            >
+              <Server variant="bold" data-icon="inline-start" />
+              {server.url}
+              {server.processName === null ? null : (
+                <span className="text-muted-foreground">{server.processName}</span>
+              )}
+            </Button>
+          ))}
+        </EmptyContent>
+      )}
     </Empty>
   );
 }
@@ -128,13 +163,15 @@ function DisabledNotice() {
   );
 }
 
-export function BrowserPane({ threadId }: BrowserPaneProps) {
+export function BrowserPane({ threadId, projectId }: BrowserPaneProps) {
   const atoms = getAppAtoms();
   const stateResult = useAtomValue(atoms.browserStateAtom(threadId));
   const state = AsyncResult.isSuccess(stateResult) ? stateResult.value : null;
   const sendInput = useAtomSet(atoms.sendBrowserInput, { mode: "promiseExit" });
   const hostsTabs = window.openade?.browserPane?.serveTabs !== undefined;
   const tab = selectedTab(useThreadTabs(threadId));
+  const suggest = useSuggestionSource(threadId, projectId);
+  const recordVisit = useRecordVisit();
 
   const dispatch = React.useCallback(
     (input: BrowserHumanInput) => {
@@ -158,14 +195,27 @@ export function BrowserPane({ threadId }: BrowserPaneProps) {
 
   const modeLabel = state === null ? null : browserModeLabel(state.mode);
 
+  // The headless browser's pages go into the project's history from here; on
+  // the desktop the browser host records every tab, shown or not.
+  const ownedUrl = state?.mode === "owned-chromium" ? state.url : null;
+  const ownedTitle = state?.title ?? "";
+  React.useEffect(() => {
+    if (ownedUrl !== null && projectId !== null) recordVisit(projectId, ownedUrl, ownedTitle);
+  }, [recordVisit, projectId, ownedUrl, ownedTitle]);
+
+  const openServer = React.useCallback(
+    (url: string) => void openInThreadBrowser(threadId, url, { reveal: false }),
+    [threadId],
+  );
+
   return (
     // Focus anywhere in the pane — the address bar, its buttons — reads as
     // `browserFocus`, so the app's Mod+L and Mod+[ / Mod+] leave it alone.
     <div data-context={FOCUS_SURFACE.browser} className="flex h-full min-h-0 flex-col">
       {inApp ? (
-        <InAppToolbar threadId={threadId} state={state} dispatch={dispatch} />
+        <InAppToolbar threadId={threadId} state={state} dispatch={dispatch} suggest={suggest} />
       ) : (
-        <AddressBar state={state} onAction={dispatch} />
+        <AddressBar state={state} onAction={dispatch} suggest={suggest} />
       )}
       {state?.mode === "owned-chromium" && modeLabel !== null ? (
         <p className="px-3 pb-1.5 type-micro text-muted-foreground">{modeLabel}</p>
@@ -175,7 +225,9 @@ export function BrowserPane({ threadId }: BrowserPaneProps) {
       {missing ? (
         <InstallPrompt mode={state.mode} onRetry={retry} />
       ) : inApp ? (
-        <BrowserSlot threadId={threadId}>{tab === null ? <NoPage /> : null}</BrowserSlot>
+        <BrowserSlot threadId={threadId}>
+          {tab === null ? <NoPage servers={suggest.servers} onOpen={openServer} /> : null}
+        </BrowserSlot>
       ) : state !== null && state.mode === "in-app" ? (
         // A plain browser tab on a desktop's server: the tabs live in the
         // desktop window, and there is no headless browser to fall back to.

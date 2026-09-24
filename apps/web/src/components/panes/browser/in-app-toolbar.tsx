@@ -32,6 +32,7 @@ import { AddressBar } from "./address-bar";
 import { isPaneUrl } from "./address";
 import { MoreMenu } from "./more-menu";
 import { TabStrip } from "./tab-strip";
+import type { SuggestionSource } from "./use-suggestions";
 import {
   BROWSER_COMMANDS,
   BROWSER_PANE_FOCUS,
@@ -52,9 +53,10 @@ export interface InAppToolbarProps {
   readonly state: BrowserState | null;
   /** Tells the server about a person's gesture. */
   readonly dispatch: (input: BrowserHumanInput) => void;
+  readonly suggest: SuggestionSource;
 }
 
-export function InAppToolbar({ threadId, state, dispatch }: InAppToolbarProps) {
+export function InAppToolbar({ threadId, state, dispatch, suggest }: InAppToolbarProps) {
   const threadTabs = useThreadTabs(threadId);
   const setTabs = useSetBrowserTabs();
   const tab = selectedTab(threadTabs);
@@ -146,6 +148,7 @@ export function InAppToolbar({ threadId, state, dispatch }: InAppToolbarProps) {
         nav={tab ?? NO_TAB}
         onAction={onAction}
         inputRef={inputRef}
+        suggest={suggest}
       >
         {level === 0 ? null : (
           <Tooltip>

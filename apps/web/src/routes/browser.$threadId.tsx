@@ -10,6 +10,7 @@ import { decodeThreadId } from "@OpenAde/contracts/ids";
 import type { ThreadId } from "@OpenAde/contracts/ids";
 
 import { BrowserPane } from "@/components/panes/browser/browser-pane";
+import { useLoadedThreadList } from "@/state/hooks";
 
 export const Route = createFileRoute("/browser/$threadId")({
   component: BrowserPage,
@@ -17,6 +18,8 @@ export const Route = createFileRoute("/browser/$threadId")({
 
 function BrowserPage() {
   const { threadId } = Route.useParams();
+  const projectId =
+    useLoadedThreadList()?.find((thread) => thread.threadId === threadId)?.projectId ?? null;
   const parsed = React.useMemo<ThreadId | null>(() => {
     try {
       return decodeThreadId(threadId);
@@ -32,5 +35,5 @@ function BrowserPage() {
       </div>
     );
   }
-  return <BrowserPane threadId={parsed} />;
+  return <BrowserPane threadId={parsed} projectId={projectId} />;
 }
