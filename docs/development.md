@@ -182,15 +182,15 @@ pnpm check
 is `lint → fmt:check → typecheck → test → check:boundaries → check:file-sizes →
 knip`, and it is what CI runs on Ubuntu and macOS. Each stage runs alone too:
 
-| Stage      | Command                 | What it enforces                                                                    |
-| ---------- | ----------------------- | ----------------------------------------------------------------------------------- |
-| lint       | `pnpm lint`             | oxlint: `correctness` as error, `no-explicit-any`, the shadcn rules                 |
-| format     | `pnpm fmt:check`        | oxfmt over the tree, the markdown in `docs/` included; `pnpm fmt` writes            |
-| types      | `pnpm typecheck`        | `tsc --noEmit` per workspace; web also runs `vite build`                            |
-| tests      | `pnpm test`             | `turbo run test` → `vitest run` per workspace                                       |
-| boundaries | `pnpm check:boundaries` | import allowlist, connector leaks, neutrality, reference names, barrels, bold icons |
-| file sizes | `pnpm check:file-sizes` | 800 lines a file, 400 for a renderer component                                      |
-| dead code  | `pnpm knip`             | unused files, exports and dependencies                                              |
+| Stage      | Command                 | What it enforces                                                                                  |
+| ---------- | ----------------------- | ------------------------------------------------------------------------------------------------- |
+| lint       | `pnpm lint`             | oxlint: `correctness` as error, `no-explicit-any`, the shadcn rules                               |
+| format     | `pnpm fmt:check`        | oxfmt over the tree, the markdown in `docs/` included; `pnpm fmt` writes                          |
+| types      | `pnpm typecheck`        | `tsc --noEmit` per workspace; web also runs `vite build`                                          |
+| tests      | `pnpm test`             | `turbo run test` → `vitest run` per workspace                                                     |
+| boundaries | `pnpm check:boundaries` | import allowlist, connector leaks, neutrality, reference names, barrels, bold icons, even padding |
+| file sizes | `pnpm check:file-sizes` | 800 lines a file, 400 for a renderer component                                                    |
+| dead code  | `pnpm knip`             | unused files, exports and dependencies                                                            |
 
 `pnpm typecheck` and `pnpm check-types` are the same script.
 
@@ -198,7 +198,7 @@ knip`, and it is what CI runs on Ubuntu and macOS. Each stage runs alone too:
 
 `pnpm check:boundaries` first runs the rules' own tests
 (`scripts/boundary-rules.test.mjs`, with `scripts/vitest.config.mjs`), then
-`scripts/check-boundaries.mjs`, which does six things in one pass over the
+`scripts/check-boundaries.mjs`, which does seven things in one pass over the
 tree. The rules are pure functions in `scripts/boundary-rules.mjs`; the script
 only walks and reports.
 
@@ -268,6 +268,34 @@ as a value — a `HoneyIcon` prop, an icon map, a nav item's `icon` — is outsi
 the rule's reach; render it as `<item.icon variant="bold" />` too. Line-only
 icons such as arrows and chevrons draw the same in both variants and take the
 prop anyway, so no icon is a special case.
+
+**Even padding.** An element reads as balanced when its vertical padding is
+smaller than its horizontal, so buttons, inputs, chips and badges, menu items,
+list and sidebar rows, tabs, toasts and small cards spell `px-3 py-1.5`, never
+`p-2` or `px-2 py-2`. Rows and controls are 28px (`h-7`) at most: the default
+and `sm` button, toggle, input, input group and select trigger, and the sidebar
+menu row, are all 28px, with `xs` (24px) and `mini` (20px) below them. Heights
+and padding are spacing steps and `--spacing` scales with each region's font
+size (`packages/ui/src/styles/globals.css`), so the boxes grow with the text
+setting; no second size scale is needed.
+
+The rule reads every string literal in the `.ts` and `.tsx` files under
+`apps/web`, `apps/site` and `packages/ui` as a class list, comments blanked
+first, and fails one whose padding comes out even: it compares the narrowest
+horizontal side with the tallest vertical one, so `p-2`, `px-2 py-2`,
+`px-2 pb-2` and `py-1 pr-1 pl-3` fail while `px-3 pt-5 pb-2` (a section gap on
+top) passes. Every padding form counts — `p`, `px`/`py`, `ps`/`pe`, `pl`/`pr`,
+`pt`/`pb`, `px`, arbitrary values and `(--variable)`s — and the cascade inside
+one list holds, so `p-1 px-2` passes. Each variant (`hover:`, `sm:`,
+`has-data-*:`) is judged on the resting box with its own padding on top; the
+literals of one `cn()` or `clsx()` call are judged together; and each `cva()`
+value is judged on top of the base. Zero padding and square or round boxes
+(`size-*`, `rounded-full`, `aspect-square`, in the same state) pass. A
+container whose even inset is genuinely right — a menu or dialog panel, a
+sheet, a card band, a thumbnail frame — carries a `// padding-ok: <why>`
+comment on the reported line, the line above it, or the line that opens its
+`cn()`/`cva()` call. Everything else gets a smaller vertical step than its
+horizontal one.
 
 ### File sizes
 
