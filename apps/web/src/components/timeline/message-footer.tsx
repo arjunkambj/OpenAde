@@ -12,11 +12,9 @@
  *   last, the span the turn summary reports. No model is named: the thread's
  *   settings say which model runs now, not which one ran that turn.
  * - Restore to here puts the workspace back to how it was before the message
- *   was sent: the checkpoint of the turn before this message's turn
- *   (`checkpointBefore`), through the restore dialog. There is nothing to
- *   restore before the thread's first turn or in a workspace without git, so
- *   the button is left out there; while a turn runs, a restore is running or
- *   the server is out of reach it is disabled, and its tooltip says why.
+ *   was sent (`RestoreBeforeTurn`): the checkpoint of the turn before this
+ *   message's turn, through the restore dialog. It is left out where there is
+ *   nothing to restore, and disabled, saying why, while no restore can start.
  *
  * The row reveals the footer on hover and while focus is inside it, and a
  * coarse pointer (touch) always shows it, since there is no hover to find it
@@ -31,12 +29,9 @@ import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
 import { uuidV7Millis } from "@OpenAde/shared/ids";
 import { Button } from "@OpenAde/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import * as React from "react";
 
 import { CopyButton } from "@/components/copy-button";
-import { RestoreCheckpointDialog } from "@/components/timeline/restore-checkpoint-dialog";
-import { type TimelineThread, useTimelineThread } from "@/components/timeline/thread-context";
-import { checkpointBefore, skipsTurns } from "@/components/timeline/turn-checkpoints";
+import { RestoreBeforeTurn } from "@/components/timeline/restore-before-turn";
 import { formatClock, formatDurationMs, formatFullDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Undo } from "@honeyicons/react";
@@ -59,54 +54,27 @@ function SentAt({ ms }: { readonly ms: number }) {
   );
 }
 
-function RestoreToHere({
-  thread,
-  item,
-}: {
-  readonly thread: TimelineThread;
-  readonly item: ItemSnapshot;
-}) {
-  const [open, setOpen] = React.useState(false);
-  const checkpoint = checkpointBefore(item.turnId, thread.turnOrder, thread.checkpoints);
-  if (checkpoint === null) {
-    return null;
-  }
-  const blocked = thread.restoreBlockedReason;
+function RestoreToHere({ item }: { readonly item: ItemSnapshot }) {
   return (
-    <>
-      <Tooltip>
-        {/* The trigger wraps the button: a disabled button takes no pointer
-            events, and the tooltip is where it says why it is disabled. */}
-        <TooltipTrigger render={<span className="inline-flex" />}>
-          <Button
-            type="button"
-            variant="ghost"
-            tone="muted"
-            size="icon-xs"
-            aria-label="Restore the workspace to before this message"
-            disabled={blocked !== null}
-            onClick={() => setOpen(true)}
-          >
-            <Undo variant="bold" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{blocked ?? "Restore to here"}</TooltipContent>
-      </Tooltip>
-      <RestoreCheckpointDialog
-        open={open}
-        onOpenChange={setOpen}
-        threadId={thread.threadId}
-        checkpoint={checkpoint}
-        title="Restore to before this message?"
-        description="The workspace goes back to how it was before this message was sent: every tracked file returns to that checkpoint and files created since are removed. Uncommitted work that is not in a checkpoint is lost. The conversation stays as it is."
-        note={
-          skipsTurns(item.turnId, thread.turnOrder, checkpoint)
-            ? "The turn right before this message has no checkpoint, so this goes back to an earlier one and undoes that turn's changes too."
-            : undefined
-        }
-        blockedReason={blocked}
-      />
-    </>
+    <RestoreBeforeTurn
+      turnId={item.turnId}
+      tooltip="Restore to here"
+      title="Restore to before this message?"
+      description="The workspace goes back to how it was before this message was sent: every tracked file returns to that checkpoint and files created since are removed. Uncommitted work that is not in a checkpoint is lost. The conversation stays as it is."
+      skippedNote="The turn right before this message has no checkpoint, so this goes back to an earlier one and undoes that turn's changes too."
+      renderButton={(props) => (
+        <Button
+          type="button"
+          variant="ghost"
+          tone="muted"
+          size="icon-xs"
+          aria-label="Restore the workspace to before this message"
+          {...props}
+        >
+          <Undo variant="bold" />
+        </Button>
+      )}
+    />
   );
 }
 
@@ -139,7 +107,6 @@ type MessageFooterProps =
 
 export function MessageFooter(props: MessageFooterProps) {
   const { item } = props;
-  const thread = useTimelineThread();
   const sentAt = uuidV7Millis(item.itemId);
   if (props.variant === "agent") {
     return (
@@ -161,7 +128,7 @@ export function MessageFooter(props: MessageFooterProps) {
     <div data-slot="message-footer" className={cn(REVEAL, "justify-end")}>
       {sentAt === undefined ? null : <SentAt ms={sentAt} />}
       <CopyButton text={item.text ?? ""} label="Copy message" tone="muted" />
-      {thread === null ? null : <RestoreToHere thread={thread} item={item} />}
+      <RestoreToHere item={item} />
     </div>
   );
 }
