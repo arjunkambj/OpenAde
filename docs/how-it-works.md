@@ -2415,6 +2415,15 @@ thread, closed on the project, in that order so the page's drawer never sits
 open with no tabs, which would start a fresh shell. The thread's drawer then
 finds the terminals on its first listing, with the same one in front.
 
+Shells a project still owns — left behind by a worktree thread, or started on
+the New task page again later — are counted where they can be found:
+`ProjectTerminalsBadge` (`project-terminals-badge.tsx`), a stock `Badge` with
+the running count and a tooltip such as "2 terminals running in this
+project's folder", sits beside the New task header's terminal toggle and on
+the project's sidebar row, and shows nothing while none is running. It
+counts the project's `terminal.list`, reread on connecting, after every open,
+close, exit the drawer sees and hand-over, and on a return to the window.
+
 The shell comes from `resolveShell` in
 `apps/server/src/terminal/shell.ts`: `$SHELL` when it is an absolute path,
 else `/bin/zsh` on macOS and bash (or `sh`) on Linux, with `-l` so it reads the

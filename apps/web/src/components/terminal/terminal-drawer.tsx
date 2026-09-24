@@ -23,7 +23,7 @@
  * eases only while it opens or closes, so a drag still tracks the pointer.
  */
 
-import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react";
 import { makeTerminalId, type TerminalId, type ThreadId } from "@OpenAde/contracts/ids";
 import {
   TERMINALS_PER_OWNER,
@@ -118,6 +118,7 @@ export function TerminalDrawer({
   const atoms = useTerminalAtoms();
   const connected = useConnectionState().status === "connected";
   const list = useAtomValue(atoms.terminalListAtom(ownerKey));
+  const refreshList = useAtomRefresh(atoms.terminalListAtom(ownerKey));
   const openTerminal = useAtomSet(atoms.openTerminal, { mode: "promiseExit" });
   const [state, dispatch] = useDrawerState(ownerKey);
   const drawerRef = React.useRef<HTMLDivElement>(null);
@@ -183,10 +184,14 @@ export function TerminalDrawer({
     gridRef.current = size;
     setMeasured(true);
   }, []);
+  // The listing is reread too, so a count of running shells (the project's
+  // badge) drops with the exit.
   const onExited = React.useCallback(
-    (terminalId: TerminalId, exitCode: number | null) =>
-      dispatch({ type: "exited", terminalId, exitCode }),
-    [dispatch],
+    (terminalId: TerminalId, exitCode: number | null) => {
+      dispatch({ type: "exited", terminalId, exitCode });
+      refreshList();
+    },
+    [dispatch, refreshList],
   );
   const onGone = React.useCallback(
     (terminalId: TerminalId) => dispatch({ type: "closed", terminalId }),

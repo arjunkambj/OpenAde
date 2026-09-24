@@ -7,7 +7,8 @@
  *   alone: commit, push and open a pull request from the project's folder.
  * - The terminal toggle, for the project's own terminals
  *   (`ProjectTerminal`), and the dock toggle, for its dock
- *   (`./header-toggles`).
+ *   (`./header-toggles`). Before the toggles, a count of the project's
+ *   shells still running (`ProjectTerminalsBadge`), when there are any.
  *
  * There is no title or branch picker: the greeting already names the
  * project, and the branch is picked for the thread in the composer's
@@ -26,6 +27,7 @@ import { terminalOwnerKey } from "@OpenAde/contracts/terminal";
 import type { DockPane } from "@/components/dock/dock-toggle";
 import { GitActionsControl } from "@/components/git/git-actions-control";
 import { ThreadHeaderChrome, useThreadHeaderChrome } from "@/components/Layout/window-chrome";
+import { ProjectTerminalsBadge } from "@/components/terminal/project-terminals-badge";
 import { HeaderToggles } from "@/components/thread/header-toggles";
 import { cn } from "@/lib/utils";
 
@@ -58,6 +60,7 @@ export function StartThreadHeader({
           {/* Per project: a dialog, a draft or a run in flight for one
               project must not carry over to the next one picked. */}
           <GitActionsControl key={controls.projectId} projectId={controls.projectId} />
+          <ProjectTerminalsBadge projectId={controls.projectId} />
           <HeaderToggles
             terminalKey={terminalOwnerKey({ projectId: controls.projectId })}
             dockTab={controls.dockTab}
