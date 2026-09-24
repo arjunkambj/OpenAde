@@ -91,6 +91,19 @@ function ReviewSummary({
   );
 }
 
+/**
+ * Scrolls the list so `section`'s header sits at its top. Only the list's own
+ * scroller moves: `scrollIntoView` would also scroll every clipping ancestor,
+ * and the dock is one while it animates open — a link that opens it would
+ * shift it sideways.
+ */
+const scrollToSection = (scroller: HTMLElement, section: Element | undefined) => {
+  if (section !== undefined) {
+    scroller.scrollTop +=
+      section.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+  }
+};
+
 export function ReviewList({
   threadId,
   files,
@@ -140,7 +153,7 @@ export function ReviewList({
     if (file.diff !== "") {
       setOpen([file.path], true);
     }
-    sections[target]?.scrollIntoView({ block: "start" });
+    scrollToSection(scroller, sections[target]);
   };
   useKeybindingCommand("changes.nextFile", () => step(1));
   useKeybindingCommand("changes.previousFile", () => step(-1));
@@ -161,7 +174,10 @@ export function ReviewList({
     if (file.diff !== "") {
       updateReview((current) => withOpen(current, [file.path], true));
     }
-    scrollerRef.current?.children[index]?.scrollIntoView({ block: "start" });
+    const scroller = scrollerRef.current;
+    if (scroller !== null) {
+      scrollToSection(scroller, scroller.children[index]);
+    }
   }, [reveal, onRevealed, files, updateReview]);
 
   return (
