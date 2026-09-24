@@ -9,7 +9,9 @@
  * 1. the turn settles as interrupted rather than hanging or erroring;
  * 2. the thread takes the next message;
  * 3. a message queued *during* the turn — Cmd+Enter while it runs — starts by
- *    itself afterwards, with its attachments still on it.
+ *    itself afterwards, with its attachments still on it. Command Code cannot
+ *    take a message into a running turn, so a steer is refused with the
+ *    reason that says to queue instead, and the queue is the way.
  *
  * `fixtures/cmd/interrupt-continue/` is the recording: a real SIGINT mid-run,
  * then the next message in a new session, because the interrupted run left no
@@ -59,6 +61,26 @@ const interrupts = (driver: Driver) => {
           started,
         );
         const interruptedTurnId = running.value.currentTurnId;
+
+        // Command Code says it cannot steer — which is why the composer
+        // queues here — so the decider refuses a steer outright rather than
+        // racing the running process, and says to queue instead.
+        const connectors = yield* (yield* client.rpc)
+          ["connectors.list"]({ refresh: false })
+          .pipe(Effect.orDie);
+        const cmd = connectors.find((entry) => entry.kind === "cmd");
+        expect(cmd?.capabilities?.steering).toBe(false);
+        const steer = yield* client.dispatch(
+          command({
+            type: "thread.turn.steer",
+            threadId: open.threadId,
+            text: FOLLOW_UP,
+            attachments: [],
+            mentions: [],
+          }),
+        );
+        expect(steer.status).toBe("rejected");
+        expect(steer.reason).toContain("queue it instead");
 
         // Cmd+Enter while it runs: the follow-up goes on the queue rather than
         // racing the session, and it carries an image.
