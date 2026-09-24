@@ -294,8 +294,10 @@ is on an element's scale (16px, `py-4`, or less); a page or section at
 one list holds, so `p-1 px-2` passes. Each variant (`hover:`, `sm:`,
 `has-data-*:`) is judged on the resting box with its own padding on top; the
 literals of one `cn()` or `clsx()` call are judged together; and each `cva()`
-value is judged on top of the base. Zero padding and square or round boxes
-(`size-*`, `rounded-full`, `aspect-square`, in the same state) pass. A
+value is judged on top of the base. Zero padding and square boxes (`size-*`,
+`aspect-square`, or an equal fixed `h-*` and `w-*`, in the same state) pass,
+round or not; `rounded-full` alone draws a pill, a chip or badge the rule
+covers, so it earns no exemption. A
 container whose even inset is genuinely right — a menu or dialog panel, a
 sheet, a card band, a thumbnail frame — carries a `// padding-ok: <why>`
 comment on the reported line, the line above it, or the line that opens its

@@ -470,8 +470,13 @@ const PADDING_SIDES = {
  */
 const ELEMENT_INSET_MAX = 4;
 
-/** A square or round element, where padding does not shape the box. */
-const SHAPE_UTILITY = /^(?:size-.+|rounded-full|aspect-square)$/;
+/**
+ * A square box, where padding does not shape it: `size-*`, `aspect-square`,
+ * or a height and width (`h-*`, `w-*`) that the state checks come out equal.
+ * `rounded-full` alone is not one; on a box wider than tall it draws a pill,
+ * a chip or badge the rule covers. It is round only with a square.
+ */
+const SHAPE_UTILITY = /^(?:size-.+|aspect-square|([hw])-(\d+(?:\.\d+)?|px|\[[^\]]+\]))$/;
 
 /** Calls whose string arguments add up to one class list. */
 const CLASS_CALL = /(?<![\w$.])(cn|cva|clsx|cx|twMerge)\(/g;
@@ -536,28 +541,38 @@ const paddingSize = (value) => {
  * its narrowest horizontal one, like `px-2 py-3`, fails too, while its
  * vertical padding is on an element's scale (`ELEMENT_INSET_MAX`); a page or
  * section at `px-8 py-10` passes, and so does zero horizontal padding. A box
- * with a `size-*`, `rounded-full` or `aspect-square` in the same state is
- * square or round and passes, and so does zero padding.
+ * that is square in the same state (`SHAPE_UTILITY`), round or not, passes,
+ * and so does zero padding.
  */
 export const equalPadding = (tokens) => {
-  const states = new Map([["", { padding: [], shaped: false }]]);
+  const states = new Map([["", { padding: [], shaped: false, h: undefined, w: undefined }]]);
   for (const token of tokens) {
     if (token === "") {
       continue;
     }
     const { variant, utility } = splitToken(token);
-    const state = states.get(variant) ?? { padding: [], shaped: false };
+    const state = states.get(variant) ?? { padding: [], shaped: false, h: undefined, w: undefined };
     states.set(variant, state);
     const padding = PADDING_UTILITY.exec(utility);
     if (padding !== null) {
       state.padding.push([padding[1], padding[2]]);
-    } else if (SHAPE_UTILITY.test(utility)) {
-      state.shaped = true;
+    } else {
+      const shape = SHAPE_UTILITY.exec(utility);
+      if (shape?.[1] === undefined) {
+        state.shaped ||= shape !== null;
+      } else {
+        state[shape[1]] = shape[2];
+      }
     }
   }
   const resting = states.get("");
+  const square = (state) => {
+    const h = state.h ?? resting.h;
+    const w = state.w ?? resting.w;
+    return state.shaped || (h !== undefined && h === w);
+  };
   for (const [variant, state] of states) {
-    if (resting.shaped || state.shaped || (variant !== "" && state.padding.length === 0)) {
+    if (resting.shaped || square(state) || (variant !== "" && state.padding.length === 0)) {
       continue;
     }
     const sides = {};

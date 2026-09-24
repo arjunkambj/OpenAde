@@ -330,8 +330,13 @@ describe("equalPaddingLeaks", () => {
   it("passes square and round elements, in the state that makes them so", () => {
     expect(leaksIn('const a = "size-8 p-2";\n')).toEqual([]);
     expect(leaksIn('const a = "size-8! p-2";\n')).toEqual([]);
-    expect(leaksIn('const a = "rounded-full p-1";\n')).toEqual([]);
+    expect(leaksIn('const a = "rounded-full size-6 p-1";\n')).toEqual([]);
     expect(leaksIn('const a = "aspect-square p-1.5";\n')).toEqual([]);
+    expect(leaksIn('const a = "h-6 w-6 rounded-full p-1";\n')).toEqual([]);
+    expect(leaksIn('const a = "h-6 w-[24px] p-1";\n')).toEqual([1]);
+    expect(leaksIn('const a = "h-full w-full p-1";\n')).toEqual([1]);
+    expect(leaksIn('const a = "h-6 w-8 p-1";\n')).toEqual([1]);
+    expect(leaksIn('const a = "h-6 px-2 py-1 sm:w-6 sm:p-1";\n')).toEqual([]);
     expect(
       leaksIn(
         'const a = "px-2 py-1 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2!";\n',
@@ -340,6 +345,13 @@ describe("equalPaddingLeaks", () => {
     // A size on a child selector does not make the element itself square.
     expect(leaksIn('const a = "p-2 [&_svg]:size-4";\n')).toEqual([1]);
     expect(leaksIn('const a = "rounded-lg p-2";\n')).toEqual([1]);
+  });
+
+  it("fails a pill: rounded-full on a box that is not square", () => {
+    expect(leaksIn('const a = "rounded-full p-1";\n')).toEqual([1]);
+    expect(leaksIn('const a = "rounded-full px-2 py-2";\n')).toEqual([1]);
+    expect(leaksIn('const a = "h-6 rounded-full py-0.5 pr-0.5 pl-2";\n')).toEqual([1]);
+    expect(leaksIn('const a = "rounded-full px-2 py-0.5";\n')).toEqual([]);
   });
 
   it("adds up the arguments of cn() and clsx(), and a square in one passes the rest", () => {
