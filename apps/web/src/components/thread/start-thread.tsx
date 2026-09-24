@@ -26,6 +26,13 @@
  * then create the thread with that `worktree` and send — and a failed setup
  * stops there until the user starts anyway or discards the worktree.
  *
+ * The textarea opens the same `#` file, `@` plugin-and-skill and `$` skill
+ * menus as a thread's composer (`useMentionMenus`, asking the instance the
+ * thread will run on), and the first message carries their mentions and
+ * references. `#` searches the project's folder, since the thread and any
+ * worktree do not exist yet. `/` stays plain text here: its commands change a
+ * thread that does not exist yet.
+ *
  * With no server it says so. A fresh install lands here with no projects, so
  * the empty state carries the same Add project dialog the sidebar does —
  * without it the screen would be an input with nowhere to send it.
@@ -45,6 +52,10 @@ import { makeThreadId, type ProjectId } from "@OpenAde/contracts/ids";
 import type { ProjectSummary, ThreadSettingsPatch } from "@OpenAde/contracts/orchestration";
 
 import { ComposerChips } from "@/components/composer/composer-chips";
+import { composerEnter, menuMove } from "@/components/composer/composer-keys";
+import { detectComposerTrigger } from "@OpenAde/client-runtime/composerTrigger";
+import { useComposerTrigger } from "@/components/composer/use-composer-trigger";
+import { useMentionMenus } from "@/components/composer/use-mention-menus";
 import { useAttachments } from "@/components/composer/use-attachments";
 import { useSendDraft } from "@/components/composer/use-send-draft";
 import { HarnessHealthBanner } from "@/components/thread/harness-health-banner";
@@ -76,7 +87,8 @@ function StartComposer({
   const { create, pending } = useCreateThread();
 
   const [threadId] = React.useState(makeThreadId);
-  const { text, files, setText, setMentions, setFiles } = useComposerDraft(threadId);
+  const { text, mentions, references, files, setText, setMentions, setReferences, setFiles } =
+    useComposerDraft(threadId);
   const atoms = useAppAtoms();
   const connectorsResult = useAtomValue(atoms.connectorsAtom);
   const connectors = AsyncResult.isSuccess(connectorsResult) ? connectorsResult.value : [];
@@ -98,6 +110,24 @@ function StartComposer({
   const capabilities = instanceCapabilities(instanceId, connectors);
   const attachRefusal = attachmentRefusal(capabilities);
   const attachments = useAttachments(threadId, files, setFiles, attachRefusal);
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const triggers = useComposerTrigger(textareaRef);
+  const menus = useMentionMenus({
+    instanceId,
+    projectId: project.projectId,
+    threadId: null,
+    trigger: triggers.trigger,
+    activeIndex: triggers.activeIndex,
+    setActiveIndex: triggers.setActiveIndex,
+    text,
+    setText,
+    setMentions,
+    setReferences,
+    setTextAndCaret: (next, caret) => {
+      setText(next);
+      triggers.placeCaret(caret);
+    },
+  });
 
   const open = () => void navigate({ to: "/t/$threadId", params: { threadId } });
   const { sending, send: sendDraft } = useSendDraft(
@@ -113,11 +143,13 @@ function StartComposer({
     () => {
       setText("");
       setMentions([]);
+      setReferences([]);
       open();
     },
   );
 
-  const sendFirstMessage = () => sendDraft({ text: text.trim(), mentions: [], mode: "start" });
+  const sendFirstMessage = () =>
+    sendDraft({ text: text.trim(), mentions, references, mode: "start" });
   const choice = useWorkspaceChoice(project.projectId);
   const worktreeStart = useStartInWorktree(project.projectId, {
     createThread: (worktree) =>
@@ -154,6 +186,42 @@ function StartComposer({
     } finally {
       startingRef.current = false;
     }
+  };
+
+  // The same keys as a thread's composer (`composer-keys`): an open menu with
+  // rows takes Enter and the arrows, Escape closes it, and Enter otherwise sends.
+  const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const moved = menus.open
+      ? menuMove(event.key, event.shiftKey, triggers.activeIndex, menus.itemCount)
+      : null;
+    if (moved !== null || (menus.open && event.key === "Escape")) {
+      event.preventDefault();
+      if (moved === null) {
+        triggers.close();
+      } else {
+        triggers.setActiveIndex(moved);
+      }
+      return;
+    }
+    if (event.key !== "Enter") {
+      return;
+    }
+    const action = composerEnter({
+      triggerOpen: menus.open,
+      menuItemCount: menus.itemCount,
+      shiftKey: event.shiftKey,
+      composing: event.nativeEvent.isComposing,
+    });
+    if (action === "insert") {
+      return;
+    }
+    event.preventDefault();
+    if (action === "pick") {
+      menus.pickAt(Math.min(triggers.activeIndex, menus.itemCount - 1));
+      return;
+    }
+    triggers.close();
+    void send();
   };
 
   return (
@@ -196,25 +264,31 @@ function StartComposer({
         {...attachments.dropHandlers}
         aria-label="New thread"
       >
+        {menus.menu}
         <ComposerChips
-          mentions={[]}
+          mentions={mentions}
+          references={references}
           files={attachments.files}
-          onRemoveMention={() => {}}
+          onRemoveMention={menus.removeMention}
+          onRemoveReference={menus.removeReference}
           onRemoveFile={attachments.removeAt}
         />
         <textarea
+          ref={textareaRef}
           aria-label="Message"
           data-context="composer"
           rows={2}
           autoFocus
           value={text}
-          onChange={(event) => setText(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-              event.preventDefault();
-              void send();
-            }
+          onChange={(event) => {
+            const next = event.target.value;
+            setText(next);
+            menus.retain(next);
+            triggers.open(detectComposerTrigger(next, event.target.selectionStart ?? next.length));
           }}
+          onKeyDown={onKeyDown}
+          onSelect={triggers.refresh}
+          onClick={triggers.refresh}
           onPaste={attachments.onPaste}
           className={composerInputClassName}
         />

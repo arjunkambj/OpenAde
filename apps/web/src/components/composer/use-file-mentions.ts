@@ -61,7 +61,8 @@ export function useFileMentions({
   setTextAndCaret,
 }: {
   readonly projectId: ProjectId;
-  readonly threadId: ThreadId;
+  /** The thread whose root `#` searches; `null` searches the project's folder. */
+  readonly threadId: ThreadId | null;
   readonly trigger: ComposerTrigger | null;
   readonly text: string;
   readonly setText: (text: string) => void;

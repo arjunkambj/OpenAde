@@ -435,6 +435,12 @@ whitespace:
 | `@`     | the instance's plugins, then its skills, never files | `@plugin ` or `$skill `, and a chip | `references`           |
 | `$`     | the instance's skills alone                          | `$skill ` and a chip                | `references`           |
 
+The start screen's composer (`start-thread.tsx`) opens the same `#`, `@` and
+`$` menus through the same hook (`use-mention-menus.tsx`), asking the instance
+the new thread will run on, and its first message carries their mentions and
+references. `/` is plain text there: its commands change a thread's settings,
+and that thread does not exist yet.
+
 The `/` popover offers `/model`, `/effort`, `/mode`, `/plan`, `/default`,
 `/clear-draft` and the skills the thread's connector instance loads for the
 project. A skill picked here is plain text, with no chip and no reference.

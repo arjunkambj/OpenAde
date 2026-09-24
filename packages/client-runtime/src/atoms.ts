@@ -357,7 +357,8 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
   /**
    * The composer's `#` file search, keyed per thread per query. The thread picks
    * the directory searched — its worktree, when it has one — so the scope is
-   * part of the key. Each key is its own atom, so typing re-runs the RPC only
+   * part of the key; no thread (the start screen) searches the project's
+   * folder. Each key is its own atom, so typing re-runs the RPC only
    * when the query text changes; the component supplies a deferred query
    * value for keystroke coalescing.
    */
@@ -365,15 +366,20 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
     Atom.family((query: string) =>
       runtime.atom(
         Effect.gen(function* () {
-          const [projectId, threadId] = JSON.parse(scope) as [ProjectId, ThreadId];
+          const [projectId, threadId] = JSON.parse(scope) as [ProjectId, ThreadId | null];
           const client = yield* (yield* Connection).client;
-          return yield* client["files.search"]({ projectId, threadId, query, limit: 20 });
+          return yield* client["files.search"]({
+            projectId,
+            ...(threadId === null ? {} : { threadId }),
+            query,
+            limit: 20,
+          });
         }),
         { initialValue: [] as ReadonlyArray<FileSearchResult> },
       ),
     ),
   );
-  const fileSearchAtom = (projectId: ProjectId, threadId: ThreadId) =>
+  const fileSearchAtom = (projectId: ProjectId, threadId: ThreadId | null) =>
     fileSearchByScopeAtom(JSON.stringify([projectId, threadId]));
 
   /** The model list a connector instance reported, for the header picker. */

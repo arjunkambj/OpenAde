@@ -50,7 +50,8 @@ export function useMentionMenus({
 }: {
   readonly instanceId: ConnectorInstanceId | null;
   readonly projectId: ProjectId;
-  readonly threadId: ThreadId;
+  /** The thread whose root `#` searches; `null` searches the project's folder. */
+  readonly threadId: ThreadId | null;
   readonly trigger: ComposerTrigger | null;
   readonly activeIndex: number;
   readonly setActiveIndex: (index: number) => void;
