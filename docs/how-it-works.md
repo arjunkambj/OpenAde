@@ -1124,10 +1124,9 @@ Code connector's reading of its harness is in
 
 In the composer (§4), Enter on a running thread whose harness steers sends
 `thread.turn.steer`; `Cmd+Enter` still queues, and on a harness that cannot
-steer both keys queue as they always have. The client decides from the
-instance's `capabilities.steering`, the decider from the session's; a thread
-where the two disagree gets the rejection above as the composer's error line,
-and the draft stays put to be queued instead.
+steer both keys queue as they always have. The client decides from the same
+fact the decider does — `capabilities.steering` on the thread's bound session
+— so until the session binds, a running thread queues.
 
 ---
 

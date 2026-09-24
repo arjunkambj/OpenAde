@@ -3,7 +3,10 @@
  * running one, or steer it — join the running turn with the new message.
  *
  * Steering needs a turn in flight and a harness that said it can take a
- * message mid-turn (`capabilities.steering`). Otherwise a busy thread queues,
+ * message mid-turn: `capabilities.steering` on the thread's bound session,
+ * the same fact the decider steers by. Before the session binds nothing has
+ * said so, and the decider queues a steer then; so does the composer.
+ * Otherwise a busy thread queues,
  * exactly as it always has: the decider rejects a second turn, so "send" on a
  * running thread means queue. The queue chord (Cmd/Ctrl+Enter) always
  * queues, steering or not, so a follow-up that should wait for the turn to
@@ -15,9 +18,11 @@ import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
 
 export type SendMode = "start" | "queue" | "steer";
 
-/** A turn is in flight and the thread's harness takes messages into it. */
-export const canSteer = (running: boolean, capabilities: ConnectorCapabilities | null): boolean =>
-  running && capabilities?.steering === true;
+/** A turn is in flight and the thread's bound session takes messages into it. */
+export const canSteer = (
+  running: boolean,
+  sessionCapabilities: ConnectorCapabilities | null | undefined,
+): boolean => running && sessionCapabilities?.steering === true;
 
 export interface SendModeInput {
   readonly running: boolean;

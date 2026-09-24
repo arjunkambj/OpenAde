@@ -151,8 +151,9 @@ export const applyThreadEvent = (
       return {
         ...doc,
         // The capabilities come along when the connector announced them: the
-        // composer reads `steering` off the session to know whether a message
-        // sent mid-turn goes into the running turn or onto the queue.
+        // composer reads `steering` off the session — the decider's own
+        // source — to know whether a message sent mid-turn goes into the
+        // running turn or onto the queue.
         session: {
           connectorInstanceId: payload.connectorInstanceId,
           connectorKind: payload.connectorKind,

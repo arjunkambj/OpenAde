@@ -125,7 +125,7 @@ export function Composer({
   // gone out unqueued and been rejected as "a turn is already running". The
   // header and the timeline already read the shared helper.
   const running = doc !== null && turnInFlight(doc);
-  const steerable = canSteer(running, capabilities);
+  const steerable = canSteer(running, doc?.session?.capabilities);
   const { interrupting, interrupt } = useInterrupt(threadId, running, setError);
   const { sending, send: sendDraft } = useSendDraft(threadId, attachments, setError, () => {
     setText("");

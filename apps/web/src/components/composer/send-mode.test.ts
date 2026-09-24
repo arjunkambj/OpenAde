@@ -29,8 +29,10 @@ describe("canSteer", () => {
   });
 
   it("reads unknown capabilities as no steering", () => {
-    // Before the instance has opened and reported what it can do.
+    // Before the thread's session has bound and said what it can do — the
+    // decider queues a steer then, so the composer queues too.
     expect(canSteer(true, null)).toBe(false);
+    expect(canSteer(true, undefined)).toBe(false);
   });
 });
 
