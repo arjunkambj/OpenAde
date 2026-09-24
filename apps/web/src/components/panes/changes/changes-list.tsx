@@ -12,11 +12,14 @@
  * never blocks the main thread.
  *
  * Once the diff answers, `ReviewList` renders the files with the thread's
- * review over them.
+ * review over them. `ComparisonBody` is what a Changes pane shows under its
+ * toolbar — this list, or why there is no comparison to list — for the
+ * thread's pane and the New task page's alike.
  */
 
 import { useAtomValue } from "@effect/atom-react";
 import { isRepoless, type GitDiffRange, type GitQuery } from "@OpenAde/client-runtime/gitAtoms";
+import type { GitBranchList } from "@OpenAde/contracts/git";
 import type { GitDiff, GitStatus } from "@OpenAde/contracts/rpc";
 import { Button } from "@OpenAde/ui/components/button";
 import { AsyncResult } from "effect/unstable/reactivity";
@@ -26,7 +29,14 @@ import type { DiffStyle } from "@/state/ui";
 
 import { useGitAtoms } from "./git-atoms";
 import { ReviewList } from "./review-list";
-import { AlertTriangle, GitDiff as GitDiffIcon, Repeat, Spinner, WifiOff } from "@honeyicons/react";
+import {
+  AlertTriangle,
+  GitBranch,
+  GitDiff as GitDiffIcon,
+  Repeat,
+  Spinner,
+  WifiOff,
+} from "@honeyicons/react";
 
 /**
  * What the pane renders from one git atom.
@@ -59,6 +69,7 @@ export function ChangesList({
   onRevealed,
   onRetry,
 }: {
+  /** Whose review this is, and whose draft "Add to chat" writes into. */
   threadId: string;
   range: GitDiffRange;
   status: PaneQuery<GitStatus> | null;
@@ -113,6 +124,38 @@ export function ChangesList({
       onRevealed={onRevealed}
     />
   );
+}
+
+/**
+ * Under the pane's toolbar: the comparison's files, or — with no `range` —
+ * why there is nothing to compare: not a repository, the branches still
+ * loading, or no base branch for "Branch".
+ */
+export function ComparisonBody({
+  range,
+  branchList,
+  mergeBase,
+  ...list
+}: Omit<React.ComponentProps<typeof ChangesList>, "range"> & {
+  range: GitDiffRange | null;
+  branchList: GitBranchList | null;
+  /** What "Branch" compares with; `undefined` while the branches load. */
+  mergeBase: string | null | undefined;
+}) {
+  if (range !== null) {
+    return <ChangesList range={range} {...list} />;
+  }
+  if (branchList?.isRepository === false) {
+    return <NotARepository />;
+  }
+  if (mergeBase === undefined) {
+    return list.connected ? (
+      <PaneMessage icon={Spinner} text="Loading branches…" />
+    ) : (
+      <PaneMessage icon={WifiOff} text="Not connected to the server." />
+    );
+  }
+  return <PaneMessage icon={GitBranch} text="No base branch to compare with" />;
 }
 
 export function NotARepository() {

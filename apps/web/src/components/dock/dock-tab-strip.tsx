@@ -73,10 +73,13 @@ function DockTabButton({
 
 export function DockTabStrip({
   baseId,
+  tabs = dockTabs,
   pane,
   onTabChange,
 }: {
   baseId: string;
+  /** The tabs this dock offers, in strip order. */
+  tabs?: ReadonlyArray<DockTab>;
   pane: DockPane;
   onTabChange: (pane: DockPane | null) => void;
 }) {
@@ -93,7 +96,7 @@ export function DockTabStrip({
     const focused = (event.target as HTMLElement)
       .closest("[data-dock-tab]")
       ?.getAttribute("data-dock-tab");
-    const next = adjacentDockTab(isDockTab(focused) ? focused : pane, step);
+    const next = adjacentDockTab(isDockTab(focused) ? focused : pane, step, tabs);
     onTabChange(next);
     strip.current?.querySelector<HTMLElement>(`[data-dock-tab="${next}"]`)?.focus();
   };
@@ -109,7 +112,7 @@ export function DockTabStrip({
           onKeyDown={onKeyDown}
           className="flex items-center gap-0.5"
         >
-          {dockTabs.map((tab) => (
+          {tabs.map((tab) => (
             <DockTabButton
               key={tab}
               baseId={baseId}

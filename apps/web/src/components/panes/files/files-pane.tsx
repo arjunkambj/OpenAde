@@ -10,17 +10,18 @@
  * behaves the same here — there is no git state on this tab at all.
  *
  * The thread picks the directory: its worktree, when it has one, and the
- * project's folder otherwise.
+ * project's folder otherwise. On the New task page there is no thread yet
+ * (`threadId` null), and the tab searches the project's folder.
  *
  * Opening a row swaps the list for `FilePreview`; the breadcrumb goes back.
  * Everything else — loading, an empty query, no matches, a server error, an
  * offline socket — has its own honest block rather than an empty list.
  *
  * Where the tab was left — the search, the open file and its page, the
- * scroll of the list and of the file — is kept per thread in `./files-view`,
- * so switching to another dock tab and back finds it as it was. The dock
- * mounts this per thread (`key`), so one thread's scroll is never saved as
- * another's.
+ * scroll of the list and of the file — is kept per workspace in
+ * `./files-view` (`workspaceKey`: the thread, or the project's own folder), so
+ * switching to another dock tab and back finds it as it was. The dock mounts
+ * this per workspace (`key`), so one's scroll is never saved as another's.
  *
  * `focusSearch` puts the cursor in the search field — the dock's Files key
  * sets it when it opens this tab — and `onSearchFocused` reports that it was
@@ -43,6 +44,7 @@ import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 
 import { cn } from "@/lib/utils";
+import { workspaceKey } from "@/lib/workspace-key";
 
 import { FilePreview } from "./file-preview";
 import { useFileAtoms } from "./file-atoms";
@@ -178,7 +180,8 @@ export function FilesPane({
   onSearchFocused,
 }: {
   readonly projectId: ProjectId;
-  readonly threadId: ThreadId;
+  /** The thread whose workspace this searches; `null` searches the project's folder. */
+  readonly threadId: ThreadId | null;
   readonly connected: boolean;
   readonly focusSearch?: boolean;
   readonly onSearchFocused?: () => void;
@@ -191,7 +194,8 @@ export function FilesPane({
       onSearchFocused?.();
     }
   }, [focusSearch, onSearchFocused]);
-  const [view, updateView] = useFilesView(threadId);
+  const viewKey = workspaceKey({ projectId, threadId });
+  const [view, updateView] = useFilesView(viewKey);
   const { query, preview } = view;
   const setQuery = (next: string) =>
     updateView((current) => ({ ...current, query: next, listScroll: 0, preview: null }));
@@ -234,7 +238,7 @@ export function FilesPane({
   const trimmed = React.useDeferredValue(query.trim());
   const searchAtom = atoms.fileSearchAtom({
     projectId,
-    threadId,
+    threadId: threadId ?? undefined,
     query: trimmed,
     limit: SEARCH_LIMIT,
   });
@@ -249,11 +253,11 @@ export function FilesPane({
 
   // Hold the previous query's matches while the next atom is still `Initial`,
   // so the list narrows instead of blanking to "Searching…" between letters.
-  // The thread is part of what is held: another thread's directory — another
-  // project, or another worktree — is not a stale view of this one.
-  const held = React.useRef<{ threadId: ThreadId; results: Query }>({ threadId, results: null });
-  if (results !== null || held.current.threadId !== threadId) {
-    held.current = { threadId, results };
+  // The workspace is part of what is held: another thread's directory —
+  // another project, or another worktree — is not a stale view of this one.
+  const held = React.useRef<{ viewKey: string; results: Query }>({ viewKey, results: null });
+  if (results !== null || held.current.viewKey !== viewKey) {
+    held.current = { viewKey, results };
   }
   const shown = results ?? held.current.results;
 

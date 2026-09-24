@@ -18,6 +18,7 @@ import type { GitScope } from "@OpenAde/client-runtime/gitAtoms";
 import { useGitCommands } from "@/components/panes/changes/git-atoms";
 import { describeExitError } from "@/lib/app-runtime";
 import { openExternal } from "@/lib/desktop";
+import { workspaceKey } from "@/lib/workspace-key";
 import {
   runGitSteps,
   type GitRunResult,
@@ -66,9 +67,7 @@ const toastNotice = (run: number) => (notice: StepNotice) => {
 /** Acts in the thread's workspace when `scope` names one, else in the project's own folder. */
 export const useGitActions = (scope: GitScope) => {
   const { commit, push, openPullRequest } = useGitCommands();
-  const [pullRequestUrl, rememberPullRequest] = usePullRequestLink(
-    scope.threadId ?? `project:${scope.projectId}`,
-  );
+  const [pullRequestUrl, rememberPullRequest] = usePullRequestLink(workspaceKey(scope));
 
   const run = async (
     steps: ReadonlyArray<GitStep>,

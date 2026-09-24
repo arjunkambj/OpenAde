@@ -11,13 +11,15 @@
  * unarchives a thread that is already archived, as the menu offers. Delete
  * only ever opens the confirmation — nothing is deleted from a key alone.
  *
- * `DockShortcuts` holds the right dock's keys for the same view:
- * `dock.toggle`, `dock.changes`, `dock.files` and `browserPane.toggle`, with
- * the targets from `@/components/dock/dock-toggle`: the toggle opens on the
- * thread's last tab this session, else the launcher, and each tab's key goes
- * straight to its tab — from the launcher too — or closes the dock when it is
- * already there. Opening Files from its key also asks the Files pane to focus
- * its search.
+ * `DockShortcuts` holds the right dock's keys: `dock.toggle`, `dock.changes`
+ * and `dock.files`, with the targets from `@/components/dock/dock-toggle`: the
+ * toggle opens on the last tab used this session, else the launcher, and each
+ * tab's key goes straight to its tab — from the launcher too — or closes the
+ * dock when it is already there. Opening Files from its key also asks the
+ * Files pane to focus its search. The thread view mounts it, and so does the
+ * New task page for its project's dock. `BrowserPaneShortcut` adds
+ * `browserPane.toggle`, only where there is a thread's browser to show — the
+ * New task page leaves the chord unclaimed.
  */
 
 import * as React from "react";
@@ -108,6 +110,17 @@ export function DockShortcuts({
     const target = dockTabTarget(dockTab, "files");
     onShow(target, target === "files");
   });
+  return null;
+}
+
+/** `browserPane.toggle`, for a dock that has the Browser tab — a thread's. */
+export function BrowserPaneShortcut({
+  dockTab,
+  onShow,
+}: {
+  readonly dockTab: DockPane | undefined;
+  readonly onShow: (tab: DockTab | null) => void;
+}) {
   useKeybindingCommand("browserPane.toggle", () => onShow(dockTabTarget(dockTab, "browser")));
   return null;
 }

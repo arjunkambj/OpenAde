@@ -34,14 +34,13 @@ import type { GitBranchList } from "@OpenAde/contracts/git";
 import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
 import type { GitStatus } from "@OpenAde/contracts/rpc";
 
-import { PaneMessage } from "@/components/panes/files/pane-message";
 import { useKeybindingFlag } from "@/lib/shortcuts";
 import { turnInFlight } from "@/lib/turn";
 import { useConnectionState } from "@/state/hooks";
 import { useChangesScope, useDiffStyle } from "@/state/ui";
 
 import { BaseLine, RestoreProgress } from "./changes-header";
-import { ChangesList, NotARepository, queryValue } from "./changes-list";
+import { ComparisonBody, queryValue } from "./changes-list";
 import { linkedTurnChoice } from "./deep-link";
 import { useGitAtoms } from "./git-atoms";
 import { RestoreCheckpointButton } from "./restore-dialog";
@@ -55,7 +54,6 @@ import {
   type ChangesSelection,
 } from "./selection";
 import { useChangesRefresh } from "./use-changes-refresh";
-import { GitBranch, Spinner, WifiOff } from "@honeyicons/react";
 
 export function ChangesPane({ snapshot }: { snapshot: ThreadDetailView }) {
   const atoms = useGitAtoms();
@@ -171,29 +169,20 @@ export function ChangesPane({ snapshot }: { snapshot: ThreadDetailView }) {
           ? "A turn is running — stop it before restoring."
           : null;
 
-  const body =
-    range !== null ? (
-      <ChangesList
-        threadId={threadId}
-        range={range}
-        status={status}
-        connected={connected}
-        diffStyle={diffStyle}
-        reveal={reveal}
-        onRevealed={onRevealed}
-        onRetry={refresh}
-      />
-    ) : branchList?.isRepository === false ? (
-      <NotARepository />
-    ) : mergeBase === undefined ? (
-      connected ? (
-        <PaneMessage icon={Spinner} text="Loading branches…" />
-      ) : (
-        <PaneMessage icon={WifiOff} text="Not connected to the server." />
-      )
-    ) : (
-      <PaneMessage icon={GitBranch} text="No base branch to compare with" />
-    );
+  const body = (
+    <ComparisonBody
+      threadId={threadId}
+      range={range}
+      branchList={branchList}
+      mergeBase={mergeBase}
+      status={status}
+      connected={connected}
+      diffStyle={diffStyle}
+      reveal={reveal}
+      onRevealed={onRevealed}
+      onRetry={refresh}
+    />
+  );
 
   // `h-full` so the diffs scroll inside the pane and the toolbar stays put;
   // the dock's own scroller then never has anything to scroll.
