@@ -4,12 +4,18 @@
  * several arrive in one chunk, an overflow or a dropped socket reattaches with
  * a fresh snapshot, a terminal the server forgot is reported once as `gone`,
  * the list follows reconnects and opens, a project's terminals are listed apart
- * from a thread's, input reaches the shell in order, and a failed write does
- * not leave the rest of a paste to arrive later.
+ * from a thread's and follow a hand-over to one, input reaches the shell in
+ * order, and a failed write does not leave the rest of a paste to arrive later.
  */
 
 import { describe, expect, it } from "@effect/vitest";
-import { makeProjectId, makeTerminalId, makeThreadId } from "@OpenAde/contracts/ids";
+import {
+  makeProjectId,
+  makeTerminalId,
+  makeThreadId,
+  type ProjectId,
+  type ThreadId,
+} from "@OpenAde/contracts/ids";
 import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
 import {
   TERMINAL_WRITE_MAX_CHARS,
@@ -150,6 +156,24 @@ const fakeClient = (script: Script): OpenAdeRpcClient =>
               });
               script.terminals.push(opened);
               return opened;
+            });
+        case "terminal.adopt":
+          // The server's hand-over: every terminal the project owns becomes the thread's.
+          return (payload: { projectId: ProjectId; threadId: ThreadId }) =>
+            Effect.sync(() => {
+              const from = terminalOwnerKey({ projectId: payload.projectId });
+              const moved: Array<TerminalSummary> = [];
+              script.terminals.forEach((terminal, index) => {
+                if (terminalOwnerKey(terminal) === from) {
+                  const adopted = summary({
+                    threadId: payload.threadId,
+                    terminalId: terminal.terminalId,
+                  });
+                  script.terminals[index] = adopted;
+                  moved.push(adopted);
+                }
+              });
+              return moved;
             });
         case "terminal.write":
           return (payload: { data: string }) =>
@@ -351,6 +375,36 @@ describe("terminal atoms", () => {
       const listed = yield* Effect.promise(() => awaitValue(registry, projectList, ids(1)));
       expect(listed._tag === "ok" && listed.terminals[0]).toMatchObject(project);
       yield* Effect.promise(() => awaitValue(registry, threadList, ids(0)));
+    }),
+  );
+
+  it.live("a hand-over moves the project's terminals into the thread's list", () =>
+    Effect.gen(function* () {
+      const projectId = makeProjectId();
+      const threadId = makeThreadId();
+      const project = { projectId, terminalId: makeTerminalId() };
+      const script = newScript();
+      const { registry, terminalListAtom, openTerminal, adoptTerminals } =
+        yield* runtimeWith(script);
+      const projectList = terminalListAtom(terminalOwnerKey({ projectId }));
+      const threadList = terminalListAtom(terminalOwnerKey({ threadId }));
+      registry.mount(projectList);
+      registry.mount(threadList);
+      registry.mount(openTerminal);
+      registry.mount(adoptTerminals);
+
+      const count = (length: number) => (query: TerminalListQuery) =>
+        query._tag === "ok" && query.terminals.length === length;
+      registry.set(openTerminal, { ...project, cols: 80, rows: 24 });
+      yield* Effect.promise(() => awaitValue(registry, projectList, count(1)));
+
+      registry.set(adoptTerminals, { projectId, threadId });
+      const taken = yield* Effect.promise(() => awaitValue(registry, threadList, count(1)));
+      expect(taken._tag === "ok" && taken.terminals[0]).toMatchObject({
+        threadId,
+        terminalId: project.terminalId,
+      });
+      yield* Effect.promise(() => awaitValue(registry, projectList, count(0)));
     }),
   );
 

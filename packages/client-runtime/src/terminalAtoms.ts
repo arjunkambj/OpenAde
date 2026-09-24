@@ -9,6 +9,9 @@
  *   what went wrong and the next reconnect still has a stream to refetch on.
  * - `openTerminal`, `writeTerminal`, `resizeTerminal`, `closeTerminal` — the
  *   four calls, as `runtime.fn`s.
+ * - `adoptTerminals` — `terminal.adopt`, the hand-over of a project's
+ *   terminals to the local thread the New task page just started; both
+ *   owners' lists are refetched after it.
  * - `terminalAttachAtom(key)` — the output of one terminal, handed to a
  *   callback item by item.
  *
@@ -29,7 +32,7 @@
  * already built, so the terminal shares one connection with everything else.
  */
 
-import type { TerminalId } from "@OpenAde/contracts/ids";
+import type { ProjectId, TerminalId, ThreadId } from "@OpenAde/contracts/ids";
 import type { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
 import {
   TERMINAL_WRITE_MAX_CHARS,
@@ -291,6 +294,30 @@ export const makeTerminalAtoms = (runtime: Atom.AtomRuntime<Connection | Connect
     { concurrent: true },
   );
 
+  /**
+   * Hands the project's terminals to a local thread just started from it,
+   * answering with them as the thread's. Both lists are refetched whatever
+   * the outcome.
+   */
+  const adoptTerminals = runtime.fn(
+    (args: { readonly projectId: ProjectId; readonly threadId: ThreadId }, get) =>
+      Effect.gen(function* () {
+        const client = yield* (yield* Connection).client;
+        return yield* client["terminal.adopt"]({
+          projectId: args.projectId,
+          threadId: args.threadId,
+        });
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            get.registry.refresh(terminalListAtom(terminalOwnerKey({ projectId: args.projectId })));
+            get.registry.refresh(terminalListAtom(terminalOwnerKey({ threadId: args.threadId })));
+          }),
+        ),
+      ),
+    { concurrent: true },
+  );
+
   const lanes = makeInputLanes();
 
   /** Typed keys or a paste, delivered to the shell in the order they were written. */
@@ -322,6 +349,7 @@ export const makeTerminalAtoms = (runtime: Atom.AtomRuntime<Connection | Connect
     writeTerminal,
     resizeTerminal,
     closeTerminal,
+    adoptTerminals,
     terminalAttachAtom,
   };
 };
