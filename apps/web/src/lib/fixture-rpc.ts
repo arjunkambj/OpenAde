@@ -1,7 +1,7 @@
 /**
  * What the fixture client answers over RPC: a `Proxy` shaped like the real
- * `OpenAdeRpcClient` whose methods reply from inline data — the file search
- * and existence check, the model and skill menus, the plugins, the keybinding
+ * `OpenAdeRpcClient` whose methods reply from inline data — the file search,
+ * reads and existence check, the model and skill menus, the plugins, the keybinding
  * table, the staged attachments. Anything a fixture page has not taught it
  * dies loudly with the method's name, so a new read shows up the first time a
  * page touches it.
@@ -28,7 +28,7 @@ import type { Keybinding } from "@OpenAde/contracts/settings";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
 
-import { FIXTURE_ROOT, fixtureStat } from "@/lib/fixture-files";
+import { FIXTURE_ROOT, fixtureRead, fixtureStat } from "@/lib/fixture-files";
 import { FIXTURE_IMAGES } from "@/lib/fixture-images";
 
 // ── Inline fixture data ────────────────────────────────────────
@@ -189,6 +189,13 @@ export const makeFixtureRpc = (context: FixtureRpcContext): OpenAdeRpcClient => 
               ).slice(0, 20),
             );
         }
+        case "files.read":
+          return ({ path, offset, limit }: { path: string; offset?: number; limit?: number }) => {
+            const content = fixtureRead(path, offset, limit);
+            return content === null
+              ? Effect.fail(new OpenAdeRpcError({ code: "not-found", message: `no file ${path}` }))
+              : Effect.succeed(content);
+          };
         case "files.stat":
           return ({ paths }: { paths: ReadonlyArray<string> }) =>
             Effect.succeed(fixtureStat(paths));

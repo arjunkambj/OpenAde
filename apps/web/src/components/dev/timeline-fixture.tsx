@@ -25,6 +25,9 @@
  *    running turn is settled first so the message is not queued — and then
  *    streams the reply, which is the send-anchoring case.
  *  - "Narrow" squeezes the timeline to a phone-width column.
+ *
+ * A file chip's request opens the real Files pane beside the timeline, over
+ * the fixture's `files.read`, the way the thread view opens its dock on Files.
  *  - The theme toggle exercises both token sets.
  */
 
@@ -37,7 +40,12 @@ import * as Schema from "effect/Schema";
 import { AsyncResult } from "effect/unstable/reactivity";
 import * as React from "react";
 
+import { Button } from "@OpenAde/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+
 import { TimelineFixtureControls, type Scenario } from "@/components/dev/timeline-fixture-controls";
+import { FilesPane } from "@/components/panes/files/files-pane";
+import { useRevealFile } from "@/components/panes/files/files-view";
 import { buildRichTimelineSnapshot } from "@/components/dev/timeline-fixture-data";
 import { settleStream, streamTick } from "@/components/dev/timeline-fixture-stream";
 import { SEND_ASKS } from "@/components/dev/timeline-fixture-text";
@@ -46,6 +54,8 @@ import { ClientRuntimeProvider, useClientRuntime } from "@/lib/client-runtime";
 import { makeFixtureClient, type FixtureClient } from "@/lib/fixture-client";
 import { cloneDecisions, cloneItems } from "@/lib/fixture-clone";
 import { KeybindingsProvider } from "@/lib/shortcuts";
+import { type FileRevealTarget, useFileRevealRequests } from "@/state/file-reveal";
+import { Close } from "@honeyicons/react";
 
 const everyKind = Schema.decodeUnknownSync(ThreadDetailSnapshot)(everyKindJson);
 
@@ -90,6 +100,17 @@ function TimelineFixturePage({ client }: { readonly client: FixtureClient }) {
   const [narrow, setNarrow] = React.useState(false);
   const sends = React.useRef(0);
   const running = snapshot !== null && snapshot.currentTurnId !== null;
+
+  const [filesOpen, setFilesOpen] = React.useState(false);
+  const revealFile = useRevealFile(client.threadId);
+  const showFile = React.useCallback(
+    (target: FileRevealTarget) => {
+      revealFile(target);
+      setFilesOpen(true);
+    },
+    [revealFile],
+  );
+  useFileRevealRequests(client.threadId, showFile);
 
   React.useEffect(() => {
     if (!streaming) {
@@ -169,6 +190,35 @@ function TimelineFixturePage({ client }: { readonly client: FixtureClient }) {
             <Timeline key={`${scenario}-${multiplier}`} snapshot={snapshot} />
           )}
         </div>
+        {filesOpen && snapshot !== null ? (
+          <aside
+            aria-label="Files"
+            className="flex min-h-0 w-80 shrink-0 flex-col border-l border-border bg-sidebar"
+          >
+            <div className="flex shrink-0 items-center justify-between py-1 pr-1 pl-3 type-body font-medium">
+              Files
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Close files"
+                      onClick={() => setFilesOpen(false)}
+                    />
+                  }
+                >
+                  <Close variant="bold" />
+                </TooltipTrigger>
+                <TooltipContent>Close files</TooltipContent>
+              </Tooltip>
+            </div>
+            <div className="min-h-0 flex-1">
+              <FilesPane projectId={snapshot.projectId} threadId={snapshot.threadId} connected />
+            </div>
+          </aside>
+        ) : null}
       </div>
     </div>
   );

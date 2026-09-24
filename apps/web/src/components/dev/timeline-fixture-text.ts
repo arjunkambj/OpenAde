@@ -168,11 +168,12 @@ export const ANSWER_READINESS = [
   "",
   "- the entry point is [main.tsx](apps/web/src/main.tsx:12)",
   "- the probe is documented in [the readme](README.md#L3)",
-  "- the RPC it answers through is [rpc.ts](/fixture/packages/contracts/src/rpc.ts)",
+  "- the RPC it answers through is [rpc.ts](/fixture/packages/contracts/src/rpc.ts), its stat call at [L640](packages/contracts/src/rpc.ts#L640-L652)",
   "- the host file I did **not** touch is [hosts](/etc/hosts)",
   "",
   "Inline paths: `apps/server/src/http/ready.ts`, `docs/architecture.md:40` and `package.json`.",
-  "Not paths: `npm test`, `--flag`, `a/b`, and `v1.2.3`.",
+  "Two files share a name: `apps/web/src/lib/format.ts` and `packages/shared/src/format.ts:7`.",
+  "Not paths: `npm test`, `--flag`, `a/b`, `src/*.ts`, and `v1.2.3`.",
 ].join("\n");
 
 /** Short lines, so the 420-line block stays well under the highlighting size cap. */
