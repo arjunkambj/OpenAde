@@ -9,8 +9,9 @@
  * projects with the same name share a parent directory.
  *
  * Every path a caller hands back (to remove, to run the setup script in) has
- * to be a registered, non-main worktree of the project's repository, compared
- * by real path: git prints resolved paths, and macOS's tmp is `/var` →
+ * to be a registered worktree of the project's repository other than the
+ * project's own folder and the repository's main checkout, compared by real
+ * path: git prints resolved paths, and macOS's tmp is `/var` →
  * `/private/var`. Removal never deletes the branch, so committed work outlives
  * the directory. `Git.ts` resolves the project and applies the guard that
  * needs the read models (a thread still working in the worktree).
@@ -100,9 +101,11 @@ export const listWorktrees = (root: string) =>
   );
 
 /**
- * The worktree at `path`, when it is one of `root`'s and not `root`'s own
- * checkout; `invalid` otherwise. Whatever a client names goes through here
- * before anything is removed or run in it.
+ * The worktree at `path`, when it is one of `root`'s and neither `root` itself
+ * nor the repository's main checkout; `invalid` otherwise. The two differ when
+ * the project was added from a linked worktree: git lists the main checkout
+ * first, and the project's own folder is then just another entry. Whatever a
+ * client names goes through here before anything is removed or run in it.
  */
 export const registeredWorktree = (root: string, path: string) =>
   Effect.gen(function* () {
@@ -116,9 +119,16 @@ export const registeredWorktree = (root: string, path: string) =>
     if (found === undefined) {
       return yield* Effect.fail(invalid(`"${path}" is not a worktree of this project.`));
     }
-    if (found.isMain) {
+    if (target === canonicalPath(root)) {
       return yield* Effect.fail(
         invalid("That is the project's own checkout, not a worktree OpenAde can remove or set up."),
+      );
+    }
+    if (found.isMain) {
+      return yield* Effect.fail(
+        invalid(
+          "That is the repository's main checkout, not a worktree OpenAde can remove or set up.",
+        ),
       );
     }
     return found;

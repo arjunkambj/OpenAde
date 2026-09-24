@@ -105,9 +105,9 @@ export type GitPullRequestResult = typeof GitPullRequestResult.Type;
 
 /**
  * One worktree of a repository, as `git worktree list` reports it. `isMain` is
- * the repository's own checkout — the project's root — which is never
- * removed. `branch` is `null` on a detached HEAD; `head` is the commit
- * checked out.
+ * the repository's main checkout — usually the project's root, unless the
+ * project was added from a linked worktree — and neither is ever removed.
+ * `branch` is `null` on a detached HEAD; `head` is the commit checked out.
  */
 export const GitWorktreeInfo = Schema.Struct({
   path: NonEmptyString,
@@ -263,7 +263,8 @@ export const GitWorktreeListRpc = Rpc.make(GIT_RPC_METHODS.gitWorktreeList, {
 /**
  * Removes one of the project's worktrees; its branch is kept, so committed
  * work survives. `invalid` for a path that is not one of them (or is the
- * project's own checkout), `conflict` while a thread still works in it, and
+ * project's own checkout, or the repository's main one), `conflict` while a
+ * thread still works in it or another project was added from it, and
  * `conflict` when it holds uncommitted or untracked work — `force` removes it
  * anyway.
  */

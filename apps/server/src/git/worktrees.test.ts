@@ -369,6 +369,51 @@ describe("git.worktree.remove", () => {
     ),
   );
 
+  it.live("refuses a project folder that is itself a linked worktree, and the main checkout", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const main = makeRepo();
+        const linked = nodePath.join(tempDir("openade-linked-parent-"), "linked");
+        git(main, "worktree", "add", "-q", "-b", "linked", linked);
+        writeFileSync(nodePath.join(linked, "untracked.txt"), "mine\n");
+        const { git: service, addProject, settings } = yield* stack;
+        const projectId = yield* addProject(linked);
+        yield* settings.update({ projectSettings: { [projectId]: { setupScript: "touch ran" } } });
+
+        // git lists the main checkout first; the project's own folder is then
+        // an ordinary entry, and still not one OpenAde may remove or set up.
+        for (const path of [linked, main]) {
+          const error = yield* errorOf(service.removeWorktree(projectId, { path, force: true }));
+          expect(error.code).toBe("invalid");
+          const setup = yield* errorOf(frames(service.setupWorktree(projectId, path)));
+          expect(setup).toMatchObject({ code: "invalid" });
+        }
+        expect(existsSync(nodePath.join(linked, "untracked.txt"))).toBe(true);
+        expect(existsSync(nodePath.join(linked, "ran"))).toBe(false);
+        expect(existsSync(nodePath.join(main, "ran"))).toBe(false);
+      }),
+    ),
+  );
+
+  it.live("refuses a worktree another project was added from", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = makeRepo();
+        const { git: service, addProject } = yield* stack;
+        const projectId = yield* addProject(root);
+        const worktree = yield* service.createWorktree(projectId, { name: "adopted" });
+        yield* addProject(worktree.path, "Adopted");
+
+        const error = yield* errorOf(
+          service.removeWorktree(projectId, { path: worktree.path, force: true }),
+        );
+        expect(error.code).toBe("conflict");
+        expect(error.message).toContain('"Adopted"');
+        expect(existsSync(worktree.path)).toBe(true);
+      }),
+    ),
+  );
+
   it.live("refuses while a thread still works in it, and not once that thread is deleted", () =>
     Effect.scoped(
       Effect.gen(function* () {

@@ -96,6 +96,20 @@ export const workspaceRootBusy = (readModels: ReadModelStore["Service"], root: s
   });
 
 /**
+ * The name of a project whose own folder is `path`, or null. A worktree one
+ * project cut can be added as a project of its own, and removing it would then
+ * take that project's folder with it.
+ */
+export const projectRootedAt = (readModels: ReadModelStore["Service"], path: string) =>
+  Effect.gen(function* () {
+    const target = canonicalPath(path);
+    const projects = yield* readModels.listProjects();
+    return (
+      projects.find((project) => canonicalPath(project.workspaceRoot) === target)?.name ?? null
+    );
+  });
+
+/**
  * Whether a thread that has not been deleted still works in the worktree at
  * `path`. An archived thread counts: it can be unarchived, and its worktree
  * has to be there when it is.

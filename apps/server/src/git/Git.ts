@@ -27,6 +27,7 @@ import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
 
 import { worktreeOf } from "../orchestration/state";
 import {
+  projectRootedAt,
   resolveWorkspaceRoot,
   workspaceRootBusy,
   worktreeInUse,
@@ -535,6 +536,19 @@ export const layer = Layer.effect(
               new OpenAdeRpcError({
                 code: "conflict",
                 message: "A thread still works in this worktree — delete the thread first.",
+              }),
+            );
+          }
+          const ownerProject = yield* projectRootedAt(readModels, worktree.path).pipe(
+            Effect.mapError(
+              (error) => new OpenAdeRpcError({ code: "internal", message: error.message }),
+            ),
+          );
+          if (ownerProject !== null) {
+            return yield* Effect.fail(
+              new OpenAdeRpcError({
+                code: "conflict",
+                message: `This worktree is the folder of the project "${ownerProject}" — remove that project first.`,
               }),
             );
           }

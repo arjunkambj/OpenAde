@@ -1382,9 +1382,11 @@ runs from the project's root, and the answer (real path, branch, base) is what
 
 `git.worktree.list` reads `git worktree list --porcelain`, the project's own
 checkout first. `git.worktree.remove` takes a path only when it is a
-registered worktree of the project's repository and not its own checkout,
-compared by real path; refuses with `conflict` while a thread that is not
-deleted (archived ones included) still works there; and runs `git worktree
+registered worktree of the project's repository, neither the project's own
+folder nor the repository's main checkout (they differ when the project was
+added from a linked worktree), compared by real path; refuses with `conflict`
+while a thread that is not deleted (archived ones included) still works there
+or while another project was added from that folder; and runs `git worktree
 remove`. git refuses a tree with modified or untracked files, and that
 refusal is answered as `conflict`, saying the removal would lose that work;
 `force` removes it anyway. The branch
