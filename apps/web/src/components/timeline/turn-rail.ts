@@ -186,3 +186,21 @@ export const railTarget = (
   }
   return neighbour(items, active?.rowId, direction);
 };
+
+/** How far one wheel "line" scrolls, in px, for a wheel that counts in lines. */
+const WHEEL_LINE_PX = 16;
+
+/**
+ * A wheel event's vertical travel in px, whatever unit it counts in: pixels,
+ * lines, or pages of `pageHeight`. The rail passes its wheel on to the list,
+ * which it overlays but does not sit inside.
+ */
+export const wheelPixels = (deltaY: number, deltaMode: number, pageHeight: number): number => {
+  if (deltaMode === 1) {
+    return deltaY * WHEEL_LINE_PX;
+  }
+  if (deltaMode === 2) {
+    return deltaY * pageHeight;
+  }
+  return deltaY;
+};

@@ -1009,7 +1009,10 @@ this from the scroll offset and the list's row positions once a frame while the
 list scrolls or its rows settle. Its entries depend only on each message's row id and
 place (`railKey`), and each message's preview is worked out once per
 snapshot of it, so a streamed delta, which rebuilds the rows, rebuilds and
-rerenders nothing of the rail. It is hidden with fewer than two messages, and
+rerenders nothing of the rail. The rail overlays the list without sitting
+inside its scroller, so it passes a wheel over its ticks on to the list, as
+the reader's own scroll, rather than leaving a strip that does not scroll. It
+is hidden with fewer than two messages, and
 when the timeline is narrower than 800px, measured by its own container query.
 Each tick is a 24px target until they no longer fit, then they shrink together
 to share the rail's height. `timeline.previousMessage` and

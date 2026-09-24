@@ -16,6 +16,10 @@
  * (`release`), so a held send anchor lets go instead of pulling the list
  * back.
  *
+ * The rail overlays the list without sitting inside its scroller, so a wheel
+ * over it would scroll nothing: it passes the wheel on to the list, as the
+ * reader's own scroll.
+ *
  * The rows are a new array on every streamed delta. The entries are rebuilt
  * only when a message is added or moves (`railKey`), so the rail, a memo,
  * does not rerender and its listeners are not rebuilt while a reply streams.
@@ -38,6 +42,7 @@ import {
   railKey,
   railTarget,
   rowAtOffset,
+  wheelPixels,
 } from "./turn-rail";
 import { prefersReducedMotion } from "./use-send-anchor";
 
@@ -120,6 +125,8 @@ function useActiveRailId(
 interface TurnNavigation {
   readonly items: ReadonlyArray<RailItem>;
   readonly goTo: (item: RailItem) => void;
+  /** Scroll the list by a wheel that landed on the rail, as the reader's scroll. */
+  readonly wheel: (deltaY: number, deltaMode: number) => void;
 }
 
 /** The rail's entries, and the scroll both it and the message keys use. */
@@ -161,9 +168,21 @@ export function useTurnNavigation({
       goTo(target);
     }
   };
+  const wheel = React.useCallback(
+    (deltaY: number, deltaMode: number) => {
+      const list = listRef.current;
+      if (list === null || deltaY === 0) {
+        return;
+      }
+      release();
+      const node = list.getScrollableNode();
+      node.scrollBy({ top: wheelPixels(deltaY, deltaMode, node.clientHeight) });
+    },
+    [listRef, release],
+  );
   useKeybindingCommand("timeline.previousMessage", () => step("previous"));
   useKeybindingCommand("timeline.nextMessage", () => step("next"));
-  return React.useMemo(() => ({ items, goTo }), [items, goTo]);
+  return React.useMemo(() => ({ items, goTo, wheel }), [items, goTo, wheel]);
 }
 
 export const TurnRail = React.memo(function TurnRail({
@@ -173,7 +192,7 @@ export const TurnRail = React.memo(function TurnRail({
   listRef: React.RefObject<LegendListRef | null>;
   navigation: TurnNavigation;
 }) {
-  const { items, goTo } = navigation;
+  const { items, goTo, wheel } = navigation;
   const shown = items.length >= 2;
   const activeId = useActiveRailId(listRef, items, shown);
   if (!shown) {
@@ -185,7 +204,10 @@ export const TurnRail = React.memo(function TurnRail({
         aria-label="Messages in this thread"
         className="absolute inset-y-6 right-3 hidden flex-col justify-center @min-[800px]/rail:flex"
       >
-        <ol className="pointer-events-auto flex max-h-full min-h-0 flex-col">
+        <ol
+          className="pointer-events-auto flex max-h-full min-h-0 flex-col"
+          onWheel={(event) => wheel(event.deltaY, event.deltaMode)}
+        >
           {items.map((item, index) => {
             const current = item.rowId === activeId;
             return (

@@ -17,6 +17,7 @@ const render = (count: number) =>
       navigation={{
         items: Array.from({ length: count }, (_, i) => item(i)),
         goTo: () => {},
+        wheel: () => {},
       }}
     />,
   );

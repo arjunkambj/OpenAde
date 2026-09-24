@@ -13,6 +13,7 @@ import {
   railPreview,
   railTarget,
   rowAtOffset,
+  wheelPixels,
 } from "./turn-rail";
 
 const row = (
@@ -67,6 +68,14 @@ describe("railKey", () => {
     // A fold opening above a message moves it down the list.
     expect(railKey([row("opened"), ...rows])).not.toBe(railKey(rows));
     expect(railKey([...rows, user("u4")])).not.toBe(railKey(rows));
+  });
+});
+
+describe("wheelPixels", () => {
+  it("reads pixels as they are, lines as 16px, and pages as the list's height", () => {
+    expect(wheelPixels(40, 0, 600)).toBe(40);
+    expect(wheelPixels(-3, 1, 600)).toBe(-48);
+    expect(wheelPixels(1, 2, 600)).toBe(600);
   });
 });
 
