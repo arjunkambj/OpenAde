@@ -421,6 +421,7 @@ describe("BrowserService", () => {
         yield* browser.humanInput(threadId, { kind: "navigate", url: "https://example.com/b" });
         yield* browser.humanInput(threadId, { kind: "history", direction: "back" });
         yield* browser.humanInput(threadId, { kind: "history", direction: "reload" });
+        yield* browser.humanInput(threadId, { kind: "history", direction: "stop" });
         yield* browser.humanInput(threadId, { kind: "click", x: 1, y: 2 });
         expect(argvs.length).toBe(ran);
         expect(opened).toBe(1);
@@ -489,6 +490,10 @@ describe("BrowserService", () => {
         expect(argvs).toContainEqual(["open", "https://example.com/b"]);
         expect(argvs).toContainEqual(["back"]);
         expect(argvs).toContainEqual(["reload"]);
+        // agent-browser has no stop: the gesture runs nothing.
+        const ran = argvs.length;
+        yield* browser.humanInput(threadId, { kind: "history", direction: "stop" });
+        expect(argvs.length).toBe(ran);
 
         // `back` walked the page off the address the human typed last, and
         // the state followed the page rather than the toolbar's optimism.

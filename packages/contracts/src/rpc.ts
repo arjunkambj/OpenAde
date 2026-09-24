@@ -319,10 +319,14 @@ export const BrowserHumanInput = Schema.Union([
     deltaY: Schema.Number,
   }),
   Schema.Struct({ kind: Schema.Literal("navigate"), url: NonEmptyString }),
-  /** Toolbar back/forward/reload — a human gesture that interrupts the agent. */
+  /**
+   * Toolbar back/forward/reload/stop — a human gesture that interrupts the
+   * agent. `stop` only ever comes from the in-app pane, which alone knows a
+   * page is loading.
+   */
   Schema.Struct({
     kind: Schema.Literal("history"),
-    direction: Schema.Literals(["back", "forward", "reload"]),
+    direction: Schema.Literals(["back", "forward", "reload", "stop"]),
   }),
   /**
    * Passive location sync: the pane observed a navigation (whoever caused it)

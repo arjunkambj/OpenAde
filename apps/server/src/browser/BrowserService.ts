@@ -506,6 +506,8 @@ export const makeService = (injected: {
             yield* session.queue.withPermits(1)(navigateWith(session, driver, input.url));
             return;
           case "history":
+            // agent-browser has no stop; the gesture above was the point.
+            if (input.direction === "stop") return;
             yield* session.queue.withPermits(1)(
               driver
                 .exec(
