@@ -16,18 +16,15 @@
  * (`@/lib/runtime-modes`). Once the thread has run anything, the other
  * sections are disabled. Efforts read lowest first in the contract's order
  * (`@/lib/efforts`).
+ *
+ * Keys: `ThreadSettingsKeys` (`./thread-settings-keys`) answers plan mode
+ * (Shift+Tab in the composer), the runtime-mode cycle, the pickers and the
+ * effort steps through the same `onChange` a click uses; the pickers are
+ * controlled here so a key can open them.
  */
 
 import { Button } from "@OpenAde/ui/components/button";
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectGroup,
-  SelectTrigger,
-  SelectValue,
-} from "@OpenAde/ui/components/select";
 import {
   Tooltip,
   TooltipContent,
@@ -49,100 +46,12 @@ import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
 import { orderEfforts } from "@/lib/efforts";
 import { findModel, modelPickPatch } from "@/lib/model-picks";
 import { RUNTIME_MODE_LABELS, runtimeModeOptions } from "@/lib/runtime-modes";
-import { type HoneyIcon, Lightning, ListChecks, Lock } from "@honeyicons/react";
+import { CommandKbd } from "@/lib/shortcuts";
+import { Lightning, ListChecks, Lock } from "@honeyicons/react";
 
+import { type HeaderOption, HeaderSelect, NEXT_TURN_HINT, RESTART_TOOLTIP } from "./header-select";
+import { ThreadSettingsKeys } from "./thread-settings-keys";
 import { ModelPicker } from "./model-picker";
-
-interface HeaderOption {
-  readonly value: string;
-  readonly label: string;
-  readonly description?: string;
-  readonly disabled?: boolean;
-}
-
-const RESTART_TOOLTIP = "Applies only on session restart — the running session keeps its settings";
-const NEXT_TURN_HINT = "applies next turn";
-
-/**
- * One labelled picker. `capability` is the connector's switch behaviour for
- * this knob; absent means the setting is a server-side mode read at turn
- * start, which is exactly the per-turn contract — so the hint stays.
- */
-function HeaderSelect({
-  icon: Glyph,
-  label,
-  value,
-  options,
-  capability,
-  onPick,
-}: {
-  readonly icon: HoneyIcon;
-  readonly label: string;
-  readonly value: string;
-  readonly options: ReadonlyArray<HeaderOption>;
-  readonly capability: CapabilitySwitch | "next-turn";
-  readonly onPick: (value: string) => void;
-}) {
-  const restartLocked = capability === "restart";
-  const nextTurn = capability === "per-turn" || capability === "next-turn";
-  // The current value may be absent from the option list (a stale model id) —
-  // offer it verbatim so the picker never lies about the setting.
-  const items = options.some((option) => option.value === value)
-    ? options
-    : [{ value, label: value }, ...options];
-
-  const select = (
-    <Select
-      value={value}
-      disabled={restartLocked}
-      onValueChange={(next) => {
-        if (typeof next === "string" && next.length > 0 && next !== value) {
-          onPick(next);
-        }
-      }}
-      items={items.map((item) => ({ value: item.value, label: item.label }))}
-    >
-      <SelectTrigger
-        aria-label={label}
-        title={nextTurn ? NEXT_TURN_HINT : label}
-        size="sm"
-        variant="composer"
-      >
-        <span className="flex items-center gap-1.5">
-          <Glyph variant="bold" className="size-3.5 shrink-0 text-muted-foreground" />
-          <SelectValue className="max-w-52" />
-        </span>
-      </SelectTrigger>
-      <SelectContent align="start" alignItemWithTrigger={false} className="min-w-44">
-        <SelectGroup>
-          {items.map((item) => (
-            <SelectItem key={item.value} value={item.value} disabled={item.disabled}>
-              <span className="flex min-w-0 flex-col">
-                <span className="truncate">{item.label}</span>
-                {item.description === undefined ? null : (
-                  <span className="truncate text-xs text-muted-foreground">{item.description}</span>
-                )}
-              </span>
-            </SelectItem>
-          ))}
-        </SelectGroup>
-      </SelectContent>
-    </Select>
-  );
-
-  return (
-    <span className="inline-flex min-w-0 items-center gap-1">
-      {restartLocked ? (
-        <Tooltip>
-          <TooltipTrigger render={<span className="inline-flex" />}>{select}</TooltipTrigger>
-          <TooltipContent>{RESTART_TOOLTIP}</TooltipContent>
-        </Tooltip>
-      ) : (
-        select
-      )}
-    </span>
-  );
-}
 
 export function HeaderControls({
   threadId,
@@ -269,9 +178,25 @@ export function ThreadSettingsControls({
     );
 
   const planning = settings.interactionMode === "plan";
+  const effort = settings.effort ?? "medium";
+  const [modeOpen, setModeOpen] = React.useState(false);
+  const [modelOpen, setModelOpen] = React.useState(false);
+  const [effortOpen, setEffortOpen] = React.useState(false);
 
   return (
     <TooltipProvider>
+      <ThreadSettingsKeys
+        planOffered={canPlan || planning}
+        planning={planning}
+        runtimeMode={currentMode}
+        runtimeModes={runtimeModes}
+        effort={effort}
+        efforts={currentModel?.efforts}
+        effortLocked={effortSwitch === "restart"}
+        onChange={onChange}
+        onOpenModel={() => setModelOpen(settings.model !== undefined && modelSwitch !== "restart")}
+        onOpenEffort={() => setEffortOpen(effortSwitch !== "restart")}
+      />
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
         <HeaderSelect
           icon={Lock}
@@ -279,6 +204,8 @@ export function ThreadSettingsControls({
           value={currentMode}
           options={runtimeModeItems}
           capability="next-turn"
+          open={modeOpen}
+          onOpenChange={setModeOpen}
           onPick={(mode) => onChange({ runtimeMode: mode as RuntimeMode })}
         />
         {canPlan || planning ? (
@@ -301,6 +228,7 @@ export function ThreadSettingsControls({
             </TooltipTrigger>
             <TooltipContent>
               {planning ? "Turn off plan mode" : "Plan before making changes"}
+              <CommandKbd command="composer.planMode.toggle" />
             </TooltipContent>
           </Tooltip>
         ) : null}
@@ -315,16 +243,20 @@ export function ThreadSettingsControls({
                 modelSwitch === "per-turn" || modelSwitch === "next-turn" ? NEXT_TURN_HINT : "Model"
               }
               disabledReason={modelSwitch === "restart" ? RESTART_TOOLTIP : undefined}
+              open={modelOpen}
+              onOpenChange={setModelOpen}
               onPick={(pick) => onChange(modelPickPatch(pick, locked))}
             />
           ) : null}
           <HeaderSelect
             icon={Lightning}
             label="Effort"
-            value={settings.effort ?? "medium"}
+            value={effort}
             options={effortOptions}
             capability={effortSwitch}
-            onPick={(effort) => onChange({ effort: effort as Effort })}
+            open={effortOpen}
+            onOpenChange={setEffortOpen}
+            onPick={(next) => onChange({ effort: next as Effort })}
           />
         </div>
       </div>

@@ -45,6 +45,11 @@ export interface Attachments {
   readonly add: (files: ReadonlyArray<File>) => void;
   readonly removeAt: (index: number) => void;
   readonly clear: () => void;
+  /**
+   * When attaching is refused, says so in `rejected` and answers true — for an
+   * attach that does not go through `add`, such as the attach key.
+   */
+  readonly refuse: () => boolean;
   /** Forgets exactly the files `stage` uploaded, by identity. */
   readonly clearStaged: (uploaded: ReadonlyArray<File>) => void;
   /** Uploads every kept file and resolves with what went up and what came back. */
@@ -125,6 +130,13 @@ export function useAttachments(
       setFiles([]);
       setRejected(null);
     }, [setFiles]),
+    refuse: React.useCallback(() => {
+      if (refusal === null) {
+        return false;
+      }
+      setRejected(refusal);
+      return true;
+    }, [refusal]),
     clearStaged: React.useCallback(
       (uploaded: ReadonlyArray<File>) => {
         setFiles((current) => current.filter((file) => !uploaded.includes(file)));

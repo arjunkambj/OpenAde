@@ -17,6 +17,13 @@
  * uncommitted Latin letters of an inline IME (pinyin, say) are already in the
  * draft — so `@le` can have skill rows open under it. That Enter belongs to the
  * IME: picking there would drop a chip into the middle of the composition.
+ *
+ * Plain Enter sends and Shift+Enter is a newline; those two are fixed, because
+ * they depend on the menus and on IME composition. Enter with Mod, Ctrl or Alt
+ * held is a chord, and chords belong to the keymap: `composer.queue` is
+ * `Mod+Enter` by default, and whatever the user rebinds it to is what queues.
+ * So the composer leaves those presses to the keybinding listener — once an
+ * open menu with rows has had its pick.
  */
 
 export type ComposerEnter =
@@ -25,7 +32,9 @@ export type ComposerEnter =
   /** Send (or queue) the draft, closing any open menu first. */
   | "send"
   /** Leave the key to the textarea — a newline, or an IME still composing. */
-  | "insert";
+  | "insert"
+  /** A chord: leave it to the keybinding listener (`composer.queue`, …). */
+  | "keymap";
 
 export interface ComposerEnterInput {
   /** A trigger menu (`/`, `#`, `@` or `$`) is open. */
@@ -33,6 +42,8 @@ export interface ComposerEnterInput {
   /** How many rows that menu is offering. */
   readonly menuItemCount: number;
   readonly shiftKey: boolean;
+  /** Meta, Ctrl or Alt is held — the press is a chord, not plain Enter. */
+  readonly chord: boolean;
   /** The IME is mid-composition; Enter belongs to it. */
   readonly composing: boolean;
 }
@@ -43,6 +54,9 @@ export const composerEnter = (input: ComposerEnterInput): ComposerEnter => {
   }
   if (input.triggerOpen && input.menuItemCount > 0) {
     return "pick";
+  }
+  if (input.chord) {
+    return "keymap";
   }
   if (input.shiftKey) {
     return "insert";

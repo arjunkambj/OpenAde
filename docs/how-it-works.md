@@ -401,6 +401,8 @@ function in `composer-keys.ts`:
 - an IME mid-composition → **insert**: the Enter commits the composition, even
   while a menu has rows;
 - a `/`, `#`, `@` or `$` menu that has rows → **pick** the highlighted one;
+- Mod, Ctrl or Alt held → **keymap**, leaving the chord to the keybinding
+  listener;
 - Shift held → **insert** a newline;
 - otherwise → **send**.
 
@@ -416,6 +418,33 @@ What a send then does is `sendMode` in `send-mode.ts`:
 follow-up meant for after the turn still waits for it on a harness that steers.
 Whether the harness steers is the `steering` capability of the instance the
 thread runs on (`instanceCapabilities`, the same read the attach button uses).
+
+Plain Enter and Shift+Enter are fixed. Any other Enter chord belongs to the
+keymap, so `composer.queue` (`Mod+Enter` by default) is an ordinary table row
+and rebinding it changes the key in the composer too. With the focus in the
+composer's textarea it sends with `queued: true`; anywhere else it puts the
+focus back in the composer. On the start screen it sends, since a thread that
+does not exist yet has nothing to queue behind.
+
+The composer and the start screen answer the same keys
+(`use-composer-commands.ts`): `Mod+L` focuses the textarea, `Mod+U` opens the
+file chooser the attach button opens (or, when the connector refuses
+attachments, shows the button's sentence and opens nothing), and
+`Mod+Shift+Backspace` in the composer clears the text, the mentions and the
+attachments, as `/clear-draft` does. The settings row under the input
+(`thread-settings-keys.tsx`) answers the rest through the same `onChange` a
+click uses:
+
+| key                           | does                                                                                    |
+| ----------------------------- | --------------------------------------------------------------------------------------- |
+| `Shift+Tab` (in the composer) | toggle plan mode (§6)                                                                   |
+| `Mod+Shift+L`                 | next runtime mode the connector offers, in contract order, wrapping (`nextRuntimeMode`) |
+| `Mod+Shift+M` / `Mod+Shift+E` | open the model / effort picker                                                          |
+| `Mod+Shift+.` / `Mod+Shift+,` | one rung up / down the model's effort ladder, stopping at either end (`stepEffort`)     |
+
+A picker the connector locks until restart does not open, and a locked effort
+does not step. The plan button's tooltip and the attach button's show their
+current keys.
 `use-send-draft.ts` uploads any attachments first (a browser `File` has no
 filesystem path, so the server must hold the bytes before the command can name
 them) and latches so one Enter cannot start two real turns. While a turn is in
@@ -976,6 +1005,14 @@ error row. Plan mode is exempt, because no hook fires there by design.
 ## 6. Plan mode and questions
 
 ### Plan mode
+
+Plan mode is the button in the settings row under the composer, `/plan` and
+`/default` in the `/` menu, or `Shift+Tab` while the composer has the focus
+(`composer.planMode.toggle`, the habit terminal coding agents teach). The key
+is only answered while the connector can plan or the thread is already
+planning; otherwise, and anywhere outside the composer, Shift+Tab moves the
+focus as usual. An open `/` or `@` menu takes Shift+Tab first, to move up its
+rows.
 
 Setting a thread's `interactionMode` to `plan` changes the next turn's argv:
 `--permission-mode plan`, and **no `--yolo`**
@@ -2006,16 +2043,16 @@ list it.
 | Threads  | `thread.archive` (inert)                              | `Mod+Shift+A`                 | `threadOpen`                                                       |
 | Threads  | `thread.delete` (inert)                               | `Mod+Alt+Backspace`           | `threadOpen`                                                       |
 | Threads  | `nav.back` / `nav.forward` (inert)                    | `Mod+[` / `Mod+]`             | `!browserFocus`                                                    |
-| Composer | `composer.planMode.toggle` (inert)                    | `Shift+Tab`                   | `composerFocus`                                                    |
-| Composer | `composer.runtimeMode.cycle` (inert)                  | `Mod+Shift+L`                 |                                                                    |
-| Composer | `composer.modelPicker.open` (inert)                   | `Mod+Shift+M`                 |                                                                    |
-| Composer | `composer.effortPicker.open` (inert)                  | `Mod+Shift+E`                 |                                                                    |
-| Composer | `composer.effort.increase` / `decrease` (inert)       | `Mod+Shift+.` / `Mod+Shift+,` |                                                                    |
-| Composer | `composer.focus` (inert)                              | `Mod+L`                       | `!browserFocus`                                                    |
+| Composer | `composer.planMode.toggle`                            | `Shift+Tab`                   | `composerFocus`                                                    |
+| Composer | `composer.runtimeMode.cycle`                          | `Mod+Shift+L`                 |                                                                    |
+| Composer | `composer.modelPicker.open`                           | `Mod+Shift+M`                 |                                                                    |
+| Composer | `composer.effortPicker.open`                          | `Mod+Shift+E`                 |                                                                    |
+| Composer | `composer.effort.increase` / `decrease`               | `Mod+Shift+.` / `Mod+Shift+,` |                                                                    |
+| Composer | `composer.focus`                                      | `Mod+L`                       | `!browserFocus`                                                    |
 | Composer | `composer.queue`                                      | `Mod+Enter`                   |                                                                    |
 | Composer | `thread.interrupt`                                    | `Escape`                      | `turnRunning && !dialogOpen && (inputFocus \|\| !approvalPending)` |
-| Composer | `composer.attach` (inert)                             | `Mod+U`                       |                                                                    |
-| Composer | `composer.clearDraft` (inert)                         | `Mod+Shift+Backspace`         | `composerFocus`                                                    |
+| Composer | `composer.attach`                                     | `Mod+U`                       |                                                                    |
+| Composer | `composer.clearDraft`                                 | `Mod+Shift+Backspace`         | `composerFocus`                                                    |
 | View     | `sidebar.toggle`                                      | `Mod+B`                       |                                                                    |
 | View     | `dock.toggle` (inert)                                 | `Mod+Alt+B`                   | `threadOpen`                                                       |
 | View     | `dock.changes` / `dock.files` (inert)                 | `Mod+Shift+D` / `Mod+P`       | `threadOpen`                                                       |

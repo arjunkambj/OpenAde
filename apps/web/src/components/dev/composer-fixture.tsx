@@ -12,7 +12,7 @@
  * The Steering toggle flips the connector's `steering` capability and rebinds
  * the session with it, so a running turn shows the composer's steer state (Enter steers, the button and
  * tooltip say so) instead of the queue.
- * Keyboard path: Enter sends, Cmd+Enter queues, 1/2/3 answer cards, 3 opens
+ * Keyboard path: Enter sends, Mod+Enter queues, 1/2/3 answer cards, 3 opens
  * the plan revision field, Escape interrupts a running turn. Every chord is
  * resolved by the one dispatcher in `@/lib/shortcuts` against the fixture's
  * own keybinding table — the editor at the bottom of the page rebinds them

@@ -9,13 +9,15 @@
  * way to end a turn that is going wrong.
  *
  * Attach is disabled, with the reason as its tooltip, when the thread's
- * connector cannot take attachments (`@/lib/attachment-support`).
+ * connector cannot take attachments (`@/lib/attachment-support`). The file
+ * input's ref is the caller's, so the `composer.attach` key can open the same
+ * chooser (`./use-composer-commands`).
  */
 
 import { Button } from "@OpenAde/ui/components/button";
 import { Kbd } from "@OpenAde/ui/components/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import * as React from "react";
+import type * as React from "react";
 
 import { ATTACHMENT_ACCEPT } from "@/components/composer/attachment-rules";
 import { CommandKbd } from "@/lib/shortcuts";
@@ -32,6 +34,7 @@ export function ComposerToolbar({
   interrupting,
   sending,
   filesKey,
+  fileInputRef,
   onFilesPicked,
   onSend,
   onInterrupt,
@@ -50,13 +53,13 @@ export function ComposerToolbar({
   readonly sending: boolean;
   /** Remounts the file input when the attachment list resets, clearing it. */
   readonly filesKey: number;
+  readonly fileInputRef: React.RefObject<HTMLInputElement | null>;
   readonly onFilesPicked: (files: ReadonlyArray<File>) => void;
   readonly onSend: () => void;
   readonly onInterrupt: () => void;
   /** Why attaching is refused; the button is disabled when it is set. */
   readonly attachDisabledReason?: string;
 }) {
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const attachDisabled = attachDisabledReason !== undefined;
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -93,7 +96,14 @@ export function ComposerToolbar({
             <Add variant="bold" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>{attachDisabledReason ?? "Attach files"}</TooltipContent>
+        <TooltipContent>
+          {attachDisabledReason ?? (
+            <>
+              Attach files
+              <CommandKbd command="composer.attach" />
+            </>
+          )}
+        </TooltipContent>
       </Tooltip>
       {settings}
       <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">

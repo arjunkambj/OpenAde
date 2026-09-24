@@ -1,4 +1,3 @@
-import type { HoneyIcon } from "@honeyicons/react";
 /**
  * The floating list the `#`, `@`, `$` and `/` triggers open. It is a plain
  * positioned `listbox` — the composer owns the query and the active index, so
@@ -17,6 +16,7 @@ import type { HoneyIcon } from "@honeyicons/react";
 import * as React from "react";
 
 import { cn } from "@OpenAde/ui/lib/utils";
+import type { HoneyIcon } from "@honeyicons/react";
 
 export interface TriggerMenuItem {
   readonly id: string;

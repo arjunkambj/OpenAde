@@ -33,6 +33,11 @@
  * worktree do not exist yet. `/` stays plain text here: its commands change a
  * thread that does not exist yet.
  *
+ * Its keys are the thread composer's (`use-composer-commands`): focus, attach,
+ * clear the draft, and `composer.queue`, which here simply sends — a thread
+ * that does not exist yet has no turn to queue behind. Enter is decided by the
+ * same `composerEnter` rule, so chorded Enter is left to the keymap.
+ *
  * With no server it says so. A fresh install lands here with no projects, so
  * the empty state carries the same Add project dialog the sidebar does —
  * without it the screen would be an input with nowhere to send it.
@@ -57,6 +62,7 @@ import { detectComposerTrigger } from "@OpenAde/client-runtime/composerTrigger";
 import { useComposerTrigger } from "@/components/composer/use-composer-trigger";
 import { useMentionMenus } from "@/components/composer/use-mention-menus";
 import { useAttachments } from "@/components/composer/use-attachments";
+import { useComposerCommands } from "@/components/composer/use-composer-commands";
 import { useSendDraft } from "@/components/composer/use-send-draft";
 import { HarnessHealthBanner } from "@/components/thread/harness-health-banner";
 import { ProjectPicker } from "@/components/thread/project-picker";
@@ -210,9 +216,10 @@ function StartComposer({
       triggerOpen: menus.open,
       menuItemCount: menus.itemCount,
       shiftKey: event.shiftKey,
+      chord: event.metaKey || event.ctrlKey || event.altKey,
       composing: event.nativeEvent.isComposing,
     });
-    if (action === "insert") {
+    if (action === "insert" || action === "keymap") {
       return;
     }
     event.preventDefault();
@@ -223,6 +230,24 @@ function StartComposer({
     triggers.close();
     void send();
   };
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  useComposerCommands({
+    textareaRef,
+    fileInputRef,
+    attachments,
+    clearDraft: () => {
+      setText("");
+      setMentions([]);
+      setReferences([]);
+      attachments.clear();
+      triggers.close();
+    },
+    submit: () => {
+      triggers.close();
+      void send();
+    },
+  });
 
   return (
     <div className="flex w-full min-w-0 max-w-[760px] flex-col gap-2">
@@ -299,6 +324,7 @@ function StartComposer({
           interrupting={false}
           sending={working}
           filesKey={attachments.files.length}
+          fileInputRef={fileInputRef}
           onFilesPicked={attachments.add}
           onSend={() => void send()}
           onInterrupt={() => {}}

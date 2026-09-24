@@ -30,3 +30,19 @@ export const runtimeModeOptions = (
     ? RuntimeMode.literals
     : RuntimeMode.literals.filter((mode) => supported.includes(mode));
 };
+
+/**
+ * The mode after `current`, for the cycle key: the next of `offered` in
+ * `RuntimeMode` order, wrapping round. A current mode the connector does not
+ * offer moves on to the next one it does; with nothing else on offer the mode
+ * stays as it is.
+ */
+export const nextRuntimeMode = (
+  current: RuntimeMode,
+  offered: ReadonlyArray<RuntimeMode>,
+): RuntimeMode => {
+  const cycle = RuntimeMode.literals.filter((mode) => offered.includes(mode));
+  const at = RuntimeMode.literals.indexOf(current);
+  const next = cycle.find((mode) => RuntimeMode.literals.indexOf(mode) > at) ?? cycle[0];
+  return next ?? current;
+};

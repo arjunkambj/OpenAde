@@ -7,11 +7,13 @@
  * Keys: Enter sends — while a turn runs it steers that turn when the harness
  * can take a message mid-turn and queues otherwise (`send-mode`) — unless an
  * open trigger menu has a row to pick, which `composer-keys` decides;
- * Shift+Enter newline, Cmd+Enter always queues, Escape closes an open menu and
- * otherwise reaches the `thread.interrupt` binding this component registers —
- * the toolbar's Stop button is the same call with a mouse. State reads
- * `threadDetailAtom`; mutations go through `dispatchAtom`; cards close on
- * their resolved events — nothing here clears them locally.
+ * Shift+Enter newline. Chorded Enter is the keymap's: `composer.queue`
+ * (Mod+Enter) always queues, and it, focus, attach and clear are
+ * `use-composer-commands`. Escape closes an open menu and otherwise reaches the
+ * `thread.interrupt` binding this component registers — the toolbar's Stop
+ * button is the same call with a mouse. State reads `threadDetailAtom`;
+ * mutations go through `dispatchAtom`; cards close on their resolved events —
+ * nothing here clears them locally.
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
@@ -36,6 +38,7 @@ import { PendingCard } from "@/components/composer/pending-card";
 import { QueueStrip } from "@/components/composer/queue-strip";
 import { SlashMenu, slashMenuItems, type SlashMenuItem } from "@/components/composer/slash-menu";
 import { useAttachments } from "@/components/composer/use-attachments";
+import { useComposerCommands } from "@/components/composer/use-composer-commands";
 import { useComposerTrigger } from "@/components/composer/use-composer-trigger";
 import { useMentionMenus } from "@/components/composer/use-mention-menus";
 import { useInterrupt } from "@/components/composer/use-interrupt";
@@ -48,12 +51,6 @@ import { useKeybindingCommand, useKeybindingFlag } from "@/lib/shortcuts";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
 import { useComposerDraft } from "@/state/ui";
 import { Folder } from "@honeyicons/react";
-
-/** The level-2 slash query: everything after the command word. */
-const subQuery = (query: string): string => {
-  const space = query.search(/\s/u);
-  return space === -1 ? "" : query.slice(space + 1);
-};
 
 export function Composer({
   threadId,
@@ -93,6 +90,7 @@ export function Composer({
   const [error, setError] = React.useState<string | null>(null);
   const attachments = useAttachments(threadId, files, setFiles, attachRefusal);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const {
     trigger,
     activeIndex,
@@ -128,7 +126,7 @@ export function Composer({
     const currentModel = models.find((model) => model.id === doc?.settings.model);
     return slashMenuItems({
       level: slashLevel,
-      query: slashLevel === "root" ? trigger.query : subQuery(trigger.query),
+      query: trigger.query,
       skills,
       models,
       efforts: currentModel?.efforts,
@@ -156,6 +154,12 @@ export function Composer({
   });
   const menuItemCount = mentionMenus.open ? mentionMenus.itemCount : slashItems.length;
 
+  const clearDraft = () => {
+    clearTokens();
+    attachments.clear();
+    closeMenu();
+  };
+
   const applySlash = (item: SlashMenuItem) => {
     switch (item.action.type) {
       case "level":
@@ -168,9 +172,7 @@ export function Composer({
         }
         return;
       case "clear-draft":
-        clearTokens();
-        attachments.clear();
-        closeMenu();
+        clearDraft();
         return;
       case "settings":
         closeMenu();
@@ -200,13 +202,18 @@ export function Composer({
     }
   };
 
-  const focusInput = React.useCallback(() => textareaRef.current?.focus(), []);
-
   useKeybindingFlag("turnRunning", running);
   useKeybindingCommand("thread.interrupt", interrupt);
-  // Cmd+Enter inside the textarea is handled by onKeyDown; reaching here means
-  // focus is elsewhere, so the useful thing to do is put it back.
-  useKeybindingCommand("composer.queue", focusInput);
+  useComposerCommands({
+    textareaRef,
+    fileInputRef,
+    attachments,
+    clearDraft,
+    submit: () => {
+      closeMenu();
+      send(true);
+    },
+  });
 
   const onChangeText = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     const next = event.target.value;
@@ -222,9 +229,10 @@ export function Composer({
         triggerOpen: trigger !== null,
         menuItemCount,
         shiftKey: event.shiftKey,
+        chord: event.metaKey || event.ctrlKey || event.altKey,
         composing: event.nativeEvent.isComposing,
       });
-      if (action === "insert") {
+      if (action === "insert" || action === "keymap") {
         return;
       }
       event.preventDefault();
@@ -232,7 +240,7 @@ export function Composer({
         // An open menu with nothing in it does not hold the message hostage:
         // close it and send, rather than swallowing the key.
         closeMenu();
-        send(event.metaKey || event.ctrlKey);
+        send(false);
         return;
       }
       const index = Math.min(activeIndex, Math.max(0, menuItemCount - 1));
@@ -331,6 +339,7 @@ export function Composer({
           interrupting={interrupting}
           sending={sending}
           filesKey={attachments.files.length}
+          fileInputRef={fileInputRef}
           onFilesPicked={attachments.add}
           onSend={() => send(false)}
           onInterrupt={interrupt}

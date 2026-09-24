@@ -6,6 +6,7 @@ const input = (patch: Partial<ComposerEnterInput> = {}): ComposerEnterInput => (
   triggerOpen: false,
   menuItemCount: 0,
   shiftKey: false,
+  chord: false,
   composing: false,
   ...patch,
 });
@@ -52,6 +53,24 @@ describe("composerEnter", () => {
     expect(composerEnter(input({ triggerOpen: true, menuItemCount: 2, shiftKey: true }))).toBe(
       "pick",
     );
+  });
+
+  it("leaves Mod+Enter to the keymap instead of sending it", () => {
+    // `composer.queue` is a table row: claiming the chord here meant a
+    // rebinding changed the palette's label but not the key in the composer.
+    expect(composerEnter(input({ chord: true }))).toBe("keymap");
+    expect(composerEnter(input({ chord: true, shiftKey: true }))).toBe("keymap");
+    expect(composerEnter(input({ triggerOpen: true, menuItemCount: 0, chord: true }))).toBe(
+      "keymap",
+    );
+  });
+
+  it("lets an open menu with rows pick before the keymap sees a chord", () => {
+    expect(composerEnter(input({ triggerOpen: true, menuItemCount: 2, chord: true }))).toBe("pick");
+  });
+
+  it("leaves a chord pressed mid-composition to the IME", () => {
+    expect(composerEnter(input({ chord: true, composing: true }))).toBe("insert");
   });
 });
 

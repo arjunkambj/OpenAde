@@ -118,9 +118,9 @@ const ThreadUnarchiveCommand = command("thread.unarchive", { threadId: ThreadId 
 const ThreadDeleteCommand = command("thread.delete", { threadId: ThreadId });
 
 /**
- * Start a turn, or queue it. `queued` is the composer's Cmd+Enter: with a turn
- * already running the text goes on the queue instead of racing the session.
- * The queue is for harnesses that cannot steer — print-mode ones take no
+ * Start a turn, or queue it. `queued` is the composer's `composer.queue` key
+ * (Mod+Enter): with a turn already running the text goes on the queue instead
+ * of racing the session. The queue is for harnesses that cannot steer — print-mode ones take no
  * mid-turn message; one that can is sent `thread.turn.steer` instead.
  */
 const ThreadTurnStartCommand = command("thread.turn.start", {

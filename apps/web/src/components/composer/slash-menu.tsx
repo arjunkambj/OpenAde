@@ -27,6 +27,12 @@ import { Brain, Close, Lightning, ListChecks, Lock, Play, Sparkles } from "@hone
 
 export type SlashLevel = "root" | "model" | "effort" | "mode";
 
+/** The level-2 slash query: everything after the command word. */
+const subQuery = (query: string): string => {
+  const space = query.search(/\s/u);
+  return space === -1 ? "" : query.slice(space + 1);
+};
+
 /** What picking an item means — the composer turns it into a dispatch or a text edit. */
 export type SlashAction =
   | { readonly type: "settings"; readonly patch: SlashPatch }
@@ -58,13 +64,15 @@ const RUNTIME_MODE_DESCRIPTIONS: Readonly<Record<RuntimeMode, string>> = {
  */
 export const slashMenuItems = (input: {
   readonly level: SlashLevel;
+  /** The whole trigger query; a second level filters on what follows the command word. */
   readonly query: string;
   readonly skills: ReadonlyArray<SkillSummary>;
   readonly models: ReadonlyArray<ModelOption>;
   readonly efforts: ReadonlyArray<Effort> | undefined;
   readonly capabilities: ConnectorCapabilities | null;
 }): ReadonlyArray<SlashMenuItem> => {
-  const { level, query, skills, models, efforts, capabilities } = input;
+  const { level, skills, models, efforts, capabilities } = input;
+  const query = level === "root" ? input.query : subQuery(input.query);
 
   if (level === "model") {
     return models

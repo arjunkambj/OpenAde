@@ -7,7 +7,9 @@
  * On a thread that can no longer switch harness (`locked`) the other sections
  * stay listed but disabled, and hovering one says to start a new thread. A
  * `disabledReason` — the connector's `restart` switch — disables the whole
- * picker behind a tooltip, the way the other header pickers do.
+ * picker behind a tooltip, the way the other header pickers do, and then it
+ * does not open for its key either. `open`/`onOpenChange` make it
+ * controllable, so `composer.modelPicker.open` can open it.
  */
 
 import { useAtomValue } from "@effect/atom-react";
@@ -60,6 +62,8 @@ export function ModelPicker({
   locked,
   title,
   disabledReason,
+  open,
+  onOpenChange,
   onPick,
 }: {
   readonly catalog: ReadonlyArray<ConnectorModels>;
@@ -70,6 +74,8 @@ export function ModelPicker({
   readonly locked: boolean;
   readonly title: string;
   readonly disabledReason?: string;
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
   readonly onPick: (pick: ModelPick) => void;
 }) {
   const { connectorDescriptorsAtom } = useClientRuntime();
@@ -90,6 +96,8 @@ export function ModelPicker({
     <Select
       value={value}
       disabled={disabledReason !== undefined}
+      open={open && disabledReason === undefined}
+      onOpenChange={(next) => onOpenChange(next)}
       onValueChange={(next) => {
         const pick = typeof next === "string" && next !== value ? decodeModelPick(next) : null;
         if (pick !== null) {

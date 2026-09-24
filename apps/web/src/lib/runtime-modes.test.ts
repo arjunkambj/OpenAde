@@ -1,7 +1,7 @@
 import { RuntimeMode } from "@OpenAde/contracts/enums";
 import { describe, expect, it } from "vitest";
 
-import { RUNTIME_MODE_LABELS, runtimeModeOptions } from "./runtime-modes";
+import { nextRuntimeMode, RUNTIME_MODE_LABELS, runtimeModeOptions } from "./runtime-modes";
 
 describe("runtimeModeOptions", () => {
   it("offers every mode before a connector has said what it supports", () => {
@@ -26,5 +26,31 @@ describe("RUNTIME_MODE_LABELS", () => {
     for (const mode of RuntimeMode.literals) {
       expect(RUNTIME_MODE_LABELS[mode].length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("nextRuntimeMode", () => {
+  it("steps through every mode in contract order and wraps", () => {
+    expect(nextRuntimeMode("approval-required", RuntimeMode.literals)).toBe("auto-accept-edits");
+    expect(nextRuntimeMode("auto-accept-edits", RuntimeMode.literals)).toBe("full-access");
+    expect(nextRuntimeMode("full-access", RuntimeMode.literals)).toBe("approval-required");
+  });
+
+  it("skips a mode the connector does not offer, whatever order it listed them in", () => {
+    const offered = ["full-access", "approval-required"] as const;
+    expect(nextRuntimeMode("approval-required", offered)).toBe("full-access");
+    expect(nextRuntimeMode("full-access", offered)).toBe("approval-required");
+  });
+
+  it("moves an unsupported current mode on to the next offered one", () => {
+    expect(nextRuntimeMode("auto-accept-edits", ["approval-required", "full-access"])).toBe(
+      "full-access",
+    );
+    expect(nextRuntimeMode("full-access", ["auto-accept-edits"])).toBe("auto-accept-edits");
+  });
+
+  it("stays put when only the current mode is on offer, or nothing is", () => {
+    expect(nextRuntimeMode("full-access", ["full-access"])).toBe("full-access");
+    expect(nextRuntimeMode("full-access", [])).toBe("full-access");
   });
 });
