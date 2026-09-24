@@ -8,6 +8,11 @@
  * none — and each path opens that file in it, scrolled into view
  * (`changesLink`).
  *
+ * A path is labelled as the file-change rows above label it: relative to the
+ * workspace once the workspace confirms the file (`PathChipsContext`), as the
+ * agent recorded it — often absolute — until then. The card resolves its
+ * paths that way but draws no chips: each line is already a Changes link.
+ *
  * The card starts open, like a plan card, and folds with collapse-all. It
  * lists five files, then "Show N more", whose state is in the row disclosure
  * map (`turn-summary-files:<row id>`) so it holds when the row is recycled.
@@ -26,9 +31,11 @@ import {
 import type { TurnId } from "@OpenAde/contracts/ids";
 import { Button } from "@OpenAde/ui/components/button";
 import { useNavigate } from "@tanstack/react-router";
+import * as React from "react";
 
 import { changesLink } from "@/components/panes/changes/deep-link";
 import { FileChangeKindBadge } from "@/components/timeline/file-change-badge";
+import { PathChipsContext, PathChipsProvider } from "@/components/timeline/path-chips";
 import type { TimelineTurnSummaryRow, TurnSummaryFile } from "@/components/timeline/fold";
 import { RestoreBeforeTurn } from "@/components/timeline/restore-before-turn";
 import { useTimelineThreadId } from "@/components/timeline/thread-context";
@@ -73,10 +80,17 @@ function useOpenInChanges(checkpointRef: string | undefined): OpenInChanges | nu
   };
 }
 
-function SummaryFile({ file, onOpen }: { file: TurnSummaryFile; onOpen: OpenInChanges | null }) {
+export function SummaryFile({
+  file,
+  onOpen,
+}: {
+  file: TurnSummaryFile;
+  onOpen: OpenInChanges | null;
+}) {
+  const label = React.useContext(PathChipsContext).get(file.path)?.relativePath ?? file.path;
   const line = (
     <>
-      <span className="min-w-0 truncate font-mono text-xs text-foreground">{file.path}</span>
+      <span className="min-w-0 truncate font-mono text-xs text-foreground">{label}</span>
       <FileChangeKindBadge kind={file.kind} />
       <DiffCounts added={file.added} removed={file.removed} />
     </>
@@ -142,11 +156,13 @@ function FileList({
   const listId = `${summary.id}:files`;
   return (
     <>
-      <ul id={listId} className="flex flex-col">
-        {files.map((file) => (
-          <SummaryFile key={file.path} file={file} onOpen={onOpen} />
-        ))}
-      </ul>
+      <PathChipsProvider candidates={summary.files.map((file) => file.path)}>
+        <ul id={listId} className="flex flex-col">
+          {files.map((file) => (
+            <SummaryFile key={file.path} file={file} onOpen={onOpen} />
+          ))}
+        </ul>
+      </PathChipsProvider>
       {hiddenCount > 0 ? (
         <Button
           variant="ghost"

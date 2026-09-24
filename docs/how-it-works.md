@@ -966,8 +966,10 @@ search, open file and scroll, so the scroll to the line happens once and a
 later trip back to the tab finds the file where the reader left it. The turn
 summary's file list is the one place a changed path is not a chip: each path
 there opens that file's diff for that turn in the Changes pane instead (see
-below), which is what a list of a turn's changes is for. A chip's context menu opens the file too, and copies the path
-relative to the workspace or in full.
+below), which is what a list of a turn's changes is for. Its paths are still
+labelled relative to the workspace once confirmed, as the file-change rows show
+them. A chip's context menu opens the file too, and copies the path relative to
+the workspace or in full.
 
 `apps/web/src/components/timeline/timeline-item.tsx` dispatches one component
 per `ItemKind`. The list opens at its end and follows new rows while it sits
