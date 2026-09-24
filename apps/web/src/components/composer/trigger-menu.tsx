@@ -113,7 +113,7 @@ export function TriggerMenu<T extends TriggerMenuItem>({
           </React.Fragment>
         ))}
         {items.length === 0 ? (
-          <div className="px-2 py-3 text-center text-xs text-muted-foreground">{emptyLabel}</div>
+          <div className="px-2 py-1.5 text-center text-xs text-muted-foreground">{emptyLabel}</div>
         ) : null}
       </div>
     </div>
