@@ -23,6 +23,7 @@ const HEADINGS: Readonly<Record<CommandArea, string>> = {
   Composer: "Composer",
   View: "View",
   Timeline: "Timeline",
+  Git: "Git",
   Cards: "Pending request",
 };
 
