@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./browserBridge": {
+      "types": "./src/browserBridge.ts",
+      "import": "./src/browserBridge.ts"
+    },
     "./decisionSubject": {
       "types": "./src/decisionSubject.ts",
       "import": "./src/decisionSubject.ts"
