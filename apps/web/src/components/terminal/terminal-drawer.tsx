@@ -298,7 +298,11 @@ function TerminalDrawer({
         >
           <Add variant="bold" />
         </IconButton>
-        <IconButton label="Hide terminal" onClick={onHide} hint={<CommandKbd command={TERMINAL_TOGGLE_COMMAND} />}>
+        <IconButton
+          label="Hide terminal"
+          onClick={onHide}
+          hint={<CommandKbd command={TERMINAL_TOGGLE_COMMAND} />}
+        >
           <ChevronDown variant="bold" />
         </IconButton>
       </div>

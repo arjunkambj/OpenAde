@@ -142,7 +142,9 @@ describe("0006_terminal_keybinding", () => {
       const { keybindingsFormat: _format, ...legacy } = defaultSettings();
       const older = {
         ...legacy,
-        keybindings: LEGACY_DEFAULT_KEYBINDINGS.filter((binding) => binding.command !== TOGGLE.command),
+        keybindings: LEGACY_DEFAULT_KEYBINDINGS.filter(
+          (binding) => binding.command !== TOGGLE.command,
+        ),
       };
       const after = yield* migrate(JSON.stringify(older));
       const decoded = Schema.decodeUnknownSync(Schema.fromJsonString(Settings))(after);

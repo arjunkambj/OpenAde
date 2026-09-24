@@ -50,12 +50,7 @@ import {
   type CommandRegistry,
 } from "@/lib/command-registry";
 import { focusSnapshot, keybindingContext, type FocusSnapshot } from "@/lib/keybinding-context";
-import {
-  effectiveKeybindings,
-  keycapsFor,
-  shortcutFor,
-  yieldsToTerminal,
-} from "@/lib/keybindings";
+import { effectiveKeybindings, keycapsFor, shortcutFor, yieldsToTerminal } from "@/lib/keybindings";
 
 const RegistryContext = React.createContext<CommandRegistry | null>(null);
 
