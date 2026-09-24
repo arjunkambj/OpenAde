@@ -289,9 +289,12 @@ export class OrchestrationEngine extends Context.Service<
               : { effort: null, runtimeMode: null };
           // A checkpoint restore rewrites the project's whole workspace root,
           // so the commands it excludes have to see every sibling thread's
-          // `restoring` flag, not just their own stream's.
+          // `restoring` flag, not just their own stream's. A steer is one of
+          // them: on a thread whose turn just ended it starts the next one.
           const guardsRestore =
-            command.type === "thread.turn.start" || command.type === "thread.checkpoint.restore";
+            command.type === "thread.turn.start" ||
+            command.type === "thread.turn.steer" ||
+            command.type === "thread.checkpoint.restore";
           const restoring = guardsRestore
             ? (yield* readModels.listThreadDocs).filter((doc) => !doc.deleted && doc.restoring)
             : [];

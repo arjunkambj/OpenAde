@@ -336,6 +336,20 @@ describe("CheckpointReactor", () => {
         expect(turn.status).toBe("rejected");
         expect(turn.reason).toContain("another thread in project");
 
+        // A steer on the idle sibling would start that turn just the same.
+        const steer = yield* engine.dispatch({
+          commandId: makeCommandId(),
+          createdAt: NOW,
+          type: "thread.turn.steer",
+          threadId: sibling,
+          text: "work",
+          attachments: [],
+          mentions: [],
+        });
+        expect(steer.status).toBe("rejected");
+        expect(steer.reason).toContain("another thread in project");
+        expect((yield* engine.threadDoc(sibling))?.currentTurn).toBeNull();
+
         // And so would a second restore in the same repository.
         const second = yield* engine.dispatch({
           commandId: makeCommandId(),
