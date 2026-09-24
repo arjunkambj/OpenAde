@@ -160,8 +160,12 @@ export function BranchPicker({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
               />
             }
           >
-            {pending || state._tag === "loading" ? <Spinner /> : <GitBranch />}
-            {worktree === undefined ? null : <GitFork />}
+            {pending || state._tag === "loading" ? (
+              <Spinner variant="bold" />
+            ) : (
+              <GitBranch variant="bold" />
+            )}
+            {worktree === undefined ? null : <GitFork variant="bold" />}
             {branch === null ? null : <span className="min-w-0 truncate">{branch}</span>}
           </PopoverTrigger>
         </TooltipTrigger>

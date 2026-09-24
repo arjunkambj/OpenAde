@@ -43,7 +43,7 @@ function StatusPill({ status }: { status: ThreadStatus }) {
         (status === "idle" || status === "archived") && "text-muted-foreground",
       )}
     >
-      {status === "running" ? <Spinner className="size-3" /> : null}
+      {status === "running" ? <Spinner variant="bold" className="size-3" /> : null}
       {STATUS_LABEL[status]}
     </span>
   );
@@ -81,7 +81,10 @@ export function ThreadHeader({
               />
             }
           >
-            <SidebarRight className={cn(dockTab !== undefined && "text-foreground")} />
+            <SidebarRight
+              variant="bold"
+              className={cn(dockTab !== undefined && "text-foreground")}
+            />
           </TooltipTrigger>
           <TooltipContent>{dockTab === undefined ? "Open dock" : "Close dock"}</TooltipContent>
         </Tooltip>

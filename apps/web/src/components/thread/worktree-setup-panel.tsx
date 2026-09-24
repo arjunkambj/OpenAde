@@ -88,7 +88,7 @@ export function WorktreeSetupPanel({
   if (state.step !== "failed") {
     return (
       <Alert className="w-full">
-        <Spinner />
+        <Spinner variant="bold" />
         <AlertTitle>{runningTitle(state)}</AlertTitle>
         <AlertDescription>
           {state.step === "setup" ? (
@@ -111,13 +111,13 @@ export function WorktreeSetupPanel({
   const { worktree } = state;
   return (
     <Alert variant="destructive" className="w-full">
-      <AlertTriangle />
+      <AlertTriangle variant="bold" />
       <AlertTitle>{state.reason}</AlertTitle>
       <AlertDescription>
         {/* Wrapped rather than truncated: a no-wrap line would widen the
             alert's grid column past the composer. */}
         <span className="flex items-start gap-1.5 font-mono text-xs break-all text-muted-foreground">
-          <GitFork className="mt-0.5 size-3.5 shrink-0" />
+          <GitFork variant="bold" className="mt-0.5 size-3.5 shrink-0" />
           <span>
             {worktree.branch} in {worktree.path}
           </span>
@@ -131,7 +131,7 @@ export function WorktreeSetupPanel({
             disabled={acting}
             onClick={() => void act(onStartAnyway)}
           >
-            {acting ? <Spinner /> : null}
+            {acting ? <Spinner variant="bold" /> : null}
             {state.threadRejected ? "Try again" : "Start anyway"}
           </Button>
           <Button

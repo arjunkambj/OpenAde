@@ -23,13 +23,13 @@ import { rangeKeyOf } from "./selection";
 import {
   type HoneyIcon,
   AlertTriangle,
-  Close,
   Edit,
   FileAdd,
   FileRemove,
   GitDiff as GitDiffIcon,
   Repeat,
   Spinner,
+  WifiOff,
 } from "@honeyicons/react";
 
 /**
@@ -122,7 +122,7 @@ export function ChangesList({
 
   const retry = (
     <Button type="button" variant="ghost" size="sm" onClick={onRetry}>
-      <Repeat />
+      <Repeat variant="bold" />
       Try again
     </Button>
   );
@@ -131,7 +131,7 @@ export function ChangesList({
     return connected ? (
       <PaneMessage icon={Spinner} text="Loading changes…" />
     ) : (
-      <PaneMessage icon={Close} text="Not connected to the server." />
+      <PaneMessage icon={WifiOff} text="Not connected to the server." />
     );
   }
   if (diff._tag === "error") {

@@ -39,7 +39,7 @@ export function ThreadGreeting({
       </h2>
       {worktree === undefined ? null : (
         <p className="flex max-w-full min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
-          <GitBranch className="size-4 shrink-0" />
+          <GitBranch variant="bold" className="size-4 shrink-0" />
           <span className="shrink-0 font-mono">{worktree.branch}</span>
           <span className="shrink-0">in</span>
           <span className="min-w-0 truncate font-mono" title={worktree.path}>

@@ -85,7 +85,7 @@ export function ProjectRowMenu({
         </Tooltip>
         <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuItem onClick={() => void navigate({ to: "/settings/git" })}>
-            <GitBranch />
+            <GitBranch variant="bold" />
             Setup script…
           </DropdownMenuItem>
           <DropdownMenuSeparator />

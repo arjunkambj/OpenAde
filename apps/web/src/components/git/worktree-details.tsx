@@ -29,7 +29,7 @@ export function WorktreeDetails({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-1.5 text-sm font-medium">
-        <FolderTree className="size-4 shrink-0" />
+        <FolderTree variant="bold" className="size-4 shrink-0" />
         This thread works in its own worktree
       </div>
       <dl className="flex flex-col gap-2">

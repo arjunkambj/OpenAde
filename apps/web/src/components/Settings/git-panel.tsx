@@ -176,7 +176,7 @@ export function GitPanel() {
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <GitBranch />
+              <GitBranch variant="bold" />
             </EmptyMedia>
             <EmptyTitle>No projects</EmptyTitle>
             <EmptyDescription>

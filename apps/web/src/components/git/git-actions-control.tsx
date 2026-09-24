@@ -213,7 +213,7 @@ export function GitActionsControl({ snapshot }: { snapshot: ThreadDetailSnapshot
             disabled={disabled || commitReason !== null}
             onClick={() => start("commit")}
           >
-            {pending ? <Spinner /> : <Git />}
+            {pending ? <Spinner variant="bold" /> : <Git variant="bold" />}
             Commit
           </Button>
         </TooltipTrigger>
@@ -233,7 +233,7 @@ export function GitActionsControl({ snapshot }: { snapshot: ThreadDetailSnapshot
                 />
               }
             >
-              <ChevronDown />
+              <ChevronDown variant="bold" />
             </DropdownMenuTrigger>
           </TooltipTrigger>
           <TooltipContent>{blocked ?? "More git actions"}</TooltipContent>
@@ -248,7 +248,7 @@ export function GitActionsControl({ snapshot }: { snapshot: ThreadDetailSnapshot
                 disabled={reason !== null}
                 onClick={() => start(action)}
               >
-                <Icon />
+                <Icon variant="bold" />
                 <span className="flex min-w-0 flex-col">
                   <span>{GIT_ACTION_LABEL[action]}</span>
                   {reason === null ? null : (
@@ -262,7 +262,7 @@ export function GitActionsControl({ snapshot }: { snapshot: ThreadDetailSnapshot
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => openExternal(pullRequestUrl)}>
-                <ExternalLink />
+                <ExternalLink variant="bold" />
                 View pull request
               </DropdownMenuItem>
             </>

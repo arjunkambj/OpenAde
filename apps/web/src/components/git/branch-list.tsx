@@ -35,7 +35,13 @@ function BranchItem({ branch, onSelect }: { branch: GitBranch; onSelect: (name: 
       title={elsewhere ? `Checked out in the worktree at ${branch.worktreePath}` : undefined}
       onSelect={() => onSelect(branch.name)}
     >
-      {branch.kind === "remote" ? <Cloud /> : elsewhere ? <GitFork /> : <GitBranchIcon />}
+      {branch.kind === "remote" ? (
+        <Cloud variant="bold" />
+      ) : elsewhere ? (
+        <GitFork variant="bold" />
+      ) : (
+        <GitBranchIcon variant="bold" />
+      )}
       <span className="min-w-0 truncate">{branch.name}</span>
     </CommandItem>
   );
@@ -88,7 +94,7 @@ export function BranchList({
           {toCreate === null ? null : (
             <CommandGroup>
               <CommandItem value={`create:${toCreate}`} onSelect={() => onCreate(toCreate)}>
-                <Add />
+                <Add variant="bold" />
                 <span className="min-w-0 truncate">Create branch “{toCreate}”</span>
               </CommandItem>
             </CommandGroup>

@@ -98,7 +98,7 @@ export function ThreadRow({ thread, now }: { thread: ThreadSummary; now: number 
             role="img"
             className="flex shrink-0 text-muted-foreground"
           >
-            <GitFork className="size-3.5" />
+            <GitFork variant="bold" className="size-3.5" />
           </span>
         )}
         <time
