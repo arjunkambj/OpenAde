@@ -18,6 +18,10 @@
  *
  * The root carries `data-context="terminal"`, which is what makes the app's
  * keybinding listener leave every chord but the toggle to the shell.
+ *
+ * The drawer grows out of the strip and shrinks back into it
+ * (`@/lib/use-presence`): it stays mounted through its close, and its height
+ * eases only while it opens or closes, so a drag still tracks the pointer.
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
@@ -44,6 +48,8 @@ import { useOpenInBrowserPane } from "@/components/terminal/use-open-link";
 import { describeExitError } from "@/lib/app-runtime";
 import { TERMINAL_TOGGLE_COMMAND } from "@/lib/keybindings";
 import { CommandKbd, useKeybindingCommand } from "@/lib/shortcuts";
+import { type Presence, usePresence } from "@/lib/use-presence";
+import { cn } from "@/lib/utils";
 import { useConnectionState } from "@/state/hooks";
 import {
   DRAWER_HEIGHT_MAX_FRACTION,
@@ -91,12 +97,14 @@ function useDrawerResize(drawerRef: React.RefObject<HTMLDivElement | null>) {
 
 function TerminalDrawer({
   threadId,
+  phase,
   focusRequest,
   onHide,
   onClose,
   onOpenLink,
 }: {
   threadId: ThreadId;
+  phase: Presence;
   focusRequest: number;
   onHide: () => void;
   onClose: (terminalId: TerminalId) => void;
@@ -148,10 +156,13 @@ function TerminalDrawer({
 
   // An open drawer with no terminals starts one — once the listing has said
   // there are none, and once the xterm has measured the grid to start it at.
-  // A failed open waits for the user rather than retrying on its own.
+  // A failed open waits for the user rather than retrying on its own, and a
+  // drawer on its way out — its last tab just closed — starts nothing.
   const listedNone = listed?._tag === "ok" && listed.terminals.length === 0;
+  const leaving = phase === "leaving";
   React.useEffect(() => {
     if (
+      !leaving &&
       connected &&
       listedNone &&
       measured &&
@@ -161,7 +172,7 @@ function TerminalDrawer({
     ) {
       void openNew();
     }
-  }, [connected, listedNone, measured, state.tabs.length, opening, openError, openNew]);
+  }, [leaving, connected, listedNone, measured, state.tabs.length, opening, openError, openNew]);
 
   const onGrid = React.useCallback((size: TerminalSize) => {
     gridRef.current = size;
@@ -227,6 +238,7 @@ function TerminalDrawer({
           threadId={threadId}
           terminalId={state.activeId}
           focusRequest={focusRequest + tabFocus}
+          settling={phase !== "shown"}
           onGrid={onGrid}
           onExited={onExited}
           onGone={onGone}
@@ -243,15 +255,22 @@ function TerminalDrawer({
       data-context="terminal"
       aria-label="Terminal"
       role="region"
+      inert={leaving}
       // Not `shrink-0`: the header and composer above cannot shrink, so on a
       // window too short even for the bound's floor the drawer gives up
       // height, down to its minimum, rather than push its own bottom rows —
-      // the prompt — out of the column.
-      className="relative flex h-(--terminal-height) min-h-(--terminal-min-height) flex-col border-t border-border bg-background"
+      // the prompt — out of the column. Opening, it starts at the strip's
+      // height; closing, it ends there.
+      className={cn(
+        "relative flex h-(--terminal-height) min-h-(--terminal-min-height) flex-col border-t border-border bg-background",
+        phase !== "shown" &&
+          "overflow-hidden transition-all duration-200 ease-out motion-reduce:transition-none",
+        phase === "entering" && "starting:h-8 starting:min-h-8",
+      )}
       style={
         {
-          "--terminal-height": shown,
-          "--terminal-min-height": `${DRAWER_HEIGHT_MIN}px`,
+          "--terminal-height": phase === "leaving" ? "2rem" : shown,
+          "--terminal-min-height": phase === "leaving" ? "2rem" : `${DRAWER_HEIGHT_MIN}px`,
         } as React.CSSProperties
       }
     >
@@ -318,7 +337,7 @@ function TerminalDrawer({
 
 /**
  * Answers `terminal.toggle` for the thread on screen and shows its drawer
- * while open, the collapsed strip while not. Mount it keyed by threadId, so each thread starts with its own
+ * while open (and while it closes), the collapsed strip once it has. Mount it keyed by threadId, so each thread starts with its own
  * drawer rather than inheriting the last one's xterm. `onShowBrowser` puts the
  * dock on its Browser tab, for a link the terminal opens there.
  */
@@ -336,6 +355,8 @@ export function ThreadTerminal({
   // and the close must not be cut short by the drawer unmounting.
   const closeTerminal = useAtomSet(useTerminalAtoms().closeTerminal);
 
+  const phase = usePresence(open);
+
   useKeybindingCommand(TERMINAL_TOGGLE_COMMAND, () => {
     if (!open) {
       bumpFocus();
@@ -343,12 +364,13 @@ export function ThreadTerminal({
     setOpen(!open);
   });
 
-  if (!open) {
+  if (phase === null) {
     return <TerminalBar />;
   }
   return (
     <TerminalDrawer
       threadId={threadId}
+      phase={phase}
       focusRequest={focusRequest}
       onHide={() => setOpen(false)}
       onClose={(terminalId) => closeTerminal({ threadId, terminalId })}

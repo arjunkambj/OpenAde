@@ -155,6 +155,7 @@ export default function TerminalView({
   threadId,
   terminalId,
   focusRequest,
+  settling,
   onGrid,
   onExited,
   onGone,
@@ -165,6 +166,12 @@ export default function TerminalView({
   terminalId: TerminalId | null;
   /** Focus the terminal whenever this changes; 0 means "not asked yet". */
   focusRequest: number;
+  /**
+   * The drawer is opening or closing. The xterm keeps its grid until the
+   * drawer settles rather than fit every frame of the way — a shell started
+   * or resized to the few rows of a half-open drawer — and fits once it has.
+   */
+  settling: boolean;
   /** The grid after every fit, so the drawer can open a shell at that size. */
   onGrid: (size: TerminalSize) => void;
   onExited: (terminalId: TerminalId, exitCode: number | null) => void;
@@ -185,6 +192,8 @@ export default function TerminalView({
   );
   const onGridRef = React.useRef(onGrid);
   onGridRef.current = onGrid;
+  const settlingRef = React.useRef(settling);
+  settlingRef.current = settling;
   const onOpenLinkRef = React.useRef(onOpenLink);
   onOpenLinkRef.current = onOpenLink;
   // Find's highlight colours, re-read with the theme.
@@ -235,6 +244,9 @@ export default function TerminalView({
 
     terminal.open(host);
     const refit = () => {
+      if (settlingRef.current) {
+        return;
+      }
       fit.fit();
       onGridRef.current(boundedSize(terminal.cols, terminal.rows));
     };
@@ -265,9 +277,19 @@ export default function TerminalView({
     xterm.terminal.options.theme = theme;
     xterm.terminal.options.fontFamily = fontFamily;
     xterm.terminal.options.fontSize = Number.parseFloat(getComputedStyle(host).fontSize) || 12;
-    xterm.fit.fit();
-    onGridRef.current(boundedSize(xterm.terminal.cols, xterm.terminal.rows));
+    if (!settlingRef.current) {
+      xterm.fit.fit();
+      onGridRef.current(boundedSize(xterm.terminal.cols, xterm.terminal.rows));
+    }
   }, [xterm, look]);
+
+  // The fit the drawer's transition held back, once it has settled.
+  React.useEffect(() => {
+    if (xterm !== null && !settling) {
+      xterm.fit.fit();
+      onGridRef.current(boundedSize(xterm.terminal.cols, xterm.terminal.rows));
+    }
+  }, [xterm, settling]);
 
   React.useEffect(() => {
     if (xterm === null) {
