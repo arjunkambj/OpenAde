@@ -447,10 +447,12 @@ user was writing while keeping every token they meant to drop.
 through `files.search` (`use-file-mentions.ts`), and says "No files match" when
 nothing does. The turn carries the bare workspace-relative paths as `mentions`,
 and the connector decides how to name them to its harness. Because `#` is also
-markdown, it needs a query that does not start with another `#`. So a lone `#`
-then Enter sends, `# Heading` closes at the space, and `##` headings, `a#b` and
-`https://x.dev/#frag` never open it. `#12` does open and lists no files; a menu
-with no rows does not own Enter, so the message still sends.
+markdown and issue numbers, it needs a query that starts with neither another
+`#` nor a digit. So a lone `#` then Enter sends, `# Heading` closes at the
+space, and `##` headings, `fixes #12`, `a#b` and `https://x.dev/#frag` never
+open it. The digit rule matters because `files.search` is a substring match:
+`#12` would list every path with a 12 in it, and Enter would pick one instead
+of sending.
 
 `@` lists the thread instance's enabled plugins under "Plugins", then its
 enabled skills under "Skills" (`pluginsAtom` and `skillsAtom`, wired in

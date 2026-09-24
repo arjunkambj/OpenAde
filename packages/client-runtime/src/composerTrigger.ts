@@ -11,12 +11,13 @@
  * keeps `a#b`, `foo/bar`, `me@x.com`, `a$b` and `https://x.dev/#frag` closed.
  *
  * A kind may add a rule about its query on top (`QUERY_RULES`). `#` has one,
- * because `#` is also markdown: it opens only once a query has started and
- * that query does not begin with another `#`. So a lone `#` followed by Enter
- * sends rather than picking a file, `# Heading` closes at the space before a
- * menu ever shows, and `##` / `### ` headings never open it. `#12` (an issue
- * number) does open, with query `12`; it lists no files, and a menu with no
- * rows does not own Enter (`composer-keys` in the web app), so it still sends.
+ * because `#` is also markdown and issue numbers: it opens only once a query
+ * has started, and that query begins with neither another `#` nor a digit. So
+ * a lone `#` followed by Enter sends rather than picking a file, `# Heading`
+ * closes at the space before a menu ever shows, `##` / `### ` headings never
+ * open it, and neither does `fixes #12`. That one matters: `files.search` is a
+ * substring match, so `12` would list every path with a 12 in it, and Enter
+ * would pick one of them instead of sending.
  *
  * `$` has one too, because `$` is also money: it stays closed when the query
  * starts with a digit, so `$5` and `costs $20` never open. `$HOME` does open,
@@ -48,7 +49,7 @@ const TRIGGER_CHARS: Readonly<Record<string, ComposerTriggerKind>> = {
 
 /** Extra per-kind rules on the query; a kind without one opens on any query. */
 const QUERY_RULES: Readonly<Partial<Record<ComposerTriggerKind, (query: string) => boolean>>> = {
-  file: (query) => query.length > 0 && !query.startsWith("#"),
+  file: (query) => query.length > 0 && !/^[#\d]/u.test(query),
   skill: (query) => !/^\d/u.test(query),
 };
 

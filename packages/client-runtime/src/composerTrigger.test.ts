@@ -39,8 +39,14 @@ describe("detectComposerTrigger", () => {
     });
   });
 
-  it("opens on an issue number, which then lists no files", () => {
-    expect(at("fixes #12")).toMatchObject({ kind: "file", query: "12" });
+  it("keeps # closed on an issue number", () => {
+    expect(at("fixes #12")).toBeNull();
+    expect(at("#4")).toBeNull();
+    expect(at("see #123 and")).toBeNull();
+  });
+
+  it("opens # on a path that has digits after its first char", () => {
+    expect(at("#v2")).toMatchObject({ kind: "file", query: "v2" });
   });
 
   it("keeps # closed until a query starts", () => {
