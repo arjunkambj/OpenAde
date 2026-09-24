@@ -2,7 +2,7 @@
  * What the fixture client answers over RPC: a `Proxy` shaped like the real
  * `OpenAdeRpcClient` whose methods reply from inline data — the file search,
  * reads and existence check, the model and skill menus, the plugins, the keybinding
- * table, the staged attachments. Anything a fixture page has not taught it
+ * table, the staged attachments, the thread's checkpoints. Anything a fixture page has not taught it
  * dies loudly with the method's name, so a new read shows up the first time a
  * page touches it.
  *
@@ -13,7 +13,12 @@
 
 import type { OpenAdeRpcClient } from "@OpenAde/client-runtime/connection";
 import type { ConnectorInstanceId, ProjectId } from "@OpenAde/contracts/ids";
-import type { Command, CommandReceipt, ThreadStreamItem } from "@OpenAde/contracts/orchestration";
+import type {
+  CheckpointSummary,
+  Command,
+  CommandReceipt,
+  ThreadStreamItem,
+} from "@OpenAde/contracts/orchestration";
 import { OpenAdeRpcError, PROTOCOL_VERSION } from "@OpenAde/contracts/rpc";
 import type {
   ConnectorDescriptor,
@@ -155,6 +160,8 @@ export interface FixtureRpcContext {
   readonly dispatch: (command: Command) => CommandReceipt;
   /** `connectors.list`, read fresh so a capability toggle shows. */
   readonly connectors: () => ReadonlyArray<ConnectorSummary>;
+  /** `checkpoints.list`: every checkpoint the document records still exists. */
+  readonly checkpoints: () => ReadonlyArray<CheckpointSummary>;
 }
 
 export const makeFixtureRpc = (context: FixtureRpcContext): OpenAdeRpcClient => {
@@ -179,6 +186,8 @@ export const makeFixtureRpc = (context: FixtureRpcContext): OpenAdeRpcClient => 
         case "orchestration.dispatch":
           return ({ command }: { command: Command }) =>
             Effect.sync(() => context.dispatch(command));
+        case "checkpoints.list":
+          return () => Effect.sync(() => context.checkpoints());
         case "files.search": {
           return ({ query }: { query: string }) =>
             Effect.succeed(

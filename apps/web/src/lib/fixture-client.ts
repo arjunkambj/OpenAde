@@ -17,6 +17,12 @@
  * refreshes `connectors.list`. `fixture.load` swaps in a whole document — the
  * timeline fixture's scenarios — as a server resnapshot would.
  *
+ * Checkpoints behave as the server's do, without git: a completed turn
+ * records one (`thread.checkpoint.created`), `checkpoints.list` answers the
+ * document's list, and an accepted `thread.checkpoint.restore` is followed a
+ * moment later by `thread.checkpoint.restored`, so the timeline's restore
+ * controls go through their blocked and settled states.
+ *
  * The other RPC answers — files, models, skills, plugins, attachments,
  * keybindings — live in `fixture-rpc.ts`; this module lends it the thread
  * stream and the decider.
@@ -43,6 +49,7 @@ import {
   makeItemId,
   makeProjectId,
   makeThreadId,
+  makeCheckpointId,
   makeTurnId,
 } from "@OpenAde/contracts/ids";
 import type { ConnectorInstanceId, ProjectId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
@@ -61,6 +68,9 @@ type EventPayload<T extends OrchestrationEventType> = Extract<
   OrchestrationEvent,
   { type: T }
 >["payload"];
+
+/** How long the fixture's "git work" takes between a restore's request and its outcome. */
+const RESTORE_PAUSE_MS = 1_500;
 
 const baseDoc = (
   threadId: ThreadId,
@@ -218,6 +228,15 @@ export const makeFixtureClient = (): FixtureClient => {
       next("thread.message.dequeued", { queuedMessageId: message.queuedMessageId, turnId });
     }
     next("thread.turn.completed", { turnId, stopReason: "end_turn" });
+    // As the checkpoint reactor does off `turn.completed`.
+    next("thread.checkpoint.created", {
+      checkpoint: {
+        checkpointId: makeCheckpointId(),
+        turnId,
+        ref: `refs/openade/checkpoints/${threadId}/${turnId}`,
+        createdAt: new Date().toISOString(),
+      },
+    });
   };
 
   /**
@@ -392,6 +411,28 @@ export const makeFixtureClient = (): FixtureClient => {
         order.splice(command.toIndex, 0, command.queuedMessageId);
         return { events: () => next("thread.queue.reordered", { order }) };
       }
+      // As the server's decider: never during a turn or another restore, and
+      // only a checkpoint the thread recorded. The git work is a pause here.
+      case "thread.checkpoint.restore": {
+        const checkpoint = doc.checkpoints.find(
+          (entry) => entry.checkpointId === command.checkpointId,
+        );
+        if (doc.currentTurnId !== null || doc.status === "running") {
+          return { events: () => {}, reason: "the thread has a running turn" };
+        }
+        if ((doc.restoring ?? null) !== null) {
+          return { events: () => {}, reason: "the thread is already restoring a checkpoint" };
+        }
+        if (checkpoint === undefined) {
+          return { events: () => {}, reason: `no checkpoint ${command.checkpointId}` };
+        }
+        return {
+          events: () => {
+            next("thread.checkpoint.restore.requested", { checkpoint }, command.commandId);
+            setTimeout(() => next("thread.checkpoint.restored", { checkpoint }), RESTORE_PAUSE_MS);
+          },
+        };
+      }
       case "thread.settings.update": {
         return {
           events: () => next("thread.settings.updated", settingsPatch(command)),
@@ -477,6 +518,7 @@ export const makeFixtureClient = (): FixtureClient => {
       ),
     dispatch,
     connectors: () => [connector(), secondConnector()],
+    checkpoints: () => doc.checkpoints,
   });
 
   /** Swap the whole document, as a resnapshot from the server would. */

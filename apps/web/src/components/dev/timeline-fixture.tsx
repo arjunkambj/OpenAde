@@ -26,6 +26,10 @@
  *    streams the reply, which is the send-anchoring case.
  *  - "Narrow" squeezes the timeline to a phone-width column.
  *
+ * The header shows the last command the page dispatched and its receipt — a
+ * restore names the turn whose checkpoint it asked for — so "Restore to here"
+ * can be checked against the message it sits under.
+ *
  * A file chip's request opens the real Files pane beside the timeline, over
  * the fixture's `files.read`, the way the thread view opens its dock on Files.
  *  - The theme toggle exercises both token sets.
@@ -34,7 +38,11 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import everyKindJson from "@OpenAde/contracts/fixtures/thread-detail-snapshot.json";
 import { makeCommandId } from "@OpenAde/contracts/ids";
-import { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
+import {
+  type Command,
+  type CommandReceipt,
+  ThreadDetailSnapshot,
+} from "@OpenAde/contracts/orchestration";
 import { cn } from "@OpenAde/ui/lib/utils";
 import * as Schema from "effect/Schema";
 import { AsyncResult } from "effect/unstable/reactivity";
@@ -53,6 +61,7 @@ import { Timeline } from "@/components/timeline/timeline";
 import { ClientRuntimeProvider, useClientRuntime } from "@/lib/client-runtime";
 import { makeFixtureClient, type FixtureClient } from "@/lib/fixture-client";
 import { cloneDecisions, cloneItems } from "@/lib/fixture-clone";
+import { turnOrder } from "@/components/timeline/turn-checkpoints";
 import { KeybindingsProvider } from "@/lib/shortcuts";
 import { type FileRevealTarget, useFileRevealRequests } from "@/state/file-reveal";
 import { Close } from "@honeyicons/react";
@@ -61,6 +70,21 @@ const everyKind = Schema.decodeUnknownSync(ThreadDetailSnapshot)(everyKindJson);
 
 /** How often a Stream tick lands: slower than real deltas, so each append can be watched. */
 const STREAM_TICK_MS = 120;
+
+/** The dispatch log's line: the command, what it asked for, and the receipt. */
+const describeDispatch = (
+  command: Command,
+  receipt: CommandReceipt,
+  doc: ThreadDetailSnapshot,
+): string => {
+  let what: string = command.type;
+  if (command.type === "thread.checkpoint.restore") {
+    const checkpoint = doc.checkpoints.find((entry) => entry.checkpointId === command.checkpointId);
+    const turn = checkpoint === undefined ? -1 : turnOrder(doc.items).indexOf(checkpoint.turnId);
+    what = `${command.type} to turn ${turn + 1}'s checkpoint`;
+  }
+  return `${what} · ${receipt.status}${receipt.reason === undefined ? "" : ` (${receipt.reason})`}`;
+};
 
 const scenarioSnapshot = (scenario: Scenario, copies: number): ThreadDetailSnapshot =>
   scenario === "conversation"
@@ -99,6 +123,14 @@ function TimelineFixturePage({ client }: { readonly client: FixtureClient }) {
   const [streaming, setStreaming] = React.useState(false);
   const [narrow, setNarrow] = React.useState(false);
   const sends = React.useRef(0);
+  const [lastDispatch, setLastDispatch] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    client.onCommand = (command, receipt) =>
+      setLastDispatch(describeDispatch(command, receipt, client.doc()));
+    return () => {
+      client.onCommand = undefined;
+    };
+  }, [client]);
   const running = snapshot !== null && snapshot.currentTurnId !== null;
 
   const [filesOpen, setFilesOpen] = React.useState(false);
@@ -169,6 +201,7 @@ function TimelineFixturePage({ client }: { readonly client: FixtureClient }) {
         multiplier={multiplier}
         onLoad={load}
         itemCount={snapshot?.items.length ?? 0}
+        lastDispatch={lastDispatch}
         running={running}
         onLive={toggleLive}
         streaming={streaming}

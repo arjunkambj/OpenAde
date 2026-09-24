@@ -561,7 +561,10 @@ into it: the contracts' every-kind snapshot, or `buildRichTimelineSnapshot`
 turns and one running turn whose ids are minted on a moving clock, so
 durations and checkpoints read as they would on a real thread. From there the
 page can start, stream into, settle and send turns, repeat the thread ×10 or
-×50, and narrow the column.
+×50, and narrow the column. The fixture's checkpoints behave like the
+server's without git: a settled turn records one, `checkpoints.list` answers
+the document's list, and an accepted restore settles a moment later; the page
+header names the last command it dispatched and its receipt.
 
 Syntax highlighting has one engine. `DiffWorkerPoolProvider`
 (`apps/web/src/components/timeline/diff-pool.tsx`), mounted in

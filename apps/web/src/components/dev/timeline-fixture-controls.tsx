@@ -24,6 +24,8 @@ export interface TimelineFixtureControlsProps {
   readonly multiplier: number;
   readonly onLoad: (scenario: Scenario, multiplier: number) => void;
   readonly itemCount: number;
+  /** The last command the page dispatched, with its receipt. */
+  readonly lastDispatch: string | null;
   readonly running: boolean;
   readonly onLive: () => void;
   readonly streaming: boolean;
@@ -62,6 +64,11 @@ export function TimelineFixtureControls(props: TimelineFixtureControlsProps) {
     <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2">
       <span className="type-body font-medium text-foreground">Timeline fixture</span>
       <span className="type-micro text-muted-foreground">{props.itemCount} items</span>
+      {props.lastDispatch === null ? null : (
+        <span role="status" className="min-w-0 truncate type-micro text-muted-foreground">
+          Dispatched {props.lastDispatch}
+        </span>
+      )}
       <div className="ml-auto flex flex-wrap items-center gap-1.5">
         {SCENARIOS.map((option) => (
           <ToggleButton
