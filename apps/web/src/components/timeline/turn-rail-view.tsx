@@ -2,7 +2,8 @@
  * The turn rail: a slim column of ticks at the timeline's right edge, one per
  * user message (`turn-rail.ts`). Hovering a tick previews the message's first
  * line, pressing it scrolls that message to the top, and the tick of the turn
- * in view is drawn solid.
+ * in view is drawn solid. Each tick's accessible name holds the same preview,
+ * since a tooltip is visual only.
  *
  * The rail is an overlay over the list with its own size container, so it
  * can hide itself when the timeline is too narrow to keep it clear of the
@@ -219,7 +220,9 @@ export const TurnRail = React.memo(function TurnRail({
                         type="button"
                         variant="ghost"
                         size="icon-xs"
-                        aria-label={`Go to message ${index + 1}`}
+                        // The preview is the tick's only content, and a
+                        // tooltip is not announced: the name carries it.
+                        aria-label={`Go to message ${index + 1}: ${item.preview}`}
                         aria-current={current ? "true" : undefined}
                         className="max-h-full"
                         onClick={() => goTo(item)}

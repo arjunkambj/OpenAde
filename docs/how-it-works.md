@@ -1011,7 +1011,8 @@ following; the scroll to the end is instant under reduced motion.
 A slim turn rail sits at the timeline's right edge (`turn-rail.ts`, drawn by
 `turn-rail-view.tsx`): one tick per user message, steered messages included.
 Hovering a tick previews the message's first line with its markdown marks
-stripped, cut to 80 characters; pressing it scrolls the message to 8px below
+stripped, cut to 80 characters, and the tick's accessible name carries the
+same preview ("Go to message 3: …"), since a tooltip is not announced; pressing it scrolls the message to 8px below
 the viewport top. The tick of the turn in view is solid: the last message at or
 above the row 24px below the top, or, with the list at its end, the last
 message on screen, since a short last turn cannot reach the top. The rail reads

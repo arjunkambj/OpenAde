@@ -30,8 +30,13 @@ describe("TurnRail", () => {
 
   it("draws one labelled tick per message", () => {
     const markup = render(3);
-    const labels = [...markup.matchAll(/aria-label="(Go to message \d+)"/g)].map((m) => m[1]);
-    expect(labels).toEqual(["Go to message 1", "Go to message 2", "Go to message 3"]);
+    const labels = [...markup.matchAll(/aria-label="(Go to message [^"]+)"/g)].map((m) => m[1]);
+    // The preview is in the name, not only in the tooltip, which is visual only.
+    expect(labels).toEqual([
+      "Go to message 1: First line of message 0",
+      "Go to message 2: First line of message 1",
+      "Go to message 3: First line of message 2",
+    ]);
     expect(markup).toContain('aria-label="Messages in this thread"');
   });
 
