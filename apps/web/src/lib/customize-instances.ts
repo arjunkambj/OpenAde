@@ -7,7 +7,8 @@
 
 import type { ConnectorSummary } from "@OpenAde/contracts/connectors";
 
-export type ExtensionKind = keyof ConnectorSummary["extensions"];
+/** The kinds the Customize page has a tab for; plugins are read by the composer alone. */
+export type ExtensionKind = Extract<keyof ConnectorSummary["extensions"], "skills" | "mcpServers">;
 
 export const instancesWith = (
   connectors: ReadonlyArray<ConnectorSummary>,

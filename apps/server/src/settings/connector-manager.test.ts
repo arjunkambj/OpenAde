@@ -203,7 +203,7 @@ describe("ConnectorManager", () => {
         expect(seeded.enabled).toBe(true);
         expect(seeded.capabilities).not.toBeNull();
         // The fake connector manages no harness files of its own.
-        expect(seeded.extensions).toEqual({ skills: false, mcpServers: false });
+        expect(seeded.extensions).toEqual({ skills: false, plugins: false, mcpServers: false });
         expect(seeded.probe.modelCount).toBe(1);
         // The health facts the renderer reads without knowing the harness.
         expect(seeded.probe.installed).toBe(true);

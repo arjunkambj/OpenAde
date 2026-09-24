@@ -13,6 +13,7 @@ import type {
   McpServerConfig,
   McpServerScope,
   ModelOption,
+  PluginSummary,
   SkillSummary,
 } from "@OpenAde/contracts/connectors";
 import type {
@@ -351,8 +352,8 @@ const terminalUnavailable = () =>
 // ── Connector extensions ───────────────────────────────────────
 
 /**
- * The per-instance extensions behind `connectors.skills.*` and
- * `connectors.mcp.*`. The real layer (`settings/ConnectorExtensions.ts`)
+ * The per-instance extensions behind `connectors.skills.*`,
+ * `connectors.plugins.*` and `connectors.mcp.*`. The real layer (`settings/ConnectorExtensions.ts`)
  * resolves the instance and the project's workspace root, then calls the
  * connector; the empty one answers every read with nothing.
  */
@@ -370,6 +371,10 @@ export class ConnectorExtensions extends Context.Service<
       instanceId: ConnectorInstanceId,
       entry: string,
     ) => Effect.Effect<ReadonlyArray<AgentSkill>, OpenAdeRpcError>;
+    readonly pluginsList: (
+      instanceId: ConnectorInstanceId,
+      projectId?: ProjectId,
+    ) => Effect.Effect<ReadonlyArray<PluginSummary>, OpenAdeRpcError>;
     readonly mcpList: (
       instanceId: ConnectorInstanceId,
       projectId?: ProjectId,
@@ -393,6 +398,7 @@ export class ConnectorExtensions extends Context.Service<
       skillsList: () => Effect.succeed([]),
       skillsAvailable: () => Effect.succeed([]),
       skillsLink: () => Effect.succeed([]),
+      pluginsList: () => Effect.succeed([]),
       mcpList: () => Effect.succeed([]),
       mcpAdd: () => Effect.succeed([]),
       mcpRemove: () => Effect.succeed([]),

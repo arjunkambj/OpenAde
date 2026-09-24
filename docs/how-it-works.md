@@ -2030,6 +2030,12 @@ write is a link: `connectors.skills.available` lists the skills in
 symlinks one into `~/.commandcode/skills`. Those homes follow the instance's
 `extraEnv.HOME` when it sets one, since that is the home the CLI resolves.
 
+**Plugins** have an extension of their own, read-only, for a harness that has
+them: `connectors.plugins.list` answers each installed plugin's name,
+description, source, scope and whether it is enabled. Command Code has no
+plugins, so its instance answers `unavailable`, and the client runtime's
+`pluginsAtom` reads that as an empty list rather than an error.
+
 ---
 
 ## 13. Crash and recovery

@@ -28,7 +28,7 @@ const group = (instanceId: string, models: ReadonlyArray<ModelOption>): Connecto
     displayName: `Instance ${instanceId}`,
     enabled: true,
     capabilities: null,
-    extensions: { skills: false, mcpServers: false },
+    extensions: { skills: false, plugins: false, mcpServers: false },
     probe: { status: "ready", probedAt: "2026-09-18T00:00:00.000Z" },
   },
   models,

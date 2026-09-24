@@ -63,8 +63,13 @@ const settings = (driver: Driver) => {
         // The file is the connector's, so the call names the instance that
         // owns it — and the summary says up front that it manages MCP servers.
         const [instance] = yield* rpc["connectors.list"]({}).pipe(Effect.orDie);
-        expect(instance!.extensions).toEqual({ skills: true, mcpServers: true });
+        expect(instance!.extensions).toEqual({ skills: true, plugins: false, mcpServers: true });
         const instanceId = instance!.connectorInstanceId;
+
+        // It carries no plugins extension, so asking for plugins is refused
+        // as unavailable rather than answered with an empty list.
+        const plugins = yield* Effect.flip(rpc["connectors.plugins.list"]({ instanceId }));
+        expect(plugins).toMatchObject({ code: "unavailable" });
 
         const after = yield* rpc["connectors.mcp.add"]({
           instanceId,

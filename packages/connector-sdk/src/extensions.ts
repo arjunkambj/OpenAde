@@ -2,8 +2,8 @@
  * Optional things a connector instance can manage besides sessions.
  *
  * Some harnesses keep user-facing configuration of their own — skills in a
- * skills directory, MCP servers in a JSON file — and the Customize page edits
- * it. The file formats and locations belong to the harness, so the code that
+ * skills directory, installed plugins, MCP servers in a JSON file — and the
+ * Customize page and the composer's menus read and edit it. The file formats and locations belong to the harness, so the code that
  * reads and writes them lives in the connector, behind these interfaces. An
  * instance that has none of it leaves `extensions` out, and the server answers
  * the matching RPCs with `unavailable`.
@@ -18,6 +18,7 @@ import type {
   AgentSkill,
   McpServerConfig,
   McpServerScope,
+  PluginSummary,
   SkillSummary,
 } from "@OpenAde/contracts/connectors";
 import * as Data from "effect/Data";
@@ -55,6 +56,16 @@ export interface SkillsExtension {
 }
 
 /**
+ * Plugins the harness has installed, in the user scope plus the project's
+ * when one is set. Read-only: installing and removing stay with the harness.
+ */
+export interface PluginsExtension {
+  readonly list: (
+    scope: ExtensionScope,
+  ) => Effect.Effect<ReadonlyArray<PluginSummary>, ConnectorExtensionFailed>;
+}
+
+/**
  * MCP servers in the harness's own config. `add` is an upsert keyed by the
  * server's scope and name; every call answers the whole list for the scope.
  */
@@ -76,5 +87,6 @@ export interface McpServersExtension {
 /** Every extension an instance may carry; each one is optional. */
 export interface ConnectorExtensions {
   readonly skills?: SkillsExtension;
+  readonly plugins?: PluginsExtension;
   readonly mcpServers?: McpServersExtension;
 }

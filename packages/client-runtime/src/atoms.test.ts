@@ -23,7 +23,12 @@ import type {
   ThreadStreamItem,
   ThreadSummary,
 } from "@OpenAde/contracts/orchestration";
-import type { ConnectorSummary, ModelOption, SkillSummary } from "@OpenAde/contracts/connectors";
+import type {
+  ConnectorSummary,
+  ModelOption,
+  PluginSummary,
+  SkillSummary,
+} from "@OpenAde/contracts/connectors";
 import type { Settings } from "@OpenAde/contracts/settings";
 import { defaultSettings } from "@OpenAde/contracts/settings";
 import * as Cause from "effect/Cause";
@@ -127,6 +132,10 @@ interface StubData {
     readonly instanceId: ConnectorInstanceId;
     readonly projectId?: ProjectId;
   }) => ReadonlyArray<SkillSummary>;
+  /** Answers `connectors.plugins.list` per instance — how a test makes one fail. */
+  readonly plugins?: (
+    instanceId: ConnectorInstanceId,
+  ) => Effect.Effect<ReadonlyArray<PluginSummary>, OpenAdeRpcError>;
 }
 
 /**
@@ -190,6 +199,10 @@ const fakeClient = (
         return (payload: { instanceId: ConnectorInstanceId; projectId?: ProjectId }) =>
           Effect.sync(() => skills(payload));
       }
+      if (key === "connectors.plugins.list" && data.plugins !== undefined) {
+        const plugins = data.plugins;
+        return ({ instanceId }: { instanceId: ConnectorInstanceId }) => plugins(instanceId);
+      }
       if (key === "settings.subscribe" && data.settings !== undefined) {
         const settings = data.settings;
         return () => Stream.suspend(() => Stream.fromQueue(settings()));
@@ -228,7 +241,7 @@ const connectorSummary = (id: string, enabled: boolean): ConnectorSummary => ({
   displayName: `Instance ${id}`,
   enabled,
   capabilities: null,
-  extensions: { skills: false, mcpServers: false },
+  extensions: { skills: false, plugins: false, mcpServers: false },
   probe: { status: "ready", probedAt: "2026-01-01T00:00:00.000Z" },
 });
 
@@ -262,6 +275,22 @@ const awaitValue = <A, E>(
     };
     const unmount = registry.subscribe(atom, check);
     // `subscribe` only fires on change — replay the current value explicitly.
+    check(registry.get(atom));
+  });
+
+/** The first answer that is no longer waiting, success or failure. */
+const awaitSettled = <A, E>(
+  registry: AtomRegistry.AtomRegistry,
+  atom: Atom.Atom<AsyncResult.AsyncResult<A, E>>,
+): Promise<AsyncResult.AsyncResult<A, E>> =>
+  new Promise((resolve) => {
+    const check = (result: AsyncResult.AsyncResult<A, E>) => {
+      if (!AsyncResult.isInitial(result) && !result.waiting) {
+        unmount();
+        resolve(result);
+      }
+    };
+    const unmount = registry.subscribe(atom, check);
     check(registry.get(atom));
   });
 
@@ -701,6 +730,62 @@ describe("atoms", () => {
         );
         expect(skills.map((skill) => skill.name)).toEqual(["a-skill"]);
         expect(asked).toEqual([{ instanceId: "a", projectId }]);
+      }),
+    ),
+  );
+
+  it.live("plugins answer [] for no instance and for one without the extension", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const instance = yield* Ref.make(INSTANCE);
+        const asked: Array<ConnectorInstanceId> = [];
+        const projectId = makeProjectId();
+        const plugin: PluginSummary = { name: "formatter", scope: "user", enabled: true };
+        const { registry, pluginsAtom } = yield* runtimeWith(
+          fakeClient(new Map(), instance, {
+            plugins: (instanceId) => {
+              asked.push(instanceId);
+              if (instanceId === "with") {
+                return Effect.succeed([plugin]);
+              }
+              return Effect.fail(
+                new OpenAdeRpcError({
+                  code: instanceId === "without" ? "unavailable" : "internal",
+                  message: `no plugins on ${instanceId}`,
+                }),
+              );
+            },
+          }),
+          { status: "connected", serverInstanceId: INSTANCE },
+        );
+
+        // No instance: answered locally — nothing is asked.
+        const none = pluginsAtom(null)(projectId);
+        registry.mount(none);
+        const noneResult = yield* Effect.promise(() => awaitSettled(registry, none));
+        expect(AsyncResult.isSuccess(noneResult) && noneResult.value).toEqual([]);
+
+        const listed = pluginsAtom("with" as ConnectorInstanceId)(projectId);
+        registry.mount(listed);
+        const plugins = yield* Effect.promise(() =>
+          awaitValue(registry, listed, (value) => value.length > 0),
+        );
+        expect(plugins).toEqual([plugin]);
+
+        // An instance without the extension is asked, and its refusal is an
+        // empty list rather than an error the '@' menu would have to show.
+        const without = pluginsAtom("without" as ConnectorInstanceId)(projectId);
+        registry.mount(without);
+        const withoutResult = yield* Effect.promise(() => awaitSettled(registry, without));
+        expect(AsyncResult.isSuccess(withoutResult) && withoutResult.value).toEqual([]);
+
+        // Any other failure still surfaces.
+        const broken = pluginsAtom("broken" as ConnectorInstanceId)(null);
+        registry.mount(broken);
+        const error = yield* Effect.promise(() => awaitFailure(registry, broken));
+        expect(error).toMatchObject({ code: "internal" });
+
+        expect(asked).toEqual(["with", "without", "broken"]);
       }),
     ),
   );

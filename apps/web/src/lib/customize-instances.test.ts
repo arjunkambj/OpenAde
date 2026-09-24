@@ -20,10 +20,10 @@ const instance = (
 
 describe("instancesWith", () => {
   const connectors = [
-    instance("both", true, { skills: true, mcpServers: true }),
-    instance("off", false, { skills: true, mcpServers: true }),
-    instance("skills-only", true, { skills: true, mcpServers: false }),
-    instance("none", true, { skills: false, mcpServers: false }),
+    instance("both", true, { skills: true, plugins: false, mcpServers: true }),
+    instance("off", false, { skills: true, plugins: false, mcpServers: true }),
+    instance("skills-only", true, { skills: true, plugins: false, mcpServers: false }),
+    instance("none", true, { skills: false, plugins: false, mcpServers: false }),
   ];
 
   it("keeps enabled instances that manage the kind, in list order", () => {

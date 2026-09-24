@@ -29,6 +29,7 @@ import type {
   ConnectorDescriptor,
   ConnectorSummary,
   ModelOption,
+  PluginSummary,
   SkillSummary,
 } from "@OpenAde/contracts/connectors";
 import type {
@@ -410,6 +411,35 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
     ),
   );
 
+  /**
+   * Plugins one connector instance has installed, per instance per project —
+   * the `@` popover asks the thread's instance. Most harnesses have none, so an
+   * instance without a plugins extension (`unavailable`) and no instance at
+   * all both answer `[]`; any other failure surfaces.
+   */
+  const pluginsAtom = Atom.family((instanceId: ConnectorInstanceId | null) =>
+    Atom.family((projectId: ProjectId | null) =>
+      runtime.atom(
+        instanceId === null
+          ? Effect.succeed([] as ReadonlyArray<PluginSummary>)
+          : Effect.gen(function* () {
+              const client = yield* (yield* Connection).client;
+              return yield* client["connectors.plugins.list"]({
+                instanceId,
+                ...(projectId === null ? {} : { projectId }),
+              });
+            }).pipe(
+              Effect.catchIf(
+                (error) =>
+                  Predicate.isTagged(error, "OpenAdeRpcError") && error.code === "unavailable",
+                () => Effect.succeed([] as ReadonlyArray<PluginSummary>),
+              ),
+            ),
+        { initialValue: [] as ReadonlyArray<PluginSummary> },
+      ),
+    ),
+  );
+
   /** The server-owned keybinding table the editor and the matcher share. */
   const keybindingsAtom = runtime.atom(
     perConnection(
@@ -497,6 +527,7 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
     connectorModelsAtom,
     ...makeConnectorAtoms(runtime, connectorsAtom),
     skillsAtom,
+    pluginsAtom,
     keybindingsAtom,
     keybindingsUpdateAtom,
     browserStateAtom,

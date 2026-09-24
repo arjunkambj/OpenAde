@@ -10,7 +10,7 @@ const summary = (probe: Partial<ConnectorProbe>): ConnectorSummary => ({
   displayName: "Harness",
   enabled: true,
   capabilities: null,
-  extensions: { skills: false, mcpServers: false },
+  extensions: { skills: false, plugins: false, mcpServers: false },
   probe: { status: "ready", probedAt: "2026-09-18T00:00:00.000Z", ...probe },
 });
 

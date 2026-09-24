@@ -41,11 +41,12 @@ import {
   makeTurnId,
 } from "@OpenAde/contracts/ids";
 import type { ConnectorInstanceId, ProjectId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
-import { PROTOCOL_VERSION } from "@OpenAde/contracts/rpc";
+import { OpenAdeRpcError, PROTOCOL_VERSION } from "@OpenAde/contracts/rpc";
 import type {
   ConnectorDescriptor,
   ConnectorSummary,
   ModelOption,
+  PluginSummary,
   SkillSummary,
 } from "@OpenAde/contracts/connectors";
 import type { FileSearchResult } from "@OpenAde/contracts/rpc";
@@ -118,6 +119,24 @@ const FIXTURE_SKILLS: ReadonlyArray<SkillSummary> = [
     path: "skills/bench.md",
     description: "Run the benchmark suite",
     enabled: false,
+  },
+];
+
+/** The first fixture connector's plugins; the second carries no plugins extension. */
+const FIXTURE_PLUGINS: ReadonlyArray<PluginSummary> = [
+  {
+    name: "formatter",
+    description: "Format files after every edit",
+    source: "fixture-marketplace",
+    scope: "user",
+    enabled: true,
+  },
+  {
+    name: "release-notes",
+    description: "Draft release notes from merged changes",
+    source: "fixture-marketplace",
+    scope: "project",
+    enabled: true,
   },
 ];
 
@@ -470,7 +489,7 @@ export const makeFixtureClient = (): FixtureClient => {
     displayName: "Fixture connector",
     enabled: true,
     capabilities: capabilities(),
-    extensions: { skills: true, mcpServers: false },
+    extensions: { skills: true, plugins: true, mcpServers: false },
     probe: { status: "ready", probedAt: NOW },
   });
 
@@ -491,7 +510,7 @@ export const makeFixtureClient = (): FixtureClient => {
     ...connector(),
     connectorInstanceId: secondInstanceId,
     displayName: "Second fixture connector",
-    extensions: { skills: false, mcpServers: false },
+    extensions: { skills: false, plugins: false, mcpServers: false },
   });
 
   /** What the fixture build "ships": the one connector kind above, with a form. */
@@ -582,6 +601,16 @@ export const makeFixtureClient = (): FixtureClient => {
           return () => Effect.succeed([descriptor]);
         case "connectors.skills.list":
           return () => Effect.succeed(FIXTURE_SKILLS.filter((skill) => skill.enabled));
+        case "connectors.plugins.list":
+          return ({ instanceId }: { instanceId: string }) =>
+            instanceId === connectorInstanceId
+              ? Effect.succeed(FIXTURE_PLUGINS)
+              : Effect.fail(
+                  new OpenAdeRpcError({
+                    code: "unavailable",
+                    message: `connector instance ${instanceId} does not manage plugins`,
+                  }),
+                );
         case "keybindings.get":
           return () => Effect.succeed(keybindings);
         case "keybindings.update":

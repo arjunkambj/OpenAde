@@ -2,7 +2,7 @@
  * The connector-facing wire shapes: what the renderer learns about a
  * connector — its models, its probe, its configured instances, its metadata
  * and config form — and what the per-instance extensions list and edit
- * (skills, MCP servers). The RPCs that carry them are in `rpc.ts`.
+ * (skills, plugins, MCP servers). The RPCs that carry them are in `rpc.ts`.
  */
 
 import * as Schema from "effect/Schema";
@@ -70,7 +70,11 @@ export const ConnectorSummary = Schema.Struct({
   enabled: Schema.Boolean,
   capabilities: Schema.NullOr(ConnectorCapabilities),
   /** Which per-instance extensions the open instance carries; all false when not open. */
-  extensions: Schema.Struct({ skills: Schema.Boolean, mcpServers: Schema.Boolean }),
+  extensions: Schema.Struct({
+    skills: Schema.Boolean,
+    plugins: Schema.Boolean,
+    mcpServers: Schema.Boolean,
+  }),
   probe: ConnectorProbe,
 });
 export type ConnectorSummary = typeof ConnectorSummary.Type;
@@ -166,3 +170,17 @@ export const AgentSkill = Schema.Struct({
   description: Schema.optional(Schema.String),
 });
 export type AgentSkill = typeof AgentSkill.Type;
+
+/**
+ * One plugin the harness has installed. `source` is where it came from (a
+ * marketplace, a directory) and `scope` which level installed it (`user`,
+ * `project`), both in the harness's own words; the renderer shows them as-is.
+ */
+export const PluginSummary = Schema.Struct({
+  name: NonEmptyString,
+  description: Schema.optional(Schema.String),
+  source: Schema.optional(NonEmptyString),
+  scope: Schema.optional(NonEmptyString),
+  enabled: Schema.Boolean,
+});
+export type PluginSummary = typeof PluginSummary.Type;

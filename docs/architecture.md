@@ -384,10 +384,10 @@ import cycle, and `rpc` re-exports it.
 `decisions` holds the record a thread keeps of each settled approval, question
 and plan, which the thread read models in `orchestration` carry. `connectors`
 holds what the renderer learns about a connector — models, probe, configured
-instances, metadata and config form, and the skills and MCP servers its
-extensions list. `terminal` holds the integrated terminal's summary, its output
-stream frames and the limits both ends share. `rpc` holds the methods that
-carry them.
+instances, metadata and config form, and the skills, plugins and MCP servers
+its extensions list. `terminal` holds the integrated terminal's summary, its
+output stream frames and the limits both ends share. `rpc` holds the methods
+that carry them.
 
 Ids are branded UUIDv7 strings, so a `ThreadId` cannot be passed where a
 `TurnId` is expected, and they are validated on decode — a malformed id fails at
@@ -410,7 +410,8 @@ What a connector is, and the promises it must keep.
   `ConnectorServices`, the error union, `eraseConnectorDefinition`.
 - `sessionHandle.ts` — `SessionHandle` and the bounded event queue.
 - `turnScopedHandle.ts` — the turn correlation wrapper.
-- `extensions.ts` — the optional per-instance extensions (skills, MCP servers).
+- `extensions.ts` — the optional per-instance extensions (skills, plugins, MCP
+  servers).
 - `approvalGate.ts` — the shared approval flow: ask the permission ladder, and
   on prompt open a request and park until the user answers.
 - `registry.ts` — definitions by kind, live instances by id.
@@ -1048,18 +1049,25 @@ instead of the kind:
 below.
 
 An instance may also carry `extensions` (`extensions.ts`): harness
-configuration it manages for the Customize page. `skills` lists what the
-harness loads (`list`), and optionally what a shared folder offers
-(`available`) and a way to link one in (`link`); `mcpServers` lists, adds
-(an upsert) and removes servers in the harness's own config. Both take an
+configuration it manages for the Customize page and the composer. `skills`
+lists what the harness loads (`list`), and optionally what a shared folder
+offers (`available`) and a way to link one in (`link`); `plugins` lists the
+plugins a harness that has them has installed (`list` only — each a
+`PluginSummary`: `name`, optional `description`, `source` and `scope` in the
+harness's own words, and `enabled`); `mcpServers` lists, adds (an upsert) and
+removes servers in the harness's own config. Command Code carries `skills` and
+`mcpServers` but no `plugins`, since it has none. Every extension takes an
 `ExtensionScope` — `{ workspaceRoot: string | null }`, the user scope plus one
-project — and fail with `ConnectorExtensionFailed { code, message }`, never an
+project — and fails with `ConnectorExtensionFailed { code, message }`, never an
 RPC error: the server (`settings/ConnectorExtensions.ts`) resolves the
 `projectId` to a workspace root, calls the open instance's extension, maps the
 failure's code across, and answers `unavailable` for an instance that is not
 open or has no such extension. `ConnectorSummary.extensions` tells the renderer
 which instances have which, so it shows a Customize section only for those, and
-the composer's `/` menu asks the thread's own instance for its skills.
+the composer's `/` menu asks the thread's own instance for its skills. The
+client runtime's `pluginsAtom` asks one instance for its plugins and reads an
+`unavailable` answer, like no instance at all, as an empty list, so an
+instance without plugins is not an error.
 
 Instances
 are per configuration, not per thread. The registry (`registry.ts`) routes by
@@ -1453,6 +1461,7 @@ the client in the terminal `incompatible` state.
 | `connectors.skills.list`      | call   | Skills one instance loads, user scope plus an optional project                      |
 | `connectors.skills.available` | call   | Shared-folder skills that instance does not load yet; empty when it offers none     |
 | `connectors.skills.link`      | call   | Links one of those into the instance's user skills                                  |
+| `connectors.plugins.list`     | call   | Plugins one instance has installed, user scope plus an optional project             |
 | `connectors.mcp.list`         | call   | MCP servers in one instance's harness config, user and project scope                |
 | `connectors.mcp.add`          | call   | Adds or replaces one entry we own; refuses one we do not                            |
 | `connectors.mcp.remove`       | call   | Removes one entry we own                                                            |

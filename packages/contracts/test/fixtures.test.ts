@@ -49,6 +49,7 @@ import {
   ConnectorSummary,
   McpServerConfig,
   ModelOption,
+  PluginSummary,
   SkillSummary,
 } from "../src/connectors";
 import {
@@ -230,6 +231,7 @@ const singles: ReadonlyArray<{ readonly path: string; readonly schema: FixtureSc
   { path: "rpc/mcp-server-config.json", schema: McpServerConfig },
   { path: "rpc/skill-summary.json", schema: SkillSummary },
   { path: "rpc/terminal-summary.json", schema: TerminalSummary },
+  { path: "rpc/plugin-summary.json", schema: PluginSummary },
 ];
 
 describe("fixture round-trips", () => {

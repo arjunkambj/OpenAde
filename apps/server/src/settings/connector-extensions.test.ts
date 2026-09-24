@@ -59,6 +59,18 @@ const recordingExtensions = (scopes: Array<ExtensionScope>): InstanceExtensions 
         return [{ name: "review", path: `${scope.workspaceRoot ?? "~"}/review.md`, enabled: true }];
       }),
   },
+  plugins: {
+    list: (scope) =>
+      Effect.sync(() => {
+        scopes.push(scope);
+        return [
+          { name: "formatter", source: "a-marketplace", scope: "user", enabled: true },
+          ...(scope.workspaceRoot === null
+            ? []
+            : [{ name: "release-notes", scope: "project", enabled: false }]),
+        ];
+      }),
+  },
   mcpServers: {
     list: (scope) =>
       Effect.sync(() => {
@@ -152,6 +164,21 @@ describe("ConnectorExtensions", () => {
     ),
   );
 
+  it.effect("lists an instance's plugins, with the project's scope when one is named", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const f = yield* fixture;
+        const user = yield* f.extensions.pluginsList(f.extendedId);
+        expect(user).toEqual([
+          { name: "formatter", source: "a-marketplace", scope: "user", enabled: true },
+        ]);
+        const project = yield* f.extensions.pluginsList(f.extendedId, f.projectId);
+        expect(project.map((plugin) => plugin.name)).toEqual(["formatter", "release-notes"]);
+        expect(f.scopes).toEqual([{ workspaceRoot: null }, { workspaceRoot: WORKSPACE_ROOT }]);
+      }),
+    ),
+  );
+
   it.effect("keeps the connector's failure code", () =>
     Effect.scoped(
       Effect.gen(function* () {
@@ -171,10 +198,13 @@ describe("ConnectorExtensions", () => {
         const calls: ReadonlyArray<Effect.Effect<unknown, OpenAdeRpcError>> = [
           f.extensions.skillsList(f.bareId),
           f.extensions.skillsAvailable(f.bareId),
+          f.extensions.pluginsList(f.bareId),
+          f.extensions.pluginsList(f.bareId, f.projectId),
           f.extensions.mcpList(f.bareId, f.projectId),
           f.extensions.mcpAdd(f.bareId, undefined, server),
           // Not open at all: nothing to route to.
           f.extensions.mcpList(makeConnectorInstanceId()),
+          f.extensions.pluginsList(makeConnectorInstanceId()),
         ];
         for (const call of calls) {
           expect((yield* Effect.flip(call)).code).toBe("unavailable");

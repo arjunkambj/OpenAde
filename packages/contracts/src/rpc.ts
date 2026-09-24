@@ -25,6 +25,7 @@ import {
   McpServerConfig,
   McpServerScope,
   ModelOption,
+  PluginSummary,
   SkillSummary,
 } from "./connectors";
 import {
@@ -360,6 +361,7 @@ export const RPC_METHODS = {
   connectorsSkillsList: "connectors.skills.list",
   connectorsSkillsAvailable: "connectors.skills.available",
   connectorsSkillsLink: "connectors.skills.link",
+  connectorsPluginsList: "connectors.plugins.list",
   connectorsMcpList: "connectors.mcp.list",
   connectorsMcpAdd: "connectors.mcp.add",
   connectorsMcpRemove: "connectors.mcp.remove",
@@ -620,6 +622,16 @@ const ConnectorsSkillsLinkRpc = Rpc.make(RPC_METHODS.connectorsSkillsLink, {
   error: OpenAdeRpcError,
 });
 
+/** Plugins the instance has installed, in the user scope plus the project's. */
+const ConnectorsPluginsListRpc = Rpc.make(RPC_METHODS.connectorsPluginsList, {
+  payload: Schema.Struct({
+    instanceId: ConnectorInstanceId,
+    projectId: Schema.optional(ProjectId),
+  }),
+  success: Schema.Array(PluginSummary),
+  error: OpenAdeRpcError,
+});
+
 const ConnectorsMcpListRpc = Rpc.make(RPC_METHODS.connectorsMcpList, {
   payload: Schema.Struct({
     instanceId: ConnectorInstanceId,
@@ -759,6 +771,7 @@ export const OpenAdeRpcGroup = RpcGroup.make(
   ConnectorsSkillsListRpc,
   ConnectorsSkillsAvailableRpc,
   ConnectorsSkillsLinkRpc,
+  ConnectorsPluginsListRpc,
   ConnectorsMcpListRpc,
   ConnectorsMcpAddRpc,
   ConnectorsMcpRemoveRpc,

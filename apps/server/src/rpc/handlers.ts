@@ -131,6 +131,8 @@ export const handlersLayer = OpenAdeRpcGroup.toLayer(
         extensions.skillsList(instanceId, projectId),
       "connectors.skills.available": ({ instanceId }) => extensions.skillsAvailable(instanceId),
       "connectors.skills.link": ({ instanceId, entry }) => extensions.skillsLink(instanceId, entry),
+      "connectors.plugins.list": ({ instanceId, projectId }) =>
+        extensions.pluginsList(instanceId, projectId),
       "connectors.mcp.list": ({ instanceId, projectId }) =>
         extensions.mcpList(instanceId, projectId),
       "connectors.mcp.add": ({ instanceId, projectId, server }) =>

@@ -87,7 +87,11 @@ interface Declared {
 }
 
 /** A closed instance manages nothing: the Customize page shows no section for it. */
-const NO_EXTENSIONS: ConnectorSummary["extensions"] = { skills: false, mcpServers: false };
+const NO_EXTENSIONS: ConnectorSummary["extensions"] = {
+  skills: false,
+  plugins: false,
+  mcpServers: false,
+};
 
 /** A probe gets this long before it's reported as an error. */
 const PROBE_TIMEOUT = Duration.seconds(15);
@@ -184,6 +188,7 @@ export class ConnectorManager extends Context.Service<
               capabilities,
               extensions: {
                 skills: extensions?.skills !== undefined,
+                plugins: extensions?.plugins !== undefined,
                 mcpServers: extensions?.mcpServers !== undefined,
               },
             }),
