@@ -7,12 +7,13 @@
  * them. Until the user types, it follows the draft: the control refetches the
  * status as the dialog opens, and the message must list the same files as the
  * checkboxes — once that answer lands, and as files are unchecked — not the
- * ones cached before it or left out since (`commitSelection`). The first keystroke makes it the user's, and nothing replaces it
- * after that. Every file `git.status` reports is listed, untracked ones included,
- * all checked. `paths` is sent only when something was unchecked; with
- * everything checked the server stages everything (`git add -A`), which also
- * takes a file that appeared after the dialog opened. The confirm button is
- * labelled with the action it runs, and disabled on an empty message.
+ * ones cached before it or left out since (`commitSelection`). The first
+ * keystroke makes it the user's, and nothing replaces it after that. Every
+ * file `git.status` reports is listed, untracked ones included, all checked.
+ * `paths` is sent only when something was unchecked; with everything checked
+ * the server stages everything (`git add -A`), which also takes a file that
+ * appeared after the dialog opened. The confirm button is labelled with the
+ * action it runs, and disabled on an empty message.
  *
  * With every file unchecked there is nothing to commit. A plain commit is
  * disabled then; an action that also pushes or opens a pull request can still

@@ -2,11 +2,12 @@
  * One thread in the projects → threads tree, on the stock sidebar menu parts.
  *
  * Left to right: a fixed status slot, the title, a fork mark when the thread
- * works in its own worktree, and how long ago the thread last moved. The slot holds the status mark from `./thread-status` — needs
- * you, plan ready, running, error — and, only when there is none, the unread
- * dot; a thread that is running or waiting says so louder than "unread" can,
- * and the title's weight still carries the unread emphasis. The slot sits
- * under the project's folder icon, so the title lines up with the project name.
+ * works in its own worktree, and how long ago the thread last moved. The slot
+ * holds the status mark from `./thread-status` — needs you, plan ready,
+ * running, error — and, only when there is none, the unread dot; a thread
+ * that is running or waiting says so louder than "unread" can, and the
+ * title's weight still carries the unread emphasis. The slot sits under the
+ * project's folder icon, so the title lines up with the project name.
  *
  * On hover the time fades and two actions take its place: archive, then the
  * overflow menu. The time is a label, not a clock: `ProjectTree` owns the one

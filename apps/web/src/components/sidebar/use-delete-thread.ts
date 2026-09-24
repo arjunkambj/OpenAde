@@ -6,9 +6,10 @@
  * moment its thread is deleted, so the second confirmation a forced removal
  * needs cannot be a dialog inside that row: the request joins
  * `forceRemovalRequestsAtom`, and `WorktreeForceRemovalHost`, mounted once
- * above the routes, shows them one after another. The remove is a one-shot call on the app's registry,
- * not tied to the row, so it finishes after the row is gone — and a second
- * delete started meanwhile runs beside it instead of interrupting it.
+ * above the routes, shows them one after another. The remove is a one-shot
+ * call on the app's registry, not tied to the row, so it finishes after the
+ * row is gone — and a second delete started meanwhile runs beside it instead
+ * of interrupting it.
  */
 
 import { useAtomSet } from "@effect/atom-react";
