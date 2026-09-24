@@ -1,5 +1,5 @@
 import type { ItemKind } from "@OpenAde/contracts/enums";
-import { makeTurnId, type ItemId } from "@OpenAde/contracts/ids";
+import { type ItemId, makeTurnId } from "@OpenAde/contracts/ids";
 import type { ResolvedDecision } from "@OpenAde/contracts/decisions";
 import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
 import { describe, expect, it } from "vitest";
@@ -404,5 +404,89 @@ describe("buildTimeline decisions", () => {
       expect(buildTimeline(items, { turnActive, decisions: [] })).toEqual(plain);
       expect(buildTimeline(items, { turnActive, decisions: undefined })).toEqual(plain);
     }
+  });
+});
+
+describe("buildTimeline turn ends", () => {
+  const ends = (rows: ReturnType<typeof buildTimeline>["rows"]) =>
+    rows.flatMap((row) =>
+      row.kind === "item" && row.turnEnd !== undefined ? [{ id: row.id, ...row.turnEnd }] : [],
+    );
+  const turnA = makeTurnId();
+  const turnB = makeTurnId();
+
+  it("marks the last assistant message of each settled turn only", () => {
+    const userA = item("user_message", { turnId: turnA });
+    const narration = item("assistant_message", { turnId: turnA });
+    const tool = item("tool_call", { turnId: turnA });
+    const answerA = item("assistant_message", { turnId: turnA });
+    const userB = item("user_message", { turnId: turnB });
+    const answerB = item("assistant_message", { turnId: turnB });
+    const { rows } = buildTimeline([userA, narration, tool, answerA, userB, answerB], {
+      turnActive: false,
+    });
+    expect(ends(rows)).toEqual([
+      {
+        id: answerA.itemId,
+        turnId: turnA,
+        durationMs: uuidV7Millis(answerA.itemId)! - uuidV7Millis(userA.itemId)!,
+      },
+      {
+        id: answerB.itemId,
+        turnId: turnB,
+        durationMs: uuidV7Millis(answerB.itemId)! - uuidV7Millis(userB.itemId)!,
+      },
+    ]);
+  });
+
+  it("marks none in the live turn", () => {
+    const userA = item("user_message", { turnId: turnA });
+    const answerA = item("assistant_message", { turnId: turnA });
+    const userB = item("user_message", { turnId: turnB });
+    const interim = item("assistant_message", { turnId: turnB });
+    const { rows } = buildTimeline([userA, answerA, userB, interim, item("tool_call")], {
+      turnActive: true,
+    });
+    expect(ends(rows).map((end) => end.id)).toEqual([answerA.itemId]);
+  });
+
+  it("ends a steered turn at its last segment, timed from its first", () => {
+    const user = item("user_message", { turnId: turnA });
+    const before = item("assistant_message", { turnId: turnA });
+    const steer = item("user_message", { turnId: turnA });
+    const answer = item("assistant_message", { turnId: turnA });
+    const settled = buildTimeline([user, before, steer, answer], { turnActive: false });
+    expect(ends(settled.rows)).toEqual([
+      {
+        id: answer.itemId,
+        turnId: turnA,
+        durationMs: uuidV7Millis(answer.itemId)! - uuidV7Millis(user.itemId)!,
+      },
+    ]);
+    // Steered into the running turn: the earlier segment is not the end either.
+    expect(ends(buildTimeline([user, before, steer], { turnActive: true }).rows)).toEqual([]);
+  });
+
+  it("counts task children in the time and skips turns without an answer", () => {
+    const user = item("user_message");
+    const task = item("task");
+    const answer = item("assistant_message");
+    const late = item("tool_call", { parentItemId: task.itemId });
+    const quiet = [item("user_message"), item("tool_call")];
+    const { rows } = buildTimeline([user, task, answer, late, ...quiet], { turnActive: false });
+    expect(ends(rows)).toEqual([
+      {
+        id: answer.itemId,
+        turnId: undefined,
+        durationMs: uuidV7Millis(late.itemId)! - uuidV7Millis(user.itemId)!,
+      },
+    ]);
+  });
+
+  it("gives an answer before the first user message no end", () => {
+    const { rows } = buildTimeline([item("assistant_message"), item("tool_call")], {
+      turnActive: false,
+    });
+    expect(ends(rows)).toEqual([]);
   });
 });

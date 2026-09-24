@@ -758,6 +758,12 @@ turns the flat item list into rows:
   with a link to that turn in the Changes pane, and each path opens that file
   there. It lists paths and counts only, never a diff; the live segment gets
   none;
+- the last `assistant_message` of each settled turn is its final answer and
+  carries a `turnEnd` with the turn's id and duration, for the footer under
+  it. A message steered into a running turn opens a segment of its own but
+  shares the turn's id, so only the last segment of that turn has an end, and
+  its duration runs from the turn's first segment. The live turn has none
+  (the work-group and turn-summary builders live in `timeline/fold-rows.ts`);
 - durations come out of the UUIDv7 ids, which carry their creation millisecond
   in the leading 48 bits; a zero duration is left out of a label rather than
   shown as "0ms";
@@ -841,6 +847,13 @@ while the pointer is over the row or focus is inside it, and always on a
 coarse pointer such as touch, where there is no hover. Only its opacity
 changes; it always takes its height, so revealing it never reflows a row the
 list has measured.
+
+The final answer of a settled turn has a footer too, left-aligned under it
+and revealed the same way: Copy (the markdown source), the time the answer
+began, and how long the turn took, first item to last, as the turn summary
+counts it ("2m 3s"). Interim narration and the running turn's messages have
+none. No model is named: the thread records which model runs now, not which
+one ran a past turn.
 
 The timeline hands its rows one context (`timeline/thread-context.tsx`,
 filled by `use-timeline-thread.ts`): the thread and project a row reads the

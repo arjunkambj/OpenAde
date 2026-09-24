@@ -1,8 +1,9 @@
 /**
  * `formatDurationMs(4_250)` → `"4.3s"`. The work-group and turn-summary labels
- * use this: sub-second precision matters, minute-plus durations read as `1m 5s`.
+ * and the final answer's footer use this: sub-second precision matters,
+ * minute-plus durations read as `1m 5s`.
  */
-const formatDurationMs = (ms: number): string => {
+export const formatDurationMs = (ms: number): string => {
   if (ms < 1_000) {
     return `${Math.round(ms)}ms`;
   }

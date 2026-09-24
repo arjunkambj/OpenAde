@@ -9,6 +9,11 @@
  * +20 −4" (both built in `fold-rows.ts`). Durations come out of the UUIDv7
  * ids, which carry their creation millisecond in the leading 48 bits.
  *
+ * The last `assistant_message` of each settled turn is its final answer and
+ * carries `turnEnd`, for the footer under it. Here the turn id counts: a
+ * message steered into a running turn shares its id, so the turn it opened a
+ * segment in is still the same one.
+ *
  * `task` children (rows whose `parentItemId` resolves to a task) leave the top
  * level and render nested inside the task row via `childrenByParent`.
  *
@@ -24,23 +29,35 @@
  */
 
 import type { ResolvedDecision } from "@OpenAde/contracts/decisions";
+import type { TurnId } from "@OpenAde/contracts/ids";
 import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
 import { uuidV7Millis } from "@OpenAde/shared/ids";
 
 import {
   FOLDABLE_KINDS,
+  spanMs,
   type TimelineTurnSummaryRow,
   type TimelineWorkGroupRow,
   turnSummaryRow,
+  withChildren,
   workGroupRow,
 } from "./fold-rows";
 
 export type { TimelineTurnSummaryRow, TimelineWorkGroupRow, TurnSummaryFile } from "./fold-rows";
 
+/** Marks the final answer of a settled turn, for the footer under it. */
+export interface TurnEnd {
+  readonly turnId: TurnId | undefined;
+  /** The turn's first item to its last, as the turn summary counts it. */
+  readonly durationMs: number | undefined;
+}
+
 export interface TimelineItemRow {
   readonly kind: "item";
   readonly id: string;
   readonly item: ItemSnapshot;
+  /** Set on the last `assistant_message` of each settled turn only. */
+  readonly turnEnd?: TurnEnd;
 }
 
 /** The one-line record of an answered approval, question or plan. */
@@ -96,6 +113,58 @@ const workingStartedAt = (
   }
   const lastMessage = roots.findLast((item) => item.kind === "user_message");
   return lastMessage === undefined ? undefined : uuidV7Millis(lastMessage.itemId);
+};
+
+/** Whether the segment at `index` is a user message steered into the turn before it. */
+const steeredIn = (
+  segments: ReadonlyArray<ReadonlyArray<ItemSnapshot>>,
+  index: number,
+): boolean => {
+  const opener = segments[index]?.[0];
+  const previous = segments[index - 1]?.[0];
+  return (
+    opener?.kind === "user_message" &&
+    previous?.kind === "user_message" &&
+    opener.turnId !== undefined &&
+    opener.turnId === previous.turnId
+  );
+};
+
+/**
+ * The final answer of each settled turn: its last `assistant_message`, keyed
+ * by item id. A message steered into a running turn opens a segment of its
+ * own but shares the turn's id, so a turn is the run of segments that id
+ * joins; only the last one's answer ends it, and the time runs from the
+ * first segment. The live turn — the last segment while a turn runs, and any
+ * segment its id joins — has no end yet.
+ */
+const turnEnds = (
+  segments: ReadonlyArray<ReadonlyArray<ItemSnapshot>>,
+  liveIndex: number | undefined,
+  childrenByParent: ReadonlyMap<string, ReadonlyArray<ItemSnapshot>>,
+): ReadonlyMap<string, TurnEnd> => {
+  const ends = new Map<string, TurnEnd>();
+  let start = 0;
+  segments.forEach((segment, index) => {
+    if (!steeredIn(segments, index)) {
+      start = index;
+    }
+    if (segment[0].kind !== "user_message" || steeredIn(segments, index + 1)) {
+      return;
+    }
+    if (liveIndex !== undefined && index >= liveIndex) {
+      return;
+    }
+    const turn = segments.slice(start, index + 1).flat();
+    const answer = turn.findLast((item) => item.kind === "assistant_message");
+    if (answer !== undefined) {
+      ends.set(answer.itemId, {
+        turnId: answer.turnId ?? segment[0].turnId,
+        durationMs: spanMs(withChildren(turn, childrenByParent)),
+      });
+    }
+  });
+  return ends;
 };
 
 export const buildTimeline = (
@@ -175,6 +244,13 @@ export const buildTimeline = (
 
   const rows: TimelineRow[] = [];
   const lastSegment = segments.length - 1;
+  const ends = turnEnds(segments, options.turnActive ? lastSegment : undefined, childrenByParent);
+  const itemRow = (item: ItemSnapshot): TimelineItemRow => {
+    const turnEnd = ends.get(item.itemId);
+    return turnEnd === undefined
+      ? { kind: "item", id: item.itemId, item }
+      : { kind: "item", id: item.itemId, item, turnEnd };
+  };
   const pushDecisions = (decisions: ReadonlyArray<ResolvedDecision> | undefined) => {
     for (const decision of decisions ?? []) {
       rows.push(decisionRow(decision));
@@ -210,7 +286,7 @@ export const buildTimeline = (
         }
       } else {
         flush();
-        rows.push({ kind: "item", id: item.itemId, item });
+        rows.push(itemRow(item));
       }
       pushDecisions(after);
     }

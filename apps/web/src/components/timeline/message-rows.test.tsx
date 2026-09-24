@@ -14,7 +14,7 @@ import { AssistantMessageRow, UserMessageRow } from "@/components/timeline/messa
 import { type TimelineThread, TimelineThreadProvider } from "@/components/timeline/thread-context";
 import { ClientRuntimeProvider } from "@/lib/client-runtime";
 import { makeFixtureClient } from "@/lib/fixture-client";
-import { formatClock } from "@/lib/format";
+import { formatClock, formatDurationMs } from "@/lib/format";
 
 const row = (fields: Partial<ItemSnapshot>): ItemSnapshot => ({
   itemId: makeItemId(),
@@ -196,5 +196,39 @@ describe("AssistantMessageRow", () => {
     expect(markup).not.toContain(FADE);
     expect(markup).toContain("<strong>the endpoint</strong>");
     expect(markup).toContain("It answers 200.");
+  });
+
+  it("has no footer unless it ends a settled turn", () => {
+    const markup = renderToStaticMarkup(<AssistantMessageRow item={answer({})} />);
+    expect(markup).not.toContain('data-slot="message-footer"');
+  });
+
+  it("puts copy, the time and the turn's duration under a final answer", () => {
+    const itemId = makeItemId();
+    const markup = renderToStaticMarkup(
+      <AssistantMessageRow
+        item={answer({ itemId })}
+        turnEnd={{ turnId: makeTurnId(), durationMs: 123_000 }}
+      />,
+    );
+    const footer = markup.slice(markup.indexOf('data-slot="message-footer"'));
+    expect(footer).toContain("justify-start");
+    expect(footer).toContain('aria-label="Copy answer"');
+    expect(footer).toContain(`>${formatClock(uuidV7Millis(itemId) ?? 0)}</time>`);
+    expect(footer).toContain(`>${formatDurationMs(123_000)}</span>`);
+    expect(formatDurationMs(123_000)).toBe("2m 3s");
+    expect(footer).toContain("group-hover/message:opacity-100");
+    expect(footer).not.toContain("Restore");
+  });
+
+  it("leaves out a duration the ids could not measure", () => {
+    const markup = renderToStaticMarkup(
+      <AssistantMessageRow
+        item={answer({})}
+        turnEnd={{ turnId: undefined, durationMs: undefined }}
+      />,
+    );
+    expect(markup).toContain('aria-label="Copy answer"');
+    expect(markup).not.toMatch(/tabular-nums">[^<]*s<\/span>/);
   });
 });

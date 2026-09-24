@@ -12,7 +12,7 @@ import { memo } from "react";
 import { CommandExecutionRow } from "@/components/timeline/tool-rows";
 import { DecisionRow } from "@/components/timeline/decision-row";
 import { FileChangeRow } from "@/components/timeline/file-change-row";
-import type { TimelineRow } from "@/components/timeline/fold";
+import type { TimelineRow, TurnEnd } from "@/components/timeline/fold";
 import { AssistantMessageRow, UserMessageRow } from "@/components/timeline/message-rows";
 import { PlanRow } from "@/components/timeline/plan-row";
 import {
@@ -36,15 +36,18 @@ import { WorkingRow } from "@/components/timeline/working-row";
 export const TimelineItemView = memo(function TimelineItemView({
   item,
   childrenByParent,
+  turnEnd,
 }: {
   item: ItemSnapshot;
   childrenByParent: ReadonlyMap<string, ReadonlyArray<ItemSnapshot>>;
+  /** Only on the final answer of a settled turn. */
+  turnEnd?: TurnEnd | undefined;
 }) {
   switch (item.kind) {
     case "user_message":
       return <UserMessageRow item={item} />;
     case "assistant_message":
-      return <AssistantMessageRow item={item} />;
+      return <AssistantMessageRow item={item} turnEnd={turnEnd} />;
     case "reasoning":
       return <ReasoningRow item={item} />;
     case "command_execution":
@@ -89,7 +92,9 @@ export function TimelineRowView({
   childrenByParent: ReadonlyMap<string, ReadonlyArray<ItemSnapshot>>;
 }) {
   if (row.kind === "item") {
-    return <TimelineItemView item={row.item} childrenByParent={childrenByParent} />;
+    return (
+      <TimelineItemView item={row.item} childrenByParent={childrenByParent} turnEnd={row.turnEnd} />
+    );
   }
   if (row.kind === "work-group") {
     return <WorkGroupRow group={row} childrenByParent={childrenByParent} />;
