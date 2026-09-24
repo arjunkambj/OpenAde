@@ -1,5 +1,8 @@
 /**
- * The per-thread overflow menu: rename, archive or unarchive, delete.
+ * The per-thread menu: archive or unarchive, delete. It opens from the row's
+ * overflow button or a right-click anywhere on the row. Rename is not in it —
+ * that is `thread.rename` on the open thread, which this module's
+ * `RenameThreadDialog` answers from `@/components/thread/thread-shortcuts`.
  *
  * `thread.rename`, `thread.archive`, `thread.unarchive` and `thread.delete`
  * run through the command union, the decider and the reactors — closing the
@@ -15,10 +18,11 @@
  * Archive, as the Archived threads settings page does.
  *
  * The open thread's menu names the keys that do the same from anywhere —
- * `thread.rename`, `thread.archive` and `thread.delete` are answered by
+ * `thread.archive` and `thread.delete` are answered by
  * `@/components/thread/thread-shortcuts` while a thread is open.
  *
- * Both dialogs are siblings of the menu, not children of it: two modal
+ * Both menus draw one item list (`ThreadMenuItems`) and each keeps its own
+ * delete dialog. The dialog is a sibling of its menu, not a child of it: two modal
  * surfaces each own a focus trap, and a menu that is closing while a dialog
  * opens inside it fights the dialog for focus.
  */
@@ -34,6 +38,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@OpenAde/ui/components/dialog";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuShortcut,
+  ContextMenuTrigger,
+} from "@OpenAde/ui/components/context-menu";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,24 +63,12 @@ import { DeleteThreadDialog } from "@/components/sidebar/delete-thread-dialog";
 import { threadCommandBase, useThreadCommand } from "@/components/sidebar/thread-actions";
 import { useDeleteThread } from "@/components/sidebar/use-delete-thread";
 import { CommandKbd } from "@/lib/shortcuts";
-import { Archive as ArchiveIcon, ArchiveUp, Edit, MoreHorizontal, Trash } from "@honeyicons/react";
-
-/** A menu item's chord, with the user's overrides applied. */
-function ItemKeys({ command, shown }: { readonly command: string; readonly shown: boolean }) {
-  return shown ? (
-    <DropdownMenuShortcut>
-      <CommandKbd command={command} />
-    </DropdownMenuShortcut>
-  ) : null;
-}
-
-/** Which of the two dialogs this row currently has open. */
-type OpenDialog = "rename" | "delete" | null;
+import { Archive as ArchiveIcon, ArchiveUp, MoreVertical, Trash } from "@honeyicons/react";
 
 /**
- * The rename form, for the row menu and for `thread.rename` on the open
- * thread (`@/components/thread/thread-shortcuts`). It takes the current title
- * only; the caller owns the dispatch.
+ * The rename form, for `thread.rename` on the open thread
+ * (`@/components/thread/thread-shortcuts`). It takes the current title only;
+ * the caller owns the dispatch.
  */
 export function RenameThreadDialog({
   title: current,
@@ -149,10 +149,102 @@ export function RenameThreadDialog({
   );
 }
 
+/** The item parts of one menu flavour, so both menus share one item list. */
+type MenuParts = {
+  readonly Item: typeof DropdownMenuItem | typeof ContextMenuItem;
+  readonly Separator: typeof DropdownMenuSeparator | typeof ContextMenuSeparator;
+  readonly Shortcut: typeof DropdownMenuShortcut | typeof ContextMenuShortcut;
+};
+
+const DROPDOWN_PARTS: MenuParts = {
+  Item: DropdownMenuItem,
+  Separator: DropdownMenuSeparator,
+  Shortcut: DropdownMenuShortcut,
+};
+
+const CONTEXT_PARTS: MenuParts = {
+  Item: ContextMenuItem,
+  Separator: ContextMenuSeparator,
+  Shortcut: ContextMenuShortcut,
+};
+
 /**
- * `active` marks the open thread's row: the lifecycle keys act on the open
- * thread, so only its menu names them.
+ * Archive or unarchive, then delete. `active` marks the open thread's row: the
+ * lifecycle keys act on the open thread, so only its menu names them.
  */
+function ThreadMenuItems({
+  parts: { Item, Separator, Shortcut },
+  thread,
+  active,
+  onDelete,
+}: {
+  readonly parts: MenuParts;
+  readonly thread: ThreadSummary;
+  readonly active: boolean;
+  readonly onDelete: () => void;
+}) {
+  const send = useThreadCommand();
+  const base = () => threadCommandBase(thread.threadId);
+  const keys = (command: string) =>
+    active ? (
+      <Shortcut>
+        <CommandKbd command={command} />
+      </Shortcut>
+    ) : null;
+
+  return (
+    <>
+      {thread.status === "archived" ? (
+        <Item
+          onClick={() =>
+            void send(
+              { ...base(), type: "thread.unarchive" },
+              "Thread was not unarchived",
+              "Unarchived",
+            )
+          }
+        >
+          <ArchiveUp variant="bold" />
+          Unarchive
+          {keys("thread.archive")}
+        </Item>
+      ) : (
+        <Item
+          onClick={() =>
+            void send({ ...base(), type: "thread.archive" }, "Thread was not archived", "Archived")
+          }
+        >
+          <ArchiveIcon variant="bold" />
+          Archive
+          {keys("thread.archive")}
+        </Item>
+      )}
+      <Separator />
+      <Item variant="destructive" onClick={onDelete}>
+        <Trash variant="bold" />
+        Delete
+        {keys("thread.delete")}
+      </Item>
+    </>
+  );
+}
+
+/** The delete confirmation, for either menu. */
+function useDeleteDialog(thread: ThreadSummary) {
+  const remove = useDeleteThread();
+  const [open, setOpen] = React.useState(false);
+  const dialog = (
+    <DeleteThreadDialog
+      thread={thread}
+      open={open}
+      onOpenChange={setOpen}
+      onConfirm={(target, removeWorktree) => void remove(target, removeWorktree)}
+    />
+  );
+  return [() => setOpen(true), dialog] as const;
+}
+
+/** The row's overflow button and its menu. */
 export function ThreadRowMenu({
   thread,
   active,
@@ -160,11 +252,7 @@ export function ThreadRowMenu({
   readonly thread: ThreadSummary;
   readonly active: boolean;
 }) {
-  const send = useThreadCommand();
-  const remove = useDeleteThread();
-  const [dialog, setDialog] = React.useState<OpenDialog>(null);
-
-  const base = () => threadCommandBase(thread.threadId);
+  const [openDelete, deleteDialog] = useDeleteDialog(thread);
 
   return (
     <>
@@ -184,69 +272,56 @@ export function ThreadRowMenu({
               />
             }
           >
-            <MoreHorizontal variant="bold" />
+            <MoreVertical variant="bold" />
           </TooltipTrigger>
           <TooltipContent>More actions</TooltipContent>
         </Tooltip>
         <DropdownMenuContent align="end" className={active ? "w-52" : "w-44"}>
-          <DropdownMenuItem onClick={() => setDialog("rename")}>
-            <Edit variant="bold" />
-            Rename
-            <ItemKeys command="thread.rename" shown={active} />
-          </DropdownMenuItem>
-          {thread.status === "archived" ? (
-            <DropdownMenuItem
-              onClick={() =>
-                void send(
-                  { ...base(), type: "thread.unarchive" },
-                  "Thread was not unarchived",
-                  "Unarchived",
-                )
-              }
-            >
-              <ArchiveUp variant="bold" />
-              Unarchive
-              <ItemKeys command="thread.archive" shown={active} />
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem
-              onClick={() =>
-                void send(
-                  { ...base(), type: "thread.archive" },
-                  "Thread was not archived",
-                  "Archived",
-                )
-              }
-            >
-              <ArchiveIcon variant="bold" />
-              Archive
-              <ItemKeys command="thread.archive" shown={active} />
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" onClick={() => setDialog("delete")}>
-            <Trash variant="bold" />
-            Delete
-            <ItemKeys command="thread.delete" shown={active} />
-          </DropdownMenuItem>
+          <ThreadMenuItems
+            parts={DROPDOWN_PARTS}
+            thread={thread}
+            active={active}
+            onDelete={openDelete}
+          />
         </DropdownMenuContent>
       </DropdownMenu>
+      {deleteDialog}
+    </>
+  );
+}
 
-      <RenameThreadDialog
-        title={thread.title}
-        open={dialog === "rename"}
-        onOpenChange={(next) => setDialog(next ? "rename" : null)}
-        onSubmit={(title) =>
-          void send({ ...base(), type: "thread.rename", title }, "Thread was not renamed")
-        }
-      />
+/**
+ * The same menu on a right-click (or a long press) anywhere on the row, opened
+ * at the pointer. `row` is the element the trigger renders as — the sidebar's
+ * list item, so the row keeps its own markup and hover group.
+ */
+export function ThreadContextMenu({
+  thread,
+  active,
+  row,
+  children,
+}: {
+  readonly thread: ThreadSummary;
+  readonly active: boolean;
+  readonly row: React.ReactElement;
+  readonly children: React.ReactNode;
+}) {
+  const [openDelete, deleteDialog] = useDeleteDialog(thread);
 
-      <DeleteThreadDialog
-        thread={thread}
-        open={dialog === "delete"}
-        onOpenChange={(next) => setDialog(next ? "delete" : null)}
-        onConfirm={(target, removeWorktree) => void remove(target, removeWorktree)}
-      />
+  return (
+    <>
+      <ContextMenu>
+        <ContextMenuTrigger render={row}>{children}</ContextMenuTrigger>
+        <ContextMenuContent className={active ? "w-52" : "w-44"}>
+          <ThreadMenuItems
+            parts={CONTEXT_PARTS}
+            thread={thread}
+            active={active}
+            onDelete={openDelete}
+          />
+        </ContextMenuContent>
+      </ContextMenu>
+      {deleteDialog}
     </>
   );
 }

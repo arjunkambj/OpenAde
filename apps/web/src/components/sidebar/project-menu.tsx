@@ -33,7 +33,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { projectRemovalWarning } from "@/components/sidebar/removal-copy";
 import { isAccepted, rejectionMessage } from "@/lib/dispatch-outcome";
 import { useDispatchCommand } from "@/state/hooks";
-import { GitBranch, MoreHorizontal, Trash } from "@honeyicons/react";
+import { GitBranch, MoreVertical, Trash } from "@honeyicons/react";
 
 export function ProjectRowMenu({
   project,
@@ -79,7 +79,7 @@ export function ProjectRowMenu({
               />
             }
           >
-            <MoreHorizontal variant="bold" />
+            <MoreVertical variant="bold" />
           </TooltipTrigger>
           <TooltipContent>More actions</TooltipContent>
         </Tooltip>

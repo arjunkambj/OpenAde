@@ -9,8 +9,8 @@
  * title's weight still carries the unread emphasis. The slot sits under the
  * project's folder icon, so the title lines up with the project name.
  *
- * On hover the time fades and two actions take its place: archive, then the
- * overflow menu. The time is a label, not a clock: `ProjectTree` owns the one
+ * On hover the time fades and the overflow menu takes its place; a
+ * right-click on the row opens that same menu. The time is a label, not a clock: `ProjectTree` owns the one
  * minute tick and passes `now` down, so a long list runs a single interval.
  */
 
@@ -20,8 +20,7 @@ import * as React from "react";
 import { SidebarMenuButton, SidebarMenuItem } from "@OpenAde/ui/components/sidebar";
 import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
 
-import { ThreadArchiveAction } from "@/components/sidebar/thread-archive-action";
-import { ThreadRowMenu } from "@/components/sidebar/thread-menu";
+import { ThreadContextMenu, ThreadRowMenu } from "@/components/sidebar/thread-menu";
 import { isUnread, useThreadSeen } from "@/components/sidebar/thread-seen";
 import { threadStatusMark } from "@/components/sidebar/thread-status";
 import { relativeTime } from "@/lib/format";
@@ -67,7 +66,7 @@ export function ThreadRow({ thread, now }: { thread: ThreadSummary; now: number 
   const archived = thread.status === "archived";
 
   return (
-    <SidebarMenuItem>
+    <ThreadContextMenu thread={thread} active={active} row={<SidebarMenuItem />}>
       <SidebarMenuButton
         isActive={active}
         render={
@@ -110,16 +109,15 @@ export function ThreadRow({ thread, now }: { thread: ThreadSummary; now: number 
           {relativeTime(now, updatedAt)}
         </time>
       </SidebarMenuButton>
-      <ThreadArchiveAction thread={thread} />
       {/* The overflow menu brings its own trigger button, so it rides in a
-          plain slot with the same reveal as the stock action beside it (on
-          a narrow screen both stay shown and the time steps aside), plus
+          plain slot revealed on hover like a stock action (on a narrow
+          screen it stays shown and the time steps aside), plus
           a hold while its popup is open — base-ui moves focus into the
           portalled menu, so `focus-within` on this row is false the whole
           time it is. */}
       <span className="absolute top-0.5 right-0.5 flex transition-opacity duration-150 ease-out group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 has-data-popup-open:opacity-100 md:opacity-0">
         <ThreadRowMenu thread={thread} active={active} />
       </span>
-    </SidebarMenuItem>
+    </ThreadContextMenu>
   );
 }
