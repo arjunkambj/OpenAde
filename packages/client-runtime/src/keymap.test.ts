@@ -91,6 +91,15 @@ describe("physicalChord", () => {
       shift: false,
     });
   });
+
+  it("names a shifted character by its own key", () => {
+    const chord = (shortcut: string) => physicalChord(parseShortcut(shortcut)!, "meta");
+    expect(chord("Mod+Shift+{")).toEqual(chord("Mod+Shift+["));
+    expect(chord("Shift+?")).toEqual(chord("Shift+/"));
+    expect(chord("Mod+Shift+Plus")).toEqual(chord("Mod+Shift+="));
+    // Without Shift the character is not typed by that key, so it stays apart.
+    expect(chord("Mod+{")).not.toEqual(chord("Mod+["));
+  });
 });
 
 describe("findKeybindingConflicts", () => {
@@ -148,6 +157,19 @@ describe("findKeybindingConflicts", () => {
     expect(findKeybindingConflicts(both)).toHaveLength(1);
   });
 
+  it("sees a shifted-character spelling as the same chord", () => {
+    const table: ReadonlyArray<Keybinding> = [
+      { command: "thread.previous", shortcut: "Mod+Shift+[" },
+      { command: "legacy", shortcut: "Cmd+Shift+{" },
+      { command: "a", shortcut: "Shift+/", when: "!inputFocus" },
+      { command: "b", shortcut: "Shift+?", when: "!inputFocus" },
+    ];
+    expect(findKeybindingConflicts(table).map((c) => [c.first.command, c.second.command])).toEqual([
+      ["thread.previous", "legacy"],
+      ["a", "b"],
+    ]);
+  });
+
   it("ignores a command bound twice, and rows that do not parse", () => {
     const table: ReadonlyArray<Keybinding> = [
       { command: "a", shortcut: "Mod+K" },
@@ -172,6 +194,11 @@ describe("reserved chords", () => {
     expect(reservedChordReason("Alt+F4", "meta")).toBeNull();
     // Off macOS Ctrl+Space and Mod+Space are the same keys.
     expect(reservedChordReason("Ctrl+Space", "ctrl")).not.toBeNull();
+  });
+
+  it("finds a reserved chord under its shifted spelling", () => {
+    expect(reservedChordReason("Mod+Shift+?", "meta")).toMatch(/help/i);
+    expect(reservedChordReason("Mod+Shift+Plus", "ctrl")).toMatch(/zoom/i);
   });
 
   it("returns null for a free or unparseable chord", () => {

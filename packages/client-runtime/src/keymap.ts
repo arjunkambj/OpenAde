@@ -18,6 +18,7 @@ import {
   type ModKey,
   type ParsedShortcut,
   type WhenNode,
+  unshiftedKey,
 } from "./keybindings";
 
 // ── Context keys ───────────────────────────────────────────────
@@ -234,10 +235,12 @@ export interface PhysicalChord {
 
 /**
  * The keys actually held for a chord on a platform. Off macOS `Mod` is
- * Control, so `Mod+X` and `Ctrl+X` are the same chord there.
+ * Control, so `Mod+X` and `Ctrl+X` are the same chord there. With Shift held
+ * a shifted character names its own key, so `Mod+Shift+{` is `Mod+Shift+[`
+ * and `Shift+?` is `Shift+/` — the matcher fires both on the one press.
  */
 export const physicalChord = (shortcut: ParsedShortcut, modKey: ModKey): PhysicalChord => ({
-  key: shortcut.key,
+  key: shortcut.shift ? unshiftedKey(shortcut.key) : shortcut.key,
   ctrl: shortcut.ctrl || (modKey === "ctrl" && shortcut.mod),
   meta: modKey === "meta" && shortcut.mod,
   alt: shortcut.alt,

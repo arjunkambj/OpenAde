@@ -238,6 +238,18 @@ const US_SHIFTED: Readonly<Record<string, string>> = {
   "`": "~",
 };
 
+const US_UNSHIFTED: ReadonlyMap<string, string> = new Map(
+  Object.entries(US_SHIFTED).map(([own, shifted]): [string, string] => [shifted, own]),
+);
+
+/**
+ * The key a US Shift turns into `key`: `{` → `[`, `?` → `/`, `+` → `=`. Any
+ * other key is its own. With Shift held the matcher also matches on the
+ * physical key, so `Mod+Shift+{` and `Mod+Shift+[` fire on the same press;
+ * this is how the keymap checks tell that they are one chord.
+ */
+export const unshiftedKey = (key: string): string => US_UNSHIFTED.get(key) ?? key;
+
 /**
  * True when the press is AltGr typing a character rather than a chord: the
  * event reports the AltGraph modifier, or — off macOS, where AltGr arrives as

@@ -140,6 +140,15 @@ describe("the collision checks themselves", () => {
     expect(describeConflicts(table, "ctrl")).toHaveLength(1);
   });
 
+  it("catch a duplicate spelled with the shifted character", () => {
+    // `Mod+Shift+}` fires on the same press as thread.next's `Mod+Shift+]`.
+    const table = [...DEFAULT_KEYBINDINGS, { command: "extra.thing", shortcut: "Mod+Shift+}" }];
+    expect(describeConflicts(table, "meta")).toEqual([
+      "thread.next Mod+Shift+] ↔ extra.thing Mod+Shift+}",
+    ]);
+    expect(describeConflicts(table, "ctrl")).toHaveLength(1);
+  });
+
   it("catch a default that takes a reserved chord", () => {
     const table = [
       ...DEFAULT_KEYBINDINGS,

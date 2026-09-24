@@ -2197,8 +2197,10 @@ and the browser; at most one of an approval, a question and a plan is pending;
 Conflicts are found by the same module, per platform
 (`findKeybindingConflicts`). Two rows for different commands conflict when they
 are the same physical chord on that platform — off macOS `Mod+K` and `Ctrl+K`
-are the same keys, on macOS they are not — and their contexts can hold at
-once. Each row's context is its clause plus the implicit `!inputFocus` the
+are the same keys, on macOS they are not; and with Shift held a shifted
+character is its own key, so `Mod+Shift+{` is `Mod+Shift+[` and `Shift+?` is
+`Shift+/`, as the matcher fires both on one press (`unshiftedKey`) — and their
+contexts can hold at once. `reservedChordReason` reads chords the same way. Each row's context is its clause plus the implicit `!inputFocus` the
 text-field rule adds to a plain chord; `whenOverlaps` decides by brute force
 over the flags both clauses name, skipping assignments the axioms rule out, so
 `1` for an approval and `1` for a plan never conflict, and neither conflicts
