@@ -1,7 +1,7 @@
 import type { LegendListRef } from "@legendapp/list/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { placeAnchor } from "./use-send-anchor";
+import { keepInView, placeAnchor } from "./list-hold";
 
 // Animation frames run when the test says so, at the time it gives.
 let frames = new Map<number, (now: number) => void>();
@@ -69,5 +69,71 @@ describe("placeAnchor", () => {
     cancel();
     runFrame(32);
     expect(scrollToIndex).not.toHaveBeenCalled();
+  });
+});
+
+describe("keepInView", () => {
+  const fakeList = (positions: Record<string, number>, scrollTop: number) => {
+    // No content element, so no top padding to read.
+    const node = { scrollTop, firstElementChild: null };
+    const list = {
+      getScrollableNode: () => node,
+      getState: () => ({
+        indexByKey: (key: string) => (key in positions ? 0 : undefined),
+        positionByKey: (key: string) => positions[key],
+      }),
+    } as unknown as LegendListRef;
+    return { list, node };
+  };
+
+  beforeEach(() => {
+    vi.stubGlobal("HTMLElement", class {});
+  });
+
+  it("puts the reader's row back before paint, then on every frame it moves", () => {
+    // Expand-all opened folds above: the row the reader had 50px down now sits
+    // 1,700px further down the content.
+    const positions: Record<string, number> = { a1: 2000 };
+    const { list, node } = fakeList(positions, 250);
+    const cancel = keepInView(list, [{ rowId: "a1", offset: 50 }]);
+    expect(node.scrollTop).toBe(1950);
+    // The rows above settle to their measured heights a frame later.
+    positions.a1 = 2100;
+    runFrame(16);
+    expect(node.scrollTop).toBe(2050);
+    // Stopped by the reader's scroll: the row may move from here.
+    cancel();
+    positions.a1 = 2200;
+    runFrame(32);
+    expect(node.scrollTop).toBe(2050);
+  });
+
+  it("holds the first anchor whose row the list still has", () => {
+    // Collapse-all folded away the row at the top; the next one on screen holds.
+    const { list, node } = fakeList({ u2: 300 }, 1000);
+    keepInView(list, [
+      { rowId: "a1", offset: -20 },
+      { rowId: "u2", offset: 80 },
+    ]);
+    expect(node.scrollTop).toBe(220);
+  });
+
+  it("leaves the scroll alone when no anchor survived", () => {
+    const { list, node } = fakeList({}, 1000);
+    keepInView(list, [{ rowId: "a1", offset: 0 }])();
+    runFrame(16);
+    expect(node.scrollTop).toBe(1000);
+  });
+
+  it("lets go once the rows have been still for a while", () => {
+    const positions: Record<string, number> = { a1: 500 };
+    const { list, node } = fakeList(positions, 450);
+    keepInView(list, [{ rowId: "a1", offset: 50 }]);
+    runFrame(16);
+    runFrame(1_000);
+    expect(frames.size).toBe(0);
+    positions.a1 = 900;
+    runFrame(1_016);
+    expect(node.scrollTop).toBe(450);
   });
 });

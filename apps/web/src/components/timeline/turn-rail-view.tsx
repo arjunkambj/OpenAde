@@ -45,7 +45,7 @@ import {
   rowAtOffset,
   wheelPixels,
 } from "./turn-rail";
-import { contentScrollTop, prefersReducedMotion } from "./use-send-anchor";
+import { contentScrollTop, prefersReducedMotion } from "./list-hold";
 
 /** Room left above a message the rail scrolls to, in px. Less than the row gap. */
 const RAIL_OFFSET = 8;

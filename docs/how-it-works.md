@@ -975,7 +975,7 @@ there; scrolled more than half a screen away, it stops following and shows a
 round "Jump to latest" button at the bottom that scrolls back down.
 
 Who owns the scroll is a small state machine (`send-anchor.ts`, fed by
-`use-send-anchor.ts`) with three modes. **Follow** is the behaviour above.
+`use-send-anchor.ts`, whose scroll holds are in `list-hold.ts`) with three modes. **Follow** is the behaviour above.
 **Anchored** starts on a send: a user message that appears after the list
 mounted, while a turn is requested or running — so a queued message whose turn
 starts later counts, and the history a thread opens with never does. The list
