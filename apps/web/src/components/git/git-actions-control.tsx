@@ -6,9 +6,9 @@
  *
  * With a thread (`snapshot`) it works in the thread's workspace — its
  * worktree, when it has one. Without one it works in the project's own
- * folder: the git calls carry the `projectId` alone, the commit message and
- * pull request title are drafted from the files and the branch rather than a
- * thread title, and no turn of its own can hold it up.
+ * folder: the git calls carry the `projectId` alone, and the commit message
+ * and pull request title are drafted from the files and the branch rather
+ * than a thread title.
  *
  * An action is planned from the workspace's status and branches
  * (`@/lib/git-actions`): any action that commits opens the commit dialog
@@ -21,8 +21,13 @@
  *
  * The whole control is disabled while the thread's turn runs, and each
  * action that cannot run says why — in the button's tooltip, or in the
- * dialog's. The status is refetched when a turn finishes, because the agent
- * changes files, and when the user comes back to the window, because an
+ * dialog's. On the New task page there is no thread, so it is disabled, with
+ * the same reason, while a local thread of the project runs a turn in its
+ * folder (`projectFolderTurnRunning`). The thread list cannot see a turn
+ * paused on the user; the server refuses a commit under that one itself.
+ *
+ * The status is refetched when that turn finishes, because the agent changes
+ * files, and when the user comes back to the window, because an
  * editor or a terminal changes them too — without that, a
  * Commit disabled as "No changes to commit" would stay so after an outside
  * edit, with no click of its own to refresh it. When the status cannot be
@@ -60,9 +65,9 @@ import {
   TURN_RUNNING_REASON,
   type GitAction,
 } from "@/lib/git-actions";
-import { turnInFlight } from "@/lib/turn";
+import { projectFolderTurnRunning, turnInFlight } from "@/lib/turn";
 import { useWindowReturn } from "@/lib/window-return";
-import { useConnectionState } from "@/state/hooks";
+import { useConnectionState, useThreadList } from "@/state/hooks";
 import { Git, Spinner } from "@honeyicons/react";
 
 import { CommitDialog, type CommitChoice } from "./commit-dialog";
@@ -125,8 +130,16 @@ export function GitActionsControl({
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [pending, setPending] = React.useState(false);
 
-  // The agent changes files; its turn is over when `currentTurnId` falls back to null.
-  const currentTurnId = snapshot?.currentTurnId ?? null;
+  // With no thread, the project's local threads are the ones that can be
+  // working in its folder.
+  const threads = useThreadList();
+  const turnRunning =
+    snapshot === undefined ? projectFolderTurnRunning(threads, projectId) : turnInFlight(snapshot);
+
+  // The agent changes files; its turn is over when `currentTurnId` falls back
+  // to null — or, with no thread, when no local thread runs one any more.
+  const currentTurnId =
+    snapshot === undefined ? (turnRunning ? "folder" : null) : snapshot.currentTurnId;
   const lastTurnId = React.useRef(currentTurnId);
   React.useEffect(() => {
     const previous = lastTurnId.current;
@@ -155,7 +168,6 @@ export function GitActionsControl({
     status._tag === "ok" && branches._tag === "ok"
       ? { status: status.value, branches: branches.value }
       : null;
-  const turnRunning = snapshot !== undefined && turnInFlight(snapshot);
   const blocked =
     status._tag === "unavailable"
       ? status.reason
