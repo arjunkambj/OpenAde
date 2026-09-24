@@ -18,7 +18,7 @@ export function SidebarPrimaryNav({ onNavigate }: { onNavigate?: () => void }) {
   const matchRoute = useMatchRoute();
 
   return (
-    <div className="px-2 pt-1">
+    <div className="mt-[calc((2.75rem-var(--chrome-height))/2+0.375rem)] px-2">
       <SidebarMenu>
         {navItems.map((item) => (
           <SidebarMenuItem key={item.to}>

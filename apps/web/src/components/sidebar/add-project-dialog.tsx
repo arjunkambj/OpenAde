@@ -144,7 +144,7 @@ export function AddProjectDialog({
                     <Button
                       type="button"
                       variant="ghost"
-                      size="icon-sm"
+                      size="icon-xs"
                       aria-label="Add project"
                       disabled={disabled}
                     />
@@ -152,7 +152,7 @@ export function AddProjectDialog({
                 />
               }
             >
-              <FolderAdd variant="bold" />
+              <FolderAdd variant="bold" className="size-3.5" />
             </TooltipTrigger>
             <TooltipContent>Add project</TooltipContent>
           </Tooltip>

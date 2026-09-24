@@ -155,11 +155,11 @@ export function ProjectTree() {
 
   return (
     <SidebarGroup padding="section" className="min-h-0 flex-1">
-      <div className="flex h-8 items-center gap-1">
+      <div className="flex h-6 items-center gap-1">
         <SidebarGroupLabel className="h-auto flex-1">Projects</SidebarGroupLabel>
         <AddProjectDialog disabled={connection.status !== "connected"} command="project.add" />
       </div>
-      <SidebarGroupContent className="mt-1 min-h-0 overflow-y-auto [scrollbar-width:none]">
+      <SidebarGroupContent className="min-h-0 overflow-y-auto [scrollbar-width:none]">
         {projects.length === 0 && orphanThreads.length === 0 ? (
           <Empty>
             <EmptyHeader>
@@ -189,7 +189,7 @@ export function ProjectTree() {
             />
           ))}
           {orphanThreads.length > 0 ? (
-            <>
+            <div className="grid gap-0.5">
               <div className="flex h-8 items-center gap-2.5 rounded-xl px-2 text-sm text-sidebar-foreground">
                 <Folder variant="bold" className="size-4 shrink-0" />
                 <span className="min-w-0 truncate">Other threads</span>
@@ -204,7 +204,7 @@ export function ProjectTree() {
                   />
                 ))}
               </SidebarMenu>
-            </>
+            </div>
           ) : null}
         </div>
       </SidebarGroupContent>
@@ -254,7 +254,7 @@ function ProjectSection({
   const [collapsed, setCollapsed] = useProjectCollapsed(project.projectId);
 
   return (
-    <React.Fragment>
+    <div className="grid gap-0.5">
       <div className="group/project flex h-8 items-center gap-1 rounded-xl text-sm text-sidebar-foreground">
         <button
           type="button"
@@ -306,6 +306,6 @@ function ProjectSection({
           ))}
         </SidebarMenu>
       ) : null}
-    </React.Fragment>
+    </div>
   );
 }

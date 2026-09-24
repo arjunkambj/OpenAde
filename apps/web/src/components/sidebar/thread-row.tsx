@@ -92,7 +92,10 @@ export function ThreadRow({
   return (
     <ThreadContextMenu thread={thread} active={active} row={<SidebarMenuItem />}>
       <SidebarMenuButton
+        size="sm"
         isActive={selecting ? selected : active}
+        // The highlight marks the open row; only unread changes the weight.
+        className="data-active:font-normal"
         render={
           <Link
             to="/t/$threadId"
@@ -120,7 +123,10 @@ export function ThreadRow({
         <ThreadStatusSlot thread={thread} unread={unread} />
         <span
           className={cn(
-            "min-w-0 flex-1 truncate type-body",
+            "min-w-0 flex-1 truncate text-sm",
+            // The time is pinned to the corner, so the last inline piece
+            // keeps clear of the hover menu on its own.
+            thread.worktree === undefined && "mr-6",
             unread && "font-medium text-foreground",
             // Archiving is a real state change that the row otherwise showed
             // nothing for: `threadStatusMark` has no mark for it by design.
@@ -136,7 +142,7 @@ export function ThreadRow({
             title={`Worktree ${thread.worktree.branch}`}
             aria-label={`Worktree ${thread.worktree.branch}`}
             role="img"
-            className="flex shrink-0 text-muted-foreground"
+            className="mr-6 flex shrink-0 text-muted-foreground"
           >
             <GitFork variant="bold" className="size-3.5" />
           </span>
@@ -144,7 +150,7 @@ export function ThreadRow({
         <time
           dateTime={updatedAt}
           title={new Date(updatedAt).toLocaleString()}
-          className="shrink-0 type-micro text-muted-foreground tabular-nums transition-opacity duration-150 ease-out group-focus-within/menu-item:opacity-0 group-hover/menu-item:opacity-0 group-has-data-popup-open/menu-item:opacity-0 max-md:hidden"
+          className="absolute top-1/2 right-2 -translate-y-1/2 type-micro text-muted-foreground tabular-nums transition-opacity duration-150 ease-out group-focus-within/menu-item:opacity-0 group-hover/menu-item:opacity-0 group-has-data-popup-open/menu-item:opacity-0 max-md:hidden"
         >
           {relativeTime(now, updatedAt)}
         </time>
@@ -155,7 +161,7 @@ export function ThreadRow({
           a hold while its popup is open — base-ui moves focus into the
           portalled menu, so `focus-within` on this row is false the whole
           time it is. */}
-      <span className="absolute top-0.5 right-0.5 flex transition-opacity duration-150 ease-out group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 has-data-popup-open:opacity-100 md:opacity-0">
+      <span className="absolute top-0 right-0.5 flex transition-opacity duration-150 ease-out group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 has-data-popup-open:opacity-100 md:opacity-0">
         <ThreadRowMenu thread={thread} active={active} />
       </span>
     </ThreadContextMenu>
