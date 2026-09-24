@@ -209,7 +209,10 @@ describe("FakeConnector", () => {
       expect(events.filter((event) => event.type === "turn.started")).toHaveLength(1);
       expect(events.filter((event) => event.type === "turn.completed")).toHaveLength(1);
       expect(yield* session.calls).toEqual([
-        { method: "send", detail: { text: "first", attachments: [], mentions: [] } },
+        {
+          method: "send",
+          detail: { text: "first", attachments: [], mentions: [], references: [] },
+        },
         {
           method: "steer",
           detail: { text: "and also this", attachments: [], mentions: ["README.md"] },
