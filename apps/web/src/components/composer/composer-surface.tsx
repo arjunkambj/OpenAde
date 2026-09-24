@@ -27,7 +27,7 @@ export function ComposerSurface({
         {children}
       </form>
       {context ? (
-        <div className="mx-3 flex min-h-7 min-w-0 items-center gap-3 rounded-b-2xl bg-muted px-4 py-0 text-sm text-muted-foreground sm:mx-6">
+        <div className="mx-3 flex min-h-8 min-w-0 items-center gap-3 rounded-b-2xl bg-muted px-4 py-0 text-sm text-muted-foreground sm:mx-6">
           {context}
         </div>
       ) : null}
