@@ -3,7 +3,7 @@
  * server can only answer with a rejection reason.
  *
  * This is deliberately shallow — the renderer cannot stat a directory, and
- * `@OpenAde/shared/paths` is server-side (it is not on the renderer's import
+ * `@poseidon/shared/paths` is server-side (it is not on the renderer's import
  * list). It catches the mistakes that are visible in the string itself: a
  * relative path, and a `~` nothing will expand.
  */

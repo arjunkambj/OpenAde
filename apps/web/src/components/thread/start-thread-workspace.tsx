@@ -25,7 +25,7 @@
  */
 
 import { useNavigate } from "@tanstack/react-router";
-import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
+import type { ProjectId, ThreadId } from "@poseidon/contracts/ids";
 import * as React from "react";
 
 import type { DockPane } from "@/components/dock/dock-toggle";

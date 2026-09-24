@@ -6,7 +6,7 @@
  */
 
 import { useAtomSet } from "@effect/atom-react";
-import type { ThreadId } from "@OpenAde/contracts/ids";
+import type { ThreadId } from "@poseidon/contracts/ids";
 import * as React from "react";
 
 import { getAppAtoms } from "@/state/app-runtime";

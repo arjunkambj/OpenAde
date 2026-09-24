@@ -5,9 +5,9 @@
  * these instead of restyling a list.
  */
 
-import { Empty, EmptyDescription, EmptyHeader } from "@OpenAde/ui/components/empty";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@OpenAde/ui/components/input-group";
-import { cn } from "@OpenAde/ui/lib/utils";
+import { Empty, EmptyDescription, EmptyHeader } from "@poseidon/ui/components/empty";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@poseidon/ui/components/input-group";
+import { cn } from "@poseidon/ui/lib/utils";
 import type * as React from "react";
 
 import { type HoneyIcon, Search } from "@honeyicons/react";

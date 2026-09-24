@@ -17,13 +17,13 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
-import type { ProjectId } from "@OpenAde/contracts/ids";
-import type { GitDiff, GitDiffFile, GitFileChange, GitStatus } from "@OpenAde/contracts/rpc";
+import type { ProjectId } from "@poseidon/contracts/ids";
+import type { GitDiff, GitDiffFile, GitFileChange, GitStatus } from "@poseidon/contracts/rpc";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";
 
-import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
+import { PoseidonRpcError } from "@poseidon/contracts/rpc";
 
 import { worktreeOf } from "../orchestration/state";
 import {
@@ -56,11 +56,11 @@ import {
 } from "./Worktrees";
 
 const toRpcError = (error: GitError) =>
-  new OpenAdeRpcError({ code: "internal", message: error.message });
+  new PoseidonRpcError({ code: "internal", message: error.message });
 
 /** Passes a classified refusal through and turns an unexpected git failure into `internal`. */
-const asRpcError = (error: GitError | OpenAdeRpcError) =>
-  error instanceof OpenAdeRpcError ? error : toRpcError(error);
+const asRpcError = (error: GitError | PoseidonRpcError) =>
+  error instanceof PoseidonRpcError ? error : toRpcError(error);
 
 const NUL = "\0";
 
@@ -187,7 +187,7 @@ const parseNumstat = (stdout: string): Map<string, { added: number; deleted: num
 const worktreeDiff = (cwd: string, base: string, path?: string) =>
   Effect.gen(function* () {
     const pathspec = path === undefined ? [] : ["--", path];
-    const tempDir = mkdtempSync(nodePath.join(tmpdir(), "openade-index-"));
+    const tempDir = mkdtempSync(nodePath.join(tmpdir(), "poseidon-index-"));
     const tempIndex = nodePath.join(tempDir, "index");
     const env = { GIT_INDEX_FILE: tempIndex };
     try {
@@ -301,12 +301,12 @@ export const layer = Layer.effect(
         const root = yield* workspaceRoot(scope);
         if (root === null) {
           return yield* Effect.fail(
-            new OpenAdeRpcError({ code: "not-found", message: "unknown project" }),
+            new PoseidonRpcError({ code: "not-found", message: "unknown project" }),
           );
         }
         if (!(yield* isRepository(root))) {
           return yield* Effect.fail(
-            new OpenAdeRpcError({ code: "invalid", message: "not a git repository" }),
+            new PoseidonRpcError({ code: "invalid", message: "not a git repository" }),
           );
         }
         return root;
@@ -323,17 +323,17 @@ export const layer = Layer.effect(
           .getProjectDoc(projectId)
           .pipe(
             Effect.mapError(
-              (error) => new OpenAdeRpcError({ code: "internal", message: error.message }),
+              (error) => new PoseidonRpcError({ code: "internal", message: error.message }),
             ),
           );
         if (project === null || project.removed) {
           return yield* Effect.fail(
-            new OpenAdeRpcError({ code: "not-found", message: "unknown project" }),
+            new PoseidonRpcError({ code: "not-found", message: "unknown project" }),
           );
         }
         if (!(yield* isRepository(project.workspaceRoot))) {
           return yield* Effect.fail(
-            new OpenAdeRpcError({ code: "invalid", message: "not a git repository" }),
+            new PoseidonRpcError({ code: "invalid", message: "not a git repository" }),
           );
         }
         return project;
@@ -344,12 +344,12 @@ export const layer = Layer.effect(
       Effect.gen(function* () {
         const busy = yield* workspaceRootBusy(readModels, root).pipe(
           Effect.mapError(
-            (error) => new OpenAdeRpcError({ code: "internal", message: error.message }),
+            (error) => new PoseidonRpcError({ code: "internal", message: error.message }),
           ),
         );
         if (busy) {
           return yield* Effect.fail(
-            new OpenAdeRpcError({
+            new PoseidonRpcError({
               code: "conflict",
               message: `A turn is running in this workspace — stop it before ${action}.`,
             }),
@@ -366,7 +366,7 @@ export const layer = Layer.effect(
         return worktreeOf(doc)?.baseBranch ?? null;
       }).pipe(
         Effect.mapError(
-          (error) => new OpenAdeRpcError({ code: "internal", message: error.message }),
+          (error) => new PoseidonRpcError({ code: "internal", message: error.message }),
         ),
       );
 
@@ -400,7 +400,7 @@ export const layer = Layer.effect(
         Effect.gen(function* () {
           if (options.mergeBase !== undefined && options.to !== undefined) {
             return yield* Effect.fail(
-              new OpenAdeRpcError({
+              new PoseidonRpcError({
                 code: "invalid",
                 message: "a merge-base diff runs against the working tree and takes no `to`",
               }),
@@ -474,7 +474,7 @@ export const layer = Layer.effect(
           const list = yield* listBranches(root);
           if (list.current === null) {
             return yield* Effect.fail(
-              new OpenAdeRpcError({
+              new PoseidonRpcError({
                 code: "invalid",
                 message: "HEAD is detached — check out a branch before opening a pull request.",
               }),
@@ -483,7 +483,7 @@ export const layer = Layer.effect(
           const base = options.base ?? (yield* worktreeBase(scope)) ?? list.defaultBranch;
           if (base === null) {
             return yield* Effect.fail(
-              new OpenAdeRpcError({
+              new PoseidonRpcError({
                 code: "invalid",
                 message: "No base branch to open the pull request into.",
               }),
@@ -528,12 +528,12 @@ export const layer = Layer.effect(
           const worktree = yield* registeredWorktree(project.workspaceRoot, options.path);
           const inUse = yield* worktreeInUse(readModels, worktree.path).pipe(
             Effect.mapError(
-              (error) => new OpenAdeRpcError({ code: "internal", message: error.message }),
+              (error) => new PoseidonRpcError({ code: "internal", message: error.message }),
             ),
           );
           if (inUse) {
             return yield* Effect.fail(
-              new OpenAdeRpcError({
+              new PoseidonRpcError({
                 code: "conflict",
                 message: "A thread still works in this worktree — delete the thread first.",
               }),
@@ -541,12 +541,12 @@ export const layer = Layer.effect(
           }
           const ownerProject = yield* projectRootedAt(readModels, worktree.path).pipe(
             Effect.mapError(
-              (error) => new OpenAdeRpcError({ code: "internal", message: error.message }),
+              (error) => new PoseidonRpcError({ code: "internal", message: error.message }),
             ),
           );
           if (ownerProject !== null) {
             return yield* Effect.fail(
-              new OpenAdeRpcError({
+              new PoseidonRpcError({
                 code: "conflict",
                 message: `This worktree is the folder of the project "${ownerProject}" — remove that project first.`,
               }),
@@ -592,7 +592,7 @@ export const layer = Layer.effect(
           return yield* checkpointStore.list({ threadId, workspaceRoot: root });
         }).pipe(
           Effect.mapError(
-            (error) => new OpenAdeRpcError({ code: "internal", message: error.message }),
+            (error) => new PoseidonRpcError({ code: "internal", message: error.message }),
           ),
         ),
     });

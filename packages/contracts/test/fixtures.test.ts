@@ -448,7 +448,7 @@ describe("a thread's worktree", () => {
           read("thread-detail-snapshot.worktree.json"),
         ),
       );
-      expect(own.worktree?.branch).toBe("openade/health-check");
+      expect(own.worktree?.branch).toBe("poseidon/health-check");
     }),
   );
 
@@ -470,7 +470,7 @@ describe("a thread's worktree", () => {
       const stored = yield* Effect.sync(
         () => read("orchestration-events/thread.created.json") as Record<string, unknown>,
       );
-      const worktree = { path: "/tmp/wt", branch: "openade/x" };
+      const worktree = { path: "/tmp/wt", branch: "poseidon/x" };
       const decoded = yield* Effect.sync(() =>
         Schema.decodeUnknownSync(OrchestrationEvent)({
           ...stored,

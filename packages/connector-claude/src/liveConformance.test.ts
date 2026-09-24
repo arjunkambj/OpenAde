@@ -4,13 +4,13 @@
  * Every other test of this connector replays a recording. This one spends the
  * operator's subscription, so it is opt-in and never runs in the gate:
  *
- *     OPENADE_LIVE_CLAUDE=1 pnpm -F @OpenAde/connector-claude vitest run src/liveConformance.test.ts
+ *     POSEIDON_LIVE_CLAUDE=1 pnpm -F @poseidon/connector-claude vitest run src/liveConformance.test.ts
  *
  * What it proves that a replay cannot: that the CLI installed today still
  * accepts the argv and the control requests the SDK and the connector send,
  * that it is signed in, that a real model's messages still map without
  * falling through to `event.unmapped`, and that its tool calls still reach
- * OpenAde's approval gate. When the CLI changes under us, this is what says
+ * Poseidon's approval gate. When the CLI changes under us, this is what says
  * so; a recording it disagrees with is stale, and is recorded again rather
  * than edited.
  *
@@ -21,9 +21,9 @@
  * deny case asks for another and refuses it.
  *
  * `HOME` is the operator's own, because that is where the CLI's credentials
- * and settings live; `OPENADE_LIVE_CLAUDE_CONFIG_DIR` points the instance at
+ * and settings live; `POSEIDON_LIVE_CLAUDE_CONFIG_DIR` points the instance at
  * a separate account. The workspace is a throwaway git repo under
- * `/tmp/openade-h1`. `OPENADE_LIVE_CLAUDE_DEBUG=1` prints the connector's log
+ * `/tmp/poseidon-h1`. `POSEIDON_LIVE_CLAUDE_DEBUG=1` prints the connector's log
  * lines and, for the turns this file drives itself, every event type.
  */
 
@@ -31,12 +31,12 @@ import { execFileSync } from "node:child_process";
 import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
-import { runConnectorConformance } from "@OpenAde/connector-sdk/conformance";
-import type { ConnectorServices } from "@OpenAde/connector-sdk/definition";
-import type { SessionHandle } from "@OpenAde/connector-sdk/sessionHandle";
-import { makeStreamCollector, type StreamCollector } from "@OpenAde/connector-sdk/streamCollector";
-import { makeConnectorInstanceId, makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
-import type { RuntimeEvent } from "@OpenAde/contracts/runtime";
+import { runConnectorConformance } from "@poseidon/connector-sdk/conformance";
+import type { ConnectorServices } from "@poseidon/connector-sdk/definition";
+import type { SessionHandle } from "@poseidon/connector-sdk/sessionHandle";
+import { makeStreamCollector, type StreamCollector } from "@poseidon/connector-sdk/streamCollector";
+import { makeConnectorInstanceId, makeProjectId, makeThreadId } from "@poseidon/contracts/ids";
+import type { RuntimeEvent } from "@poseidon/contracts/runtime";
 import * as Effect from "effect/Effect";
 import { vi } from "vitest";
 
@@ -46,9 +46,9 @@ import type { ClaudeConnectorConfig } from "./configSchema";
 import { makeClaudeConnectorDefinition } from "./definition";
 import { isBelowOldestTested } from "./probe";
 
-const LIVE = process.env.OPENADE_LIVE_CLAUDE === "1";
-const DEBUG = process.env.OPENADE_LIVE_CLAUDE_DEBUG === "1";
-const CONFIG_DIR = process.env.OPENADE_LIVE_CLAUDE_CONFIG_DIR;
+const LIVE = process.env.POSEIDON_LIVE_CLAUDE === "1";
+const DEBUG = process.env.POSEIDON_LIVE_CLAUDE_DEBUG === "1";
+const CONFIG_DIR = process.env.POSEIDON_LIVE_CLAUDE_CONFIG_DIR;
 
 /** The conformance recording's prompts, so a live run and its replay ask the same. */
 const PROMPT = "Reply with exactly: ok";
@@ -58,7 +58,7 @@ const DENY_PROMPT = "Create a file named denied.txt containing exactly the text:
 /** The conformance recording's caps. */
 const LIMITS = { maxTurns: 1, maxBudgetUsd: 0.1 } as const;
 
-const ROOT = "/tmp/openade-h1";
+const ROOT = "/tmp/poseidon-h1";
 
 const debug = (line: string): void => {
   if (DEBUG) process.stderr.write(`[claude live] ${line}\n`);
@@ -73,7 +73,7 @@ const ofType = <T extends RuntimeEvent["type"]>(events: ReadonlyArray<RuntimeEve
 
 if (!LIVE) {
   describe("the real Claude Code CLI", () => {
-    it.skip("is only driven when OPENADE_LIVE_CLAUDE=1 — it spends the operator's subscription", () => {
+    it.skip("is only driven when POSEIDON_LIVE_CLAUDE=1 — it spends the operator's subscription", () => {
       // Intentionally empty: the skip itself is the statement.
     });
   });
@@ -101,7 +101,7 @@ if (!LIVE) {
   const config: ClaudeConnectorConfig = CONFIG_DIR === undefined ? {} : { configDir: CONFIG_DIR };
   const definition = makeClaudeConnectorDefinition({ limits: LIMITS });
   const binary = resolveBinary(config, process.env);
-  if (binary === null) throw new Error("OPENADE_LIVE_CLAUDE=1, but no claude binary was found");
+  if (binary === null) throw new Error("POSEIDON_LIVE_CLAUDE=1, but no claude binary was found");
 
   /**
    * Whether every CLI this file started is gone, judged from outside as the

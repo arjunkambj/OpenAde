@@ -3,7 +3,7 @@
 import { Collapsible as CollapsiblePrimitive } from "@base-ui/react/collapsible";
 import { cva, type VariantProps } from "class-variance-authority";
 
-import { cn } from "@OpenAde/ui/lib/utils";
+import { cn } from "@poseidon/ui/lib/utils";
 
 const collapsibleVariants = cva("", {
   variants: {

@@ -112,14 +112,14 @@ describe("buildArgs", () => {
 // ── environment allowlist ──────────────────────────────────────
 
 describe("envAllowlist", () => {
-  it("keeps the base set, LC_* locales, Command Code and OPENADE_* variables", () => {
+  it("keeps the base set, LC_* locales, Command Code and POSEIDON_* variables", () => {
     const out = envAllowlist({
       HOME: "/home/u",
       PATH: "/bin",
       LC_ALL: "en_US.UTF-8",
       LC_TIME: "en_US",
       COMMAND_CODE_API_KEY: "ck-1",
-      OPENADE_THREAD_ID: "t1",
+      POSEIDON_THREAD_ID: "t1",
       AWS_SECRET_ACCESS_KEY: "nope",
       npm_config_cache: "nope",
     });
@@ -129,7 +129,7 @@ describe("envAllowlist", () => {
       LC_ALL: "en_US.UTF-8",
       LC_TIME: "en_US",
       COMMAND_CODE_API_KEY: "ck-1",
-      OPENADE_THREAD_ID: "t1",
+      POSEIDON_THREAD_ID: "t1",
     });
   });
 
@@ -156,58 +156,58 @@ describe("envAllowlist", () => {
   it("drops server internals and foreign credentials even through extra", () => {
     const out = envAllowlist(
       { HOME: "/home/u", ANTHROPIC_API_KEY: "sk-1", OPENAI_API_KEY: "sk-2" },
-      { OPENADE_SERVER_INTERNAL: "no", ANTHROPIC_AUTH: "no" },
-      { OPENADE_HOOK_URL: "http://127.0.0.1/h" },
+      { POSEIDON_SERVER_INTERNAL: "no", ANTHROPIC_AUTH: "no" },
+      { POSEIDON_HOOK_URL: "http://127.0.0.1/h" },
     );
     expect(out.HOME).toBe("/home/u");
-    expect(out.OPENADE_HOOK_URL).toBe("http://127.0.0.1/h");
+    expect(out.POSEIDON_HOOK_URL).toBe("http://127.0.0.1/h");
     expect(Object.keys(out).some((name) => name.includes("ANTHROPIC"))).toBe(false);
     expect(Object.keys(out).some((name) => name.includes("OPENAI"))).toBe(false);
-    expect(out.OPENADE_SERVER_INTERNAL).toBeUndefined();
+    expect(out.POSEIDON_SERVER_INTERNAL).toBeUndefined();
   });
 
   /**
    * `extraEnv` reaches this from the connectors page through `settings.update`,
    * so an operator-supplied value that wins over the session's own would be an
    * approval gate anyone with the settings page can switch off: a
-   * `OPENADE_HOOK_TICKET_FILE` pointing nowhere makes the hook script find no
+   * `POSEIDON_HOOK_TICKET_FILE` pointing nowhere makes the hook script find no
    * bearer, exit silently, and hand every tool call back to a `--yolo` harness.
    */
   it("never lets extraEnv override the session's control plane", () => {
     const out = envAllowlist(
       { HOME: "/home/u" },
       {
-        OPENADE_HOOK_TICKET_FILE: "/nonexistent",
-        OPENADE_HOOK_URL: "http://evil.example/hook",
-        OPENADE_MCP_TOKEN: "theirs",
-        OPENADE_THREAD_ID: "theirs",
+        POSEIDON_HOOK_TICKET_FILE: "/nonexistent",
+        POSEIDON_HOOK_URL: "http://evil.example/hook",
+        POSEIDON_MCP_TOKEN: "theirs",
+        POSEIDON_THREAD_ID: "theirs",
       },
       {
-        OPENADE_HOOK_URL: "http://127.0.0.1/h",
-        OPENADE_HOOK_TICKET_FILE: "/run/ticket",
-        OPENADE_MCP_TOKEN: "ours",
-        OPENADE_THREAD_ID: "ours",
+        POSEIDON_HOOK_URL: "http://127.0.0.1/h",
+        POSEIDON_HOOK_TICKET_FILE: "/run/ticket",
+        POSEIDON_MCP_TOKEN: "ours",
+        POSEIDON_THREAD_ID: "ours",
       },
     );
-    expect(out.OPENADE_HOOK_URL).toBe("http://127.0.0.1/h");
-    expect(out.OPENADE_HOOK_TICKET_FILE).toBe("/run/ticket");
-    expect(out.OPENADE_MCP_TOKEN).toBe("ours");
-    expect(out.OPENADE_THREAD_ID).toBe("ours");
+    expect(out.POSEIDON_HOOK_URL).toBe("http://127.0.0.1/h");
+    expect(out.POSEIDON_HOOK_TICKET_FILE).toBe("/run/ticket");
+    expect(out.POSEIDON_MCP_TOKEN).toBe("ours");
+    expect(out.POSEIDON_THREAD_ID).toBe("ours");
   });
 
   it("drops a reserved name from extraEnv even when the session sets none", () => {
-    const out = envAllowlist({}, { OPENADE_HOOK_TICKET_FILE: "/nonexistent" });
-    expect(out.OPENADE_HOOK_TICKET_FILE).toBeUndefined();
+    const out = envAllowlist({}, { POSEIDON_HOOK_TICKET_FILE: "/nonexistent" });
+    expect(out.POSEIDON_HOOK_TICKET_FILE).toBeUndefined();
   });
 
-  it("still passes the operator's own OPENADE_ variables", () => {
-    expect(envAllowlist({}, { OPENADE_STUB_MODE: "1" }).OPENADE_STUB_MODE).toBe("1");
+  it("still passes the operator's own POSEIDON_ variables", () => {
+    expect(envAllowlist({}, { POSEIDON_STUB_MODE: "1" }).POSEIDON_STUB_MODE).toBe("1");
   });
 
   /**
    * The settings field says "Variables added to every session this instance
    * spawns", and they were not: `extra` went through the inherited-env
-   * allowlist too, which passes ten names plus `LC_`/`OPENADE_`. So
+   * allowlist too, which passes ten names plus `LC_`/`POSEIDON_`. So
    * `CMD_LOCAL_ONLY=1` — the env form of `--local-only`, which an operator sets
    * to keep their traffic off Command Code — was dropped without a word and
    * every turn went to Command Code anyway.
@@ -225,7 +225,7 @@ describe("envAllowlist", () => {
   it("keeps the deny list effective on everything the operator names", () => {
     const out = envAllowlist(
       {},
-      { ANTHROPIC_API_KEY: "sk-1", OPENAI_API_KEY: "sk-2", OPENADE_SERVER_SECRET: "no" },
+      { ANTHROPIC_API_KEY: "sk-1", OPENAI_API_KEY: "sk-2", POSEIDON_SERVER_SECRET: "no" },
     );
     expect(out).toEqual({});
   });
@@ -396,8 +396,8 @@ describe("transcript paths", () => {
     const home = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "cmd-slug-test-"));
     try {
       // The real directory name, rebuilt under a temp home: the harness
-      // kebab-cases the camel hump (`OpenAde` → `open-ade`) and collapses the
-      // repeated dash, so `slugFor` is one directory short of the truth.
+      // collapses the doubled dash (`501--volumes` → `501-volumes`), so
+      // `slugFor` is one directory short of the truth.
       const realDir = NodePath.join(
         home,
         ".commandcode",

@@ -1,10 +1,10 @@
 /**
  * What a connector is, from the server's point of view.
  *
- * A connector is the only thing in OpenAde that knows a particular coding
+ * A connector is the only thing in Poseidon that knows a particular coding
  * harness exists. It owns its own configuration schema, it knows how to find
  * and probe its binary, and it turns whatever that binary does into the
- * `RuntimeEvent` vocabulary in `@OpenAde/contracts/runtime`. Nothing above this
+ * `RuntimeEvent` vocabulary in `@poseidon/contracts/runtime`. Nothing above this
  * boundary — the orchestration engine, the projections, the renderer — is
  * allowed to know which harness is running.
  *
@@ -15,29 +15,29 @@
  * connector's own schema on the way in.
  */
 
-import type { InteractionMode, RuntimeMode } from "@OpenAde/contracts/enums";
-import type { ApprovalRequest, ConnectorCapabilities } from "@OpenAde/contracts/runtime";
+import type { InteractionMode, RuntimeMode } from "@poseidon/contracts/enums";
+import type { ApprovalRequest, ConnectorCapabilities } from "@poseidon/contracts/runtime";
 import type {
   ConnectorInstanceId,
   ConnectorKind,
   ProjectId,
   ThreadId,
   TurnId,
-} from "@OpenAde/contracts/ids";
+} from "@poseidon/contracts/ids";
 import type {
   Attachment,
   Mention,
   ThreadSettings,
   TurnReference,
-} from "@OpenAde/contracts/orchestration";
+} from "@poseidon/contracts/orchestration";
 import type {
   ConnectorConfigField,
   ConnectorMetadata,
   ConnectorProbe as WireConnectorProbe,
   ModelOption,
-} from "@OpenAde/contracts/connectors";
-import { settingsFormFields } from "@OpenAde/contracts/settings";
-import type { UnknownRecord } from "@OpenAde/contracts/base";
+} from "@poseidon/contracts/connectors";
+import { settingsFormFields } from "@poseidon/contracts/settings";
+import type { UnknownRecord } from "@poseidon/contracts/base";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import type * as Clock from "effect/Clock";

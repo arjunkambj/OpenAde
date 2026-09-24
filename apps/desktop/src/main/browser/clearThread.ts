@@ -15,7 +15,7 @@
  *
  * Electron-free: `../ipc.ts` passes in how to find and open the partition.
  */
-import { BRIDGE_THREAD_ID } from "@OpenAde/shared/browserBridge";
+import { BRIDGE_THREAD_ID } from "@poseidon/shared/browserBridge";
 
 /** The parts of an Electron `Session` clearing needs. */
 export interface ClearableSession {

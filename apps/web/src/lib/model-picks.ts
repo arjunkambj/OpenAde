@@ -9,10 +9,10 @@
  * so the picker still says what exists and the tooltip can say how to get it.
  */
 
-import type { ConnectorModels } from "@OpenAde/client-runtime/connectorAtoms";
-import type { ConnectorInstanceId } from "@OpenAde/contracts/ids";
-import type { ConnectorSummary, ModelOption } from "@OpenAde/contracts/connectors";
-import type { ThreadSettingsPatch } from "@OpenAde/contracts/orchestration";
+import type { ConnectorModels } from "@poseidon/client-runtime/connectorAtoms";
+import type { ConnectorInstanceId } from "@poseidon/contracts/ids";
+import type { ConnectorSummary, ModelOption } from "@poseidon/contracts/connectors";
+import type { ThreadSettingsPatch } from "@poseidon/contracts/orchestration";
 import { isString } from "effect/Predicate";
 
 /** A model under an instance. `null` only for a current value no instance lists. */

@@ -6,8 +6,8 @@
 import * as React from "react";
 
 import { createFileRoute } from "@tanstack/react-router";
-import { decodeThreadId } from "@OpenAde/contracts/ids";
-import type { ThreadId } from "@OpenAde/contracts/ids";
+import { decodeThreadId } from "@poseidon/contracts/ids";
+import type { ThreadId } from "@poseidon/contracts/ids";
 
 import { BrowserPane } from "@/components/panes/browser/browser-pane";
 import { useLoadedThreadList } from "@/state/hooks";

@@ -7,7 +7,7 @@
  * not exist while its Write is still running.
  */
 
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
+import type { ItemSnapshot } from "@poseidon/contracts/runtime";
 
 import { InlineDiff } from "@/components/timeline/diff-pool";
 import { fileChangeCandidates, fileChangeFallbackLabel } from "@/components/timeline/file-change";

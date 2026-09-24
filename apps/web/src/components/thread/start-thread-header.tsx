@@ -21,8 +21,8 @@
  * holds the chrome alone, and nothing at all while the sidebar shows it.
  */
 
-import type { ProjectId } from "@OpenAde/contracts/ids";
-import { terminalOwnerKey } from "@OpenAde/contracts/terminal";
+import type { ProjectId } from "@poseidon/contracts/ids";
+import { terminalOwnerKey } from "@poseidon/contracts/terminal";
 
 import type { DockPane } from "@/components/dock/dock-toggle";
 import { GitActionsControl } from "@/components/git/git-actions-control";

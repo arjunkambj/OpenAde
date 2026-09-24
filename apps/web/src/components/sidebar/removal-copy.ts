@@ -20,10 +20,10 @@ export const projectRemovalWarning = (
 ): string => {
   const subject =
     threadCount === 0
-      ? `${name} is removed from OpenAde.`
+      ? `${name} is removed from Poseidon.`
       : threadCount === 1
-        ? `${name} and its one thread are removed from OpenAde, with that thread's transcript and turn checkpoints.`
-        : `${name} and its ${threadCount} threads are removed from OpenAde, with their transcripts and turn checkpoints.`;
+        ? `${name} and its one thread are removed from Poseidon, with that thread's transcript and turn checkpoints.`
+        : `${name} and its ${threadCount} threads are removed from Poseidon, with their transcripts and turn checkpoints.`;
   const worktrees =
     worktreeCount === 0
       ? ""

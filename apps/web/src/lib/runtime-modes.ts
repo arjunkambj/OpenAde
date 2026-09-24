@@ -1,15 +1,15 @@
 /**
  * What the runtime-mode pickers offer and call each mode.
  *
- * The labels are OpenAde's own, one table for every picker, so the header, the
+ * The labels are Poseidon's own, one table for every picker, so the header, the
  * `/mode` menu and the Models page never disagree about what a mode is called.
  * Which modes are offered is the connector's call: `capabilities.runtimeModes`
  * lists the ones its harness can honour. With no capabilities yet — a
  * connector that has not opened — every mode is offered, in contract order.
  */
 
-import { RuntimeMode } from "@OpenAde/contracts/enums";
-import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
+import { RuntimeMode } from "@poseidon/contracts/enums";
+import type { ConnectorCapabilities } from "@poseidon/contracts/runtime";
 
 export const RUNTIME_MODE_LABELS: Readonly<Record<RuntimeMode, string>> = {
   "approval-required": "Ask first",

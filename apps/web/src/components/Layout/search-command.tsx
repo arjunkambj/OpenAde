@@ -1,16 +1,16 @@
 import * as React from "react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 
-import { Button } from "@OpenAde/ui/components/button";
+import { Button } from "@poseidon/ui/components/button";
 import {
   Command,
   CommandDialog,
   CommandEmpty,
   CommandInput,
   CommandList,
-} from "@OpenAde/ui/components/command";
-import { Kbd, KbdGroup } from "@OpenAde/ui/components/kbd";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+} from "@poseidon/ui/components/command";
+import { Kbd, KbdGroup } from "@poseidon/ui/components/kbd";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 
 import { PaletteCommands } from "@/components/Layout/palette-commands";
 import {

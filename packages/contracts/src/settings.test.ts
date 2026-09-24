@@ -167,18 +167,20 @@ describe("font sizes", () => {
 });
 
 describe("git settings", () => {
-  it.effect("default to the openade/ prefix and no project settings when a row predates them", () =>
-    Effect.gen(function* () {
-      const {
-        git: _git,
-        projectSettings: _projects,
-        ...older
-      } = Schema.encodeUnknownSync(Settings)(defaultSettings()) as Record<string, unknown>;
-      const decoded = yield* Schema.decodeUnknownEffect(Settings)(older);
-      expect(decoded.git).toEqual({ branchPrefix: DEFAULT_BRANCH_PREFIX });
-      expect(DEFAULT_BRANCH_PREFIX).toBe("openade/");
-      expect(decoded.projectSettings).toEqual({});
-    }),
+  it.effect(
+    "default to the poseidon/ prefix and no project settings when a row predates them",
+    () =>
+      Effect.gen(function* () {
+        const {
+          git: _git,
+          projectSettings: _projects,
+          ...older
+        } = Schema.encodeUnknownSync(Settings)(defaultSettings()) as Record<string, unknown>;
+        const decoded = yield* Schema.decodeUnknownEffect(Settings)(older);
+        expect(decoded.git).toEqual({ branchPrefix: DEFAULT_BRANCH_PREFIX });
+        expect(DEFAULT_BRANCH_PREFIX).toBe("poseidon/");
+        expect(decoded.projectSettings).toEqual({});
+      }),
   );
 
   it.effect("carry a project's setup script and an empty prefix through a round-trip", () =>

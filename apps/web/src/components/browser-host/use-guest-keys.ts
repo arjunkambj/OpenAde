@@ -16,7 +16,7 @@
  */
 import * as React from "react";
 
-import { detectModKey } from "@OpenAde/client-runtime/keybindings";
+import { detectModKey } from "@poseidon/client-runtime/keybindings";
 
 import { COMMAND_DIRECTIONS, historyInput, moveTab } from "@/components/panes/browser/tab-actions";
 import { guestChordsFor } from "@/lib/keybindings";
@@ -26,7 +26,7 @@ import { findByWcId, type BrowserTabsState } from "@/state/browser-tabs";
 import { getTabView } from "./tab-views";
 import { useSendInput } from "./use-host-bridge";
 
-type PaneBridge = NonNullable<NonNullable<Window["openade"]>["browserPane"]>;
+type PaneBridge = NonNullable<NonNullable<Window["poseidon"]>["browserPane"]>;
 
 export const useGuestKeys = (bridge: PaneBridge, state: BrowserTabsState) => {
   const keybindings = useKeybindings();

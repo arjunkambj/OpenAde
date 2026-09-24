@@ -11,7 +11,7 @@
  * footer appears.
  */
 
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
+import type { ItemSnapshot } from "@poseidon/contracts/runtime";
 
 import type { TurnEnd } from "@/components/timeline/fold";
 import { MarkdownBody } from "@/components/timeline/markdown";

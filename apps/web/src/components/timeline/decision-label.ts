@@ -8,8 +8,8 @@
  * muted: the request was refused, but the user chose nothing.
  */
 
-import type { ResolvedDecision } from "@OpenAde/contracts/decisions";
-import { UNANSWERED_OUTCOME } from "@OpenAde/contracts/decisions";
+import type { ResolvedDecision } from "@poseidon/contracts/decisions";
+import { UNANSWERED_OUTCOME } from "@poseidon/contracts/decisions";
 
 const APPROVAL_LABEL: Readonly<Record<string, string>> = {
   "allow-once": "Allowed once",

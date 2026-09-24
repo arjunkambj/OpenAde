@@ -8,8 +8,8 @@ import { existsSync, mkdtempSync } from "node:fs";
 import { utimes } from "node:fs/promises";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
-import { makeCommandId, makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
-import type { ThreadId } from "@OpenAde/contracts/ids";
+import { makeCommandId, makeProjectId, makeThreadId } from "@poseidon/contracts/ids";
+import type { ThreadId } from "@poseidon/contracts/ids";
 import { describe, expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
@@ -45,10 +45,10 @@ const awaitGone = (path: string) =>
 /**
  * Engine and store without the reactor, so a test can seed threads and files
  * first and then build the reactor — which is what a boot over an existing
- * `~/.openade` actually looks like.
+ * `~/.poseidon` actually looks like.
  */
 const buildBase = Effect.gen(function* () {
-  const root = mkdtempSync(NodePath.join(NodeOS.tmpdir(), "openade-sweep-"));
+  const root = mkdtempSync(NodePath.join(NodeOS.tmpdir(), "poseidon-sweep-"));
   const storeContext = yield* Layer.build(AttachmentStore.layerAt(root));
   const store = Layer.succeed(AttachmentStore, Context.get(storeContext, AttachmentStore));
   const sqliteContext = yield* Layer.build(sqliteTestLayer());
@@ -77,7 +77,7 @@ const buildBase = Effect.gen(function* () {
  * work instead of sleeping until it has probably happened.
  */
 const buildStack = Effect.gen(function* () {
-  const root = mkdtempSync(NodePath.join(NodeOS.tmpdir(), "openade-reactor-"));
+  const root = mkdtempSync(NodePath.join(NodeOS.tmpdir(), "poseidon-reactor-"));
   const purged = yield* Deferred.make<ThreadId>();
   const storeContext = yield* Layer.build(AttachmentStore.layerAt(root));
   const real = Context.get(storeContext, AttachmentStore);

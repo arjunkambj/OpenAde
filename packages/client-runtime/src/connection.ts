@@ -19,7 +19,7 @@
  * dial is a retry, not a dead end.
  */
 
-import { OpenAdeRpcGroup } from "@OpenAde/contracts/rpc";
+import { PoseidonRpcGroup } from "@poseidon/contracts/rpc";
 import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";
@@ -55,12 +55,12 @@ export interface ConnectionState {
 export class ConnectionStateRef extends Context.Service<
   ConnectionStateRef,
   SubscriptionRef.SubscriptionRef<ConnectionState>
->()("@OpenAde/client-runtime/ConnectionStateRef") {}
+>()("@poseidon/client-runtime/ConnectionStateRef") {}
 
-const makeClient = RpcClient.make(OpenAdeRpcGroup, { disableTracing: true });
+const makeClient = RpcClient.make(PoseidonRpcGroup, { disableTracing: true });
 
-/** The typed RPC client, as produced by `RpcClient.make(OpenAdeRpcGroup)`. */
-export type OpenAdeRpcClient = Effect.Success<typeof makeClient>;
+/** The typed RPC client, as produced by `RpcClient.make(PoseidonRpcGroup)`. */
+export type PoseidonRpcClient = Effect.Success<typeof makeClient>;
 
 /**
  * The stable handle the atoms use. `client` is a per-call accessor: it awaits
@@ -70,10 +70,10 @@ export type OpenAdeRpcClient = Effect.Success<typeof makeClient>;
 export class Connection extends Context.Service<
   Connection,
   {
-    readonly client: Effect.Effect<OpenAdeRpcClient>;
+    readonly client: Effect.Effect<PoseidonRpcClient>;
     readonly state: SubscriptionRef.SubscriptionRef<ConnectionState>;
   }
->()("@OpenAde/client-runtime/Connection") {}
+>()("@poseidon/client-runtime/Connection") {}
 
 /**
  * What one connect attempt needs. Structurally the resolver's
@@ -137,7 +137,7 @@ const MAX_BACKOFF = Duration.seconds(2);
 const NO_CREDENTIALS = "no-credentials" as const;
 
 interface Attempt {
-  readonly client: OpenAdeRpcClient;
+  readonly client: PoseidonRpcClient;
   readonly disconnected: Deferred.Deferred<void>;
 }
 
@@ -336,7 +336,7 @@ export const makeConnection = (
        * the window between `onDisconnect` firing and the supervisor's
        * swap-back, so known-dead attempts loop until a live one is installed.
        */
-      const client: Effect.Effect<OpenAdeRpcClient> = Effect.gen(function* () {
+      const client: Effect.Effect<PoseidonRpcClient> = Effect.gen(function* () {
         for (;;) {
           const attempt = yield* Ref.get(current).pipe(Effect.flatMap(Deferred.await));
           if (!(yield* Deferred.isDone(attempt.disconnected))) {

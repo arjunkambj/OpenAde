@@ -19,13 +19,13 @@ import { NodeHttpServer } from "@effect/platform-node";
 import {
   makeClaudeConnectorDefinition,
   type ClaudeConnectorOptions,
-} from "@OpenAde/connector-claude/definition";
-import { makeCmdConnectorDefinition } from "@OpenAde/connector-cmd/definition";
-import { eraseConnectorDefinition } from "@OpenAde/connector-sdk/definition";
-import { makeRegistry } from "@OpenAde/connector-sdk/registry";
-import type { ConnectorInstanceId } from "@OpenAde/contracts/ids";
-import { OPENADE_HOME_ENV } from "@OpenAde/shared/paths";
-import { uuidV7 } from "@OpenAde/shared/ids";
+} from "@poseidon/connector-claude/definition";
+import { makeCmdConnectorDefinition } from "@poseidon/connector-cmd/definition";
+import { eraseConnectorDefinition } from "@poseidon/connector-sdk/definition";
+import { makeRegistry } from "@poseidon/connector-sdk/registry";
+import type { ConnectorInstanceId } from "@poseidon/contracts/ids";
+import { POSEIDON_HOME_ENV } from "@poseidon/shared/paths";
+import { uuidV7 } from "@poseidon/shared/ids";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -67,12 +67,12 @@ import { ConnectorModels, OpenConnectors, routingPreference } from "./settings/c
 /** @public The composition root's options; `main.ts` fills them from argv. */
 export interface BootOptions {
   /**
-   * Where the server keeps its state. This is the process-wide `OPENADE_HOME`:
+   * Where the server keeps its state. This is the process-wide `POSEIDON_HOME`:
    * the database, the attachments directory, the generated hook script and the
    * dev connection file all hang off it, and spawned connector processes
    * inherit it, so `boot` sets the variable rather than threading a second
    * notion of "home" through the tree. Omitted, whatever the environment
-   * already says wins (`~/.openade` by default).
+   * already says wins (`~/.poseidon` by default).
    */
   readonly home?: string;
   /** Dev mode also writes `<home>/dev/connection.json` for the Vite plugin. */
@@ -86,7 +86,7 @@ export interface BootOptions {
    *
    * The Customize page reads and writes the user's MCP and skills files
    * through the connector's extensions, so this is the one thing
-   * `OPENADE_HOME` cannot move: an end-to-end test that adds an MCP server
+   * `POSEIDON_HOME` cannot move: an end-to-end test that adds an MCP server
    * would otherwise edit the operator's real config. Production leaves it
    * unset.
    */
@@ -119,7 +119,7 @@ export const boot = (options: BootOptions) =>
       // Before anything reads a path: `configDir` and everything built on it
       // resolve this at call time, and connector children inherit it.
       yield* Effect.sync(() => {
-        process.env[OPENADE_HOME_ENV] = options.home;
+        process.env[POSEIDON_HOME_ENV] = options.home;
       });
     }
     const port = options.port ?? 0;

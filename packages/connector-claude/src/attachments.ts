@@ -3,7 +3,7 @@
  *
  * The SDK's user message carries image content blocks, so an image goes to
  * the model as itself: the file's bytes, base64, with the media type its own
- * magic bytes say (`@OpenAde/shared/imageBytes`) — never the name or the type
+ * magic bytes say (`@poseidon/shared/imageBytes`) — never the name or the type
  * the reference claims. The model sees the picture without a tool call.
  *
  * Any other file is named by path, the way Command Code's are: it is put under
@@ -22,14 +22,14 @@
 
 import { copyFile, mkdir, readFile, stat } from "node:fs/promises";
 import * as NodePath from "node:path";
-import type { TurnInput } from "@OpenAde/connector-sdk/definition";
-import type { ThreadId } from "@OpenAde/contracts/ids";
+import type { TurnInput } from "@poseidon/connector-sdk/definition";
+import type { ThreadId } from "@poseidon/contracts/ids";
 import {
   MAX_ATTACHMENT_BYTES,
   safeAttachmentName,
   sniffImageMediaType,
   type ImageMediaType,
-} from "@OpenAde/shared/imageBytes";
+} from "@poseidon/shared/imageBytes";
 
 type Attachment = TurnInput["attachments"][number];
 

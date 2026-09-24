@@ -4,7 +4,7 @@
  *
  * `index.ts` is the only module that may touch `electron`, and it is loaded
  * by the runtime rather than by a test — so the contract the renderer type
- * declares in `@OpenAde/client-runtime/resolver` (`getConnection`,
+ * declares in `@poseidon/client-runtime/resolver` (`getConnection`,
  * `getServerState`, `onServerState`, …) is asserted here, with a fake channel,
  * rather than left to a hand-check against the running app.
  */
@@ -127,20 +127,20 @@ const serveTabRequests = (ipc: PreloadIpc) => {
   };
 };
 
-export const makeOpenAdeBridge = (ipc: PreloadIpc) => {
+export const makePoseidonBridge = (ipc: PreloadIpc) => {
   const serveTabs = serveTabRequests(ipc);
   return {
     getConnection: (): Promise<ServerConnection | null> =>
-      ipc.invoke("openade:connection") as Promise<ServerConnection | null>,
+      ipc.invoke("poseidon:connection") as Promise<ServerConnection | null>,
     /** The current state, for a renderer that mounted after the last transition. */
     getServerState: (): Promise<ServerState> =>
-      ipc.invoke("openade:server-state:get") as Promise<ServerState>,
+      ipc.invoke("poseidon:server-state:get") as Promise<ServerState>,
     onServerState: (callback: (state: ServerState) => void): (() => void) =>
-      subscribe<ServerState>(ipc, "openade:server-state", callback),
+      subscribe<ServerState>(ipc, "poseidon:server-state", callback),
     openExternal: (url: string): Promise<void> =>
-      ipc.invoke("openade:open-external", url) as Promise<void>,
+      ipc.invoke("poseidon:open-external", url) as Promise<void>,
     pickDirectory: (): Promise<string | null> =>
-      ipc.invoke("openade:pick-directory") as Promise<string | null>,
+      ipc.invoke("poseidon:pick-directory") as Promise<string | null>,
     /**
      * The browser pane's guests. `onInput` delivers every real
      * pointer/keyboard/wheel gesture inside a pane webview — already shaped
@@ -157,7 +157,7 @@ export const makeOpenAdeBridge = (ipc: PreloadIpc) => {
      */
     browserPane: {
       onInput: (callback: (payload: BrowserPaneGuestInput) => void): (() => void) =>
-        subscribe<BrowserPaneGuestInput>(ipc, "openade:browser-input", callback),
+        subscribe<BrowserPaneGuestInput>(ipc, "poseidon:browser-input", callback),
       serveTabs,
       /** A PNG of the pane tab whose guest is `wcId`, as it is drawn now. */
       capture: (wcId: number): Promise<Uint8Array> =>

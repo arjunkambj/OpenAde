@@ -6,7 +6,7 @@
  * A model that states no ladder offers every rung.
  */
 
-import { EFFORT_ORDER, type Effort } from "@OpenAde/contracts/enums";
+import { EFFORT_ORDER, type Effort } from "@poseidon/contracts/enums";
 
 export const orderEfforts = (
   efforts: ReadonlyArray<Effort> | null | undefined,

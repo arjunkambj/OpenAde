@@ -4,21 +4,21 @@ import * as React from "react";
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import { cva, type VariantProps } from "class-variance-authority";
-import { cn } from "@OpenAde/ui/lib/utils";
+import { cn } from "@poseidon/ui/lib/utils";
 
-import { useIsMobile } from "@OpenAde/ui/hooks/use-mobile";
-import { Button } from "@OpenAde/ui/components/button";
-import { Input } from "@OpenAde/ui/components/input";
-import { Separator } from "@OpenAde/ui/components/separator";
+import { useIsMobile } from "@poseidon/ui/hooks/use-mobile";
+import { Button } from "@poseidon/ui/components/button";
+import { Input } from "@poseidon/ui/components/input";
+import { Separator } from "@poseidon/ui/components/separator";
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@OpenAde/ui/components/sheet";
-import { Skeleton } from "@OpenAde/ui/components/skeleton";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+} from "@poseidon/ui/components/sheet";
+import { Skeleton } from "@poseidon/ui/components/skeleton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 import { SidebarLeft } from "@honeyicons/react";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";

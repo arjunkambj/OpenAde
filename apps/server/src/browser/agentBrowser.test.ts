@@ -16,8 +16,8 @@ import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-import { BRIDGE_ENV, BRIDGE_KEY_ENV, mintLaunchKey } from "@OpenAde/shared/browserBridge";
-import { readManifest } from "@OpenAde/testkit/recording";
+import { BRIDGE_ENV, BRIDGE_KEY_ENV, mintLaunchKey } from "@poseidon/shared/browserBridge";
+import { readManifest } from "@poseidon/testkit/recording";
 
 import {
   AGENT_BROWSER_MISSING_MESSAGE,
@@ -93,7 +93,7 @@ describe("agentBrowser", () => {
   it("gives every session an idle timeout", () => {
     // The safety net behind `close`: a daemon the server never closed (it
     // crashed) still reaps itself.
-    expect(sessionEnvFor("openade-x").AGENT_BROWSER_IDLE_TIMEOUT_MS).toBe("300000");
+    expect(sessionEnvFor("poseidon-x").AGENT_BROWSER_IDLE_TIMEOUT_MS).toBe("300000");
   });
 
   it("hands the child an allowlist, not the server's whole environment", () => {
@@ -111,10 +111,10 @@ describe("agentBrowser", () => {
         AWS_SECRET_ACCESS_KEY: "aws-secret",
         GITHUB_TOKEN: "ghp_test",
         COMMAND_CODE_API_KEY: "cc-secret",
-        OPENADE_SERVER_TOKEN: "server-token",
-        OPENADE_HOME: "/Users/someone/.openade",
+        POSEIDON_SERVER_TOKEN: "server-token",
+        POSEIDON_HOME: "/Users/someone/.poseidon",
       },
-      sessionEnvFor("openade-x"),
+      sessionEnvFor("poseidon-x"),
     );
 
     expect(env).toEqual({
@@ -124,7 +124,7 @@ describe("agentBrowser", () => {
       DISPLAY: ":0",
       LC_ALL: "en_GB.UTF-8",
       AGENT_BROWSER_IDLE_TIMEOUT_MS: "300000",
-      AGENT_BROWSER_NAMESPACE: "openade-x",
+      AGENT_BROWSER_NAMESPACE: "poseidon-x",
     });
   });
 
@@ -177,10 +177,10 @@ describe("agentBrowser", () => {
       const env: Record<string, string | undefined> = {
         [BRIDGE_ENV]: BASE,
         [BRIDGE_KEY_ENV]: KEY,
-        OPENADE_HOME: "/tmp/home",
+        POSEIDON_HOME: "/tmp/home",
       };
       expect(takeBridgeConfig(env)).toEqual({ base: BASE, key: KEY });
-      expect(env).toEqual({ OPENADE_HOME: "/tmp/home" });
+      expect(env).toEqual({ POSEIDON_HOME: "/tmp/home" });
     });
 
     it.effect("the layer removes the handoff from process.env", () =>
@@ -190,7 +190,7 @@ describe("agentBrowser", () => {
         process.env[BRIDGE_ENV] = BASE;
         process.env[BRIDGE_KEY_ENV] = key;
         // A binary that is not there: the probe fails fast and harmlessly.
-        process.env.OPENADE_AGENT_BROWSER = "/nonexistent/agent-browser";
+        process.env.POSEIDON_AGENT_BROWSER = "/nonexistent/agent-browser";
         try {
           const agentBrowser = yield* Effect.scoped(
             Layer.build(AgentBrowser.layer).pipe(
@@ -202,7 +202,7 @@ describe("agentBrowser", () => {
           expect(process.env[BRIDGE_KEY_ENV]).toBeUndefined();
           expect(JSON.stringify(process.env)).not.toContain(key);
         } finally {
-          for (const name of [BRIDGE_ENV, BRIDGE_KEY_ENV, "OPENADE_AGENT_BROWSER"]) {
+          for (const name of [BRIDGE_ENV, BRIDGE_KEY_ENV, "POSEIDON_AGENT_BROWSER"]) {
             delete process.env[name];
             if (saved[name] !== undefined) process.env[name] = saved[name];
           }
@@ -340,7 +340,7 @@ const reapRunner = (hang: ReadonlyArray<string> = []) => {
 
 /** A home holding a stale file in `namespace`, as `close` leaves behind. */
 const homeWithLeftovers = (namespace: string) => {
-  const home = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "openade-reap-"));
+  const home = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "poseidon-reap-"));
   const run = NodePath.join(home, ".agent-browser", "namespaces", namespace, "run");
   NodeFS.mkdirSync(run, { recursive: true });
   NodeFS.writeFileSync(NodePath.join(run, "ade-000000000000.config"), "0");
@@ -348,11 +348,11 @@ const homeWithLeftovers = (namespace: string) => {
 };
 
 describe("the daemon's namespace and end", () => {
-  it("names one namespace per OpenAde home", () => {
-    const home = namespaceFor("/Users/someone/.openade");
-    expect(home).toMatch(/^openade-[0-9a-f]{8}$/);
-    expect(namespaceFor("/Users/someone/.openade")).toBe(home);
-    expect(namespaceFor("/tmp/openade-f8")).not.toBe(home);
+  it("names one namespace per Poseidon home", () => {
+    const home = namespaceFor("/Users/someone/.poseidon");
+    expect(home).toMatch(/^poseidon-[0-9a-f]{8}$/);
+    expect(namespaceFor("/Users/someone/.poseidon")).toBe(home);
+    expect(namespaceFor("/tmp/poseidon-f8")).not.toBe(home);
   });
 
   it("keeps a thread's daemon socket inside the 103-byte limit", () => {
@@ -360,20 +360,20 @@ describe("the daemon's namespace and end", () => {
     // longish user name and a real thread id.
     const socket = daemonPidPath(
       "/Users/someone.lastname",
-      namespaceFor("/Users/someone.lastname/.openade"),
+      namespaceFor("/Users/someone.lastname/.poseidon"),
       sessionNameFor("01a0d127-a895-7000-874c-44c1cdb57ff0"),
     ).replace(/\.pid$/, ".sock");
     expect(Buffer.byteLength(socket)).toBeLessThanOrEqual(103);
   });
 
-  it("follows OPENADE_HOME by default", () => {
+  it("follows POSEIDON_HOME by default", () => {
     const agentBrowser = makeAgentBrowser({
       binary: "agent-browser",
       version: "0.38.1",
       bridge: null,
-      env: { OPENADE_HOME: "/tmp/openade-f8" },
+      env: { POSEIDON_HOME: "/tmp/poseidon-f8" },
     });
-    expect(agentBrowser.namespace).toBe(namespaceFor("/tmp/openade-f8"));
+    expect(agentBrowser.namespace).toBe(namespaceFor("/tmp/poseidon-f8"));
   });
 
   it("finds a daemon's pid where the recorded session info says it lives", () => {
@@ -395,7 +395,7 @@ describe("the daemon's namespace and end", () => {
           version: "0.38.1",
           bridge,
           env: { PATH: "/usr/bin", AGENT_BROWSER_NAMESPACE: "the-users-own" },
-          namespace: "openade-ours",
+          namespace: "poseidon-ours",
           run,
         });
         yield* agentBrowser.session("thread-1").exec(["get", "title"]);
@@ -403,7 +403,7 @@ describe("the daemon's namespace and end", () => {
         yield* agentBrowser.session("thread-2").shutdown;
         expect(runs).toHaveLength(3);
         for (const entry of runs) {
-          expect(entry.env.AGENT_BROWSER_NAMESPACE).toBe("openade-ours");
+          expect(entry.env.AGENT_BROWSER_NAMESPACE).toBe("poseidon-ours");
         }
       }
     }),
@@ -413,13 +413,13 @@ describe("the daemon's namespace and end", () => {
     Effect.gen(function* () {
       const { runs, run } = reapRunner();
       const killed: Array<string> = [];
-      const { home, dir } = homeWithLeftovers("openade-ours");
+      const { home, dir } = homeWithLeftovers("poseidon-ours");
       const agentBrowser = makeAgentBrowser({
         binary: "agent-browser",
         version: "0.38.1",
         bridge: { base: BASE, key: KEY },
         env: { HOME: home, PATH: "/usr/bin", AGENT_BROWSER_NAMESPACE: "the-users-own" },
-        namespace: "openade-ours",
+        namespace: "poseidon-ours",
         run,
         kill: (session) => Effect.sync(() => void killed.push(session)),
       });
@@ -428,7 +428,7 @@ describe("the daemon's namespace and end", () => {
       // No session and no bridge: it is the namespace that bounds `--all`.
       expect(runs[0]?.args).toEqual(["--json", "close", "--all"]);
       for (const entry of runs) {
-        expect(entry.env.AGENT_BROWSER_NAMESPACE).toBe("openade-ours");
+        expect(entry.env.AGENT_BROWSER_NAMESPACE).toBe("poseidon-ours");
         expect(entry.env.AGENT_BROWSER_CDP).toBeUndefined();
       }
       // The recorded list still named the daemon right after `close --all`,
@@ -450,13 +450,13 @@ describe("the daemon's namespace and end", () => {
     Effect.gen(function* () {
       const { runs, run } = reapRunner(["close --all"]);
       const killed: Array<string> = [];
-      const { home } = homeWithLeftovers("openade-ours");
+      const { home } = homeWithLeftovers("poseidon-ours");
       const agentBrowser = makeAgentBrowser({
         binary: "agent-browser",
         version: "0.38.1",
         bridge: "disabled",
         env: { HOME: home, PATH: "/usr/bin" },
-        namespace: "openade-ours",
+        namespace: "poseidon-ours",
         run,
         kill: (session) => Effect.sync(() => void killed.push(session)),
       });
@@ -532,8 +532,8 @@ describe("the daemon's namespace and end", () => {
   describe.skipIf(process.platform === "win32")("the kill behind a hung close", () => {
     /** A home whose namespace holds thread-1's pid file naming `pid`. */
     const homeWithPid = (pid: number) => {
-      const home = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "openade-kill-"));
-      const pidPath = daemonPidPath(home, "openade-ours", sessionNameFor("thread-1"));
+      const home = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "poseidon-kill-"));
+      const pidPath = daemonPidPath(home, "poseidon-ours", sessionNameFor("thread-1"));
       NodeFS.mkdirSync(NodePath.dirname(pidPath), { recursive: true });
       NodeFS.writeFileSync(pidPath, `${pid}`);
       return home;
@@ -545,7 +545,7 @@ describe("the daemon's namespace and end", () => {
         version: "0.38.1",
         bridge: { base: BASE, key: KEY },
         env: { HOME: home, PATH: process.env.PATH },
-        namespace: "openade-ours",
+        namespace: "poseidon-ours",
         run: reapRunner(["close"]).run,
       }).session("thread-1").shutdown;
 
@@ -562,7 +562,7 @@ describe("the daemon's namespace and end", () => {
 
     it.live("tolerates a missing pid file", () =>
       Effect.gen(function* () {
-        const home = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "openade-kill-"));
+        const home = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "poseidon-kill-"));
         yield* shutdownHung(home);
         NodeFS.rmSync(home, { recursive: true, force: true });
       }),
@@ -572,7 +572,7 @@ describe("the daemon's namespace and end", () => {
       Effect.gen(function* () {
         // A process whose name is agent-browser's — a copy of `sleep`, not a
         // CLI: nothing here stands in for what agent-browser answers.
-        const dir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "openade-kill-"));
+        const dir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "poseidon-kill-"));
         const standIn = NodePath.join(dir, "agent-browser-daemon");
         NodeFS.copyFileSync("/bin/sleep", standIn);
         const child = spawn(standIn, ["30"], { stdio: "ignore" });

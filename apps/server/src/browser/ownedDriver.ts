@@ -14,7 +14,7 @@ import * as Option from "effect/Option";
 import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 
-import type { BrowserHumanInput } from "@OpenAde/contracts/rpc";
+import type { BrowserHumanInput } from "@poseidon/contracts/rpc";
 
 import type {
   AgentBrowserError,

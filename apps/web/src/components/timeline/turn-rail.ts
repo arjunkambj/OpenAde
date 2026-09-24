@@ -15,7 +15,7 @@
  * first message (a thread that began without one) are in no turn.
  */
 
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
+import type { ItemSnapshot } from "@poseidon/contracts/runtime";
 
 import type { TimelineRow } from "./fold";
 

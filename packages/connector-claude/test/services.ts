@@ -15,12 +15,12 @@ import type {
   ConnectorPermissions,
   ConnectorServices,
   PermissionDecision,
-} from "@OpenAde/connector-sdk/definition";
+} from "@poseidon/connector-sdk/definition";
 import * as Effect from "effect/Effect";
 
 export const UNREACHABLE_MCP = {
   url: "http://127.0.0.1:9/mcp",
-  bearer: "openade-test-bearer-0000",
+  bearer: "poseidon-test-bearer-0000",
 } as const;
 
 export const testServices = (

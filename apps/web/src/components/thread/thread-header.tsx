@@ -28,7 +28,7 @@
  * drag region, with its controls opted out.
  */
 
-import type { ThreadDetailSnapshot, ThreadStatus } from "@OpenAde/contracts/orchestration";
+import type { ThreadDetailSnapshot, ThreadStatus } from "@poseidon/contracts/orchestration";
 
 import type { DockPane } from "@/components/dock/dock-toggle";
 import { BranchPicker } from "@/components/git/branch-picker";

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { ConnectionState } from "@OpenAde/client-runtime/connection";
-import type { DesktopServerState } from "@OpenAde/client-runtime/resolver";
+import type { ConnectionState } from "@poseidon/client-runtime/connection";
+import type { DesktopServerState } from "@poseidon/client-runtime/resolver";
 
 import { connectionNotice } from "./connection-status";
 import { AlertTriangle, WifiOff } from "@honeyicons/react";
@@ -22,7 +22,7 @@ describe("connectionNotice", () => {
     // Even a supervisor that gave up: in dev its `tsx watch` child can burn
     // through its restarts while the renderer is happily connected to a
     // separately started server through the dev endpoint. Painting "reopen
-    // OpenAde" over a working app would be a lie.
+    // Poseidon" over a working app would be a lie.
     expect(
       connectionNotice(socket("connected"), server({ status: "failed", reason: "exited 5 times" })),
     ).toBeNull();
@@ -36,7 +36,7 @@ describe("connectionNotice", () => {
       server({ status: "ready", connection: null }),
     );
     expect(notice?.tone).toBe("error");
-    expect(notice?.message).toContain("Update OpenAde");
+    expect(notice?.message).toContain("Update Poseidon");
   });
 
   it("names a supervisor that gave up, with its reason, instead of promising a retry", () => {
@@ -48,14 +48,14 @@ describe("connectionNotice", () => {
       tone: "error",
       icon: AlertTriangle,
       message:
-        "The server stopped and is not being retried (server exited 3 times). Reopen OpenAde to start it again.",
+        "The server stopped and is not being retried (server exited 3 times). Reopen Poseidon to start it again.",
     });
   });
 
   it("still tells the user to reopen when the supervisor gave no reason", () => {
     const notice = connectionNotice(socket("reconnecting"), server({ status: "failed" }));
     expect(notice?.message).toBe(
-      "The server stopped and is not being retried. Reopen OpenAde to start it again.",
+      "The server stopped and is not being retried. Reopen Poseidon to start it again.",
     );
   });
 

@@ -1,7 +1,7 @@
 /**
  * Identifiers on the wire.
  *
- * Every identifier OpenAde mints is a UUIDv7 string (see `@OpenAde/shared/ids`
+ * Every identifier Poseidon mints is a UUIDv7 string (see `@poseidon/shared/ids`
  * for why), branded so that a `ThreadId` can never be passed where a `TurnId`
  * is expected. The schemas validate the UUIDv7 shape on decode, so a malformed
  * id fails at the transport boundary rather than deep inside a projection.
@@ -11,7 +11,7 @@
  * package has to change every time one is added.
  */
 
-import { isUuidV7, uuidV7 } from "@OpenAde/shared/ids";
+import { isUuidV7, uuidV7 } from "@poseidon/shared/ids";
 import * as Schema from "effect/Schema";
 
 /** A lower-case UUIDv7 string, unbranded. */

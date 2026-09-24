@@ -14,7 +14,7 @@
  * the way the Command Code replayer puts `<HOME>` back.
  */
 
-import { readFrames, readManifest, type RecordedFrame } from "@OpenAde/testkit/recording";
+import { readFrames, readManifest, type RecordedFrame } from "@poseidon/testkit/recording";
 
 import {
   makeSerialQueue,

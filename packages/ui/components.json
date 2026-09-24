@@ -12,11 +12,11 @@
   },
   "iconLibrary": "hugeicons",
   "aliases": {
-    "components": "@OpenAde/ui/components",
-    "utils": "@OpenAde/ui/lib/utils",
-    "hooks": "@OpenAde/ui/hooks",
-    "lib": "@OpenAde/ui/lib",
-    "ui": "@OpenAde/ui/components"
+    "components": "@poseidon/ui/components",
+    "utils": "@poseidon/ui/lib/utils",
+    "hooks": "@poseidon/ui/hooks",
+    "lib": "@poseidon/ui/lib",
+    "ui": "@poseidon/ui/components"
   },
   "menuColor": "default",
   "menuAccent": "subtle",

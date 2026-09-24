@@ -1,4 +1,4 @@
-import { TERMINAL_BATCH_CHARS, TERMINAL_BATCH_MS } from "@OpenAde/contracts/terminal";
+import { TERMINAL_BATCH_CHARS, TERMINAL_BATCH_MS } from "@poseidon/contracts/terminal";
 import { describe, expect, it } from "vitest";
 
 import { type BatchScheduler, makeBatcher } from "./batcher";

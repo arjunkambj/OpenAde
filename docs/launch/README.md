@@ -1,6 +1,6 @@
 # Launch track (W11)
 
-The public face of OpenADE and the feedback loop around it. The app itself is
+The public face of Poseidon and the feedback loop around it. The app itself is
 a desktop download — nothing here hosts the product.
 
 | Doc                  | What it covers                                                                          |

@@ -18,8 +18,8 @@
  * to fetch from, and says so by not fetching.
  */
 
-import type { ProjectId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
-import type { CheckpointRestore, CheckpointSummary } from "@OpenAde/contracts/orchestration";
+import type { ProjectId, ThreadId, TurnId } from "@poseidon/contracts/ids";
+import type { CheckpointRestore, CheckpointSummary } from "@poseidon/contracts/orchestration";
 import * as React from "react";
 
 export interface TimelineThread {

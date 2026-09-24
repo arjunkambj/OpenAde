@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { Keybinding } from "@OpenAde/contracts/settings";
+import type { Keybinding } from "@poseidon/contracts/settings";
 
 import { parseShortcut } from "./keybindings";
 import {

@@ -1,4 +1,4 @@
-import type { FileContent } from "@OpenAde/contracts/rpc";
+import type { FileContent } from "@poseidon/contracts/rpc";
 import { describe, expect, it } from "vitest";
 
 import {

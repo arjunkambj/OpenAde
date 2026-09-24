@@ -4,7 +4,7 @@
  * the agent is about to click.
  *
  * The shell relays the agent's native mouse input
- * (`window.openade.browserPane.onAgentPointer`); each tab keeps its latest
+ * (`window.poseidon.browserPane.onAgentPointer`); each tab keeps its latest
  * point, which fades after a short idle. It is drawn only over the tab on
  * screen, never takes a click, and sits just above the webview.
  */
@@ -15,7 +15,7 @@ import { CursorClick } from "@honeyicons/react";
 import type { Rect } from "./host-geometry";
 import { pointerOnPane } from "./pointer-transform";
 
-type PaneBridge = NonNullable<NonNullable<Window["openade"]>["browserPane"]>;
+type PaneBridge = NonNullable<NonNullable<Window["poseidon"]>["browserPane"]>;
 
 /** How long the cursor stays after the agent's last move or press. */
 const IDLE_MS = 2500;

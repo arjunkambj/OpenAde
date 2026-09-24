@@ -1,5 +1,5 @@
 import { Checkbox as CheckboxPrimitive } from "@base-ui/react/checkbox";
-import { cn } from "@OpenAde/ui/lib/utils";
+import { cn } from "@poseidon/ui/lib/utils";
 import { Check } from "@honeyicons/react";
 
 function Checkbox({ className, ...props }: CheckboxPrimitive.Root.Props) {

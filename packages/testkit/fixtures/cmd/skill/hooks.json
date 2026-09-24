@@ -3,7 +3,7 @@
     "at": 1790212104635,
     "stdin": {
       "session_id": "e9c5dfaf-8310-4f46-9a4d-f4cbeea038c3",
-      "transcript_path": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg-czzrjh0000gn-t-openade-rec-skill-69de5d2a-repo/e9c5dfaf-8310-4f46-9a4d-f4cbeea038c3.jsonl",
+      "transcript_path": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg-czzrjh0000gn-t-poseidon-rec-skill-69de5d2a-repo/e9c5dfaf-8310-4f46-9a4d-f4cbeea038c3.jsonl",
       "cwd": "<SCRATCH>/repo",
       "hook_event_name": "PreToolUse",
       "permission_mode": "bypass",

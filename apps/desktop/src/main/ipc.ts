@@ -53,7 +53,7 @@ export interface PaneGuests {
 }
 
 export function registerIpc(supervisor: ServerSupervisor, pane: PaneGuests) {
-  // `openade:connection`, `openade:server-state:get` and the push channel —
+  // `poseidon:connection`, `poseidon:server-state:get` and the push channel —
   // the seam the renderer reconnects against, in its own testable module.
   registerServerStateBridge(
     {
@@ -62,12 +62,12 @@ export function registerIpc(supervisor: ServerSupervisor, pane: PaneGuests) {
     },
     supervisor,
   );
-  ipcMain.handle("openade:open-external", (_event, url: unknown) => {
+  ipcMain.handle("poseidon:open-external", (_event, url: unknown) => {
     if (typeof url === "string" && /^https?:\/\//.test(url)) {
       return shell.openExternal(url);
     }
   });
-  ipcMain.handle("openade:pick-directory", async (event) => {
+  ipcMain.handle("poseidon:pick-directory", async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win === null) return null;
     const result = await dialog.showOpenDialog(win, {

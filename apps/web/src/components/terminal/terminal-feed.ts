@@ -22,8 +22,8 @@
  * usual, since a program is waiting for it.
  */
 
-import type { TerminalAttachItem } from "@OpenAde/client-runtime/terminalAtoms";
-import type { TerminalSize } from "@OpenAde/contracts/terminal";
+import type { TerminalAttachItem } from "@poseidon/client-runtime/terminalAtoms";
+import type { TerminalSize } from "@poseidon/contracts/terminal";
 
 /** The part of an xterm the feed writes to. */
 export interface FeedTerminal {

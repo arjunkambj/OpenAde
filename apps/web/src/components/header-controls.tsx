@@ -32,25 +32,25 @@
  * controlled here so a key can open them.
  */
 
-import { Button } from "@OpenAde/ui/components/button";
-import { cn } from "@OpenAde/ui/lib/utils";
+import { Button } from "@poseidon/ui/components/button";
+import { cn } from "@poseidon/ui/lib/utils";
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@OpenAde/ui/components/tooltip";
-import type { ConnectorModels } from "@OpenAde/client-runtime/connectorAtoms";
-import { DEFAULT_RUNTIME_MODE, type Effort, RuntimeMode } from "@OpenAde/contracts/enums";
-import { makeCommandId } from "@OpenAde/contracts/ids";
-import type { ConnectorInstanceId, ThreadId } from "@OpenAde/contracts/ids";
+} from "@poseidon/ui/components/tooltip";
+import type { ConnectorModels } from "@poseidon/client-runtime/connectorAtoms";
+import { DEFAULT_RUNTIME_MODE, type Effort, RuntimeMode } from "@poseidon/contracts/enums";
+import { makeCommandId } from "@poseidon/contracts/ids";
+import type { ConnectorInstanceId, ThreadId } from "@poseidon/contracts/ids";
 import {
   type ContextWindowUsage,
   threadLocksConnector,
   type ThreadSettingsPatch,
-} from "@OpenAde/contracts/orchestration";
-import type { CapabilitySwitch } from "@OpenAde/contracts/runtime";
+} from "@poseidon/contracts/orchestration";
+import type { CapabilitySwitch } from "@poseidon/contracts/runtime";
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 

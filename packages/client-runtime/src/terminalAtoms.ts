@@ -44,8 +44,8 @@
  * already built, so the terminal shares one connection with everything else.
  */
 
-import type { ProjectId, TerminalId, ThreadId } from "@OpenAde/contracts/ids";
-import type { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
+import type { ProjectId, TerminalId, ThreadId } from "@poseidon/contracts/ids";
+import type { PoseidonRpcError } from "@poseidon/contracts/rpc";
 import {
   TERMINAL_WRITE_MAX_CHARS,
   decodeTerminalOwnerKey,
@@ -55,7 +55,7 @@ import {
   type TerminalSize,
   type TerminalStreamItem,
   type TerminalSummary,
-} from "@OpenAde/contracts/terminal";
+} from "@poseidon/contracts/terminal";
 import * as Effect from "effect/Effect";
 import { isTagged } from "effect/Predicate";
 import * as Semaphore from "effect/Semaphore";
@@ -109,10 +109,10 @@ export const decodeTerminalKey = (key: string): TerminalRef => {
   };
 };
 
-type TerminalRpcError = OpenAdeRpcError | RpcClientError.RpcClientError;
+type TerminalRpcError = PoseidonRpcError | RpcClientError.RpcClientError;
 
 const isGone = (error: TerminalRpcError): boolean =>
-  isTagged(error, "OpenAdeRpcError") && error.code === "not-found";
+  isTagged(error, "PoseidonRpcError") && error.code === "not-found";
 
 /**
  * One subscription, run to its end with every item handed to `onItem`.

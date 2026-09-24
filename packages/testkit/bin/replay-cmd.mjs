@@ -30,14 +30,14 @@
  * answering for real.
  *
  * Environment:
- *   OPENADE_REPLAY_DIR        the recording directory (required for a turn)
- *   OPENADE_REPLAY_TURN       which recorded turn to play; default: the next
- *                             one, counted in OPENADE_REPLAY_STATE
- *   OPENADE_REPLAY_STATE      file holding that counter, so a second spawn in
+ *   POSEIDON_REPLAY_DIR        the recording directory (required for a turn)
+ *   POSEIDON_REPLAY_TURN       which recorded turn to play; default: the next
+ *                             one, counted in POSEIDON_REPLAY_STATE
+ *   POSEIDON_REPLAY_STATE      file holding that counter, so a second spawn in
  *                             the same session plays the second recorded turn
- *   OPENADE_REPLAY_PID_DIR    drop a file named after this pid, so a suite can
+ *   POSEIDON_REPLAY_PID_DIR    drop a file named after this pid, so a suite can
  *                             prove the process tree is gone
- *   OPENADE_REPLAY_ARGV_LOG   append this run's argv and cwd as one JSON line,
+ *   POSEIDON_REPLAY_ARGV_LOG   append this run's argv and cwd as one JSON line,
  *                             so a test can assert what the connector actually
  *                             handed the CLI
  *
@@ -73,11 +73,11 @@ const readOr = (file, fallback = "") => {
 
 // Every invocation, including the probe ones, so a test can assert the argv and
 // environment the connector really builds rather than trust a description of it.
-if (process.env.OPENADE_REPLAY_ARGV_LOG !== undefined) {
+if (process.env.POSEIDON_REPLAY_ARGV_LOG !== undefined) {
   try {
-    fs.mkdirSync(path.dirname(process.env.OPENADE_REPLAY_ARGV_LOG), { recursive: true });
+    fs.mkdirSync(path.dirname(process.env.POSEIDON_REPLAY_ARGV_LOG), { recursive: true });
     fs.appendFileSync(
-      process.env.OPENADE_REPLAY_ARGV_LOG,
+      process.env.POSEIDON_REPLAY_ARGV_LOG,
       `${JSON.stringify({ argv, cwd: process.cwd() })}\n`,
       "utf8",
     );
@@ -172,9 +172,9 @@ if (invalidModel !== null && value("--model") === invalidModel) {
 
 // ── the recording to play ──────────────────────────────────────
 
-const recordingDir = process.env.OPENADE_REPLAY_DIR;
+const recordingDir = process.env.POSEIDON_REPLAY_DIR;
 if (recordingDir === undefined || recordingDir === "") {
-  process.stderr.write("replay-cmd: set OPENADE_REPLAY_DIR to a recording directory\n");
+  process.stderr.write("replay-cmd: set POSEIDON_REPLAY_DIR to a recording directory\n");
   process.exit(1);
 }
 const manifest = JSON.parse(readOr(path.join(recordingDir, "manifest.json"), "null"));
@@ -189,11 +189,11 @@ if (manifest === null) {
  * which is what a second message does to the real CLI.
  */
 const turnIndex = (() => {
-  const pinned = process.env.OPENADE_REPLAY_TURN;
+  const pinned = process.env.POSEIDON_REPLAY_TURN;
   if (pinned !== undefined && pinned !== "") {
     return Number(pinned);
   }
-  const state = process.env.OPENADE_REPLAY_STATE;
+  const state = process.env.POSEIDON_REPLAY_STATE;
   if (state === undefined || state === "") {
     return 0;
   }
@@ -227,9 +227,9 @@ const transcriptLines = unscrub(readOr(file(turn.files.transcript)))
   .filter((line) => line.length > 0);
 const recordedHooks = JSON.parse(unscrub(readOr(file(turn.files.hooks), "[]")));
 
-if (process.env.OPENADE_REPLAY_PID_DIR !== undefined) {
-  fs.mkdirSync(process.env.OPENADE_REPLAY_PID_DIR, { recursive: true });
-  fs.writeFileSync(path.join(process.env.OPENADE_REPLAY_PID_DIR, String(process.pid)), "", "utf8");
+if (process.env.POSEIDON_REPLAY_PID_DIR !== undefined) {
+  fs.mkdirSync(process.env.POSEIDON_REPLAY_PID_DIR, { recursive: true });
+  fs.writeFileSync(path.join(process.env.POSEIDON_REPLAY_PID_DIR, String(process.pid)), "", "utf8");
 }
 
 // ── the transcript, where the harness really put it ────────────

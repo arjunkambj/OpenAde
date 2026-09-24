@@ -12,7 +12,7 @@ import {
   makeTerminalAtoms,
   type TerminalAtoms,
   type TerminalOpenArgs,
-} from "@OpenAde/client-runtime/terminalAtoms";
+} from "@poseidon/client-runtime/terminalAtoms";
 import * as React from "react";
 
 import { getAppAtoms } from "@/state/app-runtime";

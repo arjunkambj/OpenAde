@@ -1,12 +1,12 @@
 /**
  * A timeline row's words for the agent's in-app browser calls
- * (`mcp__openade__browser_*`, served by the server's MCP gateway): what the
+ * (`mcp__poseidon__browser_*`, served by the server's MCP gateway): what the
  * agent did to the page, in a sentence, instead of the tool's raw name.
  * Anything else — another server's tool, or a browser tool this does not
  * know — is `null`, and the row stays a plain MCP row.
  */
 
-const PREFIX = "mcp__openade__browser_";
+const PREFIX = "mcp__poseidon__browser_";
 
 const MAX = 60;
 

@@ -1,6 +1,6 @@
-import type { ItemKind } from "@OpenAde/contracts/enums";
-import type { ItemId } from "@OpenAde/contracts/ids";
-import type { FileChangeKind, ItemSnapshot } from "@OpenAde/contracts/runtime";
+import type { ItemKind } from "@poseidon/contracts/enums";
+import type { ItemId } from "@poseidon/contracts/ids";
+import type { FileChangeKind, ItemSnapshot } from "@poseidon/contracts/runtime";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -91,8 +91,8 @@ describe("workSentence", () => {
     );
     expect(
       workSentence([
-        call("mcp__openade__browser_open", { url: "http://localhost" }, "mcp_tool_call"),
-        call("mcp__openade__browser_click", { selector: "a" }, "mcp_tool_call"),
+        call("mcp__poseidon__browser_open", { url: "http://localhost" }, "mcp_tool_call"),
+        call("mcp__poseidon__browser_click", { selector: "a" }, "mcp_tool_call"),
       ]),
     ).toBe("Used the browser");
     expect(workSentence([call("mcp__docs__lookup", {}, "mcp_tool_call")])).toBe("Called 1 tool");

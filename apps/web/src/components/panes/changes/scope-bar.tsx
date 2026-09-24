@@ -17,7 +17,7 @@
 
 import type { ReactNode } from "react";
 
-import { Button } from "@OpenAde/ui/components/button";
+import { Button } from "@poseidon/ui/components/button";
 import {
   Select,
   SelectContent,
@@ -27,9 +27,9 @@ import {
   SelectSeparator,
   SelectTrigger,
   SelectValue,
-} from "@OpenAde/ui/components/select";
-import { Toggle } from "@OpenAde/ui/components/toggle";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+} from "@poseidon/ui/components/select";
+import { Toggle } from "@poseidon/ui/components/toggle";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 
 import type { DiffStyle } from "@/state/ui";
 

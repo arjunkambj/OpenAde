@@ -11,8 +11,8 @@ import {
   CommandItem,
   CommandSeparator,
   CommandShortcut,
-} from "@OpenAde/ui/components/command";
-import type { ProjectId } from "@OpenAde/contracts/ids";
+} from "@poseidon/ui/components/command";
+import type { ProjectId } from "@poseidon/contracts/ids";
 
 import { paletteThreads, threadJumpCommand } from "@/components/Layout/palette-threads";
 import { SETTINGS_PAGES } from "@/components/Layout/settings-sidebar";

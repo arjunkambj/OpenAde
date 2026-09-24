@@ -27,7 +27,7 @@
  */
 import type { Session, WebContents } from "electron";
 
-import { BRIDGE_THREAD_ID } from "@OpenAde/shared/browserBridge";
+import { BRIDGE_THREAD_ID } from "@poseidon/shared/browserBridge";
 
 import { makeSerialQueue, type GuestEvent, type GuestInfo, type GuestPort } from "./bridgeSession";
 import type { TabsChannel } from "./tabsChannel";
@@ -102,14 +102,14 @@ const findView = (wcId: number): string =>
 const focusScript = (wcId: number): string => `(() => {
   const view = ${findView(wcId)};
   if (view === undefined) return false;
-  globalThis.__openadeFocusRestore = document.activeElement;
+  globalThis.__poseidonFocusRestore = document.activeElement;
   view.focus();
   return true;
 })()`;
 
 const restoreScript = (wcId: number): string => `(() => {
-  const previous = globalThis.__openadeFocusRestore;
-  delete globalThis.__openadeFocusRestore;
+  const previous = globalThis.__poseidonFocusRestore;
+  delete globalThis.__poseidonFocusRestore;
   const view = ${findView(wcId)};
   if (previous instanceof HTMLElement && previous.isConnected && previous !== view && previous !== document.body) {
     previous.focus({ preventScroll: true });
@@ -212,7 +212,7 @@ export const createGuestRegistry = (options: GuestRegistryOptions): GuestRegistr
 
   const hostOf = (wcId: number): WebContents => {
     const host = target(wcId).wc.hostWebContents;
-    if (host === null || host.isDestroyed()) throw new Error("the OpenAde window is not open");
+    if (host === null || host.isDestroyed()) throw new Error("the Poseidon window is not open");
     return host;
   };
 
@@ -256,7 +256,7 @@ export const createGuestRegistry = (options: GuestRegistryOptions): GuestRegistr
       focusQueue.run(async () => {
         const host = hostOf(wcId);
         const focused = (await host.executeJavaScript(focusScript(wcId))) as boolean;
-        if (!focused) throw new Error("the pane tab is not in the OpenAde window");
+        if (!focused) throw new Error("the pane tab is not in the Poseidon window");
         try {
           return await operation();
         } finally {

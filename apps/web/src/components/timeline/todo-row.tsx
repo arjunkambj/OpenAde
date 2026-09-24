@@ -3,7 +3,7 @@
  * than a disclosure so the current step is always visible.
  */
 
-import type { ItemSnapshot, Todo } from "@OpenAde/contracts/runtime";
+import type { ItemSnapshot, Todo } from "@poseidon/contracts/runtime";
 
 import { cn } from "@/lib/utils";
 import { Check, Minus, PlayMini } from "@honeyicons/react";

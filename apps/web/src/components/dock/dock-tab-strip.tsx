@@ -15,8 +15,8 @@
  * The strip reads nothing of its own: a tab's content loads when it opens.
  */
 
-import { Button } from "@OpenAde/ui/components/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+import { Button } from "@poseidon/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 import * as React from "react";
 
 import { CommandKbd } from "@/lib/shortcuts";

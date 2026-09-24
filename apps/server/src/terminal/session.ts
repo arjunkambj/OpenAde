@@ -12,12 +12,12 @@
  * then `exited` is published — so every subscriber sees the last output before
  * the exit, and a snapshot taken after the status flipped holds all of it.
  */
-import type { TerminalId } from "@OpenAde/contracts/ids";
+import type { TerminalId } from "@poseidon/contracts/ids";
 import type {
   TerminalOwner,
   TerminalStreamItem,
   TerminalSummary,
-} from "@OpenAde/contracts/terminal";
+} from "@poseidon/contracts/terminal";
 import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";

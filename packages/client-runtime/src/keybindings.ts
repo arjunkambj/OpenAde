@@ -21,7 +21,7 @@
  * only chords that cannot be typing fire — see `firesInTextField`.
  */
 
-import type { Keybinding } from "@OpenAde/contracts/settings";
+import type { Keybinding } from "@poseidon/contracts/settings";
 
 // ── Shortcut parsing ───────────────────────────────────────────
 

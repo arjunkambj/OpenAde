@@ -15,17 +15,17 @@
  */
 
 import { useAtomValue } from "@effect/atom-react";
-import type { Attachment } from "@OpenAde/contracts/orchestration";
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
+import type { Attachment } from "@poseidon/contracts/orchestration";
+import type { ThreadId } from "@poseidon/contracts/ids";
+import type { ItemSnapshot } from "@poseidon/contracts/runtime";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@OpenAde/ui/components/dialog";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+} from "@poseidon/ui/components/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 import { AsyncResult } from "effect/unstable/reactivity";
 
 import { useTimelineThreadId } from "@/components/timeline/thread-context";

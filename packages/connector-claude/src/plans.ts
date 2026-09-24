@@ -1,5 +1,5 @@
 /**
- * Plan mode on Claude Code, as OpenAde runs it.
+ * Plan mode on Claude Code, as Poseidon runs it.
  *
  * A plan turn puts the CLI in its `plan` permission mode. There the model
  * works read-only, writes its plan to a markdown file of the CLI's own — one
@@ -9,7 +9,7 @@
  * path. So the plan reaches `canUseTool` whole, and nothing is read off the
  * disk here.
  *
- * OpenAde's side of it:
+ * Poseidon's side of it:
  *
  * - the ExitPlanMode call is the proposal. `canUseTool` puts the plan on the
  *   timeline and raises the plan card, then denies the call with
@@ -37,11 +37,11 @@ import * as NodePath from "node:path";
 
 /** What the model is told once its plan is on the user's card. */
 export const PLAN_CAPTURED =
-  "OpenAde has shown your plan to the user for approval. Stop here: do not call any more tools and do not restate the plan. The user will accept it or ask for changes in their next message.";
+  "Poseidon has shown your plan to the user for approval. Stop here: do not call any more tools and do not restate the plan. The user will accept it or ask for changes in their next message.";
 
 /** What the model is told when ExitPlanMode came with no plan to show. */
 export const NO_PLAN =
-  "No plan reached OpenAde: ExitPlanMode carried no plan. Write the plan to the plan file named in your plan-mode instructions, then call ExitPlanMode again.";
+  "No plan reached Poseidon: ExitPlanMode carried no plan. Write the plan to the plan file named in your plan-mode instructions, then call ExitPlanMode again.";
 
 /** The CLI's plans directory for a child environment: `<config dir>/plans`. */
 export const plansDirFor = (env: Readonly<Record<string, string | undefined>>, home: string) =>

@@ -7,10 +7,10 @@
  * `@/lib/shortcuts`, which is the only place that listens for keys.
  */
 
-import type { BrowserPaneChord } from "@OpenAde/client-runtime/resolver";
-import { evaluateWhen, parseShortcut, type ModKey } from "@OpenAde/client-runtime/keybindings";
-import { DEFAULT_KEYBINDINGS, resolveKeymap } from "@OpenAde/contracts/keybindings";
-import type { Keybinding } from "@OpenAde/contracts/settings";
+import type { BrowserPaneChord } from "@poseidon/client-runtime/resolver";
+import { evaluateWhen, parseShortcut, type ModKey } from "@poseidon/client-runtime/keybindings";
+import { DEFAULT_KEYBINDINGS, resolveKeymap } from "@poseidon/contracts/keybindings";
+import type { Keybinding } from "@poseidon/contracts/settings";
 
 /**
  * The table to resolve keypresses against: the shipped defaults with the

@@ -19,10 +19,10 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@OpenAde/ui/components/dialog";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@OpenAde/ui/components/empty";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@OpenAde/ui/components/input-group";
-import { detectModKey } from "@OpenAde/client-runtime/keybindings";
+} from "@poseidon/ui/components/dialog";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@poseidon/ui/components/empty";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@poseidon/ui/components/input-group";
+import { detectModKey } from "@poseidon/client-runtime/keybindings";
 
 import { cheatsheetSections, type CheatsheetRow } from "@/lib/cheatsheet";
 import { COMMAND_CATALOG } from "@/lib/command-catalog";

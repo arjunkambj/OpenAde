@@ -10,10 +10,10 @@ import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
-import { makeStreamCollector } from "@OpenAde/connector-sdk/streamCollector";
-import { makeConnectorInstanceId, makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
-import type { RuntimeEvent } from "@OpenAde/contracts/runtime";
-import { loadSdkStreamRecording } from "@OpenAde/testkit/sdkStreamRecording";
+import { makeStreamCollector } from "@poseidon/connector-sdk/streamCollector";
+import { makeConnectorInstanceId, makeProjectId, makeThreadId } from "@poseidon/contracts/ids";
+import type { RuntimeEvent } from "@poseidon/contracts/runtime";
+import { loadSdkStreamRecording } from "@poseidon/testkit/sdkStreamRecording";
 import * as Effect from "effect/Effect";
 
 import { isPidGone, replay } from "../test/replay";
@@ -75,9 +75,9 @@ describe("a Claude Code session", () => {
         const { sessionId } = started.payload.sessionRef as { sessionId: string };
         expect(sessionId).toMatch(/^[0-9a-f-]{36}$/);
 
-        // OpenAde's MCP server was offered; nothing listened, and the CLI said so.
+        // Poseidon's MCP server was offered; nothing listened, and the CLI said so.
         expect(ofType(events, "mcp.status.updated")[0]?.payload.servers).toEqual([
-          { name: "openade", status: "failed" },
+          { name: "poseidon", status: "failed" },
         ]);
 
         // The CLI's own "Not logged in" line becomes an error naming the command

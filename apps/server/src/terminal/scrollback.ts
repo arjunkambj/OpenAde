@@ -11,7 +11,7 @@
  * the number retained: it is what lets a client line a snapshot up with the
  * live output it already holds (see `TerminalStreamItem`).
  */
-import { TERMINAL_SCROLLBACK_CHARS } from "@OpenAde/contracts/terminal";
+import { TERMINAL_SCROLLBACK_CHARS } from "@poseidon/contracts/terminal";
 
 /**
  * Small appends are joined onto the last chunk up to this size, so a shell

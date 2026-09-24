@@ -2,9 +2,9 @@ import * as React from "react";
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import { cva, type VariantProps } from "class-variance-authority";
-import { cn } from "@OpenAde/ui/lib/utils";
+import { cn } from "@poseidon/ui/lib/utils";
 
-import { Button } from "@OpenAde/ui/components/button";
+import { Button } from "@poseidon/ui/components/button";
 
 // With media, an attachment frames its thumbnail evenly at every size, so
 // each size's media padding is marked below.

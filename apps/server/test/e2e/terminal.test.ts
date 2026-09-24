@@ -15,9 +15,9 @@
  * with no connector configured at all.
  */
 
-import { makeStreamCollector } from "@OpenAde/connector-sdk/streamCollector";
-import { makeTerminalId } from "@OpenAde/contracts/ids";
-import type { TerminalStreamItem } from "@OpenAde/contracts/terminal";
+import { makeStreamCollector } from "@poseidon/connector-sdk/streamCollector";
+import { makeTerminalId } from "@poseidon/contracts/ids";
+import type { TerminalStreamItem } from "@poseidon/contracts/terminal";
 import { describe, expect, it } from "@effect/vitest";
 import { vi } from "vitest";
 import * as Effect from "effect/Effect";

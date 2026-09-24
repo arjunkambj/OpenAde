@@ -18,9 +18,9 @@
  * is already an orchestration event.
  */
 
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import type { ConnectorEndpoint } from "@OpenAde/connector-sdk/definition";
-import { uuidV7 } from "@OpenAde/shared/ids";
+import type { ThreadId } from "@poseidon/contracts/ids";
+import type { ConnectorEndpoint } from "@poseidon/connector-sdk/definition";
+import { uuidV7 } from "@poseidon/shared/ids";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";

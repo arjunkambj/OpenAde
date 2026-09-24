@@ -4,8 +4,8 @@ import {
   makeItemId,
   makeThreadId,
   makeTurnId,
-} from "@OpenAde/contracts/ids";
-import type { RuntimeEvent } from "@OpenAde/contracts/runtime";
+} from "@poseidon/contracts/ids";
+import type { RuntimeEvent } from "@poseidon/contracts/runtime";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";

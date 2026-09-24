@@ -3,17 +3,17 @@ import { site } from "../site";
 const steps = [
   {
     title: "Install Command Code",
-    body: "OpenADE drives your own Command Code install — it never ships or bundles the harness.",
+    body: "Poseidon drives your own Command Code install — it never ships or bundles the harness.",
     code: "npm i -g command-code && cmd",
   },
   {
-    title: "Download OpenADE",
+    title: "Download Poseidon",
     body: "Grab the signed dmg for macOS. Windows and Linux builds follow the MVP.",
     code: null,
   },
   {
     title: "Open a project",
-    body: "Point OpenADE at any local git repo, start a thread, and watch every turn land on the timeline.",
+    body: "Point Poseidon at any local git repo, start a thread, and watch every turn land on the timeline.",
     code: null,
   },
 ] as const;

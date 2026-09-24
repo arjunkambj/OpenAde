@@ -1,7 +1,7 @@
 /**
  * Where a composer image lives between the paste and the prompt.
  *
- * `~/.openade/attachments/<threadId>/` — the very directory
+ * `~/.poseidon/attachments/<threadId>/` — the very directory
  * `ConnectorServices.attachmentsDir` already names, so
  * a file staged here is already where a connector expects to find it and no
  * second copy is made.
@@ -20,21 +20,21 @@
 import { createHash } from "node:crypto";
 import { chmod, mkdir, readdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import * as NodePath from "node:path";
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import type { AttachmentBytes, StagedAttachment } from "@OpenAde/contracts/rpc";
-import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
+import type { ThreadId } from "@poseidon/contracts/ids";
+import type { AttachmentBytes, StagedAttachment } from "@poseidon/contracts/rpc";
+import { PoseidonRpcError } from "@poseidon/contracts/rpc";
 import {
   IMAGE_EXTENSIONS,
   MAX_ATTACHMENT_BYTES,
   safeAttachmentName,
   sniffImageMediaType,
-} from "@OpenAde/shared/imageBytes";
-import { configPath } from "@OpenAde/shared/paths";
+} from "@poseidon/shared/imageBytes";
+import { configPath } from "@poseidon/shared/paths";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-const invalid = (message: string) => new OpenAdeRpcError({ code: "invalid", message });
+const invalid = (message: string) => new PoseidonRpcError({ code: "invalid", message });
 
 /** Base64 expands by 4/3; refusing on the text length avoids decoding a bomb. */
 const MAX_BASE64_LENGTH = Math.ceil(MAX_ATTACHMENT_BYTES / 3) * 4 + 4;
@@ -44,7 +44,7 @@ const FILE_MODE = 0o600;
 
 /**
  * The same for the directories. The files were already 0600, but `mkdir`
- * left `~/.openade/attachments` and every thread's folder at 0755 under the
+ * left `~/.poseidon/attachments` and every thread's folder at 0755 under the
  * usual umask, so their names — and the names are the user's own file names —
  * were listable by any other local account. `chmod` as well as the `mkdir`
  * mode: a directory that already exists keeps the mode it was made with.
@@ -71,11 +71,11 @@ export class AttachmentStore extends Context.Service<
       readonly threadId: ThreadId;
       readonly name: string;
       readonly base64: string;
-    }) => Effect.Effect<StagedAttachment, OpenAdeRpcError>;
+    }) => Effect.Effect<StagedAttachment, PoseidonRpcError>;
     readonly read: (
       threadId: ThreadId,
       path: string,
-    ) => Effect.Effect<AttachmentBytes, OpenAdeRpcError>;
+    ) => Effect.Effect<AttachmentBytes, PoseidonRpcError>;
     /** Removes everything a thread staged. Never fails: cleanup is best effort. */
     readonly purge: (threadId: ThreadId) => Effect.Effect<void>;
     /**
@@ -150,7 +150,7 @@ const make = (root: string) => {
           }
           await writeFile(target, bytes, { mode: FILE_MODE });
         },
-        catch: () => new OpenAdeRpcError({ code: "internal", message: "internal error" }),
+        catch: () => new PoseidonRpcError({ code: "internal", message: "internal error" }),
       });
 
       return {
@@ -167,28 +167,28 @@ const make = (root: string) => {
       const directory = directoryFor(threadId);
       if (containedPath(directory, path) === null) {
         return yield* Effect.fail(
-          new OpenAdeRpcError({ code: "not-found", message: "no such attachment" }),
+          new PoseidonRpcError({ code: "not-found", message: "no such attachment" }),
         );
       }
       // Resolve links before believing the containment check: a symlink inside
       // the directory would otherwise read anything the server user can.
       const real = yield* Effect.tryPromise({
         try: () => realpath(NodePath.resolve(directory, path)),
-        catch: () => new OpenAdeRpcError({ code: "not-found", message: "no such attachment" }),
+        catch: () => new PoseidonRpcError({ code: "not-found", message: "no such attachment" }),
       });
       const realDirectory = yield* Effect.tryPromise({
         try: () => realpath(directory),
-        catch: () => new OpenAdeRpcError({ code: "not-found", message: "no such attachment" }),
+        catch: () => new PoseidonRpcError({ code: "not-found", message: "no such attachment" }),
       });
       if (containedPath(realDirectory, real) === null) {
         return yield* Effect.fail(
-          new OpenAdeRpcError({ code: "not-found", message: "no such attachment" }),
+          new PoseidonRpcError({ code: "not-found", message: "no such attachment" }),
         );
       }
 
       const size = yield* Effect.tryPromise({
         try: () => stat(real),
-        catch: () => new OpenAdeRpcError({ code: "not-found", message: "no such attachment" }),
+        catch: () => new PoseidonRpcError({ code: "not-found", message: "no such attachment" }),
       }).pipe(Effect.map((stats) => stats.size));
       if (size > MAX_ATTACHMENT_BYTES) {
         return yield* Effect.fail(invalid("the attachment is too large"));
@@ -196,7 +196,7 @@ const make = (root: string) => {
 
       const bytes = yield* Effect.tryPromise({
         try: () => readFile(real),
-        catch: () => new OpenAdeRpcError({ code: "not-found", message: "no such attachment" }),
+        catch: () => new PoseidonRpcError({ code: "not-found", message: "no such attachment" }),
       });
       // Sniffed again: whatever wrote the file, what leaves here is an image
       // or nothing, so a `data:` URL can never declare a type it is not.

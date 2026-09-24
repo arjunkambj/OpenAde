@@ -7,7 +7,7 @@
 import { createServer } from "node:http";
 import { NodeHttpServer } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import { makeThreadId } from "@OpenAde/contracts/ids";
+import { makeThreadId } from "@poseidon/contracts/ids";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";

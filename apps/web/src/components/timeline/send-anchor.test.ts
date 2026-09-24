@@ -1,5 +1,5 @@
-import type { ItemKind } from "@OpenAde/contracts/enums";
-import type { ItemId } from "@OpenAde/contracts/ids";
+import type { ItemKind } from "@poseidon/contracts/enums";
+import type { ItemId } from "@poseidon/contracts/ids";
 import { describe, expect, it } from "vitest";
 
 import type { TimelineRow } from "./fold";

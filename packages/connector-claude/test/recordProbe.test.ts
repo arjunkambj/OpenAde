@@ -1,7 +1,7 @@
 /**
  * Records `fixtures/claude/probe/` from the real CLI.
  *
- *     OPENADE_RECORD_CLAUDE=1 pnpm -F @OpenAde/connector-claude vitest run test/recordProbe.test.ts
+ *     POSEIDON_RECORD_CLAUDE=1 pnpm -F @poseidon/connector-claude vitest run test/recordProbe.test.ts
  *
  * It runs the connector's own probe with its binary path pointed at the
  * testkit's stdio tee, so every launch — `--version`, `auth status --json`,
@@ -16,7 +16,7 @@ import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
-import { finalizeSdkStreamRecording, makeTeeLauncher } from "@OpenAde/testkit/sdkStreamRecording";
+import { finalizeSdkStreamRecording, makeTeeLauncher } from "@poseidon/testkit/sdkStreamRecording";
 import * as Effect from "effect/Effect";
 
 import { resolveBinary } from "../src/binary";
@@ -24,7 +24,7 @@ import { CLAUDE_KIND } from "../src/kind";
 import { probe } from "../src/probe";
 import { sdkVersion } from "./replay";
 
-const RECORD = process.env.OPENADE_RECORD_CLAUDE === "1";
+const RECORD = process.env.POSEIDON_RECORD_CLAUDE === "1";
 
 describe("the probe recording", () => {
   it.effect.skipIf(!RECORD)("captures the real CLI's probe", () =>

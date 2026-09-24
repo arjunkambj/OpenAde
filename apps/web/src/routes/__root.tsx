@@ -1,6 +1,6 @@
 import { useAtomValue } from "@effect/atom-react";
-import { Button } from "@OpenAde/ui/components/button";
-import { Toaster } from "@OpenAde/ui/components/sonner";
+import { Button } from "@poseidon/ui/components/button";
+import { Toaster } from "@poseidon/ui/components/sonner";
 import { HeadContent, Link, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { AsyncResult } from "effect/unstable/reactivity";
@@ -37,7 +37,7 @@ function NotFound() {
         That page does not exist — the link may point at a thread that was deleted.
       </p>
       <Button type="button" variant="outline" render={<Link to="/" />}>
-        Back to OpenAde
+        Back to Poseidon
       </Button>
     </div>
   );
@@ -49,11 +49,11 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   head: () => ({
     meta: [
       {
-        title: "OpenAde",
+        title: "Poseidon",
       },
       {
         name: "description",
-        content: "OpenAde — a desktop workspace for running coding agents on your projects.",
+        content: "Poseidon — a desktop workspace for running coding agents on your projects.",
       },
     ],
     // No `links`: index.html already declares /favicon.png and the touch icon.

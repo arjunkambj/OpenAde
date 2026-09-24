@@ -33,7 +33,7 @@ import * as Option from "effect/Option";
 import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 
-import { makeCommandId, makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
+import { makeCommandId, makeProjectId, makeThreadId } from "@poseidon/contracts/ids";
 
 import { OrchestrationEngine } from "../orchestration/Engine";
 import { EventStore } from "../persistence/EventStore";
@@ -402,12 +402,12 @@ describe("BrowserService", () => {
           () =>
             Effect.suspend(() => {
               opened += 1;
-              return Effect.fail({ message: "the OpenAde window is not open" });
+              return Effect.fail({ message: "the Poseidon window is not open" });
             }),
           "in-app",
         );
         const outcome = yield* browser.callTool(threadId, "browser_snapshot", {});
-        expect(outcome).toEqual({ kind: "error", message: "the OpenAde window is not open" });
+        expect(outcome).toEqual({ kind: "error", message: "the Poseidon window is not open" });
         const state = yield* currentState(browser, threadId);
         expect(state?.status).toBe("error");
         expect(state?.mode).toBe("in-app");
@@ -452,7 +452,7 @@ describe("BrowserService", () => {
         expect((yield* currentState(browser, threadId))?.url).toBe("https://example.com/a");
 
         // With a driver open, the toolbar still does not go through it: a CDP
-        // `reload` from here would reload the whole OpenAde window.
+        // `reload` from here would reload the whole Poseidon window.
         yield* browser.callTool(threadId, "browser_snapshot", {});
         const ran = argvs.length;
         yield* browser.humanInput(threadId, { kind: "navigate", url: "https://example.com/b" });

@@ -37,23 +37,23 @@
 import { useMatchRoute } from "@tanstack/react-router";
 import * as React from "react";
 
-import { Button } from "@OpenAde/ui/components/button";
+import { Button } from "@poseidon/ui/components/button";
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@OpenAde/ui/components/empty";
+} from "@poseidon/ui/components/empty";
 import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
-} from "@OpenAde/ui/components/sidebar";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import type { ProjectId } from "@OpenAde/contracts/ids";
-import type { ProjectSummary, ThreadSummary } from "@OpenAde/contracts/orchestration";
+} from "@poseidon/ui/components/sidebar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
+import type { ProjectId } from "@poseidon/contracts/ids";
+import type { ProjectSummary, ThreadSummary } from "@poseidon/contracts/orchestration";
 
 import { AddProjectDialog } from "@/components/sidebar/add-project-dialog";
 import { ProjectTerminalsBadge } from "@/components/terminal/project-terminals-badge";

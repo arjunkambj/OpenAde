@@ -45,10 +45,10 @@ import {
 } from "./use-host-bridge";
 import { useElementRect, useLastPaneRect, useViewport } from "./use-host-geometry";
 
-type PaneBridge = NonNullable<NonNullable<Window["openade"]>["browserPane"]>;
+type PaneBridge = NonNullable<NonNullable<Window["poseidon"]>["browserPane"]>;
 
 export function BrowserHost() {
-  const bridge = typeof window === "undefined" ? undefined : window.openade?.browserPane;
+  const bridge = typeof window === "undefined" ? undefined : window.poseidon?.browserPane;
   if (bridge?.serveTabs === undefined) return null;
   return <InAppBrowserHost bridge={bridge} />;
 }

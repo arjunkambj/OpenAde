@@ -33,9 +33,9 @@
  * anything to restart.
  */
 
-import type { ConnectorInstanceId } from "@OpenAde/contracts/ids";
-import type { ConnectorSummary } from "@OpenAde/contracts/connectors";
-import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
+import type { ConnectorInstanceId } from "@poseidon/contracts/ids";
+import type { ConnectorSummary } from "@poseidon/contracts/connectors";
+import type { ConnectorCapabilities } from "@poseidon/contracts/runtime";
 
 export const threadConnectorInstanceId = (
   bound: ConnectorInstanceId | null | undefined,

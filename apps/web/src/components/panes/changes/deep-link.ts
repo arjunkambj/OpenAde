@@ -16,7 +16,7 @@
  * link on whole path segments, so the link itself stays as the agent wrote it.
  */
 
-import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
+import type { CheckpointSummary } from "@poseidon/contracts/orchestration";
 
 /** The `turn` a link carries when the turn it came from has no checkpoint. */
 export const LATEST_TURN = "latest";

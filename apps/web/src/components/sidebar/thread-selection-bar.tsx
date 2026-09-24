@@ -15,8 +15,8 @@
 import * as React from "react";
 import { toast } from "sonner";
 
-import { Button } from "@OpenAde/ui/components/button";
-import { Checkbox } from "@OpenAde/ui/components/checkbox";
+import { Button } from "@poseidon/ui/components/button";
+import { Checkbox } from "@poseidon/ui/components/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -24,9 +24,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@OpenAde/ui/components/dialog";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
+} from "@poseidon/ui/components/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
+import type { ThreadSummary } from "@poseidon/contracts/orchestration";
 
 import {
   THREAD_DELETE_DESCRIPTION,

@@ -13,7 +13,7 @@
  * come.
  *
  * The allow/deny/park flow itself is the SDK's approval gate
- * (`@OpenAde/connector-sdk/approvalGate`), the same one a connector without a
+ * (`@poseidon/connector-sdk/approvalGate`), the same one a connector without a
  * hook bridge calls directly; this module is what turns a hook post into its
  * input and its verdict back into `hookSpecificOutput`.
  *
@@ -22,13 +22,17 @@
  * its 590-second ceiling.
  */
 
-import type { ApprovalDecision } from "@OpenAde/contracts/enums";
-import type { RequestId, ThreadId } from "@OpenAde/contracts/ids";
-import { makeRequestId } from "@OpenAde/contracts/ids";
-import type { ThreadSettings } from "@OpenAde/contracts/orchestration";
-import type { ApprovalRequest, UserQuestion, UserQuestionAnswer } from "@OpenAde/contracts/runtime";
-import { makeApprovalGate } from "@OpenAde/connector-sdk/approvalGate";
-import type { ConnectorServices } from "@OpenAde/connector-sdk/definition";
+import type { ApprovalDecision } from "@poseidon/contracts/enums";
+import type { RequestId, ThreadId } from "@poseidon/contracts/ids";
+import { makeRequestId } from "@poseidon/contracts/ids";
+import type { ThreadSettings } from "@poseidon/contracts/orchestration";
+import type {
+  ApprovalRequest,
+  UserQuestion,
+  UserQuestionAnswer,
+} from "@poseidon/contracts/runtime";
+import { makeApprovalGate } from "@poseidon/connector-sdk/approvalGate";
+import type { ConnectorServices } from "@poseidon/connector-sdk/definition";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
@@ -172,7 +176,7 @@ export const makeHookAnswerer = (options: {
             : {
                 hookSpecificOutput: {
                   permissionDecision: "deny",
-                  permissionDecisionReason: "denied by OpenAde permission rules",
+                  permissionDecisionReason: "denied by Poseidon permission rules",
                 },
               };
         }
@@ -180,7 +184,7 @@ export const makeHookAnswerer = (options: {
         return {
           hookSpecificOutput: {
             permissionDecision: verdict.allowed ? "allow" : "deny",
-            permissionDecisionReason: `decided ${verdict.decision} via OpenAde`,
+            permissionDecisionReason: `decided ${verdict.decision} via Poseidon`,
           },
         };
       }).pipe(

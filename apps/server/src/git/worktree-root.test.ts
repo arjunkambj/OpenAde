@@ -18,9 +18,9 @@ import {
   makeTurnId,
   type ProjectId,
   type ThreadId,
-} from "@OpenAde/contracts/ids";
-import type { ThreadWorktree } from "@OpenAde/contracts/git";
-import type { OrchestrationEvent } from "@OpenAde/contracts/orchestration";
+} from "@poseidon/contracts/ids";
+import type { ThreadWorktree } from "@poseidon/contracts/git";
+import type { OrchestrationEvent } from "@poseidon/contracts/orchestration";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -44,22 +44,22 @@ const tempDir = (prefix: string) => realpathSync(mkdtempSync(nodePath.join(tmpdi
 
 /**
  * A repository with one commit on `main`, and a worktree beside it on
- * `openade/fix` holding a file the main checkout does not have.
+ * `poseidon/fix` holding a file the main checkout does not have.
  */
 const makeRepoWithWorktree = () => {
-  const root = tempDir("openade-wt-repo-");
+  const root = tempDir("poseidon-wt-repo-");
   git(root, "init", "-q", "-b", "main");
-  git(root, "config", "user.email", "test@openade.local");
-  git(root, "config", "user.name", "OpenAde Test");
+  git(root, "config", "user.email", "test@poseidon.local");
+  git(root, "config", "user.name", "Poseidon Test");
   writeFileSync(nodePath.join(root, "a.txt"), "one\n");
   git(root, "add", "-A");
   git(root, "commit", "-qm", "init");
-  const path = nodePath.join(tempDir("openade-wt-home-"), "fix");
-  git(root, "worktree", "add", "-q", "-b", "openade/fix", path, "main");
+  const path = nodePath.join(tempDir("poseidon-wt-home-"), "fix");
+  git(root, "worktree", "add", "-q", "-b", "poseidon/fix", path, "main");
   writeFileSync(nodePath.join(path, "only-in-worktree.ts"), "export const fix = 1\n");
   git(path, "add", "-A");
   git(path, "commit", "-qm", "worktree work");
-  const worktree: ThreadWorktree = { path, branch: "openade/fix", baseBranch: "main" };
+  const worktree: ThreadWorktree = { path, branch: "poseidon/fix", baseBranch: "main" };
   return { root, worktree };
 };
 
@@ -121,7 +121,9 @@ const stack = (root: string) =>
             GhRunner.layer,
             SettingsStore.layer.pipe(Layer.provide(sqlite)),
             // No test here cuts a worktree, so nothing is created under it.
-            Layer.succeed(WorktreesRoot, { path: nodePath.join(tmpdir(), "openade-no-worktrees") }),
+            Layer.succeed(WorktreesRoot, {
+              path: nodePath.join(tmpdir(), "poseidon-no-worktrees"),
+            }),
           ),
         ),
       ),
@@ -148,7 +150,7 @@ describe("a thread's own workspace root", () => {
         writeFileSync(nodePath.join(root, "main-only.txt"), "untracked on main\n");
 
         const own = yield* gitService.status({ projectId, threadId: inWorktree });
-        expect(own.branch).toBe("openade/fix");
+        expect(own.branch).toBe("poseidon/fix");
         expect(own.files.map((file) => file.path)).toEqual(["a.txt"]);
 
         // No thread, or a local one: the project's own checkout.
@@ -191,7 +193,7 @@ describe("a thread's own workspace root", () => {
       Effect.gen(function* () {
         const { root, worktree } = makeRepoWithWorktree();
         const { projectId, addProject, addThread, git: gitService } = yield* stack(root);
-        const elsewhere = yield* addProject(tempDir("openade-wt-other-"));
+        const elsewhere = yield* addProject(tempDir("poseidon-wt-other-"));
         const foreign = yield* addThread(elsewhere, worktree);
 
         const status = yield* gitService.status({ projectId, threadId: foreign });
@@ -230,7 +232,7 @@ describe("a thread's own workspace root", () => {
         // project's root can prune a worktree thread even once it is gone.
         git(root, "worktree", "remove", "--force", worktree.path);
         yield* checkpointStore.prune({ threadId, workspaceRoot: root });
-        expect(git(root, "for-each-ref", `refs/openade/checkpoints/${threadId}`).trim()).toBe("");
+        expect(git(root, "for-each-ref", `refs/poseidon/checkpoints/${threadId}`).trim()).toBe("");
       }),
     ),
   );

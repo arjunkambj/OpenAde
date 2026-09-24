@@ -12,23 +12,23 @@ import {
 } from "./paths";
 
 describe("configDir", () => {
-  it("defaults to ~/.openade", () => {
-    expect(configDir({})).toBe(NodePath.join(NodeOS.homedir(), ".openade"));
+  it("defaults to ~/.poseidon", () => {
+    expect(configDir({})).toBe(NodePath.join(NodeOS.homedir(), ".poseidon"));
   });
 
-  it("honours OPENADE_HOME and resolves it to an absolute path", () => {
-    const home = NodePath.join(NodeOS.tmpdir(), "openade-test-home");
-    expect(configDir({ OPENADE_HOME: home })).toBe(home);
-    expect(NodePath.isAbsolute(configDir({ OPENADE_HOME: "relative/home" }))).toBe(true);
+  it("honours POSEIDON_HOME and resolves it to an absolute path", () => {
+    const home = NodePath.join(NodeOS.tmpdir(), "poseidon-test-home");
+    expect(configDir({ POSEIDON_HOME: home })).toBe(home);
+    expect(NodePath.isAbsolute(configDir({ POSEIDON_HOME: "relative/home" }))).toBe(true);
   });
 
   it("ignores a blank override", () => {
-    expect(configDir({ OPENADE_HOME: "   " })).toBe(configDir({}));
+    expect(configDir({ POSEIDON_HOME: "   " })).toBe(configDir({}));
   });
 });
 
 describe("well-known paths", () => {
-  const env = { OPENADE_HOME: NodePath.join(NodeOS.tmpdir(), "openade-test-home") };
+  const env = { POSEIDON_HOME: NodePath.join(NodeOS.tmpdir(), "poseidon-test-home") };
 
   it("hang off the configuration directory", () => {
     expect(configPath(["a", "b"], env)).toBe(NodePath.join(configDir(env), "a", "b"));

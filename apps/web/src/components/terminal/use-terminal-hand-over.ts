@@ -18,8 +18,8 @@
  */
 
 import { RegistryContext, useAtomSet } from "@effect/atom-react";
-import type { ProjectId, TerminalId, ThreadId } from "@OpenAde/contracts/ids";
-import { terminalOwnerKey } from "@OpenAde/contracts/terminal";
+import type { ProjectId, TerminalId, ThreadId } from "@poseidon/contracts/ids";
+import { terminalOwnerKey } from "@poseidon/contracts/terminal";
 import * as Exit from "effect/Exit";
 import { AsyncResult } from "effect/unstable/reactivity";
 import * as React from "react";

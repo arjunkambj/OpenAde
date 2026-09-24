@@ -39,16 +39,16 @@
  * atoms share one connection with everything else.
  */
 
-import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
-import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
-import type { GitStatus } from "@OpenAde/contracts/rpc";
+import type { ProjectId, ThreadId } from "@poseidon/contracts/ids";
+import type { CheckpointSummary } from "@poseidon/contracts/orchestration";
+import type { GitStatus } from "@poseidon/contracts/rpc";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
 import type * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry";
 import * as Atom from "effect/unstable/reactivity/Atom";
 
-import { Connection, ConnectionStateRef, type OpenAdeRpcClient } from "./connection";
+import { Connection, ConnectionStateRef, type PoseidonRpcClient } from "./connection";
 import { runOneShot } from "./oneShot";
 
 /**
@@ -200,7 +200,7 @@ export const makeGitAtoms = (runtime: Atom.AtomRuntime<Connection | ConnectionSt
    */
   const gitRead = <A>(
     projectId: ProjectId,
-    call: (client: OpenAdeRpcClient) => Effect.Effect<A, { readonly message: string }>,
+    call: (client: PoseidonRpcClient) => Effect.Effect<A, { readonly message: string }>,
   ) =>
     runtime.atom((get) => {
       get(projectRevisionAtom(projectId));

@@ -1,10 +1,10 @@
 # Claude Code connector reference
 
-OpenAde's second connector drives the Claude Code CLI, spelled `claude`,
+Poseidon's second connector drives the Claude Code CLI, spelled `claude`,
 through the Claude Agent SDK (`@anthropic-ai/claude-agent-sdk`). This document
 describes how the connector finds that binary, what it starts and with what
 environment, what comes back and how it is read, how every tool call reaches
-OpenAde's approval gate, and what to check when the CLI changes.
+Poseidon's approval gate, and what to check when the CLI changes.
 
 Everything here is read off the code as it stands and off the recordings under
 `packages/testkit/fixtures/claude/`. Those are captures of the real CLI at its
@@ -28,7 +28,7 @@ Claude Code can be made to ask on demand, so that case is owed, not optional
 ([philosophy.md](philosophy.md#4-a-connectors-promises-are-executable)).
 
 Its companions: [architecture.md](architecture.md#the-claude-code-connector)
-for the shape of the connector inside OpenAde,
+for the shape of the connector inside Poseidon,
 [how-it-works.md](how-it-works.md) for what the rest of the app does with what
 comes back, and [development.md](development.md#the-claude-code-end-to-end-suite)
 for the commands that run and record it.
@@ -57,7 +57,7 @@ routes new threads to Command Code until the user picks this instance.
 | `session.ts`              | one long-lived CLI process per thread: send, steer, interrupt, close      |
 | `sessionRef.ts`           | the persisted session reference                                           |
 | `toolGate.ts`             | the PreToolUse hook and `canUseTool`, both through the permission ladder  |
-| `approvals.ts`            | the CLI's tool names in OpenAde's approval vocabulary                     |
+| `approvals.ts`            | the CLI's tool names in Poseidon's approval vocabulary                    |
 | `interactions.ts`         | the question and plan cards AskUserQuestion and ExitPlanMode open         |
 | `questions.ts`            | AskUserQuestion's input and the answer it takes back                      |
 | `plans.ts`                | the plan ExitPlanMode hands over, and the CLI's plan file                 |
@@ -161,7 +161,7 @@ the model it currently stands for, and each row has a `value`, a
 `displayName`, a `resolvedModel` and, when the model takes one, its
 `supportedEffortLevels` (`low` to `max` in the recording; one row has none).
 `toModelOptions` (`models.ts`) keeps every row, labels it with its display
-name, groups it under "Claude", and keeps the effort rungs OpenAde's ladder
+name, groups it under "Claude", and keeps the effort rungs Poseidon's ladder
 knows. `listModels` runs the same handshake once per instance and caches the
 list, so the model picker does not start a CLI every time it opens.
 
@@ -181,10 +181,10 @@ returns is all the CLI sees:
 - **kept by prefix:** `LC_*`;
 - **dropped by name and prefix, whatever the list above says:** `CLAUDECODE`,
   `CLAUDE_CONFIG_DIR`, and every `CLAUDE_CODE_*`, `CLAUDE_AGENT_SDK_*`,
-  `ANTHROPIC_*` and `OPENADE_SERVER_*`;
+  `ANTHROPIC_*` and `POSEIDON_SERVER_*`;
 - **added:** `CLAUDE_CONFIG_DIR` from the instance's `configDir`.
 
-Dropping by name matters because OpenAde can itself be started from inside a
+Dropping by name matters because Poseidon can itself be started from inside a
 Claude Code session. Such a process carries `CLAUDECODE`, a few dozen
 `CLAUDE_CODE_*` variables — the parent session's id, its OAuth scopes, a
 messaging socket and its token among them — `CLAUDE_AGENT_SDK_VERSION`, and
@@ -218,7 +218,7 @@ options:
 | `permissionMode`                  | from the thread's modes (see [Runtime modes](#runtime-modes))       |
 | `allowDangerouslySkipPermissions` | true, which the SDK requires before `bypassPermissions` can be used |
 | `model`, `effort`                 | the thread's, left out for `default` and for `minimal` effort       |
-| `mcpServers`                      | `openade`, over HTTP, with the per-thread bearer                    |
+| `mcpServers`                      | `poseidon`, over HTTP, with the per-thread bearer                   |
 | `additionalDirectories`           | the thread's attachments directory                                  |
 | `hooks`                           | one PreToolUse callback, for every tool                             |
 | `canUseTool`                      | the approval gate                                                   |
@@ -231,7 +231,7 @@ scrubbed):
 --output-format stream-json --verbose --input-format stream-json
 --max-turns 1 --max-budget-usd 0.05
 --permission-prompt-tool stdio
---mcp-config {"mcpServers":{"openade":{"type":"http","url":"…/mcp","headers":{"Authorization":"<REDACTED>"}}}}
+--mcp-config {"mcpServers":{"poseidon":{"type":"http","url":"…/mcp","headers":{"Authorization":"<REDACTED>"}}}}
 --setting-sources=user,project,local
 --permission-mode default --allow-dangerously-skip-permissions
 --include-partial-messages
@@ -245,11 +245,11 @@ request instead, as `hooks.PreToolUse[0].hookCallbackIds: ["hook_0"]`.
 **The user's harness.** `settingSources` user, project and local load the
 user's `CLAUDE.md`, skills, MCP servers, hooks and permission rules, as the
 CLI would in a terminal. That is intended: the harness is the user's.
-OpenAde's hook still decides every call first (below). The connector writes
-nothing into the CLI's settings files, and allow-always is OpenAde's rule
+Poseidon's hook still decides every call first (below). The connector writes
+nothing into the CLI's settings files, and allow-always is Poseidon's rule
 alone.
 
-**Our MCP entry.** OpenAde's MCP gateway is added as `openade`, an HTTP server
+**Our MCP entry.** Poseidon's MCP gateway is added as `poseidon`, an HTTP server
 at the per-thread endpoint with `Authorization: Bearer <token>`. The SDK hands
 the CLI its MCP configuration on the command line, so **the bearer is in the
 CLI's argv and visible to `ps` on the machine** for as long as the session
@@ -430,7 +430,7 @@ that count with the tool calls that ran, and emits a `session.warning` if
 calls ran while the gate saw none — a CLI that stopped calling the hook would
 say so rather than run ungated.
 
-### Mapping onto OpenAde's vocabulary
+### Mapping onto Poseidon's vocabulary
 
 `approvals.ts` names each call before the ladder reads it:
 
@@ -454,7 +454,7 @@ shared `parsePattern`.
 | Card answer       | What the CLI is told                                                                                                       |
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | allow once        | `allow`, input unchanged                                                                                                   |
-| allow always      | `allow`, input unchanged; the rule is OpenAde's, saved by the server                                                       |
+| allow always      | `allow`, input unchanged; the rule is Poseidon's, saved by the server                                                      |
 | allow for session | `allow`, plus the CLI's own suggested rules and directories, every one kept to destination `session`; mode changes dropped |
 | deny              | `deny`, with a line for the model saying the user refused                                                                  |
 
@@ -478,7 +478,7 @@ CLI last reported in a `system/status`. It sets the mode again before a turn
 whose modes call for another, so the turn after a plan runs out of plan mode
 even when the model moved the CLI into plan mode itself (EnterPlanMode).
 Whatever the CLI's mode, the ladder reads the thread's own modes on every
-call. There is no OpenAde mode for the CLI's own `auto` mode.
+call. There is no Poseidon mode for the CLI's own `auto` mode.
 
 ## Plan mode
 
@@ -581,7 +581,7 @@ recording that will show a second turn recalling the first after a restart.
 
 Rollback and fork are not offered (`rollback: false`, `fork: false`). The SDK
 can rewind (`resumeSessionAt`) and fork (`forkSession`), but nothing recorded
-shows either, and OpenAde's checkpoints are git, which does not depend on
+shows either, and Poseidon's checkpoints are git, which does not depend on
 them.
 
 ## Model and effort
@@ -598,7 +598,7 @@ shows a model the session is not using.
 
 The thread model `default` leaves the SDK's `model` option out altogether. On
 the recording account the CLI's `system/init` named what it resolved to, and
-that is the id each manifest's `model` records. OpenAde's `minimal` effort has
+that is the id each manifest's `model` records. Poseidon's `minimal` effort has
 no rung in the CLI and is left out, so the CLI's default effort applies.
 
 ## Compaction
@@ -618,7 +618,7 @@ approval.
 ## Attachments
 
 `attachments.ts` sniffs each attached file's bytes
-(`@OpenAde/shared/imageBytes`). PNG, JPEG, GIF and WebP go to the model as
+(`@poseidon/shared/imageBytes`). PNG, JPEG, GIF and WebP go to the model as
 base64 image content blocks ahead of the text (`session-controls` has the CLI
 reading such a message). Any other file is named by its path in the prompt,
 as Command Code's are: the server's staged file where it is, and a file from
@@ -647,7 +647,7 @@ receipts can (capability `msg_lifecycle_v1` in `system/init`). They name each
 user message by the uuid the session stamped on it, and move it `queued` →
 `started` → one end state: `completed`, `cancelled`, `discarded` or `refused`.
 A folded message is `started` before the running turn's `result`, and one that
-runs next is `started` after it. So `steering.ts` holds OpenAde's turn open at
+runs next is `started` after it. So `steering.ts` holds Poseidon's turn open at
 a `result` while any steered message has been neither `started` nor ended, and
 the turn's usage is the sum of every `result` it spans. The steer's check and
 the end-of-turn decision are each one atomic step, so a steer racing the last
@@ -697,7 +697,7 @@ message the turn is held for that ends without being `started`.
 | `resume`       | `true`       | `resume: <sessionId>` against the CLI's own transcript                                                                                          |
 | `fork`         | `false`      | nothing recorded forks a session                                                                                                                |
 | `interrupt`    | `session`    | `Query.interrupt()` inside the one long-lived process                                                                                           |
-| `rollback`     | `false`      | `resumeSessionAt` exists, but nothing recorded shows it; OpenAde's checkpoints are git                                                          |
+| `rollback`     | `false`      | `resumeSessionAt` exists, but nothing recorded shows it; Poseidon's checkpoints are git                                                         |
 | `compaction`   | `true`       | `/compact` runs as the CLI's command; `session-controls`                                                                                        |
 | `questions`    | `true`       | AskUserQuestion, offered to SDK sessions (recorded `system/init`)                                                                               |
 | `runtimeModes` | all three    | the PreToolUse hook puts every call in every mode past the ladder                                                                               |
@@ -750,12 +750,12 @@ drift, in the order they tell you:
    without `event.unmapped`, and still routes its calls through the gate:
 
    ```sh
-   OPENADE_LIVE_CLAUDE=1 pnpm -F @OpenAde/connector-claude vitest run src/liveConformance.test.ts
-   OPENADE_HOME=/tmp/openade-h1 OPENADE_LIVE_CLAUDE=1 pnpm exec vitest run apps/server/test/e2e-claude
+   POSEIDON_LIVE_CLAUDE=1 pnpm -F @poseidon/connector-claude vitest run src/liveConformance.test.ts
+   POSEIDON_HOME=/tmp/poseidon-h1 POSEIDON_LIVE_CLAUDE=1 pnpm exec vitest run apps/server/test/e2e-claude
    ```
 
    Both spend the account's subscription on the CLI's default model, so they
-   are skipped without the variable; `OPENADE_LIVE_CLAUDE_DEBUG=1` prints more.
+   are skipped without the variable; `POSEIDON_LIVE_CLAUDE_DEBUG=1` prints more.
 
 4. **Re-recording**, when something did change. The commands and the model
    rules are in [development.md](development.md#making-one); a recording is

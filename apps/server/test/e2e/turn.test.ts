@@ -27,7 +27,7 @@ import {
   type Driver,
 } from "./harness";
 import { watchThread, watchThreadList } from "./watch";
-import { makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
+import { makeProjectId, makeThreadId } from "@poseidon/contracts/ids";
 
 /** The prompt `fixtures/cmd/text/` was recorded on. */
 const HELLO = "Reply with exactly: ok";

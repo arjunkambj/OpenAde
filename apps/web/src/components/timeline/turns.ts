@@ -19,9 +19,9 @@
  *   that names no item, trails at the end.
  */
 
-import type { ResolvedDecision } from "@OpenAde/contracts/decisions";
-import type { TurnId } from "@OpenAde/contracts/ids";
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
+import type { ResolvedDecision } from "@poseidon/contracts/decisions";
+import type { TurnId } from "@poseidon/contracts/ids";
+import type { ItemSnapshot } from "@poseidon/contracts/runtime";
 
 export interface Nesting {
   readonly byId: ReadonlyMap<string, ItemSnapshot>;

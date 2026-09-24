@@ -8,9 +8,9 @@ import {
   makeProjectId,
   makeThreadId,
   makeTurnId,
-} from "@OpenAde/contracts/ids";
-import type { Command } from "@OpenAde/contracts/orchestration";
-import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
+} from "@poseidon/contracts/ids";
+import type { Command } from "@poseidon/contracts/orchestration";
+import type { ConnectorCapabilities } from "@poseidon/contracts/runtime";
 
 import { decide, type DeciderContext, type DecideEnv } from "./decider";
 import type { ProjectDoc, ThreadDoc } from "./state";
@@ -928,7 +928,7 @@ describe("the user's own timeline row", () => {
   });
 
   it("carries the attachment references so the row can draw a thumbnail", () => {
-    const attachments = [{ path: "/home/.openade/attachments/t/abc-shot.png", mime: "image/png" }];
+    const attachments = [{ path: "/home/.poseidon/attachments/t/abc-shot.png", mime: "image/png" }];
     const result = start(attachments);
     expect(result.accepted).toBe(true);
     if (!result.accepted) return;
@@ -1233,7 +1233,7 @@ describe("steering a running turn", () => {
     );
 
   it("delivers into the running turn, with the user's row in that same turn", () => {
-    const attachments = [{ path: "/home/.openade/attachments/t/abc-shot.png", mime: "image/png" }];
+    const attachments = [{ path: "/home/.poseidon/attachments/t/abc-shot.png", mime: "image/png" }];
     const result = steer(steerable(), attachments);
     expect(result.accepted).toBe(true);
     if (!result.accepted) return;
@@ -1345,7 +1345,7 @@ describe("the thread's worktree", () => {
     );
 
   it("carries the worktree a create command names onto thread.created", () => {
-    const worktree = { path: "/home/dev/.openade/worktrees/demo/fix", branch: "openade/fix" };
+    const worktree = { path: "/home/dev/.poseidon/worktrees/demo/fix", branch: "poseidon/fix" };
     const result = create({ ...worktree, baseBranch: "main" });
     expect(result.accepted).toBe(true);
     if (!result.accepted) return;
@@ -1362,7 +1362,7 @@ describe("the thread's worktree", () => {
   });
 
   it("refuses a worktree path that is not absolute", () => {
-    const result = create({ path: "worktrees/fix", branch: "openade/fix" });
+    const result = create({ path: "worktrees/fix", branch: "poseidon/fix" });
     expect(result).toEqual({
       accepted: false,
       reason: "worktree path worktrees/fix is not absolute",
@@ -1370,7 +1370,7 @@ describe("the thread's worktree", () => {
   });
 
   it("asks the restore exclusion about the thread itself", () => {
-    const thread = threadDoc({ worktree: { path: "/wt/a", branch: "openade/a" } });
+    const thread = threadDoc({ worktree: { path: "/wt/a", branch: "poseidon/a" } });
     const asked: Array<ThreadDoc> = [];
     decide(
       {

@@ -16,7 +16,7 @@
  * `question.option.N` and the palette's own toggle.
  */
 
-import { QUESTION_OPTION_COMMANDS, THREAD_JUMP_COMMANDS } from "@OpenAde/contracts/keybindings";
+import { QUESTION_OPTION_COMMANDS, THREAD_JUMP_COMMANDS } from "@poseidon/contracts/keybindings";
 import {
   type HoneyIcon,
   Add,

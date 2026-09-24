@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
+import type { ConnectorCapabilities } from "@poseidon/contracts/runtime";
 
 import { canSteer, sendMode } from "./send-mode";
 

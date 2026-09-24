@@ -1,5 +1,5 @@
-import type { WorktreeSetupProgress } from "@OpenAde/client-runtime/gitCommands";
-import type { ThreadWorktree } from "@OpenAde/contracts/git";
+import type { WorktreeSetupProgress } from "@poseidon/client-runtime/gitCommands";
+import type { ThreadWorktree } from "@poseidon/contracts/git";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -11,8 +11,8 @@ import {
 } from "./start-in-worktree";
 
 const WORKTREE: ThreadWorktree = {
-  path: "/home/me/.openade/worktrees/app/fix-login",
-  branch: "openade/fix-login",
+  path: "/home/me/.poseidon/worktrees/app/fix-login",
+  branch: "poseidon/fix-login",
   baseBranch: "main",
 };
 
@@ -60,7 +60,7 @@ describe("startInWorktree", () => {
       "step setup",
       `setup ${WORKTREE.path}`,
       "step starting",
-      "thread openade/fix-login",
+      "thread poseidon/fix-login",
       "send",
     ]);
   });
@@ -70,7 +70,7 @@ describe("startInWorktree", () => {
       runSetup: async () => run({ exit: null, skipped: true }),
     });
     await expect(startInWorktree(steps)).resolves.toEqual({ _tag: "started", worktree: WORKTREE });
-    expect(log.slice(-2)).toEqual(["thread openade/fix-login", "send"]);
+    expect(log.slice(-2)).toEqual(["thread poseidon/fix-login", "send"]);
   });
 
   it("stops before the thread exists when setup exits non-zero, with its output", async () => {
@@ -119,14 +119,14 @@ describe("startInWorktree", () => {
       _tag: "started",
       worktree: WORKTREE,
     });
-    expect(log).toEqual(["step starting", "thread openade/fix-login", "send"]);
+    expect(log).toEqual(["step starting", "thread poseidon/fix-login", "send"]);
   });
 
   it("reports the server's message when the worktree cannot be created, and creates nothing", async () => {
     const { log, steps } = recorder({
       createWorktree: () =>
         Promise.reject({
-          _tag: "OpenAdeRpcError",
+          _tag: "PoseidonRpcError",
           code: "invalid",
           message: "The project folder is not a git repository.",
         }),
@@ -191,7 +191,7 @@ describe("leaving the start screen mid-sequence", () => {
   });
 
   it("keeps a thread created after the screen was left, but does not send or move the user", async () => {
-    const { log, steps } = leaving("thread openade/fix-login");
+    const { log, steps } = leaving("thread poseidon/fix-login");
     await expect(startInWorktree(steps)).resolves.toEqual({
       _tag: "abandoned",
       worktree: WORKTREE,
@@ -202,7 +202,7 @@ describe("leaving the start screen mid-sequence", () => {
   });
 
   it("discards the worktree when the thread was rejected after the screen was left", async () => {
-    const { log, steps } = leaving("thread openade/fix-login", {
+    const { log, steps } = leaving("thread poseidon/fix-login", {
       createThread: async (worktree) => {
         log.push(`thread ${worktree.branch}`);
         return false;

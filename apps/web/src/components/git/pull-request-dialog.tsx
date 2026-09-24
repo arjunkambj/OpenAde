@@ -10,7 +10,7 @@
 
 import * as React from "react";
 
-import { Button } from "@OpenAde/ui/components/button";
+import { Button } from "@poseidon/ui/components/button";
 import {
   Dialog,
   DialogContent,
@@ -18,10 +18,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@OpenAde/ui/components/dialog";
-import { Input } from "@OpenAde/ui/components/input";
-import { Label } from "@OpenAde/ui/components/label";
-import { Textarea } from "@OpenAde/ui/components/textarea";
+} from "@poseidon/ui/components/dialog";
+import { Input } from "@poseidon/ui/components/input";
+import { Label } from "@poseidon/ui/components/label";
+import { Textarea } from "@poseidon/ui/components/textarea";
 
 export function PullRequestDialog({
   open,

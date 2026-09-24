@@ -23,8 +23,8 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@OpenAde/ui/components/command";
-import type { GitBranch, GitBranchList } from "@OpenAde/contracts/git";
+} from "@poseidon/ui/components/command";
+import type { GitBranch, GitBranchList } from "@poseidon/contracts/git";
 
 import { Add, Cloud, GitBranch as GitBranchIcon, GitFork } from "@honeyicons/react";
 

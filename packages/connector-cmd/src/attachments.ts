@@ -23,9 +23,9 @@
 
 import { copyFile, mkdir } from "node:fs/promises";
 import * as NodePath from "node:path";
-import type { Attachment } from "@OpenAde/contracts/orchestration";
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import { safeAttachmentName } from "@OpenAde/shared/imageBytes";
+import type { Attachment } from "@poseidon/contracts/orchestration";
+import type { ThreadId } from "@poseidon/contracts/ids";
+import { safeAttachmentName } from "@poseidon/shared/imageBytes";
 
 export interface StagedTurnAttachments {
   /** One line per attachment, appended to the prompt. */

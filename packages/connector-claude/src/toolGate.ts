@@ -1,5 +1,5 @@
 /**
- * Every tool call a Claude Code session makes goes past OpenAde's permission
+ * Every tool call a Claude Code session makes goes past Poseidon's permission
  * ladder first. This is where that is wired into the SDK.
  *
  * The SDK offers two ways in, and neither is enough alone:
@@ -35,14 +35,14 @@
  * The card's answers read to the CLI as:
  *
  * - allow once, allow always → allow, with the input unchanged. "Always" is
- *   OpenAde's rule, which the server has already saved; nothing is written to
+ *   Poseidon's rule, which the server has already saved; nothing is written to
  *   the CLI's own settings files.
  * - allow for the session → allow, plus the CLI's own suggested rules for the
  *   call, every one of them kept to the `session` destination, so the CLI does
  *   not ask about the same call again this session. The hook still asks the
  *   ladder first, and the server keeps the session rule that makes it answer
  *   allow. Suggestions that would change the CLI's permission mode are left
- *   out: the thread's mode is OpenAde's to set.
+ *   out: the thread's mode is Poseidon's to set.
  * - deny → deny, with a line for the model saying who refused.
  *
  * A call the CLI withdraws while its card is open — the turn was interrupted
@@ -50,10 +50,10 @@
  */
 
 import type { PermissionUpdate } from "@anthropic-ai/claude-agent-sdk";
-import type { ApprovalGate } from "@OpenAde/connector-sdk/approvalGate";
-import type { ConnectorPermissions, PermissionDecision } from "@OpenAde/connector-sdk/definition";
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import type { ThreadSettings } from "@OpenAde/contracts/orchestration";
+import type { ApprovalGate } from "@poseidon/connector-sdk/approvalGate";
+import type { ConnectorPermissions, PermissionDecision } from "@poseidon/connector-sdk/definition";
+import type { ThreadId } from "@poseidon/contracts/ids";
+import type { ThreadSettings } from "@poseidon/contracts/orchestration";
 import * as Effect from "effect/Effect";
 
 import { approvalRequestFor, ASK_USER_QUESTION, EXIT_PLAN_MODE } from "./approvals";
@@ -81,8 +81,8 @@ export type ToolPermission =
 /** The tools the hook lets past with no verdict — see the header. */
 const UNGATED_BY_HOOK = new Set([ASK_USER_QUESTION, EXIT_PLAN_MODE]);
 
-/** What the model is told when OpenAde's rules refuse a call. */
-export const DENIED_BY_RULES = "Denied by the user's permission rules in OpenAde.";
+/** What the model is told when Poseidon's rules refuse a call. */
+export const DENIED_BY_RULES = "Denied by the user's permission rules in Poseidon.";
 /** What the model is told when the user refuses a call. */
 export const DENIED_BY_USER = "The user denied this tool call.";
 

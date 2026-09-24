@@ -9,9 +9,9 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
-import { makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
-import { FILES_STAT_MAX_PATHS } from "@OpenAde/contracts/rpc";
-import type { FileContent, FileSearchResult, FileStat } from "@OpenAde/contracts/rpc";
+import { makeProjectId, makeThreadId } from "@poseidon/contracts/ids";
+import { FILES_STAT_MAX_PATHS } from "@poseidon/contracts/rpc";
+import type { FileContent, FileSearchResult, FileStat } from "@poseidon/contracts/rpc";
 import type * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -38,7 +38,7 @@ import {
   Connection,
   ConnectionStateRef,
   type ConnectionState,
-  type OpenAdeRpcClient,
+  type PoseidonRpcClient,
 } from "./connection";
 
 const CONNECTED: ConnectionState = { status: "connected", serverInstanceId: null };
@@ -69,8 +69,8 @@ const created = new Set<string>();
  * A client whose file calls record their arguments and answer from a mutable
  * script, so a test can make the first read fail and assert the retry.
  */
-const fakeClient = (calls: Calls, failRead: Ref.Ref<boolean>): OpenAdeRpcClient =>
-  new Proxy({} as OpenAdeRpcClient, {
+const fakeClient = (calls: Calls, failRead: Ref.Ref<boolean>): PoseidonRpcClient =>
+  new Proxy({} as PoseidonRpcClient, {
     get: (_target, key) => {
       if (key === "files.search") {
         return (payload: { projectId: string; query: string; limit?: number }) =>
@@ -116,7 +116,7 @@ const fakeClient = (calls: Calls, failRead: Ref.Ref<boolean>): OpenAdeRpcClient 
     },
   });
 
-const runtimeWith = (client: OpenAdeRpcClient, initial: ConnectionState) =>
+const runtimeWith = (client: PoseidonRpcClient, initial: ConnectionState) =>
   Effect.gen(function* () {
     const stateRef = yield* SubscriptionRef.make(initial);
     const layer = Layer.mergeAll(

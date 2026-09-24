@@ -43,9 +43,9 @@
       ],
       "envKeys": [
         "HOME",
-        "OPENADE_RECORD_HOOK_LOG",
-        "OPENADE_RECORD_HOOK_POLICY",
-        "OPENADE_THREAD_ID",
+        "POSEIDON_RECORD_HOOK_LOG",
+        "POSEIDON_RECORD_HOOK_POLICY",
+        "POSEIDON_THREAD_ID",
         "PATH",
         "SHELL",
         "SSH_AUTH_SOCK",
@@ -167,8 +167,8 @@
           "chars": 269
         }
       ],
-      "transcriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg-czzrjh0000gn-t-openade-rec-question-tools-9bf49514-repo/a3858b44-ee4e-4306-b737-1cc94f32f7eb.jsonl",
-      "guessedTranscriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg_czzrjh0000gn-t-openade-rec-question-tools-9bf49514-repo/a3858b44-ee4e-4306-b737-1cc94f32f7eb.jsonl",
+      "transcriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg-czzrjh0000gn-t-poseidon-rec-question-tools-9bf49514-repo/a3858b44-ee4e-4306-b737-1cc94f32f7eb.jsonl",
+      "guessedTranscriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg_czzrjh0000gn-t-poseidon-rec-question-tools-9bf49514-repo/a3858b44-ee4e-4306-b737-1cc94f32f7eb.jsonl",
       "transcriptDirMatchesConnectorSlug": false,
       "projectDirListing": [
         "a3858b44-ee4e-4306-b737-1cc94f32f7eb.checkpoints.jsonl",

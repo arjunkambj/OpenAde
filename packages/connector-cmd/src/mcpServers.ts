@@ -2,10 +2,10 @@
  * Command Code's MCP server files, read and written for the Customize page:
  * `<home>/mcp.json` (user scope) and `<workspaceRoot>/.mcp.json` (project
  * scope). This is the `mcpServers` extension; `config.ts` is the unrelated
- * per-session `openade` entry the CLI writes for us.
+ * per-session `poseidon` entry the CLI writes for us.
  *
- * Ownership is per entry, not per file: every server OpenAde writes carries an
- * `_openade` marker object (`{ "enabled": boolean }`), and add/remove refuse
+ * Ownership is per entry, not per file: every server Poseidon writes carries an
+ * `_poseidon` marker object (`{ "enabled": boolean }`), and add/remove refuse
  * to touch an entry that lacks it. Everything else in the file — hand-authored
  * servers, unrelated top-level keys, formatting outside `mcpServers` — is
  * preserved verbatim on rewrite, so a hand edit outside our marker survives a
@@ -20,21 +20,21 @@
  *
  * Disabling is a move, not a flag. Command Code launches everything under
  * `mcpServers` and ignores keys it does not recognise, so a disabled server's
- * definition is parked verbatim under `_openadeDisabled` and taken out of
+ * definition is parked verbatim under `_poseidonDisabled` and taken out of
  * `mcpServers`; re-enabling moves it back unchanged.
  */
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import * as NodePath from "node:path";
-import { ConnectorExtensionFailed } from "@OpenAde/connector-sdk/extensions";
-import type { ExtensionScope, McpServersExtension } from "@OpenAde/connector-sdk/extensions";
-import type { McpServerConfig, McpServerScope } from "@OpenAde/contracts/connectors";
+import { ConnectorExtensionFailed } from "@poseidon/connector-sdk/extensions";
+import type { ExtensionScope, McpServersExtension } from "@poseidon/connector-sdk/extensions";
+import type { McpServerConfig, McpServerScope } from "@poseidon/contracts/connectors";
 import * as Effect from "effect/Effect";
 import { isObject, isString } from "effect/Predicate";
 import type * as Semaphore from "effect/Semaphore";
 
-/** Marker key on entries OpenAde manages. Presence means "ours". */
-const MARKER = "_openade";
+/** Marker key on entries Poseidon manages. Presence means "ours". */
+const MARKER = "_poseidon";
 
 /**
  * Where a disabled server's definition is parked. Command Code launches every
@@ -43,7 +43,7 @@ const MARKER = "_openade";
  * server running. The definition is kept verbatim here so re-enabling restores
  * it unchanged.
  */
-const DISABLED_KEY = "_openadeDisabled";
+const DISABLED_KEY = "_poseidonDisabled";
 
 type Json = Record<string, unknown>;
 
@@ -128,7 +128,7 @@ interface McpFile {
   readonly doc: Json;
   /** The live `mcpServers` map — everything the harness will launch. */
   readonly servers: Record<string, Json>;
-  /** Managed definitions parked under `_openadeDisabled`. */
+  /** Managed definitions parked under `_poseidonDisabled`. */
   readonly disabled: Record<string, Json>;
   /**
    * The same two maps as the file holds them, including the values the views
@@ -380,7 +380,7 @@ export const makeCmdMcpServers = (options: CmdMcpServersOptions): McpServersExte
         }
         if (!isManaged(existing)) {
           return yield* conflict(
-            `"${name}" in ${path} was not written by OpenAde; refusing to remove it`,
+            `"${name}" in ${path} was not written by Poseidon; refusing to remove it`,
           );
         }
         const doc: Json = { ...file.doc };

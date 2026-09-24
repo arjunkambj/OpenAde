@@ -16,8 +16,8 @@
  * block the stream never showed — opens and completes a row of its own.
  */
 
-import type { ItemId } from "@OpenAde/contracts/ids";
-import { makeItemId } from "@OpenAde/contracts/ids";
+import type { ItemId } from "@poseidon/contracts/ids";
+import { makeItemId } from "@poseidon/contracts/ids";
 
 import type { PendingRuntimeEvent } from "./pending";
 

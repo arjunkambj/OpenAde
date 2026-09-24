@@ -5,8 +5,8 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import { OpenAdeRpcError, type DevServer } from "@OpenAde/contracts/rpc";
+import type { ThreadId } from "@poseidon/contracts/ids";
+import { PoseidonRpcError, type DevServer } from "@poseidon/contracts/rpc";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
@@ -20,7 +20,7 @@ import {
   Connection,
   ConnectionStateRef,
   type ConnectionState,
-  type OpenAdeRpcClient,
+  type PoseidonRpcClient,
 } from "./connection";
 
 const CONNECTED: ConnectionState = { status: "connected", serverInstanceId: null };
@@ -28,8 +28,8 @@ const RECONNECTING: ConnectionState = { status: "reconnecting", serverInstanceId
 const THREAD = "0190aaaa-0000-7000-8000-000000000001" as ThreadId;
 const VITE: DevServer = { url: "http://localhost:5173", port: 5173, processName: "node" };
 
-const fakeClient = (calls: Array<unknown>, failing: Ref.Ref<boolean>): OpenAdeRpcClient =>
-  new Proxy({} as OpenAdeRpcClient, {
+const fakeClient = (calls: Array<unknown>, failing: Ref.Ref<boolean>): PoseidonRpcClient =>
+  new Proxy({} as PoseidonRpcClient, {
     get: (_target, key) => {
       if (key === "browser.discoverServers") {
         return (payload: unknown) =>
@@ -37,7 +37,7 @@ const fakeClient = (calls: Array<unknown>, failing: Ref.Ref<boolean>): OpenAdeRp
             calls.push(payload);
             if (yield* Ref.get(failing)) {
               return yield* Effect.fail(
-                new OpenAdeRpcError({ code: "internal", message: "internal error" }),
+                new PoseidonRpcError({ code: "internal", message: "internal error" }),
               );
             }
             return [VITE];
@@ -47,7 +47,7 @@ const fakeClient = (calls: Array<unknown>, failing: Ref.Ref<boolean>): OpenAdeRp
     },
   });
 
-const runtimeWith = (client: OpenAdeRpcClient) =>
+const runtimeWith = (client: PoseidonRpcClient) =>
   Effect.gen(function* () {
     const stateRef = yield* SubscriptionRef.make(CONNECTED);
     const layer = Layer.mergeAll(
@@ -124,7 +124,7 @@ describe("browserStatusAtom", () => {
     Effect.scoped(
       Effect.gen(function* () {
         const status = { mode: "in-app", installed: true, version: "agent-browser 0.38.1" };
-        const client = new Proxy({} as OpenAdeRpcClient, {
+        const client = new Proxy({} as PoseidonRpcClient, {
           get: (_target, key) =>
             key === "browser.status"
               ? () => Effect.succeed(status)

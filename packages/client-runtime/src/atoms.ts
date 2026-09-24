@@ -18,27 +18,27 @@
  *   read a staged one back for a thumbnail. The bytes never ride a command.
  */
 
-import type { ConnectorInstanceId, ProjectId, ThreadId } from "@OpenAde/contracts/ids";
+import type { ConnectorInstanceId, ProjectId, ThreadId } from "@poseidon/contracts/ids";
 import type {
   ThreadSummary,
   Command,
   ThreadListStreamItem,
   ThreadStreamItem,
-} from "@OpenAde/contracts/orchestration";
+} from "@poseidon/contracts/orchestration";
 import type {
   ConnectorDescriptor,
   ConnectorSummary,
   ModelOption,
   PluginSummary,
   SkillSummary,
-} from "@OpenAde/contracts/connectors";
+} from "@poseidon/contracts/connectors";
 import type {
   AttachmentBytes,
   BrowserHumanInput,
   BrowserState,
   FileSearchResult,
-} from "@OpenAde/contracts/rpc";
-import type { Keybinding, Settings } from "@OpenAde/contracts/settings";
+} from "@poseidon/contracts/rpc";
+import type { Keybinding, Settings } from "@poseidon/contracts/settings";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Duration from "effect/Duration";
@@ -50,7 +50,7 @@ import * as SubscriptionRef from "effect/SubscriptionRef";
 import * as Stream from "effect/Stream";
 import * as Atom from "effect/unstable/reactivity/Atom";
 import type * as RpcClientError from "effect/unstable/rpc/RpcClientError";
-import { PROTOCOL_VERSION, type OpenAdeRpcError } from "@OpenAde/contracts/rpc";
+import { PROTOCOL_VERSION, type PoseidonRpcError } from "@poseidon/contracts/rpc";
 
 import { Connection, ConnectionStateRef, markConnected, markIncompatible } from "./connection";
 import { applyThreadListItem, applyThreadStreamItem, type ThreadDetailView } from "./clientState";
@@ -77,7 +77,7 @@ const resubscribeSchedule = Schedule.exponential("100 millis").pipe(
  * The same schedule, but only for failures worth retrying.
  *
  * A dropped socket is a hiccup: the next attempt lands on the fresh one. An
- * `OpenAdeRpcError` is the server's considered answer — a bad row in a read
+ * `PoseidonRpcError` is the server's considered answer — a bad row in a read
  * model, a half-applied migration — and retrying it forever only hammers a
  * server that has already said no, while the atom sits on its `initialValue`
  * with nothing to tell the page apart from "there is nothing here". Failing
@@ -88,7 +88,7 @@ export const transportOnly = <E>(): Schedule.Schedule<Duration.Duration, E, E> =
   resubscribeSchedule.pipe(
     Schedule.setInputType<E>(),
     Schedule.tap((meta) =>
-      Predicate.isTagged(meta.input, "OpenAdeRpcError") ? Effect.fail(meta.input) : Effect.void,
+      Predicate.isTagged(meta.input, "PoseidonRpcError") ? Effect.fail(meta.input) : Effect.void,
     ),
   );
 
@@ -106,7 +106,7 @@ const threadStream = (
   state: Ref.Ref<ThreadDetailView | null>,
 ): Stream.Stream<
   ThreadStreamItem,
-  OpenAdeRpcError | RpcClientError.RpcClientError,
+  PoseidonRpcError | RpcClientError.RpcClientError,
   Connection | ConnectionStateRef
 > =>
   Stream.unwrap(
@@ -146,7 +146,7 @@ const threadListStream = (
   sequence: Ref.Ref<number | null>,
 ): Stream.Stream<
   ThreadListStreamItem,
-  OpenAdeRpcError | RpcClientError.RpcClientError,
+  PoseidonRpcError | RpcClientError.RpcClientError,
   Connection | ConnectionStateRef
 > =>
   Stream.unwrap(
@@ -437,7 +437,7 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
             }).pipe(
               Effect.catchIf(
                 (error) =>
-                  Predicate.isTagged(error, "OpenAdeRpcError") && error.code === "unavailable",
+                  Predicate.isTagged(error, "PoseidonRpcError") && error.code === "unavailable",
                 () => Effect.succeed([] as ReadonlyArray<PluginSummary>),
               ),
             ),

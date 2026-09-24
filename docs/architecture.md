@@ -1,6 +1,6 @@
 # Architecture
 
-OpenAde is a desktop application that drives an agentic coding CLI and gives it
+Poseidon is a desktop application that drives an agentic coding CLI and gives it
 a real interface: a sidebar of projects and threads, a streaming timeline,
 approval cards, a diff pane, a browser pane, a file pane, an integrated
 terminal, settings.
@@ -31,7 +31,7 @@ terminal.
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │ Electron main — apps/desktop/src/main                               │
-│   window + openade:// protocol + IPC + will-attach-webview policy   │
+│   window + poseidon:// protocol + IPC + will-attach-webview policy   │
 │   ServerSupervisor — apps/desktop/src/backend/ServerSupervisor.ts   │
 └──────┬────────────────────────────────────────┬─────────────────────┘
        │ spawn, handshake on fd 3               │ preload bridge (IPC)
@@ -68,7 +68,7 @@ matters — the `tsx` CLI re-execs node, and the grandchild does not inherit
 fd 3.
 
 **Electron main → renderer.** The renderer is served from the app's own
-`openade://app/` scheme with SPA fallback (`apps/desktop/src/main/protocol.ts`,
+`poseidon://app/` scheme with SPA fallback (`apps/desktop/src/main/protocol.ts`,
 `rendererRequest.ts`). The preload bridge
 (`apps/desktop/src/preload/bridge.ts`) exposes `getConnection`,
 `getServerState`, `onServerState` and the browser-pane guest channel; it is
@@ -79,9 +79,9 @@ Electron.
 token is the boot token from the handshake, compared in constant time
 (`apps/server/src/rpc/server.ts`); anything else gets 401 before the RPC
 protocol runs. `packages/client-runtime/src/resolver.ts` finds the credentials:
-the preload bridge first, then the dev endpoint `GET /__openade/connection`
+the preload bridge first, then the dev endpoint `GET /__poseidon/connection`
 served by the Vite plugin in `apps/web/vite.config.ts` out of
-`~/.openade/dev/connection.json`, then `?server=&token=` search params.
+`~/.poseidon/dev/connection.json`, then `?server=&token=` search params.
 Credentials are re-read on every connect attempt, because a supervisor restart
 means a new port, a new token and a new `serverInstanceId`.
 
@@ -108,23 +108,23 @@ the project's terminals to it, shells and scrollback intact.
 
 ## Workspaces
 
-A pnpm workspace driven by turbo. Packages are scoped `@OpenAde/*` and consumed
+A pnpm workspace driven by turbo. Packages are scoped `@poseidon/*` and consumed
 through their `exports` map, one entry per module; apps are unscoped.
 
-| Directory                   | Package name                | What it is                                                 |
-| --------------------------- | --------------------------- | ---------------------------------------------------------- |
-| `apps/desktop`              | `desktop`                   | Electron main, preload, server supervisor, platform glue   |
-| `apps/web`                  | `web`                       | The renderer: routes, atoms, timeline, composer, panes     |
-| `apps/server`               | `server`                    | The Effect server: store, orchestration, RPC, gateways     |
-| `packages/contracts`        | `@OpenAde/contracts`        | Schemas: ids, enums, runtime, orchestration, settings, rpc |
-| `packages/connector-sdk`    | `@OpenAde/connector-sdk`    | What a connector is, and the suite every one must pass     |
-| `packages/connector-cmd`    | `@OpenAde/connector-cmd`    | The Command Code connector                                 |
-| `packages/connector-claude` | `@OpenAde/connector-claude` | The Claude Code connector                                  |
-| `packages/client-runtime`   | `@OpenAde/client-runtime`   | Connection, folds and atoms shared by any client           |
-| `packages/shared`           | `@OpenAde/shared`           | Ids, paths, permission patterns, image sniffing            |
-| `packages/ui`               | `@OpenAde/ui`               | The base component set and its styles                      |
-| `packages/testkit`          | `@OpenAde/testkit`          | Recordings, the replayer, the fake connector, test helpers |
-| `packages/config`           | `@OpenAde/config`           | The shared `tsconfig.base.json`                            |
+| Directory                   | Package name                 | What it is                                                 |
+| --------------------------- | ---------------------------- | ---------------------------------------------------------- |
+| `apps/desktop`              | `desktop`                    | Electron main, preload, server supervisor, platform glue   |
+| `apps/web`                  | `web`                        | The renderer: routes, atoms, timeline, composer, panes     |
+| `apps/server`               | `server`                     | The Effect server: store, orchestration, RPC, gateways     |
+| `packages/contracts`        | `@poseidon/contracts`        | Schemas: ids, enums, runtime, orchestration, settings, rpc |
+| `packages/connector-sdk`    | `@poseidon/connector-sdk`    | What a connector is, and the suite every one must pass     |
+| `packages/connector-cmd`    | `@poseidon/connector-cmd`    | The Command Code connector                                 |
+| `packages/connector-claude` | `@poseidon/connector-claude` | The Claude Code connector                                  |
+| `packages/client-runtime`   | `@poseidon/client-runtime`   | Connection, folds and atoms shared by any client           |
+| `packages/shared`           | `@poseidon/shared`           | Ids, paths, permission patterns, image sniffing            |
+| `packages/ui`               | `@poseidon/ui`               | The base component set and its styles                      |
+| `packages/testkit`          | `@poseidon/testkit`          | Recordings, the replayer, the fake connector, test helpers |
+| `packages/config`           | `@poseidon/config`           | The shared `tsconfig.base.json`                            |
 
 ## Boundaries
 
@@ -158,7 +158,7 @@ Test files under `apps/server` get four extras: `testkit`, `client-runtime`,
 `packages/connector-claude` get `testkit`, for the `sdk-stream` replayer and
 tee their recordings go through. Test files under `apps/desktop` get
 `testkit`, so the browser bridge's tests read the agent-browser recordings
-through `@OpenAde/testkit/recording`. A file counts as a test when
+through `@poseidon/testkit/recording`. A file counts as a test when
 `.test.`/`.spec.` precedes its extension, or when any path segment is `test` —
 which is how the end-to-end harness under `apps/server/test/e2e/` qualifies.
 Keeping them out of the production list is what makes an accidental import in
@@ -174,7 +174,7 @@ boundary crossing wearing a path.
 
 **2. Connector leaks.** Non-test sources under `apps/web`,
 `packages/client-runtime` and `apps/server` — `boot.ts` aside — import no
-`@OpenAde/connector-*` package other than `connector-sdk` and contain no quoted
+`@poseidon/connector-*` package other than `connector-sdk` and contain no quoted
 connector kind (`"cmd"`, `"claude"`, `"codex"`, `"opencode"`, any quote style).
 A connector kind travels as data, from the registry and `connectors.describe`;
 code that compares against one by name is branching on a harness. The one
@@ -194,7 +194,7 @@ link as `ConnectorProbe.helpUrl`, rather than being written into a component.
 The contracts package names no connector either: there is no kind constant and
 no connector config schema in it.
 
-**4. Reference names.** The products OpenAde was compared against while it was
+**4. Reference names.** The products Poseidon was compared against while it was
 built are not named anywhere in `apps/`, `packages/`, `scripts/` or the
 top-level `docs/*.md`, in file names or contents, in any case. The recordings
 of real runs under `packages/testkit/fixtures/`, `node_modules`, build output
@@ -219,7 +219,7 @@ Owns the operating system. Nothing about orchestration lives here.
 - `apps/desktop/src/main/index.ts` — single-instance lock, privileged scheme registration,
   supervisor start, window creation, quit handling (`quit.ts`, with a 15s
   deadline for the server child).
-- `apps/desktop/src/main/protocol.ts` — the `openade://app/` scheme.
+- `apps/desktop/src/main/protocol.ts` — the `poseidon://app/` scheme.
 - `apps/desktop/src/main/webview.ts` — the `will-attach-webview` policy for the browser
   pane. Only `persist:thread-*` partitions may attach, with an http(s) or
   `about:blank` src, and the handler overwrites the guest's `webPreferences`
@@ -235,22 +235,22 @@ Owns the operating system. Nothing about orchestration lives here.
   tagged with its thread and `webContents` id, and the renderer forwards it as
   `browser.humanInput`), the pane's keys (`browser/guestChords.ts`, below), and
   the bridge registry.
-  It also answers `openade:browser-clear-thread` (`browser/clearThread.ts`):
+  It also answers `poseidon:browser-clear-thread` (`browser/clearThread.ts`):
   the window asks it to clear a deleted thread's `persist:thread-<id>`
   partition (storage and cache), and main checks the id against the bridge's
   thread-id pattern before it names a partition, and leaves alone a partition
-  that was never written to disk. `openade:browser-clear-all` is the Browser
+  that was never written to disk. `poseidon:browser-clear-all` is the Browser
   settings page's "Clear browsing data": every `thread-<id>` directory under
-  `Partitions`, cleared the same way. `openade:browser-capture` answers a PNG
+  `Partitions`, cleared the same way. `poseidon:browser-capture` answers a PNG
   of a pane tab by its guest's `webContents` id, for "screenshot to chat";
   both answer only a `window` sender, and capture only a registered pane guest.
   A key pressed inside a pane page goes to the guest and never reaches the
   window's keybinding listener, so the window hands main its resolved
-  `browser.*` chords on `openade:browser-chords` (only a `window` sender may,
+  `browser.*` chords on `poseidon:browser-chords` (only a `window` sender may,
   and `parseChords` keeps at most 32 well-formed `browser.*` entries), and the
   guest's `before-input-event` matches each keyDown against them with the pure
   `decideChord`: a match is `preventDefault`ed and relayed to the embedder as
-  `openade:browser-command {threadId, wcId, command}`, once per press, not on
+  `poseidon:browser-command {threadId, wcId, command}`, once per press, not on
   auto-repeat. The app installs no menu, so Electron's default one is live and
   its Reload (`Cmd+R`, `Cmd+Shift+R`; `Ctrl` off macOS) reloads the whole
   window — every pane tab with it; those chords are swallowed inside a guest
@@ -265,11 +265,11 @@ Owns the operating system. Nothing about orchestration lives here.
   `index.ts`.
 - `apps/desktop/src/main/updater.ts` — an update-check stub that does nothing.
   The app has no update feed, and no UI or menu offers updates;
-  `OPENADE_UPDATER=1` only logs that no feed is configured.
+  `POSEIDON_UPDATER=1` only logs that no feed is configured.
 - `apps/desktop/src/backend/` — `ServerSupervisor`, the spawn spec, the public server state
   the renderer sees.
 - `apps/desktop/src/platform/` — per-platform window defaults, lifecycle, and
-  `browserBridge.ts`: whether the bridge starts (the `OPENADE_REMOTE_DEBUG=0`
+  `browserBridge.ts`: whether the bridge starts (the `POSEIDON_REMOTE_DEBUG=0`
   kill switch) and the remote-debugging switches stripped from the command
   line.
 
@@ -476,7 +476,7 @@ and asks the thread view to show the pane (in the web renderer it navigates
 the headless browser instead). A failed attach is a destructive `Alert` over
 the pane with Retry, whose `reload` gesture only clears the server's error;
 under the kill switch the pane says "In-app browser is disabled
-(OPENADE_REMOTE_DEBUG=0)" and still lets a person browse; the web renderer
+(POSEIDON_REMOTE_DEBUG=0)" and still lets a person browse; the web renderer
 labels its frame stream "Headless browser (web mode)".
 
 **The pane's chrome** (`apps/web/src/components/panes/browser/`,
@@ -498,7 +498,7 @@ with `http://`, any other bare host with `https://`, and everything else —
 navigation. The pane's keys (`browser.focusUrl`, `browser.reload`,
 `browser.back`, `browser.forward`, bound `when: browserFocus`) answer in
 the toolbar, since the pane's root carries `data-context="browser"`; pressed inside
-the page they come back from the shell (`openade:browser-command`, see
+the page they come back from the shell (`poseidon:browser-command`, see
 `apps/desktop/src/main/ipc.ts`) to the host's `use-guest-keys.ts`, which moves
 the tab the key came from and hands `browser.focusUrl` to the command
 registry. The host re-sends the chords whenever the table changes.
@@ -512,19 +512,19 @@ a CSS path, the tag, its text (200 characters) and the start of its HTML
 page's own data, so it is checked and cut again here and appended to the
 thread's composer draft (`@/state/ui`), where the person reads it before
 sending. Screenshot to chat asks the shell for a PNG of the tab
-(`openade:browser-capture`) and adds it to the draft's files through the
+(`poseidon:browser-capture`) and adds it to the draft's files through the
 composer's own attachment rules. Neither talks to the agent by itself.
 
 **The agent's cursor.** The bridge hands every native-input command it lets
 through to the shell's pointer relay (`apps/desktop/src/main/browser/agentPointer.ts`)
 before it reaches the guest; presses are always told and moves thinned to
-one per 50 ms per tab, on `openade:browser-agent-pointer`. The browser host
+one per 50 ms per tab, on `poseidon:browser-agent-pointer`. The browser host
 (`agent-cursor.tsx`) keeps each tab's latest point, scales it by the tab's zoom
 onto the webview's box (`pointer-transform.ts`) and draws a cursor with a pulse
 on each press over the tab on screen only; it fades 2.5 s after the agent's
 last move.
 
-**Timeline rows.** A `mcp__openade__browser_*` row reads as what the agent did
+**Timeline rows.** A `mcp__poseidon__browser_*` row reads as what the agent did
 to the page — "Opened <url>", "Clicked @e3", "Pressed Enter", "Took a
 screenshot" — with the globe icon (`apps/web/src/components/timeline/browser-tool.ts`);
 typed and filled text is never shown in the label. The rows still come from
@@ -688,13 +688,13 @@ their shapes (`GitBranch`, `GitBranchList`, `GitCommitResult`, `GitPushResult`,
 `GitPullRequestResult`, `GitWorktreeInfo`, and the `WorktreeSetupFrame` union
 the setup script streams); they are defined there rather than in `rpc.ts`,
 their names are spread into `RPC_METHODS`, and `rpc.ts` lists them in the
-group. `OpenAdeRpcError` lives in `rpcError.ts` so `git` can name it without an
+group. `PoseidonRpcError` lives in `rpcError.ts` so `git` can name it without an
 import cycle, and `rpc` re-exports it. `browser.ts` holds the browser pane's
 payloads (`BrowserState`, `BrowserHumanInput`, `DevServer`,
 `BrowserToolStatus`), and `files.ts` the workspace file reads' payloads
 (`FileSearchResult`, `FileContent`, and `FileStat` with the
 `FILES_STAT_MAX_PATHS` cap of 100 that `files.stat` takes in one call); `rpc`
-re-exports them too, so they are read from `@OpenAde/contracts/rpc`.
+re-exports them too, so they are read from `@poseidon/contracts/rpc`.
 `thread.ts` holds the value objects of a thread and is reached through
 `orchestration`, which re-exports it, rather than as a module of its own.
 `decisions` holds the record a thread keeps of each settled approval, question
@@ -764,7 +764,7 @@ zero-turn SDK handshake that lists the models), `models.ts`, `capabilities.ts`,
 process group, and the proof it is gone), `inputQueue.ts` (the streaming-input
 prompt), `queryOptions.ts`, `toolGate.ts` (the PreToolUse hook and
 `canUseTool`, both through the permission ladder), `approvals.ts` (the CLI's
-tools in OpenAde's approval vocabulary), `interactions.ts` (the question and
+tools in Poseidon's approval vocabulary), `interactions.ts` (the question and
 plan cards AskUserQuestion and ExitPlanMode open), `questions.ts` and
 `plans.ts` (their shapes), `attachments.ts` (images as content blocks, other
 files by path), `userMessage.ts`, `sessionRef.ts`, `steering.ts` (when a
@@ -847,7 +847,7 @@ May import `contracts` and `shared`.
 ### packages/shared
 
 Dependency-light helpers both sides need: `ids.ts` (UUIDv7), `paths.ts`
-(`~/.openade` and everything under it), `permissionPattern.ts` (the pattern
+(`~/.poseidon` and everything under it), `permissionPattern.ts` (the pattern
 parser and matcher, shared so the renderer previews an "allow always" rule with
 the exact semantics the server enforces), `imageBytes.ts` (magic-byte sniffing
 and the attachment size cap), `decisionSubject.ts` (the one-line subject a
@@ -991,9 +991,9 @@ in-root symlink) and that path joined onto the root.
 
 A worktree comes from `git.worktree.create` (`apps/server/src/git/Worktrees.ts`)
 before the thread is created: a branch named from the settings document's
-`git.branchPrefix` (default `openade/`) and a slug of the thread's first
+`git.branchPrefix` (default `poseidon/`) and a slug of the thread's first
 message, cut `--no-track` from the chosen base, in
-`~/.openade/worktrees/<project slug>/<slug>` — never inside the user's
+`~/.poseidon/worktrees/<project slug>/<slug>` — never inside the user's
 repository. The directory root is the `WorktreesRoot` service, which `boot`
 points at `worktreesDir()` and a test at a tmp directory. The settings
 document's `projectSettings` holds each project's optional `setupScript`,
@@ -1555,7 +1555,7 @@ the recordings under `packages/testkit/fixtures/cmd/`.
 spawns a child, waits for it to exit, and settles the turn. The child is
 `detached` so interrupt and close can signal its whole process group. Of the
 inherited environment it sees only an allowlist; the operator's `extraEnv`
-passes by name; the session's own `OPENADE_*` control plane is applied last so
+passes by name; the session's own `POSEIDON_*` control plane is applied last so
 nothing can override it.
 
 **Three sources feed one event stream.** NDJSON frames on stdout are the live
@@ -1577,7 +1577,7 @@ channel print mode has.
 `<workspaceRoot>/.commandcode/settings.local.json`, reverted only while the file
 still hashes to the bytes we wrote and only once the last session in that
 project has closed, with a line in the repository's `info/exclude` that keeps
-it out of the user's commits meanwhile; and the `openade` MCP entry in the
+it out of the user's commits meanwhile; and the `poseidon` MCP entry in the
 CLI's local scope,
 written and removed _through the CLI_ (`cmd mcp add-json` / `cmd mcp remove`)
 because the directory it lives in is a slug of the workspace path that only the
@@ -1606,13 +1606,13 @@ connector's, which starts it `detached`, signals its whole process group, and
 proves the group gone on close. The environment is default deny: a short
 allowlist, the locales, and `CLAUDE_CONFIG_DIR` from the instance. Every
 `CLAUDECODE`, `CLAUDE_CODE_*`, `CLAUDE_AGENT_SDK_*` and `ANTHROPIC_*` variable
-the server inherited is dropped — OpenAde may itself run inside a Claude Code
+the server inherited is dropped — Poseidon may itself run inside a Claude Code
 session — and `HOME` is never moved, because the CLI's keychain login is found
 under it.
 
 **The user's harness.** Sessions load the user's, project and local settings
 — their CLAUDE.md, skills, MCP servers and hooks — under the CLI's own system
-prompt, and add OpenAde's MCP server as `openade` with the per-thread bearer.
+prompt, and add Poseidon's MCP server as `poseidon` with the per-thread bearer.
 The SDK passes MCP configuration on the CLI's command line, so that bearer is
 visible to `ps` on the machine while the session runs; it is minted per
 session and revoked with it.
@@ -1625,14 +1625,14 @@ hands a hook's ask to `canUseTool` without consulting its mode, which is what
 lets full access run as `bypassPermissions` and still ask about a sensitive
 path. AskUserQuestion and ExitPlanMode pass the hook with no verdict, and
 `canUseTool` answers them itself (below).
-`approvals.ts` maps the CLI's tools onto OpenAde's vocabulary: Bash →
+`approvals.ts` maps the CLI's tools onto Poseidon's vocabulary: Bash →
 `command`, `Shell(<first word> *)`; Edit, MultiEdit, Write, NotebookEdit →
 `file_write`, `Edit(<path>)` (NotebookEdit's `notebook_path` is handed to the
 ladder as `file_path`); Read, Glob, Grep, LS → `file_read`, `Read(<path>)`;
 WebFetch and WebSearch → `web`, `Fetch(<url or query>)`; `mcp__<s>__<t>` →
 `mcp_tool`, `Mcp(<s>.<t>)` with `mcpTool`; anything else → `other`, its bare
 name. Allow once and allow always answer allow with the input; "always" is
-OpenAde's rule alone, and nothing is written to the CLI's settings files.
+Poseidon's rule alone, and nothing is written to the CLI's settings files.
 Allow for the session adds the CLI's own suggested rules and directories at
 its `session` destination, never a mode change. `canUseTool`'s abort signal
 goes to the gate, so a withdrawn call closes its card as `deny`; an interrupt
@@ -1730,7 +1730,7 @@ the row; the CLI then says the same line as the turn's answer
 (`session-controls`, a `/compact` on a CLI that is not signed in).
 
 **Attachments.** An attachment whose bytes sniff as PNG, JPEG, GIF or WebP
-(`@OpenAde/shared/imageBytes`) goes to the model as an image content block,
+(`@poseidon/shared/imageBytes`) goes to the model as an image content block,
 base64, ahead of the text — the text goes last because the CLI reads a
 message as a slash command only when its last block is text. Any other file is
 named by path, as Command Code's are: the server's staged file where it is, a
@@ -1746,7 +1746,7 @@ turn's one `result` answers both, or, when the loop ended first, run next as a
 turn of the CLI's own with a `result` of its own. Its `command_lifecycle`
 receipts, which name each message by the uuid the session stamped on it, say
 which: a message is `started` before the running turn's `result` when it was
-folded, after it when it runs next. So `steering.ts` holds OpenAde's turn open
+folded, after it when it runs next. So `steering.ts` holds Poseidon's turn open
 at a `result` while a steered message has been neither `started` nor ended,
 and the session sums the usage of every `result` the turn spans. The decision
 and the end of the turn are one step, so a steer racing the last `result`
@@ -1772,18 +1772,18 @@ requests stay non-fatal, because the next message may well work.
 
 **Tests.** Every Claude recording is made through a real process boundary
 and replayed under the real SDK: `apps/server/test/e2e-claude/` through the
-whole server (replay, `OPENADE_LIVE_CLAUDE=1`, `OPENADE_RECORD_CLAUDE=1`),
+whole server (replay, `POSEIDON_LIVE_CLAUDE=1`, `POSEIDON_RECORD_CLAUDE=1`),
 and the connector's conformance, recorded-frames and recorded-session suites
 without one. `src/liveConformance.test.ts` runs the conformance suite, a
 mapping check and a denied write against the operator's own CLI, behind
-`OPENADE_LIVE_CLAUDE=1`. [development.md](development.md#the-claude-code-end-to-end-suite)
+`POSEIDON_LIVE_CLAUDE=1`. [development.md](development.md#the-claude-code-end-to-end-suite)
 has the drivers and the budget rules.
 
 ## The RPC surface
 
-One `RpcGroup` (`OpenAdeRpcGroup` in `packages/contracts/src/rpc.ts`) carried
+One `RpcGroup` (`PoseidonRpcGroup` in `packages/contracts/src/rpc.ts`) carried
 over the WebSocket with JSON serialization. Every RPC fails with the single
-`OpenAdeRpcError` — `not-found | invalid | unavailable | conflict | internal` —
+`PoseidonRpcError` — `not-found | invalid | unavailable | conflict | internal` —
 except `fs.browse`, which has its own error because the picker offers a
 different next step for each reason. `PROTOCOL_VERSION` is 3; a mismatch puts
 the client in the terminal `incompatible` state.
@@ -1813,7 +1813,7 @@ the client in the terminal `incompatible` state.
 | `git.commit`                  | call   | Commits all changes or chosen paths as the user; `conflict` on nothing staged       |
 | `git.push`                    | call   | Pushes the current branch, `-u` to its remote on the first push                     |
 | `git.pullRequest.create`      | call   | Opens (or finds) the branch's pull request with `gh`; `unavailable` without gh      |
-| `git.worktree.create`         | call   | Cuts a new thread's worktree and branch under the OpenAde home                      |
+| `git.worktree.create`         | call   | Cuts a new thread's worktree and branch under the Poseidon home                     |
 | `git.worktree.list`           | call   | The repository's worktrees, the project's own checkout first                        |
 | `git.worktree.remove`         | call   | Removes one, keeping its branch; `conflict` on unsaved work unless `force`          |
 | `git.worktree.setup`          | stream | Runs the project's setup script (from settings) in a worktree, streaming its output |
@@ -1852,7 +1852,7 @@ origin": an opaque origin is what a sandboxed iframe, a `data:` document and a
 
 ## The hook bridge
 
-A harness gates its tool calls one of two ways, and OpenAde supports both:
+A harness gates its tool calls one of two ways, and Poseidon supports both:
 
 - **The hook bridge**, for a harness with shell hooks. The harness runs a
   script before each tool call; the script posts to our loopback bridge and
@@ -1879,9 +1879,9 @@ even when the signal fired before the card opened. A defect inside
 Command Code's PreToolUse hook is how a tool call becomes an approval card.
 
 ```
-cmd child ──► ~/.openade/bin/cmd-hook.mjs   (system shell, per tool call)
+cmd child ──► ~/.poseidon/bin/cmd-hook.mjs   (system shell, per tool call)
                  │  reads the hook payload on stdin
-                 │  reads the bearer from OPENADE_HOOK_TICKET_FILE
+                 │  reads the bearer from POSEIDON_HOOK_TICKET_FILE
                  ▼
           POST /hooks/pretooluse   (loopback, Authorization: Bearer …)
                  │
@@ -1898,7 +1898,7 @@ cmd child ──► ~/.openade/bin/cmd-hook.mjs   (system shell, per tool call)
 
 The bearer is the routing key and the capability in one: it is minted per
 thread, lives only in the spawned process's world, and revoking it is
-`unregister`. It arrives in a **file** named by `OPENADE_HOOK_TICKET_FILE`, not
+`unregister`. It arrives in a **file** named by `POSEIDON_HOOK_TICKET_FILE`, not
 in the environment, because the CLI redacts secret-shaped variable names out of
 a hook's environment; the failure that taught us so is in
 [command-code-connector.md](command-code-connector.md#the-ticket-file).
@@ -1911,7 +1911,7 @@ An unrecognised bearer is a 401.
 
 One exception to deny-on-unreachable: the hook block we install in a project
 outlives the session, so an interactive `cmd` run in that project invokes the
-script with no `OPENADE_HOOK_URL`. That run belongs to the user, so the script
+script with no `POSEIDON_HOOK_URL`. That run belongs to the user, so the script
 exits cleanly with no output and the harness uses its own prompt flow.
 
 Journaling is the event log, not a side channel: a `prompt` decision emits
@@ -1947,7 +1947,7 @@ bytes, cut on a byte boundary, and so is the result's `structuredContent`
 (`capStructured` in `McpGateway.ts`): a snapshot's refs map used to ride past
 the text's cap beside it, so over the cap only where the page is stays.
 
-Timeline rows for `mcp__openade__browser_*` come from the harness transcript
+Timeline rows for `mcp__poseidon__browser_*` come from the harness transcript
 through the connector's translator, not from the gateway — emitting items there
 would double every row. The renderer labels them as browser actions
 ([apps/web](#appsweb)).
@@ -1971,8 +1971,8 @@ first agent call:
   is no other browser on the desktop: if the attach fails — the window is
   closed, the pane cannot open a tab — the call fails with the reason and the
   pane shows it, and the next call tries again.
-- **disabled** — the desktop under `OPENADE_REMOTE_DEBUG=0`. Every call answers
-  "the in-app browser is disabled (OPENADE_REMOTE_DEBUG=0)" and nothing is
+- **disabled** — the desktop under `POSEIDON_REMOTE_DEBUG=0`. Every call answers
+  "the in-app browser is disabled (POSEIDON_REMOTE_DEBUG=0)" and nothing is
   started.
 - **owned-chromium** — no desktop: the web renderer, or the server run on its
   own. `ownedDriver.ts` has agent-browser run its own headless Chrome, streams
@@ -2012,7 +2012,7 @@ every call fails with `AgentBrowserUnavailable`, and the pane renders an install
 prompt.
 
 **Daemon lifecycle.** Every session runs in the namespace
-`openade-<8 hex of OPENADE_HOME>` (`AGENT_BROWSER_NAMESPACE`), which is what
+`poseidon-<8 hex of POSEIDON_HOME>` (`AGENT_BROWSER_NAMESPACE`), which is what
 bounds `close --all` to the app's own daemons, and is named
 `ade-<12 hex of the thread id>`: the daemon's socket is
 `~/.agent-browser/namespaces/<ns>/run/<session>.sock`, and with a raw thread id
@@ -2061,9 +2061,9 @@ per launch, the server mints the thread's `ws://` URL from it, and the gate
 compares in constant time.
 
 **Handing it to the server.** `apps/desktop/src/backend/serverEnv.ts` spawns
-the server with `OPENADE_SERVER_BROWSER_BRIDGE` (the bridge's `ws://` origin,
-or `disabled`) and `OPENADE_SERVER_BROWSER_BRIDGE_KEY` (the launch key). The
-`OPENADE_SERVER_` prefix matters: the harness spawn passes `OPENADE_*`
+the server with `POSEIDON_SERVER_BROWSER_BRIDGE` (the bridge's `ws://` origin,
+or `disabled`) and `POSEIDON_SERVER_BROWSER_BRIDGE_KEY` (the launch key). The
+`POSEIDON_SERVER_` prefix matters: the harness spawn passes `POSEIDON_*`
 through and drops only that prefix, so neither reaches an agent. Anything the
 shell itself inherited under those names is dropped. The server reads both once and deletes them from its own
 environment; agent-browser receives a thread's URL only as
@@ -2112,12 +2112,12 @@ lands in the composer.
 **Tabs and popups** (`tabsChannel.ts`). A pane tab is the renderer's
 `<webview>`, and Electron answers `Target.createTarget` with "Not supported",
 so `createTarget`, `closeTarget`, `bringToFront` and popups become requests
-to the window on `openade:browser-tab-request`, each with an id and a 10 s
-deadline; the window answers on `openade:browser-tab-answer` with the new
+to the window on `poseidon:browser-tab-request`, each with an id and a 10 s
+deadline; the window answers on `poseidon:browser-tab-answer` with the new
 guest's `webContents` id, and only the window that was asked may answer. No
 window, a window that closes, or no answer in time is a clear CDP error ("the
-OpenAde window is not open"). The preload serves the requests through
-`window.openade.browserPane.serveTabs`, and answers at once with "the OpenAde
+Poseidon window is not open"). The preload serves the requests through
+`window.poseidon.browserPane.serveTabs`, and answers at once with "the Poseidon
 window cannot open browser tabs" while no tab host has registered. The tab
 host is the renderer's browser host ([apps/web](#appsweb)), so an agent's
 `tab new`, a popup, and the first call on a thread with no tab yet each open
@@ -2130,13 +2130,13 @@ opener. Every webview guest gets a
 routes an http(s) popup to a new pane tab of the same thread; the popup loses
 `window.opener`, since it is a fresh guest rather than a child window.
 
-**The kill switch.** `OPENADE_REMOTE_DEBUG=0` (or `false`) starts no bridge,
+**The kill switch.** `POSEIDON_REMOTE_DEBUG=0` (or `false`) starts no bridge,
 attaches no debugger, and spawns the server with
-`OPENADE_SERVER_BROWSER_BRIDGE=disabled`; a bridge that fails to start is
+`POSEIDON_SERVER_BROWSER_BRIDGE=disabled`; a bridge that fails to start is
 reported the same way. Any other value of the variable is ignored — the old
 `=1` / `=<port>` forms, which opened a DevTools port for attaching by hand,
 are gone, because that port exposes the app window. `desktop.json`'s
-`browserPane` key and `OPENADE_BROWSER_PANE` are ignored. Under the kill
+`browserPane` key and `POSEIDON_BROWSER_PANE` are ignored. Under the kill
 switch the server has no browser at all — it never falls back to a headless
 one.
 
@@ -2172,7 +2172,7 @@ pane tab; archiving the thread took its tabs down at once and the agent's
 `tab new` was refused with "the thread is archived"; deleting a thread took
 its tabs down after the grace and left its partition with no local storage
 and no cookies; and `clearThread("../Default")` was refused. With a fresh
-`OPENADE_HOME`, launching the app, adding a project and opening a thread left
+`POSEIDON_HOME`, launching the app, adding a project and opening a thread left
 one `webContents` (the window) and no agent-browser process; agent-browser's
 first call on that thread created a hidden tab with the dock left closed,
 read its title and clicked it, and the header showed "Agent is using the
@@ -2230,7 +2230,7 @@ parent of the thread's workspace root, so a project kept under
 and `~/.claude` opened as a project still count.
 
 **Pattern syntax** (`packages/shared/src/permissionPattern.ts`). The
-vocabulary is OpenAde's own, the same whichever harness runs the thread; each
+vocabulary is Poseidon's own, the same whichever harness runs the thread; each
 connector maps its harness's tool names onto it when it proposes a rule:
 
 | Form                     | Matches                                                   |
@@ -2274,18 +2274,18 @@ gate, which asks the ladder and, on `prompt`, opens the card.
 
 ## On disk
 
-`~/.openade` unless `OPENADE_HOME` says otherwise
+`~/.poseidon` unless `POSEIDON_HOME` says otherwise
 (`packages/shared/src/paths.ts`). `boot` sets that variable process-wide before
 anything resolves a path, and connector children inherit it.
 
-| Path                                    | What it is                                  |
-| --------------------------------------- | ------------------------------------------- |
-| `~/.openade/state.sqlite`               | the event log, projections, settings, rules |
-| `~/.openade/bin/cmd-hook.mjs`           | the generated PreToolUse hook script        |
-| `~/.openade/bin/tickets/<id>.ticket`    | a session's hook bearer, 0600               |
-| `~/.openade/attachments/<threadId>/`    | staged composer images                      |
-| `~/.openade/worktrees/<project>/<slug>` | a thread's own git worktree                 |
-| `~/.openade/dev/connection.json`        | the dev handshake, 0600, dev mode only      |
+| Path                                     | What it is                                  |
+| ---------------------------------------- | ------------------------------------------- |
+| `~/.poseidon/state.sqlite`               | the event log, projections, settings, rules |
+| `~/.poseidon/bin/cmd-hook.mjs`           | the generated PreToolUse hook script        |
+| `~/.poseidon/bin/tickets/<id>.ticket`    | a session's hook bearer, 0600               |
+| `~/.poseidon/attachments/<threadId>/`    | staged composer images                      |
+| `~/.poseidon/worktrees/<project>/<slug>` | a thread's own git worktree                 |
+| `~/.poseidon/dev/connection.json`        | the dev handshake, 0600, dev mode only      |
 
 Attachments are references, never bytes, in the event log: an inlined screenshot
 would be re-sent on every replay and to every client. The bytes cross the wire
@@ -2305,7 +2305,7 @@ coming back to one learns it is gone. The drawer's open state and height are
 the renderer's, in localStorage.
 
 The harness's own home (`~/.commandcode` by default) is separate and is _not_
-moved by `OPENADE_HOME`; `BootOptions.commandCodeHome` exists so an end-to-end
+moved by `POSEIDON_HOME`; `BootOptions.commandCodeHome` exists so an end-to-end
 test that adds an MCP server does not edit the operator's real config.
 
 ## Tests and the gate
@@ -2334,10 +2334,10 @@ Unit suites sit beside their subjects in every workspace. Above them:
 
 The end-to-end suite and the live conformance test have two drivers, differing
 only in the binary: the gate runs recordings through
-`packages/testkit/bin/replay-cmd.mjs`, and `OPENADE_LIVE_CMD=1` runs the
+`packages/testkit/bin/replay-cmd.mjs`, and `POSEIDON_LIVE_CMD=1` runs the
 operator's own `cmd`. `apps/server/test/e2e-claude/` is the same suite on the
 Claude Code connector, over the `sdk-stream` replayer, with a third driver that
-records; `OPENADE_LIVE_CLAUDE=1` runs it, and the connector's live conformance
+records; `POSEIDON_LIVE_CLAUDE=1` runs it, and the connector's live conformance
 suite, against the operator's own `claude`. [development.md](development.md#the-end-to-end-suite) has
 the commands and how a recording is made.
 

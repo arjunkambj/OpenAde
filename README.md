@@ -1,6 +1,6 @@
-# OpenAde
+# Poseidon
 
-OpenAde is a desktop application that drives an agentic coding CLI and gives it
+Poseidon is a desktop application that drives an agentic coding CLI and gives it
 a real interface. It does not contain an agent: it spawns the Command Code CLI
 (`cmd`) that you already have installed, watches everything that run does, and
 turns it into a sidebar of projects and threads, a streaming timeline, approval

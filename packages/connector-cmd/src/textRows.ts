@@ -22,7 +22,7 @@
  *   and a lookup will not hand back one of those.
  */
 
-import { makeItemId, type ItemId } from "@OpenAde/contracts/ids";
+import { makeItemId, type ItemId } from "@poseidon/contracts/ids";
 
 /** A row a delta opened and nothing has settled yet. */
 export interface OpenTextRow {

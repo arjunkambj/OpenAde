@@ -43,9 +43,9 @@
       ],
       "envKeys": [
         "HOME",
-        "OPENADE_RECORD_HOOK_LOG",
-        "OPENADE_RECORD_HOOK_POLICY",
-        "OPENADE_THREAD_ID",
+        "POSEIDON_RECORD_HOOK_LOG",
+        "POSEIDON_RECORD_HOOK_POLICY",
+        "POSEIDON_THREAD_ID",
         "PATH",
         "SHELL",
         "SSH_AUTH_SOCK",
@@ -155,8 +155,8 @@
           "chars": 246
         }
       ],
-      "transcriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg-czzrjh0000gn-t-openade-rec-shell-twice-6e43aad4-repo/128e600b-1387-424d-bf60-26ca60427dc1.jsonl",
-      "guessedTranscriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg_czzrjh0000gn-t-openade-rec-shell-twice-6e43aad4-repo/128e600b-1387-424d-bf60-26ca60427dc1.jsonl",
+      "transcriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg-czzrjh0000gn-t-poseidon-rec-shell-twice-6e43aad4-repo/128e600b-1387-424d-bf60-26ca60427dc1.jsonl",
+      "guessedTranscriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg_czzrjh0000gn-t-poseidon-rec-shell-twice-6e43aad4-repo/128e600b-1387-424d-bf60-26ca60427dc1.jsonl",
       "transcriptDirMatchesConnectorSlug": false,
       "projectDirListing": [
         "128e600b-1387-424d-bf60-26ca60427dc1.checkpoints.jsonl",
@@ -234,9 +234,9 @@
       ],
       "envKeys": [
         "HOME",
-        "OPENADE_RECORD_HOOK_LOG",
-        "OPENADE_RECORD_HOOK_POLICY",
-        "OPENADE_THREAD_ID",
+        "POSEIDON_RECORD_HOOK_LOG",
+        "POSEIDON_RECORD_HOOK_POLICY",
+        "POSEIDON_THREAD_ID",
         "PATH",
         "SHELL",
         "SSH_AUTH_SOCK",
@@ -358,8 +358,8 @@
           "chars": 247
         }
       ],
-      "transcriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg-czzrjh0000gn-t-openade-rec-shell-twice-6e43aad4-repo/128e600b-1387-424d-bf60-26ca60427dc1.jsonl",
-      "guessedTranscriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg_czzrjh0000gn-t-openade-rec-shell-twice-6e43aad4-repo/128e600b-1387-424d-bf60-26ca60427dc1.jsonl",
+      "transcriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg-czzrjh0000gn-t-poseidon-rec-shell-twice-6e43aad4-repo/128e600b-1387-424d-bf60-26ca60427dc1.jsonl",
+      "guessedTranscriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg_czzrjh0000gn-t-poseidon-rec-shell-twice-6e43aad4-repo/128e600b-1387-424d-bf60-26ca60427dc1.jsonl",
       "transcriptDirMatchesConnectorSlug": false,
       "projectDirListing": [
         "128e600b-1387-424d-bf60-26ca60427dc1.checkpoints.jsonl",

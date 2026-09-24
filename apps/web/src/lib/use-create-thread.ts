@@ -25,9 +25,14 @@ import { useNavigate } from "@tanstack/react-router";
 import * as React from "react";
 import { toast } from "sonner";
 
-import type { ThreadWorktree } from "@OpenAde/contracts/git";
-import { makeCommandId, makeThreadId, type ProjectId, type ThreadId } from "@OpenAde/contracts/ids";
-import type { ThreadSettingsPatch, ThreadSummary } from "@OpenAde/contracts/orchestration";
+import type { ThreadWorktree } from "@poseidon/contracts/git";
+import {
+  makeCommandId,
+  makeThreadId,
+  type ProjectId,
+  type ThreadId,
+} from "@poseidon/contracts/ids";
+import type { ThreadSettingsPatch, ThreadSummary } from "@poseidon/contracts/orchestration";
 
 import { requestComposerFocus } from "@/lib/composer-focus";
 import { isAccepted, rejectionMessage } from "@/lib/dispatch-outcome";

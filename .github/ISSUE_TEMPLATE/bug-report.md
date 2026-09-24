@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Something in OpenADE is broken or behaving unexpectedly
+about: Something in Poseidon is broken or behaving unexpectedly
 title: "[Bug] "
 labels: ["bug"]
 ---
@@ -12,7 +12,7 @@ labels: ["bug"]
 ## Setup
 
 - macOS version:
-- OpenADE version or commit:
+- Poseidon version or commit:
 - Command Code version (`cmd --version`):
 
 ## Logs or screenshots

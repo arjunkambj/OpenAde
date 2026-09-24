@@ -1,7 +1,7 @@
 # Hosting — Cloudflare Pages
 
-The site (`apps/site`) deploys to **Cloudflare Pages**, project `openade`,
-custom domain `getopenade.com`. Pages is free for this use (unlimited
+The site (`apps/site`) deploys to **Cloudflare Pages**, project `poseidon`,
+custom domain `poseidoncode.com`. Pages is free for this use (unlimited
 bandwidth, unlimited requests) and gives per-branch preview URLs for free.
 
 Two deploy paths exist; use either, they converge on the same project.
@@ -9,16 +9,16 @@ Two deploy paths exist; use either, they converge on the same project.
 ## Path A — git integration (recommended once connected)
 
 Pages builds and deploys on every push. **Preview deploys per branch come
-free**: each branch gets `<branch>.openade.pages.dev`.
+free**: each branch gets `<branch>.poseidon.pages.dev`.
 
 One-time setup, done in the Cloudflare dashboard by the account owner:
 
-1. Pages → Create project → Connect to git → `arjunkambj/OpenAde`.
+1. Pages → Create project → Connect to git → `arjunkambj/Poseidon`.
 2. Build settings: root directory `/` (repo root), build command
    `pnpm -F site build`, output directory `apps/site/dist`, Node 22+.
    Add env var `PNPM_VERSION=11.21.0` if the build image's pnpm is older.
 3. Production branch: `main`.
-4. Custom domains → add `getopenade.com`. If the domain's DNS is on
+4. Custom domains → add `poseidoncode.com`. If the domain's DNS is on
    Cloudflare this is automatic; otherwise add the CNAME Pages prints at the
    registrar.
 
@@ -48,7 +48,7 @@ or run `pnpm dlx wrangler@4.133.0 login` once for OAuth. Never commit the
 token; it stays an environment variable by name.
 
 If the project does not exist yet:
-`pnpm dlx wrangler@4.133.0 pages project create openade --production-branch main`.
+`pnpm dlx wrangler@4.133.0 pages project create poseidon --production-branch main`.
 
 ## The first real deploy
 
@@ -57,6 +57,6 @@ serves the exact production build locally on port 3020.
 
 ## Rollback
 
-Pages keeps every deployment. Dashboard → `openade` → Deployments → pick the
+Pages keeps every deployment. Dashboard → `poseidon` → Deployments → pick the
 last good one → Rollback. With git integration, reverting the commit on
 `main` redeploys the previous build.

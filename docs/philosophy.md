@@ -1,6 +1,6 @@
 # Philosophy
 
-OpenAde is an Electron desktop app that drives an agentic coding CLI. It does
+Poseidon is an Electron desktop app that drives an agentic coding CLI. It does
 not contain an agent. It spawns one, watches what it does, and gives the user a
 place to see it and answer it.
 
@@ -24,7 +24,7 @@ The pieces these rules are about are described in
 
 ## 1. The harness is the source of truth
 
-OpenAde never re-implements what the CLI does. It does not vendor it, bundle it,
+Poseidon never re-implements what the CLI does. It does not vendor it, bundle it,
 pin it, or keep a stand-in copy of it.
 
 `packages/connector-cmd/src/binary.ts` resolves, in order: the configured
@@ -43,9 +43,9 @@ probe is the one safe moment for the binary to change. Turn spawns keep
 not.
 
 It also decides what the app refuses to guess. The harness's project-directory
-slug is a private rule (`OpenAde` becomes `open-ade`), so the connector does not
-reimplement it: the transcript is located by the `sessionId` the harness
-announced, and the MCP entry is written by asking the CLI itself
+slug is a private rule (camel humps and repeated dashes are rewritten), so the
+connector does not reimplement it: the transcript is located by the `sessionId`
+the harness announced, and the MCP entry is written by asking the CLI itself
 (`cmd mcp add-json --scope local`), not by writing the file at a path we
 computed.
 
@@ -110,7 +110,7 @@ connector name reads the same in a CSS class, an SVG title or a filename. The
 spaced spelling was added after "Command Code" walked through a one-word
 pattern and into the Skills tab's own description.
 
-The same script keeps the names of the products OpenAde was compared against
+The same script keeps the names of the products Poseidon was compared against
 out of the tree entirely — `apps/`, `packages/`, `scripts/` and the top-level
 docs. An idea borrowed from elsewhere is described in our own words.
 
@@ -276,7 +276,7 @@ new event and a new field on the snapshot, not local state in React.
 Boundaries back this up. `apps/web` may import only `ui`, `contracts`,
 `client-runtime` and `shared`; it may not reach a connector package, the server,
 or testkit, in tests or out of them. `packages/shared` has no Effect dependency
-so the renderer can use it, and the renderer may import `@OpenAde/shared/ids` but
+so the renderer can use it, and the renderer may import `@poseidon/shared/ids` but
 not `/paths`.
 
 **To honour it:** add the atom in `client-runtime`, the hook in
@@ -393,7 +393,7 @@ Three tests keep the recordings honest:
   plan recordings' `hookCount: 0` and empty `touchedFiles`, so a CLI release that
   starts firing `PreToolUse` in plan mode says so on the next run.
 - The live suites run the same scenarios against the operator's actual binary,
-  opt-in behind `OPENADE_LIVE_CMD=1`
+  opt-in behind `POSEIDON_LIVE_CMD=1`
   (`apps/server/src/hooks/cmdLiveConformance.test.ts`,
   `apps/server/test/e2e`). They spend a real plan, so they are skipped by
   default, and they refuse to run on any model but the authorised ones.
@@ -402,7 +402,7 @@ Claude Code's recordings are kept honest the same way:
 `packages/connector-claude/src/recordedFrames.test.ts` fails on any recorded
 message left unmapped, the `sdk-stream` replayer exits 97 the moment the
 connector sends a line the recorded run was not sent, and
-`OPENADE_LIVE_CLAUDE=1` runs `src/liveConformance.test.ts` and
+`POSEIDON_LIVE_CLAUDE=1` runs `src/liveConformance.test.ts` and
 `apps/server/test/e2e-claude` against the operator's own `claude`, on its
 default model only.
 
@@ -484,17 +484,17 @@ on its own, is in [development.md](development.md#the-gate).
 
 ## Where each rule is enforced
 
-| Principle                         | Enforced by                                                                                                                                                         |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Contracts are the seam            | `packages/contracts/test/fixtures.test.ts`                                                                                                                          |
-| Connector promises                | `packages/connector-sdk/src/conformance.ts`                                                                                                                         |
-| Renderer neutrality               | `scripts/check-boundaries.mjs` (string and filename grep over `apps/web/src`)                                                                                       |
-| No harness named above the SDK    | `scripts/check-boundaries.mjs` (connector imports and kind literals)                                                                                                |
-| Reference products never named    | `scripts/check-boundaries.mjs` (encoded names over the whole tree)                                                                                                  |
-| Package boundaries, no barrels    | `scripts/check-boundaries.mjs`                                                                                                                                      |
-| File sizes                        | `scripts/check-file-sizes.mjs`                                                                                                                                      |
-| Migration lineage                 | `apps/server/src/persistence/migrations.test.ts`                                                                                                                    |
-| Permission ladder                 | `apps/server/src/permissions/permissions.test.ts`, `permissionService.test.ts`                                                                                      |
-| No timers in tests                | `.oxlintrc.json` (`no-restricted-globals`, `no-restricted-properties`)                                                                                              |
-| Recordings describe the CLI       | `recordedArgs.test.ts`, each connector's `recordedFrames.test.ts`, the replayer's divergence exit (97), the `OPENADE_LIVE_CMD=1` and `OPENADE_LIVE_CLAUDE=1` suites |
-| The whole product still assembles | `apps/server/test/e2e`                                                                                                                                              |
+| Principle                         | Enforced by                                                                                                                                                           |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Contracts are the seam            | `packages/contracts/test/fixtures.test.ts`                                                                                                                            |
+| Connector promises                | `packages/connector-sdk/src/conformance.ts`                                                                                                                           |
+| Renderer neutrality               | `scripts/check-boundaries.mjs` (string and filename grep over `apps/web/src`)                                                                                         |
+| No harness named above the SDK    | `scripts/check-boundaries.mjs` (connector imports and kind literals)                                                                                                  |
+| Reference products never named    | `scripts/check-boundaries.mjs` (encoded names over the whole tree)                                                                                                    |
+| Package boundaries, no barrels    | `scripts/check-boundaries.mjs`                                                                                                                                        |
+| File sizes                        | `scripts/check-file-sizes.mjs`                                                                                                                                        |
+| Migration lineage                 | `apps/server/src/persistence/migrations.test.ts`                                                                                                                      |
+| Permission ladder                 | `apps/server/src/permissions/permissions.test.ts`, `permissionService.test.ts`                                                                                        |
+| No timers in tests                | `.oxlintrc.json` (`no-restricted-globals`, `no-restricted-properties`)                                                                                                |
+| Recordings describe the CLI       | `recordedArgs.test.ts`, each connector's `recordedFrames.test.ts`, the replayer's divergence exit (97), the `POSEIDON_LIVE_CMD=1` and `POSEIDON_LIVE_CLAUDE=1` suites |
+| The whole product still assembles | `apps/server/test/e2e`                                                                                                                                                |

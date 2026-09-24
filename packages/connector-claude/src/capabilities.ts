@@ -9,7 +9,7 @@
  * `rollback`) stays at the answer that promises least.
  */
 
-import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
+import type { ConnectorCapabilities } from "@poseidon/contracts/runtime";
 
 export const CLAUDE_CAPABILITIES: ConnectorCapabilities = {
   // One process serves the whole session, and the SDK's `setModel` changes
@@ -23,7 +23,7 @@ export const CLAUDE_CAPABILITIES: ConnectorCapabilities = {
   // `steer` writes one more user message into the running turn, and the turn
   // stays open until the CLI has taken it up (`steering.ts`).
   // `signed-out-steer` has the message written mid-turn and run as the CLI's
-  // next turn, inside one OpenAde turn; `steering` is the recording that will
+  // next turn, inside one Poseidon turn; `steering` is the recording that will
   // show a message folded into a running agent loop; none is made yet. The
   // session announces `false` once the CLI's init shows it sends no receipts
   // (`receiptless-steer`), and refuses a steer until it has shown it does.
@@ -50,7 +50,7 @@ export const CLAUDE_CAPABILITIES: ConnectorCapabilities = {
   // process; nothing recorded yet shows what it leaves behind.
   interrupt: "session",
   // `resumeSessionAt` can rewind the CLI's conversation, but nothing recorded
-  // shows it yet. OpenAde's checkpoints are git and do not depend on it.
+  // shows it yet. Poseidon's checkpoints are git and do not depend on it.
   rollback: false,
   // A `/compact` user message is the CLI's own command: in
   // `session-controls` it ran as the command — a compaction started, and
@@ -60,7 +60,7 @@ export const CLAUDE_CAPABILITIES: ConnectorCapabilities = {
   // result. The CLI offers the tool to SDK sessions (recorded `system/init`);
   // `question` is the recording that will show a card answered.
   questions: true,
-  // Every mode is enforced by OpenAde's permission ladder through the session's
+  // Every mode is enforced by Poseidon's permission ladder through the session's
   // PreToolUse hook, which runs for every tool call in every permission mode.
   runtimeModes: ["approval-required", "auto-accept-edits", "full-access"],
   // Images go as content blocks; any other file goes under the thread's

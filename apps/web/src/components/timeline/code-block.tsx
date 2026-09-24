@@ -27,8 +27,8 @@
 import { File, useWorkerPool } from "@pierre/diffs/react";
 import * as React from "react";
 
-import { Button } from "@OpenAde/ui/components/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+import { Button } from "@poseidon/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 
 import { CopyButton } from "@/components/copy-button";
 import { useTheme } from "@/components/theme-provider";

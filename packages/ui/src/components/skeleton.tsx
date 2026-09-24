@@ -1,4 +1,4 @@
-import { cn } from "@OpenAde/ui/lib/utils";
+import { cn } from "@poseidon/ui/lib/utils";
 
 function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
   return (

@@ -33,7 +33,7 @@ describe("kindForTool", () => {
     ["LS", "tool_call"],
     ["WebFetch", "web_search"],
     ["WebSearch", "web_search"],
-    ["mcp__openade__browser_open", "mcp_tool_call"],
+    ["mcp__poseidon__browser_open", "mcp_tool_call"],
     ["TodoWrite", "todo"],
     ["Skill", "skill"],
     ["Task", "task"],

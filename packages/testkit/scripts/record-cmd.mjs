@@ -162,8 +162,8 @@ const BASE_ENV = new Set([
   "SSL_CERT_FILE",
   "NODE_EXTRA_CA_CERTS",
 ]);
-const PASS_PREFIXES = ["LC_", "OPENADE_"];
-const DROP_PREFIXES = ["OPENADE_SERVER_", "ANTHROPIC_", "OPENAI_"];
+const PASS_PREFIXES = ["LC_", "POSEIDON_"];
+const DROP_PREFIXES = ["POSEIDON_SERVER_", "ANTHROPIC_", "OPENAI_"];
 
 const isAllowed = (name) =>
   !DROP_PREFIXES.some((p) => name.startsWith(p)) &&
@@ -380,11 +380,11 @@ const recordTurn = async (context, turn, index) => {
   });
   const argv = [...context.binary.prefixArgs, ...connectorArgs];
   const env = envAllowlist(process.env, {
-    OPENADE_THREAD_ID: "01JQ0000000000000000000000",
-    // The recording hook reads these; they must carry an OPENADE_ prefix or
+    POSEIDON_THREAD_ID: "01JQ0000000000000000000000",
+    // The recording hook reads these; they must carry an POSEIDON_ prefix or
     // the connector's own env allowlist (mirrored above) strips them.
-    OPENADE_RECORD_HOOK_LOG: hookLog,
-    OPENADE_RECORD_HOOK_POLICY: policyPath,
+    POSEIDON_RECORD_HOOK_LOG: hookLog,
+    POSEIDON_RECORD_HOOK_POLICY: policyPath,
     ...turn.extraEnv,
   });
 
@@ -721,7 +721,7 @@ const main = async () => {
   }
 
   const home = NodeOS.homedir();
-  const scratchBase = process.env.RECORD_SCRATCH ?? NodePath.join(NodeOS.tmpdir(), "openade-rec");
+  const scratchBase = process.env.RECORD_SCRATCH ?? NodePath.join(NodeOS.tmpdir(), "poseidon-rec");
   const scratch = NodeFS.realpathSync(
     (() => {
       const dir = NodePath.join(scratchBase, `${name}-${NodeCrypto.randomUUID().slice(0, 8)}`);

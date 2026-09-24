@@ -30,7 +30,7 @@ const withChannels = async <A>(channels: Channels, run: () => Promise<A>): Promi
     ...(channels.preload === undefined && channels.serverState === undefined
       ? {}
       : {
-          openade: {
+          poseidon: {
             ...(channels.preload === undefined
               ? {}
               : { getConnection: () => Promise.resolve(channels.preload) }),

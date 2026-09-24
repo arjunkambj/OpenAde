@@ -7,9 +7,9 @@
  */
 
 import * as NodeOS from "node:os";
-import type { ConnectorDefinition, StartSessionInput } from "@OpenAde/connector-sdk/definition";
-import { SpawnFailed } from "@OpenAde/connector-sdk/definition";
-import type { ModelOption } from "@OpenAde/contracts/connectors";
+import type { ConnectorDefinition, StartSessionInput } from "@poseidon/connector-sdk/definition";
+import { SpawnFailed } from "@poseidon/connector-sdk/definition";
+import type { ModelOption } from "@poseidon/contracts/connectors";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 

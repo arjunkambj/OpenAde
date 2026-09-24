@@ -1,5 +1,5 @@
 /**
- * AskUserQuestion's input as OpenAde's question card, and the user's answers
+ * AskUserQuestion's input as Poseidon's question card, and the user's answers
  * as the `updatedInput` the CLI reads: keyed by question text, labels joined.
  */
 

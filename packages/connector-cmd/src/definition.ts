@@ -7,9 +7,9 @@
  */
 import { homedir } from "node:os";
 import * as NodePath from "node:path";
-import type { ConnectorDefinition, StartSessionInput } from "@OpenAde/connector-sdk/definition";
-import { SpawnFailed } from "@OpenAde/connector-sdk/definition";
-import type { ConnectorExtensions } from "@OpenAde/connector-sdk/extensions";
+import type { ConnectorDefinition, StartSessionInput } from "@poseidon/connector-sdk/definition";
+import { SpawnFailed } from "@poseidon/connector-sdk/definition";
+import type { ConnectorExtensions } from "@poseidon/connector-sdk/extensions";
 import * as Effect from "effect/Effect";
 import * as Semaphore from "effect/Semaphore";
 

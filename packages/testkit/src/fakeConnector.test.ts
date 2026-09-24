@@ -1,11 +1,11 @@
-import { makeConnectorInstanceId, makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
+import { makeConnectorInstanceId, makeProjectId, makeThreadId } from "@poseidon/contracts/ids";
 import type {
   ConnectorServices,
   StartSessionInput,
   TurnInput,
-} from "@OpenAde/connector-sdk/definition";
-import { runConnectorConformance } from "@OpenAde/connector-sdk/conformance";
-import { makeStreamCollector } from "@OpenAde/connector-sdk/streamCollector";
+} from "@poseidon/connector-sdk/definition";
+import { runConnectorConformance } from "@poseidon/connector-sdk/conformance";
+import { makeStreamCollector } from "@poseidon/connector-sdk/streamCollector";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
@@ -26,7 +26,7 @@ const makeServices: Effect.Effect<ConnectorServices> = Effect.clockWith((clock) 
     mcpEndpoint: () => Effect.succeed({ url: "http://127.0.0.1:0/mcp", bearer: "test" }),
     hookEndpoint: () => Effect.succeed({ url: "http://127.0.0.1:0/hook", bearer: "test" }),
     permissions: { decide: () => Effect.succeed("prompt" as const) },
-    attachmentsDir: "/tmp/openade-fake-connector",
+    attachmentsDir: "/tmp/poseidon-fake-connector",
     logger: { log: () => Effect.void },
     clock,
   }),

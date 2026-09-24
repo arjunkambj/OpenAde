@@ -1,13 +1,13 @@
-import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
+import { PoseidonRpcError } from "@poseidon/contracts/rpc";
 import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { describe, expect, it } from "vitest";
 
 import { fileMenuEmptyLabel, heldMenuSource, menuSource } from "@/components/composer/menu-source";
 
-const rpcFailure = (code: OpenAdeRpcError["code"]) =>
-  AsyncResult.failure<ReadonlyArray<string>, OpenAdeRpcError>(
-    Cause.fail(new OpenAdeRpcError({ code, message: `${code} happened` })),
+const rpcFailure = (code: PoseidonRpcError["code"]) =>
+  AsyncResult.failure<ReadonlyArray<string>, PoseidonRpcError>(
+    Cause.fail(new PoseidonRpcError({ code, message: `${code} happened` })),
   );
 
 describe("menuSource", () => {

@@ -10,7 +10,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@OpenAde/ui/components/sidebar";
+} from "@poseidon/ui/components/sidebar";
 
 import { SettingsWindowChrome } from "@/components/Layout/window-chrome";
 import { SidebarPrimaryNav } from "@/components/sidebar/sidebar-primary-nav";

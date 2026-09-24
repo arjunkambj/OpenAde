@@ -1,5 +1,5 @@
-import type { ItemSnapshot, Todo } from "@OpenAde/contracts/runtime";
-import { makeItemId } from "@OpenAde/contracts/ids";
+import type { ItemSnapshot, Todo } from "@poseidon/contracts/runtime";
+import { makeItemId } from "@poseidon/contracts/ids";
 import { Check, Close, Hammer, Minus, PlayMini } from "@honeyicons/react";
 import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";

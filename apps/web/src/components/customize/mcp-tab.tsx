@@ -7,16 +7,16 @@
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
-import { Button } from "@OpenAde/ui/components/button";
+import { Button } from "@poseidon/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@OpenAde/ui/components/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import type { McpServerConfig } from "@OpenAde/contracts/connectors";
-import type { ConnectorInstanceId } from "@OpenAde/contracts/ids";
+} from "@poseidon/ui/components/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
+import type { McpServerConfig } from "@poseidon/contracts/connectors";
+import type { ConnectorInstanceId } from "@poseidon/contracts/ids";
 import * as Exit from "effect/Exit";
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";

@@ -10,14 +10,14 @@
  */
 
 import { useAtomValue } from "@effect/atom-react";
-import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
-import type { FileSearchResult } from "@OpenAde/contracts/rpc";
+import type { ProjectId, ThreadId } from "@poseidon/contracts/ids";
+import type { FileSearchResult } from "@poseidon/contracts/rpc";
 import {
   removeComposerToken,
   replaceComposerTrigger,
   retainComposerReferences,
   type ComposerTrigger,
-} from "@OpenAde/client-runtime/composerTrigger";
+} from "@poseidon/client-runtime/composerTrigger";
 import * as React from "react";
 
 import { fileMenuEmptyLabel, heldMenuSource, menuSource } from "@/components/composer/menu-source";

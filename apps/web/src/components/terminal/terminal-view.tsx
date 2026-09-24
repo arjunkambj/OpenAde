@@ -27,10 +27,10 @@
 import "@xterm/xterm/css/xterm.css";
 
 import { useAtomSet } from "@effect/atom-react";
-import { detectModKey, resolveKeybinding } from "@OpenAde/client-runtime/keybindings";
-import { encodeTerminalKey } from "@OpenAde/client-runtime/terminalAtoms";
-import type { TerminalId } from "@OpenAde/contracts/ids";
-import { decodeTerminalOwnerKey, type TerminalSize } from "@OpenAde/contracts/terminal";
+import { detectModKey, resolveKeybinding } from "@poseidon/client-runtime/keybindings";
+import { encodeTerminalKey } from "@poseidon/client-runtime/terminalAtoms";
+import type { TerminalId } from "@poseidon/contracts/ids";
+import { decodeTerminalOwnerKey, type TerminalSize } from "@poseidon/contracts/terminal";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
 import { WebLinksAddon } from "@xterm/addon-web-links";

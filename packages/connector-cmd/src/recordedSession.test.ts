@@ -17,10 +17,10 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import * as NodeURL from "node:url";
 import { describe, expect, it } from "@effect/vitest";
-import { makeConnectorInstanceId, makeThreadId } from "@OpenAde/contracts/ids";
-import type { ConnectorServices } from "@OpenAde/connector-sdk/definition";
-import { makeStreamCollector } from "@OpenAde/connector-sdk/streamCollector";
-import type { RuntimeEvent } from "@OpenAde/contracts/runtime";
+import { makeConnectorInstanceId, makeThreadId } from "@poseidon/contracts/ids";
+import type { ConnectorServices } from "@poseidon/connector-sdk/definition";
+import { makeStreamCollector } from "@poseidon/connector-sdk/streamCollector";
+import type { RuntimeEvent } from "@poseidon/contracts/runtime";
 import * as Effect from "effect/Effect";
 import type * as Scope from "effect/Scope";
 
@@ -83,9 +83,9 @@ const openSession = (
       binaryPath: REPLAY_BINARY,
       extraEnv: {
         HOME: b.home,
-        OPENADE_REPLAY_DIR: NodePath.join(RECORDINGS, scenario),
-        OPENADE_REPLAY_STATE: NodePath.join(b.home, ".replay-turn"),
-        ...(options.argvLog === undefined ? {} : { OPENADE_REPLAY_ARGV_LOG: options.argvLog }),
+        POSEIDON_REPLAY_DIR: NodePath.join(RECORDINGS, scenario),
+        POSEIDON_REPLAY_STATE: NodePath.join(b.home, ".replay-turn"),
+        ...(options.argvLog === undefined ? {} : { POSEIDON_REPLAY_ARGV_LOG: options.argvLog }),
       },
       home: b.home,
       services: yield* services(),

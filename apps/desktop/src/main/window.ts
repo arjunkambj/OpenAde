@@ -162,7 +162,7 @@ export async function createWindow(options: WindowOptions): Promise<BrowserWindo
   const { maximized, fullScreen, ...bounds } = loadWindowState();
   const lights = trafficLightPosition();
   const win = new BrowserWindow({
-    title: "OpenAde",
+    title: "Poseidon",
     ...bounds,
     minWidth: MIN_WINDOW_WIDTH,
     minHeight: MIN_WINDOW_HEIGHT,

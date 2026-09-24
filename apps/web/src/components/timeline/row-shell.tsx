@@ -21,8 +21,8 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@OpenAde/ui/components/collapsible";
-import type { ItemStatus } from "@OpenAde/contracts/runtime";
+} from "@poseidon/ui/components/collapsible";
+import type { ItemStatus } from "@poseidon/contracts/runtime";
 
 import { cn } from "@/lib/utils";
 import { useRowDisclosure } from "@/state/ui";

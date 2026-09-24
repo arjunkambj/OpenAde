@@ -18,9 +18,9 @@ import {
   makeTurnId,
   type ProjectId,
   type ThreadId,
-} from "@OpenAde/contracts/ids";
-import type { ThreadWorktree, WorktreeSetupFrame } from "@OpenAde/contracts/git";
-import type { OrchestrationEvent } from "@OpenAde/contracts/orchestration";
+} from "@poseidon/contracts/ids";
+import type { ThreadWorktree, WorktreeSetupFrame } from "@poseidon/contracts/git";
+import type { OrchestrationEvent } from "@poseidon/contracts/orchestration";
 import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -47,10 +47,10 @@ const tempDir = (prefix: string) => realpathSync(mkdtempSync(nodePath.join(tmpdi
 
 /** A repository with one commit on `main`, and a local identity (CI has none). */
 const makeRepo = () => {
-  const root = tempDir("openade-worktrees-repo-");
+  const root = tempDir("poseidon-worktrees-repo-");
   git(root, "init", "-q", "-b", "main");
-  git(root, "config", "user.email", "test@openade.local");
-  git(root, "config", "user.name", "OpenAde Test");
+  git(root, "config", "user.email", "test@poseidon.local");
+  git(root, "config", "user.name", "Poseidon Test");
   writeFileSync(nodePath.join(root, "a.txt"), "one\n");
   git(root, "add", "-A");
   git(root, "commit", "-qm", "init");
@@ -59,7 +59,7 @@ const makeRepo = () => {
 
 /** Pushes `main` to a local bare repository standing in for `origin`. */
 const addBareRemote = (root: string) => {
-  const bare = tempDir("openade-worktrees-remote-");
+  const bare = tempDir("poseidon-worktrees-remote-");
   git(bare, "init", "-q", "--bare", "-b", "main");
   git(root, "remote", "add", "origin", bare);
   git(root, "push", "-q", "-u", "origin", "main");
@@ -91,14 +91,14 @@ const createdEvent = (
 
 /**
  * Real sqlite, read models, settings store and git layer, with worktrees going
- * under a fresh tmp directory rather than the OpenAde home.
+ * under a fresh tmp directory rather than the Poseidon home.
  */
 const stack = Effect.gen(function* () {
   const sqlite = Layer.succeedContext(yield* Layer.build(sqliteTestLayer()));
   yield* runMigrations.pipe(Effect.provide(sqlite));
   const rmContext = yield* Layer.build(ReadModelStore.layer.pipe(Layer.provide(sqlite)));
   const readModels = Context.get(rmContext, ReadModelStore);
-  const worktreesRoot = tempDir("openade-worktrees-home-");
+  const worktreesRoot = tempDir("poseidon-worktrees-home-");
   const context = yield* Layer.build(
     gitLayer.pipe(
       Layer.provideMerge(
@@ -152,7 +152,7 @@ const outputOf = (list: ReadonlyArray<WorktreeSetupFrame>) =>
   list.map((frame) => (frame.kind === "output" ? frame.text : "")).join("");
 
 describe("git.worktree.create", () => {
-  it.live("cuts openade/<slug> from the default branch under the worktrees root", () =>
+  it.live("cuts poseidon/<slug> from the default branch under the worktrees root", () =>
     Effect.scoped(
       Effect.gen(function* () {
         const root = makeRepo();
@@ -162,11 +162,11 @@ describe("git.worktree.create", () => {
         const worktree = yield* service.createWorktree(projectId, { name: "Fix the login page!" });
         expect(worktree).toEqual({
           path: nodePath.join(worktreesRoot, "my-app", "fix-the-login-page"),
-          branch: "openade/fix-the-login-page",
+          branch: "poseidon/fix-the-login-page",
           baseBranch: "main",
         });
         expect(git(worktree.path, "rev-parse", "--abbrev-ref", "HEAD").trim()).toBe(
-          "openade/fix-the-login-page",
+          "poseidon/fix-the-login-page",
         );
         expect(git(worktree.path, "rev-parse", "HEAD")).toBe(git(root, "rev-parse", "main"));
         // The project's own checkout did not move.
@@ -188,12 +188,12 @@ describe("git.worktree.create", () => {
           baseBranch: "origin/main",
         });
         expect(worktree.baseBranch).toBe("origin/main");
-        // No upstream: the first push must create openade/retries, never update main.
+        // No upstream: the first push must create poseidon/retries, never update main.
         const upstream = git(
           root,
           "for-each-ref",
           "--format=%(upstream)",
-          "refs/heads/openade/retries",
+          "refs/heads/poseidon/retries",
         );
         expect(upstream.trim()).toBe("");
       }),
@@ -209,15 +209,15 @@ describe("git.worktree.create", () => {
 
         const first = yield* service.createWorktree(projectId, { name: "add retries" });
         const second = yield* service.createWorktree(projectId, { name: "add retries" });
-        expect(first.branch).toBe("openade/add-retries");
-        expect(second.branch).toBe("openade/add-retries-2");
+        expect(first.branch).toBe("poseidon/add-retries");
+        expect(second.branch).toBe("poseidon/add-retries-2");
         expect(second.path).toBe(nodePath.join(worktreesRoot, "my-app", "add-retries-2"));
 
         // Another project of the same name shares the parent directory: its
         // repository has no such branch, but the directory is taken.
         const other = yield* addProject(makeRepo());
         const third = yield* service.createWorktree(other, { name: "add retries" });
-        expect(third.branch).toBe("openade/add-retries-3");
+        expect(third.branch).toBe("poseidon/add-retries-3");
         expect(nodePath.dirname(third.path)).toBe(nodePath.join(worktreesRoot, "my-app"));
       }),
     ),
@@ -302,7 +302,7 @@ describe("git.worktree.list", () => {
         const list = yield* service.listWorktrees(projectId);
         expect(list.map(({ path, branch, isMain }) => ({ path, branch, isMain }))).toEqual([
           { path: root, branch: "main", isMain: true },
-          { path: worktree.path, branch: "openade/listed", isMain: false },
+          { path: worktree.path, branch: "poseidon/listed", isMain: false },
         ]);
         expect(list[1]?.head).toBe(git(root, "rev-parse", "main").trim());
       }),
@@ -324,7 +324,7 @@ describe("git.worktree.remove", () => {
 
         yield* service.removeWorktree(projectId, { path: worktree.path, force: false });
         expect(existsSync(worktree.path)).toBe(false);
-        expect(git(root, "log", "-1", "--format=%s", "openade/done").trim()).toBe("work");
+        expect(git(root, "log", "-1", "--format=%s", "poseidon/done").trim()).toBe("work");
         expect((yield* service.listWorktrees(projectId)).map((entry) => entry.path)).toEqual([
           root,
         ]);
@@ -350,7 +350,7 @@ describe("git.worktree.remove", () => {
 
         yield* service.removeWorktree(projectId, { path: worktree.path, force: true });
         expect(existsSync(worktree.path)).toBe(false);
-        expect(git(root, "branch", "--list", "openade/dirty").trim()).toBe("openade/dirty");
+        expect(git(root, "branch", "--list", "poseidon/dirty").trim()).toBe("poseidon/dirty");
       }),
     ),
   );
@@ -362,7 +362,7 @@ describe("git.worktree.remove", () => {
         const { git: service, addProject } = yield* stack;
         const projectId = yield* addProject(root);
 
-        for (const path of [root, tempDir("openade-not-a-worktree-"), "relative/path"]) {
+        for (const path of [root, tempDir("poseidon-not-a-worktree-"), "relative/path"]) {
           const error = yield* errorOf(service.removeWorktree(projectId, { path, force: true }));
           expect(error.code).toBe("invalid");
         }
@@ -375,7 +375,7 @@ describe("git.worktree.remove", () => {
     Effect.scoped(
       Effect.gen(function* () {
         const main = makeRepo();
-        const linked = nodePath.join(tempDir("openade-linked-parent-"), "linked");
+        const linked = nodePath.join(tempDir("poseidon-linked-parent-"), "linked");
         git(main, "worktree", "add", "-q", "-b", "linked", linked);
         writeFileSync(nodePath.join(linked, "untracked.txt"), "mine\n");
         const { git: service, addProject, settings } = yield* stack;
@@ -383,7 +383,7 @@ describe("git.worktree.remove", () => {
         yield* settings.update({ projectSettings: { [projectId]: { setupScript: "touch ran" } } });
 
         // git lists the main checkout first; the project's own folder is then
-        // an ordinary entry, and still not one OpenAde may remove or set up.
+        // an ordinary entry, and still not one Poseidon may remove or set up.
         for (const path of [linked, main]) {
           const error = yield* errorOf(service.removeWorktree(projectId, { path, force: true }));
           expect(error.code).toBe("invalid");
@@ -491,7 +491,7 @@ describe("git.worktree.setup", () => {
           projectSettings: {
             [projectId]: {
               setupScript:
-                'pwd > where.txt; printf "%s|%s" "$OPENADE_WORKTREE_PATH" "$OPENADE_PROJECT_ROOT"',
+                'pwd > where.txt; printf "%s|%s" "$POSEIDON_WORKTREE_PATH" "$POSEIDON_PROJECT_ROOT"',
             },
           },
         });
@@ -514,7 +514,7 @@ describe("git.worktree.setup", () => {
         const projectId = yield* addProject(root);
         yield* settings.update({ projectSettings: { [projectId]: { setupScript: "touch ran" } } });
 
-        for (const path of [root, tempDir("openade-elsewhere-")]) {
+        for (const path of [root, tempDir("poseidon-elsewhere-")]) {
           const error = yield* errorOf(frames(service.setupWorktree(projectId, path)));
           expect(error).toMatchObject({ code: "invalid" });
           expect(existsSync(nodePath.join(path, "ran"))).toBe(false);
@@ -537,7 +537,7 @@ describe("git.worktree.setup", () => {
         });
 
         const list = yield* frames(service.setupWorktree(projectId, worktree.path));
-        const [body, notice] = outputOf(list).split("\n[OpenAde:");
+        const [body, notice] = outputOf(list).split("\n[Poseidon:");
         expect(body).toBe("a".repeat(SETUP_OUTPUT_LIMIT_BYTES));
         expect(notice).toContain("1 MiB");
         expect(list.at(-1)).toEqual({ kind: "exit", exitCode: 0 });
@@ -552,7 +552,7 @@ describe("git.worktree.setup", () => {
         const { git: service, addProject, settings } = yield* stack;
         const projectId = yield* addProject(root);
         const worktree = yield* service.createWorktree(projectId, { name: "slow" });
-        const pidFile = nodePath.join(tempDir("openade-setup-pid-"), "sleep.pid");
+        const pidFile = nodePath.join(tempDir("poseidon-setup-pid-"), "sleep.pid");
         yield* settings.update({
           projectSettings: {
             [projectId]: { setupScript: `sleep 30 & echo $! > '${pidFile}'; echo started; wait` },
@@ -586,7 +586,7 @@ describe("git.worktree.setup", () => {
         const { git: service, addProject, settings } = yield* stack;
         const projectId = yield* addProject(root);
         const worktree = yield* service.createWorktree(projectId, { name: "unwinding" });
-        const pidFile = nodePath.join(tempDir("openade-setup-pid-"), "sh.pid");
+        const pidFile = nodePath.join(tempDir("poseidon-setup-pid-"), "sh.pid");
         // Like a package manager: SIGTERM is trapped and unwinding takes a while.
         yield* settings.update({
           projectSettings: {

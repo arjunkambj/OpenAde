@@ -30,9 +30,9 @@
  */
 
 import { useAtomSet } from "@effect/atom-react";
-import { makeCommandId, type ThreadId } from "@OpenAde/contracts/ids";
-import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
-import { Button } from "@OpenAde/ui/components/button";
+import { makeCommandId, type ThreadId } from "@poseidon/contracts/ids";
+import type { CheckpointSummary } from "@poseidon/contracts/orchestration";
+import { Button } from "@poseidon/ui/components/button";
 import {
   Dialog,
   DialogContent,
@@ -40,7 +40,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@OpenAde/ui/components/dialog";
+} from "@poseidon/ui/components/dialog";
 import * as Exit from "effect/Exit";
 import * as React from "react";
 

@@ -14,8 +14,8 @@
 import { useAtom } from "@effect/atom-react";
 import * as React from "react";
 
-import { Button } from "@OpenAde/ui/components/button";
-import { Checkbox } from "@OpenAde/ui/components/checkbox";
+import { Button } from "@poseidon/ui/components/button";
+import { Checkbox } from "@poseidon/ui/components/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -23,8 +23,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@OpenAde/ui/components/dialog";
-import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
+} from "@poseidon/ui/components/dialog";
+import type { ThreadSummary } from "@poseidon/contracts/orchestration";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { THREAD_DELETE_DESCRIPTION } from "@/components/sidebar/thread-actions";

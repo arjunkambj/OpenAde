@@ -8,7 +8,7 @@
  * confirmed paths a real workspace would give it.
  */
 
-import type { FileContent, FileStat } from "@OpenAde/contracts/rpc";
+import type { FileContent, FileStat } from "@poseidon/contracts/rpc";
 
 /** Where the fixture project lives. Nothing is on disk there. */
 export const FIXTURE_ROOT = "/fixture";

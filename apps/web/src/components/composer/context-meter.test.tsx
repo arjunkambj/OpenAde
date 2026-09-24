@@ -1,4 +1,4 @@
-import { TooltipProvider } from "@OpenAde/ui/components/tooltip";
+import { TooltipProvider } from "@poseidon/ui/components/tooltip";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 

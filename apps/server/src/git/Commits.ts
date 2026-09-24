@@ -6,20 +6,20 @@
  * itself decides — what gets staged, whether anything is, which remote a
  * branch pushes to — live here.
  *
- * Both run as the user, not as OpenAde: no author environment (that is the
+ * Both run as the user, not as Poseidon: no author environment (that is the
  * checkpoint store's, for its hidden refs only) and never `--no-verify`, so
  * the user's identity, signing config and hooks apply exactly as they would in
  * a terminal. A hook that refuses surfaces its own output.
  */
-import type { GitCommitResult, GitPushResult } from "@OpenAde/contracts/git";
+import type { GitCommitResult, GitPushResult } from "@poseidon/contracts/git";
 import * as Effect from "effect/Effect";
 
-import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
+import { PoseidonRpcError } from "@poseidon/contracts/rpc";
 
 import { run, type GitResult } from "./process";
 
-const invalid = (message: string) => new OpenAdeRpcError({ code: "invalid", message });
-const conflict = (message: string) => new OpenAdeRpcError({ code: "conflict", message });
+const invalid = (message: string) => new PoseidonRpcError({ code: "invalid", message });
+const conflict = (message: string) => new PoseidonRpcError({ code: "conflict", message });
 
 /** What git said when it refused: stderr, else stdout (some hooks print there), else the code. */
 const refusalText = (result: GitResult) =>
@@ -266,7 +266,7 @@ const remoteFor = (cwd: string, branch: string) =>
     if (remotes.includes("origin")) return "origin";
     if (remotes.length === 1) return remotes[0]!;
     return yield* Effect.fail(
-      new OpenAdeRpcError({
+      new PoseidonRpcError({
         code: "unavailable",
         message:
           remotes.length === 0

@@ -16,7 +16,7 @@
 
 import * as NodeCrypto from "node:crypto";
 import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
-import type { TurnInput } from "@OpenAde/connector-sdk/definition";
+import type { TurnInput } from "@poseidon/connector-sdk/definition";
 
 import type { StagedAttachments } from "./attachments";
 

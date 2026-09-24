@@ -9,7 +9,7 @@
  * visited page that is one of the servers' own root is not listed twice.
  */
 
-import type { DevServer } from "@OpenAde/contracts/rpc";
+import type { DevServer } from "@poseidon/contracts/rpc";
 
 import type { HistoryEntry } from "./history";
 

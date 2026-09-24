@@ -7,7 +7,7 @@
   "payload": {
     "servers": [
       {
-        "name": "openade",
+        "name": "poseidon",
         "status": "connected"
       },
       {

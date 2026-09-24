@@ -8,13 +8,13 @@
  * so the two kinds of thread cannot drift apart.
  *
  * Checkpoint prune is the one exception and deliberately stays on the project
- * root: the hidden refs under `refs/openade` are shared by every worktree of a
+ * root: the hidden refs under `refs/poseidon` are shared by every worktree of a
  * repository, and a deleted thread's worktree may already be gone.
  */
 
 import { realpathSync } from "node:fs";
 import * as nodePath from "node:path";
-import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
+import type { ProjectId, ThreadId } from "@poseidon/contracts/ids";
 import * as Effect from "effect/Effect";
 
 import type { ReadModelStore } from "../persistence/ReadModels";

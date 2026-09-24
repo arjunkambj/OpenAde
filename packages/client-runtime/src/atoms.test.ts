@@ -4,16 +4,16 @@
  * and the `serverInstanceId` reset.
  */
 
-import { OpenAdeRpcError, PROTOCOL_VERSION } from "@OpenAde/contracts/rpc";
+import { PoseidonRpcError, PROTOCOL_VERSION } from "@poseidon/contracts/rpc";
 import { describe, expect, it } from "@effect/vitest";
-import type { ConnectorInstanceId, ProjectId, ThreadId } from "@OpenAde/contracts/ids";
+import type { ConnectorInstanceId, ProjectId, ThreadId } from "@poseidon/contracts/ids";
 import {
   makeCommandId,
   makeEventId,
   makeItemId,
   makeProjectId,
   makeThreadId,
-} from "@OpenAde/contracts/ids";
+} from "@poseidon/contracts/ids";
 import type {
   Command,
   CommandReceipt,
@@ -22,15 +22,15 @@ import type {
   ThreadListStreamItem,
   ThreadStreamItem,
   ThreadSummary,
-} from "@OpenAde/contracts/orchestration";
+} from "@poseidon/contracts/orchestration";
 import type {
   ConnectorSummary,
   ModelOption,
   PluginSummary,
   SkillSummary,
-} from "@OpenAde/contracts/connectors";
-import type { Settings } from "@OpenAde/contracts/settings";
-import { defaultSettings } from "@OpenAde/contracts/settings";
+} from "@poseidon/contracts/connectors";
+import type { Settings } from "@poseidon/contracts/settings";
+import { defaultSettings } from "@poseidon/contracts/settings";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -49,7 +49,7 @@ import {
   markConnected,
   setConnectionStatus,
   type ConnectionState,
-  type OpenAdeRpcClient,
+  type PoseidonRpcClient,
 } from "./connection";
 
 const INSTANCE = "01900000-0000-7000-8000-000000000000";
@@ -115,7 +115,7 @@ interface StubData {
   readonly list?: ListChannel;
   readonly projects?: Ref.Ref<ReadonlyArray<ProjectSummary>>;
   /** Answers `projects.list` itself — how a test makes the read model fail. */
-  readonly projectsRequest?: () => Effect.Effect<ReadonlyArray<ProjectSummary>, OpenAdeRpcError>;
+  readonly projectsRequest?: () => Effect.Effect<ReadonlyArray<ProjectSummary>, PoseidonRpcError>;
   readonly settings?: () => Queue.Queue<Settings, unknown>;
   /** Answers `orchestration.dispatch` — how a test accepts or rejects one. */
   readonly dispatch?: (command: Command) => CommandReceipt;
@@ -126,7 +126,7 @@ interface StubData {
   /** Answers `connectors.models` per instance — how a test makes one fail. */
   readonly models?: (
     instanceId: ConnectorInstanceId,
-  ) => Effect.Effect<ReadonlyArray<ModelOption>, OpenAdeRpcError>;
+  ) => Effect.Effect<ReadonlyArray<ModelOption>, PoseidonRpcError>;
   /** Answers `connectors.skills.list`, given the whole payload. */
   readonly skills?: (payload: {
     readonly instanceId: ConnectorInstanceId;
@@ -135,7 +135,7 @@ interface StubData {
   /** Answers `connectors.plugins.list` per instance — how a test makes one fail. */
   readonly plugins?: (
     instanceId: ConnectorInstanceId,
-  ) => Effect.Effect<ReadonlyArray<PluginSummary>, OpenAdeRpcError>;
+  ) => Effect.Effect<ReadonlyArray<PluginSummary>, PoseidonRpcError>;
 }
 
 /**
@@ -149,8 +149,8 @@ const fakeClient = (
   streams: Map<string, Queue.Queue<ThreadStreamItem, unknown>>,
   instanceId: Ref.Ref<string>,
   data: StubData = {},
-): OpenAdeRpcClient =>
-  new Proxy({} as OpenAdeRpcClient, {
+): PoseidonRpcClient =>
+  new Proxy({} as PoseidonRpcClient, {
     get: (_target, key) => {
       if (key === "server.hello") {
         return () =>
@@ -247,7 +247,7 @@ const connectorSummary = (id: string, enabled: boolean): ConnectorSummary => ({
 
 const model = (id: string): ModelOption => ({ id, label: id, family: "test", efforts: [] });
 
-const runtimeWith = (client: OpenAdeRpcClient, state: ConnectionState) =>
+const runtimeWith = (client: PoseidonRpcClient, state: ConnectionState) =>
   Effect.gen(function* () {
     const stateRef = yield* SubscriptionRef.make(state);
     const layer = Layer.mergeAll(
@@ -639,7 +639,7 @@ describe("atoms", () => {
             projectsRequest: () => {
               calls += 1;
               return Effect.fail(
-                new OpenAdeRpcError({ code: "internal", message: "bad row in the read model" }),
+                new PoseidonRpcError({ code: "internal", message: "bad row in the read model" }),
               );
             },
           }),
@@ -651,7 +651,7 @@ describe("atoms", () => {
         // the empty initial value, indistinguishable from "no projects".
         registry.mount(projectsAtom);
         const failure = yield* Effect.promise(() => awaitFailure(registry, projectsAtom));
-        expect(failure).toBeInstanceOf(OpenAdeRpcError);
+        expect(failure).toBeInstanceOf(PoseidonRpcError);
         expect(calls).toBe(1);
       }),
     ),
@@ -673,7 +673,7 @@ describe("atoms", () => {
             models: (instanceId) => {
               asked.push(instanceId);
               return instanceId === "broken"
-                ? Effect.fail(new OpenAdeRpcError({ code: "internal", message: "no models" }))
+                ? Effect.fail(new PoseidonRpcError({ code: "internal", message: "no models" }))
                 : Effect.succeed([model(`${instanceId}/one`), model(`${instanceId}/two`)]);
             },
           }),
@@ -749,7 +749,7 @@ describe("atoms", () => {
                 return Effect.succeed([plugin]);
               }
               return Effect.fail(
-                new OpenAdeRpcError({
+                new PoseidonRpcError({
                   code: instanceId === "without" ? "unavailable" : "internal",
                   message: `no plugins on ${instanceId}`,
                 }),

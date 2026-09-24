@@ -7,8 +7,8 @@
  * projection can never get ahead of its events.
  */
 
-import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
-import type { ProjectSummary, ThreadSummary } from "@OpenAde/contracts/orchestration";
+import type { ProjectId, ThreadId } from "@poseidon/contracts/ids";
+import type { ProjectSummary, ThreadSummary } from "@poseidon/contracts/orchestration";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";

@@ -11,9 +11,9 @@
 
 import { mkdir, readFile, readdir, stat, symlink } from "node:fs/promises";
 import * as NodePath from "node:path";
-import { ConnectorExtensionFailed } from "@OpenAde/connector-sdk/extensions";
-import type { ExtensionScope, SkillsExtension } from "@OpenAde/connector-sdk/extensions";
-import type { AgentSkill, SkillSummary } from "@OpenAde/contracts/connectors";
+import { ConnectorExtensionFailed } from "@poseidon/connector-sdk/extensions";
+import type { ExtensionScope, SkillsExtension } from "@poseidon/connector-sdk/extensions";
+import type { AgentSkill, SkillSummary } from "@poseidon/contracts/connectors";
 import * as Effect from "effect/Effect";
 import type * as Semaphore from "effect/Semaphore";
 

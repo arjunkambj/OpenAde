@@ -1,5 +1,5 @@
-import type { TerminalAttachItem } from "@OpenAde/client-runtime/terminalAtoms";
-import type { TerminalId, ThreadId } from "@OpenAde/contracts/ids";
+import type { TerminalAttachItem } from "@poseidon/client-runtime/terminalAtoms";
+import type { TerminalId, ThreadId } from "@poseidon/contracts/ids";
 import { Terminal } from "@xterm/xterm";
 import { describe, expect, it } from "vitest";
 

@@ -12,7 +12,7 @@
  * types would reach whatever listens there — an approval card's 1/2/3, say.
  */
 
-import type { ThreadId } from "@OpenAde/contracts/ids";
+import type { ThreadId } from "@poseidon/contracts/ids";
 import * as React from "react";
 
 import { IconButton } from "@/components/terminal/drawer-parts";

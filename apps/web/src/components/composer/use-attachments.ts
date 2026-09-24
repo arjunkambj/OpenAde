@@ -17,8 +17,8 @@
  */
 
 import { useAtomSet } from "@effect/atom-react";
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import type { Attachment } from "@OpenAde/contracts/orchestration";
+import type { ThreadId } from "@poseidon/contracts/ids";
+import type { Attachment } from "@poseidon/contracts/orchestration";
 import * as React from "react";
 
 import {

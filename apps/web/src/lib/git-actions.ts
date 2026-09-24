@@ -20,8 +20,8 @@ import type {
   GitCommitResult,
   GitPullRequestResult,
   GitPushResult,
-} from "@OpenAde/contracts/git";
-import type { GitFileChange, GitStatus } from "@OpenAde/contracts/rpc";
+} from "@poseidon/contracts/git";
+import type { GitFileChange, GitStatus } from "@poseidon/contracts/rpc";
 
 export type GitAction = "commit" | "commit-push" | "commit-push-pr";
 

@@ -2,8 +2,8 @@
   "name": "desktop",
   "version": "0.0.1",
   "private": true,
-  "description": "OpenAde desktop shell",
-  "author": "OpenAde",
+  "description": "Poseidon desktop shell",
+  "author": "Poseidon",
   "type": "module",
   "main": "out/main/index.cjs",
   "scripts": {
@@ -17,9 +17,9 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "@OpenAde/contracts": "workspace:*",
-    "@OpenAde/shared": "workspace:*",
-    "@OpenAde/testkit": "workspace:*",
+    "@poseidon/contracts": "workspace:*",
+    "@poseidon/shared": "workspace:*",
+    "@poseidon/testkit": "workspace:*",
     "@types/node": "catalog:",
     "@types/ws": "^8.18.1",
     "concurrently": "^10.0.4",

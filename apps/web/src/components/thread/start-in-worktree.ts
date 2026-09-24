@@ -22,8 +22,8 @@
  * nothing moves the user off the page they went to.
  */
 
-import type { WorktreeSetupProgress } from "@OpenAde/client-runtime/gitCommands";
-import type { ThreadWorktree } from "@OpenAde/contracts/git";
+import type { WorktreeSetupProgress } from "@poseidon/client-runtime/gitCommands";
+import type { ThreadWorktree } from "@poseidon/contracts/git";
 
 /** Where the sequence is, for the panel above the composer. */
 export type WorktreeStartStep =

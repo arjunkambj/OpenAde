@@ -1,7 +1,7 @@
 import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import { cva, type VariantProps } from "class-variance-authority";
 
-import { cn } from "@OpenAde/ui/lib/utils";
+import { cn } from "@poseidon/ui/lib/utils";
 
 // Every size shares the base `rounded-lg`, the same radius as a sidebar row,
 // so buttons and the rows beside them read as one family. `shape="pill"` is

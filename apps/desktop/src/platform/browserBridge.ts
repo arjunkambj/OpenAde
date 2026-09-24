@@ -5,7 +5,7 @@
  * The in-app browser is driven through the bridge in `../main/browser/` — a
  * loopback CDP endpoint scoped to the pane webviews, behind a per-launch
  * capability (docs/architecture.md, "The browser bridge"). It is on by
- * default, because it exposes nothing but the pane. `OPENADE_REMOTE_DEBUG=0`
+ * default, because it exposes nothing but the pane. `POSEIDON_REMOTE_DEBUG=0`
  * (or `false`) is the kill switch: no bridge, and the desktop browser tools
  * report that the in-app browser is disabled. Any other value is ignored.
  *
@@ -22,10 +22,10 @@ export type BrowserBridgeSetting =
   | { readonly kind: "disabled"; readonly reason: string };
 
 /** The reason the kill switch reports, in the tools and the settings page. */
-export const KILL_SWITCH_REASON = "OPENADE_REMOTE_DEBUG=0 turned the in-app browser off";
+export const KILL_SWITCH_REASON = "POSEIDON_REMOTE_DEBUG=0 turned the in-app browser off";
 
 export const resolveBrowserBridge = (env: NodeJS.ProcessEnv): BrowserBridgeSetting => {
-  const flag = env["OPENADE_REMOTE_DEBUG"]?.trim().toLowerCase();
+  const flag = env["POSEIDON_REMOTE_DEBUG"]?.trim().toLowerCase();
   return flag === "0" || flag === "false"
     ? { kind: "disabled", reason: KILL_SWITCH_REASON }
     : { kind: "enabled" };

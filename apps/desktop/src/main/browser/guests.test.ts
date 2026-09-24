@@ -345,7 +345,7 @@ describe("createGuestRegistry", () => {
 
     host.focusResult = false;
     await expect(registry.port.withFocus(1, async () => "ran")).rejects.toThrow(
-      /not in the OpenAde window/,
+      /not in the Poseidon window/,
     );
   });
 });

@@ -29,11 +29,11 @@ import * as NodeReadline from "node:readline";
 
 import { app, BrowserWindow, session } from "electron";
 
-import { mintLaunchKey } from "@OpenAde/shared/browserBridge";
+import { mintLaunchKey } from "@poseidon/shared/browserBridge";
 
 import { startBridgeServer } from "../src/main/browser/server.ts";
 
-const OUT = process.env.OPENADE_RECORD_HOST_DIR ?? app.getPath("temp");
+const OUT = process.env.POSEIDON_RECORD_HOST_DIR ?? app.getPath("temp");
 app.setPath("userData", NodePath.join(OUT, "userData"));
 
 const write = (message) => process.stdout.write(`${JSON.stringify(message)}\n`);

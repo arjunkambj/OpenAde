@@ -20,7 +20,7 @@ import {
   type HistoryEntry,
 } from "@/components/panes/browser/history";
 
-const HISTORY_KEY = "openade:browser-history";
+const HISTORY_KEY = "poseidon:browser-history";
 
 const NONE: ReadonlyArray<HistoryEntry> = [];
 

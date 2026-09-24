@@ -3,7 +3,7 @@
  *
  * A thread that asks for its own worktree gets a branch
  * `<branchPrefix><slug>` cut `--no-track` from its base, checked out in
- * `<worktrees root>/<project slug>/<slug>` — under the OpenAde home, never
+ * `<worktrees root>/<project slug>/<slug>` — under the Poseidon home, never
  * inside the user's repository. The slug is made unique against the
  * repository's branches *and* the directories already there, since two
  * projects with the same name share a parent directory.
@@ -18,13 +18,13 @@
  */
 import { existsSync, mkdirSync, realpathSync } from "node:fs";
 import * as nodePath from "node:path";
-import type { GitWorktreeInfo, ThreadWorktree } from "@OpenAde/contracts/git";
-import { worktreesDir } from "@OpenAde/shared/paths";
+import type { GitWorktreeInfo, ThreadWorktree } from "@poseidon/contracts/git";
+import { worktreesDir } from "@poseidon/shared/paths";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
+import { PoseidonRpcError } from "@poseidon/contracts/rpc";
 
 import { canonicalPath } from "../orchestration/workspaceRoot";
 import { branchSlug } from "./branchSlug";
@@ -34,7 +34,7 @@ import { run } from "./process";
 /**
  * The directory new worktrees are created under. A service rather than a
  * constant so a test points it at a tmp directory instead of moving
- * `OPENADE_HOME` for the whole process; `boot` provides `worktreesDir()`.
+ * `POSEIDON_HOME` for the whole process; `boot` provides `worktreesDir()`.
  */
 export class WorktreesRoot extends Context.Service<WorktreesRoot, { readonly path: string }>()(
   "server/git/WorktreesRoot",
@@ -44,8 +44,8 @@ export class WorktreesRoot extends Context.Service<WorktreesRoot, { readonly pat
   );
 }
 
-const invalid = (message: string) => new OpenAdeRpcError({ code: "invalid", message });
-const conflict = (message: string) => new OpenAdeRpcError({ code: "conflict", message });
+const invalid = (message: string) => new PoseidonRpcError({ code: "invalid", message });
+const conflict = (message: string) => new PoseidonRpcError({ code: "conflict", message });
 
 /** How many `-2`, `-3`… suffixes are tried before giving up on a name. */
 const MAX_SUFFIX = 100;
@@ -121,13 +121,15 @@ export const registeredWorktree = (root: string, path: string) =>
     }
     if (target === canonicalPath(root)) {
       return yield* Effect.fail(
-        invalid("That is the project's own checkout, not a worktree OpenAde can remove or set up."),
+        invalid(
+          "That is the project's own checkout, not a worktree Poseidon can remove or set up.",
+        ),
       );
     }
     if (found.isMain) {
       return yield* Effect.fail(
         invalid(
-          "That is the repository's main checkout, not a worktree OpenAde can remove or set up.",
+          "That is the repository's main checkout, not a worktree Poseidon can remove or set up.",
         ),
       );
     }

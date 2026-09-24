@@ -10,8 +10,8 @@
  * open. The dock button is the view's own dock toggle.
  */
 
-import { Button } from "@OpenAde/ui/components/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+import { Button } from "@poseidon/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 
 import type { DockPane } from "@/components/dock/dock-toggle";
 import { TERMINAL_TOGGLE_COMMAND } from "@/lib/keybindings";

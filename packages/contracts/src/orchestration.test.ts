@@ -85,7 +85,7 @@ describe("Attachment", () => {
   it.effect("carries a reference to a staged file, never its bytes", () =>
     Effect.gen(function* () {
       const reference = {
-        path: "/Users/dev/.openade/attachments/thread/3f8a1c0d9e2b-design.png",
+        path: "/Users/dev/.poseidon/attachments/thread/3f8a1c0d9e2b-design.png",
         mime: "image/png",
         name: "design.png",
         size: 20481,

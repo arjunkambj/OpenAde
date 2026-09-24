@@ -31,8 +31,8 @@
  * lifecycle message with no row to move is kept unmapped.
  */
 
-import type { ItemStatus } from "@OpenAde/contracts/runtime";
-import type { ItemId } from "@OpenAde/contracts/ids";
+import type { ItemStatus } from "@poseidon/contracts/runtime";
+import type { ItemId } from "@poseidon/contracts/ids";
 
 import { asRecord, asString, type Json, type PendingRuntimeEvent } from "./pending";
 

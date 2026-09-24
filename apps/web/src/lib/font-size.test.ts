@@ -3,7 +3,7 @@ import {
   FONT_SIZE_STEP,
   MAX_FONT_SIZE,
   MIN_FONT_SIZE,
-} from "@OpenAde/contracts/settings";
+} from "@poseidon/contracts/settings";
 import { describe, expect, it } from "vitest";
 
 import { stepFontSizes } from "./font-size";

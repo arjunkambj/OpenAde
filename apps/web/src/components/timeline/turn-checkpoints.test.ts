@@ -1,6 +1,6 @@
-import { makeCheckpointId, makeItemId, makeTurnId, type TurnId } from "@OpenAde/contracts/ids";
-import type { CheckpointRestore, CheckpointSummary } from "@OpenAde/contracts/orchestration";
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
+import { makeCheckpointId, makeItemId, makeTurnId, type TurnId } from "@poseidon/contracts/ids";
+import type { CheckpointRestore, CheckpointSummary } from "@poseidon/contracts/orchestration";
+import type { ItemSnapshot } from "@poseidon/contracts/runtime";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -23,7 +23,7 @@ const item = (turnId: TurnId | undefined, kind: ItemSnapshot["kind"] = "tool_cal
 const checkpointOf = (turnId: TurnId): CheckpointSummary => ({
   checkpointId: makeCheckpointId(),
   turnId,
-  ref: `refs/openade/checkpoints/t/${turnId}`,
+  ref: `refs/poseidon/checkpoints/t/${turnId}`,
   createdAt: "2026-01-01T00:00:00.000Z",
 });
 

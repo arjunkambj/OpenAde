@@ -12,9 +12,9 @@ import {
   makeProjectId,
   makeThreadId,
   makeTurnId,
-} from "@OpenAde/contracts/ids";
-import type { CheckpointId } from "@OpenAde/contracts/ids";
-import type { Command, CheckpointSummary } from "@OpenAde/contracts/orchestration";
+} from "@poseidon/contracts/ids";
+import type { CheckpointId } from "@poseidon/contracts/ids";
+import type { Command, CheckpointSummary } from "@poseidon/contracts/orchestration";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -80,7 +80,7 @@ const restoreCommand = (checkpointId: CheckpointId): Command => ({
 const checkpoint: CheckpointSummary = {
   checkpointId: makeCheckpointId(),
   turnId: makeTurnId(),
-  ref: "refs/openade/checkpoints/thread/turn",
+  ref: "refs/poseidon/checkpoints/thread/turn",
   createdAt: NOW,
 };
 
@@ -441,7 +441,7 @@ describe("CheckpointReactor", () => {
     () =>
       Effect.gen(function* () {
         const worktreeThread = makeThreadId();
-        const worktree = { path: "/worktrees/demo/fix", branch: "openade/fix" };
+        const worktree = { path: "/worktrees/demo/fix", branch: "poseidon/fix" };
         const captured = yield* Deferred.make<CheckpointCaptureInput>();
         const restored = yield* Deferred.make<CheckpointRestoreInput>();
         const pruned = yield* Deferred.make<CheckpointPruneInput>();

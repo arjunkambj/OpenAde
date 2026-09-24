@@ -5,13 +5,13 @@ import { projectRemovalWarning } from "./removal-copy";
 describe("projectRemovalWarning", () => {
   it("reads as English with no threads under the project", () => {
     expect(projectRemovalWarning("proj", 0, "/tmp/proj")).toBe(
-      "proj is removed from OpenAde. Nothing in /tmp/proj is touched.",
+      "proj is removed from Poseidon. Nothing in /tmp/proj is touched.",
     );
   });
 
   it("names one thread in the singular", () => {
     expect(projectRemovalWarning("proj", 1, "/tmp/proj")).toBe(
-      "proj and its one thread are removed from OpenAde, with that thread's transcript and turn checkpoints. Nothing in /tmp/proj is touched.",
+      "proj and its one thread are removed from Poseidon, with that thread's transcript and turn checkpoints. Nothing in /tmp/proj is touched.",
     );
   });
 
@@ -31,7 +31,7 @@ describe("projectRemovalWarning", () => {
 
   it("says worktrees stay on disk when some threads have one", () => {
     expect(projectRemovalWarning("proj", 2, "/tmp/proj", 1)).toBe(
-      "proj and its 2 threads are removed from OpenAde, with their transcripts and turn checkpoints. Nothing in /tmp/proj is touched. The worktree one of its threads works in is not removed either: it stays on disk, with its branch.",
+      "proj and its 2 threads are removed from Poseidon, with their transcripts and turn checkpoints. Nothing in /tmp/proj is touched. The worktree one of its threads works in is not removed either: it stays on disk, with its branch.",
     );
     expect(projectRemovalWarning("proj", 3, "/tmp/proj", 3)).toContain(
       "The 3 worktrees its threads work in are not removed either",

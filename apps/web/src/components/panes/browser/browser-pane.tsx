@@ -13,7 +13,7 @@
  * - `owned-chromium` (the web renderer, no desktop): the pane renders the
  *   JPEG frame stream and forwards gestures and toolbar actions; the server
  *   replays them into its own headless Chromium.
- * - `disabled` (desktop with `OPENADE_REMOTE_DEBUG=0`): the agent has no
+ * - `disabled` (desktop with `POSEIDON_REMOTE_DEBUG=0`): the agent has no
  *   browser, and the pane says so above the tabs a person can still browse.
  *
  * Nothing here creates a webview: with no tab the pane shows "No page open",
@@ -28,11 +28,11 @@
 import * as React from "react";
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import type { BrowserHumanInput } from "@OpenAde/contracts/rpc";
-import { Alert, AlertAction, AlertDescription, AlertTitle } from "@OpenAde/ui/components/alert";
-import { Button } from "@OpenAde/ui/components/button";
-import type { DevServer } from "@OpenAde/contracts/rpc";
+import type { ThreadId } from "@poseidon/contracts/ids";
+import type { BrowserHumanInput } from "@poseidon/contracts/rpc";
+import { Alert, AlertAction, AlertDescription, AlertTitle } from "@poseidon/ui/components/alert";
+import { Button } from "@poseidon/ui/components/button";
+import type { DevServer } from "@poseidon/contracts/rpc";
 import {
   Empty,
   EmptyContent,
@@ -40,7 +40,7 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@OpenAde/ui/components/empty";
+} from "@poseidon/ui/components/empty";
 import { AsyncResult } from "effect/unstable/reactivity";
 
 import { BrowserSlot } from "@/components/browser-host/browser-slot";
@@ -168,7 +168,7 @@ export function BrowserPane({ threadId, projectId }: BrowserPaneProps) {
   const stateResult = useAtomValue(atoms.browserStateAtom(threadId));
   const state = AsyncResult.isSuccess(stateResult) ? stateResult.value : null;
   const sendInput = useAtomSet(atoms.sendBrowserInput, { mode: "promiseExit" });
-  const hostsTabs = window.openade?.browserPane?.serveTabs !== undefined;
+  const hostsTabs = window.poseidon?.browserPane?.serveTabs !== undefined;
   const tab = selectedTab(useThreadTabs(threadId));
   const suggest = useSuggestionSource(threadId, projectId);
   const recordVisit = useRecordVisit();
@@ -232,7 +232,7 @@ export function BrowserPane({ threadId, projectId }: BrowserPaneProps) {
         // A plain browser tab on a desktop's server: the tabs live in the
         // desktop window, and there is no headless browser to fall back to.
         <NoBrowser
-          title="The in-app browser shows in the OpenAde window"
+          title="The in-app browser shows in the Poseidon window"
           detail="The agent drives this thread's browser in the desktop app."
         />
       ) : state !== null && state.mode === "disabled" ? (

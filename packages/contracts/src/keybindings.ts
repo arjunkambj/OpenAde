@@ -66,7 +66,7 @@ const TIMELINE_KEYS = "threadOpen && !inputFocus";
  * caret there, and a menu owns its arrows. Outside both, the chord means
  * nothing to the system, which is why the reserved-chord check lets the pane
  * take it over under exactly this clause (`TAKEN_OVER_CHORDS` in
- * `@OpenAde/client-runtime/keymap`).
+ * `@poseidon/client-runtime/keymap`).
  */
 export const CHANGES_PANE_KEYS = "changesOpen && !inputFocus && !dialogOpen";
 
@@ -79,7 +79,7 @@ export const CHANGES_PANE_KEYS = "changesOpen && !inputFocus && !dialogOpen";
  * The chords avoid the macOS system shortcuts, the Electron default menu
  * (reload, devtools, zoom, close, hide, quit), the standard text-editing
  * chords and each other in any context where two could be live at once;
- * `default-keymap.test.ts` in `@OpenAde/client-runtime` fails the build when a
+ * `default-keymap.test.ts` in `@poseidon/client-runtime` fails the build when a
  * row breaks one of those rules. Font size takes `Mod+Alt+=`/`-`/`0` so page
  * zoom keeps `Mod+=`/`-`/`0`.
  */

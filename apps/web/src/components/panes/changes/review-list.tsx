@@ -13,9 +13,9 @@
  * found by `linkedFileIndex`, since the timeline's path is often absolute.
  */
 
-import type { GitDiffFile } from "@OpenAde/contracts/rpc";
-import { Button } from "@OpenAde/ui/components/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+import type { GitDiffFile } from "@poseidon/contracts/rpc";
+import { Button } from "@poseidon/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 import * as React from "react";
 
 import { scrollWithin } from "@/lib/scroll-within";

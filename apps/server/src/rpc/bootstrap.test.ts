@@ -20,7 +20,7 @@ const mode = (path: string) => statSync(path).mode & 0o777;
 describe("writeDevConnectionFile", () => {
   it.effect("keeps the token readable only by its owner", () =>
     Effect.sync(() => {
-      const home = mkdtempSync(join(tmpdir(), "openade-handshake-"));
+      const home = mkdtempSync(join(tmpdir(), "poseidon-handshake-"));
       const path = join(home, "dev", "connection.json");
       const line = JSON.stringify({
         url: "ws://127.0.0.1:1234/ws",

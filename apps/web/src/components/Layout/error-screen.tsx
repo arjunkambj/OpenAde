@@ -11,7 +11,7 @@
  * link home is the escape when it is not transient.
  */
 
-import { Button } from "@OpenAde/ui/components/button";
+import { Button } from "@poseidon/ui/components/button";
 import { Link } from "@tanstack/react-router";
 
 import { AlertTriangle, Repeat } from "@honeyicons/react";
@@ -49,7 +49,7 @@ export function ErrorScreen({ error, reset }: { error: unknown; reset?: () => vo
           </Button>
         )}
         <Button type="button" variant="ghost" render={<Link to="/" />}>
-          Back to OpenAde
+          Back to Poseidon
         </Button>
       </div>
     </div>

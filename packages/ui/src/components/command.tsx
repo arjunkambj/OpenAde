@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Command as CommandPrimitive } from "cmdk";
-import { cn } from "@OpenAde/ui/lib/utils";
+import { cn } from "@poseidon/ui/lib/utils";
 
 import {
   Dialog,
@@ -8,8 +8,8 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@OpenAde/ui/components/dialog";
-import { InputGroup, InputGroupAddon } from "@OpenAde/ui/components/input-group";
+} from "@poseidon/ui/components/dialog";
+import { InputGroup, InputGroupAddon } from "@poseidon/ui/components/input-group";
 import { Check, Search as SearchIcon } from "@honeyicons/react";
 
 function Command({ className, ...props }: React.ComponentProps<typeof CommandPrimitive>) {

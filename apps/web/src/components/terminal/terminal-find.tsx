@@ -14,8 +14,8 @@ import {
   InputGroupButton,
   InputGroupInput,
   InputGroupText,
-} from "@OpenAde/ui/components/input-group";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+} from "@poseidon/ui/components/input-group";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 import * as React from "react";
 
 import type { FindResults, TerminalHandle } from "@/components/terminal/terminal-handle";

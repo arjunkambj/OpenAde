@@ -1,13 +1,13 @@
 /**
- * Command Code's tool vocabulary, mapped onto OpenAde's approval model: which
+ * Command Code's tool vocabulary, mapped onto Poseidon's approval model: which
  * kind of permission a tool call asks for, the MCP server and tool it names,
- * and the pattern its "allow always" button starts from — in OpenAde's own
- * pattern vocabulary (`@OpenAde/shared/permissionPattern`), not the CLI's
+ * and the pattern its "allow always" button starts from — in Poseidon's own
+ * pattern vocabulary (`@poseidon/shared/permissionPattern`), not the CLI's
  * (docs/command-code-connector.md, "The tool vocabulary").
  */
 
-import type { ApprovalKind } from "@OpenAde/contracts/enums";
-import type { McpToolRef } from "@OpenAde/contracts/runtime";
+import type { ApprovalKind } from "@poseidon/contracts/enums";
+import type { McpToolRef } from "@poseidon/contracts/runtime";
 
 /** Which kind of permission a tool call asks for. */
 export const approvalKindFor = (toolName: string): ApprovalKind => {

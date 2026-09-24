@@ -197,11 +197,11 @@ export const replayConfig = (scenario: string, options: ReplayOptions): ReplayCo
   binaryPath: REPLAY_BINARY,
   extraEnv: {
     HOME: options.home,
-    OPENADE_REPLAY_DIR: NodePath.join(RECORDINGS_DIR, scenario),
-    OPENADE_REPLAY_STATE: options.stateFile ?? NodePath.join(options.home, ".replay-turn"),
-    ...(options.pidDir === undefined ? {} : { OPENADE_REPLAY_PID_DIR: options.pidDir }),
-    ...(options.turn === undefined ? {} : { OPENADE_REPLAY_TURN: String(options.turn) }),
-    ...(options.argvLog === undefined ? {} : { OPENADE_REPLAY_ARGV_LOG: options.argvLog }),
+    POSEIDON_REPLAY_DIR: NodePath.join(RECORDINGS_DIR, scenario),
+    POSEIDON_REPLAY_STATE: options.stateFile ?? NodePath.join(options.home, ".replay-turn"),
+    ...(options.pidDir === undefined ? {} : { POSEIDON_REPLAY_PID_DIR: options.pidDir }),
+    ...(options.turn === undefined ? {} : { POSEIDON_REPLAY_TURN: String(options.turn) }),
+    ...(options.argvLog === undefined ? {} : { POSEIDON_REPLAY_ARGV_LOG: options.argvLog }),
   },
 });
 

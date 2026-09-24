@@ -4,7 +4,7 @@
  * A dispatch has two failure shapes and they mean different things. A decider
  * that *refused* the command answers with a `CommandReceipt` carrying
  * `status: "rejected"` and usually a reason — the server heard it and said no.
- * A dropped socket, an `OpenAdeRpcError` or a decode failure produces no
+ * A dropped socket, an `PoseidonRpcError` or a decode failure produces no
  * receipt at all — nobody heard it, and trying again may well work. Every call
  * site needs both arms, and clearing whatever pending flag it set in both is
  * what keeps an interaction card answerable after a failed attempt instead of
@@ -23,7 +23,7 @@
  * render a standalone sentence.
  */
 
-import type { CommandReceipt } from "@OpenAde/contracts/orchestration";
+import type { CommandReceipt } from "@poseidon/contracts/orchestration";
 import * as Exit from "effect/Exit";
 
 /** Shown when the dispatch promise rejected — the server never answered. */

@@ -10,8 +10,8 @@
  * `envAllowlist` is the leak guard: of the *inherited*
  * environment the child sees only the handful of variables a CLI legitimately
  * needs; the operator's `extraEnv` passes by name, because naming it is the
- * decision; and the session's own `OPENADE_*` control plane is applied last so
- * nothing can override it. Nothing starting with `OPENADE_SERVER_`,
+ * decision; and the session's own `POSEIDON_*` control plane is applied last so
+ * nothing can override it. Nothing starting with `POSEIDON_SERVER_`,
  * `ANTHROPIC_` or `OPENAI_` reaches the child by any of the three routes.
  */
 
@@ -125,32 +125,32 @@ const BASE_ENV = new Set([
 
 /**
  * Prefixes that pass the allowlist — `LC_*` locales, Command Code's own
- * credential override, and our `OPENADE_*` control plane.
+ * credential override, and our `POSEIDON_*` control plane.
  */
-const PASS_PREFIXES = ["LC_", "OPENADE_"];
+const PASS_PREFIXES = ["LC_", "POSEIDON_"];
 
 /**
  * What must never reach the harness, even through `extraEnv`: our own server
  * internals and other vendors' credentials.
  */
-const DROP_PREFIXES = ["OPENADE_SERVER_", "ANTHROPIC_", "OPENAI_"];
+const DROP_PREFIXES = ["POSEIDON_SERVER_", "ANTHROPIC_", "OPENAI_"];
 
 /**
  * Names only the session gets to set.
  *
- * `OPENADE_HOOK_URL`, `OPENADE_HOOK_TICKET_FILE` and `OPENADE_MCP_TOKEN` are
+ * `POSEIDON_HOOK_URL`, `POSEIDON_HOOK_TICKET_FILE` and `POSEIDON_MCP_TOKEN` are
  * the approval gate's control plane, and `extraEnv` is not a local-only file:
  * it is part of the connector config and is written through the `settings`
- * RPC from the connectors page. Pointing `OPENADE_HOOK_TICKET_FILE` at a path
+ * RPC from the connectors page. Pointing `POSEIDON_HOOK_TICKET_FILE` at a path
  * that does not exist makes the hook script read no bearer, take its "no
- * OpenAde session owns this run" path and exit silently — and under `--yolo`
+ * Poseidon session owns this run" path and exit silently — and under `--yolo`
  * that is every tool call running unapproved while the header still says
  * `approval-required`. So an operator-supplied value of one of these names is
- * dropped the way `OPENADE_SERVER_` is, and the session's own value is
+ * dropped the way `POSEIDON_SERVER_` is, and the session's own value is
  * applied last besides.
  */
-const RESERVED_PREFIXES = ["OPENADE_HOOK_", "OPENADE_MCP_"];
-const RESERVED_NAMES = new Set(["OPENADE_THREAD_ID"]);
+const RESERVED_PREFIXES = ["POSEIDON_HOOK_", "POSEIDON_MCP_"];
+const RESERVED_NAMES = new Set(["POSEIDON_THREAD_ID"]);
 
 const isReserved = (name: string): boolean =>
   RESERVED_NAMES.has(name) || RESERVED_PREFIXES.some((prefix) => name.startsWith(prefix));
@@ -167,14 +167,14 @@ const isAllowed = (name: string): boolean =>
 /**
  * The spawn environment: allowlisted inherited variables, then the operator's
  * `extraEnv`, then the session's own control plane — in that order, so
- * OpenAde's keys always win. `extraEnv` used to be spread *after* them, which
+ * Poseidon's keys always win. `extraEnv` used to be spread *after* them, which
  * made one setting on the connectors page enough to switch the approval gate
  * off.
  */
 export const envAllowlist = (
   env: Readonly<Record<string, string | undefined>>,
   extra: Readonly<Record<string, string>> = {},
-  /** The session's own `OPENADE_*` variables. Applied last and never filtered. */
+  /** The session's own `POSEIDON_*` variables. Applied last and never filtered. */
   control: Readonly<Record<string, string>> = {},
 ): Record<string, string> => {
   const out: Record<string, string> = {};

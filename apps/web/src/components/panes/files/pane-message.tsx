@@ -12,7 +12,7 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@OpenAde/ui/components/empty";
+} from "@poseidon/ui/components/empty";
 import type { ReactNode } from "react";
 
 export function PaneMessage({

@@ -19,8 +19,8 @@
 import { Outlet } from "@tanstack/react-router";
 import type * as React from "react";
 
-import { SidebarInset, SidebarProvider } from "@OpenAde/ui/components/sidebar";
-import { TooltipProvider } from "@OpenAde/ui/components/tooltip";
+import { SidebarInset, SidebarProvider } from "@poseidon/ui/components/sidebar";
+import { TooltipProvider } from "@poseidon/ui/components/tooltip";
 
 import { SettingsSidebar } from "@/components/Layout/settings-sidebar";
 import { useSidebarWidth } from "@/state/ui";

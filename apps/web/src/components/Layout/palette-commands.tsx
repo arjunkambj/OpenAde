@@ -10,7 +10,7 @@
 
 import { Fragment } from "react";
 
-import { CommandGroup, CommandItem, CommandSeparator } from "@OpenAde/ui/components/command";
+import { CommandGroup, CommandItem, CommandSeparator } from "@poseidon/ui/components/command";
 
 import { ItemShortcut } from "@/components/Layout/palette-groups";
 import { COMMAND_AREAS, COMMAND_CATALOG, type CommandArea } from "@/lib/command-catalog";

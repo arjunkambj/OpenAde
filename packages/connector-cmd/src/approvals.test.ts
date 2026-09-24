@@ -1,4 +1,4 @@
-import { patternMatches } from "@OpenAde/shared/permissionPattern";
+import { patternMatches } from "@poseidon/shared/permissionPattern";
 import { describe, expect, it } from "vitest";
 
 import { approvalKindFor, mcpToolFor, patternSuggestionFor } from "./approvals";
@@ -27,8 +27,8 @@ describe("patternSuggestionFor", () => {
   });
 
   it("suggests Mcp(<server>.<tool>) for mcp tools", () => {
-    expect(patternSuggestionFor("mcp__openade__get_thread", { id: "t" })).toBe(
-      "Mcp(openade.get_thread)",
+    expect(patternSuggestionFor("mcp__poseidon__get_thread", { id: "t" })).toBe(
+      "Mcp(poseidon.get_thread)",
     );
     expect(patternSuggestionFor("mcp__github__create_issue", {})).toBe("Mcp(github.create_issue)");
   });

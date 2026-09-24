@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { FsListing } from "@OpenAde/contracts/rpc";
+import type { FsListing } from "@poseidon/contracts/rpc";
 
 import {
   breadcrumbFor,

@@ -4,7 +4,7 @@ import { prefixProblem, prefixToSave, withSetupScript } from "./git-settings";
 
 describe("prefixProblem", () => {
   it("accepts the default, a personal prefix and an empty one", () => {
-    expect(prefixProblem("openade/")).toBeNull();
+    expect(prefixProblem("poseidon/")).toBeNull();
     expect(prefixProblem("me/fix-")).toBeNull();
     expect(prefixProblem("")).toBeNull();
   });
@@ -24,15 +24,15 @@ describe("prefixProblem", () => {
 
 describe("prefixToSave", () => {
   it("trims the draft", () => {
-    expect(prefixToSave("openade/", "  me/ ")).toBe("me/");
+    expect(prefixToSave("poseidon/", "  me/ ")).toBe("me/");
   });
 
   it("saves nothing when the trimmed draft is what is saved", () => {
-    expect(prefixToSave("openade/", "openade/ ")).toBeNull();
+    expect(prefixToSave("poseidon/", "poseidon/ ")).toBeNull();
   });
 
   it("saves an emptied prefix", () => {
-    expect(prefixToSave("openade/", "  ")).toBe("");
+    expect(prefixToSave("poseidon/", "  ")).toBe("");
   });
 });
 

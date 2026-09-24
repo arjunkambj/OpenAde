@@ -1,6 +1,6 @@
 /**
  * Command Code's skills and MCP server extensions proven end to end: an add
- * lands in Command Code's own `mcp.json` carrying the `_openade` marker, a
+ * lands in Command Code's own `mcp.json` carrying the `_poseidon` marker, a
  * hand-authored entry without the marker survives a round-trip untouched,
  * remove refuses unmanaged entries, skills are discovered from the user and
  * project `skills` roots, and a skill in the shared agents folder is linked
@@ -19,14 +19,14 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
-import type { ConnectorServices } from "@OpenAde/connector-sdk/definition";
+import type { ConnectorServices } from "@poseidon/connector-sdk/definition";
 import type {
   ExtensionScope,
   McpServersExtension,
   SkillsExtension,
-} from "@OpenAde/connector-sdk/extensions";
-import { makeConnectorInstanceId } from "@OpenAde/contracts/ids";
-import type { McpServerConfig } from "@OpenAde/contracts/connectors";
+} from "@poseidon/connector-sdk/extensions";
+import { makeConnectorInstanceId } from "@poseidon/contracts/ids";
+import type { McpServerConfig } from "@poseidon/contracts/connectors";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
@@ -53,7 +53,7 @@ const services: Effect.Effect<ConnectorServices> = Effect.clockWith((clock) =>
     mcpEndpoint: () => Effect.succeed({ url: "http://127.0.0.1:0/mcp", bearer: "test" }),
     hookEndpoint: () => Effect.succeed({ url: "http://127.0.0.1:0/hook", bearer: "test" }),
     permissions: { decide: () => Effect.succeed("prompt" as const) },
-    attachmentsDir: "/tmp/openade-cmd-extensions-test",
+    attachmentsDir: "/tmp/poseidon-cmd-extensions-test",
     logger: { log: () => Effect.void },
     clock,
   }),
@@ -79,9 +79,9 @@ const extensionsOf = (options: CmdConnectorOptions, config: CmdConnectorConfig =
 
 /** Temp Command Code home, agents folder and workspace root. */
 const fixture = Effect.gen(function* () {
-  const home = mkdtempSync(nodePath.join(tmpdir(), "openade-cmd-home-"));
-  const root = mkdtempSync(nodePath.join(tmpdir(), "openade-cmd-project-"));
-  const agents = mkdtempSync(nodePath.join(tmpdir(), "openade-agents-skills-"));
+  const home = mkdtempSync(nodePath.join(tmpdir(), "poseidon-cmd-home-"));
+  const root = mkdtempSync(nodePath.join(tmpdir(), "poseidon-cmd-project-"));
+  const agents = mkdtempSync(nodePath.join(tmpdir(), "poseidon-agents-skills-"));
   const extensions = yield* extensionsOf({ commandCodeHome: home, agentsSkillsRoot: agents });
   return {
     home,
@@ -124,7 +124,7 @@ describe("the cmd extensions", () => {
         expect(onDisk.mcpServers.docs).toMatchObject({
           type: "http",
           url: "https://example.com/mcp",
-          _openade: { enabled: true },
+          _poseidon: { enabled: true },
         });
       }),
     ),
@@ -149,7 +149,7 @@ describe("the cmd extensions", () => {
 
         const onDisk = readDoc(userMcpPath(f.home));
         // The managed entry gained the marker; the hand edit is byte-identical.
-        expect(onDisk.mcpServers.docs?._openade).toEqual({ enabled: true });
+        expect(onDisk.mcpServers.docs?._poseidon).toEqual({ enabled: true });
         expect(onDisk.mcpServers.handwritten).toEqual({
           type: "stdio",
           command: "hand",
@@ -182,7 +182,7 @@ describe("the cmd extensions", () => {
           userMcpPath(f.home),
           JSON.stringify({
             mcpServers: {
-              docs: { type: "http", url: "https://example.com/mcp", _openade: { enabled: true } },
+              docs: { type: "http", url: "https://example.com/mcp", _poseidon: { enabled: true } },
               handwritten: { type: "stdio", command: "hand" },
             },
           }),
@@ -209,7 +209,7 @@ describe("the cmd extensions", () => {
         expect(readDoc(projectMcpPath(f.root)).mcpServers.local).toMatchObject({
           type: "stdio",
           command: "srv",
-          _openade: { enabled: true },
+          _poseidon: { enabled: true },
         });
         // The project scope lists user + project; the user scope only the user file.
         const both = yield* f.mcp.list(f.project);
@@ -264,15 +264,15 @@ describe("the cmd extensions", () => {
         const parked = readDoc(userMcpPath(f.home));
         // The definition survives verbatim, but not where Command Code looks.
         expect(parked.mcpServers.docs).toBeUndefined();
-        expect(parked._openadeDisabled).toMatchObject({
-          docs: { type: "http", url: "https://example.com/mcp", _openade: { enabled: false } },
+        expect(parked._poseidonDisabled).toMatchObject({
+          docs: { type: "http", url: "https://example.com/mcp", _poseidon: { enabled: false } },
         });
 
         const reEnabled = yield* f.mcp.add(f.user, httpServer());
         expect(reEnabled[0]?.enabled).toBe(true);
         const live = readDoc(userMcpPath(f.home));
-        expect(live.mcpServers.docs).toMatchObject({ type: "http", _openade: { enabled: true } });
-        expect(live._openadeDisabled).toBeUndefined();
+        expect(live.mcpServers.docs).toMatchObject({ type: "http", _poseidon: { enabled: true } });
+        expect(live._poseidonDisabled).toBeUndefined();
       }),
     ),
   );
@@ -283,7 +283,7 @@ describe("the cmd extensions", () => {
         yield* f.mcp.add(f.user, httpServer({ enabled: false }));
         const after = yield* f.mcp.remove(f.user, "user", "docs");
         expect(after).toEqual([]);
-        expect(readDoc(userMcpPath(f.home))._openadeDisabled).toBeUndefined();
+        expect(readDoc(userMcpPath(f.home))._poseidonDisabled).toBeUndefined();
       }),
     ),
   );
@@ -297,7 +297,7 @@ describe("the cmd extensions", () => {
           `${JSON.stringify({
             mcpServers: { broken: null, odd: "not-an-object" },
             // Parked by hand, without our marker: ours to leave alone.
-            _openadeDisabled: { handParked: { type: "stdio", command: "hand" } },
+            _poseidonDisabled: { handParked: { type: "stdio", command: "hand" } },
           })}\n`,
         );
 
@@ -305,7 +305,7 @@ describe("the cmd extensions", () => {
         const afterAdd = readDoc(userMcpPath(f.home));
         expect(afterAdd.mcpServers.broken).toBeNull();
         expect(afterAdd.mcpServers.odd).toBe("not-an-object");
-        expect(afterAdd._openadeDisabled).toEqual({
+        expect(afterAdd._poseidonDisabled).toEqual({
           handParked: { type: "stdio", command: "hand" },
         });
 
@@ -314,7 +314,7 @@ describe("the cmd extensions", () => {
         expect(afterRemove.mcpServers.broken).toBeNull();
         expect(afterRemove.mcpServers.odd).toBe("not-an-object");
         // The park still holds a hand-written entry, so the key stays.
-        expect(afterRemove._openadeDisabled).toEqual({
+        expect(afterRemove._poseidonDisabled).toEqual({
           handParked: { type: "stdio", command: "hand" },
         });
       }),
@@ -387,7 +387,7 @@ describe("the cmd extensions", () => {
 
   it.effect("an instance whose extraEnv sets HOME reads that home's config", () =>
     Effect.gen(function* () {
-      const userHome = mkdtempSync(nodePath.join(tmpdir(), "openade-cmd-user-home-"));
+      const userHome = mkdtempSync(nodePath.join(tmpdir(), "poseidon-cmd-user-home-"));
       const { mcp, skills } = yield* extensionsOf({}, { extraEnv: { HOME: userHome } });
       yield* mcp.add({ workspaceRoot: null }, httpServer());
       // The CLI resolves `~/.commandcode` against the HOME it is given, so the
@@ -395,7 +395,7 @@ describe("the cmd extensions", () => {
       expect(
         readDoc(nodePath.join(userHome, ".commandcode", "mcp.json")).mcpServers.docs,
       ).toMatchObject({
-        _openade: { enabled: true },
+        _poseidon: { enabled: true },
       });
       mkdirSync(nodePath.join(userHome, ".agents", "skills", "shared"), { recursive: true });
       writeFileSync(

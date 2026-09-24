@@ -2,7 +2,7 @@
  * The loopback MCP HTTP surface:
  *
  * - `POST /mcp` — the per-session JSON-RPC endpoint the harness calls
- *   (`mcp__openade__browser_*`). Bearer auth resolves to a thread, the body is
+ *   (`mcp__poseidon__browser_*`). Bearer auth resolves to a thread, the body is
  *   bounded, notifications answer 202. `GET /mcp` answers 405: this transport
  *   has no server-initiated stream.
  *
@@ -30,7 +30,7 @@ const unauthorized = () =>
       status: 401,
       // Without this an MCP client cannot tell "wrong credential" from
       // "this endpoint does not want one".
-      headers: { "www-authenticate": 'Bearer realm="openade"' },
+      headers: { "www-authenticate": 'Bearer realm="poseidon"' },
     },
   );
 
@@ -100,7 +100,7 @@ const mcpGetRoute = Effect.gen(function* () {
   return HttpServerResponse.jsonUnsafe(
     {
       error: "method not allowed",
-      detail: "the openade MCP endpoint speaks JSON-RPC over POST; it has no GET event stream",
+      detail: "the poseidon MCP endpoint speaks JSON-RPC over POST; it has no GET event stream",
     },
     { status: 405, headers: { allow: "POST" } },
   );

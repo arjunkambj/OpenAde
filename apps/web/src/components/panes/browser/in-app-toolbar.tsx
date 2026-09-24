@@ -12,9 +12,9 @@
  */
 import * as React from "react";
 
-import type { BrowserHumanInput, BrowserState } from "@OpenAde/contracts/rpc";
-import { Button } from "@OpenAde/ui/components/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+import type { BrowserHumanInput, BrowserState } from "@poseidon/contracts/rpc";
+import { Button } from "@poseidon/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 
 import { getTabView } from "@/components/browser-host/tab-views";
 import { useKeybindingCommand } from "@/lib/shortcuts";

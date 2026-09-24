@@ -13,7 +13,7 @@
  * accumulated, which the fold looks up before minting.
  */
 
-import type { ContentDeltaKind } from "@OpenAde/contracts/runtime";
+import type { ContentDeltaKind } from "@poseidon/contracts/runtime";
 
 import { asRecord, asString, type PendingRuntimeEvent } from "./items";
 import type { TextRows } from "./textRows";

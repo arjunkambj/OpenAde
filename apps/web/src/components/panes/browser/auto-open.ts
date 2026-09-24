@@ -17,7 +17,7 @@
  * The dock tab is a plain string here: the tab union belongs to the dock.
  */
 
-import type { BrowserState } from "@OpenAde/contracts/rpc";
+import type { BrowserState } from "@poseidon/contracts/rpc";
 
 import type { ThreadAgentActivity } from "@/state/browser-activity";
 import type { ThreadTabs } from "@/state/browser-tabs";

@@ -7,8 +7,8 @@
   "payload": {
     "sessionRef": {
       "sessionId": "5bc08bab-1c4e-4c2f-9f2a-7a6f0b9c1d22",
-      "transcriptPath": "/Users/dev/.harness/projects/users-dev-projects-openade/5bc08bab.jsonl",
-      "cwd": "/Users/dev/projects/openade"
+      "transcriptPath": "/Users/dev/.harness/projects/users-dev-projects-poseidon/5bc08bab.jsonl",
+      "cwd": "/Users/dev/projects/poseidon"
     },
     "model": "stealth/ox-alpha",
     "capabilities": {

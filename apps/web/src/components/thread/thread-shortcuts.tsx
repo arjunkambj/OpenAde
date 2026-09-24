@@ -24,8 +24,8 @@
 
 import * as React from "react";
 
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import type { ThreadStatus } from "@OpenAde/contracts/orchestration";
+import type { ThreadId } from "@poseidon/contracts/ids";
+import type { ThreadStatus } from "@poseidon/contracts/orchestration";
 
 import { dockTabTarget, type DockPane, type DockTab } from "@/components/dock/dock-toggle";
 import { DeleteThreadDialog } from "@/components/sidebar/delete-thread-dialog";

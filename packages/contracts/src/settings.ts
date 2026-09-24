@@ -129,9 +129,9 @@ export const PermissionScope = Schema.Literals(["global", "project", "session"])
 export type PermissionScope = typeof PermissionScope.Type;
 
 /**
- * One persisted permission rule, in OpenAde's pattern vocabulary
+ * One persisted permission rule, in Poseidon's pattern vocabulary
  * (`Shell(npm run *)`, `Edit(/src/**)`, `Mcp(github.*)`; see
- * `@OpenAde/shared/permissionPattern`). Deny wins over
+ * `@poseidon/shared/permissionPattern`). Deny wins over
  * ask, ask wins over allow, so a rule can only ever be made stricter by adding
  * another one. `projectId` and `threadId` narrow the rule to its scope.
  */
@@ -193,12 +193,12 @@ const KeybindingsFormat = Schema.Literal("overrides");
 // ── Git and worktrees ──────────────────────────────────────────
 
 /** What a thread's worktree branch starts with unless the user says otherwise. */
-export const DEFAULT_BRANCH_PREFIX = "openade/";
+export const DEFAULT_BRANCH_PREFIX = "poseidon/";
 
 /**
- * How OpenAde names the branches it cuts. A new worktree's branch is
+ * How Poseidon names the branches it cuts. A new worktree's branch is
  * `branchPrefix` followed by a slug of the thread's first message; the prefix
- * may hold `/` (`openade/`, `me/`) or be empty.
+ * may hold `/` (`poseidon/`, `me/`) or be empty.
  */
 export const GitSettings = Schema.Struct({
   branchPrefix: Schema.String.pipe(

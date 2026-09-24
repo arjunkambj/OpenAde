@@ -1,4 +1,4 @@
-import type { TerminalId } from "@OpenAde/contracts/ids";
+import type { TerminalId } from "@poseidon/contracts/ids";
 import { describe, expect, it } from "vitest";
 
 import { runHandOver, type HandOverSteps } from "./terminal-hand-over";

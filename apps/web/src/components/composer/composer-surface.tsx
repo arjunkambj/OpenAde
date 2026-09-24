@@ -1,5 +1,5 @@
 import type * as React from "react";
-import { cn } from "@OpenAde/ui/lib/utils";
+import { cn } from "@poseidon/ui/lib/utils";
 
 export const composerInputClassName =
   "field-sizing-content block max-h-64 min-h-10 w-full resize-none bg-transparent px-1 text-sm leading-6 text-foreground outline-none placeholder:text-muted-foreground";

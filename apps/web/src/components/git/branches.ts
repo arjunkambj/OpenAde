@@ -8,7 +8,7 @@
  * the same choice twice.
  */
 
-import type { GitBranch, GitBranchList } from "@OpenAde/contracts/git";
+import type { GitBranch, GitBranchList } from "@poseidon/contracts/git";
 import * as Cause from "effect/Cause";
 import * as Exit from "effect/Exit";
 import { isObject, isString } from "effect/Predicate";
@@ -36,7 +36,7 @@ const matches = (name: string, query: string): boolean =>
 /**
  * The picker's two groups for `query`: local branches with the current one
  * first, then remote branches that have no local twin. Matching is a
- * case-insensitive substring of the name, so `feat` finds `openade/feature`.
+ * case-insensitive substring of the name, so `feat` finds `poseidon/feature`.
  */
 export const groupBranches = (list: GitBranchList, query: string): BranchGroups => {
   const needle = query.trim();

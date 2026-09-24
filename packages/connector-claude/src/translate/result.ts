@@ -12,8 +12,8 @@
  *   previous one was reset by a `/clear`, and is the turn's price by itself.
  */
 
-import type { TurnId } from "@OpenAde/contracts/ids";
-import type { TurnStopReason } from "@OpenAde/contracts/runtime";
+import type { TurnId } from "@poseidon/contracts/ids";
+import type { TurnStopReason } from "@poseidon/contracts/runtime";
 
 import {
   asArray,

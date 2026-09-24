@@ -11,8 +11,8 @@
 
 import { toast } from "sonner";
 
-import { makeCommandId, type ThreadId } from "@OpenAde/contracts/ids";
-import type { Command } from "@OpenAde/contracts/orchestration";
+import { makeCommandId, type ThreadId } from "@poseidon/contracts/ids";
+import type { Command } from "@poseidon/contracts/orchestration";
 
 import { isAccepted, rejectionMessage } from "@/lib/dispatch-outcome";
 import { useDispatchCommand } from "@/state/hooks";

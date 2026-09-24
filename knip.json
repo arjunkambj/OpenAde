@@ -18,7 +18,7 @@
         "scripts/*.mjs"
       ],
       // tsx is resolved through the server package (it is a server devDep).
-      "ignoreDependencies": ["@OpenAde/contracts", "tsx"]
+      "ignoreDependencies": ["@poseidon/contracts", "tsx"]
     },
     "apps/site": {
       "entry": ["src/entry-server.tsx!", "scripts/*.mjs"],
@@ -30,7 +30,7 @@
         "src/components/mode-toggle.tsx": ["files"],
         "src/lib/shortcuts.tsx": ["exports"]
       },
-      "ignoreDependencies": ["@OpenAde/config", "clsx", "postcss", "tailwind-merge", "tailwindcss"]
+      "ignoreDependencies": ["@poseidon/config", "clsx", "postcss", "tailwind-merge", "tailwindcss"]
     },
     "packages/client-runtime": {
       "includeEntryExports": true,

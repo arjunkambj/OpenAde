@@ -7,7 +7,7 @@
  * between the two halves of a surrogate pair. One timer per batcher, cleared
  * on `dispose`. `flush` is called synchronously from `push` or the timer.
  */
-import { TERMINAL_BATCH_CHARS, TERMINAL_BATCH_MS } from "@OpenAde/contracts/terminal";
+import { TERMINAL_BATCH_CHARS, TERMINAL_BATCH_MS } from "@poseidon/contracts/terminal";
 
 /** The two timer calls the batcher makes; a test passes one it advances by hand. */
 export interface BatchScheduler {

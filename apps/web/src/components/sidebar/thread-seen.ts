@@ -24,7 +24,7 @@ export type SeenMap = Readonly<Record<string, string>>;
 /** Enough history to cover any realistic sidebar without growing forever. */
 export const SEEN_LIMIT = 200;
 
-const SEEN_KEY = "openade:threads-seen";
+const SEEN_KEY = "poseidon:threads-seen";
 
 /** Absent, unparseable or foreign-shaped storage all mean "no memory yet". */
 export const parseSeen = (raw: string | null | undefined): SeenMap => {

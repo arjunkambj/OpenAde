@@ -14,7 +14,7 @@
  * a queued message when nothing is running, as it did before steering.
  */
 
-import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
+import type { ConnectorCapabilities } from "@poseidon/contracts/runtime";
 
 export type SendMode = "start" | "queue" | "steer";
 

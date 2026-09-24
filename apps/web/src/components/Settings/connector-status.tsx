@@ -6,9 +6,9 @@
  * command come from `connectorHealth`, so nothing here knows a harness.
  */
 
-import { Badge } from "@OpenAde/ui/components/badge";
-import { Button } from "@OpenAde/ui/components/button";
-import type { ConnectorSummary } from "@OpenAde/contracts/connectors";
+import { Badge } from "@poseidon/ui/components/badge";
+import { Button } from "@poseidon/ui/components/button";
+import type { ConnectorSummary } from "@poseidon/contracts/connectors";
 
 import { CopyCommand } from "@/components/copy-command";
 import { connectorHealth, type ConnectorHealthState } from "@/lib/connector-health";

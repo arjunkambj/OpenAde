@@ -10,20 +10,20 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@OpenAde/connector-claude": "workspace:*",
-    "@OpenAde/connector-cmd": "workspace:*",
-    "@OpenAde/connector-sdk": "workspace:*",
-    "@OpenAde/contracts": "workspace:*",
-    "@OpenAde/shared": "workspace:*",
     "@effect/platform-node": "catalog:",
     "@lydell/node-pty": "1.2.0-beta.15",
+    "@poseidon/connector-claude": "workspace:*",
+    "@poseidon/connector-cmd": "workspace:*",
+    "@poseidon/connector-sdk": "workspace:*",
+    "@poseidon/contracts": "workspace:*",
+    "@poseidon/shared": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {
-    "@OpenAde/client-runtime": "workspace:*",
-    "@OpenAde/config": "workspace:*",
-    "@OpenAde/testkit": "workspace:*",
     "@effect/vitest": "catalog:",
+    "@poseidon/client-runtime": "workspace:*",
+    "@poseidon/config": "workspace:*",
+    "@poseidon/testkit": "workspace:*",
     "@types/node": "catalog:",
     "esbuild": "catalog:",
     "tsx": "catalog:",

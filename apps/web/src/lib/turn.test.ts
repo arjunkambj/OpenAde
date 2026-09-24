@@ -1,8 +1,8 @@
-import localFixture from "@OpenAde/contracts/fixtures/read-models/thread-summary.json";
-import worktreeFixture from "@OpenAde/contracts/fixtures/read-models/thread-summary.worktree.json";
-import fixture from "@OpenAde/contracts/fixtures/thread-detail-snapshot.json";
-import type { ProjectId } from "@OpenAde/contracts/ids";
-import { ThreadDetailSnapshot, ThreadSummary } from "@OpenAde/contracts/orchestration";
+import localFixture from "@poseidon/contracts/fixtures/read-models/thread-summary.json";
+import worktreeFixture from "@poseidon/contracts/fixtures/read-models/thread-summary.worktree.json";
+import fixture from "@poseidon/contracts/fixtures/thread-detail-snapshot.json";
+import type { ProjectId } from "@poseidon/contracts/ids";
+import { ThreadDetailSnapshot, ThreadSummary } from "@poseidon/contracts/orchestration";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 

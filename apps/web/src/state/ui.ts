@@ -11,7 +11,7 @@
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
-import type { TurnReference } from "@OpenAde/contracts/runtime";
+import type { TurnReference } from "@poseidon/contracts/runtime";
 import * as Atom from "effect/unstable/reactivity/Atom";
 import * as React from "react";
 
@@ -93,7 +93,7 @@ const writeStoredWidth = (key: string, width: number) => {
   }
 };
 
-const DOCK_WIDTH_KEY = "openade:dock-width";
+const DOCK_WIDTH_KEY = "poseidon:dock-width";
 const DOCK_WIDTH_DEFAULT = 480;
 const DOCK_WIDTH_MIN = 280;
 /**
@@ -149,7 +149,7 @@ export const useDockWidth = () => {
   return [width, setPersistedWidth, resetWidth] as const;
 };
 
-const SIDEBAR_WIDTH_KEY = "openade:sidebar-width";
+const SIDEBAR_WIDTH_KEY = "poseidon:sidebar-width";
 const SIDEBAR_WIDTH_DEFAULT = 260;
 const SIDEBAR_WIDTH_MIN = 220;
 const SIDEBAR_WIDTH_MAX = 480;
@@ -303,7 +303,7 @@ export const useComposerDraft = (threadId: string): ComposerDraftHandle => {
  * with its dock open after a relaunch. The dock now starts closed and its
  * memory lasts one session; the stale map is dropped once, as this loads.
  */
-const LEGACY_DOCK_TAB_KEY = "openade:dock-tab-by-thread";
+const LEGACY_DOCK_TAB_KEY = "poseidon:dock-tab-by-thread";
 
 try {
   globalThis.localStorage?.removeItem(LEGACY_DOCK_TAB_KEY);
@@ -358,7 +358,7 @@ export const useDockMemory = (threadId: string) => {
   return [memory, update] as const;
 };
 
-const LAST_PROJECT_KEY = "openade:last-project";
+const LAST_PROJECT_KEY = "poseidon:last-project";
 
 const readLastProject = (): string | null => {
   try {
@@ -392,7 +392,7 @@ export const useLastProject = () => {
   return [lastProject, remember] as const;
 };
 
-const COLLAPSED_PROJECTS_KEY = "openade:collapsed-projects";
+const COLLAPSED_PROJECTS_KEY = "poseidon:collapsed-projects";
 
 /** Absent, unparseable or foreign-shaped storage all mean "nothing collapsed". */
 export const parseCollapsedProjects = (raw: string | null | undefined): ReadonlySet<string> => {
@@ -461,7 +461,7 @@ export const useProjectCollapsed = (projectId: string) => {
 /** Where the start screen runs a new thread: the project's own folder, or a new worktree. */
 export type WorkspaceMode = "local" | "worktree";
 
-const WORKSPACE_MODES_KEY = "openade:workspace-modes";
+const WORKSPACE_MODES_KEY = "poseidon:workspace-modes";
 
 /** Absent, unparseable or foreign-shaped storage all mean "local everywhere". */
 export const parseWorkspaceModes = (
@@ -552,7 +552,7 @@ export const useWorkspaceMode = (projectId: string) => {
   return [mode, setMode] as const;
 };
 
-const PULL_REQUESTS_KEY = "openade:pull-requests-by-thread";
+const PULL_REQUESTS_KEY = "poseidon:pull-requests-by-thread";
 
 /** Only a web link is kept: the URL is opened in the system browser later. */
 const isWebUrl = (value: unknown): value is string => {
@@ -695,8 +695,8 @@ export type DiffStyle = "unified" | "split";
 /** Absent or unknown storage means unified, the layout the timeline uses. */
 export const parseDiffStyle = parseChoice<DiffStyle>(["unified", "split"], "unified");
 
-const CHANGES_SCOPE_KEY = "openade:changes-scope";
-const DIFF_STYLE_KEY = "openade:diff-style";
+const CHANGES_SCOPE_KEY = "poseidon:changes-scope";
+const DIFF_STYLE_KEY = "poseidon:diff-style";
 
 const changesScopeAtom = rememberedAtom<ChangesScope>(
   readChoice(CHANGES_SCOPE_KEY, parseChangesScope),

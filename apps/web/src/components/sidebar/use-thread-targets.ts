@@ -9,7 +9,7 @@
 import { useMatchRoute } from "@tanstack/react-router";
 import * as React from "react";
 
-import type { ProjectSummary, ThreadSummary } from "@OpenAde/contracts/orchestration";
+import type { ProjectSummary, ThreadSummary } from "@poseidon/contracts/orchestration";
 
 import { projectForNewThread, sidebarThreadOrder } from "@/components/sidebar/thread-order";
 import { useProjects, useThreadList } from "@/state/hooks";

@@ -34,8 +34,8 @@
  * that chose none, or whose choice is no longer open.
  */
 
-import { Effort, RuntimeMode } from "@OpenAde/contracts/enums";
-import type { ConnectorInstanceId } from "@OpenAde/contracts/ids";
+import { Effort, RuntimeMode } from "@poseidon/contracts/enums";
+import type { ConnectorInstanceId } from "@poseidon/contracts/ids";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import type * as SqlClient from "effect/unstable/sql/SqlClient";

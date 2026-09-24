@@ -41,9 +41,9 @@
       ],
       "envKeys": [
         "HOME",
-        "OPENADE_RECORD_HOOK_LOG",
-        "OPENADE_RECORD_HOOK_POLICY",
-        "OPENADE_THREAD_ID",
+        "POSEIDON_RECORD_HOOK_LOG",
+        "POSEIDON_RECORD_HOOK_POLICY",
+        "POSEIDON_THREAD_ID",
         "PATH",
         "SHELL",
         "SSH_AUTH_SOCK",
@@ -161,8 +161,8 @@
           "chars": 246
         }
       ],
-      "transcriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg-czzrjh0000gn-t-openade-rec-subagent-0bc4b712-repo/dd3202e2-e2c7-4b6a-9dbd-4f76728a9e4c.jsonl",
-      "guessedTranscriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg_czzrjh0000gn-t-openade-rec-subagent-0bc4b712-repo/dd3202e2-e2c7-4b6a-9dbd-4f76728a9e4c.jsonl",
+      "transcriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg-czzrjh0000gn-t-poseidon-rec-subagent-0bc4b712-repo/dd3202e2-e2c7-4b6a-9dbd-4f76728a9e4c.jsonl",
+      "guessedTranscriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg_czzrjh0000gn-t-poseidon-rec-subagent-0bc4b712-repo/dd3202e2-e2c7-4b6a-9dbd-4f76728a9e4c.jsonl",
       "transcriptDirMatchesConnectorSlug": false,
       "projectDirListing": [
         "dd3202e2-e2c7-4b6a-9dbd-4f76728a9e4c.checkpoints.jsonl",

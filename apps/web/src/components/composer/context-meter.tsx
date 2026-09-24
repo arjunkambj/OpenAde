@@ -5,8 +5,8 @@
  * so the meter is there from the first message rather than appearing after it.
  */
 
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import { cn } from "@OpenAde/ui/lib/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
+import { cn } from "@poseidon/ui/lib/utils";
 
 const RADIUS = 6;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;

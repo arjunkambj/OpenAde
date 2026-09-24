@@ -14,7 +14,7 @@ import { browseDirectory } from "./Directories";
 
 /** A scratch tree: two folders, a repository, a file, and a dot-folder. */
 const makeTree = () => {
-  const root = mkdtempSync(nodePath.join(tmpdir(), "openade-browse-test-"));
+  const root = mkdtempSync(nodePath.join(tmpdir(), "poseidon-browse-test-"));
   mkdirSync(nodePath.join(root, "zebra"));
   mkdirSync(nodePath.join(root, "Alpha"));
   mkdirSync(nodePath.join(root, "repo", ".git"), { recursive: true });
@@ -107,7 +107,7 @@ describe("browseDirectory", () => {
   it.effect("caps the listing and says that it did", () =>
     Effect.gen(function* () {
       const root = yield* Effect.sync(() => {
-        const base = mkdtempSync(nodePath.join(tmpdir(), "openade-browse-many-"));
+        const base = mkdtempSync(nodePath.join(tmpdir(), "poseidon-browse-many-"));
         for (let index = 0; index < 12; index += 1) {
           mkdirSync(nodePath.join(base, `folder-${String(index).padStart(2, "0")}`));
         }
@@ -146,7 +146,7 @@ describe("browseDirectory", () => {
   it.effect("reports an unreadable folder as permission-denied, with nothing of the cause", () =>
     Effect.gen(function* () {
       const locked = yield* Effect.sync(() => {
-        const base = mkdtempSync(nodePath.join(tmpdir(), "openade-browse-locked-"));
+        const base = mkdtempSync(nodePath.join(tmpdir(), "poseidon-browse-locked-"));
         const inner = nodePath.join(base, "private");
         mkdirSync(inner);
         chmodSync(inner, 0o000);

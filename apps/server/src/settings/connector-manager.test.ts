@@ -14,13 +14,13 @@ import {
   makeConnectorInstanceId,
   makeThreadId,
   type ConnectorInstanceId,
-} from "@OpenAde/contracts/ids";
-import type { ConnectorSummary } from "@OpenAde/contracts/connectors";
-import { OPENADE_HOME_ENV } from "@OpenAde/shared/paths";
-import type { AnyConnectorDefinition, ConnectorServices } from "@OpenAde/connector-sdk/definition";
-import { eraseConnectorDefinition, ProbeFailed } from "@OpenAde/connector-sdk/definition";
-import { makeRegistry, type ConnectorRegistry } from "@OpenAde/connector-sdk/registry";
-import { makeFakeConnector } from "@OpenAde/testkit/fakeConnector";
+} from "@poseidon/contracts/ids";
+import type { ConnectorSummary } from "@poseidon/contracts/connectors";
+import { POSEIDON_HOME_ENV } from "@poseidon/shared/paths";
+import type { AnyConnectorDefinition, ConnectorServices } from "@poseidon/connector-sdk/definition";
+import { eraseConnectorDefinition, ProbeFailed } from "@poseidon/connector-sdk/definition";
+import { makeRegistry, type ConnectorRegistry } from "@poseidon/connector-sdk/registry";
+import { makeFakeConnector } from "@poseidon/testkit/fakeConnector";
 import { describe, expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
@@ -78,7 +78,7 @@ const fixture = (
 ) =>
   Effect.gen(function* () {
     // Anything the host writes — the attachments directory `install` creates —
-    // belongs to this test, never to the developer's real `~/.openade`.
+    // belongs to this test, never to the developer's real `~/.poseidon`.
     yield* isolatedHome;
     const sqliteContext = yield* Layer.build(makeSqliteLayer());
     const sqlite = Layer.succeedContext(sqliteContext);
@@ -121,19 +121,19 @@ const fixture = (
     } satisfies Fixture;
   });
 
-/** `OPENADE_HOME` in a temp directory for the calling scope, then back. */
+/** `POSEIDON_HOME` in a temp directory for the calling scope, then back. */
 const isolatedHome = Effect.acquireRelease(
   Effect.sync(() => {
-    const previous = process.env[OPENADE_HOME_ENV];
-    process.env[OPENADE_HOME_ENV] = mkdtempSync(nodePath.join(tmpdir(), "openade-host-"));
+    const previous = process.env[POSEIDON_HOME_ENV];
+    process.env[POSEIDON_HOME_ENV] = mkdtempSync(nodePath.join(tmpdir(), "poseidon-host-"));
     return previous;
   }),
   (previous) =>
     Effect.sync(() => {
       if (previous === undefined) {
-        delete process.env[OPENADE_HOME_ENV];
+        delete process.env[POSEIDON_HOME_ENV];
       } else {
-        process.env[OPENADE_HOME_ENV] = previous;
+        process.env[POSEIDON_HOME_ENV] = previous;
       }
     }),
 );
@@ -747,7 +747,7 @@ describe("ConnectorManager", () => {
 
   it.effect("a settings row from a previous boot is never re-seeded", () =>
     Effect.gen(function* () {
-      const dir = mkdtempSync(nodePath.join(tmpdir(), "openade-settings-"));
+      const dir = mkdtempSync(nodePath.join(tmpdir(), "poseidon-settings-"));
       const fileLayer = () => sqliteLayer({ filename: nodePath.join(dir, "state.sqlite") });
 
       // Boot 1: seed lands, then the user removes every connector and leaves

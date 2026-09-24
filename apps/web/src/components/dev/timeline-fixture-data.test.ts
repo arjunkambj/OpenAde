@@ -1,6 +1,6 @@
-import { ItemKind } from "@OpenAde/contracts/enums";
-import { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
-import { isUuidV7, uuidV7Millis } from "@OpenAde/shared/ids";
+import { ItemKind } from "@poseidon/contracts/enums";
+import { ThreadDetailSnapshot } from "@poseidon/contracts/orchestration";
+import { isUuidV7, uuidV7Millis } from "@poseidon/shared/ids";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 

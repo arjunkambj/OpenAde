@@ -7,7 +7,7 @@
  * - The session loads the user's harness as the CLI would —
  *   `settingSources` user, project and local, so their CLAUDE.md, skills, MCP
  *   servers and hooks all apply — under the CLI's own system prompt.
- * - OpenAde's MCP server is added as `openade`, over HTTP to the per-thread
+ * - Poseidon's MCP server is added as `poseidon`, over HTTP to the per-thread
  *   endpoint with its bearer. The SDK hands the CLI its MCP config on the
  *   command line, so the bearer is visible to `ps` on this machine for the
  *   session's life; it is minted per session and revoked with it.
@@ -24,23 +24,23 @@ import type {
   Options,
   PermissionMode,
 } from "@anthropic-ai/claude-agent-sdk";
-import type { ConnectorEndpoint } from "@OpenAde/connector-sdk/definition";
-import type { Effort } from "@OpenAde/contracts/enums";
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import type { ThreadSettings } from "@OpenAde/contracts/orchestration";
+import type { ConnectorEndpoint } from "@poseidon/connector-sdk/definition";
+import type { Effort } from "@poseidon/contracts/enums";
+import type { ThreadId } from "@poseidon/contracts/ids";
+import type { ThreadSettings } from "@poseidon/contracts/orchestration";
 
 import { sdkModelFor } from "./models";
 import type { ClaudeSpawnOptions, ClaudeSpawnedProcess } from "./spawn";
 import type { ToolGate } from "./toolGate";
 
-/** The name OpenAde's MCP server is registered under in the session. */
-const OPENADE_MCP_SERVER = "openade";
+/** The name Poseidon's MCP server is registered under in the session. */
+const POSEIDON_MCP_SERVER = "poseidon";
 
 /**
  * The CLI permission mode for a thread's modes. A plan turn runs in `plan`;
  * otherwise ask, auto-accept edits and full access are the CLI's `default`,
  * `acceptEdits` and `bypassPermissions`. Whichever it is, the PreToolUse hook
- * still puts every call past OpenAde's ladder first, and the ladder reads the
+ * still puts every call past Poseidon's ladder first, and the ladder reads the
  * thread's own modes, not the CLI's.
  *
  * Full access can be the CLI's `bypassPermissions` because that mode does not
@@ -123,7 +123,7 @@ export const buildQueryOptions = (input: QueryOptionsInput): Options => {
     ...(model === undefined ? {} : { model }),
     ...(effort === undefined ? {} : { effort }),
     mcpServers: {
-      [OPENADE_MCP_SERVER]: {
+      [POSEIDON_MCP_SERVER]: {
         type: "http",
         url: input.mcp.url,
         headers: { Authorization: `Bearer ${input.mcp.bearer}` },

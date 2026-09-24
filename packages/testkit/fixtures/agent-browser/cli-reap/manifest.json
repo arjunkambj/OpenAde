@@ -109,7 +109,7 @@
       "envelope": {
         "data": {
           "active": true,
-          "namespace": "openade-record",
+          "namespace": "poseidon-record",
           "pid": 24680,
           "runtime": {
             "backgroundPid": 24680,
@@ -135,7 +135,7 @@
               "reused": false,
               "saveStatus": "not_attempted"
             },
-            "namespace": "openade-record",
+            "namespace": "poseidon-record",
             "pageCount": 1,
             "restoreCheckFn": null,
             "restoreCheckText": null,
@@ -149,11 +149,11 @@
             "restoreValidationPending": false,
             "saveStatus": "not_attempted",
             "session": "rec-cli-reap",
-            "socketDir": "<HOME>/.agent-browser/namespaces/openade-record/run"
+            "socketDir": "<HOME>/.agent-browser/namespaces/poseidon-record/run"
           },
           "runtimeError": null,
           "session": "rec-cli-reap",
-          "socketDir": "<HOME>/.agent-browser/namespaces/openade-record/run",
+          "socketDir": "<HOME>/.agent-browser/namespaces/poseidon-record/run",
           "version": "0.38.1"
         },
         "success": true

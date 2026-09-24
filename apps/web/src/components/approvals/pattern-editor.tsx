@@ -1,6 +1,6 @@
 /**
  * The editable permission pattern field. The preview line runs the same
- * matcher the server enforces — `@OpenAde/shared/permissionPattern` — against
+ * matcher the server enforces — `@poseidon/shared/permissionPattern` — against
  * the live request, so what the card claims is exactly what will persist.
  *
  * The Permissions settings page edits a saved rule with it too. There is no
@@ -8,13 +8,13 @@
  * only says whether the pattern parses.
  */
 
-import { Input } from "@OpenAde/ui/components/input";
-import { cn } from "@OpenAde/ui/lib/utils";
+import { Input } from "@poseidon/ui/components/input";
+import { cn } from "@poseidon/ui/lib/utils";
 import {
   parsePattern,
   patternMatches,
   type PatternSubject,
-} from "@OpenAde/shared/permissionPattern";
+} from "@poseidon/shared/permissionPattern";
 
 import { AlertTriangle, Check } from "@honeyicons/react";
 

@@ -4,13 +4,13 @@
  * renders the markdown open by default.
  */
 
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
+import type { ItemSnapshot } from "@poseidon/contracts/runtime";
 
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@OpenAde/ui/components/collapsible";
+} from "@poseidon/ui/components/collapsible";
 
 import { MarkdownBody } from "@/components/timeline/markdown";
 import { useRowDisclosure } from "@/state/ui";

@@ -1,7 +1,7 @@
 /**
  * UUIDv7 (RFC 9562 section 5.7) with no dependencies.
  *
- * Every identifier in OpenAde is a UUIDv7 so that ids sort by creation time:
+ * Every identifier in Poseidon is a UUIDv7 so that ids sort by creation time:
  * event stream keys, thread ids and turn ids all rely on that ordering, and
  * SQLite indexes stay append-friendly because new keys land at the right edge.
  *

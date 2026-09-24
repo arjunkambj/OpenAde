@@ -1,11 +1,11 @@
 /**
  * Records session scenarios from the real CLI into `fixtures/claude/`.
  *
- *     OPENADE_RECORD_CLAUDE=1 pnpm -F @OpenAde/connector-claude vitest run test/recordSession.test.ts
+ *     POSEIDON_RECORD_CLAUDE=1 pnpm -F @poseidon/connector-claude vitest run test/recordSession.test.ts
  *
  * Each scenario drives the connector's real definition with its binary path
  * pointed at the testkit's stdio tee, in a throwaway git repo under
- * `/tmp/openade-h1/scratch`, capped by `maxTurns` and `maxBudgetUsd` so a live
+ * `/tmp/poseidon-h1/scratch`, capped by `maxTurns` and `maxBudgetUsd` so a live
  * run cannot spend beyond them. What the tee captured is finalised and
  * scrubbed into the scenario's directory.
  *
@@ -17,19 +17,19 @@ import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
-import { makeStreamCollector } from "@OpenAde/connector-sdk/streamCollector";
-import type { ConnectorServices, TurnInput } from "@OpenAde/connector-sdk/definition";
-import type { SessionHandle } from "@OpenAde/connector-sdk/sessionHandle";
-import type { StreamCollector } from "@OpenAde/connector-sdk/streamCollector";
+import { makeStreamCollector } from "@poseidon/connector-sdk/streamCollector";
+import type { ConnectorServices, TurnInput } from "@poseidon/connector-sdk/definition";
+import type { SessionHandle } from "@poseidon/connector-sdk/sessionHandle";
+import type { StreamCollector } from "@poseidon/connector-sdk/streamCollector";
 import {
   makeConnectorInstanceId,
   makeProjectId,
   makeThreadId,
   type ThreadId,
-} from "@OpenAde/contracts/ids";
-import type { ThreadSettingsPatch } from "@OpenAde/contracts/orchestration";
-import type { RuntimeEvent } from "@OpenAde/contracts/runtime";
-import { finalizeSdkStreamRecording, makeTeeLauncher } from "@OpenAde/testkit/sdkStreamRecording";
+} from "@poseidon/contracts/ids";
+import type { ThreadSettingsPatch } from "@poseidon/contracts/orchestration";
+import type { RuntimeEvent } from "@poseidon/contracts/runtime";
+import { finalizeSdkStreamRecording, makeTeeLauncher } from "@poseidon/testkit/sdkStreamRecording";
 import * as Effect from "effect/Effect";
 import type * as Scope from "effect/Scope";
 
@@ -40,13 +40,13 @@ import { parseVersion } from "../src/probe";
 import { initModelOf, sdkVersion } from "./replay";
 import { testServices } from "./services";
 
-const RECORD = process.env.OPENADE_RECORD_CLAUDE === "1";
+const RECORD = process.env.POSEIDON_RECORD_CLAUDE === "1";
 /**
  * An older CLI build to record against, for the scenarios about a CLI that
  * predates a capability — e.g. `~/.local/share/claude/versions/2.1.150`.
  */
-const OLDER_BINARY = process.env.OPENADE_RECORD_CLAUDE_OLDER_BINARY;
-const SCRATCH = "/tmp/openade-h1/scratch";
+const OLDER_BINARY = process.env.POSEIDON_RECORD_CLAUDE_OLDER_BINARY;
+const SCRATCH = "/tmp/poseidon-h1/scratch";
 
 const SIGNED_OUT_PROMPT = "Reply with the single word: ok";
 const IMAGE_PROMPT = "What colour is the image? Answer with one word.";

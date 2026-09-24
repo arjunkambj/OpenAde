@@ -1,5 +1,5 @@
-import { LEGACY_DEFAULT_KEYBINDINGS } from "@OpenAde/contracts/keybindings";
-import { Settings, defaultSettings } from "@OpenAde/contracts/settings";
+import { LEGACY_DEFAULT_KEYBINDINGS } from "@poseidon/contracts/keybindings";
+import { Settings, defaultSettings } from "@poseidon/contracts/settings";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";

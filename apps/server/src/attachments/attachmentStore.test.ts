@@ -8,8 +8,8 @@ import { chmodSync, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "n
 import { readFile, readdir, stat } from "node:fs/promises";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import { MAX_ATTACHMENT_BYTES } from "@OpenAde/shared/imageBytes";
+import type { ThreadId } from "@poseidon/contracts/ids";
+import { MAX_ATTACHMENT_BYTES } from "@poseidon/shared/imageBytes";
 import { describe, expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -30,7 +30,7 @@ const GIF_BASE64 = Buffer.from(
 
 const fixture = Effect.gen(function* () {
   const root = yield* Effect.sync(() =>
-    mkdtempSync(NodePath.join(NodeOS.tmpdir(), "openade-attachments-")),
+    mkdtempSync(NodePath.join(NodeOS.tmpdir(), "poseidon-attachments-")),
   );
   const context = yield* Layer.build(AttachmentStore.layerAt(root));
   return { root, store: Context.get(context, AttachmentStore) };

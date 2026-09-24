@@ -19,8 +19,8 @@
  * Messages, todos, skills, errors and the working row have nothing to fold.
  */
 
-import type { ItemKind } from "@OpenAde/contracts/enums";
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
+import type { ItemKind } from "@poseidon/contracts/enums";
+import type { ItemSnapshot } from "@poseidon/contracts/runtime";
 
 import type { TimelineProjection } from "@/components/timeline/fold";
 

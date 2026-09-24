@@ -4,9 +4,9 @@ import {
   makeItemId,
   makeThreadId,
   makeTurnId,
-} from "@OpenAde/contracts/ids";
-import type { TurnId } from "@OpenAde/contracts/ids";
-import type { RuntimeEvent } from "@OpenAde/contracts/runtime";
+} from "@poseidon/contracts/ids";
+import type { TurnId } from "@poseidon/contracts/ids";
+import type { RuntimeEvent } from "@poseidon/contracts/runtime";
 import { describe, expect, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";

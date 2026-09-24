@@ -16,4 +16,4 @@ export const desktopAttributes = (platform: string): ReadonlyArray<string> =>
 export const FULLSCREEN_ATTRIBUTE = "data-fullscreen";
 
 /** Main-to-preload channel carrying the window's fullscreen state. */
-export const FULLSCREEN_CHANNEL = "openade:fullscreen";
+export const FULLSCREEN_CHANNEL = "poseidon:fullscreen";

@@ -6,9 +6,9 @@
  * dialog that draws it is `@/components/keybindings/shortcuts-dialog`.
  */
 
-import { parseShortcut, type ModKey } from "@OpenAde/client-runtime/keybindings";
-import { physicalChord, type PhysicalChord } from "@OpenAde/client-runtime/keymap";
-import type { Keybinding } from "@OpenAde/contracts/settings";
+import { parseShortcut, type ModKey } from "@poseidon/client-runtime/keybindings";
+import { physicalChord, type PhysicalChord } from "@poseidon/client-runtime/keymap";
+import type { Keybinding } from "@poseidon/contracts/settings";
 
 import {
   COMMAND_AREAS,

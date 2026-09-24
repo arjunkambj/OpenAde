@@ -20,7 +20,7 @@
  * page ends when the server returned fewer lines than were asked for.
  */
 
-import type { FileContent } from "@OpenAde/contracts/rpc";
+import type { FileContent } from "@poseidon/contracts/rpc";
 
 /** Lines per page. Big enough to read, small enough to render as plain DOM. */
 export const PAGE_LINES = 500;

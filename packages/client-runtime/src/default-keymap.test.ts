@@ -13,8 +13,8 @@ import {
   RESERVED_KEYBINDINGS,
   migrateLegacyKeybindingTable,
   resolveKeymap,
-} from "@OpenAde/contracts/keybindings";
-import type { Keybinding } from "@OpenAde/contracts/settings";
+} from "@poseidon/contracts/keybindings";
+import type { Keybinding } from "@poseidon/contracts/settings";
 
 import {
   parseShortcut,

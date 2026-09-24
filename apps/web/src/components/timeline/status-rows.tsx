@@ -4,7 +4,7 @@
  * an item kind this build does not model.
  */
 
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
+import type { ItemSnapshot } from "@poseidon/contracts/runtime";
 
 import { AlertTriangle, InfoSquare, Minimize, Sparkles } from "@honeyicons/react";
 

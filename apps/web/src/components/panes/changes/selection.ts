@@ -15,9 +15,9 @@
  * payload, so every scope is one code path.
  */
 
-import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
-import type { GitDiffRange } from "@OpenAde/client-runtime/gitAtoms";
-import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
+import type { ProjectId, ThreadId } from "@poseidon/contracts/ids";
+import type { GitDiffRange } from "@poseidon/client-runtime/gitAtoms";
+import type { CheckpointSummary } from "@poseidon/contracts/orchestration";
 
 import type { ChangesScope } from "@/state/ui";
 

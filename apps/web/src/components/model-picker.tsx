@@ -13,8 +13,8 @@
  */
 
 import { useAtomValue } from "@effect/atom-react";
-import type { ConnectorModels } from "@OpenAde/client-runtime/connectorAtoms";
-import type { ConnectorInstanceId } from "@OpenAde/contracts/ids";
+import type { ConnectorModels } from "@poseidon/client-runtime/connectorAtoms";
+import type { ConnectorInstanceId } from "@poseidon/contracts/ids";
 import {
   Select,
   SelectContent,
@@ -24,8 +24,8 @@ import {
   SelectSeparator,
   SelectTrigger,
   SelectValue,
-} from "@OpenAde/ui/components/select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+} from "@poseidon/ui/components/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 import { AsyncResult } from "effect/unstable/reactivity";
 import * as React from "react";
 

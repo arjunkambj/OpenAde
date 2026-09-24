@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { UserQuestion } from "@OpenAde/contracts/runtime";
+import type { UserQuestion } from "@poseidon/contracts/runtime";
 
 import {
   allAnswered,

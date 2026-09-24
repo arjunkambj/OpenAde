@@ -1,4 +1,4 @@
-import { RuntimeMode } from "@OpenAde/contracts/enums";
+import { RuntimeMode } from "@poseidon/contracts/enums";
 import { describe, expect, it } from "vitest";
 
 import { nextRuntimeMode, RUNTIME_MODE_LABELS, runtimeModeOptions } from "./runtime-modes";

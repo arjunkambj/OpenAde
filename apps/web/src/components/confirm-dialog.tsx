@@ -15,7 +15,7 @@
 
 import * as React from "react";
 
-import { Button } from "@OpenAde/ui/components/button";
+import { Button } from "@poseidon/ui/components/button";
 import {
   Dialog,
   DialogContent,
@@ -23,7 +23,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@OpenAde/ui/components/dialog";
+} from "@poseidon/ui/components/dialog";
 
 export function ConfirmDialog({
   open,

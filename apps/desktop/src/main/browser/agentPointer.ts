@@ -17,7 +17,7 @@
  * channel name and payload type from here.
  */
 
-export const POINTER_CHANNEL = "openade:browser-agent-pointer";
+export const POINTER_CHANNEL = "poseidon:browser-agent-pointer";
 
 export type AgentPointerKind = "move" | "press";
 

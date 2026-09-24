@@ -8,7 +8,7 @@
  * running app, and — the defect this file was written for — that a command
  * dispatched over RPC reaches the same engine the reactors listen to.
  *
- * Everything happens under a fresh `OPENADE_HOME`, and nothing here spawns a
+ * Everything happens under a fresh `POSEIDON_HOME`, and nothing here spawns a
  * harness: no test touches a real install or spends an account.
  */
 
@@ -22,12 +22,12 @@ import {
   makeConnectorInstanceId,
   makeProjectId,
   makeThreadId,
-} from "@OpenAde/contracts/ids";
-import type { Command } from "@OpenAde/contracts/orchestration";
-import { PROTOCOL_VERSION } from "@OpenAde/contracts/rpc";
-import { defaultSettings } from "@OpenAde/contracts/settings";
-import type { ConnectorInstanceConfig } from "@OpenAde/contracts/settings";
-import { Connection, makeConnection } from "@OpenAde/client-runtime/connection";
+} from "@poseidon/contracts/ids";
+import type { Command } from "@poseidon/contracts/orchestration";
+import { PROTOCOL_VERSION } from "@poseidon/contracts/rpc";
+import { defaultSettings } from "@poseidon/contracts/settings";
+import type { ConnectorInstanceConfig } from "@poseidon/contracts/settings";
+import { Connection, makeConnection } from "@poseidon/client-runtime/connection";
 import { describe, expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -43,8 +43,8 @@ import { SettingsStore } from "./rpc/services";
 const MODEL = "stealth/ox-alpha";
 
 interface Home {
-  /** `OPENADE_HOME` for this boot. */
-  readonly openade: string;
+  /** `POSEIDON_HOME` for this boot. */
+  readonly poseidon: string;
   /** `HOME` for anything the connector might run, so nothing writes to the real one. */
   readonly cmd: string;
   /** A git repository to use as a project's workspace root. */
@@ -52,10 +52,10 @@ interface Home {
 }
 
 const makeHome = (): Home => {
-  const root = mkdtempSync(join(tmpdir(), "openade-boot-"));
+  const root = mkdtempSync(join(tmpdir(), "poseidon-boot-"));
   const workspace = join(root, "workspace");
   execFileSync("git", ["init", "--quiet", workspace], { stdio: "ignore" });
-  return { openade: join(root, "home"), cmd: join(root, "cmd-home"), workspace };
+  return { poseidon: join(root, "home"), cmd: join(root, "cmd-home"), workspace };
 };
 
 /**
@@ -67,7 +67,7 @@ const seedSettings = (home: Home, connectors: ReadonlyArray<ConnectorInstanceCon
   Effect.scoped(
     Effect.gen(function* () {
       const sqlite = Layer.succeedContext(
-        yield* Layer.build(sqliteLayer({ filename: join(home.openade, "state.sqlite") })),
+        yield* Layer.build(sqliteLayer({ filename: join(home.poseidon, "state.sqlite") })),
       );
       const store = Context.get(
         yield* Layer.build(SettingsStore.layer.pipe(Layer.provide(sqlite))),
@@ -89,16 +89,16 @@ const connector = (home: Home, binaryPath: string): ConnectorInstanceConfig => (
 /** Boots the real graph in the test's scope and hands over the handshake. */
 const booted = (home: Home) =>
   Effect.acquireRelease(
-    Effect.sync(() => process.env.OPENADE_HOME),
+    Effect.sync(() => process.env.POSEIDON_HOME),
     (previous) =>
       Effect.sync(() => {
         if (previous === undefined) {
-          delete process.env.OPENADE_HOME;
+          delete process.env.POSEIDON_HOME;
         } else {
-          process.env.OPENADE_HOME = previous;
+          process.env.POSEIDON_HOME = previous;
         }
       }),
-  ).pipe(Effect.andThen(boot({ home: home.openade, dev: true, port: 0 })));
+  ).pipe(Effect.andThen(boot({ home: home.poseidon, dev: true, port: 0 })));
 
 const client = (server: BootedServer) =>
   Layer.build(makeConnection({ url: server.url, token: server.token })).pipe(
@@ -122,7 +122,7 @@ describe("boot", () => {
         // Dev mode's handshake file is what the Vite plugin serves; it must
         // name the port that was actually bound, not the requested 0.
         const written: unknown = JSON.parse(
-          readFileSync(join(home.openade, "dev", "connection.json"), "utf8"),
+          readFileSync(join(home.poseidon, "dev", "connection.json"), "utf8"),
         );
         expect(written).toEqual(server);
         expect(server.url).not.toContain(":0/");
@@ -323,7 +323,7 @@ describe("boot", () => {
         // here drives a real turn — the binary below does not exist, so no
         // child process runs and no account is spent; the Command Code CLI's
         // own behaviour is covered by the connector-cmd suite against it.
-        const instance = connector(home, join(home.openade, "no-such-cmd"));
+        const instance = connector(home, join(home.poseidon, "no-such-cmd"));
         yield* rpc["settings.update"]({ patch: { connectors: [instance] } });
 
         const listed = yield* rpc["connectors.list"]({ refresh: true });

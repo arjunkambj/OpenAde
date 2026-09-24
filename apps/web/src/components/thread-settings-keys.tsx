@@ -12,8 +12,8 @@
  * not open and its effort does not step.
  */
 
-import type { Effort, RuntimeMode } from "@OpenAde/contracts/enums";
-import type { ThreadSettingsPatch } from "@OpenAde/contracts/orchestration";
+import type { Effort, RuntimeMode } from "@poseidon/contracts/enums";
+import type { ThreadSettingsPatch } from "@poseidon/contracts/orchestration";
 
 import { stepEffort } from "@/lib/efforts";
 import { nextRuntimeMode } from "@/lib/runtime-modes";

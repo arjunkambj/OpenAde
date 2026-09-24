@@ -29,7 +29,7 @@
 
 import * as React from "react";
 
-import { Button } from "@OpenAde/ui/components/button";
+import { Button } from "@poseidon/ui/components/button";
 import {
   Dialog,
   DialogContent,
@@ -37,7 +37,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@OpenAde/ui/components/dialog";
+} from "@poseidon/ui/components/dialog";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -45,7 +45,7 @@ import {
   ContextMenuSeparator,
   ContextMenuShortcut,
   ContextMenuTrigger,
-} from "@OpenAde/ui/components/context-menu";
+} from "@poseidon/ui/components/context-menu";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,11 +53,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
-} from "@OpenAde/ui/components/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import { Input } from "@OpenAde/ui/components/input";
-import { Label } from "@OpenAde/ui/components/label";
-import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
+} from "@poseidon/ui/components/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
+import { Input } from "@poseidon/ui/components/input";
+import { Label } from "@poseidon/ui/components/label";
+import type { ThreadSummary } from "@poseidon/contracts/orchestration";
 
 import { DeleteThreadDialog } from "@/components/sidebar/delete-thread-dialog";
 import { threadCommandBase, useThreadCommand } from "@/components/sidebar/thread-actions";

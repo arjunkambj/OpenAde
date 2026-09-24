@@ -15,7 +15,7 @@
  * far behind.
  */
 
-import { makeEventId, makeItemId, makeTurnId } from "@OpenAde/contracts/ids";
+import { makeEventId, makeItemId, makeTurnId } from "@poseidon/contracts/ids";
 import type {
   ConnectorInstanceId,
   EventId,
@@ -23,7 +23,7 @@ import type {
   ProjectId,
   ThreadId,
   TurnId,
-} from "@OpenAde/contracts/ids";
+} from "@poseidon/contracts/ids";
 import type {
   Command,
   CommandReceipt,
@@ -33,8 +33,8 @@ import type {
   ThreadListStreamItem,
   ThreadStreamItem,
   ThreadSummary,
-} from "@OpenAde/contracts/orchestration";
-import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
+} from "@poseidon/contracts/orchestration";
+import { PoseidonRpcError } from "@poseidon/contracts/rpc";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as PubSub from "effect/PubSub";
@@ -155,7 +155,7 @@ export class OrchestrationEngine extends Context.Service<
     readonly subscribeThread: (
       threadId: ThreadId,
       options?: SubscribeOptions,
-    ) => Effect.Effect<Stream.Stream<ThreadStreamItem>, SqlError | OpenAdeRpcError, Scope.Scope>;
+    ) => Effect.Effect<Stream.Stream<ThreadStreamItem>, SqlError | PoseidonRpcError, Scope.Scope>;
     readonly subscribeThreadList: (
       options?: SubscribeOptions & { readonly projectId?: ProjectId },
     ) => Effect.Effect<Stream.Stream<ThreadListStreamItem>, SqlError, Scope.Scope>;
@@ -483,7 +483,7 @@ export class OrchestrationEngine extends Context.Service<
           if (options.afterSequence === undefined) {
             const doc = yield* readModels.getThreadDoc(threadId);
             if (doc === null || doc.deleted) {
-              return yield* new OpenAdeRpcError({
+              return yield* new PoseidonRpcError({
                 code: "not-found",
                 message: `thread ${threadId} does not exist`,
               });

@@ -28,12 +28,12 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import * as React from "react";
 import { toast } from "sonner";
 
-import { Button } from "@OpenAde/ui/components/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@OpenAde/ui/components/popover";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import type { GitQuery } from "@OpenAde/client-runtime/gitAtoms";
-import type { GitBranchList } from "@OpenAde/contracts/git";
-import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
+import { Button } from "@poseidon/ui/components/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@poseidon/ui/components/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
+import type { GitQuery } from "@poseidon/client-runtime/gitAtoms";
+import type { GitBranchList } from "@poseidon/contracts/git";
+import type { ThreadDetailSnapshot } from "@poseidon/contracts/orchestration";
 
 import { useBranchWrites, useGitAtoms } from "@/components/panes/changes/git-atoms";
 import { useKeybindingCommand } from "@/lib/shortcuts";

@@ -6,13 +6,13 @@
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
-import type { ConnectionState } from "@OpenAde/client-runtime/connection";
-import { desktopServerStateAtom } from "@OpenAde/client-runtime/desktop";
-import type { ThreadDetailView } from "@OpenAde/client-runtime/clientState";
-import type { DesktopServerState } from "@OpenAde/client-runtime/resolver";
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import type { ProjectSummary, ThreadSummary } from "@OpenAde/contracts/orchestration";
-import type * as OpenAdeRpcError from "@OpenAde/contracts/rpc";
+import type { ConnectionState } from "@poseidon/client-runtime/connection";
+import { desktopServerStateAtom } from "@poseidon/client-runtime/desktop";
+import type { ThreadDetailView } from "@poseidon/client-runtime/clientState";
+import type { DesktopServerState } from "@poseidon/client-runtime/resolver";
+import type { ThreadId } from "@poseidon/contracts/ids";
+import type { ProjectSummary, ThreadSummary } from "@poseidon/contracts/orchestration";
+import type * as PoseidonRpcError from "@poseidon/contracts/rpc";
 import type * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/unstable/reactivity";
 import * as Atom from "effect/unstable/reactivity/Atom";
@@ -55,7 +55,7 @@ export const useLoadedThreadList = (): ReadonlyArray<ThreadSummary> | null =>
 
 type ThreadDetailResult = AsyncResult.AsyncResult<
   ThreadDetailView,
-  OpenAdeRpcError.OpenAdeRpcError | RpcClientError.RpcClientError | Cause.NoSuchElementError
+  PoseidonRpcError.PoseidonRpcError | RpcClientError.RpcClientError | Cause.NoSuchElementError
 >;
 
 const emptyDetailAtom = Atom.make<ThreadDetailResult>(AsyncResult.initial());

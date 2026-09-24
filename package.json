@@ -1,5 +1,5 @@
 {
-  "name": "OpenAde",
+  "name": "Poseidon",
   "private": true,
   "type": "module",
   "scripts": {
@@ -24,7 +24,7 @@
     "check": "pnpm lint && pnpm fmt:check && pnpm typecheck && pnpm test && pnpm check:boundaries && pnpm check:file-sizes && pnpm knip"
   },
   "devDependencies": {
-    "@OpenAde/config": "workspace:*",
+    "@poseidon/config": "workspace:*",
     "@shadcn/lint": "^0.1.0",
     "@types/node": "catalog:",
     "knip": "catalog:",

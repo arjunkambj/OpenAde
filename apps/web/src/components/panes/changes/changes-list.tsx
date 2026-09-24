@@ -18,10 +18,10 @@
  */
 
 import { useAtomValue } from "@effect/atom-react";
-import { isRepoless, type GitDiffRange, type GitQuery } from "@OpenAde/client-runtime/gitAtoms";
-import type { GitBranchList } from "@OpenAde/contracts/git";
-import type { GitDiff, GitStatus } from "@OpenAde/contracts/rpc";
-import { Button } from "@OpenAde/ui/components/button";
+import { isRepoless, type GitDiffRange, type GitQuery } from "@poseidon/client-runtime/gitAtoms";
+import type { GitBranchList } from "@poseidon/contracts/git";
+import type { GitDiff, GitStatus } from "@poseidon/contracts/rpc";
+import { Button } from "@poseidon/ui/components/button";
 import { AsyncResult } from "effect/unstable/reactivity";
 
 import { PaneMessage } from "@/components/panes/files/pane-message";

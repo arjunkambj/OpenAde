@@ -1,5 +1,5 @@
-import { makeCommandId } from "@OpenAde/contracts/ids";
-import type { CommandReceipt } from "@OpenAde/contracts/orchestration";
+import { makeCommandId } from "@poseidon/contracts/ids";
+import type { CommandReceipt } from "@poseidon/contracts/orchestration";
 import * as Exit from "effect/Exit";
 import { describe, expect, it } from "vitest";
 

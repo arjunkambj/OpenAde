@@ -9,9 +9,9 @@
  * menu after it holds the file's own actions (`./file-actions`).
  */
 
-import type { GitDiffFile } from "@OpenAde/contracts/rpc";
-import { Checkbox } from "@OpenAde/ui/components/checkbox";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+import type { GitDiffFile } from "@poseidon/contracts/rpc";
+import { Checkbox } from "@poseidon/ui/components/checkbox";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 
 import { InlineDiff } from "@/components/timeline/diff-pool";
 import { cn } from "@/lib/utils";

@@ -54,8 +54,8 @@
  * bookkeeping the snapshot restates.
  */
 
-import type { ItemId } from "@OpenAde/contracts/ids";
-import type { McpServerStatus } from "@OpenAde/contracts/runtime";
+import type { ItemId } from "@poseidon/contracts/ids";
+import type { McpServerStatus } from "@poseidon/contracts/runtime";
 
 import {
   asArray,
@@ -100,7 +100,7 @@ const MAIN_LOOP = "";
 /**
  * A `system/status` with no status but a `permissionMode`: the CLI saying
  * which permission mode it is in now. The session keeps that for itself
- * (`session.ts`); the thread's modes are OpenAde's, so nothing is shown.
+ * (`session.ts`); the thread's modes are Poseidon's, so nothing is shown.
  */
 export const isModeReport = (message: Json): boolean =>
   (message.status === null || message.status === undefined) &&

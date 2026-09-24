@@ -91,6 +91,6 @@ describe("built site", () => {
       const response = await get(path);
       expect(response.status, `${path} should serve`).toBe(200);
     }
-    expect(await (await get("/sitemap.xml")).text()).toContain("getopenade.com");
+    expect(await (await get("/sitemap.xml")).text()).toContain("poseidoncode.com");
   });
 });

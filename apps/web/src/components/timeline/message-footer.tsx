@@ -30,10 +30,10 @@
  * component state, and a recycled row must not inherit them.
  */
 
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
-import { uuidV7Millis } from "@OpenAde/shared/ids";
-import { Button } from "@OpenAde/ui/components/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+import type { ItemSnapshot } from "@poseidon/contracts/runtime";
+import { uuidV7Millis } from "@poseidon/shared/ids";
+import { Button } from "@poseidon/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 
 import { CopyButton } from "@/components/copy-button";
 import { RestoreBeforeTurn } from "@/components/timeline/restore-before-turn";

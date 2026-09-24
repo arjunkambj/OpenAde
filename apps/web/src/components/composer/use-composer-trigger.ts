@@ -13,7 +13,7 @@
 import {
   detectComposerTrigger,
   type ComposerTrigger,
-} from "@OpenAde/client-runtime/composerTrigger";
+} from "@poseidon/client-runtime/composerTrigger";
 import * as React from "react";
 
 import type { SlashLevel } from "@/components/composer/slash-menu";

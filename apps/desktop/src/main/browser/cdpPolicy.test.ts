@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { readFrames, recordingNames } from "@OpenAde/testkit/recording";
+import { readFrames, recordingNames } from "@poseidon/testkit/recording";
 
 import { classify, isWebUrl, type SessionScope } from "./cdpPolicy";
 

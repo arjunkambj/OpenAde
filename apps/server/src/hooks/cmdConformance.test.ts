@@ -16,7 +16,7 @@
  * and asserts the same invariant `approvalTurn` does: every request opened is
  * resolved, and the turn finishes.
  *
- * Nothing touches the real `~/.commandcode` or `~/.openade`: `OPENADE_HOME` is
+ * Nothing touches the real `~/.commandcode` or `~/.poseidon`: `POSEIDON_HOME` is
  * redirected for the duration of this file, and `HOME` per session.
  */
 
@@ -26,13 +26,13 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { NodeHttpServer } from "@effect/platform-node";
 import { afterAll, describe, expect, it } from "@effect/vitest";
-import { runConnectorConformance } from "@OpenAde/connector-sdk/conformance";
-import type { ConnectorServices } from "@OpenAde/connector-sdk/definition";
-import { cmdConnectorDefinition } from "@OpenAde/connector-cmd/definition";
-import { makeStreamCollector } from "@OpenAde/connector-sdk/streamCollector";
-import { loadRecording, replayConfig } from "@OpenAde/testkit/replayCmdProcess";
-import { makeConnectorInstanceId, makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
-import type { ThreadId } from "@OpenAde/contracts/ids";
+import { runConnectorConformance } from "@poseidon/connector-sdk/conformance";
+import type { ConnectorServices } from "@poseidon/connector-sdk/definition";
+import { cmdConnectorDefinition } from "@poseidon/connector-cmd/definition";
+import { makeStreamCollector } from "@poseidon/connector-sdk/streamCollector";
+import { loadRecording, replayConfig } from "@poseidon/testkit/replayCmdProcess";
+import { makeConnectorInstanceId, makeProjectId, makeThreadId } from "@poseidon/contracts/ids";
+import type { ThreadId } from "@poseidon/contracts/ids";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -50,8 +50,8 @@ NodeFS.mkdirSync(HOME_DIR, { recursive: true });
 NodeFS.mkdirSync(WORKSPACE, { recursive: true });
 NodeFS.mkdirSync(PID_DIR, { recursive: true });
 
-const previousOpenadeHome = process.env.OPENADE_HOME;
-process.env.OPENADE_HOME = NodePath.join(TMP, "openade");
+const previousPoseidonHome = process.env.POSEIDON_HOME;
+process.env.POSEIDON_HOME = NodePath.join(TMP, "poseidon");
 
 // ── The real hook bridge, built once for the file ─────────────
 
@@ -89,10 +89,10 @@ const bridge = (): Effect.Effect<HookBridge["Service"]> =>
 
 afterAll(() => {
   NodeFS.rmSync(TMP, { recursive: true, force: true });
-  if (previousOpenadeHome === undefined) {
-    delete process.env.OPENADE_HOME;
+  if (previousPoseidonHome === undefined) {
+    delete process.env.POSEIDON_HOME;
   } else {
-    process.env.OPENADE_HOME = previousOpenadeHome;
+    process.env.POSEIDON_HOME = previousPoseidonHome;
   }
   if (bridgeState.scope !== null) {
     return Effect.runPromise(Scope.close(bridgeState.scope, Exit.succeed(undefined)));

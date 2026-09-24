@@ -10,7 +10,7 @@
  * that fallback reads when the text is missing or blank.
  */
 
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
+import type { ItemSnapshot } from "@poseidon/contracts/runtime";
 
 /** The label a `file_change` row without a structured payload shows. */
 export const fileChangeFallbackLabel = (text: string | undefined): string =>

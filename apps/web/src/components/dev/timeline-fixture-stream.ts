@@ -5,8 +5,8 @@
  * `thread.item.upserted` per coalesced delta, the whole text so far each time.
  */
 
-import { makeItemId } from "@OpenAde/contracts/ids";
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
+import { makeItemId } from "@poseidon/contracts/ids";
+import type { ItemSnapshot } from "@poseidon/contracts/runtime";
 
 import { STREAM_TEXT, streamedText } from "@/components/dev/timeline-fixture-text";
 import type { FixtureClient } from "@/lib/fixture-client";

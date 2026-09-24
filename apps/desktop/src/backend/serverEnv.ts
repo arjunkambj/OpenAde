@@ -1,17 +1,17 @@
 /**
  * The environment the server child is spawned with.
  *
- * The shell's own environment, plus `ELECTRON_RUN_AS_NODE`, `OPENADE_DEV`, and
- * the browser bridge (`@OpenAde/shared/browserBridge`): its origin and the
+ * The shell's own environment, plus `ELECTRON_RUN_AS_NODE`, `POSEIDON_DEV`, and
+ * the browser bridge (`@poseidon/shared/browserBridge`): its origin and the
  * per-launch key, or `disabled`. The bridge variables carry the
- * `OPENADE_SERVER_` prefix because the harness spawn passes `OPENADE_*`
+ * `POSEIDON_SERVER_` prefix because the harness spawn passes `POSEIDON_*`
  * through and drops only that prefix. Whatever the shell itself inherited
  * under those names never reaches the server.
  *
  * Electron-free, so the env is unit-tested; `./serverDeps` feeds it the real
  * `process.env`.
  */
-import { BRIDGE_DISABLED, BRIDGE_ENV, BRIDGE_KEY_ENV } from "@OpenAde/shared/browserBridge";
+import { BRIDGE_DISABLED, BRIDGE_ENV, BRIDGE_KEY_ENV } from "@poseidon/shared/browserBridge";
 
 /** What the shell knows about the bridge by the time it spawns the server. */
 export type BridgeForServer =
@@ -29,7 +29,7 @@ export const serverEnv = (
     if (!INHERITED_BRIDGE.has(name)) env[name] = value;
   }
   env["ELECTRON_RUN_AS_NODE"] = "1";
-  env["OPENADE_DEV"] = options.packaged ? "" : "1";
+  env["POSEIDON_DEV"] = options.packaged ? "" : "1";
   if (options.bridge.kind === "enabled") {
     env[BRIDGE_ENV] = options.bridge.origin;
     env[BRIDGE_KEY_ENV] = options.bridge.launchKey;

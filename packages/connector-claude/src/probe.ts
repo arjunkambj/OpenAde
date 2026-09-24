@@ -22,9 +22,9 @@
 import { execFile } from "node:child_process";
 import * as NodeOS from "node:os";
 import { query, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
-import type { ModelOption } from "@OpenAde/contracts/connectors";
-import type { ConnectorProbe } from "@OpenAde/connector-sdk/definition";
-import { ProbeFailed } from "@OpenAde/connector-sdk/definition";
+import type { ModelOption } from "@poseidon/contracts/connectors";
+import type { ConnectorProbe } from "@poseidon/connector-sdk/definition";
+import { ProbeFailed } from "@poseidon/connector-sdk/definition";
 import * as Effect from "effect/Effect";
 
 import { resolveBinary, terminalCommand, type ResolvedBinary } from "./binary";
@@ -252,7 +252,7 @@ export const probe = (
     const warnings: Array<string> = [];
     if (isBelowOldestTested(version)) {
       warnings.push(
-        `claude ${version} is older than ${OLDEST_TESTED_VERSION}, the oldest release OpenAde has been tested against`,
+        `claude ${version} is older than ${OLDEST_TESTED_VERSION}, the oldest release Poseidon has been tested against`,
       );
     }
 

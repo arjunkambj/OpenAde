@@ -8,8 +8,8 @@
  * path, because the agent will work there rather than in the project's folder.
  */
 
-import type { ThreadWorktree } from "@OpenAde/contracts/git";
-import type { ProjectSummary } from "@OpenAde/contracts/orchestration";
+import type { ThreadWorktree } from "@poseidon/contracts/git";
+import type { ProjectSummary } from "@poseidon/contracts/orchestration";
 import { GitBranch } from "@honeyicons/react";
 
 export function ThreadGreeting({

@@ -17,9 +17,9 @@ import {
   makeTurnId,
   type ProjectId,
   type ThreadId,
-} from "@OpenAde/contracts/ids";
-import type { ThreadWorktree } from "@OpenAde/contracts/git";
-import type { OrchestrationEvent } from "@OpenAde/contracts/orchestration";
+} from "@poseidon/contracts/ids";
+import type { ThreadWorktree } from "@poseidon/contracts/git";
+import type { OrchestrationEvent } from "@poseidon/contracts/orchestration";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -41,13 +41,13 @@ const tempDir = (prefix: string) => realpathSync(mkdtempSync(nodePath.join(tmpdi
 
 /** CI has no global identity, so every repository gets its own. */
 const identify = (root: string) => {
-  git(root, "config", "user.email", "test@openade.local");
-  git(root, "config", "user.name", "OpenAde Test");
+  git(root, "config", "user.email", "test@poseidon.local");
+  git(root, "config", "user.name", "Poseidon Test");
 };
 
 /** A repository with one commit of `a.txt` on `branch`. */
 const makeRepo = (branch = "main") => {
-  const root = tempDir("openade-branch-repo-");
+  const root = tempDir("poseidon-branch-repo-");
   git(root, "init", "-q", "-b", branch);
   identify(root);
   writeFileSync(nodePath.join(root, "a.txt"), "one\n");
@@ -64,7 +64,7 @@ const commitFile = (root: string, name: string, text: string) => {
 
 /** A bare repository standing in for the remote, added to `root` as `origin`. */
 const addBareRemote = (root: string, headBranch = "main") => {
-  const bare = tempDir("openade-branch-remote-");
+  const bare = tempDir("poseidon-branch-remote-");
   git(bare, "init", "-q", "--bare", "-b", headBranch);
   git(root, "remote", "add", "origin", bare);
   return bare;
@@ -133,7 +133,9 @@ const stack = (root: string) =>
             GhRunner.layer,
             SettingsStore.layer.pipe(Layer.provide(sqlite)),
             // No test here cuts a worktree, so nothing is created under it.
-            Layer.succeed(WorktreesRoot, { path: nodePath.join(tmpdir(), "openade-no-worktrees") }),
+            Layer.succeed(WorktreesRoot, {
+              path: nodePath.join(tmpdir(), "poseidon-no-worktrees"),
+            }),
           ),
         ),
       ),
@@ -156,7 +158,7 @@ describe("git.branches", () => {
         git(root, "push", "-q", "origin", "release");
         git(root, "branch", "-D", "release");
         git(root, "branch", "feature");
-        const elsewhere = nodePath.join(tempDir("openade-branch-wt-"), "wt");
+        const elsewhere = nodePath.join(tempDir("poseidon-branch-wt-"), "wt");
         git(root, "worktree", "add", "-q", "-b", "in-worktree", elsewhere, "main");
         const { projectId, git: service } = yield* stack(root);
 
@@ -187,7 +189,7 @@ describe("git.branches", () => {
   it.live("answers isRepository: false for a folder git does not track", () =>
     Effect.scoped(
       Effect.gen(function* () {
-        const { projectId, git: service } = yield* stack(tempDir("openade-branch-plain-"));
+        const { projectId, git: service } = yield* stack(tempDir("poseidon-branch-plain-"));
         const list = yield* service.branches({ projectId });
         expect(list).toEqual({
           isRepository: false,
@@ -208,7 +210,7 @@ describe("the default branch", () => {
         const source = makeRepo("trunk");
         const bare = addBareRemote(source, "trunk");
         git(source, "push", "-q", "origin", "trunk");
-        const clone = nodePath.join(tempDir("openade-branch-clone-"), "clone");
+        const clone = nodePath.join(tempDir("poseidon-branch-clone-"), "clone");
         execFileSync("git", ["clone", "-q", bare, clone]);
         identify(clone);
         git(clone, "branch", "main");
@@ -229,7 +231,7 @@ describe("the default branch", () => {
         git(source, "switch", "-q", "-c", "develop");
         const bare = addBareRemote(source, "main");
         git(source, "push", "-q", "origin", "main", "develop");
-        const clone = nodePath.join(tempDir("openade-branch-clone-"), "clone");
+        const clone = nodePath.join(tempDir("poseidon-branch-clone-"), "clone");
         // Only develop is checked out locally; main exists only as origin/main.
         execFileSync("git", ["clone", "-q", "-b", "develop", bare, clone]);
         identify(clone);
@@ -298,13 +300,13 @@ describe("git.branch.create", () => {
 
         const list = yield* service.createBranch(
           { projectId },
-          { name: "openade/fix-login", from: "origin/main", checkout: true },
+          { name: "poseidon/fix-login", from: "origin/main", checkout: true },
         );
-        expect(list.current).toBe("openade/fix-login");
-        const created = list.branches.find((branch) => branch.name === "openade/fix-login");
+        expect(list.current).toBe("poseidon/fix-login");
+        const created = list.branches.find((branch) => branch.name === "poseidon/fix-login");
         expect(created?.upstream).toBeUndefined();
         // The first push must never land on main: no upstream at all.
-        expect(() => git(root, "rev-parse", "--abbrev-ref", "openade/fix-login@{u}")).toThrow();
+        expect(() => git(root, "rev-parse", "--abbrev-ref", "poseidon/fix-login@{u}")).toThrow();
       }),
     ),
   );
@@ -397,12 +399,12 @@ describe("git.checkout", () => {
       Effect.gen(function* () {
         const root = makeRepo();
         git(root, "branch", "feature");
-        const path = nodePath.join(tempDir("openade-branch-wt-"), "wt");
-        git(root, "worktree", "add", "-q", "-b", "openade/wt", path, "main");
+        const path = nodePath.join(tempDir("poseidon-branch-wt-"), "wt");
+        git(root, "worktree", "add", "-q", "-b", "poseidon/wt", path, "main");
         const { projectId, addRunningThread, git: service } = yield* stack(root);
 
         // A turn in another worktree writes elsewhere: the project root may switch.
-        yield* addRunningThread({ path, branch: "openade/wt", baseBranch: "main" });
+        yield* addRunningThread({ path, branch: "poseidon/wt", baseBranch: "main" });
         expect((yield* service.checkout({ projectId }, "feature")).current).toBe("feature");
 
         yield* addRunningThread();

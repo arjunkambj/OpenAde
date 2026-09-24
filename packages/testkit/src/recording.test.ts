@@ -138,6 +138,6 @@ describe("cmdReplayer", () => {
     expect(cmdReplayer.kind).toBe("cmd");
     expect(cmdReplayer.transport).toBe("stdio-ndjson");
     const config = cmdReplayer.config("text", { home: "/tmp/replay-home" });
-    expect(config.extraEnv.OPENADE_REPLAY_DIR).toBe(NodePath.join(RECORDINGS_DIR, "text"));
+    expect(config.extraEnv.POSEIDON_REPLAY_DIR).toBe(NodePath.join(RECORDINGS_DIR, "text"));
   });
 });

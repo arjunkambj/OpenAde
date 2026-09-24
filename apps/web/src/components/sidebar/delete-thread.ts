@@ -22,7 +22,7 @@
  * "Remove anyway" path covers that too; nothing here waits for it.
  */
 
-import type { ThreadWorktree } from "@OpenAde/contracts/git";
+import type { ThreadWorktree } from "@poseidon/contracts/git";
 import * as Cause from "effect/Cause";
 import * as Exit from "effect/Exit";
 import { isObject, isString } from "effect/Predicate";

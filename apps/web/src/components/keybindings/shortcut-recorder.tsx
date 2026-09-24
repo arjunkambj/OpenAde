@@ -9,9 +9,9 @@
  * place of the keycaps.
  */
 
-import { Button } from "@OpenAde/ui/components/button";
-import { Kbd } from "@OpenAde/ui/components/kbd";
-import { detectModKey, formatEventAsShortcut } from "@OpenAde/client-runtime/keybindings";
+import { Button } from "@poseidon/ui/components/button";
+import { Kbd } from "@poseidon/ui/components/kbd";
+import { detectModKey, formatEventAsShortcut } from "@poseidon/client-runtime/keybindings";
 import * as React from "react";
 
 import { keycapsFor } from "@/lib/keybindings";

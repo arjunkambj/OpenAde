@@ -19,8 +19,8 @@
  */
 
 import { RegistryContext } from "@effect/atom-react";
-import { makeGitAtoms, type GitAtoms } from "@OpenAde/client-runtime/gitAtoms";
-import { makeGitCommands, type GitCommands } from "@OpenAde/client-runtime/gitCommands";
+import { makeGitAtoms, type GitAtoms } from "@poseidon/client-runtime/gitAtoms";
+import { makeGitCommands, type GitCommands } from "@poseidon/client-runtime/gitCommands";
 import * as React from "react";
 
 import { type ClientRuntime, useClientRuntime } from "@/lib/client-runtime";

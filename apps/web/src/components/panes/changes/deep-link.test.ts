@@ -4,8 +4,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { makeCheckpointId, makeTurnId } from "@OpenAde/contracts/ids";
-import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
+import { makeCheckpointId, makeTurnId } from "@poseidon/contracts/ids";
+import type { CheckpointSummary } from "@poseidon/contracts/orchestration";
 
 import {
   changesLink,

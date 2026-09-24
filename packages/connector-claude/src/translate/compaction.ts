@@ -19,9 +19,9 @@
  * the row is failed there, as a tool row is.
  */
 
-import type { ItemId } from "@OpenAde/contracts/ids";
-import { makeItemId } from "@OpenAde/contracts/ids";
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
+import type { ItemId } from "@poseidon/contracts/ids";
+import { makeItemId } from "@poseidon/contracts/ids";
+import type { ItemSnapshot } from "@poseidon/contracts/runtime";
 
 import { asNumber, asRecord, asString, type Json, type PendingRuntimeEvent } from "./pending";
 

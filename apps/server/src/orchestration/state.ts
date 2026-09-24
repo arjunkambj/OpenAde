@@ -8,10 +8,10 @@
  * decision and the stored read model can never disagree.
  */
 
-import type { DecisionKind, ResolvedDecision } from "@OpenAde/contracts/decisions";
-import { UNANSWERED_OUTCOME } from "@OpenAde/contracts/decisions";
-import type { ThreadWorktree } from "@OpenAde/contracts/git";
-import { latestTurnId } from "@OpenAde/contracts/orchestration";
+import type { DecisionKind, ResolvedDecision } from "@poseidon/contracts/decisions";
+import { UNANSWERED_OUTCOME } from "@poseidon/contracts/decisions";
+import type { ThreadWorktree } from "@poseidon/contracts/git";
+import { latestTurnId } from "@poseidon/contracts/orchestration";
 import type {
   Attachment,
   CheckpointRestore,
@@ -29,11 +29,11 @@ import type {
   TurnReference,
   TurnUsage,
   ContextWindowUsage,
-} from "@OpenAde/contracts/orchestration";
-import type { ProjectId, RequestId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
-import type { ItemKind } from "@OpenAde/contracts/enums";
-import type { ApprovalRequest, ItemSnapshot, UserQuestion } from "@OpenAde/contracts/runtime";
-import { approvalSubject, planSubject, questionSubject } from "@OpenAde/shared/decisionSubject";
+} from "@poseidon/contracts/orchestration";
+import type { ProjectId, RequestId, ThreadId, TurnId } from "@poseidon/contracts/ids";
+import type { ItemKind } from "@poseidon/contracts/enums";
+import type { ApprovalRequest, ItemSnapshot, UserQuestion } from "@poseidon/contracts/runtime";
+import { approvalSubject, planSubject, questionSubject } from "@poseidon/shared/decisionSubject";
 
 export type { ApprovalRequest, ItemSnapshot, QueuedMessage, UserQuestion };
 

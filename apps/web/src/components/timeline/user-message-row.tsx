@@ -20,8 +20,8 @@
  * message steered into a running turn, Restore goes back to before that turn.
  */
 
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
-import { Button } from "@OpenAde/ui/components/button";
+import type { ItemSnapshot } from "@poseidon/contracts/runtime";
+import { Button } from "@poseidon/ui/components/button";
 
 import { Attachments } from "@/components/timeline/attachments";
 import { MarkdownBody } from "@/components/timeline/markdown";

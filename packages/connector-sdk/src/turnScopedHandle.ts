@@ -35,9 +35,9 @@
  * wrapped in a separate scope envelope.
  */
 
-import { makeEventId } from "@OpenAde/contracts/ids";
-import type { ConnectorInstanceId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
-import type { RuntimeEvent, TurnStopReason } from "@OpenAde/contracts/runtime";
+import { makeEventId } from "@poseidon/contracts/ids";
+import type { ConnectorInstanceId, ThreadId, TurnId } from "@poseidon/contracts/ids";
+import type { RuntimeEvent, TurnStopReason } from "@poseidon/contracts/runtime";
 import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
 import * as Deferred from "effect/Deferred";

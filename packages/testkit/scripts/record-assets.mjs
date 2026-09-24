@@ -101,8 +101,8 @@ process.stdin.on("data", (chunk) => {
  */
 export const HOOK_SOURCE = `#!/usr/bin/env node
 import * as NodeFS from "node:fs";
-const log = process.env.OPENADE_RECORD_HOOK_LOG;
-const policyPath = process.env.OPENADE_RECORD_HOOK_POLICY;
+const log = process.env.POSEIDON_RECORD_HOOK_LOG;
+const policyPath = process.env.POSEIDON_RECORD_HOOK_POLICY;
 let data = "";
 process.stdin.setEncoding("utf8");
 process.stdin.on("data", (c) => { data += c; });

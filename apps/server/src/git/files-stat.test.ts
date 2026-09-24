@@ -16,10 +16,10 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
-import { makeEventId, makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
-import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
-import type { ThreadWorktree } from "@OpenAde/contracts/git";
-import type { OrchestrationEvent } from "@OpenAde/contracts/orchestration";
+import { makeEventId, makeProjectId, makeThreadId } from "@poseidon/contracts/ids";
+import type { ProjectId, ThreadId } from "@poseidon/contracts/ids";
+import type { ThreadWorktree } from "@poseidon/contracts/git";
+import type { OrchestrationEvent } from "@poseidon/contracts/orchestration";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -39,8 +39,8 @@ const tempDir = (prefix: string) => realpathSync(mkdtempSync(nodePath.join(tmpdi
  * symlinked file and directory that both lead out of it.
  */
 const makeWorkspace = () => {
-  const root = tempDir("openade-stat-root-");
-  const outside = tempDir("openade-stat-outside-");
+  const root = tempDir("poseidon-stat-root-");
+  const outside = tempDir("poseidon-stat-outside-");
   writeFileSync(nodePath.join(outside, "secret.txt"), "do not report\n");
   mkdirSync(nodePath.join(root, "src", "lib"), { recursive: true });
   writeFileSync(nodePath.join(root, "README.md"), "# hi\n");
@@ -213,12 +213,12 @@ describe("files.stat", () => {
     Effect.scoped(
       Effect.gen(function* () {
         const { root } = makeWorkspace();
-        const worktreePath = tempDir("openade-stat-worktree-");
+        const worktreePath = tempDir("poseidon-stat-worktree-");
         writeFileSync(nodePath.join(worktreePath, "only-here.ts"), "export {}\n");
         const { projectId, addWorktreeThread, files } = yield* stack(root);
         const threadId = yield* addWorktreeThread({
           path: worktreePath,
-          branch: "openade/stat",
+          branch: "poseidon/stat",
           baseBranch: "main",
         });
 
@@ -241,7 +241,7 @@ describe("files.stat", () => {
 describe("statWorkspacePaths", () => {
   it("matches a root and an absolute path written through a symlinked alias", async () => {
     const { root } = makeWorkspace();
-    const aliasHome = tempDir("openade-stat-alias-");
+    const aliasHome = tempDir("poseidon-stat-alias-");
     const aliasRoot = nodePath.join(aliasHome, "workspace");
     symlinkSync(root, aliasRoot);
 
@@ -258,7 +258,7 @@ describe("statWorkspacePaths", () => {
   });
 
   it("answers nothing for a root that does not exist", async () => {
-    const missing = nodePath.join(tempDir("openade-stat-gone-"), "nope");
+    const missing = nodePath.join(tempDir("poseidon-stat-gone-"), "nope");
     expect(await statWorkspacePaths(missing, ["README.md"])).toEqual([]);
   });
 

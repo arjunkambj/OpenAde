@@ -1,7 +1,7 @@
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import ReactDOM from "react-dom/client";
 
-import { resolveConnection } from "@OpenAde/client-runtime/resolver";
+import { resolveConnection } from "@poseidon/client-runtime/resolver";
 
 import Loader from "./components/loader";
 import { ErrorScreen } from "./components/Layout/error-screen";

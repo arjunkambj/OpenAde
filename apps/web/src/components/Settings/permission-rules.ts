@@ -15,8 +15,8 @@
  * session rules. Within a group the order the rules arrived in is kept.
  */
 
-import type { PermissionRule } from "@OpenAde/contracts/settings";
-import { parsePattern } from "@OpenAde/shared/permissionPattern";
+import type { PermissionRule } from "@poseidon/contracts/settings";
+import { parsePattern } from "@poseidon/shared/permissionPattern";
 
 type RuleGroup = {
   readonly key: string;

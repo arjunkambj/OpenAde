@@ -19,7 +19,7 @@
  * that order.
  */
 
-import { STREAM_BUDGET_BYTES, STREAM_BUDGET_ITEMS } from "@OpenAde/contracts/rpc";
+import { STREAM_BUDGET_BYTES, STREAM_BUDGET_ITEMS } from "@poseidon/contracts/rpc";
 import * as Cause from "effect/Cause";
 import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";

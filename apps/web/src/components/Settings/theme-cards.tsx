@@ -1,7 +1,7 @@
 import { useAtomSet } from "@effect/atom-react";
 import { useEffect, useState } from "react";
 
-import { cn } from "@OpenAde/ui/lib/utils";
+import { cn } from "@poseidon/ui/lib/utils";
 
 import { useTheme } from "@/components/theme-provider";
 import { useAppAtoms } from "@/lib/app-runtime";

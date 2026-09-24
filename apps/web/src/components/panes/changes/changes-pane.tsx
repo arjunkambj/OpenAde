@@ -29,10 +29,10 @@ import * as React from "react";
 
 import { RegistryContext, useAtomValue } from "@effect/atom-react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import type { ThreadDetailView } from "@OpenAde/client-runtime/clientState";
-import type { GitBranchList } from "@OpenAde/contracts/git";
-import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
-import type { GitStatus } from "@OpenAde/contracts/rpc";
+import type { ThreadDetailView } from "@poseidon/client-runtime/clientState";
+import type { GitBranchList } from "@poseidon/contracts/git";
+import type { CheckpointSummary } from "@poseidon/contracts/orchestration";
+import type { GitStatus } from "@poseidon/contracts/rpc";
 
 import { useKeybindingFlag } from "@/lib/shortcuts";
 import { turnInFlight } from "@/lib/turn";

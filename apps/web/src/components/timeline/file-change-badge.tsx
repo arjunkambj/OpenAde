@@ -4,7 +4,7 @@
  * card can use it without pulling in the diff worker pool.
  */
 
-import type { FileChangeKind } from "@OpenAde/contracts/runtime";
+import type { FileChangeKind } from "@poseidon/contracts/runtime";
 
 import { cn } from "@/lib/utils";
 

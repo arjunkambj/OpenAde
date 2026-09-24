@@ -53,16 +53,16 @@ describe("resolveShell", () => {
 });
 
 describe("terminalEnv", () => {
-  it("keeps the user's environment and drops what belongs to OpenAde", () => {
+  it("keeps the user's environment and drops what belongs to Poseidon", () => {
     const env = terminalEnv(
       {
         HOME: "/Users/someone",
         PATH: "/usr/bin:/bin",
         LANG: "de_DE.UTF-8",
         ELECTRON_RUN_AS_NODE: "1",
-        OPENADE_HOME: "/Users/someone/.openade",
-        OPENADE_PORT: "4321",
-        OPENADE_DEV: "1",
+        POSEIDON_HOME: "/Users/someone/.poseidon",
+        POSEIDON_PORT: "4321",
+        POSEIDON_DEV: "1",
         UNSET: undefined,
       },
       "darwin",
@@ -73,20 +73,20 @@ describe("terminalEnv", () => {
       LANG: "de_DE.UTF-8",
       TERM: "xterm-256color",
       COLORTERM: "truecolor",
-      TERM_PROGRAM: "OpenAde",
+      TERM_PROGRAM: "Poseidon",
     });
   });
 
   it("does not change the environment it was given", () => {
-    const base = { OPENADE_HOME: "/x", TERM: "dumb" };
+    const base = { POSEIDON_HOME: "/x", TERM: "dumb" };
     terminalEnv(base, "linux");
-    expect(base).toEqual({ OPENADE_HOME: "/x", TERM: "dumb" });
+    expect(base).toEqual({ POSEIDON_HOME: "/x", TERM: "dumb" });
   });
 
   it("overrides the emulator variables the server itself inherited", () => {
     const env = terminalEnv({ TERM: "dumb", TERM_PROGRAM: "vscode", COLORTERM: "" }, "linux");
     expect(env.TERM).toBe("xterm-256color");
-    expect(env.TERM_PROGRAM).toBe("OpenAde");
+    expect(env.TERM_PROGRAM).toBe("Poseidon");
     expect(env.COLORTERM).toBe("truecolor");
   });
 
@@ -99,20 +99,20 @@ describe("terminalEnv", () => {
 
   it("matches the dropped keys case-insensitively on Windows only", () => {
     expect(
-      terminalEnv({ Openade_Home: "/x", electron_run_as_node: "1" }, "win32"),
-    ).not.toHaveProperty("Openade_Home");
+      terminalEnv({ Poseidon_Home: "/x", electron_run_as_node: "1" }, "win32"),
+    ).not.toHaveProperty("Poseidon_Home");
     expect(terminalEnv({ electron_run_as_node: "1" }, "win32")).not.toHaveProperty(
       "electron_run_as_node",
     );
-    expect(terminalEnv({ openade_home: "/x" }, "linux")).toHaveProperty("openade_home", "/x");
+    expect(terminalEnv({ poseidon_home: "/x" }, "linux")).toHaveProperty("poseidon_home", "/x");
   });
 
   it("scrubs the AppImage runtime from the environment and the search paths", () => {
     const env = terminalEnv(
       {
-        APPIMAGE: "/home/u/OpenAde.AppImage",
+        APPIMAGE: "/home/u/Poseidon.AppImage",
         APPDIR: "/tmp/.mount_OpenAdX",
-        ARGV0: "OpenAde.AppImage",
+        ARGV0: "Poseidon.AppImage",
         OWD: "/home/u",
         PATH: "/tmp/.mount_OpenAdX/usr/bin:/usr/local/bin:/usr/bin",
         LD_LIBRARY_PATH: "/tmp/.mount_OpenAdX/usr/lib",
@@ -127,7 +127,7 @@ describe("terminalEnv", () => {
       HOME: "/home/u",
       TERM: "xterm-256color",
       COLORTERM: "truecolor",
-      TERM_PROGRAM: "OpenAde",
+      TERM_PROGRAM: "Poseidon",
     });
   });
 

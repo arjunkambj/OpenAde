@@ -1,9 +1,9 @@
 import { useCanGoBack, useMatchRoute, useRouter } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
-import { Button } from "@OpenAde/ui/components/button";
-import { useSidebar } from "@OpenAde/ui/components/sidebar";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+import { Button } from "@poseidon/ui/components/button";
+import { useSidebar } from "@poseidon/ui/components/sidebar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 
 import { SearchTrigger } from "@/components/Layout/search-command";
 import { CommandKbd } from "@/lib/shortcuts";

@@ -28,9 +28,9 @@
 import { useCanGoBack, useNavigate, useRouter } from "@tanstack/react-router";
 import * as React from "react";
 
-import { THREAD_JUMP_COMMANDS } from "@OpenAde/contracts/keybindings";
-import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
-import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
+import { THREAD_JUMP_COMMANDS } from "@poseidon/contracts/keybindings";
+import type { ProjectId, ThreadId } from "@poseidon/contracts/ids";
+import type { ThreadSummary } from "@poseidon/contracts/orchestration";
 
 import { neighbourThread, nthThread } from "@/components/sidebar/thread-order";
 import { useThreadTargets } from "@/components/sidebar/use-thread-targets";

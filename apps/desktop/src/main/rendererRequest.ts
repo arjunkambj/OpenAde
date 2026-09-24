@@ -1,5 +1,5 @@
 /**
- * What `openade://app/<path>` resolves to.
+ * What `poseidon://app/<path>` resolves to.
  *
  * The SPA fallback exists for the history router: `/threads/abc` has no file
  * behind it and must still serve the shell. It must not swallow a missing

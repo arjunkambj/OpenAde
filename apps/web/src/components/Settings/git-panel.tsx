@@ -13,18 +13,18 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import * as React from "react";
 
-import { Button } from "@OpenAde/ui/components/button";
-import { Card, CardContent } from "@OpenAde/ui/components/card";
+import { Button } from "@poseidon/ui/components/button";
+import { Card, CardContent } from "@poseidon/ui/components/card";
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@OpenAde/ui/components/empty";
-import { Input } from "@OpenAde/ui/components/input";
-import { Label } from "@OpenAde/ui/components/label";
-import { DEFAULT_BRANCH_PREFIX, type SettingsPatch } from "@OpenAde/contracts/settings";
+} from "@poseidon/ui/components/empty";
+import { Input } from "@poseidon/ui/components/input";
+import { Label } from "@poseidon/ui/components/label";
+import { DEFAULT_BRANCH_PREFIX, type SettingsPatch } from "@poseidon/contracts/settings";
 import * as Exit from "effect/Exit";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { toast } from "sonner";
@@ -166,8 +166,8 @@ export function GitPanel() {
         <h2 className="text-sm font-medium">Setup scripts</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Runs with <code className="font-mono">sh -c</code> in each new worktree of the project,
-          from the worktree’s root, with <code className="font-mono">OPENADE_WORKTREE_PATH</code>{" "}
-          and <code className="font-mono">OPENADE_PROJECT_ROOT</code> set. Its output shows while
+          from the worktree’s root, with <code className="font-mono">POSEIDON_WORKTREE_PATH</code>{" "}
+          and <code className="font-mono">POSEIDON_PROJECT_ROOT</code> set. Its output shows while
           the thread starts. Local threads never run it.
         </p>
       </div>

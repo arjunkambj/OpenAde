@@ -4,7 +4,7 @@
   "status": "completed",
   "command": {
     "cmd": "pnpm vitest run apps/server",
-    "cwd": "/Users/dev/projects/openade",
+    "cwd": "/Users/dev/projects/poseidon",
     "exitCode": 0,
     "output": "Test Files  4 passed (4)\n      Tests  18 passed (18)\n"
   }

@@ -6,7 +6,7 @@
  * way a second message was steered in. The CLI queued that message, ended the
  * first of its turns with an error result, then ran the steered message as a
  * turn of its own with a second result. That is the path where counting
- * results would end OpenAde's turn one message early. The replay holds the
+ * results would end Poseidon's turn one message early. The replay holds the
  * session to writing the steered message exactly where the recording has it
  * — after the init, before the first result — and the turn has to span both.
  *
@@ -20,10 +20,10 @@ import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
-import { makeStreamCollector } from "@OpenAde/connector-sdk/streamCollector";
-import { makeConnectorInstanceId, makeThreadId } from "@OpenAde/contracts/ids";
-import type { RuntimeEvent } from "@OpenAde/contracts/runtime";
-import { loadSdkStreamRecording } from "@OpenAde/testkit/sdkStreamRecording";
+import { makeStreamCollector } from "@poseidon/connector-sdk/streamCollector";
+import { makeConnectorInstanceId, makeThreadId } from "@poseidon/contracts/ids";
+import type { RuntimeEvent } from "@poseidon/contracts/runtime";
+import { loadSdkStreamRecording } from "@poseidon/testkit/sdkStreamRecording";
 import * as Effect from "effect/Effect";
 
 import { isPidGone, replay } from "../test/replay";

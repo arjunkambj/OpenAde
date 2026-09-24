@@ -18,7 +18,7 @@
  *   `files.stat` confirmed.
  */
 
-import type { FileStat } from "@OpenAde/contracts/rpc";
+import type { FileStat } from "@poseidon/contracts/rpc";
 
 /** A path a link or a code span names, with the line it points at. */
 export interface PathLink {

@@ -1,1 +1,1 @@
-export { cn } from "@OpenAde/ui/lib/utils";
+export { cn } from "@poseidon/ui/lib/utils";

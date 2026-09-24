@@ -27,14 +27,14 @@
  * its full timeout must not decide whether the first turn of a boot can run.
  */
 
-import type { ConnectorInstanceId } from "@OpenAde/contracts/ids";
-import { makeConnectorInstanceId } from "@OpenAde/contracts/ids";
-import type { ConnectorSummary, ModelOption } from "@OpenAde/contracts/connectors";
-import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
-import type { ConnectorProbe } from "@OpenAde/connector-sdk/definition";
-import { toWireProbe } from "@OpenAde/connector-sdk/definition";
-import type { ConnectorRegistry } from "@OpenAde/connector-sdk/registry";
-import type { ConnectorInstanceConfig, Settings } from "@OpenAde/contracts/settings";
+import type { ConnectorInstanceId } from "@poseidon/contracts/ids";
+import { makeConnectorInstanceId } from "@poseidon/contracts/ids";
+import type { ConnectorSummary, ModelOption } from "@poseidon/contracts/connectors";
+import type { ConnectorCapabilities } from "@poseidon/contracts/runtime";
+import type { ConnectorProbe } from "@poseidon/connector-sdk/definition";
+import { toWireProbe } from "@poseidon/connector-sdk/definition";
+import type { ConnectorRegistry } from "@poseidon/connector-sdk/registry";
+import type { ConnectorInstanceConfig, Settings } from "@poseidon/contracts/settings";
 import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";

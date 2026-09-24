@@ -8,9 +8,9 @@ import {
   makeItemId,
   makeThreadId,
   makeTurnId,
-} from "@OpenAde/contracts/ids";
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import type { Command } from "@OpenAde/contracts/orchestration";
+} from "@poseidon/contracts/ids";
+import type { ThreadId } from "@poseidon/contracts/ids";
+import type { Command } from "@poseidon/contracts/orchestration";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Stream from "effect/Stream";
@@ -441,7 +441,7 @@ describe("the restore exclusion", () => {
             checkpoint: {
               checkpointId,
               turnId: makeTurnId(),
-              ref: `refs/openade/checkpoints/${id}/x`,
+              ref: `refs/poseidon/checkpoints/${id}/x`,
               createdAt: NOW,
             },
           },
@@ -460,7 +460,7 @@ describe("the restore exclusion", () => {
   it.effect("covers only the threads that share the restoring thread's directory", () =>
     Effect.gen(function* () {
       const engine = yield* OrchestrationEngine;
-      const worktree = { path: "/worktrees/demo/fix", branch: "openade/fix" };
+      const worktree = { path: "/worktrees/demo/fix", branch: "poseidon/fix" };
       const inWorktree = makeThreadId();
       const sameWorktree = makeThreadId();
       const local = makeThreadId();

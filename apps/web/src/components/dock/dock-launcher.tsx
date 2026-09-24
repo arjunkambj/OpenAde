@@ -21,7 +21,7 @@
 
 import * as React from "react";
 
-import { Button } from "@OpenAde/ui/components/button";
+import { Button } from "@poseidon/ui/components/button";
 
 import { CommandKbd } from "@/lib/shortcuts";
 

@@ -11,10 +11,10 @@
  * re-exported through the same bag rather than redefined here.
  */
 
-import { Connection } from "@OpenAde/client-runtime/connection";
-import type { ConnectorInstanceId, ProjectId } from "@OpenAde/contracts/ids";
-import type { AgentSkill, McpServerConfig, McpServerScope } from "@OpenAde/contracts/connectors";
-import type { SettingsPatch } from "@OpenAde/contracts/settings";
+import { Connection } from "@poseidon/client-runtime/connection";
+import type { ConnectorInstanceId, ProjectId } from "@poseidon/contracts/ids";
+import type { AgentSkill, McpServerConfig, McpServerScope } from "@poseidon/contracts/connectors";
+import type { SettingsPatch } from "@poseidon/contracts/settings";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import type * as Exit from "effect/Exit";

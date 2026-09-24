@@ -28,8 +28,8 @@
  * Kept pure and free of React so the wording is under test.
  */
 
-import type { ConnectionState } from "@OpenAde/client-runtime/connection";
-import type { DesktopServerState } from "@OpenAde/client-runtime/resolver";
+import type { ConnectionState } from "@poseidon/client-runtime/connection";
+import type { DesktopServerState } from "@poseidon/client-runtime/resolver";
 import { type HoneyIcon, AlertTriangle, Spinner, WifiOff } from "@honeyicons/react";
 
 export interface ConnectionNotice {
@@ -54,8 +54,8 @@ const gaveUp = (reason: string | null | undefined): ConnectionNotice => ({
   icon: AlertTriangle,
   message:
     reason === null || reason === undefined || reason === ""
-      ? "The server stopped and is not being retried. Reopen OpenAde to start it again."
-      : `The server stopped and is not being retried (${reason}). Reopen OpenAde to start it again.`,
+      ? "The server stopped and is not being retried. Reopen Poseidon to start it again."
+      : `The server stopped and is not being retried (${reason}). Reopen Poseidon to start it again.`,
 });
 
 export const connectionNotice = (
@@ -66,7 +66,7 @@ export const connectionNotice = (
     return {
       tone: "error",
       icon: AlertTriangle,
-      message: "The server speaks a different protocol version. Update OpenAde to continue.",
+      message: "The server speaks a different protocol version. Update Poseidon to continue.",
     };
   }
   if (connection.status === "connected") {

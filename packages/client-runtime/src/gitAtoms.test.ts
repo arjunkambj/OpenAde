@@ -11,10 +11,10 @@ import {
   decodeTurnId,
   makeProjectId,
   makeThreadId,
-} from "@OpenAde/contracts/ids";
-import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
-import type { GitBranchList } from "@OpenAde/contracts/git";
-import type { GitDiff, GitStatus } from "@OpenAde/contracts/rpc";
+} from "@poseidon/contracts/ids";
+import type { CheckpointSummary } from "@poseidon/contracts/orchestration";
+import type { GitBranchList } from "@poseidon/contracts/git";
+import type { GitDiff, GitStatus } from "@poseidon/contracts/rpc";
 import type * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -42,7 +42,7 @@ import {
   Connection,
   ConnectionStateRef,
   type ConnectionState,
-  type OpenAdeRpcClient,
+  type PoseidonRpcClient,
 } from "./connection";
 
 const CONNECTED: ConnectionState = { status: "connected", serverInstanceId: null };
@@ -82,7 +82,7 @@ interface Calls {
 const checkpoint = (n: number): CheckpointSummary => ({
   checkpointId: decodeCheckpointId(`0190a000-0000-7000-8000-00000000000${n}`),
   turnId: decodeTurnId(`0190a000-0000-7000-8000-00000000010${n}`),
-  ref: `refs/openade/checkpoints/t/${n}`,
+  ref: `refs/poseidon/checkpoints/t/${n}`,
   createdAt: "2026-01-01T00:00:00.000Z",
 });
 
@@ -102,8 +102,8 @@ const branchList = (current: string): GitBranchList => ({
  * A client whose git calls record their arguments and answer from a mutable
  * script, so a test can make the second call fail or assert it happened.
  */
-const fakeClient = (calls: Calls, failStatus: Ref.Ref<boolean>): OpenAdeRpcClient =>
-  new Proxy({} as OpenAdeRpcClient, {
+const fakeClient = (calls: Calls, failStatus: Ref.Ref<boolean>): PoseidonRpcClient =>
+  new Proxy({} as PoseidonRpcClient, {
     get: (_target, key) => {
       if (key === "git.status") {
         return (payload: { projectId: string; threadId?: string }) =>
@@ -153,7 +153,7 @@ const fakeClient = (calls: Calls, failStatus: Ref.Ref<boolean>): OpenAdeRpcClien
     },
   });
 
-const runtimeWith = (client: OpenAdeRpcClient, initial: ConnectionState) =>
+const runtimeWith = (client: PoseidonRpcClient, initial: ConnectionState) =>
   Effect.gen(function* () {
     const stateRef = yield* SubscriptionRef.make(initial);
     const layer = Layer.mergeAll(
@@ -186,11 +186,11 @@ describe("git atoms", () => {
     const projectId = makeProjectId();
     const ranges: ReadonlyArray<GitDiffRange> = [
       { projectId },
-      { projectId, from: "refs/openade/checkpoints/a" },
-      { projectId, from: "refs/openade/checkpoints/a", to: "refs/openade/checkpoints/b" },
-      { projectId, to: "refs/openade/checkpoints/b" },
+      { projectId, from: "refs/poseidon/checkpoints/a" },
+      { projectId, from: "refs/poseidon/checkpoints/a", to: "refs/poseidon/checkpoints/b" },
+      { projectId, to: "refs/poseidon/checkpoints/b" },
       { projectId, threadId: makeThreadId() },
-      { projectId, threadId: makeThreadId(), from: "main", to: "refs/openade/checkpoints/b" },
+      { projectId, threadId: makeThreadId(), from: "main", to: "refs/poseidon/checkpoints/b" },
       { projectId, mergeBase: "main" },
       { projectId, threadId: makeThreadId(), mergeBase: "origin/main" },
     ];
@@ -238,7 +238,7 @@ describe("git atoms", () => {
             awaitValue<Listed, Cause.NoSuchElementError>(registry, first, (q) => q._tag === "ok"),
           );
           expect(one._tag === "ok" && one.value.map((entry) => entry.ref)).toEqual([
-            "refs/openade/checkpoints/t/1",
+            "refs/poseidon/checkpoints/t/1",
           ]);
           // The revision never reaches the server.
           expect(calls.checkpoints).toEqual([{ projectId, threadId }]);

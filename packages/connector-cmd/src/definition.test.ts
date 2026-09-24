@@ -7,7 +7,7 @@
 import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
 import * as NodeURL from "node:url";
-import { eraseConnectorDefinition } from "@OpenAde/connector-sdk/definition";
+import { eraseConnectorDefinition } from "@poseidon/connector-sdk/definition";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 

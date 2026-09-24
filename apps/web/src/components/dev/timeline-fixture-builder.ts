@@ -5,16 +5,16 @@
  * `timeline-fixture-data.ts` writes the turns with it.
  */
 
-import type { ResolvedDecision } from "@OpenAde/contracts/decisions";
+import type { ResolvedDecision } from "@poseidon/contracts/decisions";
 import {
   decodeCheckpointId,
   decodeItemId,
   decodeTurnId,
   type ItemId,
   type TurnId,
-} from "@OpenAde/contracts/ids";
-import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
+} from "@poseidon/contracts/ids";
+import type { CheckpointSummary } from "@poseidon/contracts/orchestration";
+import type { ItemSnapshot } from "@poseidon/contracts/runtime";
 
 export const WORKSPACE_ROOT = "/fixture";
 
@@ -78,7 +78,7 @@ export const makeBuilder = (start: number): Builder => {
       builder.checkpoints.push({
         checkpointId,
         turnId,
-        ref: `refs/openade/checkpoints/${threadId}/${turnId}`,
+        ref: `refs/poseidon/checkpoints/${threadId}/${turnId}`,
         createdAt: builder.iso(),
       });
     },

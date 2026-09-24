@@ -1,12 +1,12 @@
 /**
- * Claude Code's tools in OpenAde's approval vocabulary: the kind the ladder
+ * Claude Code's tools in Poseidon's approval vocabulary: the kind the ladder
  * reads, the pattern "allow always" proposes, the MCP reference, and the
  * input the ladder is given. The table is the connector's promise; the
  * patterns are checked against the shared pattern parser so a suggestion is
  * always one the settings page can save.
  */
 
-import { parsePattern } from "@OpenAde/shared/permissionPattern";
+import { parsePattern } from "@poseidon/shared/permissionPattern";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -32,7 +32,7 @@ const TABLE = [
   ["LS", { path: "/repo" }, "file_read", "Read(/repo)"],
   ["WebFetch", { url: "https://x.dev/a", prompt: "sum" }, "web", "Fetch(https://x.dev/a)"],
   ["WebSearch", { query: "effect v4" }, "web", "Fetch(effect v4)"],
-  ["mcp__openade__browser_open", { url: "file:///x" }, "mcp_tool", "Mcp(openade.browser_open)"],
+  ["mcp__poseidon__browser_open", { url: "file:///x" }, "mcp_tool", "Mcp(poseidon.browser_open)"],
   ["mcp__gh__issues__list", {}, "mcp_tool", "Mcp(gh.issues__list)"],
   ["TodoWrite", { todos: [] }, "other", "TodoWrite"],
   ["Task", { description: "look around" }, "other", "Task"],
@@ -47,8 +47,8 @@ describe("the approval mapping", () => {
   });
 
   it("names an MCP call's server and tool, splitting at the first separator", () => {
-    expect(mcpToolFor("mcp__openade__browser_open")).toEqual({
-      server: "openade",
+    expect(mcpToolFor("mcp__poseidon__browser_open")).toEqual({
+      server: "poseidon",
       tool: "browser_open",
     });
     expect(mcpToolFor("mcp__gh__issues__list")).toEqual({ server: "gh", tool: "issues__list" });
@@ -66,14 +66,14 @@ describe("the approval mapping", () => {
   });
 
   it("builds the whole request, with the MCP reference only for MCP calls", () => {
-    const mcp = approvalRequestFor("mcp__openade__browser_open", { url: "file:///etc" });
+    const mcp = approvalRequestFor("mcp__poseidon__browser_open", { url: "file:///etc" });
     expect(mcp).toMatchObject({
       kind: "mcp_tool",
-      toolName: "mcp__openade__browser_open",
+      toolName: "mcp__poseidon__browser_open",
       input: { url: "file:///etc" },
-      patternSuggestion: "Mcp(openade.browser_open)",
-      mcpTool: { server: "openade", tool: "browser_open" },
-      description: "Call browser_open on the openade MCP server",
+      patternSuggestion: "Mcp(poseidon.browser_open)",
+      mcpTool: { server: "poseidon", tool: "browser_open" },
+      description: "Call browser_open on the poseidon MCP server",
     });
     const shell = approvalRequestFor("Bash", { command: "cat .env" });
     expect(shell.mcpTool).toBeUndefined();

@@ -11,10 +11,10 @@
  * `origin/main` would otherwise track `origin/main`, and its first plain
  * `git push` would land on main.
  */
-import type { GitBranch, GitBranchList } from "@OpenAde/contracts/git";
+import type { GitBranch, GitBranchList } from "@poseidon/contracts/git";
 import * as Effect from "effect/Effect";
 
-import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
+import { PoseidonRpcError } from "@poseidon/contracts/rpc";
 
 import { GitError, run } from "./process";
 
@@ -37,11 +37,11 @@ const REF_ARG = /^[A-Za-z0-9._/-]+$/;
 export const isSafeRefArg = (value: string): boolean =>
   !value.startsWith("-") && REF_ARG.test(value);
 
-const invalid = (message: string) => new OpenAdeRpcError({ code: "invalid", message });
-const conflict = (message: string) => new OpenAdeRpcError({ code: "conflict", message });
+const invalid = (message: string) => new PoseidonRpcError({ code: "invalid", message });
+const conflict = (message: string) => new PoseidonRpcError({ code: "conflict", message });
 
 /** A ref argument, or `invalid` before git ever sees it. */
-export const validRef = (value: string, name: string): Effect.Effect<string, OpenAdeRpcError> =>
+export const validRef = (value: string, name: string): Effect.Effect<string, PoseidonRpcError> =>
   isSafeRefArg(value)
     ? Effect.succeed(value)
     : Effect.fail(invalid(`invalid ${name} ref: ${value}`));
@@ -284,7 +284,7 @@ export const checkoutBranch = (cwd: string, branch: string) =>
       return;
     }
     return yield* Effect.fail(
-      new OpenAdeRpcError({ code: "not-found", message: `No branch named "${name}".` }),
+      new PoseidonRpcError({ code: "not-found", message: `No branch named "${name}".` }),
     );
   });
 

@@ -1,4 +1,4 @@
-import { makeCheckpointId, makeThreadId, makeTurnId } from "@OpenAde/contracts/ids";
+import { makeCheckpointId, makeThreadId, makeTurnId } from "@poseidon/contracts/ids";
 import type * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -12,7 +12,7 @@ import { makeFixtureClient } from "@/lib/fixture-client";
 
 // The dialog's popup is portalled, which a static render leaves out; render
 // its parts in place so the body can be read.
-vi.mock("@OpenAde/ui/components/dialog", () => {
+vi.mock("@poseidon/ui/components/dialog", () => {
   const part = ({ children }: { readonly children?: React.ReactNode }) => <div>{children}</div>;
   return {
     Dialog: ({
@@ -34,7 +34,7 @@ const turnId = makeTurnId();
 const checkpoint = {
   checkpointId: makeCheckpointId(),
   turnId,
-  ref: `refs/openade/checkpoints/t/${turnId}`,
+  ref: `refs/poseidon/checkpoints/t/${turnId}`,
   createdAt: "2026-01-01T00:00:00.000Z",
 };
 

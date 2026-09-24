@@ -8,7 +8,7 @@
  * server can stage more than images.
  */
 
-import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
+import type { ConnectorCapabilities } from "@poseidon/contracts/runtime";
 
 export const IMAGES_UNSUPPORTED =
   "The connector this thread runs on cannot read images — start a thread on one that can";

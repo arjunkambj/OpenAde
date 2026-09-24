@@ -20,9 +20,9 @@
  * chooser (`./use-composer-commands`).
  */
 
-import { Button } from "@OpenAde/ui/components/button";
-import { Kbd } from "@OpenAde/ui/components/kbd";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+import { Button } from "@poseidon/ui/components/button";
+import { Kbd } from "@poseidon/ui/components/kbd";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 import type * as React from "react";
 
 import { ATTACHMENT_ACCEPT } from "@/components/composer/attachment-rules";

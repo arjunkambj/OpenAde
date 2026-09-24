@@ -12,7 +12,7 @@
  * - `owned-chromium` — no desktop: agent-browser's own headless Chrome, with
  *   the pane showing its frame stream and the toolbar driving it through
  *   the server (`./ownedDriver`).
- * - `disabled` — the shell ran with `OPENADE_REMOTE_DEBUG=0`: every call
+ * - `disabled` — the shell ran with `POSEIDON_REMOTE_DEBUG=0`: every call
  *   answers that, and nothing is opened.
  *
  * There is no fallback between them. A desktop attach that fails is an error
@@ -61,9 +61,9 @@ import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
 
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import { makeRequestId } from "@OpenAde/contracts/ids";
-import type { BrowserFrame, BrowserHumanInput, BrowserState } from "@OpenAde/contracts/rpc";
+import type { ThreadId } from "@poseidon/contracts/ids";
+import { makeRequestId } from "@poseidon/contracts/ids";
+import type { BrowserFrame, BrowserHumanInput, BrowserState } from "@poseidon/contracts/rpc";
 
 import { OrchestrationEngine } from "../orchestration/Engine";
 import { PermissionService } from "../permissions/PermissionService";
@@ -292,7 +292,7 @@ export const makeService = (injected: {
             request: {
               requestId: makeRequestId(),
               kind: "web",
-              toolName: "mcp__openade__browser_eval",
+              toolName: "mcp__poseidon__browser_eval",
               input: typeof args === "object" && args !== null ? args : {},
               description: "evaluate JavaScript in the thread's browser",
             },
@@ -313,7 +313,7 @@ export const makeService = (injected: {
       });
 
     const screenshotPath = () =>
-      join(tmpdir(), `openade-shot-${Math.random().toString(16).slice(2)}.png`);
+      join(tmpdir(), `poseidon-shot-${Math.random().toString(16).slice(2)}.png`);
 
     const execOnce = (
       driver: BrowserDriver,
@@ -454,7 +454,7 @@ export const makeService = (injected: {
           // happened in the guest, and the toolbar navigates it directly. All
           // the server does is mirror a navigation's url. It never runs
           // agent-browser for the human: `reload` over CDP reloads the whole
-          // OpenAde window, not the tab.
+          // Poseidon window, not the tab.
           if (input.kind === "navigate") {
             yield* SubscriptionRef.update(session.state, (state) => ({ ...state, url: input.url }));
           }

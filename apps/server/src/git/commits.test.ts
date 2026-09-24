@@ -16,9 +16,9 @@ import {
   makeTurnId,
   type ProjectId,
   type ThreadId,
-} from "@OpenAde/contracts/ids";
-import type { ThreadWorktree } from "@OpenAde/contracts/git";
-import type { OrchestrationEvent } from "@OpenAde/contracts/orchestration";
+} from "@poseidon/contracts/ids";
+import type { ThreadWorktree } from "@poseidon/contracts/git";
+import type { OrchestrationEvent } from "@poseidon/contracts/orchestration";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -40,14 +40,14 @@ const tempDir = (prefix: string) => realpathSync(mkdtempSync(nodePath.join(tmpdi
 
 /** CI has no global identity, so every repository gets its own — and signs nothing. */
 const identify = (root: string) => {
-  git(root, "config", "user.email", "test@openade.local");
-  git(root, "config", "user.name", "OpenAde Test");
+  git(root, "config", "user.email", "test@poseidon.local");
+  git(root, "config", "user.name", "Poseidon Test");
   git(root, "config", "commit.gpgsign", "false");
 };
 
 /** A repository with one commit of `a.txt` on `main`. */
 const makeRepo = () => {
-  const root = tempDir("openade-commit-repo-");
+  const root = tempDir("poseidon-commit-repo-");
   git(root, "init", "-q", "-b", "main");
   identify(root);
   writeFileSync(nodePath.join(root, "a.txt"), "one\n");
@@ -58,7 +58,7 @@ const makeRepo = () => {
 
 /** A bare repository standing in for the remote, added to `root` as `origin`. */
 const addBareRemote = (root: string, name = "origin") => {
-  const bare = tempDir("openade-commit-remote-");
+  const bare = tempDir("poseidon-commit-remote-");
   git(bare, "init", "-q", "--bare", "-b", "main");
   git(root, "remote", "add", name, bare);
   return bare;
@@ -195,7 +195,9 @@ const stack = (root: string, gh: GhRunner["Service"] = fakeGh(() => "missing").r
             Layer.succeed(GhRunner, gh),
             SettingsStore.layer.pipe(Layer.provide(sqlite)),
             // No test here cuts a worktree, so nothing is created under it.
-            Layer.succeed(WorktreesRoot, { path: nodePath.join(tmpdir(), "openade-no-worktrees") }),
+            Layer.succeed(WorktreesRoot, {
+              path: nodePath.join(tmpdir(), "poseidon-no-worktrees"),
+            }),
           ),
         ),
       ),
@@ -223,7 +225,7 @@ describe("git.commit", () => {
         expect(committedPaths(root)).toEqual(["a.txt", "b.txt"]);
         expect(git(root, "status", "--porcelain").trim()).toBe("");
         expect(git(root, "log", "-1", "--format=%an <%ae>").trim()).toBe(
-          "OpenAde Test <test@openade.local>",
+          "Poseidon Test <test@poseidon.local>",
         );
       }),
     ),
@@ -557,15 +559,15 @@ describe("git.push", () => {
 
         yield* service.createBranch(
           { projectId },
-          { name: "openade/fix", from: "origin/main", checkout: true },
+          { name: "poseidon/fix", from: "origin/main", checkout: true },
         );
         write(root, "fix.txt", "fixed\n");
         yield* service.commit({ projectId }, { message: "Fix it" });
         const pushed = yield* service.push({ projectId });
 
-        expect(pushed).toEqual({ remote: "origin", branch: "openade/fix", setUpstream: true });
+        expect(pushed).toEqual({ remote: "origin", branch: "poseidon/fix", setUpstream: true });
         expect(git(bare, "rev-parse", "refs/heads/main").trim()).toBe(mainBefore);
-        expect(git(bare, "rev-parse", "refs/heads/openade/fix").trim()).toBe(
+        expect(git(bare, "rev-parse", "refs/heads/poseidon/fix").trim()).toBe(
           git(root, "rev-parse", "HEAD").trim(),
         );
       }),
@@ -575,7 +577,7 @@ describe("git.push", () => {
 
 // ── Pull requests ──────────────────────────────────────────────
 
-const prArgs = { head: "openade/fix", base: "main", title: "Fix it", body: "Body\n\n- one" };
+const prArgs = { head: "poseidon/fix", base: "main", title: "Fix it", body: "Body\n\n- one" };
 
 describe("git.pullRequest.create", () => {
   it.effect("answers unavailable when gh is not installed", () =>
@@ -617,7 +619,7 @@ describe("git.pullRequest.create", () => {
         "pr",
         "create",
         "--head",
-        "openade/fix",
+        "poseidon/fix",
         "--base",
         "main",
         "--title",
@@ -633,7 +635,7 @@ describe("git.pullRequest.create", () => {
       const { runner } = signedInGh({
         stdout: "",
         stderr:
-          'a pull request for branch "openade/fix" into branch "main" already exists:\nhttps://github.com/acme/app/pull/41\n',
+          'a pull request for branch "poseidon/fix" into branch "main" already exists:\nhttps://github.com/acme/app/pull/41\n',
         exitCode: 1,
       });
       const result = yield* createPullRequest(runner, "/repo", prArgs);
@@ -646,14 +648,14 @@ describe("git.pullRequest.create", () => {
       const { runner, calls } = signedInGh(
         {
           stdout: "",
-          stderr: 'a pull request for branch "openade/fix" into branch "main" already exists\n',
+          stderr: 'a pull request for branch "poseidon/fix" into branch "main" already exists\n',
           exitCode: 1,
         },
         { stdout: "https://github.com/acme/app/pull/41\n", stderr: "", exitCode: 0 },
       );
       const result = yield* createPullRequest(runner, "/repo", prArgs);
       expect(result).toEqual({ url: "https://github.com/acme/app/pull/41", created: false });
-      expect(calls[3]).toEqual(["pr", "view", "openade/fix", "--json", "url", "-q", ".url"]);
+      expect(calls[3]).toEqual(["pr", "view", "poseidon/fix", "--json", "url", "-q", ".url"]);
     }),
   );
 
@@ -661,12 +663,12 @@ describe("git.pullRequest.create", () => {
     Effect.gen(function* () {
       const { runner } = signedInGh({
         stdout: "",
-        stderr: "pull request create failed: GraphQL: No commits between main and openade/fix\n",
+        stderr: "pull request create failed: GraphQL: No commits between main and poseidon/fix\n",
         exitCode: 1,
       });
       const error = yield* createPullRequest(runner, "/repo", prArgs).pipe(Effect.flip);
       expect(error.code).toBe("conflict");
-      expect(error.message).toContain("No commits between main and openade/fix");
+      expect(error.message).toContain("No commits between main and poseidon/fix");
     }),
   );
 
@@ -676,7 +678,7 @@ describe("git.pullRequest.create", () => {
         const root = makeRepo();
         addBareRemote(root);
         git(root, "push", "-q", "origin", "main");
-        git(root, "switch", "-q", "-c", "openade/fix");
+        git(root, "switch", "-q", "-c", "poseidon/fix");
         const { runner, calls } = signedInGh({
           stdout: "https://github.com/acme/app/pull/7\n",
           stderr: "",
@@ -689,21 +691,21 @@ describe("git.pullRequest.create", () => {
         });
 
         yield* service.createPullRequest({ projectId }, { title: "Fix", body: "" });
-        expect(argsOf(calls.at(-1))).toEqual({ head: "openade/fix", base: "main" });
+        expect(argsOf(calls.at(-1))).toEqual({ head: "poseidon/fix", base: "main" });
 
         // A worktree cut from a remote branch: gh is given the remote's own name for it.
         const threadId = yield* addThread({
           running: false,
-          worktree: { path: root, branch: "openade/fix", baseBranch: "origin/release" },
+          worktree: { path: root, branch: "poseidon/fix", baseBranch: "origin/release" },
         });
         yield* service.createPullRequest({ projectId, threadId }, { title: "Fix", body: "" });
-        expect(argsOf(calls.at(-1))).toEqual({ head: "openade/fix", base: "release" });
+        expect(argsOf(calls.at(-1))).toEqual({ head: "poseidon/fix", base: "release" });
 
         yield* service.createPullRequest(
           { projectId, threadId },
           { title: "Fix", body: "", base: "develop" },
         );
-        expect(argsOf(calls.at(-1))).toEqual({ head: "openade/fix", base: "develop" });
+        expect(argsOf(calls.at(-1))).toEqual({ head: "poseidon/fix", base: "develop" });
 
         const bad = yield* service
           .createPullRequest({ projectId }, { title: "Fix", body: "", base: "-x" })

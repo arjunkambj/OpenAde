@@ -6,7 +6,7 @@
  * render their nested items through the same dispatcher.
  */
 
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
+import type { ItemSnapshot } from "@poseidon/contracts/runtime";
 import { memo } from "react";
 
 import { CommandExecutionRow } from "@/components/timeline/tool-rows";

@@ -10,9 +10,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@OpenAde/ui/components/select";
-import type { ProjectId } from "@OpenAde/contracts/ids";
-import type { ProjectSummary } from "@OpenAde/contracts/orchestration";
+} from "@poseidon/ui/components/select";
+import type { ProjectId } from "@poseidon/contracts/ids";
+import type { ProjectSummary } from "@poseidon/contracts/orchestration";
 
 import { Folder } from "@honeyicons/react";
 

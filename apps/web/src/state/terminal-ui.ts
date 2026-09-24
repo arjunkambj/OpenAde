@@ -19,7 +19,7 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import * as Atom from "effect/unstable/reactivity/Atom";
 import * as React from "react";
 
-const OPEN_KEY = "openade:terminal-open-by-thread";
+const OPEN_KEY = "poseidon:terminal-open-by-thread";
 
 /**
  * Absent, unparseable or foreign-shaped storage all mean "no drawer open".
@@ -135,7 +135,7 @@ export const useTerminalOpen = (threadId: string) => {
   return [open, setOpen] as const;
 };
 
-const HEIGHT_KEY = "openade:terminal-height";
+const HEIGHT_KEY = "poseidon:terminal-height";
 const HEIGHT_DEFAULT = 280;
 export const DRAWER_HEIGHT_MIN = 120;
 /** The drawer may take this share of the thread column, and no more. */

@@ -10,9 +10,9 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { makeRequestId, makeThreadId } from "@OpenAde/contracts/ids";
-import type { ApprovalRequest } from "@OpenAde/contracts/runtime";
-import { OPENADE_HOME_ENV } from "@OpenAde/shared/paths";
+import { makeRequestId, makeThreadId } from "@poseidon/contracts/ids";
+import type { ApprovalRequest } from "@poseidon/contracts/runtime";
+import { POSEIDON_HOME_ENV } from "@poseidon/shared/paths";
 import { describe, expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -30,25 +30,25 @@ const request: ApprovalRequest = {
 };
 
 /**
- * `install` creates the attachments directory under `OPENADE_HOME`, so every
+ * `install` creates the attachments directory under `POSEIDON_HOME`, so every
  * host here gets a home of its own — a plain `vitest run` must never write into
- * the developer's real `~/.openade`.
+ * the developer's real `~/.poseidon`.
  */
 const hostWithHome = (prepare: (home: string) => void = () => {}) =>
   Effect.acquireRelease(
     Effect.sync(() => {
-      const previous = process.env[OPENADE_HOME_ENV];
-      const home = mkdtempSync(join(tmpdir(), "openade-host-"));
+      const previous = process.env[POSEIDON_HOME_ENV];
+      const home = mkdtempSync(join(tmpdir(), "poseidon-host-"));
       prepare(home);
-      process.env[OPENADE_HOME_ENV] = home;
+      process.env[POSEIDON_HOME_ENV] = home;
       return previous;
     }),
     (previous) =>
       Effect.sync(() => {
         if (previous === undefined) {
-          delete process.env[OPENADE_HOME_ENV];
+          delete process.env[POSEIDON_HOME_ENV];
         } else {
-          process.env[OPENADE_HOME_ENV] = previous;
+          process.env[POSEIDON_HOME_ENV] = previous;
         }
       }),
   ).pipe(

@@ -1,9 +1,9 @@
 {
-  "name": "@OpenAde/testkit",
+  "name": "@poseidon/testkit",
   "version": "0.0.0",
   "private": true,
   "bin": {
-    "openade-replay-cmd": "./bin/replay-cmd.mjs"
+    "poseidon-replay-cmd": "./bin/replay-cmd.mjs"
   },
   "type": "module",
   "exports": {
@@ -41,14 +41,14 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@OpenAde/connector-sdk": "workspace:*",
-    "@OpenAde/contracts": "workspace:*",
-    "@OpenAde/shared": "workspace:*",
     "@effect/vitest": "catalog:",
+    "@poseidon/connector-sdk": "workspace:*",
+    "@poseidon/contracts": "workspace:*",
+    "@poseidon/shared": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {
-    "@OpenAde/config": "workspace:*",
+    "@poseidon/config": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

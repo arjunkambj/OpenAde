@@ -1,7 +1,7 @@
 /**
  * The workspace file reads' payloads on the wire: a `files.search` hit and a
  * `files.read` window. `rpc.ts` re-exports every one, so importers keep reading
- * them from `@OpenAde/contracts/rpc`.
+ * them from `@poseidon/contracts/rpc`.
  */
 
 import * as Schema from "effect/Schema";

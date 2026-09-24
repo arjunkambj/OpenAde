@@ -11,8 +11,8 @@
 import * as React from "react";
 
 import { useAtomValue } from "@effect/atom-react";
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import { Button } from "@OpenAde/ui/components/button";
+import type { ThreadId } from "@poseidon/contracts/ids";
+import { Button } from "@poseidon/ui/components/button";
 import { AsyncResult } from "effect/unstable/reactivity";
 
 import {

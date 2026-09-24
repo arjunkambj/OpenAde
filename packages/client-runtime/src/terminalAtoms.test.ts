@@ -16,8 +16,8 @@ import {
   makeThreadId,
   type ProjectId,
   type ThreadId,
-} from "@OpenAde/contracts/ids";
-import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
+} from "@poseidon/contracts/ids";
+import { PoseidonRpcError } from "@poseidon/contracts/rpc";
 import {
   TERMINAL_WRITE_MAX_CHARS,
   terminalOwnerKey,
@@ -25,7 +25,7 @@ import {
   type TerminalOwner,
   type TerminalStreamItem,
   type TerminalSummary,
-} from "@OpenAde/contracts/terminal";
+} from "@poseidon/contracts/terminal";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -40,7 +40,7 @@ import {
   Connection,
   ConnectionStateRef,
   type ConnectionState,
-  type OpenAdeRpcClient,
+  type PoseidonRpcClient,
 } from "./connection";
 import {
   decodeTerminalKey,
@@ -136,8 +136,8 @@ const record = (script: Script, line: string) => {
   for (const listener of script.onInput) listener();
 };
 
-const fakeClient = (script: Script): OpenAdeRpcClient =>
-  new Proxy({} as OpenAdeRpcClient, {
+const fakeClient = (script: Script): PoseidonRpcClient =>
+  new Proxy({} as PoseidonRpcClient, {
     get: (_target, key) => {
       switch (key) {
         case "terminal.subscribe":
@@ -327,7 +327,7 @@ describe("terminal atoms", () => {
     Effect.gen(function* () {
       const ref = newRef();
       const script = newScript([
-        { fail: new OpenAdeRpcError({ code: "not-found", message: "no such terminal" }) },
+        { fail: new PoseidonRpcError({ code: "not-found", message: "no such terminal" }) },
         { items: [snapshot(ref, "must not be asked for")] },
       ]);
       const atoms = yield* runtimeWith(script);
@@ -479,7 +479,7 @@ describe("terminal atoms", () => {
     Effect.gen(function* () {
       const ref = newRef();
       const script = newScript();
-      const refusal = new OpenAdeRpcError({ code: "conflict", message: "too many terminals" });
+      const refusal = new PoseidonRpcError({ code: "conflict", message: "too many terminals" });
       script.openFailures.push(refusal);
       const { registry, terminalListAtom, openTerminal } = yield* runtimeWith(script);
       const list = terminalListAtom(terminalOwnerKey(ref));
@@ -555,7 +555,7 @@ describe("terminal atoms", () => {
   it.live("a write answered not-found drops everything queued for that terminal", () =>
     Effect.gen(function* () {
       const script = newScript();
-      script.writeFailures.push(new OpenAdeRpcError({ code: "not-found", message: "closed" }));
+      script.writeFailures.push(new PoseidonRpcError({ code: "not-found", message: "closed" }));
       const { registry, writeTerminal, ref, release } = yield* pasteThroughGate(script);
       registry.set(writeTerminal, { ...ref, data: "y" });
       yield* Deferred.succeed(release, undefined);

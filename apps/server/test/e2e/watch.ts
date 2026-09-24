@@ -17,15 +17,15 @@ import {
   applyThreadListItem,
   applyThreadStreamItem,
   type ThreadDetailView,
-} from "@OpenAde/client-runtime/clientState";
-import type { ConnectionState, OpenAdeRpcClient } from "@OpenAde/client-runtime/connection";
-import { makeStreamCollector } from "@OpenAde/connector-sdk/streamCollector";
-import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
+} from "@poseidon/client-runtime/clientState";
+import type { ConnectionState, PoseidonRpcClient } from "@poseidon/client-runtime/connection";
+import { makeStreamCollector } from "@poseidon/connector-sdk/streamCollector";
+import type { ProjectId, ThreadId } from "@poseidon/contracts/ids";
 import type {
   CommandReceipt,
   ThreadStreamItem,
   ThreadSummary,
-} from "@OpenAde/contracts/orchestration";
+} from "@poseidon/contracts/orchestration";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
@@ -159,11 +159,11 @@ export interface ThreadWatch extends Watch<ThreadDetailView> {
  * Subscribes to a thread and folds it exactly as `threadDetailAtom` does.
  *
  * The fold is the renderer's — `applyThreadStreamItem` from
- * `@OpenAde/client-runtime` — so a bug that would show as a wrong pane shows
+ * `@poseidon/client-runtime` — so a bug that would show as a wrong pane shows
  * here as a wrong view.
  */
 export const watchThread = (
-  rpc: Effect.Effect<OpenAdeRpcClient>,
+  rpc: Effect.Effect<PoseidonRpcClient>,
   threadId: ThreadId,
 ): Effect.Effect<ThreadWatch, never, Scope.Scope> =>
   Effect.gen(function* () {
@@ -196,7 +196,7 @@ export const watchThread = (
 
 /** The sidebar's own subscription, folded with the sidebar's own reducer. */
 export const watchThreadList = (
-  rpc: Effect.Effect<OpenAdeRpcClient>,
+  rpc: Effect.Effect<PoseidonRpcClient>,
   projectId: ProjectId,
 ): Effect.Effect<Watch<ReadonlyArray<ThreadSummary>>, never, Scope.Scope> =>
   Effect.gen(function* () {

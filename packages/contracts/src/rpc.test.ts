@@ -10,7 +10,7 @@ import {
   FILES_STAT_MAX_PATHS,
   FS_BROWSE_ENTRY_LIMIT,
   FsBrowseFailure,
-  OpenAdeRpcGroup,
+  PoseidonRpcGroup,
   PROTOCOL_VERSION,
   RPC_METHODS,
   STREAM_BUDGET_BYTES,
@@ -27,10 +27,10 @@ const STREAMING_METHODS = [
   RPC_METHODS.terminalSubscribe,
 ];
 
-describe("OpenAdeRpcGroup", () => {
+describe("PoseidonRpcGroup", () => {
   it.effect("implements exactly the methods RPC_METHODS names", () =>
     Effect.gen(function* () {
-      const tags = yield* Effect.succeed([...OpenAdeRpcGroup.requests.keys()].sort());
+      const tags = yield* Effect.succeed([...PoseidonRpcGroup.requests.keys()].sort());
       expect(tags).toEqual(Object.values(RPC_METHODS).sort());
     }),
   );
@@ -38,7 +38,7 @@ describe("OpenAdeRpcGroup", () => {
   it.effect("streams the five subscriptions and the setup script, and nothing else", () =>
     Effect.gen(function* () {
       const streaming = yield* Effect.succeed(
-        [...OpenAdeRpcGroup.requests.values()]
+        [...PoseidonRpcGroup.requests.values()]
           .filter((rpc) => RpcSchema.isStreamSchema(rpc.successSchema))
           .map((rpc) => rpc._tag)
           .sort(),
@@ -50,7 +50,7 @@ describe("OpenAdeRpcGroup", () => {
   it.effect("gives every method a payload schema, so nothing is untyped on the wire", () =>
     Effect.gen(function* () {
       const missing = yield* Effect.succeed(
-        [...OpenAdeRpcGroup.requests.values()]
+        [...PoseidonRpcGroup.requests.values()]
           .filter((rpc) => rpc.payloadSchema === undefined)
           .map((rpc) => rpc._tag),
       );
@@ -93,7 +93,7 @@ describe("fs.browse", () => {
 });
 
 describe("browser.discoverServers", () => {
-  const rpc = OpenAdeRpcGroup.requests.get(RPC_METHODS.browserDiscoverServers);
+  const rpc = PoseidonRpcGroup.requests.get(RPC_METHODS.browserDiscoverServers);
   const decode = Schema.decodeUnknownExit(DevServer);
 
   it("is a plain request keyed by the thread, answering a list of servers", () => {
@@ -123,7 +123,7 @@ describe("browser.discoverServers", () => {
 });
 
 describe("browser.status", () => {
-  const rpc = OpenAdeRpcGroup.requests.get(RPC_METHODS.browserStatus);
+  const rpc = PoseidonRpcGroup.requests.get(RPC_METHODS.browserStatus);
   const decode = Schema.decodeUnknownExit(BrowserToolStatus);
 
   it("is a plain request answering the mode and agent-browser's version", () => {
@@ -139,7 +139,7 @@ describe("browser.status", () => {
 });
 
 describe("files.stat", () => {
-  const rpc = OpenAdeRpcGroup.requests.get(RPC_METHODS.filesStat);
+  const rpc = PoseidonRpcGroup.requests.get(RPC_METHODS.filesStat);
   const projectId = "0190aaaa-0000-7000-8000-000000000001";
 
   it("is a plain request that takes a bounded batch of non-empty paths", () => {

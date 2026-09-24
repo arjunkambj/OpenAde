@@ -181,7 +181,7 @@ export const openBridgeSession = (options: BridgeSessionOptions): BridgeSession 
     url: guest.url,
     attached: attachedHere(guest.targetId),
     canAccessOpener: false,
-    browserContextId: `openade-thread-${threadId}`,
+    browserContextId: `poseidon-thread-${threadId}`,
   });
 
   const guestByTarget = (targetId: unknown): GuestInfo => {

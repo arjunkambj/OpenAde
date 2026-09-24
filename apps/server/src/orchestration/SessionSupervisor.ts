@@ -11,8 +11,8 @@
  * same resume loop. A `stopped` end is deliberate and restarts nothing.
  */
 
-import { makeEventId } from "@OpenAde/contracts/ids";
-import type { ThreadId } from "@OpenAde/contracts/ids";
+import { makeEventId } from "@poseidon/contracts/ids";
+import type { ThreadId } from "@poseidon/contracts/ids";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";

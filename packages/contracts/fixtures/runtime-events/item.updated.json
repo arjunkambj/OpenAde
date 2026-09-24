@@ -13,7 +13,7 @@
       "status": "in_progress",
       "command": {
         "cmd": "pnpm vitest run apps/server",
-        "cwd": "/Users/dev/projects/openade",
+        "cwd": "/Users/dev/projects/poseidon",
         "output": "Test Files  1 passed\n"
       }
     }

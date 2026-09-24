@@ -23,16 +23,16 @@ import {
   makeConnectorInstanceId,
   makeEventId,
   makeTerminalId,
-} from "@OpenAde/contracts/ids";
-import type { Command } from "@OpenAde/contracts/orchestration";
-import { OpenAdeRpcError, PROTOCOL_VERSION, STREAM_BUDGET_BYTES } from "@OpenAde/contracts/rpc";
+} from "@poseidon/contracts/ids";
+import type { Command } from "@poseidon/contracts/orchestration";
+import { PoseidonRpcError, PROTOCOL_VERSION, STREAM_BUDGET_BYTES } from "@poseidon/contracts/rpc";
 import {
   Connection,
   makeConnection,
   type ConnectionCredentials,
-} from "@OpenAde/client-runtime/connection";
-import { makeFakeConnector } from "@OpenAde/testkit/fakeConnector";
-import type { ConnectorServices } from "@OpenAde/connector-sdk/definition";
+} from "@poseidon/client-runtime/connection";
+import { makeFakeConnector } from "@poseidon/testkit/fakeConnector";
+import type { ConnectorServices } from "@poseidon/connector-sdk/definition";
 import { describe, expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -86,7 +86,7 @@ const services: Effect.Effect<ConnectorServices> = Effect.clockWith((clock) =>
     mcpEndpoint: () => Effect.succeed({ url: "http://127.0.0.1:0/mcp", bearer: "t" }),
     hookEndpoint: () => Effect.succeed({ url: "http://127.0.0.1:0/hook", bearer: "t" }),
     permissions: { decide: () => Effect.succeed("prompt" as const) },
-    attachmentsDir: "/tmp/openade-transport-test",
+    attachmentsDir: "/tmp/poseidon-transport-test",
     logger: { log: () => Effect.void },
     clock,
   }),
@@ -130,7 +130,7 @@ const testStack = (browserLayer: Layer.Layer<BrowserService> = BrowserService.em
       ConnectorExtensions.empty,
       TerminalService.empty,
       DevServerDiscovery.empty,
-      AttachmentStore.layerAt(mkdtempSync(NodePath.join(NodeOS.tmpdir(), "openade-transport-"))),
+      AttachmentStore.layerAt(mkdtempSync(NodePath.join(NodeOS.tmpdir(), "poseidon-transport-"))),
       SettingsStore.layer.pipe(Layer.provide(sqlite)),
     );
     const http = NodeHttpServer.layer(createServer, { port: 0, host: "127.0.0.1" });
@@ -371,8 +371,8 @@ describe("transport", () => {
           threadId,
           input: { kind: "text", text: "hi" },
         }).pipe(Effect.flip);
-        expect(error).toBeInstanceOf(OpenAdeRpcError);
-        if (error instanceof OpenAdeRpcError) {
+        expect(error).toBeInstanceOf(PoseidonRpcError);
+        if (error instanceof PoseidonRpcError) {
           expect(error.code).toBe("internal");
           // The internal detail must not leak into the wire message.
           expect(error.message).toBe("internal error");
@@ -400,8 +400,8 @@ describe("transport", () => {
           cols: 80,
           rows: 24,
         }).pipe(Effect.flip);
-        expect(error).toBeInstanceOf(OpenAdeRpcError);
-        if (error instanceof OpenAdeRpcError) {
+        expect(error).toBeInstanceOf(PoseidonRpcError);
+        if (error instanceof PoseidonRpcError) {
           expect(error.code).toBe("unavailable");
         }
       }),

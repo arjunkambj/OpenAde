@@ -29,16 +29,16 @@
  */
 
 import { useAtomValue } from "@effect/atom-react";
-import { Kbd } from "@OpenAde/ui/components/kbd";
-import { useSidebar } from "@OpenAde/ui/components/sidebar";
+import { Kbd } from "@poseidon/ui/components/kbd";
+import { useSidebar } from "@poseidon/ui/components/sidebar";
 import {
   detectModKey,
   evaluateWhen,
   isAltGraphTyping,
   resolveKeybinding,
   type ModKey,
-} from "@OpenAde/client-runtime/keybindings";
-import type { Keybinding } from "@OpenAde/contracts/settings";
+} from "@poseidon/client-runtime/keybindings";
+import type { Keybinding } from "@poseidon/contracts/settings";
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 

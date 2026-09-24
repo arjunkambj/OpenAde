@@ -60,8 +60,8 @@ export const projectsRootFor = (home?: string): string =>
  * Where the harness really put this session's transcript.
  *
  * `slugFor` is a guess at a private naming scheme, and a real 1.55.1 install
- * disproves it: `/Volumes/main/Code/OpenAde` becomes `volumes-main-code-open-ade`
- * — the camel hump is split — while `/Users/<user>/Code/SettlerSaga` becomes
+ * disproves it: some camel-cased directory names come back with the hump split
+ * into a dash, while `/Users/<user>/Code/SettlerSaga` becomes
  * `users-<user>-code-settlersaga`, which is not. Rather than reimplement a rule
  * we cannot see, we look the session up by the one identifier the harness
  * already handed us: `run_start.sessionId` is unique, so the file is the

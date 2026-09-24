@@ -38,7 +38,7 @@ import {
   type Driver,
 } from "./harness";
 import { watchConnection, watchThread } from "./watch";
-import type { ConnectionCredentials } from "@OpenAde/client-runtime/connection";
+import type { ConnectionCredentials } from "@poseidon/client-runtime/connection";
 
 /** The two prompts `fixtures/cmd/resume/` was recorded on. */
 const REMEMBER = "Remember the word `pineapple`. Reply with exactly: stored";

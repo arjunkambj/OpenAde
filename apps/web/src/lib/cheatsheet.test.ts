@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_KEYBINDINGS } from "@OpenAde/contracts/keybindings";
+import { DEFAULT_KEYBINDINGS } from "@poseidon/contracts/keybindings";
 
 import { cheatsheetSections, type CheatsheetRow } from "./cheatsheet";
 import { COMMAND_AREAS, COMMAND_CATALOG, FIXED_KEYS } from "./command-catalog";

@@ -7,7 +7,7 @@
  * uses. A field it does not find is treated as absent, never as a crash.
  */
 
-import type { RuntimeEvent } from "@OpenAde/contracts/runtime";
+import type { RuntimeEvent } from "@poseidon/contracts/runtime";
 
 /** A `RuntimeEvent` minus the envelope fields the session stamps on the way out. */
 type WithoutEnvelope<Event> = Event extends RuntimeEvent

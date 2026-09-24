@@ -1,7 +1,7 @@
 /**
- * OpenAde's permission patterns, parsed and matched.
+ * Poseidon's permission patterns, parsed and matched.
  *
- * This is OpenAde's own vocabulary, the same whichever harness runs the
+ * This is Poseidon's own vocabulary, the same whichever harness runs the
  * thread. A connector maps its harness's tool names onto it (the "allow
  * always" suggestion it proposes); the rules the settings document and
  * `approval.respond.pattern` store are written in it:
@@ -13,7 +13,7 @@
  * - `Mcp(github.create_*)`   — glob over an MCP call's `server.tool`
  * - `todo_write`             — bare tool name, matched exactly or as a glob
  *
- * Rules stored before the vocabulary was OpenAde's own stay valid as aliases:
+ * Rules stored before the vocabulary was Poseidon's own stay valid as aliases:
  * `Write(...)` is `Edit(...)`, `WebFetch(...)` and `WebSearch(...)` are
  * `Fetch(...)`, and a literal `mcp__server__tool` is still globbed against the
  * tool name of an MCP request.
@@ -38,7 +38,7 @@ export interface McpToolRef {
 
 /**
  * What a pattern is matched against. `ApprovalRequest` in
- * `@OpenAde/contracts/runtime` is a superset of this shape; the field types
+ * `@poseidon/contracts/runtime` is a superset of this shape; the field types
  * here are deliberately wide (`kind` is a plain string) so the matcher never
  * needs the contracts package.
  */

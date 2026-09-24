@@ -2,7 +2,7 @@
  * Which release channel this build is, and the two identities that have to
  * agree with `electron-builder.config.cjs`.
  *
- * `scripts/build.mjs` substitutes `process.env.OPENADE_CHANNEL` at bundle time
+ * `scripts/build.mjs` substitutes `process.env.POSEIDON_CHANNEL` at bundle time
  * from the same `--channel` flag electron-builder is given, so the runtime can
  * name itself the way the installer named it. Getting this wrong is not
  * cosmetic: `app.setName` decides the userData directory (and with it the
@@ -19,8 +19,8 @@ export const resolveChannel = (raw: string | undefined): Channel =>
 
 /** Must equal `productName` in `electron-builder.config.cjs`. */
 export const productName = (channel: Channel): string =>
-  channel === "canary" ? "OpenAde Canary" : "OpenAde";
+  channel === "canary" ? "Poseidon Canary" : "Poseidon";
 
 /** Must equal `appId` in `electron-builder.config.cjs`. */
 export const appUserModelId = (channel: Channel): string =>
-  channel === "canary" ? "dev.openade.OpenAde.desktop.canary" : "dev.openade.OpenAde.desktop";
+  channel === "canary" ? "dev.poseidon.Poseidon.desktop.canary" : "dev.poseidon.Poseidon.desktop";

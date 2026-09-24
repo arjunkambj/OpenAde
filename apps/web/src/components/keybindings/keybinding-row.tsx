@@ -8,18 +8,18 @@
  * and what is wrong with it (`draftIssues` in `@/lib/keybinding-draft`).
  */
 
-import { Badge } from "@OpenAde/ui/components/badge";
-import { Button } from "@OpenAde/ui/components/button";
+import { Badge } from "@poseidon/ui/components/badge";
+import { Button } from "@poseidon/ui/components/button";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
   InputGroupText,
-} from "@OpenAde/ui/components/input-group";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import { KEYBINDING_CONTEXT_KEYS } from "@OpenAde/client-runtime/keymap";
-import type { Keybinding } from "@OpenAde/contracts/settings";
+} from "@poseidon/ui/components/input-group";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
+import { KEYBINDING_CONTEXT_KEYS } from "@poseidon/client-runtime/keymap";
+import type { Keybinding } from "@poseidon/contracts/settings";
 
 import { ShortcutRecorder } from "@/components/keybindings/shortcut-recorder";
 import type { BindingIssues } from "@/lib/keybinding-draft";

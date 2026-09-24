@@ -1,5 +1,5 @@
 {
-  "name": "@OpenAde/connector-cmd",
+  "name": "@poseidon/connector-cmd",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -62,14 +62,14 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@OpenAde/connector-sdk": "workspace:*",
-    "@OpenAde/contracts": "workspace:*",
-    "@OpenAde/shared": "workspace:*",
+    "@poseidon/connector-sdk": "workspace:*",
+    "@poseidon/contracts": "workspace:*",
+    "@poseidon/shared": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {
-    "@OpenAde/config": "workspace:*",
     "@effect/vitest": "catalog:",
+    "@poseidon/config": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

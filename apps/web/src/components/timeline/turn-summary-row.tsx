@@ -27,9 +27,9 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@OpenAde/ui/components/collapsible";
-import type { TurnId } from "@OpenAde/contracts/ids";
-import { Button } from "@OpenAde/ui/components/button";
+} from "@poseidon/ui/components/collapsible";
+import type { TurnId } from "@poseidon/contracts/ids";
+import { Button } from "@poseidon/ui/components/button";
 import { useNavigate } from "@tanstack/react-router";
 import * as React from "react";
 

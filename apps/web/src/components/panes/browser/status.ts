@@ -8,7 +8,7 @@
  * for `!== undefined`.
  */
 
-import type { BrowserState } from "@OpenAde/contracts/rpc";
+import type { BrowserState } from "@poseidon/contracts/rpc";
 
 export interface BrowserStatusChip {
   /** Tailwind classes for the leading dot. */
@@ -25,7 +25,7 @@ const hostOf = (url: string): string => {
 };
 
 /** The kill switch, as the pane words it. */
-export const BROWSER_DISABLED_LABEL = "In-app browser is disabled (OPENADE_REMOTE_DEBUG=0)";
+export const BROWSER_DISABLED_LABEL = "In-app browser is disabled (POSEIDON_REMOTE_DEBUG=0)";
 
 /**
  * Which browser the pane is showing, when it is not the ordinary in-app one:

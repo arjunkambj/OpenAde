@@ -1,5 +1,5 @@
 /**
- * How to invoke the OpenAde server, packaged or from source.
+ * How to invoke the Poseidon server, packaged or from source.
  *
  * Kept free of `electron` so the argv can be asserted under plain node: the
  * dev form is the one that used to be wrong, and the failure it caused was

@@ -24,9 +24,9 @@
  * wedged in `running`.
  */
 
-import { makeCommandId, makeEventId, makeItemId } from "@OpenAde/contracts/ids";
-import type { ProjectId, RequestId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
-import type { ApprovalDecision } from "@OpenAde/contracts/enums";
+import { makeCommandId, makeEventId, makeItemId } from "@poseidon/contracts/ids";
+import type { ProjectId, RequestId, ThreadId, TurnId } from "@poseidon/contracts/ids";
+import type { ApprovalDecision } from "@poseidon/contracts/enums";
 import type {
   Attachment,
   Mention,
@@ -35,9 +35,9 @@ import type {
   QueuedMessage,
   ThreadSettingsPatch,
   TurnReference,
-} from "@OpenAde/contracts/orchestration";
-import type { UserQuestionAnswer } from "@OpenAde/contracts/runtime";
-import type { TurnInput } from "@OpenAde/connector-sdk/definition";
+} from "@poseidon/contracts/orchestration";
+import type { UserQuestionAnswer } from "@poseidon/contracts/runtime";
+import type { TurnInput } from "@poseidon/connector-sdk/definition";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";

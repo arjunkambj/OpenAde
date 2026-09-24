@@ -12,14 +12,14 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@OpenAde/client-runtime": "workspace:*",
-    "@OpenAde/contracts": "workspace:*",
-    "@OpenAde/shared": "workspace:*",
-    "@OpenAde/ui": "workspace:*",
     "@effect/atom-react": "catalog:",
     "@honeyicons/react": "^0.0.8",
     "@legendapp/list": "catalog:",
     "@pierre/diffs": "catalog:",
+    "@poseidon/client-runtime": "workspace:*",
+    "@poseidon/contracts": "workspace:*",
+    "@poseidon/shared": "workspace:*",
+    "@poseidon/ui": "workspace:*",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-router": "^1.170.18",
     "@xterm/addon-fit": "^0.11.0",
@@ -39,7 +39,7 @@
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
-    "@OpenAde/config": "workspace:*",
+    "@poseidon/config": "workspace:*",
     "@tanstack/react-router-devtools": "^1.167.0",
     "@tanstack/router-plugin": "^1.168.23",
     "@types/node": "catalog:",

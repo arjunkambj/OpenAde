@@ -15,8 +15,8 @@ import {
 } from "node:net";
 
 import { describe, expect, it } from "@effect/vitest";
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import { DEV_SERVER_LIMIT } from "@OpenAde/contracts/rpc";
+import type { ThreadId } from "@poseidon/contracts/ids";
+import { DEV_SERVER_LIMIT } from "@poseidon/contracts/rpc";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as TestClock from "effect/testing/TestClock";
@@ -367,7 +367,7 @@ describe("on this machine", () => {
           expect(here.map((server) => server.port)).toContain(page);
           expect(here.map((server) => server.port)).not.toContain(api);
           expect(here.find((server) => server.port === page)?.processName).toMatch(/node/i);
-          const elsewhere = yield* discoverServers("/nonexistent-openade-project", system);
+          const elsewhere = yield* discoverServers("/nonexistent-poseidon-project", system);
           expect(elsewhere.map((server) => server.port)).not.toContain(page);
         }),
       ),

@@ -5,15 +5,15 @@
  * the extension — or one that is not open at all — answers `unavailable`.
  */
 
-import type { ConnectorServices } from "@OpenAde/connector-sdk/definition";
-import { eraseConnectorDefinition } from "@OpenAde/connector-sdk/definition";
-import type { ConnectorExtensions as InstanceExtensions } from "@OpenAde/connector-sdk/extensions";
-import { ConnectorExtensionFailed, type ExtensionScope } from "@OpenAde/connector-sdk/extensions";
-import { makeRegistry } from "@OpenAde/connector-sdk/registry";
-import type { McpServerConfig } from "@OpenAde/contracts/connectors";
-import { makeConnectorInstanceId, makeProjectId } from "@OpenAde/contracts/ids";
-import type { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
-import { makeFakeConnector } from "@OpenAde/testkit/fakeConnector";
+import type { ConnectorServices } from "@poseidon/connector-sdk/definition";
+import { eraseConnectorDefinition } from "@poseidon/connector-sdk/definition";
+import type { ConnectorExtensions as InstanceExtensions } from "@poseidon/connector-sdk/extensions";
+import { ConnectorExtensionFailed, type ExtensionScope } from "@poseidon/connector-sdk/extensions";
+import { makeRegistry } from "@poseidon/connector-sdk/registry";
+import type { McpServerConfig } from "@poseidon/contracts/connectors";
+import { makeConnectorInstanceId, makeProjectId } from "@poseidon/contracts/ids";
+import type { PoseidonRpcError } from "@poseidon/contracts/rpc";
+import { makeFakeConnector } from "@poseidon/testkit/fakeConnector";
 import { describe, expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -31,7 +31,7 @@ const services: Effect.Effect<ConnectorServices> = Effect.clockWith((clock) =>
     mcpEndpoint: () => Effect.succeed({ url: "http://127.0.0.1:0/mcp", bearer: "t" }),
     hookEndpoint: () => Effect.succeed({ url: "http://127.0.0.1:0/hook", bearer: "t" }),
     permissions: { decide: () => Effect.succeed("prompt" as const) },
-    attachmentsDir: "/tmp/openade-extensions-test",
+    attachmentsDir: "/tmp/poseidon-extensions-test",
     logger: { log: () => Effect.void },
     clock,
   }),
@@ -195,7 +195,7 @@ describe("ConnectorExtensions", () => {
     Effect.scoped(
       Effect.gen(function* () {
         const f = yield* fixture;
-        const calls: ReadonlyArray<Effect.Effect<unknown, OpenAdeRpcError>> = [
+        const calls: ReadonlyArray<Effect.Effect<unknown, PoseidonRpcError>> = [
           f.extensions.skillsList(f.bareId),
           f.extensions.skillsAvailable(f.bareId),
           f.extensions.pluginsList(f.bareId),

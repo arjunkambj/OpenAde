@@ -61,7 +61,7 @@ export function bundleOptions({ watch = false, channel = "stable" } = {}) {
       // `src/platform/channel.ts` derives the product name and the Windows
       // app-user-model id from this, so it has to be the channel
       // electron-builder is packaging with.
-      "process.env.OPENADE_CHANNEL": JSON.stringify(channel),
+      "process.env.POSEIDON_CHANNEL": JSON.stringify(channel),
       ...(importMetaUrl ? IMPORT_META_URL.define : {}),
     },
     ...(importMetaUrl ? { banner: IMPORT_META_URL.banner } : {}),

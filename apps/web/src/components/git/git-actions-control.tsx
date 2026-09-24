@@ -44,13 +44,13 @@ import { RegistryContext, useAtomRefresh, useAtomValue } from "@effect/atom-reac
 import { AsyncResult } from "effect/unstable/reactivity";
 import * as React from "react";
 
-import { Button } from "@OpenAde/ui/components/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import type { GitQuery } from "@OpenAde/client-runtime/gitAtoms";
-import type { GitBranchList } from "@OpenAde/contracts/git";
-import type { ProjectId } from "@OpenAde/contracts/ids";
-import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
-import type { GitStatus } from "@OpenAde/contracts/rpc";
+import { Button } from "@poseidon/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
+import type { GitQuery } from "@poseidon/client-runtime/gitAtoms";
+import type { GitBranchList } from "@poseidon/contracts/git";
+import type { ProjectId } from "@poseidon/contracts/ids";
+import type { ThreadDetailSnapshot } from "@poseidon/contracts/orchestration";
+import type { GitStatus } from "@poseidon/contracts/rpc";
 
 import { useGitAtoms } from "@/components/panes/changes/git-atoms";
 import { useKeybindingCommand } from "@/lib/shortcuts";

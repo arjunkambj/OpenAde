@@ -13,7 +13,7 @@
 
 import * as React from "react";
 
-import type { ThreadDetailView } from "@OpenAde/client-runtime/clientState";
+import type { ThreadDetailView } from "@poseidon/client-runtime/clientState";
 
 /** Runs `refresh` after a restore lands and after a turn ends; returns the restore's `onAccepted`. */
 export const useChangesRefresh = (snapshot: ThreadDetailView, refresh: () => void) => {

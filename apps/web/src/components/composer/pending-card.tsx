@@ -19,9 +19,9 @@
  * most one of them holds and the three card families may share `1`–`3`.
  */
 
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import { QUESTION_OPTION_COMMANDS } from "@OpenAde/contracts/keybindings";
-import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
+import type { ThreadId } from "@poseidon/contracts/ids";
+import { QUESTION_OPTION_COMMANDS } from "@poseidon/contracts/keybindings";
+import type { ThreadDetailSnapshot } from "@poseidon/contracts/orchestration";
 import type { ReactNode } from "react";
 
 import { ApprovalCard } from "@/components/approvals/approval-card";

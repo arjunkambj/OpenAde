@@ -10,7 +10,7 @@
  * stays thin JSON-RPC plumbing.
  *
  * Tool results cap at 64KB of text, and `structuredContent` at the same 64KB
- * serialized; `browser_screenshot` adds an image content block. Timeline rows for `mcp__openade__browser_*` come from the
+ * serialized; `browser_screenshot` adds an image content block. Timeline rows for `mcp__poseidon__browser_*` come from the
  * harness transcript (the connector's translator), not from here — emitting
  * `thread.item.upserted` in this layer would double every row.
  */
@@ -27,8 +27,8 @@ import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 import * as HttpServer from "effect/unstable/http/HttpServer";
 
-import type { ConnectorEndpoint } from "@OpenAde/connector-sdk/definition";
-import type { ThreadId } from "@OpenAde/contracts/ids";
+import type { ConnectorEndpoint } from "@poseidon/connector-sdk/definition";
+import type { ThreadId } from "@poseidon/contracts/ids";
 
 import { BROWSER_TOOLS, type BrowserCallOutcome } from "../browser/tools";
 import { OrchestrationEngine } from "../orchestration/Engine";
@@ -268,7 +268,7 @@ export class McpGateway extends Context.Service<
               jsonRpcResult(message.id, {
                 protocolVersion: negotiateVersion(message.params),
                 capabilities: { tools: { listChanged: false } },
-                serverInfo: { name: "openade", version: "1" },
+                serverInfo: { name: "poseidon", version: "1" },
               }),
             );
           case "ping":

@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
 import { makeProjectId, makeTerminalId, makeThreadId } from "./ids";
-import { OpenAdeRpcGroup, RPC_METHODS } from "./rpc";
+import { PoseidonRpcGroup, RPC_METHODS } from "./rpc";
 import {
   TERMINAL_BATCH_CHARS,
   TERMINAL_BATCH_MS,
@@ -46,7 +46,7 @@ describe("TerminalSize", () => {
 describe("terminal.write", () => {
   it.effect("refuses a payload longer than the write limit", () =>
     Effect.gen(function* () {
-      const rpc = OpenAdeRpcGroup.requests.get(RPC_METHODS.terminalWrite);
+      const rpc = PoseidonRpcGroup.requests.get(RPC_METHODS.terminalWrite);
       expect(rpc).toBeDefined();
       const decode = Schema.decodeUnknownExit(rpc!.payloadSchema as Schema.Codec<unknown>);
       const ids = { threadId: makeThreadId(), terminalId: makeTerminalId() };
@@ -64,7 +64,7 @@ describe("terminal.write", () => {
 
 describe("the terminal owner", () => {
   const payloadOf = (method: string) => {
-    const rpc = OpenAdeRpcGroup.requests.get(method);
+    const rpc = PoseidonRpcGroup.requests.get(method);
     expect(rpc).toBeDefined();
     return Schema.decodeUnknownExit(rpc!.payloadSchema as Schema.Codec<unknown>);
   };
@@ -158,7 +158,7 @@ describe("the terminal owner", () => {
 describe("terminal.adopt", () => {
   it.effect("names the project that hands its terminals over and the thread that takes them", () =>
     Effect.gen(function* () {
-      const rpc = OpenAdeRpcGroup.requests.get(RPC_METHODS.terminalAdopt);
+      const rpc = PoseidonRpcGroup.requests.get(RPC_METHODS.terminalAdopt);
       expect(rpc).toBeDefined();
       const decode = Schema.decodeUnknownExit(rpc!.payloadSchema as Schema.Codec<unknown>);
       const projectId = makeProjectId();

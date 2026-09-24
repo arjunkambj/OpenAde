@@ -1,4 +1,4 @@
-import { TERMINAL_SCROLLBACK_CHARS } from "@OpenAde/contracts/terminal";
+import { TERMINAL_SCROLLBACK_CHARS } from "@poseidon/contracts/terminal";
 import { describe, expect, it } from "vitest";
 
 import { makeScrollback } from "./scrollback";

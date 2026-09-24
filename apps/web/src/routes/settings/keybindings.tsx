@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { Button } from "@OpenAde/ui/components/button";
-import { Kbd } from "@OpenAde/ui/components/kbd";
-import { detectModKey } from "@OpenAde/client-runtime/keybindings";
+import { Button } from "@poseidon/ui/components/button";
+import { Kbd } from "@poseidon/ui/components/kbd";
+import { detectModKey } from "@poseidon/client-runtime/keybindings";
 
 import { KeybindingsEditor } from "@/components/keybindings/keybindings-editor";
 import { CommandKbd, useKeybindingDispatch } from "@/lib/shortcuts";

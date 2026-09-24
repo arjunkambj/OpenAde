@@ -1,5 +1,5 @@
 /**
- * AskUserQuestion, between the CLI's shape and OpenAde's question card.
+ * AskUserQuestion, between the CLI's shape and Poseidon's question card.
  *
  * The model asks one to four questions, each with a short `header`, two to
  * four options (a `label` and a `description`) and `multiSelect`. The CLI
@@ -19,7 +19,7 @@ import type {
   UserQuestion,
   UserQuestionAnswer,
   UserQuestionOption,
-} from "@OpenAde/contracts/runtime";
+} from "@poseidon/contracts/runtime";
 
 const asRecord = (value: unknown): Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null && !Array.isArray(value)

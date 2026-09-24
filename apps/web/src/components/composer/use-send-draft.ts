@@ -18,9 +18,9 @@
  */
 
 import { useAtomSet } from "@effect/atom-react";
-import { makeCommandId } from "@OpenAde/contracts/ids";
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import type { TurnReference } from "@OpenAde/contracts/runtime";
+import { makeCommandId } from "@poseidon/contracts/ids";
+import type { ThreadId } from "@poseidon/contracts/ids";
+import type { TurnReference } from "@poseidon/contracts/runtime";
 import * as React from "react";
 
 import type { SendMode } from "@/components/composer/send-mode";

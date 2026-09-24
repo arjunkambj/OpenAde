@@ -4,7 +4,7 @@
  * `Tooltip` and `Empty` parts, kept apart from the drawer's own logic.
  */
 
-import { Button } from "@OpenAde/ui/components/button";
+import { Button } from "@poseidon/ui/components/button";
 import {
   Empty,
   EmptyContent,
@@ -12,8 +12,8 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@OpenAde/ui/components/empty";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+} from "@poseidon/ui/components/empty";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 import * as React from "react";
 
 import type { TerminalTab } from "@/components/terminal/drawer-state";

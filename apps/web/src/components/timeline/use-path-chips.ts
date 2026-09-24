@@ -19,8 +19,8 @@
  */
 
 import { useAtomValue } from "@effect/atom-react";
-import type { FileQuery } from "@OpenAde/client-runtime/fileAtoms";
-import type { FileStat } from "@OpenAde/contracts/rpc";
+import type { FileQuery } from "@poseidon/client-runtime/fileAtoms";
+import type { FileStat } from "@poseidon/contracts/rpc";
 import { AsyncResult } from "effect/unstable/reactivity";
 import * as Atom from "effect/unstable/reactivity/Atom";
 import * as React from "react";

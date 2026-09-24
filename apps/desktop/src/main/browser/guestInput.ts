@@ -31,7 +31,7 @@ export interface GuestInputPayload {
   readonly input: GuestInput;
 }
 
-export const INPUT_CHANNEL = "openade:browser-input";
+export const INPUT_CHANNEL = "poseidon:browser-input";
 
 /** The parts of `Electron.Input` the relay reads. */
 export interface KeyLike {

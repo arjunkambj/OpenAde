@@ -4,7 +4,7 @@
  * appears under it.
  */
 
-import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
+import type { CheckpointSummary } from "@poseidon/contracts/orchestration";
 
 import { AlertTriangle, Spinner } from "@honeyicons/react";
 

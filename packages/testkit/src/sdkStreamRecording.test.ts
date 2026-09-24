@@ -52,7 +52,7 @@ describe("the stdio tee", () => {
     const secret = "a-value-the-tee-must-never-write";
     const run = converse(launcher, STREAM_ARGS, {
       cwd: REPO,
-      env: { ...process.env, OPENADE_TEE_TEST_SECRET: secret },
+      env: { ...process.env, POSEIDON_TEE_TEST_SECRET: secret },
     });
 
     await run.awaitLine(typed("ready"));
@@ -138,7 +138,7 @@ describe("finalizeSdkStreamRecording", () => {
 
     const mcpConfig = JSON.stringify({
       mcpServers: {
-        openade: {
+        poseidon: {
           type: "http",
           url: "http://127.0.0.1:4321/mcp",
           headers: { Authorization: `Bearer ${bearer}` },

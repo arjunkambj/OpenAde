@@ -139,7 +139,7 @@ describe("applyWebviewAttachPolicy", () => {
     for (const src of [
       "",
       "file:///etc/passwd",
-      "openade://app/",
+      "poseidon://app/",
       "javascript:alert(1)",
       "about:blank#x",
       "about:srcdoc",

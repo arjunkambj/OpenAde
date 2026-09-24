@@ -26,8 +26,8 @@
  * does not rerender and its listeners are not rebuilt while a reply streams.
  */
 
-import { Button } from "@OpenAde/ui/components/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+import { Button } from "@poseidon/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 import type { LegendListRef } from "@legendapp/list/react";
 import * as React from "react";
 

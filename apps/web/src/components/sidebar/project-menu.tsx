@@ -17,17 +17,17 @@ import { useNavigate } from "@tanstack/react-router";
 import * as React from "react";
 import { toast } from "sonner";
 
-import { Button } from "@OpenAde/ui/components/button";
+import { Button } from "@poseidon/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@OpenAde/ui/components/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import { makeCommandId } from "@OpenAde/contracts/ids";
-import type { ProjectSummary } from "@OpenAde/contracts/orchestration";
+} from "@poseidon/ui/components/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
+import { makeCommandId } from "@poseidon/contracts/ids";
+import type { ProjectSummary } from "@poseidon/contracts/orchestration";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { projectRemovalWarning } from "@/components/sidebar/removal-copy";

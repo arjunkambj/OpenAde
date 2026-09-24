@@ -10,11 +10,11 @@
  *
  * Nothing here reaches the server. The agent's view of the same tabs comes
  * from the shell's browser bridge, which asks the host for tabs through the
- * preload (`window.openade.browserPane.serveTabs`).
+ * preload (`window.poseidon.browserPane.serveTabs`).
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
-import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
+import type { ThreadSummary } from "@poseidon/contracts/orchestration";
 import type { AtomRegistry } from "effect/unstable/reactivity";
 import * as Atom from "effect/unstable/reactivity/Atom";
 import * as React from "react";
@@ -237,9 +237,9 @@ export const tabRefusal = (
   threads: ReadonlyArray<ThreadSummary> | null,
   threadId: string,
 ): string | null => {
-  if (threads === null) return "the OpenAde window has not loaded its threads yet";
+  if (threads === null) return "the Poseidon window has not loaded its threads yet";
   const thread = threads.find((entry) => entry.threadId === threadId);
-  if (thread === undefined) return "the thread is not open in the OpenAde window";
+  if (thread === undefined) return "the thread is not open in the Poseidon window";
   if (thread.status === "archived") return "the thread is archived";
   return null;
 };

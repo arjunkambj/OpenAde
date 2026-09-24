@@ -11,9 +11,9 @@
 import * as React from "react";
 import * as Schema from "effect/Schema";
 
-import { Button } from "@OpenAde/ui/components/button";
-import fixture from "@OpenAde/contracts/fixtures/thread-detail-snapshot.json";
-import { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
+import { Button } from "@poseidon/ui/components/button";
+import fixture from "@poseidon/contracts/fixtures/thread-detail-snapshot.json";
+import { ThreadDetailSnapshot } from "@poseidon/contracts/orchestration";
 
 import { ChangesPane } from "@/components/panes/changes/changes-pane";
 import { ModeToggle } from "@/components/mode-toggle";

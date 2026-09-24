@@ -7,7 +7,7 @@
 
 import * as React from "react";
 
-import { Button } from "@OpenAde/ui/components/button";
+import { Button } from "@poseidon/ui/components/button";
 import {
   Card,
   CardContent,
@@ -15,10 +15,10 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@OpenAde/ui/components/card";
-import { Label } from "@OpenAde/ui/components/label";
-import { Textarea } from "@OpenAde/ui/components/textarea";
-import type { ProjectSummary } from "@OpenAde/contracts/orchestration";
+} from "@poseidon/ui/components/card";
+import { Label } from "@poseidon/ui/components/label";
+import { Textarea } from "@poseidon/ui/components/textarea";
+import type { ProjectSummary } from "@poseidon/contracts/orchestration";
 
 export function SetupScriptCard({
   project,

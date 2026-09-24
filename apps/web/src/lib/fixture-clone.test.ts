@@ -1,7 +1,7 @@
-import fixture from "@OpenAde/contracts/fixtures/thread-detail-snapshot.json";
-import { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
+import fixture from "@poseidon/contracts/fixtures/thread-detail-snapshot.json";
+import { ThreadDetailSnapshot } from "@poseidon/contracts/orchestration";
 import * as Schema from "effect/Schema";
-import { uuidV7Millis } from "@OpenAde/shared/ids";
+import { uuidV7Millis } from "@poseidon/shared/ids";
 import { describe, expect, it } from "vitest";
 
 import { cloneDecisions, cloneItems } from "./fixture-clone";

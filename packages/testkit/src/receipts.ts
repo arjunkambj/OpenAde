@@ -1,7 +1,7 @@
 /**
  * Waiting for a command to land, without waiting on a clock.
  *
- * Every write in OpenAde is a command, and every command comes back as a
+ * Every write in Poseidon is a command, and every command comes back as a
  * `CommandReceipt` carrying the event-log position its effects are visible at.
  * That makes "did my write happen?" answerable exactly, so no test in this
  * repository ever sleeps to find out: it records receipts as they arrive and
@@ -11,10 +11,10 @@
  * subscription — through `collectUntil` and the underlying stream collector.
  */
 
-import { makeStreamCollector } from "@OpenAde/connector-sdk/streamCollector";
-import type { StreamEnded } from "@OpenAde/connector-sdk/streamCollector";
-import type { CommandId } from "@OpenAde/contracts/ids";
-import type { CommandReceipt } from "@OpenAde/contracts/orchestration";
+import { makeStreamCollector } from "@poseidon/connector-sdk/streamCollector";
+import type { StreamEnded } from "@poseidon/connector-sdk/streamCollector";
+import type { CommandId } from "@poseidon/contracts/ids";
+import type { CommandReceipt } from "@poseidon/contracts/orchestration";
 import type * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Queue from "effect/Queue";

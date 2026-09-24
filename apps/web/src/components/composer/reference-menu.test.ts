@@ -1,4 +1,4 @@
-import type { PluginSummary, SkillSummary } from "@OpenAde/contracts/connectors";
+import type { PluginSummary, SkillSummary } from "@poseidon/contracts/connectors";
 import { describe, expect, it } from "vitest";
 
 import type { MenuSource } from "@/components/composer/menu-source";

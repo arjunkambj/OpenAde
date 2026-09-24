@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { makeThreadId } from "@OpenAde/contracts/ids";
+import { makeThreadId } from "@poseidon/contracts/ids";
 
 import { threadCommandBase } from "./thread-actions";
 

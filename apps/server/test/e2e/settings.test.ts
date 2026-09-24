@@ -1,7 +1,7 @@
 /**
  * Scenario (h): the settings pages, against the user's real files.
  *
- * Two of the files OpenAde writes belong to the user — the harness's own
+ * Two of the files Poseidon writes belong to the user — the harness's own
  * config, edited through the connector's extensions — and the rule for both is the same: merge into what is there, own
  * only what is marked as ours, and leave everything else exactly as found. A
  * settings page that quietly replaced a hand-edited config would be the worst
@@ -40,7 +40,7 @@ const settings = (driver: Driver) => {
         const home = yield* makeHome("settings-mcp");
         yield* seedSettings(home, [driver.connector(home, "text")]);
 
-        // Something of the user's, written before OpenAde ever ran.
+        // Something of the user's, written before Poseidon ever ran.
         const configDir = NodePath.join(home.cmdHome, ".commandcode");
         const userMcp = NodePath.join(configDir, "mcp.json");
         yield* Effect.sync(() => {
@@ -98,8 +98,8 @@ const settings = (driver: Driver) => {
         expect(parsed.mcpServers["theirs"]).toEqual({ type: "stdio", command: "their-tool" });
         expect(parsed.mcpServers["ours"]).toBeDefined();
         // The marker is the ownership record — without it the next version of
-        // OpenAde has no way to tell its own entry from the user's.
-        expect(JSON.stringify(parsed.mcpServers["ours"])).toContain("_openade");
+        // Poseidon has no way to tell its own entry from the user's.
+        expect(JSON.stringify(parsed.mcpServers["ours"])).toContain("_poseidon");
 
         // Removing ours puts the file back the way the user had it.
         const removed = yield* rpc["connectors.mcp.remove"]({

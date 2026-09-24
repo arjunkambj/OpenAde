@@ -14,7 +14,7 @@ import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
 import * as NodeURL from "node:url";
 import { describe, expect, it } from "@effect/vitest";
-import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
+import type { ConnectorCapabilities } from "@poseidon/contracts/runtime";
 
 import { parseFrame, type CmdEventFrame, type CmdFrame, type CmdFrameParseError } from "./ndjson";
 import { MAX_TOOL_OUTPUT_CHARS } from "./items";
@@ -476,14 +476,14 @@ describe("tool calls dedupe on tool_use.id across ndjson and transcript", () => 
           {
             type: "tool_use",
             id: "use-mcp",
-            name: "mcp__openade__click",
+            name: "mcp__poseidon__click",
             input: { x: 1 },
           },
         ],
         "msg-mcp-2",
       ),
     )[0];
-    expect(mcp?.type === "item.started" && mcp.payload.item.tool?.server).toBe("openade");
+    expect(mcp?.type === "item.started" && mcp.payload.item.tool?.server).toBe("poseidon");
   });
 
   it("truncates tool output past 64KB with a marker", () => {

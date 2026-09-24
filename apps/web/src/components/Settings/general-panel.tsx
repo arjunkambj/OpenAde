@@ -6,8 +6,8 @@
 
 import { useAtomSet } from "@effect/atom-react";
 
-import { Button } from "@OpenAde/ui/components/button";
-import { DEFAULT_FONT_SIZE } from "@OpenAde/contracts/settings";
+import { Button } from "@poseidon/ui/components/button";
+import { DEFAULT_FONT_SIZE } from "@poseidon/contracts/settings";
 
 import { useTheme } from "@/components/theme-provider";
 import { useAppAtoms } from "@/lib/app-runtime";

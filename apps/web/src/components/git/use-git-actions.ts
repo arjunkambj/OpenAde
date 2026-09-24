@@ -9,11 +9,11 @@
  * the UI reads back yet.
  */
 
-import type { GitCommitResult, GitPullRequestResult, GitPushResult } from "@OpenAde/contracts/git";
+import type { GitCommitResult, GitPullRequestResult, GitPushResult } from "@poseidon/contracts/git";
 import * as Exit from "effect/Exit";
 import { toast } from "sonner";
 
-import type { GitScope } from "@OpenAde/client-runtime/gitAtoms";
+import type { GitScope } from "@poseidon/client-runtime/gitAtoms";
 
 import { useGitCommands } from "@/components/panes/changes/git-atoms";
 import { describeExitError } from "@/lib/app-runtime";

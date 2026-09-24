@@ -2,7 +2,7 @@
  * The browser pane's payloads on the wire: its state and frames, a person's
  * gestures, the dev servers the address bar suggests and the browser tool's
  * status. `rpc.ts` re-exports every one, so importers keep reading them from
- * `@OpenAde/contracts/rpc`.
+ * `@poseidon/contracts/rpc`.
  */
 
 import * as Schema from "effect/Schema";
@@ -15,7 +15,7 @@ import { ThreadId } from "./ids";
  * pane webviews, so there is no frame to ship; `owned-chromium` (no desktop)
  * runs its own headless browser and streams JPEG frames, which is why `frame`
  * is nullable rather than two separate state shapes; `disabled` is a desktop
- * started with `OPENADE_REMOTE_DEBUG=0`, which has no browser at all.
+ * started with `POSEIDON_REMOTE_DEBUG=0`, which has no browser at all.
  *
  * `BrowserState` is wire-only — the server publishes it on `browser.subscribe`
  * and never writes it to the event log — so changing `mode` needs no decoding

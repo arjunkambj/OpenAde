@@ -3,7 +3,7 @@
     "at": 1789686229533,
     "stdin": {
       "session_id": "a2ec1746-355b-4f1d-b8ba-7536194c7162",
-      "transcript_path": "<HOME>/.commandcode/projects/private-tmp-claude-501-volumes-main-code-open-ade-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-shell-deny-82e27d30-repo/a2ec1746-355b-4f1d-b8ba-7536194c7162.jsonl",
+      "transcript_path": "<HOME>/.commandcode/projects/private-tmp-claude-501-volumes-main-code-poseidon-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-shell-deny-82e27d30-repo/a2ec1746-355b-4f1d-b8ba-7536194c7162.jsonl",
       "cwd": "<SCRATCH>/repo",
       "hook_event_name": "PreToolUse",
       "permission_mode": "default",
@@ -32,7 +32,7 @@
     "at": 1789686235967,
     "stdin": {
       "session_id": "a2ec1746-355b-4f1d-b8ba-7536194c7162",
-      "transcript_path": "<HOME>/.commandcode/projects/private-tmp-claude-501-volumes-main-code-open-ade-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-shell-deny-82e27d30-repo/a2ec1746-355b-4f1d-b8ba-7536194c7162.jsonl",
+      "transcript_path": "<HOME>/.commandcode/projects/private-tmp-claude-501-volumes-main-code-poseidon-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-shell-deny-82e27d30-repo/a2ec1746-355b-4f1d-b8ba-7536194c7162.jsonl",
       "cwd": "<SCRATCH>/repo",
       "hook_event_name": "PreToolUse",
       "permission_mode": "default",

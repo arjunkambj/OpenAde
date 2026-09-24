@@ -28,7 +28,7 @@ export interface MenuSource<A> {
  */
 const isUnavailable = (cause: Cause.Cause<unknown>): boolean => {
   const error = Cause.squash(cause);
-  return isTagged(error, "OpenAdeRpcError") && "code" in error && error.code === "unavailable";
+  return isTagged(error, "PoseidonRpcError") && "code" in error && error.code === "unavailable";
 };
 
 export const menuSource = <A>(

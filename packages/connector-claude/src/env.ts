@@ -7,7 +7,7 @@
  * instance names an account of its own. Nothing else is inherited.
  *
  * Default deny matters more for this harness than for any other, because
- * OpenAde can itself be launched from inside a Claude Code session. Such a
+ * Poseidon can itself be launched from inside a Claude Code session. Such a
  * process carries `CLAUDECODE`, a few dozen `CLAUDE_CODE_*` variables —
  * among them the parent session's id, its OAuth scopes and a messaging socket
  * and token — plus `CLAUDE_AGENT_SDK_*` and `ANTHROPIC_BASE_URL`. Handed on,
@@ -53,7 +53,7 @@ const PASS_PREFIXES = ["LC_"];
  * Code session's variables, the SDK's, other credentials for the API, and our
  * own server's internals.
  */
-const DROP_PREFIXES = ["CLAUDE_CODE_", "CLAUDE_AGENT_SDK_", "ANTHROPIC_", "OPENADE_SERVER_"];
+const DROP_PREFIXES = ["CLAUDE_CODE_", "CLAUDE_AGENT_SDK_", "ANTHROPIC_", "POSEIDON_SERVER_"];
 const DROP_NAMES = new Set(["CLAUDECODE", "CLAUDE_CONFIG_DIR"]);
 
 const isDropped = (name: string): boolean =>
@@ -75,7 +75,7 @@ export const expandHome = (path: string, home: string = NodeOS.homedir()): strin
  * The child's environment: the allowlisted inherited variables, then
  * `CLAUDE_CONFIG_DIR` from the instance's config. An inherited
  * `CLAUDE_CONFIG_DIR` is dropped with the rest — which account a session uses
- * is the instance's setting, not whatever shell OpenAde was started from.
+ * is the instance's setting, not whatever shell Poseidon was started from.
  */
 export const childEnv = (
   inherited: Readonly<Record<string, string | undefined>>,

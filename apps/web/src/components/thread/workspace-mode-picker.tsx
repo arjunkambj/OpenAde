@@ -23,10 +23,10 @@ import {
   SelectLabel,
   SelectTrigger,
   SelectValue,
-} from "@OpenAde/ui/components/select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import type { GitBranchList } from "@OpenAde/contracts/git";
-import type { ProjectId } from "@OpenAde/contracts/ids";
+} from "@poseidon/ui/components/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
+import type { GitBranchList } from "@poseidon/contracts/git";
+import type { ProjectId } from "@poseidon/contracts/ids";
 
 import { useGitAtoms } from "@/components/panes/changes/git-atoms";
 import { useWorkspaceMode, type WorkspaceMode } from "@/state/ui";

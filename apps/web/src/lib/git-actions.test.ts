@@ -1,5 +1,5 @@
-import type { GitBranchList, GitCommitResult } from "@OpenAde/contracts/git";
-import type { GitStatus } from "@OpenAde/contracts/rpc";
+import type { GitBranchList, GitCommitResult } from "@poseidon/contracts/git";
+import type { GitStatus } from "@poseidon/contracts/rpc";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -20,7 +20,7 @@ import {
 } from "./git-actions";
 
 const CHANGED: GitStatus = {
-  branch: "openade/fix-login",
+  branch: "poseidon/fix-login",
   upstream: null,
   ahead: 0,
   behind: 0,
@@ -35,18 +35,18 @@ const CLEAN: GitStatus = { ...CHANGED, files: [] };
 
 const BRANCHES: GitBranchList = {
   isRepository: true,
-  current: "openade/fix-login",
+  current: "poseidon/fix-login",
   defaultBranch: "main",
   remotes: ["origin"],
   branches: [
     { name: "main", kind: "local", isCurrent: false },
-    { name: "openade/fix-login", kind: "local", isCurrent: true },
+    { name: "poseidon/fix-login", kind: "local", isCurrent: true },
   ],
 };
 
 const NO_REMOTE: GitBranchList = { ...BRANCHES, remotes: [] };
 
-const TRACKED = { upstream: "origin/openade/fix-login" };
+const TRACKED = { upstream: "origin/poseidon/fix-login" };
 
 describe("planGitAction", () => {
   it("commits only when something changed", () => {
@@ -83,11 +83,11 @@ describe("planGitAction", () => {
   it("picks the only remote when it is not origin, and none of several without origin", () => {
     const lone = { ...BRANCHES, remotes: ["fork"] };
     expect(planGitAction("commit-push", CLEAN, lone)).toEqual(["push"]);
-    expect(pushTargetOf(CLEAN, lone)).toBe("fork/openade/fix-login");
+    expect(pushTargetOf(CLEAN, lone)).toBe("fork/poseidon/fix-login");
     const several = { ...BRANCHES, remotes: ["fork", "team"] };
     expect(planGitAction("commit-push", CLEAN, several)).toEqual([]);
     expect(pushTargetOf(CLEAN, several)).toBeNull();
-    expect(pushTargetOf({ ...CLEAN, ...TRACKED }, several)).toBe("origin/openade/fix-login");
+    expect(pushTargetOf({ ...CLEAN, ...TRACKED }, several)).toBe("origin/poseidon/fix-login");
   });
 });
 
@@ -152,7 +152,7 @@ describe("availableActions", () => {
     const behind = available({ ...CHANGED, ...TRACKED, behind: 1 });
     expect(behind.commit).toBeNull();
     expect(behind["commit-push"]).toBe(
-      "The branch is behind origin/openade/fix-login — pull first.",
+      "The branch is behind origin/poseidon/fix-login — pull first.",
     );
   });
 
@@ -166,7 +166,7 @@ describe("availableActions", () => {
 const COMMIT: GitCommitResult = {
   sha: "abc1234def5678900000000000000000000000000",
   subject: "Fix the login",
-  branch: "openade/fix-login",
+  branch: "poseidon/fix-login",
 };
 
 /** Calls that answer from a script and log the order they ran in. */
@@ -181,7 +181,7 @@ const scripted = (fail: GitStep | null, log: Array<GitStep>): GitStepCalls => ({
     log.push("push");
     return fail === "push"
       ? { ok: false, message: "rejected: fetch first" }
-      : { ok: true, value: { remote: "origin", branch: "openade/fix-login", setUpstream: true } };
+      : { ok: true, value: { remote: "origin", branch: "poseidon/fix-login", setUpstream: true } };
   },
   pr: async () => {
     log.push("pr");
@@ -199,17 +199,17 @@ describe("runGitSteps", () => {
       ["commit", "push", "pr"],
       scripted(null, log),
       (notice) => notices.push(notice),
-      "origin/openade/fix-login",
+      "origin/poseidon/fix-login",
     );
     expect(log).toEqual(["commit", "push", "pr"]);
     expect(notices).toEqual([
       { step: "commit", phase: "loading", message: "Committing…" },
       { step: "commit", phase: "success", message: "Committed abc1234" },
-      { step: "push", phase: "loading", message: "Pushing to origin/openade/fix-login…" },
+      { step: "push", phase: "loading", message: "Pushing to origin/poseidon/fix-login…" },
       {
         step: "push",
         phase: "success",
-        message: "Pushed to origin/openade/fix-login and set it as the upstream",
+        message: "Pushed to origin/poseidon/fix-login and set it as the upstream",
       },
       { step: "pr", phase: "loading", message: "Creating pull request…" },
       {
@@ -221,7 +221,7 @@ describe("runGitSteps", () => {
     ]);
     expect(result).toEqual({
       commit: COMMIT,
-      push: { remote: "origin", branch: "openade/fix-login", setUpstream: true },
+      push: { remote: "origin", branch: "poseidon/fix-login", setUpstream: true },
       pullRequest: { url: "https://github.com/acme/app/pull/7", created: true },
       failed: null,
     });
@@ -278,7 +278,7 @@ describe("runGitSteps", () => {
       ...scripted(null, []),
       push: async () => ({
         ok: true,
-        value: { remote: "origin", branch: "openade/fix-login", setUpstream: false },
+        value: { remote: "origin", branch: "poseidon/fix-login", setUpstream: false },
       }),
       pr: async () => ({
         ok: true,
@@ -288,7 +288,7 @@ describe("runGitSteps", () => {
     const result = await runGitSteps(["push", "pr"], calls, (notice) => notices.push(notice));
     expect(notices).toEqual([
       { step: "push", phase: "loading", message: "Pushing…" },
-      { step: "push", phase: "success", message: "Pushed to origin/openade/fix-login" },
+      { step: "push", phase: "success", message: "Pushed to origin/poseidon/fix-login" },
       { step: "pr", phase: "loading", message: "Creating pull request…" },
       {
         step: "pr",
@@ -366,8 +366,8 @@ describe("pull request drafts", () => {
   });
 
   it("titles a pull request alone from the thread, else the branch", () => {
-    expect(pullRequestTitleDraft("Fix the login", "openade/fix-login")).toBe("Fix the login");
-    expect(pullRequestTitleDraft("New thread", "openade/fix-login")).toBe("openade/fix-login");
+    expect(pullRequestTitleDraft("Fix the login", "poseidon/fix-login")).toBe("Fix the login");
+    expect(pullRequestTitleDraft("New thread", "poseidon/fix-login")).toBe("poseidon/fix-login");
     expect(pullRequestTitleDraft("New thread", null)).toBe("");
   });
 });

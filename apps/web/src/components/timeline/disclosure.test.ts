@@ -1,7 +1,7 @@
-import type { ItemKind } from "@OpenAde/contracts/enums";
-import type { ItemId } from "@OpenAde/contracts/ids";
-import type { ResolvedDecision } from "@OpenAde/contracts/decisions";
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
+import type { ItemKind } from "@poseidon/contracts/enums";
+import type { ItemId } from "@poseidon/contracts/ids";
+import type { ResolvedDecision } from "@poseidon/contracts/decisions";
+import type { ItemSnapshot } from "@poseidon/contracts/runtime";
 import { describe, expect, it } from "vitest";
 
 import { disclosureIds } from "./disclosure";

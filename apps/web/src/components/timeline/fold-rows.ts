@@ -10,10 +10,10 @@
  * checkpoint when it has one, taken as the turn completed.
  */
 
-import type { ItemKind } from "@OpenAde/contracts/enums";
-import type { TurnId } from "@OpenAde/contracts/ids";
-import type { FileChangeKind, ItemSnapshot } from "@OpenAde/contracts/runtime";
-import { uuidV7Millis } from "@OpenAde/shared/ids";
+import type { ItemKind } from "@poseidon/contracts/enums";
+import type { TurnId } from "@poseidon/contracts/ids";
+import type { FileChangeKind, ItemSnapshot } from "@poseidon/contracts/runtime";
+import { uuidV7Millis } from "@poseidon/shared/ids";
 
 import { countFailed, mergeKind, workSentence } from "@/components/timeline/work-summary";
 import { diffStats } from "@/lib/diff-stats";

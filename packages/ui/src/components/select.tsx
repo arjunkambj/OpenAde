@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Select as SelectPrimitive } from "@base-ui/react/select";
 import { cva, type VariantProps } from "class-variance-authority";
-import { cn } from "@OpenAde/ui/lib/utils";
+import { cn } from "@poseidon/ui/lib/utils";
 import { Check, ChevronDown, ChevronUp, UnfoldMore } from "@honeyicons/react";
 
 const Select = SelectPrimitive.Root;

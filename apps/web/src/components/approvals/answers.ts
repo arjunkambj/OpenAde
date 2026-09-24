@@ -8,7 +8,7 @@
  * has been.
  */
 
-import type { UserQuestion, UserQuestionAnswer } from "@OpenAde/contracts/runtime";
+import type { UserQuestion, UserQuestionAnswer } from "@poseidon/contracts/runtime";
 
 export interface Draft {
   readonly optionIds: ReadonlyArray<string>;

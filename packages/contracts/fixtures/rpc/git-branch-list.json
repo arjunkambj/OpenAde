@@ -1,6 +1,6 @@
 {
   "isRepository": true,
-  "current": "openade/health-check",
+  "current": "poseidon/health-check",
   "defaultBranch": "main",
   "remotes": ["origin"],
   "branches": [
@@ -12,7 +12,7 @@
       "worktreePath": "/Users/dev/code/app"
     },
     {
-      "name": "openade/health-check",
+      "name": "poseidon/health-check",
       "kind": "local",
       "isCurrent": true
     },

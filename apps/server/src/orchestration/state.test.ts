@@ -16,10 +16,10 @@ import {
   makeRequestId,
   makeThreadId,
   makeTurnId,
-} from "@OpenAde/contracts/ids";
-import { UNANSWERED_OUTCOME } from "@OpenAde/contracts/decisions";
-import type { CheckpointSummary, OrchestrationEvent } from "@OpenAde/contracts/orchestration";
-import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
+} from "@poseidon/contracts/ids";
+import { UNANSWERED_OUTCOME } from "@poseidon/contracts/decisions";
+import type { CheckpointSummary, OrchestrationEvent } from "@poseidon/contracts/orchestration";
+import type { ConnectorCapabilities } from "@poseidon/contracts/runtime";
 
 import {
   foldThread,
@@ -96,7 +96,7 @@ const steeringCapabilities: ConnectorCapabilities = {
 const checkpoint: CheckpointSummary = {
   checkpointId: makeCheckpointId(),
   turnId: makeTurnId(),
-  ref: "refs/openade/checkpoints/thread/turn",
+  ref: "refs/poseidon/checkpoints/thread/turn",
   createdAt: NOW,
 };
 
@@ -799,7 +799,7 @@ describe("what a running turn is doing", () => {
 });
 
 describe("the thread's worktree", () => {
-  const worktree = { path: "/wt/demo/fix", branch: "openade/fix", baseBranch: "main" };
+  const worktree = { path: "/wt/demo/fix", branch: "poseidon/fix", baseBranch: "main" };
 
   const createdIn = () =>
     event("thread.created", {

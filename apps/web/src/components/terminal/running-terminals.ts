@@ -4,7 +4,7 @@
  * (`./project-terminals-badge`).
  */
 
-import type { TerminalListQuery } from "@OpenAde/client-runtime/terminalAtoms";
+import type { TerminalListQuery } from "@poseidon/client-runtime/terminalAtoms";
 
 /** The running terminals in a listing; none while it has not answered or failed. */
 export const runningTerminalCount = (list: TerminalListQuery | null): number =>

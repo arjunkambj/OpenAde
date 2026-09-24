@@ -15,13 +15,13 @@
  *   gateway, the permission ladder and the approval flow are all real; the CLI
  *   is the recording, and the replayer exits 97 the moment the connector says
  *   something the recorded run was not told.
- * - `live` (`OPENADE_LIVE_CLAUDE=1`) lets the connector discover the
+ * - `live` (`POSEIDON_LIVE_CLAUDE=1`) lets the connector discover the
  *   operator's own `claude`, exactly as the shipped product does, and spends
- *   their subscription. `OPENADE_LIVE_CLAUDE_CONFIG_DIR` points the instance
+ *   their subscription. `POSEIDON_LIVE_CLAUDE_CONFIG_DIR` points the instance
  *   at a separate account (the connector's `configDir`), and
- *   `OPENADE_LIVE_CLAUDE_DEBUG=1` lowers the server's log level to debug, so
+ *   `POSEIDON_LIVE_CLAUDE_DEBUG=1` lowers the server's log level to debug, so
  *   the connector's own log lines are printed too.
- * - `record` (`OPENADE_RECORD_CLAUDE=1`) is `live` through the testkit's stdio
+ * - `record` (`POSEIDON_RECORD_CLAUDE=1`) is `live` through the testkit's stdio
  *   tee, and finalises what the tee saw into the scenario's fixture directory
  *   once the scenario's scope has closed and every process has exited. It is
  *   the only way a Claude recording is made: every recording has been through
@@ -32,11 +32,11 @@
  * in `CLAUDE_LIMITS`, passed through `BootOptions.claudeCode`. The same caps
  * apply to a replay, so its argv is the recorded one. The live and record
  * drivers refuse any other thread model unless the operator names it in
- * `OPENADE_CLAUDE_APPROVED_MODEL`.
+ * `POSEIDON_CLAUDE_APPROVED_MODEL`.
  *
- * Safety. Every scenario gets a fresh `OPENADE_HOME` and a throwaway git repo:
+ * Safety. Every scenario gets a fresh `POSEIDON_HOME` and a throwaway git repo:
  * under the system temp directory for a replay or a live run, and under
- * `/tmp/openade-h1` for a recording, whose scrubber takes that root for
+ * `/tmp/poseidon-h1` for a recording, whose scrubber takes that root for
  * `<SCRATCH>`. `HOME` is never redirected — the CLI's credentials live there
  * and in the keychain — and a replay writes nothing anywhere but its temp
  * directory.
@@ -47,17 +47,17 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import * as NodeURL from "node:url";
 
-import { claudeConnectorDefinition } from "@OpenAde/connector-claude/definition";
-import { makeConnectorInstanceId, type ConnectorInstanceId } from "@OpenAde/contracts/ids";
-import type { ThreadSettingsPatch } from "@OpenAde/contracts/orchestration";
-import type { ConnectorInstanceConfig } from "@OpenAde/contracts/settings";
-import { recordingNames } from "@OpenAde/testkit/recording";
-import { sdkStreamReplayer } from "@OpenAde/testkit/replaySdkStream";
+import { claudeConnectorDefinition } from "@poseidon/connector-claude/definition";
+import { makeConnectorInstanceId, type ConnectorInstanceId } from "@poseidon/contracts/ids";
+import type { ThreadSettingsPatch } from "@poseidon/contracts/orchestration";
+import type { ConnectorInstanceConfig } from "@poseidon/contracts/settings";
+import { recordingNames } from "@poseidon/testkit/recording";
+import { sdkStreamReplayer } from "@poseidon/testkit/replaySdkStream";
 import {
   finalizeSdkStreamRecording,
   loadSdkStreamRecording,
   makeTeeLauncher,
-} from "@OpenAde/testkit/sdkStreamRecording";
+} from "@poseidon/testkit/sdkStreamRecording";
 import { describe, it } from "@effect/vitest";
 import { vi } from "vitest";
 import * as Effect from "effect/Effect";
@@ -92,14 +92,14 @@ const CLAUDE_MODEL = "default";
  */
 const CLAUDE_LIMITS = { maxTurns: 4, maxBudgetUsd: 0.5 } as const;
 
-const RECORD = process.env.OPENADE_RECORD_CLAUDE === "1";
-const LIVE = process.env.OPENADE_LIVE_CLAUDE === "1";
-const LIVE_CONFIG_DIR = process.env.OPENADE_LIVE_CLAUDE_CONFIG_DIR;
-const APPROVED_MODEL = process.env.OPENADE_CLAUDE_APPROVED_MODEL;
-const DEBUG = process.env.OPENADE_LIVE_CLAUDE_DEBUG === "1";
+const RECORD = process.env.POSEIDON_RECORD_CLAUDE === "1";
+const LIVE = process.env.POSEIDON_LIVE_CLAUDE === "1";
+const LIVE_CONFIG_DIR = process.env.POSEIDON_LIVE_CLAUDE_CONFIG_DIR;
+const APPROVED_MODEL = process.env.POSEIDON_CLAUDE_APPROVED_MODEL;
+const DEBUG = process.env.POSEIDON_LIVE_CLAUDE_DEBUG === "1";
 
 /** Where a recording's homes and raw captures go, per the recording rules. */
-const RECORD_ROOT = "/tmp/openade-h1";
+const RECORD_ROOT = "/tmp/poseidon-h1";
 
 export type ClaudeDriverName = "replay" | "live" | "record";
 
@@ -127,7 +127,7 @@ export interface ClaudeRun {
    * away from `default` may name without spending on another model. The
    * recording's model under replay; what the CLI's `system/init` named so far
    * when recording, so only after the first turn; and, live, the model the
-   * operator named in `OPENADE_CLAUDE_APPROVED_MODEL`.
+   * operator named in `POSEIDON_CLAUDE_APPROVED_MODEL`.
    */
   readonly defaultModelId: Effect.Effect<string>;
   /**
@@ -202,7 +202,7 @@ const prepareLive = (): Prepared => ({
 /** The SDK version the connector imports, read from its package. */
 const sdkVersion = (): string => {
   const connector = NodeURL.fileURLToPath(
-    import.meta.resolve("@OpenAde/connector-claude/definition"),
+    import.meta.resolve("@poseidon/connector-claude/definition"),
   );
   const manifest = NodePath.join(
     NodePath.dirname(connector),
@@ -277,7 +277,7 @@ const prepareRecord = (spec: ClaudeScenario): Effect.Effect<Prepared> =>
           ...(LIVE_CONFIG_DIR === undefined ? {} : { configDir: LIVE_CONFIG_DIR }),
         });
       },
-      // The raw capture stays under /tmp/openade-h1 for a failed recording to
+      // The raw capture stays under /tmp/poseidon-h1 for a failed recording to
       // be looked at; a passed one has been finalised from it.
       cleanup: () => {},
     };
@@ -323,7 +323,7 @@ const runScenario = (
               ? Effect.die(
                   new Error(
                     driver === "live"
-                      ? "name the default's explicit model id in OPENADE_CLAUDE_APPROVED_MODEL to switch to it live"
+                      ? "name the default's explicit model id in POSEIDON_CLAUDE_APPROVED_MODEL to switch to it live"
                       : "the CLI has not reported its model yet",
                   ),
                 )
@@ -333,7 +333,7 @@ const runScenario = (
             driver !== "replay" && !spendable(settings.model)
               ? Effect.die(
                   new Error(
-                    `${settings.model} is not the CLI's default model; name it in OPENADE_CLAUDE_APPROVED_MODEL to spend on it`,
+                    `${settings.model} is not the CLI's default model; name it in POSEIDON_CLAUDE_APPROVED_MODEL to spend on it`,
                   ),
                 )
               : openThread(client, home, {
@@ -367,7 +367,7 @@ const activeDrivers = (): ReadonlyArray<ClaudeDriverName> =>
  * against the real CLI when it is turned on, which is what says the recording
  * still describes reality. A scenario whose recording has not been made yet
  * is skipped under the replay driver with that said in its title; making it
- * is `OPENADE_RECORD_CLAUDE=1` on the same file.
+ * is `POSEIDON_RECORD_CLAUDE=1` on the same file.
  */
 export const claudeScenario = (
   title: string,
@@ -379,7 +379,7 @@ export const claudeScenario = (
     const label = `${title} [claude ${driver}]`;
     if (driver === "live" && !LIVE) {
       describe.skip(label, () => {
-        it("is only run with OPENADE_LIVE_CLAUDE=1 — it spends the operator's subscription", () => {
+        it("is only run with POSEIDON_LIVE_CLAUDE=1 — it spends the operator's subscription", () => {
           // Intentionally empty: the skip itself is the statement.
         });
       });
@@ -387,7 +387,7 @@ export const claudeScenario = (
     }
     if (driver === "replay" && !recordingNames(KIND).includes(spec.scenario)) {
       describe.skip(label, () => {
-        it(`has no recording yet: record fixtures/claude/${spec.scenario}/ with OPENADE_RECORD_CLAUDE=1`, () => {
+        it(`has no recording yet: record fixtures/claude/${spec.scenario}/ with POSEIDON_RECORD_CLAUDE=1`, () => {
           // Intentionally empty: the skip itself is the statement.
         });
       });

@@ -6,7 +6,7 @@
  */
 import * as React from "react";
 
-import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
+import type { ThreadSummary } from "@poseidon/contracts/orchestration";
 
 import { useRecordVisit } from "@/state/browser-history";
 import type { BrowserTabsState } from "@/state/browser-tabs";

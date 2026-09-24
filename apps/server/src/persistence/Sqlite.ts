@@ -11,7 +11,7 @@
 import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
 import { DatabaseSync, type StatementSync } from "node:sqlite";
-import { databasePath } from "@OpenAde/shared/paths";
+import { databasePath } from "@poseidon/shared/paths";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -231,7 +231,7 @@ export const layer = (
     Effect.map(makeSqlite(config), (client) => Layer.succeed(Client.SqlClient, client)),
   ).pipe(Layer.provideMerge(Reactivity.layer));
 
-/** The production location: `~/.openade/state.sqlite`. */
+/** The production location: `~/.poseidon/state.sqlite`. */
 /** @public */
 export const defaultLayer = (): Layer.Layer<Client.SqlClient | Reactivity.Reactivity, SqlError> =>
   layer({ filename: databasePath() });

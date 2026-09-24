@@ -17,8 +17,8 @@
  */
 
 import { useAtomSet } from "@effect/atom-react";
-import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
-import { decodeTerminalOwnerKey, terminalOwnerKey } from "@OpenAde/contracts/terminal";
+import type { ProjectId, ThreadId } from "@poseidon/contracts/ids";
+import { decodeTerminalOwnerKey, terminalOwnerKey } from "@poseidon/contracts/terminal";
 import * as React from "react";
 
 import { useTerminalAtoms } from "@/components/terminal/terminal-atoms";

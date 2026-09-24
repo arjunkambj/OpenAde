@@ -20,10 +20,10 @@
  */
 
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
-import { Button } from "@OpenAde/ui/components/button";
-import { Toggle } from "@OpenAde/ui/components/toggle";
-import { makeItemId, makeRequestId } from "@OpenAde/contracts/ids";
-import type { CommandReceipt } from "@OpenAde/contracts/orchestration";
+import { Button } from "@poseidon/ui/components/button";
+import { Toggle } from "@poseidon/ui/components/toggle";
+import { makeItemId, makeRequestId } from "@poseidon/contracts/ids";
+import type { CommandReceipt } from "@poseidon/contracts/orchestration";
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 
@@ -171,7 +171,7 @@ function DevComposerInner({ fixture }: { readonly fixture: FixtureClient }) {
       turnId,
       planMarkdown:
         "## Proposed plan\n\n1. Wire the composer through `dispatchAtom`\n2. Add the approval, question and plan cards\n3. Preview permission patterns with the shared matcher\n\n- Accept runs the plan as written\n- Accept and run switches to auto-accept",
-      planPath: ".openade/plans/fixture.md",
+      planPath: ".poseidon/plans/fixture.md",
     });
   };
 

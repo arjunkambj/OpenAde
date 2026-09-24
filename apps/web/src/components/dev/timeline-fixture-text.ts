@@ -153,7 +153,7 @@ export const ANSWER_SETTINGS = [
   "And fences that name their file:",
   "",
   `${FENCE}ts title="src/app.ts"`,
-  'export const APP_NAME = "OpenAde";',
+  'export const APP_NAME = "Poseidon";',
   FENCE,
   "",
   `${FENCE}ts apps/web/src/lib/format.ts`,

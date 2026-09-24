@@ -9,16 +9,16 @@
  * can select it with one click and descend with two.
  */
 
-import type { FsEntry } from "@OpenAde/contracts/rpc";
-import { Button } from "@OpenAde/ui/components/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+import type { FsEntry } from "@poseidon/contracts/rpc";
+import { Button } from "@poseidon/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 import {
   Empty,
   EmptyContent,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@OpenAde/ui/components/empty";
+} from "@poseidon/ui/components/empty";
 import * as React from "react";
 
 import { cn } from "@/lib/utils";

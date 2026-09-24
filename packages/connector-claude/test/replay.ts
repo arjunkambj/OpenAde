@@ -11,7 +11,7 @@ import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import * as NodeURL from "node:url";
-import { sdkStreamReplayer } from "@OpenAde/testkit/replaySdkStream";
+import { sdkStreamReplayer } from "@poseidon/testkit/replaySdkStream";
 
 import { CLAUDE_KIND } from "../src/kind";
 

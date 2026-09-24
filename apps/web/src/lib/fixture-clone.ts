@@ -15,9 +15,9 @@
  * gets its own records, pointing at that copy's items.
  */
 
-import { decodeItemId, type ItemId } from "@OpenAde/contracts/ids";
-import type { ResolvedDecision } from "@OpenAde/contracts/decisions";
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
+import { decodeItemId, type ItemId } from "@poseidon/contracts/ids";
+import type { ResolvedDecision } from "@poseidon/contracts/decisions";
+import type { ItemSnapshot } from "@poseidon/contracts/runtime";
 
 /** `0199c0de-0005-7000-8000-000000000001` → its 48-bit millisecond field. */
 const millisOf = (id: string): number => Number.parseInt(`${id.slice(0, 8)}${id.slice(9, 13)}`, 16);

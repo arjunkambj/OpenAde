@@ -15,12 +15,12 @@
 import { statSync } from "node:fs";
 import { realpath } from "node:fs/promises";
 import * as nodePath from "node:path";
-import type { FileSearchResult } from "@OpenAde/contracts/rpc";
+import type { FileSearchResult } from "@poseidon/contracts/rpc";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
+import { PoseidonRpcError } from "@poseidon/contracts/rpc";
 
 import { resolveWorkspaceRoot } from "../orchestration/workspaceRoot";
 import { ReadModelStore } from "../persistence/ReadModels";
@@ -35,7 +35,7 @@ class FileServiceError extends Data.TaggedError("FileServiceError")<{
 }> {}
 
 const toRpcError = (error: FileServiceError) =>
-  new OpenAdeRpcError({ code: "internal", message: error.message });
+  new PoseidonRpcError({ code: "internal", message: error.message });
 
 const DEFAULT_SEARCH_LIMIT = 50;
 const MAX_SEARCH_LIMIT = 200;

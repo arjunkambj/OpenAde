@@ -25,7 +25,7 @@
  * without `activity` reads as thinking.
  */
 
-import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
+import type { ThreadSummary } from "@poseidon/contracts/orchestration";
 import {
   type HoneyIcon,
   AlertTriangle,

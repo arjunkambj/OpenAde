@@ -25,7 +25,7 @@
         "--permission-prompt-tool",
         "stdio",
         "--mcp-config",
-        "{\"mcpServers\":{\"openade\":{\"type\":\"http\",\"url\":\"http://127.0.0.1:9/mcp\",\"headers\":{\"Authorization\":\"<REDACTED>\"}}}}",
+        "{\"mcpServers\":{\"poseidon\":{\"type\":\"http\",\"url\":\"http://127.0.0.1:9/mcp\",\"headers\":{\"Authorization\":\"<REDACTED>\"}}}}",
         "--setting-sources=user,project,local",
         "--permission-mode",
         "default",

@@ -20,8 +20,8 @@
  *   second real turn against the same session and the same rule table.
  */
 
-import { makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
-import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
+import { makeProjectId, makeThreadId } from "@poseidon/contracts/ids";
+import type { ProjectId, ThreadId } from "@poseidon/contracts/ids";
 import { expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as NodeFS from "node:fs";

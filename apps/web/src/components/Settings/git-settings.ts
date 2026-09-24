@@ -7,7 +7,7 @@
  * one, so saving one project's script never drops another's.
  */
 
-import type { ProjectSettings } from "@OpenAde/contracts/settings";
+import type { ProjectSettings } from "@poseidon/contracts/settings";
 
 type ProjectSettingsRecord = { readonly [projectId: string]: ProjectSettings };
 

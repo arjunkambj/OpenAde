@@ -7,7 +7,7 @@
  * instead of opening a second connection.
  */
 
-import { makeFsAtoms, type FsAtoms } from "@OpenAde/client-runtime/fsAtoms";
+import { makeFsAtoms, type FsAtoms } from "@poseidon/client-runtime/fsAtoms";
 
 import { getAppAtoms } from "@/state/app-runtime";
 

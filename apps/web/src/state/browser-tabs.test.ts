@@ -1,4 +1,4 @@
-import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
+import type { ThreadSummary } from "@poseidon/contracts/orchestration";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -160,7 +160,7 @@ describe("tabRefusal", () => {
 
   it("refuses an archived thread, a thread the list does not hold, and an unloaded list", () => {
     expect(tabRefusal(threads, B)).toBe("the thread is archived");
-    expect(tabRefusal(threads, "gone")).toBe("the thread is not open in the OpenAde window");
+    expect(tabRefusal(threads, "gone")).toBe("the thread is not open in the Poseidon window");
     expect(tabRefusal(null, A)).toMatch(/not loaded/);
   });
 });

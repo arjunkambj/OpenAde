@@ -20,22 +20,22 @@
  * opened is still unanswered.
  */
 
-import { makeEventId, makeItemId, makeRequestId, makeTurnId } from "@OpenAde/contracts/ids";
-import type { ConnectorInstanceId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
-import type { ConnectorCapabilities, RuntimeEvent } from "@OpenAde/contracts/runtime";
-import type { ConnectorMetadata, ModelOption } from "@OpenAde/contracts/connectors";
-import { settingsForm } from "@OpenAde/contracts/settings";
+import { makeEventId, makeItemId, makeRequestId, makeTurnId } from "@poseidon/contracts/ids";
+import type { ConnectorInstanceId, ThreadId, TurnId } from "@poseidon/contracts/ids";
+import type { ConnectorCapabilities, RuntimeEvent } from "@poseidon/contracts/runtime";
+import type { ConnectorMetadata, ModelOption } from "@poseidon/contracts/connectors";
+import { settingsForm } from "@poseidon/contracts/settings";
 import type {
   ConnectorDefinition,
   ConnectorInstance,
   ConnectorProbe,
   TurnInput,
-} from "@OpenAde/connector-sdk/definition";
-import { NotSteerable, SessionClosed, TurnInProgress } from "@OpenAde/connector-sdk/definition";
-import type { ConnectorExtensions } from "@OpenAde/connector-sdk/extensions";
-import type { SessionHandle } from "@OpenAde/connector-sdk/sessionHandle";
-import { makeBoundedEventQueue } from "@OpenAde/connector-sdk/sessionHandle";
-import { uuidV7 } from "@OpenAde/shared/ids";
+} from "@poseidon/connector-sdk/definition";
+import { NotSteerable, SessionClosed, TurnInProgress } from "@poseidon/connector-sdk/definition";
+import type { ConnectorExtensions } from "@poseidon/connector-sdk/extensions";
+import type { SessionHandle } from "@poseidon/connector-sdk/sessionHandle";
+import { makeBoundedEventQueue } from "@poseidon/connector-sdk/sessionHandle";
+import { uuidV7 } from "@poseidon/shared/ids";
 import type * as Cause from "effect/Cause";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";

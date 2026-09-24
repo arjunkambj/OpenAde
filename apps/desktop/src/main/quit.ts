@@ -6,7 +6,7 @@
  * bounded by its own timeout and each spawning `cmd mcp remove`. The main
  * process was gone long before that finished, so the child — spawned without
  * `detached`, and so nobody's to reap — was reparented and left running,
- * holding `~/.openade/state.sqlite` against the next launch.
+ * holding `~/.poseidon/state.sqlite` against the next launch.
  *
  * So the quit holds itself open: `preventDefault`, wait for the child to
  * exit, then `app.exit()`. The wait is bounded, because a wedged server must

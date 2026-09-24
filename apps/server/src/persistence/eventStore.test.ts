@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
-import { makeEventId, makeThreadId } from "@OpenAde/contracts/ids";
+import { makeEventId, makeThreadId } from "@poseidon/contracts/ids";
 import * as Effect from "effect/Effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 

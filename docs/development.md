@@ -1,6 +1,6 @@
 # Development
 
-How to install, run, test, check and package OpenAde. Every command here is one
+How to install, run, test, check and package Poseidon. Every command here is one
 the workspace actually defines — the root `package.json` scripts, a workspace's
 own scripts, or a script under `scripts/` — and every path is relative to the
 repository root. For what the pieces are, read
@@ -35,7 +35,7 @@ for auth, account and version, and `cmd --list-models` for the model picker
 (`packages/connector-cmd/src/probe.ts`). Nothing is pinned to a CLI release:
 `OLDEST_TESTED_VERSION` (`1.54.0`) is only the floor the probe warns below.
 
-The browser pane needs `agent-browser` on `PATH`, or `OPENADE_AGENT_BROWSER`
+The browser pane needs `agent-browser` on `PATH`, or `POSEIDON_AGENT_BROWSER`
 pointing at it (`apps/server/src/browser/agentBrowser.ts`). Without it the pane
 renders an install prompt instead of failing the app. The desktop drives the
 pane's own webviews, so `npm install -g agent-browser` is all it needs; the web
@@ -80,7 +80,7 @@ pnpm dev
       └── electron apps/desktop  (ELECTRON_RENDERER_URL=http://localhost:3001)
            └── ServerSupervisor spawns the server as a child
                 <electron> --import <tsx loader> apps/server/src/main.ts
-                ELECTRON_RUN_AS_NODE=1  OPENADE_DEV=1
+                ELECTRON_RUN_AS_NODE=1  POSEIDON_DEV=1
                 handshake { url, token, serverInstanceId } on fd 3
 ```
 
@@ -95,7 +95,7 @@ five consecutive failures. Both in dev and when packaged the child is
 `--import <tsx loader> apps/server/src/main.ts` rather than the `tsx` CLI, so
 the server stays a direct child and fd 3 survives
 (`apps/desktop/src/backend/serverArgs.ts`). Unpackaged, it also gets
-`OPENADE_DEV=1`, so a desktop dev run writes the dev connection file too.
+`POSEIDON_DEV=1`, so a desktop dev run writes the dev connection file too.
 
 There is no root `dev:server` script. The other useful entry points:
 
@@ -116,9 +116,9 @@ second terminal:
 pnpm -F server dev
 ```
 
-`--dev` makes the server also write `~/.openade/dev/connection.json`
+`--dev` makes the server also write `~/.poseidon/dev/connection.json`
 (`apps/server/src/rpc/bootstrap.ts`, mode 0600 in a 0700 directory). The Vite
-config serves that file at `GET /__openade/connection`, refusing cross-origin
+config serves that file at `GET /__poseidon/connection`, refusing cross-origin
 reads (`apps/web/vite.config.ts`), and the client resolver dials it
 (`packages/client-runtime/src/resolver.ts`). The resolution order the renderer
 uses is: the Electron preload bridge, then that dev endpoint, then
@@ -127,16 +127,16 @@ uses is: the Electron preload bridge, then that dev endpoint, then
 The file holds a bearer token for a socket that accepts
 `orchestration.dispatch`. Treat it as a credential.
 
-### OPENADE_HOME
+### POSEIDON_HOME
 
-`OPENADE_HOME` moves every path the app owns — the database, the attachments
+`POSEIDON_HOME` moves every path the app owns — the database, the attachments
 directory, the generated hook script, the dev connection file
 (`packages/shared/src/paths.ts`). Use a scratch home whenever you are running a
-dev build, so an experiment cannot corrupt the real `~/.openade` or make the
+dev build, so an experiment cannot corrupt the real `~/.poseidon` or make the
 desktop app and the dev loop fight over one `state.sqlite`:
 
 ```sh
-OPENADE_HOME=/tmp/openade-scratch pnpm dev
+POSEIDON_HOME=/tmp/poseidon-scratch pnpm dev
 ```
 
 `turbo.json` lists it under `globalPassThroughEnv`, because turbo otherwise
@@ -144,32 +144,32 @@ hands a task a filtered environment and the variable would reach neither the
 server nor the Vite plugin. `boot()` sets it process-wide when it is given a
 `home`, so spawned connector children inherit it (`apps/server/src/boot.ts`).
 
-Other environment knobs the server itself reads: `OPENADE_PORT` (default `0`,
-meaning ask the OS), `OPENADE_DEV=1` (same as `--dev`).
+Other environment knobs the server itself reads: `POSEIDON_PORT` (default `0`,
+meaning ask the OS), `POSEIDON_DEV=1` (same as `--dev`).
 
-The desktop shell reads one: `OPENADE_REMOTE_DEBUG=0` (or `false`) turns the
+The desktop shell reads one: `POSEIDON_REMOTE_DEBUG=0` (or `false`) turns the
 in-app browser off — no browser bridge, no debugger on the pane webviews, and
-the server is spawned with `OPENADE_SERVER_BROWSER_BRIDGE=disabled`. Any other
-value is ignored, as is the retired `OPENADE_BROWSER_PANE`. With it set the
+the server is spawned with `POSEIDON_SERVER_BROWSER_BRIDGE=disabled`. Any other
+value is ignored, as is the retired `POSEIDON_BROWSER_PANE`. With it set the
 browser tools answer that the in-app browser is disabled; the desktop never
 falls back to a headless browser. A server started on its own
 (`pnpm -F server dev`, no shell) runs agent-browser's own headless Chrome. The
 agent-browser child never inherits your own `AGENT_BROWSER_*` or `CHROME_*`
-variables, and runs in the namespace `openade-<8 hex of OPENADE_HOME>`, so a
-scratch home's daemons are apart from `~/.openade`'s and from yours. The shell never opens Chromium's remote-debugging port,
+variables, and runs in the namespace `poseidon-<8 hex of POSEIDON_HOME>`, so a
+scratch home's daemons are apart from `~/.poseidon`'s and from yours. The shell never opens Chromium's remote-debugging port,
 and strips `--remote-debugging-port` and its relatives from its own command
 line, so launching Electron with them does nothing. To look at a pane guest
 over CDP by hand, mint the thread's bridge URL
 (`bridgeThreadUrl` in `packages/shared/src/browserBridge.ts`, from the origin
-and key in the server's `OPENADE_SERVER_BROWSER_BRIDGE*` environment) and give
+and key in the server's `POSEIDON_SERVER_BROWSER_BRIDGE*` environment) and give
 it to agent-browser as `AGENT_BROWSER_CDP`, with an `AGENT_BROWSER_NAMESPACE`
 of your own so its sessions do not mix with the app's.
 
 The in-app browser's own features are plain renderer code over the shell's
 channels: the agent's cursor comes from the bridge's pointer relay
 (`apps/desktop/src/main/browser/agentPointer.ts`), "screenshot to chat" from
-`openade:browser-capture` and "Clear browsing data" from
-`openade:browser-clear-all` (`apps/desktop/src/main/ipc.ts`); the element
+`poseidon:browser-capture` and "Clear browsing data" from
+`poseidon:browser-clear-all` (`apps/desktop/src/main/ipc.ts`); the element
 picker runs in the page through the webview. In the web renderer none of them
 is there, since it has no preload bridge.
 
@@ -216,14 +216,14 @@ bundled for packaging. Test files in `packages/connector-claude` get `testkit`,
 because they replay the connector's recordings through its `sdk-stream`
 replayer and record them through its tee; the connector's sources never import
 it. Test files in `apps/desktop` get `testkit`, so the browser bridge's tests
-read the agent-browser recordings through `@OpenAde/testkit/recording` instead
+read the agent-browser recordings through `@poseidon/testkit/recording` instead
 of resolving fixture paths by hand. One production file gets extras of its
 own: `apps/server/src/boot.ts`, the composition root, may import
 `connector-cmd` and `connector-claude`. A file counts as a test when it ends in
 `.test.`/`.spec.` or sits under a `test/` directory.
 
 **Connector leaks.** Non-test sources under `apps/web`, `packages/client-runtime`
-and `apps/server` name no concrete connector: they import no `@OpenAde/connector-*`
+and `apps/server` name no concrete connector: they import no `@poseidon/connector-*`
 package other than `connector-sdk`, and contain no quoted connector kind —
 `"cmd"`, `"claude"`, `"codex"` or `"opencode"`, in any quote style. Tests and
 `apps/server/src/boot.ts` are exempt, because they assemble the real connector
@@ -240,7 +240,7 @@ well as contents. One path is exempt, `apps/web/src/components/ui/icons`, so a
 connector's own logo can be shipped under its own name; nothing lives there
 today.
 
-**Reference names.** The products OpenAde was compared against while it was
+**Reference names.** The products Poseidon was compared against while it was
 built are never named — not in `apps/`, `packages/`, `scripts/` or the
 top-level `docs/*.md`, in file names or contents, in any case. `docs/plans/`
 (local, gitignored), `node_modules`, `dist` and `out` are skipped; the recorded
@@ -346,7 +346,7 @@ Vitest, one project per workspace, collected by the root `vitest.config.ts`
 (`packages/*`, `apps/server`, `apps/desktop`, `apps/web`). `pnpm test` runs
 them through turbo; `pnpm exec vitest run <path>` runs one file from the root.
 
-**Nothing waits on a clock.** Every write in OpenAde is a command and every
+**Nothing waits on a clock.** Every write in Poseidon is a command and every
 command comes back as a `CommandReceipt` carrying the event-log position its
 effects are visible at, so "did my write land?" is answerable exactly. Tests
 record receipts and await the one they care about by `commandId`
@@ -403,7 +403,7 @@ resize — and wait on it, never on a delay. They are skipped on Windows
 ## The end-to-end suite
 
 `apps/server/test/e2e/` boots the product: `boot()` assembles the same graph
-`main.ts` ships, `makeConnection` from `@OpenAde/client-runtime` dials it over
+`main.ts` ships, `makeConnection` from `@poseidon/client-runtime` dials it over
 a real WebSocket, and the folds the renderer's atoms use turn the subscription
 into the view a pane renders. Eleven scenarios:
 
@@ -418,7 +418,7 @@ into the view a pane renders. Eleven scenarios:
 | `resume.test.ts`      | the server dies mid-thread and comes back             |
 | `settings.test.ts`    | the settings pages, against the user's real files     |
 | `attachment.test.ts`  | an image on a turn                                    |
-| `mcp.test.ts`         | OpenAde's own tools, offered to the harness           |
+| `mcp.test.ts`         | Poseidon's own tools, offered to the harness          |
 | `terminal.test.ts`    | a thread's and a project's terminal over the wire     |
 
 Each scenario with a harness in it runs against two drivers
@@ -427,11 +427,11 @@ Each scenario with a harness in it runs against two drivers
 - **replay** — the connector's `binaryPath` points at testkit's replayer, which
   puts a recording of that run back on the wire. This is what the gate runs.
 - **live** — the connector discovers your own `cmd` and spends your plan.
-  Skipped unless `OPENADE_LIVE_CMD=1`.
+  Skipped unless `POSEIDON_LIVE_CMD=1`.
 
 ```sh
 pnpm exec vitest run apps/server/test/e2e              # replay only
-OPENADE_LIVE_CMD=1 pnpm exec vitest run apps/server/test/e2e
+POSEIDON_LIVE_CMD=1 pnpm exec vitest run apps/server/test/e2e
 ```
 
 The same assertions run twice, which is the point: the replay says the product
@@ -440,7 +440,7 @@ scenario that needs different expectations from the two drivers is a scenario
 whose recording has gone stale. `terminal.test.ts` has no harness in it, so
 it runs once, outside `forEachDriver`, with no connector configured.
 
-Every test gets a fresh `OPENADE_HOME` and a throwaway git repo under the
+Every test gets a fresh `POSEIDON_HOME` and a throwaway git repo under the
 system temp directory. The replay driver also redirects `HOME`, so it cannot
 touch `~/.commandcode`; the live driver deliberately does not, because that is
 where the CLI's credentials live. Both redirect `commandCodeHome` so the
@@ -449,11 +449,11 @@ settings scenario edits a copy rather than your real `~/.commandcode/mcp.json`.
 The live conformance suite is separate and cheaper — about six turns:
 
 ```sh
-OPENADE_LIVE_CMD=1 pnpm exec vitest run apps/server/src/hooks/cmdLiveConformance.test.ts
+POSEIDON_LIVE_CMD=1 pnpm exec vitest run apps/server/src/hooks/cmdLiveConformance.test.ts
 ```
 
-`OPENADE_LIVE_CMD_MODEL` overrides the model, `OPENADE_LIVE_CMD_DEBUG=1` adds
-output. The browser equivalent is `OPENADE_LIVE_BROWSER=1` over
+`POSEIDON_LIVE_CMD_MODEL` overrides the model, `POSEIDON_LIVE_CMD_DEBUG=1` adds
+output. The browser equivalent is `POSEIDON_LIVE_BROWSER=1` over
 `apps/server/src/browser/live.test.ts`, which spawns a real Chromium.
 
 ### The Claude Code end-to-end suite
@@ -469,11 +469,11 @@ and view readers, and adds three drivers (`apps/server/test/e2e-claude/harness.t
   recording out as recorded: the replayer appends any divergence to a log the
   harness checks after the scenario, so a divergence the connector absorbed
   still fails it.
-- **live**, `OPENADE_LIVE_CLAUDE=1`: the connector discovers your own `claude`
-  and spends your subscription. `OPENADE_LIVE_CLAUDE_CONFIG_DIR` points the
+- **live**, `POSEIDON_LIVE_CLAUDE=1`: the connector discovers your own `claude`
+  and spends your subscription. `POSEIDON_LIVE_CLAUDE_CONFIG_DIR` points the
   instance at a separate account (its `configDir`, which sets
   `CLAUDE_CONFIG_DIR`; `HOME` is never redirected).
-- **record**, `OPENADE_RECORD_CLAUDE=1`: live through the stdio tee. When the
+- **record**, `POSEIDON_RECORD_CLAUDE=1`: live through the stdio tee. When the
   scenario passes and its scope has closed, the capture is finalised into
   `fixtures/claude/<scenario>/` with the CLI version from the connector's own
   probe, the SDK version from the package the connector imports, and the model
@@ -481,17 +481,17 @@ and view readers, and adds three drivers (`apps/server/test/e2e-claude/harness.t
 
 ```sh
 pnpm exec vitest run apps/server/test/e2e-claude           # replay
-OPENADE_HOME=/tmp/openade-h1 OPENADE_LIVE_CLAUDE=1 pnpm exec vitest run apps/server/test/e2e-claude
-OPENADE_RECORD_CLAUDE=1 pnpm -F server exec vitest run test/e2e-claude/turn.test.ts
+POSEIDON_HOME=/tmp/poseidon-h1 POSEIDON_LIVE_CLAUDE=1 pnpm exec vitest run apps/server/test/e2e-claude
+POSEIDON_RECORD_CLAUDE=1 pnpm -F server exec vitest run test/e2e-claude/turn.test.ts
 ```
 
-`OPENADE_LIVE_CLAUDE_DEBUG=1` lowers a live run's server log level to debug, so
+`POSEIDON_LIVE_CLAUDE_DEBUG=1` lowers a live run's server log level to debug, so
 the connector's own log lines are printed too.
 
 The live conformance suite is separate and cheaper:
 
 ```sh
-OPENADE_LIVE_CLAUDE=1 pnpm -F @OpenAde/connector-claude vitest run src/liveConformance.test.ts
+POSEIDON_LIVE_CLAUDE=1 pnpm -F @poseidon/connector-claude vitest run src/liveConformance.test.ts
 ```
 
 It is `runConnectorConformance` against the discovered `claude` with the
@@ -500,9 +500,9 @@ installed, at or above `OLDEST_TESTED_VERSION` and signed in; a plain turn maps
 without any `event.unmapped` or error; and a file write answered deny leaves
 the file uncreated. It runs on the CLI's default model under the conformance
 recording's caps (one turn, ten cents a session), in a throwaway git repo
-under `/tmp/openade-h1`, and uses the same prompts as that recording, so the
-two describe the same runs. `OPENADE_LIVE_CLAUDE_CONFIG_DIR` points it at a
-separate account too, and `OPENADE_LIVE_CLAUDE_DEBUG=1` prints the connector's
+under `/tmp/poseidon-h1`, and uses the same prompts as that recording, so the
+two describe the same runs. `POSEIDON_LIVE_CLAUDE_CONFIG_DIR` points it at a
+separate account too, and `POSEIDON_LIVE_CLAUDE_DEBUG=1` prints the connector's
 log lines and every event type. Signed out, the probe case fails naming the
 login command, the plain turns end in the CLI's login error, and the approval
 case waits out its three-minute ceiling for a card that never opens.
@@ -540,13 +540,13 @@ Every driver runs the thread on the CLI's default model (thread model
 `CLAUDE_LIMITS` (four turns, fifty cents), passed to the connector through
 `BootOptions.claudeCode`. A replay runs under the same caps, so its argv is the
 recorded one. The live and record drivers refuse any other thread model unless
-it is named in `OPENADE_CLAUDE_APPROVED_MODEL`. The one switch a scenario
+it is named in `POSEIDON_CLAUDE_APPROVED_MODEL`. The one switch a scenario
 makes, in `model.test.ts`, names the explicit id the CLI's default already
 runs as (`run.defaultModelId`: the recording's model under replay, what the
 CLI's `system/init` named when recording, and live the model in
-`OPENADE_CLAUDE_APPROVED_MODEL`), so it never spends on another model. Replays and live runs make
+`POSEIDON_CLAUDE_APPROVED_MODEL`), so it never spends on another model. Replays and live runs make
 their homes under the system temp directory; a recording makes them, and keeps
-its raw capture, under `/tmp/openade-h1`.
+its raw capture, under `/tmp/poseidon-h1`.
 
 The connector's own suites replay the same fixtures without a server:
 `recordedFrames.test.ts` feeds every recorded session through the translator
@@ -557,7 +557,7 @@ the session launch of `plain-reply`, the approval scenarios, `plan-accept`,
 it as its next turn, and holds the session to one turn across both results,
 and `receiptless-steer`, a steer refused on an older build (2.1.150) that sends
 no receipts — recorded with
-`OPENADE_RECORD_CLAUDE_OLDER_BINARY=~/.local/share/claude/versions/2.1.150` on
+`POSEIDON_RECORD_CLAUDE_OLDER_BINARY=~/.local/share/claude/versions/2.1.150` on
 `test/recordSession.test.ts`;
 `sessionControls.test.ts` replays
 `session-controls`, a session on a signed-out CLI that switches model and
@@ -566,7 +566,7 @@ effort, sends an image and runs `/compact` (recorded by
 `conformance.test.ts` runs
 `runConnectorConformance` against `conformance`, which is the suite itself
 recorded through the tee, one session launch per case
-(`OPENADE_RECORD_CLAUDE=1` on that file re-records it).
+(`POSEIDON_RECORD_CLAUDE=1` on that file re-records it).
 
 ### Which models cost money
 
@@ -590,7 +590,7 @@ recording and live run uses the CLI's `default` — thread model `default`,
 which leaves the SDK's `model` option out — under the turn and budget caps
 the suites set, and the
 live and record drivers refuse any other model unless the operator names it
-in `OPENADE_CLAUDE_APPROVED_MODEL`. What costs nothing: the probe (no message
+in `POSEIDON_CLAUDE_APPROVED_MODEL`. What costs nothing: the probe (no message
 is sent), and any turn against a signed-out CLI, which refuses it without
 calling the API. A signed-in `/compact` costs a summarisation request and is
 recorded only with the operator's approval.
@@ -746,20 +746,20 @@ node packages/testkit/scripts/record-probe.mjs      # no model turns at all
 ```
 
 The Claude Code recorders are vitest files, skipped unless
-`OPENADE_RECORD_CLAUDE=1`. Scenarios that go through the server are recorded
+`POSEIDON_RECORD_CLAUDE=1`. Scenarios that go through the server are recorded
 by the end-to-end suite's record driver (see "The Claude Code end-to-end suite"
 above); the connector-level ones are:
 
 ```sh
-OPENADE_RECORD_CLAUDE=1 pnpm -F @OpenAde/connector-claude vitest run test/recordProbe.test.ts
-OPENADE_HOME=/tmp/openade-h1 OPENADE_RECORD_CLAUDE=1 \
-  pnpm -F @OpenAde/connector-claude vitest run test/recordSession.test.ts
-OPENADE_RECORD_CLAUDE=1 pnpm -F @OpenAde/connector-claude vitest run src/conformance.test.ts
+POSEIDON_RECORD_CLAUDE=1 pnpm -F @poseidon/connector-claude vitest run test/recordProbe.test.ts
+POSEIDON_HOME=/tmp/poseidon-h1 POSEIDON_RECORD_CLAUDE=1 \
+  pnpm -F @poseidon/connector-claude vitest run test/recordSession.test.ts
+POSEIDON_RECORD_CLAUDE=1 pnpm -F @poseidon/connector-claude vitest run src/conformance.test.ts
 ```
 
 Each points the connector's `binaryPath` at the testkit's stdio tee, drives the
 real definition — the probe, or a session in a throwaway git repo under
-`/tmp/openade-h1/scratch` — and finalises the capture into
+`/tmp/poseidon-h1/scratch` — and finalises the capture into
 `fixtures/claude/<scenario>/`. Sessions run on the CLI's default model, capped
 at one turn and five cents. `probe` and `signed-out` spend nothing: the first
 sends no message, and the second was recorded while the CLI was signed out, so
@@ -840,7 +840,7 @@ account and the MCP bearer:
   `--mcp-config`'s JSON, which the argv carries as one string rather than an
   object, so the key rule cannot see it there; the token-shaped rule catches it
   as `Bearer <token>`, as long as the token is at least twelve characters. A
-  real bearer is; the connector's tests use `openade-test-bearer-0000` so their
+  real bearer is; the connector's tests use `poseidon-test-bearer-0000` so their
   recordings show the redaction too.
 - The scratch root is taken as the parent of the first stream run's working
   directory, spelled with and without macOS's `/private`. A recorder whose
@@ -872,7 +872,7 @@ For Claude Code the notice comes from
 `packages/connector-claude/src/recordedFrames.test.ts` (a recorded message
 left unmapped, or a manifest older than `OLDEST_TESTED_VERSION`), from any
 replayed suite exiting 97 because the SDK now sends something the recording
-was not sent — an SDK upgrade does this — and from the `OPENADE_LIVE_CLAUDE=1`
+was not sent — an SDK upgrade does this — and from the `POSEIDON_LIVE_CLAUDE=1`
 suites. Re-record through the same test that made the recording
 (`packages/testkit/fixtures/claude/README.md` names it for each scenario),
 signed in, on the default model; when the recordings move to a newer CLI,
@@ -911,8 +911,8 @@ pnpm build:desktop:canary   # channel canary
 macOS targets are `dmg` and `zip` for `arm64` and `x64`; Windows is `nsis`,
 Linux is `AppImage` and `deb` (`apps/desktop/electron-builder.config.cjs`). The
 channel reaches two places at once: electron-builder switches the app id
-(`dev.openade.OpenAde.desktop[.canary]`), the product name and the output
-directory, and `scripts/build.mjs` defines `process.env.OPENADE_CHANNEL` into
+(`dev.poseidon.Poseidon.desktop[.canary]`), the product name and the output
+directory, and `scripts/build.mjs` defines `process.env.POSEIDON_CHANNEL` into
 the bundle so `src/platform/channel.ts` names the running app the same way. A
 test asserts the two agree; otherwise the two channels would share userData.
 
@@ -949,7 +949,7 @@ would fail with `posix_spawn failed`. The patched line rewrites only an
 `app.asar` path segment. If an upgrade changes that line, the build stops and
 says so instead of shipping a terminal that cannot start.
 
-`apps/desktop` lists `@OpenAde/contracts` and `@OpenAde/shared` as
+`apps/desktop` lists `@poseidon/contracts` and `@poseidon/shared` as
 _devDependencies_ on purpose: esbuild inlines them into the bundle, and
 electron-builder packs only `dependencies`, so declaring them as runtime
 dependencies would ship a second copy of each.
@@ -960,11 +960,11 @@ hand to anyone else.
 
 ## Where state lives on disk
 
-Everything OpenAde owns hangs off `configDir()` — `~/.openade`, or
-`OPENADE_HOME` (`packages/shared/src/paths.ts`).
+Everything Poseidon owns hangs off `configDir()` — `~/.poseidon`, or
+`POSEIDON_HOME` (`packages/shared/src/paths.ts`).
 
 ```
-~/.openade/
+~/.poseidon/
 ├── state.sqlite            event log, projections, settings, permissions
 ├── attachments/            staged uploads
 ├── worktrees/<project>/<slug>/  threads' own git worktrees
@@ -981,10 +981,10 @@ edited — new ones append.
 The in-app browser's per-thread browsing data is the desktop's, not the
 server's: Electron keeps each thread's `persist:thread-<id>` partition under
 its own session data directory
-(`~/Library/Application Support/OpenAde/Partitions/thread-<id>` on macOS),
-which `OPENADE_HOME` does not move. Deleting a thread in the app clears its
+(`~/Library/Application Support/Poseidon/Partitions/thread-<id>` on macOS),
+which `POSEIDON_HOME` does not move. Deleting a thread in the app clears its
 partition's storage and cache; a live check against a scratch
-`OPENADE_HOME` still writes there, so remove the `thread-<id>` directories it
+`POSEIDON_HOME` still writes there, so remove the `thread-<id>` directories it
 created afterwards.
 
 A `desktop.json` left there by an older build is ignored: its one key,
@@ -996,9 +996,9 @@ a session does not churn the file under a running `cmd`.
 
 ### The user's Command Code files
 
-`OPENADE_HOME` does not move these: they are the harness's, not ours.
+`POSEIDON_HOME` does not move these: they are the harness's, not ours.
 
-| File                                                  | What OpenAde does to it                              |
+| File                                                  | What Poseidon does to it                             |
 | ----------------------------------------------------- | ---------------------------------------------------- |
 | `~/.commandcode/mcp.json`                             | user-scope MCP servers, from the settings page       |
 | `<workspaceRoot>/.mcp.json`                           | project-scope MCP servers, the same                  |
@@ -1007,8 +1007,8 @@ a session does not churn the file under a running `cmd`.
 | `~/.commandcode/projects/<slug>/`                     | the CLI's own transcripts, which the connector reads |
 | `~/.commandcode/plans/`                               | where a plan turn's markdown lands                   |
 
-Both written files are edited per entry, not per file. Every MCP server OpenAde
-writes carries an `_openade` marker and add/remove refuse to touch an entry
+Both written files are edited per entry, not per file. Every MCP server Poseidon
+writes carries an `_poseidon` marker and add/remove refuse to touch an entry
 that lacks one; a file that exists but does not parse is never rewritten
 (`packages/connector-cmd/src/mcpServers.ts`, the connector's MCP servers
 extension). The hook block is installed on
@@ -1043,15 +1043,15 @@ supervisor gives the child 15 s to produce its fd 3 handshake, restarts it with
 500 ms → 10 s backoff, and after five consecutive failures stops and reports
 instead of spinning. The server's stdout and stderr are inherited, so the real
 error is in the terminal running `pnpm dev`. Check that nothing else already
-holds the same `OPENADE_HOME` — two servers over one `state.sqlite` is the
+holds the same `POSEIDON_HOME` — two servers over one `state.sqlite` is the
 usual cause after a force quit. On a normal quit the supervisor signals SIGINT
 and waits for the child to exit, SIGKILLing it after 5 s.
 
-**A browser renderer dials a dead server.** `~/.openade/dev/connection.json` is
+**A browser renderer dials a dead server.** `~/.poseidon/dev/connection.json` is
 written on every dev boot and is not deleted on shutdown, so a stale one points
 at a port nobody is listening on. Delete it and restart `pnpm -F server dev`.
 If you are running a scratch home, remember the Vite plugin resolves the file
-through the same `OPENADE_HOME` — start both sides with the same value or they
+through the same `POSEIDON_HOME` — start both sides with the same value or they
 will never meet.
 
 **Every pane tab vanished during `pnpm dev`.** Editing
@@ -1089,7 +1089,7 @@ executable.
 app's daemons live in their own namespace. Find it and look:
 
 ```sh
-NS=openade-$(node -e 'console.log(require("crypto").createHash("sha256").update(require("path").resolve(process.env.OPENADE_HOME ?? require("os").homedir() + "/.openade")).digest("hex").slice(0, 8))')
+NS=poseidon-$(node -e 'console.log(require("crypto").createHash("sha256").update(require("path").resolve(process.env.POSEIDON_HOME ?? require("os").homedir() + "/.poseidon")).digest("hex").slice(0, 8))')
 agent-browser --namespace "$NS" session list
 agent-browser --namespace "$NS" --session <ade-…> session info   # pid, socket dir
 agent-browser --namespace "$NS" close --all

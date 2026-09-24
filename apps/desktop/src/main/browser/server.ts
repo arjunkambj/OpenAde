@@ -18,7 +18,7 @@ import type { Duplex } from "node:stream";
 
 import { WebSocketServer, type WebSocket } from "ws";
 
-import { verifyCapability } from "@OpenAde/shared/browserBridge";
+import { verifyCapability } from "@poseidon/shared/browserBridge";
 
 import {
   makeSerialQueue,

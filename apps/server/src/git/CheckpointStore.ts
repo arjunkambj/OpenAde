@@ -1,6 +1,6 @@
 /**
  * Per-turn worktree snapshots as hidden git refs:
- * `refs/openade/checkpoints/<threadId>/<turnId>` points at a commit built from
+ * `refs/poseidon/checkpoints/<threadId>/<turnId>` points at a commit built from
  * a temporary index, so capture never disturbs the user's real index or
  * staging area. Restore is the reverse: `git restore` from the checkpoint
  * commit plus `git clean -fd` for paths the checkpoint never tracked.
@@ -8,10 +8,10 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
-import { decodeCheckpointId } from "@OpenAde/contracts/ids";
-import type { CheckpointId } from "@OpenAde/contracts/ids";
-import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
-import type { ThreadId, TurnId } from "@OpenAde/contracts/ids";
+import { decodeCheckpointId } from "@poseidon/contracts/ids";
+import type { CheckpointId } from "@poseidon/contracts/ids";
+import type { CheckpointSummary } from "@poseidon/contracts/orchestration";
+import type { ThreadId, TurnId } from "@poseidon/contracts/ids";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 
@@ -30,7 +30,7 @@ class CheckpointStoreError extends Data.TaggedError("CheckpointStoreError")<{
 
 const NOT_A_REPOSITORY = "the project folder is not a git repository";
 
-const REF_PREFIX = "refs/openade/checkpoints";
+const REF_PREFIX = "refs/poseidon/checkpoints";
 const refFor = (threadId: ThreadId, turnId: TurnId) => `${REF_PREFIX}/${threadId}/${turnId}`;
 
 /**
@@ -48,10 +48,10 @@ const checkpointIdOf = (commitSha: string): CheckpointId => {
 };
 
 const gitEnv = {
-  GIT_AUTHOR_NAME: "OpenAde",
-  GIT_AUTHOR_EMAIL: "openade@localhost",
-  GIT_COMMITTER_NAME: "OpenAde",
-  GIT_COMMITTER_EMAIL: "openade@localhost",
+  GIT_AUTHOR_NAME: "Poseidon",
+  GIT_AUTHOR_EMAIL: "poseidon@localhost",
+  GIT_COMMITTER_NAME: "Poseidon",
+  GIT_COMMITTER_EMAIL: "poseidon@localhost",
 } satisfies NodeJS.ProcessEnv;
 
 const wrap = <A>(
@@ -118,7 +118,7 @@ export interface CheckpointStoreShape {
 
 export const make: CheckpointStoreShape = {
   /**
-   * Snapshot the worktree into `refs/openade/checkpoints/<thread>/<turn>`:
+   * Snapshot the worktree into `refs/poseidon/checkpoints/<thread>/<turn>`:
    * read HEAD into a temp index, `add -A` every worktree path, write the tree,
    * commit it with a detached identity, and point the hidden ref at it.
    */
@@ -126,7 +126,7 @@ export const make: CheckpointStoreShape = {
     wrap(
       Effect.gen(function* () {
         yield* requireRepository(workspaceRoot);
-        const tempDir = mkdtempSync(nodePath.join(tmpdir(), "openade-checkpoint-"));
+        const tempDir = mkdtempSync(nodePath.join(tmpdir(), "poseidon-checkpoint-"));
         const tempIndex = nodePath.join(tempDir, "index");
         const env = { ...gitEnv, GIT_INDEX_FILE: tempIndex };
         try {
@@ -137,7 +137,7 @@ export const make: CheckpointStoreShape = {
           const tree = yield* run(workspaceRoot, ["write-tree"], { env });
           const commit = yield* run(
             workspaceRoot,
-            ["commit-tree", tree.stdout.trim(), "-m", `openade checkpoint ${turnId}`],
+            ["commit-tree", tree.stdout.trim(), "-m", `poseidon checkpoint ${turnId}`],
             { env },
           );
           const ref = refFor(threadId, turnId);

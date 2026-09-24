@@ -18,11 +18,11 @@ import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
-import { makeStreamCollector } from "@OpenAde/connector-sdk/streamCollector";
-import { makeConnectorInstanceId, makeThreadId } from "@OpenAde/contracts/ids";
-import type { ThreadSettingsPatch } from "@OpenAde/contracts/orchestration";
-import type { RuntimeEvent } from "@OpenAde/contracts/runtime";
-import { loadSdkStreamRecording } from "@OpenAde/testkit/sdkStreamRecording";
+import { makeStreamCollector } from "@poseidon/connector-sdk/streamCollector";
+import { makeConnectorInstanceId, makeThreadId } from "@poseidon/contracts/ids";
+import type { ThreadSettingsPatch } from "@poseidon/contracts/orchestration";
+import type { RuntimeEvent } from "@poseidon/contracts/runtime";
+import { loadSdkStreamRecording } from "@poseidon/testkit/sdkStreamRecording";
 import * as Effect from "effect/Effect";
 
 import { isPidGone, replay } from "../test/replay";

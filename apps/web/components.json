@@ -14,8 +14,8 @@
   "rtl": false,
   "aliases": {
     "components": "@/components",
-    "utils": "@OpenAde/ui/lib/utils",
-    "ui": "@OpenAde/ui/components",
+    "utils": "@poseidon/ui/lib/utils",
+    "ui": "@poseidon/ui/components",
     "lib": "@/lib",
     "hooks": "@/hooks"
   },

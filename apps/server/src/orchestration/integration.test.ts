@@ -12,16 +12,16 @@ import {
   makeProjectId,
   makeThreadId,
   makeTurnId,
-} from "@OpenAde/contracts/ids";
-import type { Command, OrchestrationEvent } from "@OpenAde/contracts/orchestration";
-import type { ConnectorInstance, ConnectorServices } from "@OpenAde/connector-sdk/definition";
-import { SessionClosed, SpawnFailed } from "@OpenAde/connector-sdk/definition";
+} from "@poseidon/contracts/ids";
+import type { Command, OrchestrationEvent } from "@poseidon/contracts/orchestration";
+import type { ConnectorInstance, ConnectorServices } from "@poseidon/connector-sdk/definition";
+import { SessionClosed, SpawnFailed } from "@poseidon/connector-sdk/definition";
 import {
   approvalTurnScript,
   makeFakeConnector,
   type FakeConnector,
   type FakeTurnScript,
-} from "@OpenAde/testkit/fakeConnector";
+} from "@poseidon/testkit/fakeConnector";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
@@ -42,7 +42,7 @@ const services = Effect.clockWith((clock) =>
     mcpEndpoint: () => Effect.succeed({ url: "http://127.0.0.1:0/mcp", bearer: "t" }),
     hookEndpoint: () => Effect.succeed({ url: "http://127.0.0.1:0/hook", bearer: "t" }),
     permissions: { decide: () => Effect.succeed("allow" as const) },
-    attachmentsDir: "/tmp/openade-test",
+    attachmentsDir: "/tmp/poseidon-test",
     logger: { log: () => Effect.void },
     clock,
   }),
@@ -52,7 +52,7 @@ const openFake = (
   options: Parameters<typeof makeFakeConnector>[0] = {},
 ): Effect.Effect<
   { fake: FakeConnector; instance: ConnectorInstance },
-  import("@OpenAde/connector-sdk/definition").ConnectorError,
+  import("@poseidon/connector-sdk/definition").ConnectorError,
   import("effect/Scope").Scope
 > =>
   Effect.gen(function* () {
@@ -178,7 +178,7 @@ describe("orchestration with a fake connector", () => {
           return instance.startSession(input);
         },
       };
-      const worktree = { path: "/worktrees/demo/fix", branch: "openade/fix", baseBranch: "main" };
+      const worktree = { path: "/worktrees/demo/fix", branch: "poseidon/fix", baseBranch: "main" };
       yield* Effect.gen(function* () {
         const engine = yield* OrchestrationEngine;
         yield* engine.dispatch(createProject);
@@ -428,7 +428,7 @@ describe("orchestration with a fake connector", () => {
         // The approval script holds turn.completed until the request is
         // answered — the turn stays active while we queue behind it.
         const { fake, instance } = yield* openFake({ script: approvalTurnScript });
-        const attachments = [{ path: "/tmp/openade-test/note.txt", mime: "text/plain" }];
+        const attachments = [{ path: "/tmp/poseidon-test/note.txt", mime: "text/plain" }];
         const mentions = ["src/app.ts"];
         const references = [
           { kind: "skill" as const, name: "release-notes" },
@@ -526,7 +526,7 @@ describe("orchestration with a fake connector", () => {
               checkpoint: {
                 checkpointId: makeCheckpointId(),
                 turnId: makeTurnId(),
-                ref: "refs/openade/checkpoints/one",
+                ref: "refs/poseidon/checkpoints/one",
                 createdAt: NOW,
               },
             },
@@ -1000,7 +1000,7 @@ describe("orchestration with a fake connector", () => {
   it.effect("resumes a mid-turn thread from a database a previous process left", () =>
     Effect.gen(function* () {
       const directory = yield* Effect.acquireRelease(
-        Effect.sync(() => NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "openade-boot-"))),
+        Effect.sync(() => NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "poseidon-boot-"))),
         (path) => Effect.sync(() => NodeFS.rmSync(path, { recursive: true, force: true })),
       );
       const persistence = persistenceLayer(NodePath.join(directory, "state.sqlite"));
@@ -1110,7 +1110,7 @@ describe("orchestration with a fake connector", () => {
   it.effect("a lost session keeps the queue for the user's next turn to drain", () =>
     Effect.gen(function* () {
       const directory = yield* Effect.acquireRelease(
-        Effect.sync(() => NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "openade-queue-"))),
+        Effect.sync(() => NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "poseidon-queue-"))),
         (path) => Effect.sync(() => NodeFS.rmSync(path, { recursive: true, force: true })),
       );
       const persistence = persistenceLayer(NodePath.join(directory, "state.sqlite"));

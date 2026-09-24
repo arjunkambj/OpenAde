@@ -1,5 +1,5 @@
-import { makeConnectorInstanceId } from "@OpenAde/contracts/ids";
-import { settingsForm } from "@OpenAde/contracts/settings";
+import { makeConnectorInstanceId } from "@poseidon/contracts/ids";
+import { settingsForm } from "@poseidon/contracts/settings";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
@@ -16,7 +16,7 @@ const makeServices: Effect.Effect<ConnectorServices> = Effect.clockWith((clock) 
     mcpEndpoint: () => Effect.succeed({ url: "http://127.0.0.1:0/mcp", bearer: "test" }),
     hookEndpoint: () => Effect.succeed({ url: "http://127.0.0.1:0/hook", bearer: "test" }),
     permissions: { decide: () => Effect.succeed("allow" as const) },
-    attachmentsDir: "/tmp/openade-registry-test",
+    attachmentsDir: "/tmp/poseidon-registry-test",
     logger: { log: () => Effect.void },
     clock,
   }),

@@ -54,7 +54,7 @@ import {
   ThreadSummary,
 } from "./orchestration";
 import { FileChangeKind } from "./runtime";
-import { OpenAdeRpcError } from "./rpcError";
+import { PoseidonRpcError } from "./rpcError";
 import { Keybinding, Settings, SettingsPatch } from "./settings";
 import {
   TERMINAL_WRITE_MAX_CHARS,
@@ -67,7 +67,7 @@ import {
 
 // ── Errors ─────────────────────────────────────────────────────
 
-export { OpenAdeRpcError } from "./rpcError";
+export { PoseidonRpcError } from "./rpcError";
 
 // ── Payload and result schemas ─────────────────────────────────
 
@@ -161,7 +161,7 @@ export const FsBrowseFailure = Schema.Literals([
 export type FsBrowseFailure = typeof FsBrowseFailure.Type;
 
 /**
- * `fs.browse`'s own error, rather than the shared `OpenAdeRpcError`: the picker
+ * `fs.browse`'s own error, rather than the shared `PoseidonRpcError`: the picker
  * renders four of these five as a message *about the path the user typed* and
  * offers a different next step for each, which a single `invalid` code cannot
  * carry. `path` is the path the client asked for, echoed so a late answer can
@@ -313,19 +313,19 @@ const empty = Schema.Struct({});
 const ServerHelloRpc = Rpc.make(RPC_METHODS.serverHello, {
   payload: empty,
   success: ServerHello,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 const OrchestrationDispatchRpc = Rpc.make(RPC_METHODS.orchestrationDispatch, {
   payload: Schema.Struct({ command: Command }),
   success: CommandReceipt,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 const ProjectsListRpc = Rpc.make(RPC_METHODS.projectsList, {
   payload: empty,
   success: Schema.Array(ProjectSummary),
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 const ThreadsListRpc = Rpc.make(RPC_METHODS.threadsList, {
@@ -334,7 +334,7 @@ const ThreadsListRpc = Rpc.make(RPC_METHODS.threadsList, {
     includeArchived: Schema.optional(Schema.Boolean),
   }),
   success: Schema.Array(ThreadSummary),
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /**
@@ -348,7 +348,7 @@ const ThreadsSubscribeRpc = Rpc.make(RPC_METHODS.threadsSubscribe, {
     afterSequence: Schema.optional(NonNegativeInt),
   }),
   success: ThreadStreamItem,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
   stream: true,
 });
 
@@ -358,7 +358,7 @@ const ThreadsListSubscribeRpc = Rpc.make(RPC_METHODS.threadsListSubscribe, {
     afterSequence: Schema.optional(NonNegativeInt),
   }),
   success: ThreadListStreamItem,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
   stream: true,
 });
 
@@ -370,20 +370,20 @@ const ThreadsListSubscribeRpc = Rpc.make(RPC_METHODS.threadsListSubscribe, {
 const ConnectorsListRpc = Rpc.make(RPC_METHODS.connectorsList, {
   payload: Schema.Struct({ refresh: Schema.optional(Schema.Boolean) }),
   success: Schema.Array(ConnectorSummary),
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 const ConnectorsModelsRpc = Rpc.make(RPC_METHODS.connectorsModels, {
   payload: Schema.Struct({ instanceId: ConnectorInstanceId }),
   success: Schema.Array(ModelOption),
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /** Every connector this build ships, with its metadata and config form. */
 const ConnectorsDescribeRpc = Rpc.make(RPC_METHODS.connectorsDescribe, {
   payload: empty,
   success: Schema.Array(ConnectorDescriptor),
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /**
@@ -398,7 +398,7 @@ const FilesSearchRpc = Rpc.make(RPC_METHODS.filesSearch, {
     limit: Schema.optional(NonNegativeInt),
   }),
   success: Schema.Array(FileSearchResult),
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 const FilesReadRpc = Rpc.make(RPC_METHODS.filesRead, {
@@ -410,7 +410,7 @@ const FilesReadRpc = Rpc.make(RPC_METHODS.filesRead, {
     limit: Schema.optional(NonNegativeInt),
   }),
   success: FileContent,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /**
@@ -427,7 +427,7 @@ const FilesStatRpc = Rpc.make(RPC_METHODS.filesStat, {
     paths: Schema.Array(NonEmptyString).check(Schema.isMaxLength(FILES_STAT_MAX_PATHS)),
   }),
   success: Schema.Array(FileStat),
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /**
@@ -459,20 +459,20 @@ const AttachmentsStageRpc = Rpc.make(RPC_METHODS.attachmentsStage, {
     base64: Schema.String,
   }),
   success: StagedAttachment,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /** Reads a staged attachment back, for a timeline thumbnail. */
 const AttachmentsReadRpc = Rpc.make(RPC_METHODS.attachmentsRead, {
   payload: Schema.Struct({ threadId: ThreadId, path: NonEmptyString }),
   success: AttachmentBytes,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 const GitStatusRpc = Rpc.make(RPC_METHODS.gitStatus, {
   payload: Schema.Struct({ projectId: ProjectId, threadId: Schema.optional(ThreadId) }),
   success: GitStatus,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /**
@@ -493,7 +493,7 @@ const GitDiffRpc = Rpc.make(RPC_METHODS.gitDiff, {
     path: Schema.optional(NonEmptyString),
   }),
   success: GitDiff,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /**
@@ -506,20 +506,20 @@ const GitDiffRpc = Rpc.make(RPC_METHODS.gitDiff, {
 const CheckpointsListRpc = Rpc.make(RPC_METHODS.checkpointsList, {
   payload: Schema.Struct({ projectId: ProjectId, threadId: ThreadId }),
   success: Schema.Array(CheckpointSummary),
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 const BrowserSubscribeRpc = Rpc.make(RPC_METHODS.browserSubscribe, {
   payload: Schema.Struct({ threadId: ThreadId }),
   success: BrowserState,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
   stream: true,
 });
 
 const BrowserHumanInputRpc = Rpc.make(RPC_METHODS.browserHumanInput, {
   payload: Schema.Struct({ threadId: ThreadId, input: BrowserHumanInput }),
   success: empty,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /**
@@ -530,32 +530,32 @@ const BrowserHumanInputRpc = Rpc.make(RPC_METHODS.browserHumanInput, {
 const BrowserDiscoverServersRpc = Rpc.make(RPC_METHODS.browserDiscoverServers, {
   payload: Schema.Struct({ threadId: ThreadId }),
   success: Schema.Array(DevServer),
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /** The browser tool's mode and agent-browser's install state, fixed at server start. */
 const BrowserStatusRpc = Rpc.make(RPC_METHODS.browserStatus, {
   payload: empty,
   success: BrowserToolStatus,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 const SettingsGetRpc = Rpc.make(RPC_METHODS.settingsGet, {
   payload: empty,
   success: Settings,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 const SettingsUpdateRpc = Rpc.make(RPC_METHODS.settingsUpdate, {
   payload: Schema.Struct({ patch: SettingsPatch }),
   success: Settings,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 const SettingsSubscribeRpc = Rpc.make(RPC_METHODS.settingsSubscribe, {
   payload: empty,
   success: Settings,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
   stream: true,
 });
 
@@ -571,21 +571,21 @@ const ConnectorsSkillsListRpc = Rpc.make(RPC_METHODS.connectorsSkillsList, {
     projectId: Schema.optional(ProjectId),
   }),
   success: Schema.Array(SkillSummary),
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /** Skills in a shared folder the instance does not load yet; empty when it offers none. */
 const ConnectorsSkillsAvailableRpc = Rpc.make(RPC_METHODS.connectorsSkillsAvailable, {
   payload: Schema.Struct({ instanceId: ConnectorInstanceId }),
   success: Schema.Array(AgentSkill),
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /** Links one available skill into the instance's user skills; answers the rest. */
 const ConnectorsSkillsLinkRpc = Rpc.make(RPC_METHODS.connectorsSkillsLink, {
   payload: Schema.Struct({ instanceId: ConnectorInstanceId, entry: NonEmptyString }),
   success: Schema.Array(AgentSkill),
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /** Plugins the instance has installed, in the user scope plus the project's. */
@@ -595,7 +595,7 @@ const ConnectorsPluginsListRpc = Rpc.make(RPC_METHODS.connectorsPluginsList, {
     projectId: Schema.optional(ProjectId),
   }),
   success: Schema.Array(PluginSummary),
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 const ConnectorsMcpListRpc = Rpc.make(RPC_METHODS.connectorsMcpList, {
@@ -604,7 +604,7 @@ const ConnectorsMcpListRpc = Rpc.make(RPC_METHODS.connectorsMcpList, {
     projectId: Schema.optional(ProjectId),
   }),
   success: Schema.Array(McpServerConfig),
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /** Adds or replaces one server the instance manages; answers the whole list. */
@@ -615,7 +615,7 @@ const ConnectorsMcpAddRpc = Rpc.make(RPC_METHODS.connectorsMcpAdd, {
     server: McpServerConfig,
   }),
   success: Schema.Array(McpServerConfig),
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 const ConnectorsMcpRemoveRpc = Rpc.make(RPC_METHODS.connectorsMcpRemove, {
@@ -626,7 +626,7 @@ const ConnectorsMcpRemoveRpc = Rpc.make(RPC_METHODS.connectorsMcpRemove, {
     name: NonEmptyString,
   }),
   success: Schema.Array(McpServerConfig),
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /**
@@ -638,14 +638,14 @@ const ConnectorsMcpRemoveRpc = Rpc.make(RPC_METHODS.connectorsMcpRemove, {
 const KeybindingsGetRpc = Rpc.make(RPC_METHODS.keybindingsGet, {
   payload: empty,
   success: Schema.Array(Keybinding),
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /** Replaces the stored overrides wholesale and answers with the new ones. */
 const KeybindingsUpdateRpc = Rpc.make(RPC_METHODS.keybindingsUpdate, {
   payload: Schema.Struct({ keybindings: Schema.Array(Keybinding) }),
   success: Schema.Array(Keybinding),
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /**
@@ -668,7 +668,7 @@ const TerminalOpenRpc = Rpc.make(RPC_METHODS.terminalOpen, {
     title: Schema.optional(NonEmptyString),
   }),
   success: TerminalSummary,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /** Input for the shell: typed keys, a paste. */
@@ -678,34 +678,34 @@ const TerminalWriteRpc = Rpc.make(RPC_METHODS.terminalWrite, {
     data: Schema.String.check(Schema.isMaxLength(TERMINAL_WRITE_MAX_CHARS)),
   }),
   success: empty,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 const TerminalResizeRpc = Rpc.make(RPC_METHODS.terminalResize, {
   payload: terminalOwned({ ...terminalRef, ...TerminalSize.fields }),
   success: empty,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /** Kills the shell and forgets the terminal, output and all. */
 const TerminalCloseRpc = Rpc.make(RPC_METHODS.terminalClose, {
   payload: terminalOwned(terminalRef),
   success: empty,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /** The owner's terminals, exited ones included, oldest first. */
 const TerminalListRpc = Rpc.make(RPC_METHODS.terminalList, {
   payload: TerminalOwner,
   success: Schema.Array(TerminalSummary),
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /** A snapshot with the recent scrollback, then live output; see `TerminalStreamItem`. */
 const TerminalSubscribeRpc = Rpc.make(RPC_METHODS.terminalSubscribe, {
   payload: terminalOwned(terminalRef),
   success: TerminalStreamItem,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
   stream: true,
 });
 
@@ -724,10 +724,10 @@ const TerminalSubscribeRpc = Rpc.make(RPC_METHODS.terminalSubscribe, {
 const TerminalAdoptRpc = Rpc.make(RPC_METHODS.terminalAdopt, {
   payload: Schema.Struct({ projectId: ProjectId, threadId: ThreadId }),
   success: Schema.Array(TerminalSummary),
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
-export const OpenAdeRpcGroup = RpcGroup.make(
+export const PoseidonRpcGroup = RpcGroup.make(
   ServerHelloRpc,
   OrchestrationDispatchRpc,
   ProjectsListRpc,

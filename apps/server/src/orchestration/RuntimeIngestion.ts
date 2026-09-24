@@ -11,12 +11,12 @@
  * supervisor watches.
  */
 
-import type { ConnectorInstanceId, ConnectorKind, ItemId, ThreadId } from "@OpenAde/contracts/ids";
-import { makeEventId, makeItemId } from "@OpenAde/contracts/ids";
-import type { ItemSnapshot, RuntimeEvent } from "@OpenAde/contracts/runtime";
+import type { ConnectorInstanceId, ConnectorKind, ItemId, ThreadId } from "@poseidon/contracts/ids";
+import { makeEventId, makeItemId } from "@poseidon/contracts/ids";
+import type { ItemSnapshot, RuntimeEvent } from "@poseidon/contracts/runtime";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
-import type { TurnScopedSessionHandle } from "@OpenAde/connector-sdk/turnScopedHandle";
+import type { TurnScopedSessionHandle } from "@poseidon/connector-sdk/turnScopedHandle";
 
 import type { PlannedEvent } from "../persistence/EventStore";
 

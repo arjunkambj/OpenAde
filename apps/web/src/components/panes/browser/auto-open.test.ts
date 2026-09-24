@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { makeThreadId } from "@OpenAde/contracts/ids";
-import type { BrowserState } from "@OpenAde/contracts/rpc";
+import { makeThreadId } from "@poseidon/contracts/ids";
+import type { BrowserState } from "@poseidon/contracts/rpc";
 
 import { idleActivity, type ThreadAgentActivity } from "@/state/browser-activity";
 import type { BrowserTab, ThreadTabs } from "@/state/browser-tabs";

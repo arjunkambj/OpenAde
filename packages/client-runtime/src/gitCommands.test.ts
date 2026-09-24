@@ -8,8 +8,8 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
-import type { GitBranchList, WorktreeSetupFrame } from "@OpenAde/contracts/git";
-import { makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
+import type { GitBranchList, WorktreeSetupFrame } from "@poseidon/contracts/git";
+import { makeProjectId, makeThreadId } from "@poseidon/contracts/ids";
 import type * as Cause from "effect/Cause";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -26,7 +26,7 @@ import {
   Connection,
   ConnectionStateRef,
   type ConnectionState,
-  type OpenAdeRpcClient,
+  type PoseidonRpcClient,
 } from "./connection";
 import {
   emptySetupProgress,
@@ -36,7 +36,10 @@ import {
 } from "./gitCommands";
 import { makeGitAtoms } from "./gitAtoms";
 
-const WORKTREE = { path: "/home/me/.openade/worktrees/app/fix-login", branch: "openade/fix-login" };
+const WORKTREE = {
+  path: "/home/me/.poseidon/worktrees/app/fix-login",
+  branch: "poseidon/fix-login",
+};
 
 interface Calls {
   readonly create: Array<unknown>;
@@ -66,8 +69,8 @@ const fakeClient = (
   calls: Calls,
   frames: Queue.Queue<WorktreeSetupFrame, Cause.Done>,
   gate: Deferred.Deferred<void>,
-): OpenAdeRpcClient =>
-  new Proxy({} as OpenAdeRpcClient, {
+): PoseidonRpcClient =>
+  new Proxy({} as PoseidonRpcClient, {
     get: (_target, key) => {
       switch (key) {
         case "git.worktree.create":

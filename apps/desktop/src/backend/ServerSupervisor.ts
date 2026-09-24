@@ -1,5 +1,5 @@
 /**
- * Owns the OpenAde server process: spawn it, read the bootstrap handshake off
+ * Owns the Poseidon server process: spawn it, read the bootstrap handshake off
  * fd 3, and restart it on crash with 500ms→10s backoff. After five consecutive
  * failed attempts it pauses and reports instead of spinning forever.
  *

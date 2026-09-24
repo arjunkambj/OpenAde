@@ -1,11 +1,11 @@
 {
-  "extends": "@OpenAde/config/tsconfig.base.json",
+  "extends": "@poseidon/config/tsconfig.base.json",
   "compilerOptions": {
     "jsx": "react-jsx",
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": [],
     "paths": {
-      "@OpenAde/ui/*": ["./src/*"]
+      "@poseidon/ui/*": ["./src/*"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],

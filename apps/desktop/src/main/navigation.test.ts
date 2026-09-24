@@ -2,22 +2,22 @@ import { describe, expect, it } from "vitest";
 
 import { decideNavigation, type NavigationPolicy } from "./navigation";
 
-const PACKAGED: NavigationPolicy = { appUrl: "openade://app/" };
+const PACKAGED: NavigationPolicy = { appUrl: "poseidon://app/" };
 const DEV: NavigationPolicy = {
-  appUrl: "openade://app/",
+  appUrl: "poseidon://app/",
   devServerUrl: "http://localhost:5173",
 };
 
 describe("decideNavigation", () => {
   it("allows the renderer to navigate within its own origin", () => {
-    expect(decideNavigation("openade://app/", PACKAGED)).toEqual({ kind: "allow" });
-    expect(decideNavigation("openade://app/index.html#/threads/1", PACKAGED)).toEqual({
+    expect(decideNavigation("poseidon://app/", PACKAGED)).toEqual({ kind: "allow" });
+    expect(decideNavigation("poseidon://app/index.html#/threads/1", PACKAGED)).toEqual({
       kind: "allow",
     });
   });
 
   it("refuses another host on the app scheme", () => {
-    const decision = decideNavigation("openade://evil.example/", PACKAGED);
+    const decision = decideNavigation("poseidon://evil.example/", PACKAGED);
 
     expect(decision.kind).toBe("block");
   });
@@ -42,7 +42,7 @@ describe("decideNavigation", () => {
     for (const url of [
       "file:///etc/passwd",
       "data:text/html,<script>fetch(1)</script>",
-      "blob:openade://app/9f",
+      "blob:poseidon://app/9f",
       "ftp://example.com/",
     ]) {
       expect(decideNavigation(url, PACKAGED).kind).toBe("block");

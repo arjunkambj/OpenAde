@@ -1,6 +1,6 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 
-import { decodeThreadId } from "@OpenAde/contracts/ids";
+import { decodeThreadId } from "@poseidon/contracts/ids";
 
 import { isDockPane, type DockPane } from "@/components/dock/dock-toggle";
 import { parseChangesLink, type ChangesLink } from "@/components/panes/changes/deep-link";

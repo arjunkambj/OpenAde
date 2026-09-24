@@ -1,11 +1,11 @@
 import { existsSync, readFileSync } from "node:fs";
-import { devConnectionPath } from "@OpenAde/shared/paths";
+import { devConnectionPath } from "@poseidon/shared/paths";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 
-// Resolved through the shared paths module so an `OPENADE_HOME` override moves
+// Resolved through the shared paths module so an `POSEIDON_HOME` override moves
 // the dev handshake file for the plugin and the server alike. Node-side config,
 // never bundled into the renderer.
 const DEV_CONNECTION_PATH = devConnectionPath();
@@ -20,7 +20,7 @@ const ALLOWED_ORIGINS = new Set([
 ]);
 
 /**
- * Serves `~/.openade/dev/connection.json` at `/__openade/connection` so a
+ * Serves `~/.poseidon/dev/connection.json` at `/__poseidon/connection` so a
  * browser renderer can find a dev-mode server without Electron. Dev-only —
  * the production build embeds the desktop's preload channel instead.
  *
@@ -30,11 +30,11 @@ const ALLOWED_ORIGINS = new Set([
  * no `Origin` header is same-origin navigation or a non-browser client, which
  * is the normal case here.
  */
-const openadeConnection = (): Plugin => ({
-  name: "openade-connection",
+const poseidonConnection = (): Plugin => ({
+  name: "poseidon-connection",
   apply: "serve",
   configureServer(server) {
-    server.middlewares.use("/__openade/connection", (req, res) => {
+    server.middlewares.use("/__poseidon/connection", (req, res) => {
       const origin = req.headers.origin;
       if (typeof origin === "string" && !ALLOWED_ORIGINS.has(origin)) {
         res.statusCode = 403;
@@ -68,6 +68,6 @@ export default defineConfig({
       autoCodeSplitting: true,
     }),
     react(),
-    openadeConnection(),
+    poseidonConnection(),
   ],
 });

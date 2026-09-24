@@ -8,8 +8,8 @@
  * is `./keybindings`; this module builds on it.
  */
 
-import { CHANGES_PANE_KEYS } from "@OpenAde/contracts/keybindings";
-import type { Keybinding } from "@OpenAde/contracts/settings";
+import { CHANGES_PANE_KEYS } from "@poseidon/contracts/keybindings";
+import type { Keybinding } from "@poseidon/contracts/settings";
 
 import {
   evaluateWhenNode,

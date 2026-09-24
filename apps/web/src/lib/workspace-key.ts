@@ -8,8 +8,8 @@
  * and a project can never meet.
  */
 
-import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
-import { terminalOwnerKey } from "@OpenAde/contracts/terminal";
+import type { ProjectId, ThreadId } from "@poseidon/contracts/ids";
+import { terminalOwnerKey } from "@poseidon/contracts/terminal";
 
 export const workspaceKey = (scope: {
   readonly projectId: ProjectId;

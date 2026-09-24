@@ -22,7 +22,7 @@
  * not an action: a run of reasoning alone reads "Thought for 2s".
  */
 
-import type { FileChangeKind, ItemSnapshot } from "@OpenAde/contracts/runtime";
+import type { FileChangeKind, ItemSnapshot } from "@poseidon/contracts/runtime";
 
 import { isBrowserTool } from "@/components/timeline/browser-tool";
 import { toolPathTarget } from "@/components/timeline/tool-target";

@@ -13,7 +13,7 @@
 import * as React from "react";
 import { toast } from "sonner";
 
-import { Button } from "@OpenAde/ui/components/button";
+import { Button } from "@poseidon/ui/components/button";
 import {
   Dialog,
   DialogClose,
@@ -22,10 +22,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@OpenAde/ui/components/dialog";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@OpenAde/ui/components/input-group";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import { makeCommandId, makeProjectId } from "@OpenAde/contracts/ids";
+} from "@poseidon/ui/components/dialog";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@poseidon/ui/components/input-group";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
+import { makeCommandId, makeProjectId } from "@poseidon/contracts/ids";
 
 import { FolderPickerDialog } from "@/components/folder-picker/folder-picker-dialog";
 import { hasNativePicker, pickDirectory } from "@/lib/desktop";

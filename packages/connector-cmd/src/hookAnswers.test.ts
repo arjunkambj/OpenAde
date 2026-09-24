@@ -1,6 +1,6 @@
-import { makeThreadId } from "@OpenAde/contracts/ids";
-import type { ApprovalRequest } from "@OpenAde/contracts/runtime";
-import type { ConnectorServices, PermissionDecision } from "@OpenAde/connector-sdk/definition";
+import { makeThreadId } from "@poseidon/contracts/ids";
+import type { ApprovalRequest } from "@poseidon/contracts/runtime";
+import type { ConnectorServices, PermissionDecision } from "@poseidon/connector-sdk/definition";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -54,7 +54,7 @@ describe("makeHookAnswerer", () => {
       expect(yield* denying.answerer.onHookPost(post("shell_command", { command: "ls" }))).toEqual({
         hookSpecificOutput: {
           permissionDecision: "deny",
-          permissionDecisionReason: "denied by OpenAde permission rules",
+          permissionDecisionReason: "denied by Poseidon permission rules",
         },
       });
       expect(yield* allowing.answerer.postCount).toBe(1);
@@ -93,7 +93,7 @@ describe("makeHookAnswerer", () => {
       expect(yield* Fiber.join(answered)).toEqual({
         hookSpecificOutput: {
           permissionDecision: "allow",
-          permissionDecisionReason: "decided allow-session via OpenAde",
+          permissionDecisionReason: "decided allow-session via Poseidon",
         },
       });
 

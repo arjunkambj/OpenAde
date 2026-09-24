@@ -35,9 +35,9 @@
  * the same work lands on the same timeline row.
  */
 
-import { makeTurnId } from "@OpenAde/contracts/ids";
-import { EFFORT_ORDER, type Effort } from "@OpenAde/contracts/enums";
-import type { ConnectorCapabilities, TurnStopReason } from "@OpenAde/contracts/runtime";
+import { makeTurnId } from "@poseidon/contracts/ids";
+import { EFFORT_ORDER, type Effort } from "@poseidon/contracts/enums";
+import type { ConnectorCapabilities, TurnStopReason } from "@poseidon/contracts/runtime";
 
 import { EXIT_MESSAGES } from "./exitCodes";
 import {

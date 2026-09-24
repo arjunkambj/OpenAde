@@ -10,20 +10,20 @@
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
-import { Button } from "@OpenAde/ui/components/button";
-import { Card, CardContent } from "@OpenAde/ui/components/card";
+import { Button } from "@poseidon/ui/components/button";
+import { Card, CardContent } from "@poseidon/ui/components/card";
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@OpenAde/ui/components/empty";
-import { Separator } from "@OpenAde/ui/components/separator";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import { makeConnectorInstanceId } from "@OpenAde/contracts/ids";
-import type { ConnectorDescriptor, ConnectorSummary } from "@OpenAde/contracts/connectors";
-import { ConnectorInstanceConfig } from "@OpenAde/contracts/settings";
+} from "@poseidon/ui/components/empty";
+import { Separator } from "@poseidon/ui/components/separator";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
+import { makeConnectorInstanceId } from "@poseidon/contracts/ids";
+import type { ConnectorDescriptor, ConnectorSummary } from "@poseidon/contracts/connectors";
+import { ConnectorInstanceConfig } from "@poseidon/contracts/settings";
 import * as Exit from "effect/Exit";
 import { isObject } from "effect/Predicate";
 import * as React from "react";

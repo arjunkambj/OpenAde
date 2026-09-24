@@ -1,5 +1,5 @@
-import type { GitBranch, GitBranchList } from "@OpenAde/contracts/git";
-import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
+import type { GitBranch, GitBranchList } from "@poseidon/contracts/git";
+import { PoseidonRpcError } from "@poseidon/contracts/rpc";
 import * as Exit from "effect/Exit";
 import { describe, expect, it } from "vitest";
 
@@ -17,12 +17,12 @@ const remote = (name: string): GitBranch => ({ name, kind: "remote", isCurrent: 
 
 const LIST: GitBranchList = {
   isRepository: true,
-  current: "openade/feature",
+  current: "poseidon/feature",
   defaultBranch: "main",
   remotes: ["origin", "team/eu"],
   branches: [
     local("main"),
-    local("openade/feature", true),
+    local("poseidon/feature", true),
     local("release"),
     remote("origin/main"),
     remote("origin/hotfix"),
@@ -44,14 +44,14 @@ describe("remoteShortName", () => {
 describe("groupBranches", () => {
   it("lists the current branch first and hides a remote branch whose local twin exists", () => {
     const groups = groupBranches(LIST, "");
-    expect(names(groups.local)).toEqual(["openade/feature", "main", "release"]);
+    expect(names(groups.local)).toEqual(["poseidon/feature", "main", "release"]);
     // origin/main and team/eu/release have local twins; the others do not.
     expect(names(groups.remote)).toEqual(["origin/hotfix", "team/eu/audit"]);
   });
 
   it("filters both groups by a case-insensitive substring", () => {
     const groups = groupBranches(LIST, "  FEAT ");
-    expect(names(groups.local)).toEqual(["openade/feature"]);
+    expect(names(groups.local)).toEqual(["poseidon/feature"]);
     expect(groups.remote).toEqual([]);
     expect(names(groupBranches(LIST, "hot").remote)).toEqual(["origin/hotfix"]);
     expect(names(groupBranches(LIST, "origin").remote)).toEqual(["origin/hotfix"]);
@@ -65,7 +65,7 @@ describe("groupBranches", () => {
 
 describe("branchNameProblem", () => {
   it("says nothing for a blank query or an acceptable name", () => {
-    for (const name of ["", "fix", "openade/fix-login", "me/v1.2"]) {
+    for (const name of ["", "fix", "poseidon/fix-login", "me/v1.2"]) {
       expect(branchNameProblem(name), name).toBeNull();
     }
   });
@@ -86,7 +86,7 @@ describe("branchNameProblem", () => {
 
 describe("looksLikeBranchName", () => {
   it("accepts ordinary names, prefixes included", () => {
-    for (const name of ["fix", "openade/fix-login", "me/v1.2", "a_b"]) {
+    for (const name of ["fix", "poseidon/fix-login", "me/v1.2", "a_b"]) {
       expect(looksLikeBranchName(name)).toBe(true);
     }
   });
@@ -122,7 +122,7 @@ describe("looksLikeBranchName", () => {
 
 describe("branchToCreate", () => {
   it("offers a new valid name, trimmed", () => {
-    expect(branchToCreate(LIST, "  openade/new-idea ")).toBe("openade/new-idea");
+    expect(branchToCreate(LIST, "  poseidon/new-idea ")).toBe("poseidon/new-idea");
   });
 
   it("is not offered for a blank query or a name git would refuse", () => {
@@ -143,7 +143,7 @@ describe("branchToCreate", () => {
 describe("branchWriteFailure", () => {
   it("is null on success and the server's message on a refusal", () => {
     expect(branchWriteFailure(Exit.succeed(LIST))).toBeNull();
-    const dirty = new OpenAdeRpcError({
+    const dirty = new PoseidonRpcError({
       code: "conflict",
       message: "The working tree has uncommitted changes to tracked files.",
     });

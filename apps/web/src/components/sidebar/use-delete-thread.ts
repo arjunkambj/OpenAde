@@ -16,8 +16,8 @@ import { useAtomSet } from "@effect/atom-react";
 import * as Atom from "effect/unstable/reactivity/Atom";
 import { toast } from "sonner";
 
-import type { ThreadWorktree } from "@OpenAde/contracts/git";
-import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
+import type { ThreadWorktree } from "@poseidon/contracts/git";
+import type { ThreadSummary } from "@poseidon/contracts/orchestration";
 
 import { useGitCommands } from "@/components/panes/changes/git-atoms";
 import {

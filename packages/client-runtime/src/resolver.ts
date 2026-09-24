@@ -1,7 +1,7 @@
 /**
  * Finds `{ url, token }` for the current process, in order:
- * `window.openade.getConnection()` (Electron preload) →
- * `GET /__openade/connection` (the dev Vite plugin) →
+ * `window.poseidon.getConnection()` (Electron preload) →
+ * `GET /__poseidon/connection` (the dev Vite plugin) →
  * `?server=<url>&token=<t>` search params.
  *
  * Everything is guarded so this file also evaluates under plain `node` for
@@ -108,7 +108,7 @@ declare global {
      * optional — a browser tab has none of them, and older builds may lack the
      * newer ones.
      */
-    readonly openade?: {
+    readonly poseidon?: {
       readonly getConnection?: () => Promise<ResolvedConnection | null> | ResolvedConnection | null;
       /**
        * The supervisor's current view, including the live connection. Newer
@@ -163,7 +163,7 @@ const fromPreload = async (): Promise<ResolvedConnection | null> => {
   if (typeof window === "undefined") {
     return null;
   }
-  const bridge = window.openade;
+  const bridge = window.poseidon;
   if (bridge?.getServerState !== undefined) {
     const state = await bridge.getServerState();
     const connection = state.connection ?? null;
@@ -182,7 +182,7 @@ const fromDevEndpoint = async (): Promise<ResolvedConnection | null> => {
     return null;
   }
   try {
-    const response = await fetch("/__openade/connection", { cache: "no-store" });
+    const response = await fetch("/__poseidon/connection", { cache: "no-store" });
     if (!response.ok) {
       return null;
     }

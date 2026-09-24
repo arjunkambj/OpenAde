@@ -20,7 +20,7 @@ import type {
   UserQuestion,
   UserQuestionAnswer,
   UserQuestionOption,
-} from "@OpenAde/contracts/runtime";
+} from "@poseidon/contracts/runtime";
 
 const asRecord = (value: unknown): Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value)

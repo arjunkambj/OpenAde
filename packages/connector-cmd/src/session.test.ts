@@ -16,16 +16,16 @@
  * The child gets a redirected `HOME` (through the allowlist, the way extraEnv
  * flows) so its transcript lands in a temp `~/.commandcode`, and the session is
  * told the same home so the tailer reads that file. Nothing in the test touches
- * the real `~/.commandcode` or `~/.openade`.
+ * the real `~/.commandcode` or `~/.poseidon`.
  */
 
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
-import { makeConnectorInstanceId, makeThreadId } from "@OpenAde/contracts/ids";
-import type { ConnectorServices, PermissionDecision } from "@OpenAde/connector-sdk/definition";
-import { makeStreamCollector } from "@OpenAde/connector-sdk/streamCollector";
+import { makeConnectorInstanceId, makeThreadId } from "@poseidon/contracts/ids";
+import type { ConnectorServices, PermissionDecision } from "@poseidon/connector-sdk/definition";
+import { makeStreamCollector } from "@poseidon/connector-sdk/streamCollector";
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import * as Fiber from "effect/Fiber";
@@ -41,13 +41,13 @@ const SESSION_ID = "00000000-0000-7000-8000-57ub0cmd0001";
 /**
  * The stub `cmd`: emits the frame sequence of a turn and appends the assistant
  * message to the transcript mid-run — the overlap the translator dedupes. The
- * `OPENADE_STUB_*` knobs are what let one script stand in for the several
+ * `POSEIDON_STUB_*` knobs are what let one script stand in for the several
  * process behaviours this file has to provoke.
  */
 const STUB_CMD = `#!/usr/bin/env node
 import * as fs from "node:fs";
 import * as path from "node:path";
-const sessionId = process.env.OPENADE_STUB_SESSION_ID;
+const sessionId = process.env.POSEIDON_STUB_SESSION_ID;
 const home = process.env.HOME;
 const cwd = process.cwd();
 const slug = cwd.toLowerCase().replaceAll("/", "-").replace(/^-/, "");
@@ -71,10 +71,10 @@ if (argv[0] === "mcp") {
 const transcript = path.join(dir, sessionId + ".jsonl");
 const emit = (event) =>
   process.stdout.write(JSON.stringify({ type: "event", event }) + "\\n");
-if (process.env.OPENADE_STUB_PID_FILE) {
-  fs.writeFileSync(process.env.OPENADE_STUB_PID_FILE, String(process.pid));
+if (process.env.POSEIDON_STUB_PID_FILE) {
+  fs.writeFileSync(process.env.POSEIDON_STUB_PID_FILE, String(process.pid));
 }
-if (process.env.OPENADE_STUB_APPEND === "1") {
+if (process.env.POSEIDON_STUB_APPEND === "1") {
   // A resumed session's transcript already exists — only this run appends.
 } else {
   fs.writeFileSync(
@@ -82,7 +82,7 @@ if (process.env.OPENADE_STUB_APPEND === "1") {
     JSON.stringify({ type: "session", version: 3, id: sessionId, timestamp: "2026-01-01T00:00:00.000Z", cwd }) + "\\n",
   );
 }
-if (process.env.OPENADE_STUB_IGNORE_SIGINT === "1") {
+if (process.env.POSEIDON_STUB_IGNORE_SIGINT === "1") {
   // A child that ignores SIGINT — the case a bare signal wedges forever.
   process.on("SIGINT", () => {});
 } else {
@@ -92,13 +92,13 @@ emit({ type: "run_start", sessionId });
 emit({ type: "turn_start", turnNumber: 1 });
 emit({ type: "message_start" });
 emit({ type: "model_request_start", model: "stub/model" });
-if (process.env.OPENADE_STUB_TOOL === "1") {
+if (process.env.POSEIDON_STUB_TOOL === "1") {
   // A tool call that reaches the machine. Whether a hook fired for it is the
   // subject; the gate file lets the test answer it before the turn settles.
   emit({ type: "tool_queued", toolCallId: "call-1", toolName: "shell_command", input: { command: "rm -rf build" } });
   emit({ type: "tool_completed", toolCallId: "call-1", toolName: "shell_command", result: [{ type: "text", text: "" }], deferred: false });
 }
-if (process.env.OPENADE_STUB_PLAN_REFUSED === "1") {
+if (process.env.POSEIDON_STUB_PLAN_REFUSED === "1") {
   // A plan turn as the connector spawns it now: no --yolo, so print mode
   // refuses the plan file — and the whole plan is in the frame that announced
   // the call. Nothing is written to disk here on purpose.
@@ -106,8 +106,8 @@ if (process.env.OPENADE_STUB_PLAN_REFUSED === "1") {
   emit({ type: "tool_queued", toolCallId: "plan-1", toolName: "write_file", input: { file_path: planPath, content: "# The plan\\n\\n1. do the thing\\n" } });
   emit({ type: "tool_hook_blocked", toolCallId: "plan-1", toolName: "write_file", hookOutput: 'Error: Tool "write_file" requires permissions. Use --yolo (or --dangerously-skip-permissions) to enable file writes and shell commands in print mode.' });
 }
-if (process.env.OPENADE_STUB_GATE) {
-  const gate = process.env.OPENADE_STUB_GATE;
+if (process.env.POSEIDON_STUB_GATE) {
+  const gate = process.env.POSEIDON_STUB_GATE;
   while (!fs.existsSync(gate)) {
     // Busy-wait: this stub has nothing else to do and the test is the only
     // thing that can release it.
@@ -120,19 +120,19 @@ const userMessage = {
 };
 const assistantMessage = {
   role: "assistant",
-  content: [{ type: "text", text: process.env.OPENADE_STUB_TEXT ?? "hello from the stub" }],
-  meta: { source: "model", createdAt: 2, messageId: process.env.OPENADE_STUB_MSG_ID ?? "a-1" },
+  content: [{ type: "text", text: process.env.POSEIDON_STUB_TEXT ?? "hello from the stub" }],
+  meta: { source: "model", createdAt: 2, messageId: process.env.POSEIDON_STUB_MSG_ID ?? "a-1" },
 };
 fs.appendFileSync(
   transcript,
-  JSON.stringify({ type: "message", id: process.env.OPENADE_STUB_LINE_ID ?? "l1", parentId: null, timestamp: "t", message: assistantMessage, model: "stub/model" }) + "\\n",
+  JSON.stringify({ type: "message", id: process.env.POSEIDON_STUB_LINE_ID ?? "l1", parentId: null, timestamp: "t", message: assistantMessage, model: "stub/model" }) + "\\n",
 );
-if (process.env.OPENADE_STUB_PLAN === "1") {
+if (process.env.POSEIDON_STUB_PLAN === "1") {
   // What --permission-mode plan leaves behind: a markdown file
   // plus a plans-index.json entry keyed by file name and matched by sessionId.
   const plansDir = path.join(home, ".commandcode", "plans");
   fs.mkdirSync(plansDir, { recursive: true });
-  const planFile = "openade-plan.md";
+  const planFile = "poseidon-plan.md";
   fs.writeFileSync(path.join(plansDir, planFile), "# The plan\\n\\n1. do the thing\\n");
   fs.writeFileSync(
     path.join(plansDir, "plans-index.json"),
@@ -145,9 +145,9 @@ if (process.env.OPENADE_STUB_PLAN === "1") {
     }) + "\\n",
   );
 }
-if (process.env.OPENADE_STUB_SLEEP === "1") {
+if (process.env.POSEIDON_STUB_SLEEP === "1") {
   setInterval(() => {}, 1000);
-} else if (process.env.OPENADE_STUB_UNTERMINATED === "1") {
+} else if (process.env.POSEIDON_STUB_UNTERMINATED === "1") {
   // The run_end frame with no trailing newline: it can only arrive through
   // the splitter's EOF flush.
   process.stdout.write(
@@ -204,7 +204,7 @@ if (process.env.OPENADE_STUB_SLEEP === "1") {
 interface Fixture {
   readonly root: string;
   readonly home: string;
-  readonly openadeHome: string;
+  readonly poseidonHome: string;
   readonly binary: string;
 }
 
@@ -213,32 +213,32 @@ const fixture = (): Effect.Effect<Fixture, never, Scope.Scope> =>
     Effect.sync((): Fixture => {
       const root = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "cmd-session-test-"));
       const home = NodePath.join(root, "home");
-      const openadeHome = NodePath.join(root, "openade");
+      const poseidonHome = NodePath.join(root, "poseidon");
       NodeFS.mkdirSync(NodePath.join(root, "workspace"), { recursive: true });
       NodeFS.mkdirSync(home, { recursive: true });
       const binary = NodePath.join(root, "stub-cmd.mjs");
       NodeFS.writeFileSync(binary, STUB_CMD, { mode: 0o755 });
-      return { root, home, openadeHome, binary };
+      return { root, home, poseidonHome, binary };
     }),
     (f) =>
       Effect.sync(() => {
         NodeFS.rmSync(f.root, { recursive: true, force: true });
-        if (previousOpenadeHome === undefined) {
-          delete process.env.OPENADE_HOME;
+        if (previousPoseidonHome === undefined) {
+          delete process.env.POSEIDON_HOME;
         } else {
-          process.env.OPENADE_HOME = previousOpenadeHome;
+          process.env.POSEIDON_HOME = previousPoseidonHome;
         }
-        previousOpenadeHome = undefined;
+        previousPoseidonHome = undefined;
       }),
   );
 
-// ensureHookScript reads process.env.OPENADE_HOME; each fixture redirects it
+// ensureHookScript reads process.env.POSEIDON_HOME; each fixture redirects it
 // and the release above puts the previous value back.
-let previousOpenadeHome: string | undefined;
+let previousPoseidonHome: string | undefined;
 
-const withOpenadeHome = (f: Fixture): void => {
-  previousOpenadeHome = process.env.OPENADE_HOME;
-  process.env.OPENADE_HOME = f.openadeHome;
+const withPoseidonHome = (f: Fixture): void => {
+  previousPoseidonHome = process.env.POSEIDON_HOME;
+  process.env.POSEIDON_HOME = f.poseidonHome;
 };
 
 const services = (
@@ -257,7 +257,7 @@ const services = (
             unregisterHookHandler: (_threadId) => Ref.set(registered, null),
           }),
       permissions: { decide: () => Effect.succeed(decide) },
-      attachmentsDir: "/tmp/openade-attachments",
+      attachmentsDir: "/tmp/poseidon-attachments",
       logger: { log: () => Effect.void },
       clock,
     }),
@@ -277,7 +277,7 @@ const startSession = (
       binaryPath: f.binary,
       extraEnv: {
         HOME: f.home,
-        OPENADE_STUB_SESSION_ID: SESSION_ID,
+        POSEIDON_STUB_SESSION_ID: SESSION_ID,
         ...extraEnv,
       },
       home: f.home,
@@ -301,7 +301,7 @@ describe("makeCmdSession against a real spawned process", () => {
   it.effect("runs a turn: frames plus transcript dedupe into one event stream", () =>
     Effect.gen(function* () {
       const f = yield* fixture();
-      withOpenadeHome(f);
+      withPoseidonHome(f);
       const { handle, collector } = yield* startSession(f, "allow");
 
       yield* handle.send({ text: "hi", attachments: [], mentions: [] });
@@ -370,7 +370,7 @@ describe("makeCmdSession against a real spawned process", () => {
   it.effect("interrupt signals the process and settles the turn interrupted", () =>
     Effect.gen(function* () {
       const f = yield* fixture();
-      withOpenadeHome(f);
+      withPoseidonHome(f);
       // The sleeping variant of the stub never finishes on its own.
       const { handle, collector } = yield* Effect.gen(function* () {
         const handle = yield* makeCmdSession({
@@ -380,8 +380,8 @@ describe("makeCmdSession against a real spawned process", () => {
           binaryPath: f.binary,
           extraEnv: {
             HOME: f.home,
-            OPENADE_STUB_SESSION_ID: SESSION_ID,
-            OPENADE_STUB_SLEEP: "1",
+            POSEIDON_STUB_SESSION_ID: SESSION_ID,
+            POSEIDON_STUB_SLEEP: "1",
           },
           home: f.home,
           services: yield* services("allow"),
@@ -411,12 +411,12 @@ describe("makeCmdSession against a real spawned process", () => {
     () =>
       Effect.gen(function* () {
         const f = yield* fixture();
-        withOpenadeHome(f);
+        withPoseidonHome(f);
         // A bare SIGINT leaves this one running: without the kill ladder the
         // turn never settles and the thread can never send again.
         const { handle, collector } = yield* startSession(f, "allow", undefined, {
-          OPENADE_STUB_SLEEP: "1",
-          OPENADE_STUB_IGNORE_SIGINT: "1",
+          POSEIDON_STUB_SLEEP: "1",
+          POSEIDON_STUB_IGNORE_SIGINT: "1",
         });
         yield* handle.send({ text: "block", attachments: [], mentions: [] });
         yield* collector.awaitItem(isType("turn.started"));
@@ -439,10 +439,10 @@ describe("makeCmdSession against a real spawned process", () => {
   it.effect("a child killed mid-turn ends the session crashed", () =>
     Effect.gen(function* () {
       const f = yield* fixture();
-      withOpenadeHome(f);
+      withPoseidonHome(f);
       const { handle, collector } = yield* startSession(f, "allow", undefined, {
-        OPENADE_STUB_SLEEP: "1",
-        OPENADE_STUB_PID_FILE: NodePath.join(f.root, "child.pid"),
+        POSEIDON_STUB_SLEEP: "1",
+        POSEIDON_STUB_PID_FILE: NodePath.join(f.root, "child.pid"),
       });
       yield* handle.send({ text: "hi", attachments: [], mentions: [] });
       yield* collector.awaitItem(isType("turn.started"));
@@ -472,13 +472,13 @@ describe("makeCmdSession against a real spawned process", () => {
   it.effect("routes a hook post through permissions and resolves prompts", () =>
     Effect.gen(function* () {
       const f = yield* fixture();
-      withOpenadeHome(f);
+      withPoseidonHome(f);
       const registered = yield* Ref.make<((body: unknown) => Effect.Effect<unknown>) | null>(null);
       // The sleeping stub keeps the process alive while hook posts are in
       // flight — otherwise a finished child releases the parked request with
       // an empty answer before respondToUserInput can land.
       const { handle, collector } = yield* startSession(f, "prompt", registered, {
-        OPENADE_STUB_SLEEP: "1",
+        POSEIDON_STUB_SLEEP: "1",
       });
 
       // Registration happens at session start, before any turn.
@@ -576,7 +576,7 @@ describe("makeCmdSession against a real spawned process", () => {
   it.effect("resume tails the transcript from lastMessageId, deduping what a dead server saw", () =>
     Effect.gen(function* () {
       const f = yield* fixture();
-      withOpenadeHome(f);
+      withPoseidonHome(f);
       const root = NodePath.join(f.root, "workspace");
       // The transcript a previous runtime left behind: the session header, the
       // message already emitted (l1/a-1), and one written while the server was
@@ -618,14 +618,14 @@ describe("makeCmdSession against a real spawned process", () => {
         binaryPath: f.binary,
         extraEnv: {
           HOME: f.home,
-          OPENADE_STUB_SESSION_ID: SESSION_ID,
-          OPENADE_STUB_APPEND: "1",
+          POSEIDON_STUB_SESSION_ID: SESSION_ID,
+          POSEIDON_STUB_APPEND: "1",
           // The sleeping stub keeps the process (and its tailer) alive long
           // enough for the catch-up lines to land.
-          OPENADE_STUB_SLEEP: "1",
-          OPENADE_STUB_MSG_ID: "a-3",
-          OPENADE_STUB_LINE_ID: "l3",
-          OPENADE_STUB_TEXT: "fresh reply",
+          POSEIDON_STUB_SLEEP: "1",
+          POSEIDON_STUB_MSG_ID: "a-3",
+          POSEIDON_STUB_LINE_ID: "l3",
+          POSEIDON_STUB_TEXT: "fresh reply",
         },
         home: f.home,
         services: yield* services("allow"),
@@ -686,7 +686,7 @@ describe("makeCmdSession against a real spawned process", () => {
   it.effect("a resume with no marker replays nothing it has already shown", () =>
     Effect.gen(function* () {
       const f = yield* fixture();
-      withOpenadeHome(f);
+      withPoseidonHome(f);
       const root = NodePath.join(f.root, "workspace");
       const transcriptPath = transcriptPathFor(NodeFS.realpathSync(root), SESSION_ID, f.home);
       NodeFS.mkdirSync(NodePath.dirname(transcriptPath), { recursive: true });
@@ -722,11 +722,11 @@ describe("makeCmdSession against a real spawned process", () => {
         binaryPath: f.binary,
         extraEnv: {
           HOME: f.home,
-          OPENADE_STUB_SESSION_ID: SESSION_ID,
-          OPENADE_STUB_APPEND: "1",
-          OPENADE_STUB_MSG_ID: "a-2",
-          OPENADE_STUB_LINE_ID: "l2",
-          OPENADE_STUB_TEXT: "this turn's answer",
+          POSEIDON_STUB_SESSION_ID: SESSION_ID,
+          POSEIDON_STUB_APPEND: "1",
+          POSEIDON_STUB_MSG_ID: "a-2",
+          POSEIDON_STUB_LINE_ID: "l2",
+          POSEIDON_STUB_TEXT: "this turn's answer",
         },
         home: f.home,
         services: yield* services("allow"),
@@ -775,9 +775,9 @@ describe("makeCmdSession against a real spawned process", () => {
   it.effect("says so when a turn ran tool calls and no hook ever posted", () =>
     Effect.gen(function* () {
       const f = yield* fixture();
-      withOpenadeHome(f);
+      withPoseidonHome(f);
       const { handle, collector } = yield* startSession(f, "allow", undefined, {
-        OPENADE_STUB_TOOL: "1",
+        POSEIDON_STUB_TOOL: "1",
       });
 
       yield* handle.send({ text: "hi", attachments: [], mentions: [] });
@@ -793,12 +793,12 @@ describe("makeCmdSession against a real spawned process", () => {
   it.effect("stays quiet on a turn whose tool calls did reach the gate", () =>
     Effect.gen(function* () {
       const f = yield* fixture();
-      withOpenadeHome(f);
+      withPoseidonHome(f);
       const registered = yield* Ref.make<((body: unknown) => Effect.Effect<unknown>) | null>(null);
       const gate = NodePath.join(f.root, "gate");
       const { handle, collector } = yield* startSession(f, "allow", registered, {
-        OPENADE_STUB_TOOL: "1",
-        OPENADE_STUB_GATE: gate,
+        POSEIDON_STUB_TOOL: "1",
+        POSEIDON_STUB_GATE: gate,
       });
       const handler = (yield* Ref.get(registered))!;
 
@@ -836,7 +836,7 @@ describe("makeCmdSession against a real spawned process", () => {
   it.effect("saves the plan the harness refused to write, and proposes it", () =>
     Effect.gen(function* () {
       const f = yield* fixture();
-      withOpenadeHome(f);
+      withPoseidonHome(f);
       const handle = yield* makeCmdSession({
         instanceId: makeConnectorInstanceId(),
         threadId: makeThreadId(),
@@ -844,8 +844,8 @@ describe("makeCmdSession against a real spawned process", () => {
         binaryPath: f.binary,
         extraEnv: {
           HOME: f.home,
-          OPENADE_STUB_SESSION_ID: SESSION_ID,
-          OPENADE_STUB_PLAN_REFUSED: "1",
+          POSEIDON_STUB_SESSION_ID: SESSION_ID,
+          POSEIDON_STUB_PLAN_REFUSED: "1",
         },
         home: f.home,
         services: yield* services("allow"),
@@ -882,7 +882,7 @@ describe("makeCmdSession against a real spawned process", () => {
   it.effect("the unterminated final frame still lands via the splitter's EOF flush", () =>
     Effect.gen(function* () {
       const f = yield* fixture();
-      withOpenadeHome(f);
+      withPoseidonHome(f);
       const handle = yield* makeCmdSession({
         instanceId: makeConnectorInstanceId(),
         threadId: makeThreadId(),
@@ -890,8 +890,8 @@ describe("makeCmdSession against a real spawned process", () => {
         binaryPath: f.binary,
         extraEnv: {
           HOME: f.home,
-          OPENADE_STUB_SESSION_ID: SESSION_ID,
-          OPENADE_STUB_UNTERMINATED: "1",
+          POSEIDON_STUB_SESSION_ID: SESSION_ID,
+          POSEIDON_STUB_UNTERMINATED: "1",
         },
         home: f.home,
         services: yield* services("allow"),
@@ -921,7 +921,7 @@ describe("makeCmdSession against a real spawned process", () => {
   it.effect("a plan-mode turn proposes the plan file before completing", () =>
     Effect.gen(function* () {
       const f = yield* fixture();
-      withOpenadeHome(f);
+      withPoseidonHome(f);
       const handle = yield* makeCmdSession({
         instanceId: makeConnectorInstanceId(),
         threadId: makeThreadId(),
@@ -929,8 +929,8 @@ describe("makeCmdSession against a real spawned process", () => {
         binaryPath: f.binary,
         extraEnv: {
           HOME: f.home,
-          OPENADE_STUB_SESSION_ID: SESSION_ID,
-          OPENADE_STUB_PLAN: "1",
+          POSEIDON_STUB_SESSION_ID: SESSION_ID,
+          POSEIDON_STUB_PLAN: "1",
         },
         home: f.home,
         services: yield* services("allow"),
@@ -950,7 +950,7 @@ describe("makeCmdSession against a real spawned process", () => {
       // Matched by sessionId: the other session's index entry is ignored, and
       // the path lands under the stub's own ~/.commandcode/plans.
       expect(proposed.type === "turn.plan.proposed" && proposed.payload.planPath).toBe(
-        NodePath.join(f.home, ".commandcode", "plans", "openade-plan.md"),
+        NodePath.join(f.home, ".commandcode", "plans", "poseidon-plan.md"),
       );
 
       // The proposal precedes turn.completed, and a second turn in the same
@@ -973,11 +973,11 @@ describe("makeCmdSession against a real spawned process", () => {
   it.effect("concurrent sends are serialized — one wins, one gets TurnInProgress", () =>
     Effect.gen(function* () {
       const f = yield* fixture();
-      withOpenadeHome(f);
+      withPoseidonHome(f);
       // The sleeping stub keeps turn 1 open, so the loser must fail — the
       // pre-mutex race spawned a second process instead.
       const { handle } = yield* startSession(f, "allow", undefined, {
-        OPENADE_STUB_SLEEP: "1",
+        POSEIDON_STUB_SLEEP: "1",
       });
       const first = yield* Effect.forkChild(
         handle.send({ text: "one", attachments: [], mentions: [] }),
@@ -1003,7 +1003,7 @@ describe("makeCmdSession against a real spawned process", () => {
   it.effect("close puts the project's settings.local.json and mcp.json back", () =>
     Effect.gen(function* () {
       const f = yield* fixture();
-      withOpenadeHome(f);
+      withPoseidonHome(f);
       const workspace = NodePath.join(f.root, "workspace");
       const settingsPath = NodePath.join(workspace, ".commandcode", "settings.local.json");
       const before = `${JSON.stringify({ permissions: { allow: ["Shell(git status:*)"] } }, null, 2)}\n`;
@@ -1016,7 +1016,7 @@ describe("makeCmdSession against a real spawned process", () => {
         threadId: makeThreadId(),
         workspaceRoot: workspace,
         binaryPath: f.binary,
-        extraEnv: { HOME: f.home, OPENADE_STUB_SESSION_ID: SESSION_ID },
+        extraEnv: { HOME: f.home, POSEIDON_STUB_SESSION_ID: SESSION_ID },
         home: f.home,
         services: {
           ...base,
@@ -1054,7 +1054,7 @@ describe("makeCmdSession against a real spawned process", () => {
   it.effect("an allow decision answers the hook without opening a request", () =>
     Effect.gen(function* () {
       const f = yield* fixture();
-      withOpenadeHome(f);
+      withPoseidonHome(f);
       const registered = yield* Ref.make<((body: unknown) => Effect.Effect<unknown>) | null>(null);
       const { handle } = yield* startSession(f, "allow", registered);
       const handler = (yield* Ref.get(registered))!;
@@ -1084,7 +1084,7 @@ describe("the resolved binary reaches the spawn", () => {
   it.effect("runs a turn through the npx fallback, package spec and all", () =>
     Effect.gen(function* () {
       const f = yield* fixture();
-      withOpenadeHome(f);
+      withPoseidonHome(f);
       // An `npx` that forwards everything after `-y <package>` to the stub,
       // exactly as `npx -y command-code@latest <args>` would.
       const binDir = NodePath.join(f.root, "bin");
@@ -1095,7 +1095,7 @@ describe("the resolved binary reaches the spawn", () => {
 import { spawnSync } from "node:child_process";
 const argv = process.argv.slice(2);
 if (argv[0] !== "-y" || argv[1] !== "command-code@latest") process.exit(66);
-const result = spawnSync(process.execPath, [process.env.OPENADE_STUB_REAL_CMD, ...argv.slice(2)], {
+const result = spawnSync(process.execPath, [process.env.POSEIDON_STUB_REAL_CMD, ...argv.slice(2)], {
   stdio: "inherit",
 });
 process.exit(result.status ?? 1);
@@ -1116,8 +1116,8 @@ process.exit(result.status ?? 1);
         },
         extraEnv: {
           HOME: f.home,
-          OPENADE_STUB_SESSION_ID: SESSION_ID,
-          OPENADE_STUB_REAL_CMD: f.binary,
+          POSEIDON_STUB_SESSION_ID: SESSION_ID,
+          POSEIDON_STUB_REAL_CMD: f.binary,
         },
         home: f.home,
         services: yield* services("allow"),

@@ -3,7 +3,7 @@
     "at": 1789686252686,
     "stdin": {
       "session_id": "2fb84057-affc-43d4-a3f5-c09b63f0661a",
-      "transcript_path": "<HOME>/.commandcode/projects/private-tmp-claude-501-volumes-main-code-open-ade-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-shell-yolo-5ea6e8a7-repo/2fb84057-affc-43d4-a3f5-c09b63f0661a.jsonl",
+      "transcript_path": "<HOME>/.commandcode/projects/private-tmp-claude-501-volumes-main-code-poseidon-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-shell-yolo-5ea6e8a7-repo/2fb84057-affc-43d4-a3f5-c09b63f0661a.jsonl",
       "cwd": "<SCRATCH>/repo",
       "hook_event_name": "PreToolUse",
       "permission_mode": "bypass",

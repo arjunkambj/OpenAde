@@ -18,11 +18,11 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypt
 
 /**
  * How the shell tells the server about the bridge: its `ws://` origin, or
- * `BRIDGE_DISABLED`, and the launch key. Both carry the `OPENADE_SERVER_`
+ * `BRIDGE_DISABLED`, and the launch key. Both carry the `POSEIDON_SERVER_`
  * prefix, which the harness spawn drops, so neither reaches an agent.
  */
-export const BRIDGE_ENV = "OPENADE_SERVER_BROWSER_BRIDGE";
-export const BRIDGE_KEY_ENV = "OPENADE_SERVER_BROWSER_BRIDGE_KEY";
+export const BRIDGE_ENV = "POSEIDON_SERVER_BROWSER_BRIDGE";
+export const BRIDGE_KEY_ENV = "POSEIDON_SERVER_BROWSER_BRIDGE_KEY";
 export const BRIDGE_DISABLED = "disabled";
 
 /** What a thread id in a bridge path may look like; anything else is refused. */

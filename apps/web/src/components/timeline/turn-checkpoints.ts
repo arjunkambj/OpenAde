@@ -17,9 +17,9 @@
  * carries that turn's), and items stay in the order they were created.
  */
 
-import type { TurnId } from "@OpenAde/contracts/ids";
-import type { CheckpointRestore, CheckpointSummary } from "@OpenAde/contracts/orchestration";
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
+import type { TurnId } from "@poseidon/contracts/ids";
+import type { CheckpointRestore, CheckpointSummary } from "@poseidon/contracts/orchestration";
+import type { ItemSnapshot } from "@poseidon/contracts/runtime";
 
 /** Every turn id the items name, in the order each first appears. */
 export const turnOrder = (items: ReadonlyArray<ItemSnapshot>): ReadonlyArray<TurnId> => {

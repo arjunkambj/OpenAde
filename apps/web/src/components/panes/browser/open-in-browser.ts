@@ -15,7 +15,7 @@
  * `javascript:` url from a terminal is exactly what must not reach it.
  */
 
-import type { ThreadId } from "@OpenAde/contracts/ids";
+import type { ThreadId } from "@poseidon/contracts/ids";
 import type { AtomRegistry } from "effect/unstable/reactivity";
 import type * as Atom from "effect/unstable/reactivity/Atom";
 
@@ -127,7 +127,7 @@ export const openInThreadBrowser = (
   return openInThreadBrowserWith(
     {
       registry,
-      hostsTabs: window.openade?.browserPane?.serveTabs !== undefined,
+      hostsTabs: window.poseidon?.browserPane?.serveTabs !== undefined,
       navigateHeadless: (id, target) =>
         runOnce(registry, getAppAtoms().sendBrowserInput, {
           threadId: id,

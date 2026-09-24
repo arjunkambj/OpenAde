@@ -9,7 +9,7 @@
  * group the order the list arrived in is kept: most recently updated first.
  */
 
-import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
+import type { ThreadSummary } from "@poseidon/contracts/orchestration";
 
 type Listed = { readonly projectId: string; readonly status: ThreadSummary["status"] };
 

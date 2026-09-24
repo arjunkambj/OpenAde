@@ -4,9 +4,9 @@
  * server's own projection — it merges deltas, it never decides anything.
  */
 
-import type { ResolvedDecision } from "@OpenAde/contracts/decisions";
-import { UNANSWERED_OUTCOME } from "@OpenAde/contracts/decisions";
-import { latestTurnId } from "@OpenAde/contracts/orchestration";
+import type { ResolvedDecision } from "@poseidon/contracts/decisions";
+import { UNANSWERED_OUTCOME } from "@poseidon/contracts/decisions";
+import { latestTurnId } from "@poseidon/contracts/orchestration";
 import type {
   CheckpointSummary,
   OrchestrationEvent,
@@ -14,8 +14,8 @@ import type {
   ThreadListStreamItem,
   ThreadStreamItem,
   ThreadSummary,
-} from "@OpenAde/contracts/orchestration";
-import { approvalSubject, planSubject, questionSubject } from "@OpenAde/shared/decisionSubject";
+} from "@poseidon/contracts/orchestration";
+import { approvalSubject, planSubject, questionSubject } from "@poseidon/shared/decisionSubject";
 
 /** A restore git refused, kept until the next restore is ordered. */
 export interface ThreadRestoreFailure {

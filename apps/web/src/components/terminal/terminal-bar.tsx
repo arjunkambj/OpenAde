@@ -7,8 +7,8 @@
  * its own toolbar.
  */
 
-import { Button } from "@OpenAde/ui/components/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+import { Button } from "@poseidon/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 
 import { IconButton } from "@/components/terminal/drawer-parts";
 import { TERMINAL_TOGGLE_COMMAND } from "@/lib/keybindings";

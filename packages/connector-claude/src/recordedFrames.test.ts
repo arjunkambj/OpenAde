@@ -12,9 +12,9 @@
  * Anything left unmapped has to be listed below with the reason it is.
  */
 
-import { makeTurnId } from "@OpenAde/contracts/ids";
-import { recordingNames } from "@OpenAde/testkit/recording";
-import { loadSdkStreamRecording } from "@OpenAde/testkit/sdkStreamRecording";
+import { makeTurnId } from "@poseidon/contracts/ids";
+import { recordingNames } from "@poseidon/testkit/recording";
+import { loadSdkStreamRecording } from "@poseidon/testkit/sdkStreamRecording";
 import { describe, expect, it } from "vitest";
 
 import { CLAUDE_KIND } from "./kind";

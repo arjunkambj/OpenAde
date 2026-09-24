@@ -3,7 +3,7 @@
  * as to the CLI, and that every way a card can end closes it exactly once.
  */
 
-import type { RequestId } from "@OpenAde/contracts/ids";
+import type { RequestId } from "@poseidon/contracts/ids";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";

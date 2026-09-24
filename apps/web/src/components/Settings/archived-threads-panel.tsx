@@ -15,16 +15,16 @@
 import { Link } from "@tanstack/react-router";
 import * as React from "react";
 
-import { Button } from "@OpenAde/ui/components/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@OpenAde/ui/components/card";
+import { Button } from "@poseidon/ui/components/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@poseidon/ui/components/card";
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@OpenAde/ui/components/empty";
-import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
+} from "@poseidon/ui/components/empty";
+import type { ThreadSummary } from "@poseidon/contracts/orchestration";
 
 import { DeleteThreadDialog } from "@/components/sidebar/delete-thread-dialog";
 import { threadCommandBase, useThreadCommand } from "@/components/sidebar/thread-actions";

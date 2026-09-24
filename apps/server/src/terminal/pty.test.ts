@@ -15,7 +15,7 @@ import { type PtyExit, type PtyProcess, spawnPty } from "./pty";
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-const tempDir = () => realpathSync(mkdtempSync(nodePath.join(tmpdir(), "openade-pty-test-")));
+const tempDir = () => realpathSync(mkdtempSync(nodePath.join(tmpdir(), "poseidon-pty-test-")));
 
 const shellEnv = (home: string): Record<string, string> => ({
   HOME: home,

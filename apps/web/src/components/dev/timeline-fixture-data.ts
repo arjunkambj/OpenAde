@@ -25,8 +25,8 @@
  * affordances that depend on it can be seen hidden as well as shown.
  */
 
-import { decodeProjectId, decodeThreadId, type TurnId } from "@OpenAde/contracts/ids";
-import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
+import { decodeProjectId, decodeThreadId, type TurnId } from "@poseidon/contracts/ids";
+import type { ThreadDetailSnapshot } from "@poseidon/contracts/orchestration";
 
 import {
   change,
@@ -144,8 +144,8 @@ const settingsTurn = (b: Builder): void => {
     kind: "mcp_tool_call",
     status: done,
     tool: {
-      name: "mcp__openade__browser_open",
-      server: "openade",
+      name: "mcp__poseidon__browser_open",
+      server: "poseidon",
       input: { url: "http://localhost:5173/settings" },
       output: { title: "Settings" },
     },

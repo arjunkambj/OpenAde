@@ -21,7 +21,7 @@
  *    server has seen it.
  */
 
-import type { FsEntry, FsListing } from "@OpenAde/contracts/rpc";
+import type { FsEntry, FsListing } from "@poseidon/contracts/rpc";
 
 /** Where the picker is looking, and what the field is showing while it does. */
 export interface PickerLocation {

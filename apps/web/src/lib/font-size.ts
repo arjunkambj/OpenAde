@@ -12,9 +12,9 @@ import {
   FONT_SIZE_STEP,
   MAX_FONT_SIZE,
   MIN_FONT_SIZE,
-} from "@OpenAde/contracts/settings";
+} from "@poseidon/contracts/settings";
 
-const STORAGE_KEY = "openade:font-sizes";
+const STORAGE_KEY = "poseidon:font-sizes";
 
 export interface FontSizes {
   readonly main: number;

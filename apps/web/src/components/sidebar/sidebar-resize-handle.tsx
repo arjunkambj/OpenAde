@@ -10,7 +10,7 @@
 
 import * as React from "react";
 
-import { useSidebar } from "@OpenAde/ui/components/sidebar";
+import { useSidebar } from "@poseidon/ui/components/sidebar";
 
 import { useSidebarWidth } from "@/state/ui";
 

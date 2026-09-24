@@ -39,10 +39,10 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@OpenAde/ui/components/empty";
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
-import type * as OpenAdeRpcError from "@OpenAde/contracts/rpc";
+} from "@poseidon/ui/components/empty";
+import type { ThreadId } from "@poseidon/contracts/ids";
+import type { ThreadDetailSnapshot } from "@poseidon/contracts/orchestration";
+import type * as PoseidonRpcError from "@poseidon/contracts/rpc";
 import type * as RpcClientError from "effect/unstable/rpc/RpcClientError";
 
 import { Composer } from "@/components/composer/composer";
@@ -69,7 +69,7 @@ import { AlertTriangle, Spinner, WifiOff } from "@honeyicons/react";
 
 type ThreadDetailResult = AsyncResult.AsyncResult<
   ThreadDetailSnapshot,
-  OpenAdeRpcError.OpenAdeRpcError | RpcClientError.RpcClientError | Cause.NoSuchElementError
+  PoseidonRpcError.PoseidonRpcError | RpcClientError.RpcClientError | Cause.NoSuchElementError
 >;
 
 /** First squashed error line, or null when the cause says nothing. */

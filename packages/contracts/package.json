@@ -1,5 +1,5 @@
 {
-  "name": "@OpenAde/contracts",
+  "name": "@poseidon/contracts",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -59,12 +59,12 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@OpenAde/shared": "workspace:*",
+    "@poseidon/shared": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {
-    "@OpenAde/config": "workspace:*",
     "@effect/vitest": "catalog:",
+    "@poseidon/config": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

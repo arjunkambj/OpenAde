@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
-import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
+import type { ProjectId, ThreadId } from "@poseidon/contracts/ids";
+import type { ThreadSummary } from "@poseidon/contracts/orchestration";
 
 import { blankLatestThread } from "./use-create-thread";
 

@@ -13,15 +13,15 @@
  * `@/components/keybindings/keybindings-editor`.
  */
 
-import { parseShortcut, parseWhen, type ModKey } from "@OpenAde/client-runtime/keybindings";
-import { findKeybindingConflicts, reservedChordReason } from "@OpenAde/client-runtime/keymap";
+import { parseShortcut, parseWhen, type ModKey } from "@poseidon/client-runtime/keybindings";
+import { findKeybindingConflicts, reservedChordReason } from "@poseidon/client-runtime/keymap";
 import {
   DEFAULT_KEYBINDINGS,
   diffKeymap,
   isUnbindRow,
   resolveKeymap,
-} from "@OpenAde/contracts/keybindings";
-import type { Keybinding } from "@OpenAde/contracts/settings";
+} from "@poseidon/contracts/keybindings";
+import type { Keybinding } from "@poseidon/contracts/settings";
 
 type Draft = ReadonlyArray<Keybinding>;
 

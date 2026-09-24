@@ -7,7 +7,7 @@
  * where you are — the same reason a folded project keeps its open thread.
  */
 
-import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
+import type { ThreadSummary } from "@poseidon/contracts/orchestration";
 
 export const sidebarThreads = <T extends { threadId: string; status: ThreadSummary["status"] }>(
   threads: ReadonlyArray<T>,

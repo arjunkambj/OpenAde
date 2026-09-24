@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { bridgeCapability, mintLaunchKey, verifyCapability } from "@OpenAde/shared/browserBridge";
+import { bridgeCapability, mintLaunchKey, verifyCapability } from "@poseidon/shared/browserBridge";
 
 import { decideUpgrade, type UpgradeRequest } from "./upgradeGate";
 

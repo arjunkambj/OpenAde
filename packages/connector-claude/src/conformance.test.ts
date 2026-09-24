@@ -7,10 +7,10 @@
  * replay hands each case's launch the next recorded one, and exits 97 on any
  * line the connector sends that the recorded run was not sent.
  *
- *     OPENADE_RECORD_CLAUDE=1 pnpm -F @OpenAde/connector-claude vitest run src/conformance.test.ts
+ *     POSEIDON_RECORD_CLAUDE=1 pnpm -F @poseidon/connector-claude vitest run src/conformance.test.ts
  *
  * records it again: the operator's CLI behind the tee, in a scratch repo under
- * `/tmp/openade-h1`, capped at one turn and a few cents a session.
+ * `/tmp/poseidon-h1`, capped at one turn and a few cents a session.
  *
  * The suite's approval case asks for a file write, which the test ladder
  * (every call "prompt") stops on a card. It runs whenever the recording has
@@ -28,13 +28,13 @@ import { execFileSync } from "node:child_process";
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
-import { runConnectorConformance } from "@OpenAde/connector-sdk/conformance";
-import { makeConnectorInstanceId, makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
+import { runConnectorConformance } from "@poseidon/connector-sdk/conformance";
+import { makeConnectorInstanceId, makeProjectId, makeThreadId } from "@poseidon/contracts/ids";
 import {
   finalizeSdkStreamRecording,
   loadSdkStreamRecording,
   makeTeeLauncher,
-} from "@OpenAde/testkit/sdkStreamRecording";
+} from "@poseidon/testkit/sdkStreamRecording";
 import * as Effect from "effect/Effect";
 import { afterAll, it } from "vitest";
 
@@ -48,7 +48,7 @@ import { parseVersion } from "./probe";
 const SCENARIO = "conformance";
 const PROMPT = "Reply with exactly: ok";
 const APPROVAL_PROMPT = "Create a file named conformance.txt containing exactly the text: ok";
-const RECORD = process.env.OPENADE_RECORD_CLAUDE === "1";
+const RECORD = process.env.POSEIDON_RECORD_CLAUDE === "1";
 /** The approval case is in the recording being replayed, or is being recorded. */
 const WITH_APPROVAL =
   RECORD ||
@@ -59,7 +59,7 @@ const recorder = () => {
   const real = resolveBinary({}, process.env);
   if (real === null) throw new Error("no claude binary to record");
   const cliVersion = parseVersion(execFileSync(real.command, ["--version"], { encoding: "utf8" }));
-  const root = "/tmp/openade-h1";
+  const root = "/tmp/poseidon-h1";
   NodeFS.mkdirSync(NodePath.join(root, "raw"), { recursive: true });
   const rawDir = NodeFS.mkdtempSync(NodePath.join(root, "raw", `${SCENARIO}-`));
   const scratch = NodeFS.realpathSync(NodeFS.mkdtempSync(NodePath.join(root, `${SCENARIO}-`)));

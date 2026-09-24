@@ -1,12 +1,12 @@
-import { Button } from "@OpenAde/ui/components/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+import { Button } from "@poseidon/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 import {
   DEFAULT_FONT_SIZE,
   FONT_SIZE_STEP,
   MAX_FONT_SIZE,
   MIN_FONT_SIZE,
   type FontSize,
-} from "@OpenAde/contracts/settings";
+} from "@poseidon/contracts/settings";
 
 import { useFontSizes } from "@/lib/use-font-sizes";
 import { Add, Minus } from "@honeyicons/react";

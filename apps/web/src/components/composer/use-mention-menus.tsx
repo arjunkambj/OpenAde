@@ -11,9 +11,9 @@
  * `pickAt` on the highlighted row.
  */
 
-import type { ConnectorInstanceId, ProjectId, ThreadId } from "@OpenAde/contracts/ids";
-import type { TurnReference } from "@OpenAde/contracts/runtime";
-import type { ComposerTrigger } from "@OpenAde/client-runtime/composerTrigger";
+import type { ConnectorInstanceId, ProjectId, ThreadId } from "@poseidon/contracts/ids";
+import type { TurnReference } from "@poseidon/contracts/runtime";
+import type { ComposerTrigger } from "@poseidon/client-runtime/composerTrigger";
 import type * as React from "react";
 
 import { TriggerMenu } from "@/components/composer/trigger-menu";

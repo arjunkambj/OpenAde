@@ -1,4 +1,4 @@
-import type { ConnectorProbe } from "@OpenAde/contracts/connectors";
+import type { ConnectorProbe } from "@poseidon/contracts/connectors";
 import { describe, expect, it } from "vitest";
 
 import { helpUrlFor } from "./probe-help";

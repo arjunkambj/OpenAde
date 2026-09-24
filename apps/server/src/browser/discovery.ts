@@ -35,8 +35,8 @@ import { access, realpath as fsRealpath } from "node:fs/promises";
 import { request } from "node:http";
 import * as nodePath from "node:path";
 
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import { DEV_SERVER_LIMIT, type DevServer } from "@OpenAde/contracts/rpc";
+import type { ThreadId } from "@poseidon/contracts/ids";
+import { DEV_SERVER_LIMIT, type DevServer } from "@poseidon/contracts/rpc";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";

@@ -23,8 +23,8 @@
 import { Link, useMatchRoute } from "@tanstack/react-router";
 import * as React from "react";
 
-import { SidebarMenuButton, SidebarMenuItem } from "@OpenAde/ui/components/sidebar";
-import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
+import { SidebarMenuButton, SidebarMenuItem } from "@poseidon/ui/components/sidebar";
+import type { ThreadSummary } from "@poseidon/contracts/orchestration";
 
 import { ThreadContextMenu, ThreadRowMenu } from "@/components/sidebar/thread-menu";
 import { isUnread, useThreadSeen } from "@/components/sidebar/thread-seen";

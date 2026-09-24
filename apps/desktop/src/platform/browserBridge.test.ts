@@ -20,7 +20,7 @@ describe("resolveBrowserBridge", () => {
 
   it("is turned off by the kill switch", () => {
     for (const flag of ["0", "false", "FALSE", " 0 "]) {
-      expect(resolveBrowserBridge({ OPENADE_REMOTE_DEBUG: flag })).toEqual({
+      expect(resolveBrowserBridge({ POSEIDON_REMOTE_DEBUG: flag })).toEqual({
         kind: "disabled",
         reason: KILL_SWITCH_REASON,
       });
@@ -29,10 +29,10 @@ describe("resolveBrowserBridge", () => {
 
   it("ignores every other value, including the old port forms", () => {
     for (const flag of ["1", "true", "9222", ""]) {
-      expect(resolveBrowserBridge({ OPENADE_REMOTE_DEBUG: flag })).toEqual({ kind: "enabled" });
+      expect(resolveBrowserBridge({ POSEIDON_REMOTE_DEBUG: flag })).toEqual({ kind: "enabled" });
     }
     // The old opt-in no longer means anything.
-    expect(resolveBrowserBridge({ OPENADE_BROWSER_PANE: "1" })).toEqual({ kind: "enabled" });
+    expect(resolveBrowserBridge({ POSEIDON_BROWSER_PANE: "1" })).toEqual({ kind: "enabled" });
   });
 });
 

@@ -100,7 +100,7 @@ It has no behaviour of its own — it chooses nothing and synthesises nothing �
 and it is what every test that used to drive an invented stand-in now spawns:
 
 ```ts
-import { replayConfig } from "@OpenAde/testkit/replayCmdProcess";
+import { replayConfig } from "@poseidon/testkit/replayCmdProcess";
 const config = replayConfig("shell-yolo", { home: tempHome });
 // → { binaryPath, extraEnv }: point a connector instance at it
 ```

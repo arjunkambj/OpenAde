@@ -109,7 +109,7 @@ const scrub = (text, home, account) => {
 
 const main = async () => {
   const home = NodeOS.homedir();
-  const cwd = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "openade-probe-"));
+  const cwd = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "poseidon-probe-"));
   const binary = resolveBinary();
   NodeFS.rmSync(OUT, { recursive: true, force: true });
   NodeFS.mkdirSync(OUT, { recursive: true });

@@ -20,8 +20,8 @@
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
-import type { TerminalId } from "@OpenAde/contracts/ids";
-import type { TerminalSummary } from "@OpenAde/contracts/terminal";
+import type { TerminalId } from "@poseidon/contracts/ids";
+import type { TerminalSummary } from "@poseidon/contracts/terminal";
 import * as Atom from "effect/unstable/reactivity/Atom";
 import * as React from "react";
 

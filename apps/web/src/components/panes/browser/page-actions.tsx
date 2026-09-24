@@ -7,8 +7,8 @@
  */
 import * as React from "react";
 
-import { Button } from "@OpenAde/ui/components/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+import { Button } from "@poseidon/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 import { toast } from "sonner";
 
 import { rejectionMessage, triageAttachments } from "@/components/composer/attachment-rules";
@@ -34,7 +34,7 @@ export interface PageActionsProps {
 export function PageActions({ threadId, tab }: PageActionsProps) {
   const draft = useComposerDraft(threadId);
   const [picking, setPicking] = React.useState(false);
-  const capture = window.openade?.browserPane?.capture;
+  const capture = window.poseidon?.browserPane?.capture;
   const ready = tab !== null && tab.wcId !== null;
 
   // A tab switch or close ends a pick in the old tab.

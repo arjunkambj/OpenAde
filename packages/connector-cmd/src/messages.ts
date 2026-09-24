@@ -13,7 +13,7 @@
  * job: reading one frame at a time.
  */
 
-import type { ItemId } from "@OpenAde/contracts/ids";
+import type { ItemId } from "@poseidon/contracts/ids";
 
 import {
   anonymousKey,

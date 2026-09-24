@@ -1,5 +1,5 @@
 /**
- * The Command Code config OpenAde owns while a session is running.
+ * The Command Code config Poseidon owns while a session is running.
  *
  * Two files, and both are put back the way they were when the session closes:
  *
@@ -9,8 +9,8 @@
  *   hook entry. Ownership is decided per *hook command*, not per entry, so a
  *   user hook sharing an entry with ours survives the removal.
  * - the local MCP scope (`~/.commandcode/projects/<slug>/mcp.json`)
- *   gets an `openade` server entry whose bearer stays a
- *   `${OPENADE_MCP_TOKEN}` placeholder, since the harness resolves env
+ *   gets an `poseidon` server entry whose bearer stays a
+ *   `${POSEIDON_MCP_TOKEN}` placeholder, since the harness resolves env
  *   references at launch and the per-session token must never touch
  *   disk. That file lives under a slug of the workspace path that only the CLI
  *   knows how to spell, so the CLI writes it — see `upsertMcpEntry`.
@@ -40,7 +40,7 @@ import { hookScriptPath } from "./hookScript";
 export const HOOK_TIMEOUT_SECONDS = 590;
 
 /** Our MCP server name inside `mcp.json` — also the ownership marker. */
-export const OPENADE_MCP_NAME = "openade";
+export const POSEIDON_MCP_NAME = "poseidon";
 
 type JsonObject = Record<string, unknown>;
 
@@ -536,7 +536,7 @@ const runCmdMcp = (
   });
 
 /**
- * Registers the `openade` server in the project's local MCP scope — by asking
+ * Registers the `poseidon` server in the project's local MCP scope — by asking
  * the CLI to do it.
  *
  * The file is `~/.commandcode/projects/<slug>/mcp.json`, and **that slug is
@@ -547,7 +547,7 @@ const runCmdMcp = (
  * `…-mcpslug-su-yi-ws-camel-case`, not `…-mcpslug.suyi-wscamelcase`.
  *
  * Writing the file ourselves therefore put the entry in a directory the
- * harness never reads, which meant OpenAde's browser tools were advertised to
+ * harness never reads, which meant Poseidon's browser tools were advertised to
  * nobody: the model was never offered a single one of them, in any session
  * this connector has ever opened. The transcript reader already refuses to
  * trust that slug and looks the session up by id instead — but an MCP entry
@@ -566,12 +566,12 @@ export const upsertMcpEntry = (
 ): Effect.Effect<boolean> =>
   runCmdMcp(registration, [
     "add-json",
-    OPENADE_MCP_NAME,
+    POSEIDON_MCP_NAME,
     JSON.stringify({
       transport: "http",
       enabled: true,
       url: endpoint.url,
-      headers: { Authorization: "Bearer ${OPENADE_MCP_TOKEN}" },
+      headers: { Authorization: "Bearer ${POSEIDON_MCP_TOKEN}" },
     }),
     "--scope",
     "local",
@@ -586,7 +586,7 @@ export const upsertMcpEntry = (
   );
 
 /**
- * Removes the `openade` server entry, again through the CLI, so the same
+ * Removes the `poseidon` server entry, again through the CLI, so the same
  * merge that added it takes it away. The entry's *name* is the ownership
  * marker: a server the user added under any other name is untouched.
  *
@@ -594,13 +594,13 @@ export const upsertMcpEntry = (
  * `~/.commandcode/projects/<slug>/mcp.json` is keyed by the workspace, and
  * every thread of a project shares that workspace — so the first thread to
  * close used to run `cmd mcp remove` under a second thread that was still
- * running turns, and the model was offered none of OpenAde's browser tools for
+ * running turns, and the model was offered none of Poseidon's browser tools for
  * the rest of that session, with no warning, because the removal succeeded.
  */
 export const removeMcpEntry = (registration: McpRegistration): Effect.Effect<void> =>
   Effect.suspend(() =>
     release(mcpKey(registration.projectRoot))
-      ? runCmdMcp(registration, ["remove", OPENADE_MCP_NAME, "--scope", "local"]).pipe(
+      ? runCmdMcp(registration, ["remove", POSEIDON_MCP_NAME, "--scope", "local"]).pipe(
           Effect.asVoid,
         )
       : Effect.void,

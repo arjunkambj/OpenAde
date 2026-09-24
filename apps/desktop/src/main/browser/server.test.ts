@@ -3,7 +3,7 @@ import * as NodeHttp from "node:http";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { WebSocket } from "ws";
 
-import { bridgeThreadUrl, mintLaunchKey } from "@OpenAde/shared/browserBridge";
+import { bridgeThreadUrl, mintLaunchKey } from "@poseidon/shared/browserBridge";
 
 import { startBridgeServer, type BridgeServer } from "./server";
 import { FakeGuestPort, VERSION } from "./test/replay";

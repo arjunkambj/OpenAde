@@ -10,7 +10,7 @@
  */
 import { open } from "node:fs/promises";
 import { StringDecoder } from "node:string_decoder";
-import type { FileContent } from "@OpenAde/contracts/rpc";
+import type { FileContent } from "@poseidon/contracts/rpc";
 
 /** The most text one response carries — a window, not a whole file. */
 const TEXT_CAP_CHARS = 512 * 1024;

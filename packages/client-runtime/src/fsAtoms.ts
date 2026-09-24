@@ -22,7 +22,7 @@
  * allowed to open.
  */
 
-import type { FsBrowseError, FsBrowseFailure, FsListing } from "@OpenAde/contracts/rpc";
+import type { FsBrowseError, FsBrowseFailure, FsListing } from "@poseidon/contracts/rpc";
 import * as Effect from "effect/Effect";
 import { isTagged } from "effect/Predicate";
 import * as Stream from "effect/Stream";

@@ -7,7 +7,7 @@
  * - A non-loopback `Origin` is refused, and `GET /mcp` says 405 rather than
  *   looking like the wrong url.
  * - `tools/call browser_open` drives the fake driver through the session's
- *   serialized queue — the same path `mcp__openade__browser_open` takes.
+ *   serialized queue — the same path `mcp__poseidon__browser_open` takes.
  * - `revoke` kills the bearer — dead requests 401.
  * - A snapshot past the 64KB cap is capped in `structuredContent` too, not
  *   only in the text.
@@ -23,8 +23,8 @@ import * as Layer from "effect/Layer";
 import * as HttpRouter from "effect/unstable/http/HttpRouter";
 import * as HttpServer from "effect/unstable/http/HttpServer";
 
-import { makeThreadId } from "@OpenAde/contracts/ids";
-import { makeRegistry } from "@OpenAde/connector-sdk/registry";
+import { makeThreadId } from "@poseidon/contracts/ids";
+import { makeRegistry } from "@poseidon/connector-sdk/registry";
 
 import type { BrowserDriver } from "../browser/driver";
 import { makeFakeDriver, type FakePage } from "../browser/fakeDriver";

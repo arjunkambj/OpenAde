@@ -16,11 +16,11 @@
  * carry it; see below.
  */
 
-import type { Effort } from "@OpenAde/contracts/enums";
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import type { ThreadSettings } from "@OpenAde/contracts/orchestration";
-import type { TurnReference } from "@OpenAde/contracts/runtime";
-import type { TurnInput } from "@OpenAde/connector-sdk/definition";
+import type { Effort } from "@poseidon/contracts/enums";
+import type { ThreadId } from "@poseidon/contracts/ids";
+import type { ThreadSettings } from "@poseidon/contracts/orchestration";
+import type { TurnReference } from "@poseidon/contracts/runtime";
+import type { TurnInput } from "@poseidon/connector-sdk/definition";
 
 import { stageTurnAttachments } from "./attachments";
 import { buildArgs, TOOLS_ENABLED } from "./spawn";

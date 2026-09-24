@@ -12,8 +12,8 @@
  * from the settings document. After that the instance id is the only handle.
  */
 
-import type { ConnectorInstanceId, ConnectorKind } from "@OpenAde/contracts/ids";
-import type { ConnectorDescriptor } from "@OpenAde/contracts/connectors";
+import type { ConnectorInstanceId, ConnectorKind } from "@poseidon/contracts/ids";
+import type { ConnectorDescriptor } from "@poseidon/contracts/connectors";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 import type * as Scope from "effect/Scope";

@@ -24,14 +24,14 @@
  */
 
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
-import { makeTerminalId, type TerminalId, type ThreadId } from "@OpenAde/contracts/ids";
+import { makeTerminalId, type TerminalId, type ThreadId } from "@poseidon/contracts/ids";
 import {
   TERMINALS_PER_OWNER,
   decodeTerminalOwnerKey,
   isThreadOwner,
   type TerminalSize,
-} from "@OpenAde/contracts/terminal";
-import { Button } from "@OpenAde/ui/components/button";
+} from "@poseidon/contracts/terminal";
+import { Button } from "@poseidon/ui/components/button";
 import { AsyncResult } from "effect/unstable/reactivity";
 import * as React from "react";
 

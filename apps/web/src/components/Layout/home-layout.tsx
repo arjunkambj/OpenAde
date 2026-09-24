@@ -15,8 +15,8 @@
 import { Outlet } from "@tanstack/react-router";
 import type * as React from "react";
 
-import { SidebarInset, SidebarProvider } from "@OpenAde/ui/components/sidebar";
-import { TooltipProvider } from "@OpenAde/ui/components/tooltip";
+import { SidebarInset, SidebarProvider } from "@poseidon/ui/components/sidebar";
+import { TooltipProvider } from "@poseidon/ui/components/tooltip";
 
 import { ConnectionBanner } from "@/components/Layout/connection-banner";
 import { InsetWindowChrome } from "@/components/Layout/window-chrome";

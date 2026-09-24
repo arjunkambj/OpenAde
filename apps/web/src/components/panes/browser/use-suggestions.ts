@@ -6,8 +6,8 @@
 import * as React from "react";
 
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import type { DevServer } from "@OpenAde/contracts/rpc";
+import type { ThreadId } from "@poseidon/contracts/ids";
+import type { DevServer } from "@poseidon/contracts/rpc";
 import { AsyncResult } from "effect/unstable/reactivity";
 
 import { useBrowserHistory } from "@/state/browser-history";

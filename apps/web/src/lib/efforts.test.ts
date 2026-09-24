@@ -1,4 +1,4 @@
-import { EFFORT_ORDER } from "@OpenAde/contracts/enums";
+import { EFFORT_ORDER } from "@poseidon/contracts/enums";
 import { describe, expect, it } from "vitest";
 
 import { orderEfforts, stepEffort } from "./efforts";

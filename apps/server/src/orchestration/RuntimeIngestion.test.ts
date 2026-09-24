@@ -16,9 +16,9 @@ import {
   makeItemId,
   makeThreadId,
   type ItemId,
-} from "@OpenAde/contracts/ids";
-import type { ConnectorCapabilities, RuntimeEvent } from "@OpenAde/contracts/runtime";
-import type { TurnScopedSessionHandle } from "@OpenAde/connector-sdk/turnScopedHandle";
+} from "@poseidon/contracts/ids";
+import type { ConnectorCapabilities, RuntimeEvent } from "@poseidon/contracts/runtime";
+import type { TurnScopedSessionHandle } from "@poseidon/connector-sdk/turnScopedHandle";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";

@@ -1,6 +1,6 @@
-import fixture from "@OpenAde/contracts/fixtures/rpc/terminal-summary.json";
-import type { TerminalId } from "@OpenAde/contracts/ids";
-import type { TerminalSummary } from "@OpenAde/contracts/terminal";
+import fixture from "@poseidon/contracts/fixtures/rpc/terminal-summary.json";
+import type { TerminalId } from "@poseidon/contracts/ids";
+import type { TerminalSummary } from "@poseidon/contracts/terminal";
 import { describe, expect, it } from "vitest";
 
 import {

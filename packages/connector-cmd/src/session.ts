@@ -12,9 +12,9 @@
  * turn-scoped wrapper settles turns.
  */
 import * as NodeFS from "node:fs";
-import type { ConnectorInstanceId, ThreadId } from "@OpenAde/contracts/ids";
-import type { ThreadSettings } from "@OpenAde/contracts/orchestration";
-import type { RuntimeEvent } from "@OpenAde/contracts/runtime";
+import type { ConnectorInstanceId, ThreadId } from "@poseidon/contracts/ids";
+import type { ThreadSettings } from "@poseidon/contracts/orchestration";
+import type { RuntimeEvent } from "@poseidon/contracts/runtime";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -27,10 +27,10 @@ import type {
   ConnectorError,
   ConnectorServices,
   TurnInput,
-} from "@OpenAde/connector-sdk/definition";
-import { SessionClosed, SpawnFailed, TurnInProgress } from "@OpenAde/connector-sdk/definition";
-import { makeBoundedEventQueue, type SessionHandle } from "@OpenAde/connector-sdk/sessionHandle";
-import { makeEventId, makeItemId, makeTurnId } from "@OpenAde/contracts/ids";
+} from "@poseidon/connector-sdk/definition";
+import { SessionClosed, SpawnFailed, TurnInProgress } from "@poseidon/connector-sdk/definition";
+import { makeBoundedEventQueue, type SessionHandle } from "@poseidon/connector-sdk/sessionHandle";
+import { makeEventId, makeItemId, makeTurnId } from "@poseidon/contracts/ids";
 
 import {
   installProjectHooks,
@@ -308,7 +308,7 @@ export const makeCmdSession = (
         const events = yield* Effect.sync(() => {
           // A plan turn carries no `--yolo`, so the harness refused the plan
           // file along with every other write. The body was in the frame that
-          // announced the call, so OpenAde saves it.
+          // announced the call, so Poseidon saves it.
           if (active.plan) {
             for (const write of wrote) {
               materializePlan(write, options.home);
@@ -342,7 +342,7 @@ export const makeCmdSession = (
         const posts = (yield* hookAnswers.postCount) - active.postsAtStart;
         if (queued > 0 && posts === 0) {
           yield* warn(
-            `${queued} tool call(s) ran without reaching OpenAde's approval gate — the PreToolUse hook did not fire, so this turn was not gated`,
+            `${queued} tool call(s) ran without reaching Poseidon's approval gate — the PreToolUse hook did not fire, so this turn was not gated`,
           );
         }
       });
@@ -391,7 +391,7 @@ export const makeCmdSession = (
       );
       if (written === null) {
         yield* warn(
-          ".commandcode/settings.local.json is not valid JSON — left it untouched, so tool calls are not gated by OpenAde",
+          ".commandcode/settings.local.json is not valid JSON — left it untouched, so tool calls are not gated by Poseidon",
         );
       }
       yield* Ref.set(installedHooks, written ?? null);
@@ -409,7 +409,7 @@ export const makeCmdSession = (
       );
       if (!registered) {
         yield* warn(
-          "the harness refused to register OpenAde's MCP server, so its tools are unavailable this session",
+          "the harness refused to register Poseidon's MCP server, so its tools are unavailable this session",
         );
       }
       yield* Ref.set(installedMcp, registered);
@@ -673,11 +673,11 @@ export const makeCmdSession = (
                 process.env,
                 { ...options.extraEnv },
                 {
-                  OPENADE_HOOK_URL: hook.url,
+                  POSEIDON_HOOK_URL: hook.url,
                   // A path, not a secret — see the ticket comment above.
-                  OPENADE_HOOK_TICKET_FILE: ticket,
-                  OPENADE_THREAD_ID: options.threadId,
-                  ...(mcp === null ? {} : { OPENADE_MCP_TOKEN: mcp.bearer }),
+                  POSEIDON_HOOK_TICKET_FILE: ticket,
+                  POSEIDON_THREAD_ID: options.threadId,
+                  ...(mcp === null ? {} : { POSEIDON_MCP_TOKEN: mcp.bearer }),
                 },
               ),
             }).pipe(Effect.provideService(Scope.Scope, scope));

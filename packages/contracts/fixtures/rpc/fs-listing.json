@@ -3,7 +3,7 @@
   "parent": "/Users/dev",
   "entries": [
     { "name": "notes", "path": "/Users/dev/code/notes", "isGitRepo": false },
-    { "name": "openade", "path": "/Users/dev/code/openade", "isGitRepo": true }
+    { "name": "poseidon", "path": "/Users/dev/code/poseidon", "isGitRepo": true }
   ],
   "truncated": false
 }

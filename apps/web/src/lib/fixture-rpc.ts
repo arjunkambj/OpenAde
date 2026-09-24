@@ -1,6 +1,6 @@
 /**
  * What the fixture client answers over RPC: a `Proxy` shaped like the real
- * `OpenAdeRpcClient` whose methods reply from inline data — the file search,
+ * `PoseidonRpcClient` whose methods reply from inline data — the file search,
  * reads and existence check, the model and skill menus, the plugins, the keybinding
  * table, the staged attachments, the thread's checkpoints. Anything a fixture page has not taught it
  * dies loudly with the method's name, so a new read shows up the first time a
@@ -11,25 +11,25 @@
  * dispatch it answers `threads.subscribe` and `orchestration.dispatch` with.
  */
 
-import type { OpenAdeRpcClient } from "@OpenAde/client-runtime/connection";
-import type { ConnectorInstanceId, ProjectId } from "@OpenAde/contracts/ids";
+import type { PoseidonRpcClient } from "@poseidon/client-runtime/connection";
+import type { ConnectorInstanceId, ProjectId } from "@poseidon/contracts/ids";
 import type {
   CheckpointSummary,
   Command,
   CommandReceipt,
   ThreadStreamItem,
-} from "@OpenAde/contracts/orchestration";
-import { OpenAdeRpcError, PROTOCOL_VERSION } from "@OpenAde/contracts/rpc";
+} from "@poseidon/contracts/orchestration";
+import { PoseidonRpcError, PROTOCOL_VERSION } from "@poseidon/contracts/rpc";
 import type {
   ConnectorDescriptor,
   ConnectorSummary,
   ModelOption,
   PluginSummary,
   SkillSummary,
-} from "@OpenAde/contracts/connectors";
-import type { FileSearchResult } from "@OpenAde/contracts/rpc";
-import { defaultSettings } from "@OpenAde/contracts/settings";
-import type { Keybinding } from "@OpenAde/contracts/settings";
+} from "@poseidon/contracts/connectors";
+import type { FileSearchResult } from "@poseidon/contracts/rpc";
+import { defaultSettings } from "@poseidon/contracts/settings";
+import type { Keybinding } from "@poseidon/contracts/settings";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
 
@@ -164,13 +164,13 @@ export interface FixtureRpcContext {
   readonly checkpoints: () => ReadonlyArray<CheckpointSummary>;
 }
 
-export const makeFixtureRpc = (context: FixtureRpcContext): OpenAdeRpcClient => {
+export const makeFixtureRpc = (context: FixtureRpcContext): PoseidonRpcClient => {
   /** What the page staged this session, keyed by the path it was given. */
   const fixtureAttachments = new Map<string, string>();
   // The user's overrides, as the server stores them: none, so every default.
   let keybindings: ReadonlyArray<Keybinding> = [];
 
-  return new Proxy({} as OpenAdeRpcClient, {
+  return new Proxy({} as PoseidonRpcClient, {
     get: (_target, key) => {
       switch (key) {
         case "server.hello":
@@ -202,7 +202,7 @@ export const makeFixtureRpc = (context: FixtureRpcContext): OpenAdeRpcClient => 
           return ({ path, offset, limit }: { path: string; offset?: number; limit?: number }) => {
             const content = fixtureRead(path, offset, limit);
             return content === null
-              ? Effect.fail(new OpenAdeRpcError({ code: "not-found", message: `no file ${path}` }))
+              ? Effect.fail(new PoseidonRpcError({ code: "not-found", message: `no file ${path}` }))
               : Effect.succeed(content);
           };
         case "files.stat":
@@ -249,7 +249,7 @@ export const makeFixtureRpc = (context: FixtureRpcContext): OpenAdeRpcClient => 
             instanceId === context.connectorInstanceId
               ? Effect.succeed(FIXTURE_PLUGINS)
               : Effect.fail(
-                  new OpenAdeRpcError({
+                  new PoseidonRpcError({
                     code: "unavailable",
                     message: `connector instance ${instanceId} does not manage plugins`,
                   }),

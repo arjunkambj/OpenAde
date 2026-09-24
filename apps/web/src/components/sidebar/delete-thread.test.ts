@@ -1,5 +1,5 @@
-import type { ThreadWorktree } from "@OpenAde/contracts/git";
-import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
+import type { ThreadWorktree } from "@poseidon/contracts/git";
+import { PoseidonRpcError } from "@poseidon/contracts/rpc";
 import * as Exit from "effect/Exit";
 import { describe, expect, it } from "vitest";
 
@@ -14,8 +14,8 @@ import {
 } from "./delete-thread";
 
 const WORKTREE: ThreadWorktree = {
-  path: "/home/me/.openade/worktrees/app/fix-login",
-  branch: "openade/fix-login",
+  path: "/home/me/.poseidon/worktrees/app/fix-login",
+  branch: "poseidon/fix-login",
   baseBranch: "main",
 };
 
@@ -79,7 +79,7 @@ describe("deleteThread", () => {
     await expect(deleteThread({ worktree: WORKTREE }, true, steps)).resolves.toBe(
       "worktree-removed",
     );
-    expect(log).toEqual(["delete", "remove", "removed openade/fix-login"]);
+    expect(log).toEqual(["delete", "remove", "removed poseidon/fix-login"]);
   });
 
   it("never removes the worktree when the delete is rejected", async () => {
@@ -117,7 +117,7 @@ describe("deleteThread", () => {
       "remove",
       `offer ${CONFLICT.message}`,
       "remove --force",
-      "removed openade/fix-login",
+      "removed poseidon/fix-login",
     ]);
   });
 
@@ -147,10 +147,10 @@ describe("worktreeRemovalOf", () => {
   it("reads success, conflict and other refusals", () => {
     expect(worktreeRemovalOf(Exit.succeed({}))).toEqual({ _tag: "removed" });
     expect(
-      worktreeRemovalOf(Exit.fail(new OpenAdeRpcError({ code: "conflict", message: "dirty" }))),
+      worktreeRemovalOf(Exit.fail(new PoseidonRpcError({ code: "conflict", message: "dirty" }))),
     ).toEqual({ _tag: "conflict", message: "dirty" });
     expect(
-      worktreeRemovalOf(Exit.fail(new OpenAdeRpcError({ code: "invalid", message: "not one" }))),
+      worktreeRemovalOf(Exit.fail(new PoseidonRpcError({ code: "invalid", message: "not one" }))),
     ).toEqual({ _tag: "failed", message: "not one" });
     expect(worktreeRemovalOf(Exit.die("boom"))).toEqual({
       _tag: "failed",
@@ -162,7 +162,7 @@ describe("worktreeRemovalOf", () => {
 describe("worktreeRemovedMessage", () => {
   it("says the branch is kept", () => {
     expect(worktreeRemovedMessage(WORKTREE)).toBe(
-      "Worktree removed — branch openade/fix-login kept",
+      "Worktree removed — branch poseidon/fix-login kept",
     );
   });
 });
@@ -175,7 +175,7 @@ describe("the forced removal queue", () => {
       answer: (confirmed: boolean) => answers.push(`first ${confirmed}`),
     };
     const second = {
-      worktree: { ...WORKTREE, path: "/home/me/.openade/worktrees/app/other" },
+      worktree: { ...WORKTREE, path: "/home/me/.poseidon/worktrees/app/other" },
       answer: (confirmed: boolean) => answers.push(`second ${confirmed}`),
     };
 

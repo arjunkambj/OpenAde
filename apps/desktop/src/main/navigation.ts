@@ -25,7 +25,7 @@ export type NavigationDecision =
   | { readonly kind: "block"; readonly reason: string };
 
 export interface NavigationPolicy {
-  /** The packaged renderer's url, `openade://app/`. */
+  /** The packaged renderer's url, `poseidon://app/`. */
   readonly appUrl: string;
   /** `ELECTRON_RENDERER_URL` in dev, where the renderer is served over http. */
   readonly devServerUrl?: string | undefined;

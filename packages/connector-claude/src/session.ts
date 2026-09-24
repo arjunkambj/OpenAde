@@ -14,10 +14,10 @@
  *    the session id it minted (the SDK's `sessionId`) or resumed;
  * 3. translates every SDK message the query yields (`translate/translator.ts`)
  *    on one consumer fiber;
- * 4. gates every tool call through OpenAde's permission ladder
+ * 4. gates every tool call through Poseidon's permission ladder
  *    (`toolGate.ts`), from the first message on, and says so with a
  *    `session.warning` if a turn ran a tool call the gate never saw. The
- *    model's questions and plans open OpenAde's cards instead
+ *    model's questions and plans open Poseidon's cards instead
  *    (`interactions.ts`);
  * 5. closes by releasing open cards, ending the input, closing the query,
  *    stopping the CLI's process group and proving it gone (`spawn.ts`).
@@ -31,7 +31,7 @@
  * Steering (`steer`) writes one more user message while a turn runs, with no
  * new turn boundary. The CLI either folds it into the running turn or runs it
  * as a turn of its own right after; `steering.ts` reads which from the CLI's
- * receipts, and the session holds OpenAde's turn open across the CLI's
+ * receipts, and the session holds Poseidon's turn open across the CLI's
  * `result`s until every steered message has been taken up. Its usage is the
  * sum of those results. Stop ends the whole turn, steered messages included;
  * a held turn whose steered messages all end without a turn of the CLI's
@@ -49,27 +49,27 @@ import * as NodeCrypto from "node:crypto";
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import { query, type PermissionMode, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
-import { makeApprovalGate } from "@OpenAde/connector-sdk/approvalGate";
+import { makeApprovalGate } from "@poseidon/connector-sdk/approvalGate";
 import type {
   ConnectorError,
   ConnectorServices,
   TurnInput,
-} from "@OpenAde/connector-sdk/definition";
+} from "@poseidon/connector-sdk/definition";
 import {
   NotSteerable,
   SessionClosed,
   SpawnFailed,
   TurnInProgress,
-} from "@OpenAde/connector-sdk/definition";
-import { makeBoundedEventQueue, type SessionHandle } from "@OpenAde/connector-sdk/sessionHandle";
-import type { ConnectorInstanceId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
-import { makeEventId, makeTurnId } from "@OpenAde/contracts/ids";
+} from "@poseidon/connector-sdk/definition";
+import { makeBoundedEventQueue, type SessionHandle } from "@poseidon/connector-sdk/sessionHandle";
+import type { ConnectorInstanceId, ThreadId, TurnId } from "@poseidon/contracts/ids";
+import { makeEventId, makeTurnId } from "@poseidon/contracts/ids";
 import type {
   ThreadSettings,
   ThreadSettingsPatch,
   TurnUsage,
-} from "@OpenAde/contracts/orchestration";
-import type { RuntimeEvent } from "@OpenAde/contracts/runtime";
+} from "@poseidon/contracts/orchestration";
+import type { RuntimeEvent } from "@poseidon/contracts/runtime";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Ref from "effect/Ref";
@@ -147,7 +147,7 @@ type InterruptWithOptions = (options?: { readonly cancelQueued?: boolean }) => P
 
 /** What the thread is told when a turn's tool calls ran past the gate. */
 export const ungatedWarning = (ran: number): string =>
-  `${ran} tool call(s) ran without reaching OpenAde's approval gate — the PreToolUse hook did not fire, so this turn was not gated`;
+  `${ran} tool call(s) ran without reaching Poseidon's approval gate — the PreToolUse hook did not fire, so this turn was not gated`;
 
 const messageOf = (cause: unknown): string =>
   cause instanceof Error ? cause.message : String(cause);
@@ -376,7 +376,7 @@ export const makeClaudeSession = (
           }
           if (event.type === "turn.completed" && turn !== null) {
             // A steered message the CLI has not taken up yet runs next, as a
-            // turn of its own: this result is not the end of OpenAde's turn.
+            // turn of its own: this result is not the end of Poseidon's turn.
             // Decided and cleared in one step, so a steer either lands before
             // (and holds the turn) or finds no turn and is queued instead.
             const ends = yield* Ref.modify(turnRef, (now): [boolean, ActiveTurn | null] =>

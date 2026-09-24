@@ -15,13 +15,13 @@
  *   `/cdp/<threadId>/<capability>`, get the same bare 404, so a probe learns
  *   nothing about which threads exist.
  * - **A guessed thread.** The capability is verified by the injected
- *   `verify` (constant-time, `@OpenAde/shared/browserBridge`).
+ *   `verify` (constant-time, `@poseidon/shared/browserBridge`).
  *
  * Pure: the server passes the request line and headers in and acts on the
  * decision, so the whole matrix is a unit test.
  */
 
-import { BRIDGE_THREAD_ID } from "@OpenAde/shared/browserBridge";
+import { BRIDGE_THREAD_ID } from "@poseidon/shared/browserBridge";
 
 /** The parts of an HTTP request the gate reads. */
 export interface UpgradeRequest {

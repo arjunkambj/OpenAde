@@ -1,5 +1,5 @@
-import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
-import type { PermissionRule } from "@OpenAde/contracts/settings";
+import type { ProjectId, ThreadId } from "@poseidon/contracts/ids";
+import type { PermissionRule } from "@poseidon/contracts/settings";
 import { describe, expect, it } from "vitest";
 
 import { groupRules, ruleKey, withPattern, withoutRule } from "./permission-rules";

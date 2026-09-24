@@ -15,8 +15,8 @@
  * swallow the send.
  */
 
-import type { PluginSummary, SkillSummary } from "@OpenAde/contracts/connectors";
-import type { TurnReference } from "@OpenAde/contracts/runtime";
+import type { PluginSummary, SkillSummary } from "@poseidon/contracts/connectors";
+import type { TurnReference } from "@poseidon/contracts/runtime";
 
 import type { MenuSource } from "@/components/composer/menu-source";
 import { matchesQuery, type TriggerMenuItem } from "@/components/composer/trigger-menu";

@@ -8,7 +8,7 @@ import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
-import { loadSdkStreamRecording } from "@OpenAde/testkit/sdkStreamRecording";
+import { loadSdkStreamRecording } from "@poseidon/testkit/sdkStreamRecording";
 import * as Effect from "effect/Effect";
 
 import { isPidGone, replay } from "../test/replay";

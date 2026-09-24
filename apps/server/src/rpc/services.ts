@@ -15,7 +15,7 @@ import type {
   ModelOption,
   PluginSummary,
   SkillSummary,
-} from "@OpenAde/contracts/connectors";
+} from "@poseidon/contracts/connectors";
 import type {
   BrowserHumanInput,
   BrowserState,
@@ -27,8 +27,8 @@ import type {
   FsListing,
   GitDiff,
   GitStatus,
-} from "@OpenAde/contracts/rpc";
-import { FsBrowseError, OpenAdeRpcError } from "@OpenAde/contracts/rpc";
+} from "@poseidon/contracts/rpc";
+import { FsBrowseError, PoseidonRpcError } from "@poseidon/contracts/rpc";
 import type {
   GitBranchList,
   GitCommitResult,
@@ -37,17 +37,17 @@ import type {
   GitWorktreeInfo,
   ThreadWorktree,
   WorktreeSetupFrame,
-} from "@OpenAde/contracts/git";
-import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
-import { migrateLegacyKeybindingTable } from "@OpenAde/contracts/keybindings";
-import { defaultSettings, Settings } from "@OpenAde/contracts/settings";
-import type { SettingsPatch } from "@OpenAde/contracts/settings";
-import type { ConnectorInstanceId, ProjectId, TerminalId, ThreadId } from "@OpenAde/contracts/ids";
+} from "@poseidon/contracts/git";
+import type { CheckpointSummary } from "@poseidon/contracts/orchestration";
+import { migrateLegacyKeybindingTable } from "@poseidon/contracts/keybindings";
+import { defaultSettings, Settings } from "@poseidon/contracts/settings";
+import type { SettingsPatch } from "@poseidon/contracts/settings";
+import type { ConnectorInstanceId, ProjectId, TerminalId, ThreadId } from "@poseidon/contracts/ids";
 import type {
   TerminalOwner,
   TerminalStreamItem,
   TerminalSummary,
-} from "@OpenAde/contracts/terminal";
+} from "@poseidon/contracts/terminal";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -113,18 +113,18 @@ export class FileService extends Context.Service<
       scope: WorkspaceScope,
       query: string,
       limit?: number,
-    ) => Effect.Effect<ReadonlyArray<FileSearchResult>, OpenAdeRpcError>;
+    ) => Effect.Effect<ReadonlyArray<FileSearchResult>, PoseidonRpcError>;
     readonly read: (
       scope: WorkspaceScope,
       path: string,
       offset?: number,
       limit?: number,
-    ) => Effect.Effect<FileContent, OpenAdeRpcError>;
+    ) => Effect.Effect<FileContent, PoseidonRpcError>;
     /** Which of `paths` exist inside the root; a path that does not is absent, not an error. */
     readonly stat: (
       scope: WorkspaceScope,
       paths: ReadonlyArray<string>,
-    ) => Effect.Effect<ReadonlyArray<FileStat>, OpenAdeRpcError>;
+    ) => Effect.Effect<ReadonlyArray<FileStat>, PoseidonRpcError>;
   }
 >()("server/rpc/FileService") {
   static readonly empty = Layer.succeed(
@@ -158,7 +158,7 @@ export class DirectoryBrowser extends Context.Service<
 
 // ── Git ────────────────────────────────────────────────────────
 
-const gitUnavailable = new OpenAdeRpcError({
+const gitUnavailable = new PoseidonRpcError({
   code: "unavailable",
   message: "git is not available on this server",
 });
@@ -166,7 +166,7 @@ const gitUnavailable = new OpenAdeRpcError({
 export class GitService extends Context.Service<
   GitService,
   {
-    readonly status: (scope: WorkspaceScope) => Effect.Effect<GitStatus, OpenAdeRpcError>;
+    readonly status: (scope: WorkspaceScope) => Effect.Effect<GitStatus, PoseidonRpcError>;
     readonly diff: (
       scope: WorkspaceScope,
       options: {
@@ -176,18 +176,18 @@ export class GitService extends Context.Service<
         /** Diff the working tree against `git merge-base HEAD <mergeBase>`. */
         readonly mergeBase?: string;
       },
-    ) => Effect.Effect<GitDiff, OpenAdeRpcError>;
-    readonly branches: (scope: WorkspaceScope) => Effect.Effect<GitBranchList, OpenAdeRpcError>;
+    ) => Effect.Effect<GitDiff, PoseidonRpcError>;
+    readonly branches: (scope: WorkspaceScope) => Effect.Effect<GitBranchList, PoseidonRpcError>;
     /** Cuts an untracked branch, and switches to it when `checkout` is set. */
     readonly createBranch: (
       scope: WorkspaceScope,
       options: { readonly name: string; readonly from?: string; readonly checkout: boolean },
-    ) => Effect.Effect<GitBranchList, OpenAdeRpcError>;
+    ) => Effect.Effect<GitBranchList, PoseidonRpcError>;
     /** `conflict` on a dirty tracked tree or while a turn runs in the same root. */
     readonly checkout: (
       scope: WorkspaceScope,
       branch: string,
-    ) => Effect.Effect<GitBranchList, OpenAdeRpcError>;
+    ) => Effect.Effect<GitBranchList, PoseidonRpcError>;
     /**
      * Commits everything, or only `paths`, as the user. `conflict` when nothing
      * is staged, a hook refuses, or a turn runs in the same root.
@@ -195,26 +195,26 @@ export class GitService extends Context.Service<
     readonly commit: (
       scope: WorkspaceScope,
       options: { readonly message: string; readonly paths?: ReadonlyArray<string> | undefined },
-    ) => Effect.Effect<GitCommitResult, OpenAdeRpcError>;
+    ) => Effect.Effect<GitCommitResult, PoseidonRpcError>;
     /** Pushes the current branch, setting its upstream on the first push. */
-    readonly push: (scope: WorkspaceScope) => Effect.Effect<GitPushResult, OpenAdeRpcError>;
+    readonly push: (scope: WorkspaceScope) => Effect.Effect<GitPushResult, PoseidonRpcError>;
     /** Opens (or finds) the current branch's pull request through the GitHub CLI. */
     readonly createPullRequest: (
       scope: WorkspaceScope,
       options: { readonly title: string; readonly body: string; readonly base?: string },
-    ) => Effect.Effect<GitPullRequestResult, OpenAdeRpcError>;
+    ) => Effect.Effect<GitPullRequestResult, PoseidonRpcError>;
     /**
-     * Cuts a worktree for a new thread under the OpenAde home, on a branch
+     * Cuts a worktree for a new thread under the Poseidon home, on a branch
      * named from the settings' prefix and `name`, from `baseBranch` or the
      * default branch.
      */
     readonly createWorktree: (
       projectId: ProjectId,
       options: { readonly name: string; readonly baseBranch?: string | undefined },
-    ) => Effect.Effect<ThreadWorktree, OpenAdeRpcError>;
+    ) => Effect.Effect<ThreadWorktree, PoseidonRpcError>;
     readonly listWorktrees: (
       projectId: ProjectId,
-    ) => Effect.Effect<ReadonlyArray<GitWorktreeInfo>, OpenAdeRpcError>;
+    ) => Effect.Effect<ReadonlyArray<GitWorktreeInfo>, PoseidonRpcError>;
     /**
      * Removes one of the project's worktrees, keeping its branch. `conflict`
      * while a thread works in it, or when it holds work `force` would lose.
@@ -222,17 +222,17 @@ export class GitService extends Context.Service<
     readonly removeWorktree: (
       projectId: ProjectId,
       options: { readonly path: string; readonly force: boolean },
-    ) => Effect.Effect<void, OpenAdeRpcError>;
+    ) => Effect.Effect<void, PoseidonRpcError>;
     /** Runs the project's configured setup script in one of its worktrees. */
     readonly setupWorktree: (
       projectId: ProjectId,
       path: string,
-    ) => Stream.Stream<WorktreeSetupFrame, OpenAdeRpcError>;
+    ) => Stream.Stream<WorktreeSetupFrame, PoseidonRpcError>;
     /** The checkpoint refs that still exist for a thread, read in its root, oldest first. */
     readonly checkpoints: (
       projectId: ProjectId,
       threadId: ThreadId,
-    ) => Effect.Effect<ReadonlyArray<CheckpointSummary>, OpenAdeRpcError>;
+    ) => Effect.Effect<ReadonlyArray<CheckpointSummary>, PoseidonRpcError>;
   }
 >()("server/rpc/GitService") {
   static readonly empty = Layer.succeed(
@@ -342,29 +342,29 @@ export class TerminalService extends Context.Service<
         readonly rows: number;
         readonly title?: string | undefined;
       },
-    ) => Effect.Effect<TerminalSummary, OpenAdeRpcError>;
+    ) => Effect.Effect<TerminalSummary, PoseidonRpcError>;
     readonly write: (
       owner: TerminalOwner,
       terminalId: TerminalId,
       data: string,
-    ) => Effect.Effect<void, OpenAdeRpcError>;
+    ) => Effect.Effect<void, PoseidonRpcError>;
     readonly resize: (
       owner: TerminalOwner,
       terminalId: TerminalId,
       cols: number,
       rows: number,
-    ) => Effect.Effect<void, OpenAdeRpcError>;
+    ) => Effect.Effect<void, PoseidonRpcError>;
     readonly close: (
       owner: TerminalOwner,
       terminalId: TerminalId,
-    ) => Effect.Effect<void, OpenAdeRpcError>;
+    ) => Effect.Effect<void, PoseidonRpcError>;
     readonly list: (
       owner: TerminalOwner,
-    ) => Effect.Effect<ReadonlyArray<TerminalSummary>, OpenAdeRpcError>;
+    ) => Effect.Effect<ReadonlyArray<TerminalSummary>, PoseidonRpcError>;
     readonly subscribe: (
       owner: TerminalOwner,
       terminalId: TerminalId,
-    ) => Stream.Stream<TerminalStreamItem, OpenAdeRpcError>;
+    ) => Stream.Stream<TerminalStreamItem, PoseidonRpcError>;
     readonly teardownThread: (threadId: ThreadId) => Effect.Effect<void>;
     /**
      * Hands every terminal the project owns to a local thread of that
@@ -373,7 +373,7 @@ export class TerminalService extends Context.Service<
     readonly adopt: (
       projectId: ProjectId,
       threadId: ThreadId,
-    ) => Effect.Effect<ReadonlyArray<TerminalSummary>, OpenAdeRpcError>;
+    ) => Effect.Effect<ReadonlyArray<TerminalSummary>, PoseidonRpcError>;
   }
 >()("server/rpc/TerminalService") {
   /** No shells at all: reads answer nothing, and anything that would start or touch one fails. */
@@ -393,7 +393,7 @@ export class TerminalService extends Context.Service<
 }
 
 const terminalUnavailable = () =>
-  new OpenAdeRpcError({ code: "unavailable", message: "terminal service unavailable" });
+  new PoseidonRpcError({ code: "unavailable", message: "terminal service unavailable" });
 
 // ── Connector extensions ───────────────────────────────────────
 
@@ -409,33 +409,33 @@ export class ConnectorExtensions extends Context.Service<
     readonly skillsList: (
       instanceId: ConnectorInstanceId,
       projectId?: ProjectId,
-    ) => Effect.Effect<ReadonlyArray<SkillSummary>, OpenAdeRpcError>;
+    ) => Effect.Effect<ReadonlyArray<SkillSummary>, PoseidonRpcError>;
     readonly skillsAvailable: (
       instanceId: ConnectorInstanceId,
-    ) => Effect.Effect<ReadonlyArray<AgentSkill>, OpenAdeRpcError>;
+    ) => Effect.Effect<ReadonlyArray<AgentSkill>, PoseidonRpcError>;
     readonly skillsLink: (
       instanceId: ConnectorInstanceId,
       entry: string,
-    ) => Effect.Effect<ReadonlyArray<AgentSkill>, OpenAdeRpcError>;
+    ) => Effect.Effect<ReadonlyArray<AgentSkill>, PoseidonRpcError>;
     readonly pluginsList: (
       instanceId: ConnectorInstanceId,
       projectId?: ProjectId,
-    ) => Effect.Effect<ReadonlyArray<PluginSummary>, OpenAdeRpcError>;
+    ) => Effect.Effect<ReadonlyArray<PluginSummary>, PoseidonRpcError>;
     readonly mcpList: (
       instanceId: ConnectorInstanceId,
       projectId?: ProjectId,
-    ) => Effect.Effect<ReadonlyArray<McpServerConfig>, OpenAdeRpcError>;
+    ) => Effect.Effect<ReadonlyArray<McpServerConfig>, PoseidonRpcError>;
     readonly mcpAdd: (
       instanceId: ConnectorInstanceId,
       projectId: ProjectId | undefined,
       server: McpServerConfig,
-    ) => Effect.Effect<ReadonlyArray<McpServerConfig>, OpenAdeRpcError>;
+    ) => Effect.Effect<ReadonlyArray<McpServerConfig>, PoseidonRpcError>;
     readonly mcpRemove: (
       instanceId: ConnectorInstanceId,
       projectId: ProjectId | undefined,
       scope: McpServerScope,
       name: string,
-    ) => Effect.Effect<ReadonlyArray<McpServerConfig>, OpenAdeRpcError>;
+    ) => Effect.Effect<ReadonlyArray<McpServerConfig>, PoseidonRpcError>;
   }
 >()("server/rpc/ConnectorExtensions") {
   static readonly empty = Layer.succeed(

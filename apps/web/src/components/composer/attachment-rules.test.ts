@@ -3,7 +3,7 @@
  * covered here: it is a `FileReader` call, which only exists in a browser.
  */
 
-import { MAX_ATTACHMENT_BYTES } from "@OpenAde/shared/imageBytes";
+import { MAX_ATTACHMENT_BYTES } from "@poseidon/shared/imageBytes";
 import { describe, expect, it } from "vitest";
 
 import {

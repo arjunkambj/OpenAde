@@ -1,16 +1,16 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "tui",
-  // `OPENADE_HOME` moves every path the app owns, including the dev handshake
+  // `POSEIDON_HOME` moves every path the app owns, including the dev handshake
   // file the server writes and the web plugin serves at
-  // `/__openade/connection` (docs/development.md, "OPENADE_HOME"). Both
+  // `/__poseidon/connection` (docs/development.md, "POSEIDON_HOME"). Both
   // resolve it through
   // `devConnectionPath()`, but turbo hands a task a filtered environment, so
   // without this the variable reached neither of them: a developer pointing a
   // dev loop at another home got a server writing to it and a renderer reading
   // the default one, and the two never met. It is passed rather than hashed
   // because it names where the app keeps state, not what a build produces.
-  "globalPassThroughEnv": ["OPENADE_HOME"],
+  "globalPassThroughEnv": ["POSEIDON_HOME"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

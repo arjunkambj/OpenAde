@@ -9,8 +9,8 @@
  */
 import * as React from "react";
 
-import type { BrowserState } from "@OpenAde/contracts/rpc";
-import { Button } from "@OpenAde/ui/components/button";
+import type { BrowserState } from "@poseidon/contracts/rpc";
+import { Button } from "@poseidon/ui/components/button";
 import {
   Empty,
   EmptyContent,
@@ -18,8 +18,8 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@OpenAde/ui/components/empty";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+} from "@poseidon/ui/components/empty";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 
 import { installCommands } from "./install";
 import { Check, Copy as CopyIcon, Globe } from "@honeyicons/react";

@@ -7,7 +7,7 @@
  * `subagent` is recorded with a signed-in CLI; no recording has a subagent yet.
  */
 
-import { makeItemId } from "@OpenAde/contracts/ids";
+import { makeItemId } from "@poseidon/contracts/ids";
 import { describe, expect, it } from "vitest";
 
 import { makeSubagents, settledTaskStatus, taskTitleOf, UNTITLED_TASK } from "./subagents";

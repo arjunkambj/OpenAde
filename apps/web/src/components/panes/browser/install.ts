@@ -9,7 +9,7 @@
  * `apps/server/src/browser/agentBrowser.ts`).
  */
 
-import type { BrowserState } from "@OpenAde/contracts/rpc";
+import type { BrowserState } from "@poseidon/contracts/rpc";
 
 const MISSING_PREFIX = "agent-browser is not installed";
 

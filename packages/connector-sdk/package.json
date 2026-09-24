@@ -1,5 +1,5 @@
 {
-  "name": "@OpenAde/connector-sdk",
+  "name": "@poseidon/connector-sdk",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -42,12 +42,12 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@OpenAde/contracts": "workspace:*",
+    "@poseidon/contracts": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {
-    "@OpenAde/config": "workspace:*",
     "@effect/vitest": "catalog:",
+    "@poseidon/config": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

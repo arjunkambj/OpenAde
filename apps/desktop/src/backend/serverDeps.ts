@@ -28,8 +28,8 @@ export const serverSpawnSpec = (bridge: BridgeForServer): SpawnSpec => {
 export const showServerCrashDialog = (reason: string): void => {
   void dialog.showMessageBox({
     type: "error",
-    title: "OpenAde server stopped",
-    message: "The OpenAde server crashed repeatedly and will not restart.",
+    title: "Poseidon server stopped",
+    message: "The Poseidon server crashed repeatedly and will not restart.",
     detail: reason,
     buttons: ["OK"],
   });

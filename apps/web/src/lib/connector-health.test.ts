@@ -1,5 +1,5 @@
-import type { ConnectorProbe, ConnectorSummary } from "@OpenAde/contracts/connectors";
-import type { ConnectorInstanceId } from "@OpenAde/contracts/ids";
+import type { ConnectorProbe, ConnectorSummary } from "@poseidon/contracts/connectors";
+import type { ConnectorInstanceId } from "@poseidon/contracts/ids";
 import { describe, expect, it } from "vitest";
 
 import { connectorHealth, probeHealthState } from "./connector-health";

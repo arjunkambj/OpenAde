@@ -12,13 +12,13 @@ import {
   makeRequestId,
   makeThreadId,
   type ThreadId,
-} from "@OpenAde/contracts/ids";
-import { LEGACY_DEFAULT_KEYBINDINGS } from "@OpenAde/contracts/keybindings";
+} from "@poseidon/contracts/ids";
+import { LEGACY_DEFAULT_KEYBINDINGS } from "@poseidon/contracts/keybindings";
 import {
   DEFAULT_BRANCH_PREFIX,
   defaultSettings,
   type Keybinding,
-} from "@OpenAde/contracts/settings";
+} from "@poseidon/contracts/settings";
 import { describe, expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
@@ -306,7 +306,7 @@ describe("SettingsStore", () => {
           type: "project.create",
           projectId,
           name: "settings",
-          workspaceRoot: "/tmp/openade-settings-rules",
+          workspaceRoot: "/tmp/poseidon-settings-rules",
         });
         yield* engine.dispatch({
           commandId: makeCommandId(),

@@ -36,9 +36,9 @@
  */
 import { stat } from "node:fs/promises";
 
-import type { ProjectId, TerminalId, ThreadId } from "@OpenAde/contracts/ids";
-import type { OrchestrationEvent } from "@OpenAde/contracts/orchestration";
-import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
+import type { ProjectId, TerminalId, ThreadId } from "@poseidon/contracts/ids";
+import type { OrchestrationEvent } from "@poseidon/contracts/orchestration";
+import { PoseidonRpcError } from "@poseidon/contracts/rpc";
 import {
   TERMINAL_STREAM_BUDGET_BYTES,
   TERMINAL_STREAM_BUDGET_ITEMS,
@@ -49,7 +49,7 @@ import {
   type TerminalOwner,
   type TerminalStreamItem,
   type TerminalSummary,
-} from "@OpenAde/contracts/terminal";
+} from "@poseidon/contracts/terminal";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
@@ -75,7 +75,7 @@ export interface TerminalServiceOptions {
    * so a worktree thread's terminals start in its worktree, or a project's
    * folder.
    */
-  readonly workspaceFor: (owner: TerminalOwner) => Effect.Effect<string, OpenAdeRpcError>;
+  readonly workspaceFor: (owner: TerminalOwner) => Effect.Effect<string, PoseidonRpcError>;
   /**
    * Refuses a hand-over (`adopt`) to anything but a live local thread of the
    * project: its terminals run in the project's folder, and only such a
@@ -84,7 +84,7 @@ export interface TerminalServiceOptions {
   readonly adoptionCheck: (
     projectId: ProjectId,
     threadId: ThreadId,
-  ) => Effect.Effect<void, OpenAdeRpcError>;
+  ) => Effect.Effect<void, PoseidonRpcError>;
   /** The engine's event subscription, for the teardown reactor. */
   readonly events: Effect.Effect<PubSub.Subscription<OrchestrationEvent>, never, Scope.Scope>;
   readonly spawn?: typeof spawnPty;
@@ -119,7 +119,7 @@ const threadWorkspace = (engine: OrchestrationEngine["Service"], threadId: Threa
       return yield* notFound(`thread ${threadId} does not exist`);
     }
     if (doc.status === "archived") {
-      return yield* new OpenAdeRpcError({
+      return yield* new PoseidonRpcError({
         code: "invalid",
         message: "the thread is archived; unarchive it to open a terminal",
       });
@@ -130,7 +130,7 @@ const threadWorkspace = (engine: OrchestrationEngine["Service"], threadId: Threa
     }
     const root = threadWorkspaceRoot(doc, project);
     if (!(yield* isDirectory(root))) {
-      return yield* new OpenAdeRpcError({
+      return yield* new PoseidonRpcError({
         code: "invalid",
         message:
           root === project.workspaceRoot
@@ -153,7 +153,7 @@ const projectWorkspace = (engine: OrchestrationEngine["Service"], projectId: Pro
       return yield* notFound(`project ${projectId} does not exist`);
     }
     if (!(yield* isDirectory(project.workspaceRoot))) {
-      return yield* new OpenAdeRpcError({
+      return yield* new PoseidonRpcError({
         code: "invalid",
         message: "the project folder no longer exists",
       });
@@ -164,7 +164,7 @@ const projectWorkspace = (engine: OrchestrationEngine["Service"], projectId: Pro
 /** Where an owner's terminals start: its thread's workspace, or its project's folder. */
 export const workspaceOf =
   (engine: OrchestrationEngine["Service"]) =>
-  (owner: TerminalOwner): Effect.Effect<string, OpenAdeRpcError> =>
+  (owner: TerminalOwner): Effect.Effect<string, PoseidonRpcError> =>
     (isThreadOwner(owner)
       ? threadWorkspace(engine, owner.threadId)
       : projectWorkspace(engine, owner.projectId)
@@ -174,7 +174,7 @@ export const workspaceOf =
         Effect.logWarning("terminal workspace lookup failed", error).pipe(
           Effect.andThen(
             Effect.fail(
-              new OpenAdeRpcError({
+              new PoseidonRpcError({
                 code: "internal",
                 message: `${isThreadOwner(owner) ? "thread" : "project"} lookup failed`,
               }),
@@ -196,7 +196,7 @@ export const workspaceOf =
  */
 export const adoptionCheckOf =
   (engine: OrchestrationEngine["Service"]) =>
-  (projectId: ProjectId, threadId: ThreadId): Effect.Effect<void, OpenAdeRpcError> =>
+  (projectId: ProjectId, threadId: ThreadId): Effect.Effect<void, PoseidonRpcError> =>
     Effect.gen(function* () {
       const project = yield* engine.projectDoc(projectId);
       if (project === null || project.removed) {
@@ -227,7 +227,10 @@ export const adoptionCheckOf =
         Effect.logWarning("terminal hand-over lookup failed", error).pipe(
           Effect.andThen(
             Effect.fail(
-              new OpenAdeRpcError({ code: "internal", message: "project or thread lookup failed" }),
+              new PoseidonRpcError({
+                code: "internal",
+                message: "project or thread lookup failed",
+              }),
             ),
           ),
         ),
@@ -267,7 +270,7 @@ export const makeTerminalService = (
       const session = registry.get(terminalOwnerKey(owner))?.get(terminalId);
       return session === undefined
         ? Effect.fail(
-            new OpenAdeRpcError({
+            new PoseidonRpcError({
               code: "not-found",
               message: `terminal ${terminalId} is not open on ${ownerNoun(owner)}`,
             }),
@@ -281,7 +284,7 @@ export const makeTerminalService = (
       return lockOf(key).withPermits(1)(
         Effect.gen(function* () {
           if (shuttingDown) {
-            return yield* new OpenAdeRpcError({
+            return yield* new PoseidonRpcError({
               code: "unavailable",
               message: "the server is shutting down",
             });
@@ -297,14 +300,14 @@ export const makeTerminalService = (
           }
           for (const [otherKey, others] of registry) {
             if (otherKey !== key && others.has(input.terminalId)) {
-              return yield* new OpenAdeRpcError({
+              return yield* new PoseidonRpcError({
                 code: "conflict",
                 message: `terminal ${input.terminalId} belongs to another thread or project`,
               });
             }
           }
           if (sessions.size >= TERMINALS_PER_OWNER) {
-            return yield* new OpenAdeRpcError({
+            return yield* new PoseidonRpcError({
               code: "conflict",
               message: `${ownerNoun(owner)} already has ${TERMINALS_PER_OWNER} terminals; close one to open another`,
             });
@@ -325,10 +328,10 @@ export const makeTerminalService = (
           }).pipe(
             Effect.catchTags({
               PtyUnavailable: (error) =>
-                Effect.fail(new OpenAdeRpcError({ code: "unavailable", message: error.message })),
+                Effect.fail(new PoseidonRpcError({ code: "unavailable", message: error.message })),
               PtySpawnFailed: (error) =>
                 Effect.fail(
-                  new OpenAdeRpcError({
+                  new PoseidonRpcError({
                     code: "internal",
                     message: `could not start ${error.file}: ${error.message}`,
                   }),
@@ -381,7 +384,7 @@ export const makeTerminalService = (
             }
             const held = registry.get(toKey) ?? new Map<TerminalId, TerminalSession>();
             if (held.size + moving.size > TERMINALS_PER_OWNER) {
-              return yield* new OpenAdeRpcError({
+              return yield* new PoseidonRpcError({
                 code: "conflict",
                 message: `the thread would hold more than ${TERMINALS_PER_OWNER} terminals; close one first`,
               });
@@ -404,7 +407,7 @@ export const makeTerminalService = (
     const subscribe = (
       owner: TerminalOwner,
       terminalId: TerminalId,
-    ): Stream.Stream<TerminalStreamItem, OpenAdeRpcError> =>
+    ): Stream.Stream<TerminalStreamItem, PoseidonRpcError> =>
       Stream.unwrap(
         Effect.gen(function* () {
           const session = yield* find(owner, terminalId);
@@ -519,6 +522,7 @@ export const layer: Layer.Layer<TerminalService, never, OrchestrationEngine> = L
 );
 
 const notFound = (message: string) =>
-  Effect.fail(new OpenAdeRpcError({ code: "not-found", message }));
+  Effect.fail(new PoseidonRpcError({ code: "not-found", message }));
 
-const invalid = (message: string) => Effect.fail(new OpenAdeRpcError({ code: "invalid", message }));
+const invalid = (message: string) =>
+  Effect.fail(new PoseidonRpcError({ code: "invalid", message }));

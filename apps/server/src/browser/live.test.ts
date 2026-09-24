@@ -2,7 +2,7 @@
  * The live browser proof against a real `agent-browser` daemon + Chrome for
  * Testing — owned-chromium mode (no Electron CDP in a test process).
  *
- * Gated on `OPENADE_LIVE_BROWSER=1`: it spawns a real browser, so it is
+ * Gated on `POSEIDON_LIVE_BROWSER=1`: it spawns a real browser, so it is
  * opt-in rather than part of the default suite. Verified locally:
  * navigate → snapshot → click, the state stream tracking the page, and
  * teardown closing the owned Chromium.
@@ -15,7 +15,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
 
-import { makeThreadId } from "@OpenAde/contracts/ids";
+import { makeThreadId } from "@poseidon/contracts/ids";
 
 import { OrchestrationEngine } from "../orchestration/Engine";
 import { EventStore } from "../persistence/EventStore";
@@ -27,7 +27,7 @@ import { AgentBrowser } from "./agentBrowser";
 import { makeService } from "./BrowserService";
 import { openOwnedDriver } from "./ownedDriver";
 
-const LIVE = process.env.OPENADE_LIVE_BROWSER === "1";
+const LIVE = process.env.POSEIDON_LIVE_BROWSER === "1";
 const threadId = makeThreadId();
 
 const permissionsStub = Layer.succeed(

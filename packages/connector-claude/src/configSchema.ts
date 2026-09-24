@@ -5,8 +5,8 @@
  * `connectors.describe`, so nothing above this package spells it out.
  */
 
-import { NonEmptyString } from "@OpenAde/contracts/base";
-import { settingsForm } from "@OpenAde/contracts/settings";
+import { NonEmptyString } from "@poseidon/contracts/base";
+import { settingsForm } from "@poseidon/contracts/settings";
 import * as Schema from "effect/Schema";
 
 /**

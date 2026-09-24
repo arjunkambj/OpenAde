@@ -19,10 +19,10 @@
  */
 
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
-import type { ProjectId } from "@OpenAde/contracts/ids";
-import { terminalOwnerKey } from "@OpenAde/contracts/terminal";
-import { Badge } from "@OpenAde/ui/components/badge";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+import type { ProjectId } from "@poseidon/contracts/ids";
+import { terminalOwnerKey } from "@poseidon/contracts/terminal";
+import { Badge } from "@poseidon/ui/components/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 import { AsyncResult } from "effect/unstable/reactivity";
 
 import {

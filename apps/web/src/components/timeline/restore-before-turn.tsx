@@ -20,8 +20,8 @@
  * a recycled row must not inherit it.
  */
 
-import type { TurnId } from "@OpenAde/contracts/ids";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+import type { TurnId } from "@poseidon/contracts/ids";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 import * as React from "react";
 
 import { RestoreCheckpointDialog } from "@/components/panes/changes/restore-dialog";

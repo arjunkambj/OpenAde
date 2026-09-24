@@ -1,5 +1,5 @@
 /**
- * The seam from the supervisor to `window.openade`, with both `electron` ends
+ * The seam from the supervisor to `window.poseidon`, with both `electron` ends
  * faked. What is pinned here is what the renderer's reconnect depends on: the
  * pulled state and the pushed state are the same shape, `ready` carries the
  * connection, and a restart publishes the *new* port, token and instance id

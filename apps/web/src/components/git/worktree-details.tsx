@@ -5,7 +5,7 @@
  * offering to move it.
  */
 
-import type { ThreadWorktree } from "@OpenAde/contracts/git";
+import type { ThreadWorktree } from "@poseidon/contracts/git";
 
 import { FolderTree } from "@honeyicons/react";
 

@@ -14,19 +14,19 @@
  *   `AGENT_BROWSER_CDP`, so the daemon drives that thread's pane webviews and
  *   nothing else. The URL is a capability and never goes in argv, where any
  *   local process can read it.
- * - **disabled** — the shell ran with `OPENADE_REMOTE_DEBUG=0`. There is no
+ * - **disabled** — the shell ran with `POSEIDON_REMOTE_DEBUG=0`. There is no
  *   bridge and no fallback: every call reports the in-app browser disabled.
  * - **owned-chromium** — no desktop at all (the web renderer, or
  *   `pnpm -F server dev`): agent-browser runs its own headless Chrome.
  *
  * Every daemon we start lives in our own agent-browser namespace,
- * `openade-<hash of OPENADE_HOME>` (`namespaceFor`), so `close --all` reaps
- * ours and never the user's own sessions, and two OpenAde homes never share a
+ * `poseidon-<hash of POSEIDON_HOME>` (`namespaceFor`), so `close --all` reaps
+ * ours and never the user's own sessions, and two Poseidon homes never share a
  * daemon. `reap` is that `close --all`; a session's `shutdown` is `close`, and
  * when the daemon does not answer even that, a SIGKILL of the pid it wrote to
  * its socket directory.
  *
- * Discovery order: `OPENADE_AGENT_BROWSER` → `agent-browser` on PATH. The probe
+ * Discovery order: `POSEIDON_AGENT_BROWSER` → `agent-browser` on PATH. The probe
  * runs `--version` once at layer build; a missing binary is not fatal — the
  * service reports `binary: null` and every exec fails with
  * `AgentBrowserUnavailable`, which the pane renders as an install prompt.
@@ -45,14 +45,14 @@ import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 
-import type { BrowserState } from "@OpenAde/contracts/rpc";
+import type { BrowserState } from "@poseidon/contracts/rpc";
 import {
   BRIDGE_DISABLED,
   BRIDGE_ENV,
   BRIDGE_KEY_ENV,
   bridgeThreadUrl,
-} from "@OpenAde/shared/browserBridge";
-import { configDir } from "@OpenAde/shared/paths";
+} from "@poseidon/shared/browserBridge";
+import { configDir } from "@poseidon/shared/paths";
 
 /**
  * The opening clause of what the pane reads when the binary is missing. The
@@ -74,7 +74,7 @@ export const agentBrowserMissingMessage = (mode: BrowserState["mode"]): string =
     : `${AGENT_BROWSER_MISSING_MESSAGE}. Install it with \`npm install -g agent-browser\`.`;
 
 /** What every browser tool answers while the shell has the bridge switched off. */
-export const BROWSER_DISABLED_MESSAGE = "the in-app browser is disabled (OPENADE_REMOTE_DEBUG=0)";
+export const BROWSER_DISABLED_MESSAGE = "the in-app browser is disabled (POSEIDON_REMOTE_DEBUG=0)";
 
 /** A short, stable hex digest: names that end up in a socket path. */
 const digest = (text: string, length: number): string =>
@@ -120,12 +120,12 @@ export const IDLE_TIMEOUT_MS = 300_000;
 export const TIMEOUT_CODE = "timeout";
 
 /**
- * Our agent-browser namespace for one OpenAde home. The daemon keeps its
+ * Our agent-browser namespace for one Poseidon home. The daemon keeps its
  * sockets, pids and per-session state under `~/.agent-browser/namespaces/<ns>`,
  * so everything we start stays out of the user's own default namespace, and
  * `close --all` in it closes ours alone.
  */
-export const namespaceFor = (home: string): string => `openade-${digest(home, 8)}`;
+export const namespaceFor = (home: string): string => `poseidon-${digest(home, 8)}`;
 
 /** Everything agent-browser keeps for one namespace. */
 const namespaceDir = (home: string, namespace: string): string =>
@@ -162,7 +162,7 @@ export const sessionEnvFor = (
  * exactly one reason, and `agent-browser` is the component that then visits
  * untrusted web pages: it is a third-party CLI with an auto-connect, a plugin
  * system and an auth vault of its own. So the operator's `ANTHROPIC_*` and
- * `OPENAI_*` keys, `AWS_*`, `GITHUB_TOKEN` and every `OPENADE_*` control-plane
+ * `OPENAI_*` keys, `AWS_*`, `GITHUB_TOKEN` and every `POSEIDON_*` control-plane
  * variable stay out.
  *
  * So do the operator's own `AGENT_BROWSER_*` and `CHROME_*`. They used to pass
@@ -267,7 +267,7 @@ export const readBridgeConfig = (
 /**
  * Reads the handoff and removes it from `env`, so nothing this process spawns
  * later — a terminal, a harness — inherits the launch key. The harness spawn
- * drops the `OPENADE_SERVER_` prefix as well; this is the belt to that brace.
+ * drops the `POSEIDON_SERVER_` prefix as well; this is the belt to that brace.
  */
 export const takeBridgeConfig = (env: Record<string, string | undefined>): BridgeConfig => {
   const config = readBridgeConfig(env);
@@ -519,7 +519,7 @@ export class AgentBrowser extends Context.Service<
       if (bridge === BRIDGE_DISABLED && announced !== BRIDGE_DISABLED) {
         yield* Effect.logWarning("browser: the shell's bridge handoff was unusable; disabled");
       }
-      const binaryOverride = process.env.OPENADE_AGENT_BROWSER?.trim();
+      const binaryOverride = process.env.POSEIDON_AGENT_BROWSER?.trim();
       const probe = yield* runChild(binaryOverride ?? "agent-browser", ["--version"], {
         env: browserEnv(process.env),
         timeoutMs: 10_000,
@@ -544,7 +544,7 @@ export const makeAgentBrowser = (options: {
   readonly bridge: BridgeConfig;
   /** The environment the allowlist filters; the server's own by default. */
   readonly env?: Readonly<Record<string, string | undefined>>;
-  /** Our namespace; by default the one for the environment's `OPENADE_HOME`. */
+  /** Our namespace; by default the one for the environment's `POSEIDON_HOME`. */
   readonly namespace?: string;
   readonly run?: ChildRunner;
   readonly kill?: DaemonKiller;

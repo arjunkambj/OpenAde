@@ -17,9 +17,9 @@
  * transaction has already deleted the read-model rows.
  */
 
-import { makeEventId } from "@OpenAde/contracts/ids";
-import type { ThreadId, TurnId } from "@OpenAde/contracts/ids";
-import type { CheckpointSummary, OrchestrationEvent } from "@OpenAde/contracts/orchestration";
+import { makeEventId } from "@poseidon/contracts/ids";
+import type { ThreadId, TurnId } from "@poseidon/contracts/ids";
+import type { CheckpointSummary, OrchestrationEvent } from "@poseidon/contracts/orchestration";
 import * as Context from "effect/Context";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";

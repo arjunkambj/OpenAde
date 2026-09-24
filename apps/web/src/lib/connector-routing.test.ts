@@ -1,5 +1,5 @@
-import type { ConnectorInstanceId } from "@OpenAde/contracts/ids";
-import type { ConnectorSummary } from "@OpenAde/contracts/connectors";
+import type { ConnectorInstanceId } from "@poseidon/contracts/ids";
+import type { ConnectorSummary } from "@poseidon/contracts/connectors";
 import { describe, expect, it } from "vitest";
 
 import { instanceCapabilities, threadConnectorInstanceId } from "./connector-routing";

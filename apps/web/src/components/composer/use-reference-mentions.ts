@@ -13,14 +13,14 @@
  */
 
 import { useAtomValue } from "@effect/atom-react";
-import type { ConnectorInstanceId, ProjectId } from "@OpenAde/contracts/ids";
-import type { TurnReference } from "@OpenAde/contracts/runtime";
+import type { ConnectorInstanceId, ProjectId } from "@poseidon/contracts/ids";
+import type { TurnReference } from "@poseidon/contracts/runtime";
 import {
   removeComposerToken,
   replaceComposerTrigger,
   retainComposerReferences,
   type ComposerTrigger,
-} from "@OpenAde/client-runtime/composerTrigger";
+} from "@poseidon/client-runtime/composerTrigger";
 import * as React from "react";
 
 import { menuSource } from "@/components/composer/menu-source";

@@ -2,7 +2,7 @@
  * The Browser settings page's words for the server's browser tool
  * (`browser.status`): agent-browser's install state and the mode it runs in.
  */
-import type { BrowserToolStatus } from "@OpenAde/contracts/rpc";
+import type { BrowserToolStatus } from "@poseidon/contracts/rpc";
 
 import { browserModeLabel } from "@/components/panes/browser/status";
 

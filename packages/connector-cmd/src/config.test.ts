@@ -1,6 +1,6 @@
 /**
- * The project-local config OpenAde owns: the PreToolUse hook block in
- * `.commandcode/settings.local.json` and the `openade` entry in `.mcp.json`.
+ * The project-local config Poseidon owns: the PreToolUse hook block in
+ * `.commandcode/settings.local.json` and the `poseidon` entry in `.mcp.json`.
  * Both merge into files the user may already have, so the tests run against
  * real files in a temp project root — merge, idempotency and removal are the
  * whole contract.
@@ -17,7 +17,7 @@ import type * as Scope from "effect/Scope";
 import {
   HOOK_EXCLUDE_PATTERN,
   installProjectHooks,
-  OPENADE_MCP_NAME,
+  POSEIDON_MCP_NAME,
   removeMcpEntry,
   uninstallProjectHooks,
   upsertMcpEntry,
@@ -50,7 +50,7 @@ describe("installProjectHooks", () => {
   it.effect("writes the PreToolUse block into a fresh settings.local.json", () =>
     Effect.gen(function* () {
       const root = yield* tempDir();
-      const { path, created } = yield* install(root, "/home/u/.openade/bin/cmd-hook.mjs");
+      const { path, created } = yield* install(root, "/home/u/.poseidon/bin/cmd-hook.mjs");
       expect(created).toBe(true);
 
       const settings = readJson(path);
@@ -61,7 +61,7 @@ describe("installProjectHooks", () => {
       const commands = preToolUse[0]?.hooks as Array<Record<string, unknown>>;
       expect(commands[0]).toEqual({
         type: "command",
-        command: "/home/u/.openade/bin/cmd-hook.mjs",
+        command: "/home/u/.poseidon/bin/cmd-hook.mjs",
         timeout: 590,
       });
 
@@ -382,7 +382,7 @@ describe("mcp entry", () => {
     };
   };
 
-  it.effect("asks the CLI to register the openade server in the local scope", () =>
+  it.effect("asks the CLI to register the poseidon server in the local scope", () =>
     Effect.gen(function* () {
       const root = yield* tempDir();
       const stub = stubCmd(root);
@@ -396,7 +396,7 @@ describe("mcp entry", () => {
 
       const [argv] = stub.calls();
       expect(argv?.slice(0, 2)).toEqual(["mcp", "add-json"]);
-      expect(argv?.[2]).toBe(OPENADE_MCP_NAME);
+      expect(argv?.[2]).toBe(POSEIDON_MCP_NAME);
       // The local scope, not a `.mcp.json` inside the user's repo.
       expect(argv).toContain("--scope");
       expect(argv?.[argv.indexOf("--scope") + 1]).toBe("local");
@@ -411,7 +411,7 @@ describe("mcp entry", () => {
         transport: "http",
         enabled: true,
         url: "http://127.0.0.1:4321/mcp",
-        headers: { Authorization: "Bearer ${OPENADE_MCP_TOKEN}" },
+        headers: { Authorization: "Bearer ${POSEIDON_MCP_TOKEN}" },
       });
     }),
   );
@@ -431,7 +431,7 @@ describe("mcp entry", () => {
       // The name is the ownership marker: a server the user added under any
       // other name is not ours to remove.
       const [argv] = stub.calls();
-      expect(argv?.slice(0, 3)).toEqual(["mcp", "remove", OPENADE_MCP_NAME]);
+      expect(argv?.slice(0, 3)).toEqual(["mcp", "remove", POSEIDON_MCP_NAME]);
       expect(argv?.[argv.indexOf("--scope") + 1]).toBe("local");
     }),
   );
@@ -441,7 +441,7 @@ describe("mcp entry", () => {
    * every thread of a project shares that workspace. Without a hold, the first
    * thread to close ran `cmd mcp remove` under a second thread that was still
    * running turns — and from its next turn on the model was offered none of
-   * OpenAde's browser tools, with no warning, because the removal succeeded.
+   * Poseidon's browser tools, with no warning, because the removal succeeded.
    */
   it.effect("keeps the entry while a second session in the same project holds it", () =>
     Effect.gen(function* () {
@@ -646,7 +646,7 @@ describe("ensureHookScript", () => {
   it.effect("writes the script once, executable, and rewrites only on drift", () =>
     Effect.gen(function* () {
       const home = yield* tempDir();
-      const env = { OPENADE_HOME: home };
+      const env = { POSEIDON_HOME: home };
 
       const path = yield* ensureHookScript(env);
       expect(path).toBe(hookScriptPath(env));

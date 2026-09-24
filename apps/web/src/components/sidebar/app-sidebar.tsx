@@ -1,4 +1,9 @@
-import { Sidebar, SidebarContent, SidebarHeader, useSidebar } from "@OpenAde/ui/components/sidebar";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarHeader,
+  useSidebar,
+} from "@poseidon/ui/components/sidebar";
 
 import { SidebarWindowChrome } from "@/components/Layout/window-chrome";
 import { ProjectTree } from "@/components/sidebar/project-tree";

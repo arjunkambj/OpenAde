@@ -11,7 +11,7 @@
 
 import * as React from "react";
 
-import { Button } from "@OpenAde/ui/components/button";
+import { Button } from "@poseidon/ui/components/button";
 import {
   Dialog,
   DialogContent,
@@ -19,8 +19,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@OpenAde/ui/components/dialog";
-import type { PermissionRule } from "@OpenAde/contracts/settings";
+} from "@poseidon/ui/components/dialog";
+import type { PermissionRule } from "@poseidon/contracts/settings";
 
 import { PatternEditor } from "@/components/approvals/pattern-editor";
 

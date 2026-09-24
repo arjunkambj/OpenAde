@@ -12,18 +12,18 @@ const here = dirname(fileURLToPath(import.meta.url));
 /** Where `out/main/index.cjs` sits at runtime, relative to this source file. */
 const MAIN_DIR = join(here, "..", "..", "out", "main");
 
-const scratch = mkdtempSync(join(tmpdir(), "openade-serverargs-"));
+const scratch = mkdtempSync(join(tmpdir(), "poseidon-serverargs-"));
 
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
 
 describe("packagedServerEntry", () => {
   it("points at the asar-unpacked server bundle", () => {
     const entry = packagedServerEntry(
-      "/Apps/OpenAde.app/Contents/MacOS/OpenAde",
-      "/Apps/OpenAde.app/Contents/Resources/app.asar/out/main",
+      "/Apps/Poseidon.app/Contents/MacOS/Poseidon",
+      "/Apps/Poseidon.app/Contents/Resources/app.asar/out/main",
     );
     expect(entry.args).toEqual([
-      "/Apps/OpenAde.app/Contents/Resources/app.asar.unpacked/out/server/main.cjs",
+      "/Apps/Poseidon.app/Contents/Resources/app.asar.unpacked/out/server/main.cjs",
     ]);
   });
 });

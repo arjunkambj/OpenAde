@@ -16,7 +16,7 @@
         "description": "Build the workspace"
       },
       "patternSuggestion": "Shell(pnpm build)",
-      "description": "Run `pnpm build` in /Users/dev/projects/openade"
+      "description": "Run `pnpm build` in /Users/dev/projects/poseidon"
     }
   },
   "raw": {

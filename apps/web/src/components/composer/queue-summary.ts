@@ -8,7 +8,7 @@
  * existed has none, and neither does one sent without any.
  */
 
-import type { QueuedMessage } from "@OpenAde/contracts/orchestration";
+import type { QueuedMessage } from "@poseidon/contracts/orchestration";
 
 export const queueSummary = (message: QueuedMessage): string | null => {
   const references = message.references ?? [];

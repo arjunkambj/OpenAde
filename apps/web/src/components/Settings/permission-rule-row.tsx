@@ -4,10 +4,10 @@
  * dialogs those buttons open belong to the page, not the row.
  */
 
-import { Badge } from "@OpenAde/ui/components/badge";
-import { Button } from "@OpenAde/ui/components/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import type { PermissionRule } from "@OpenAde/contracts/settings";
+import { Badge } from "@poseidon/ui/components/badge";
+import { Button } from "@poseidon/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
+import type { PermissionRule } from "@poseidon/contracts/settings";
 
 import { Edit, Trash } from "@honeyicons/react";
 

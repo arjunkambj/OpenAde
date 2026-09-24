@@ -12,12 +12,12 @@
  */
 
 import { useAtomSet } from "@effect/atom-react";
-import { Button } from "@OpenAde/ui/components/button";
-import { Kbd } from "@OpenAde/ui/components/kbd";
-import { Textarea } from "@OpenAde/ui/components/textarea";
-import type { ThreadId, TurnId } from "@OpenAde/contracts/ids";
-import { makeCommandId } from "@OpenAde/contracts/ids";
-import type { PlanResponseAction } from "@OpenAde/contracts/orchestration";
+import { Button } from "@poseidon/ui/components/button";
+import { Kbd } from "@poseidon/ui/components/kbd";
+import { Textarea } from "@poseidon/ui/components/textarea";
+import type { ThreadId, TurnId } from "@poseidon/contracts/ids";
+import { makeCommandId } from "@poseidon/contracts/ids";
+import type { PlanResponseAction } from "@poseidon/contracts/orchestration";
 import * as React from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";

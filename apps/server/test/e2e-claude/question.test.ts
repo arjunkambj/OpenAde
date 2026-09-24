@@ -2,7 +2,7 @@
  * The model asking the user a question on Claude Code, through the whole
  * server.
  *
- * AskUserQuestion reaches the connector's `canUseTool`, which opens OpenAde's
+ * AskUserQuestion reaches the connector's `canUseTool`, which opens Poseidon's
  * question card and holds the call until the user answers. The answer goes
  * back as the call's result, so the model carries on with it: here it writes
  * the chosen colour to colour.txt, whose edit card is answered for it.

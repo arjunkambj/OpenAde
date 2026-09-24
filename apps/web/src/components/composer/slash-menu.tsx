@@ -12,9 +12,9 @@
  * draft while keeping the context the user meant to drop.
  */
 
-import type { Effort, InteractionMode, RuntimeMode } from "@OpenAde/contracts/enums";
-import type { ModelOption, SkillSummary } from "@OpenAde/contracts/connectors";
-import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
+import type { Effort, InteractionMode, RuntimeMode } from "@poseidon/contracts/enums";
+import type { ModelOption, SkillSummary } from "@poseidon/contracts/connectors";
+import type { ConnectorCapabilities } from "@poseidon/contracts/runtime";
 
 import {
   TriggerMenu,

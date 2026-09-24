@@ -25,8 +25,8 @@ const modeOf = (path: string): number => statSync(path).mode & 0o777;
 /** A database in a throwaway home, opened exactly as the app opens its own. */
 const open = (setUp: (directory: string) => void = () => {}) =>
   Effect.gen(function* () {
-    const home = mkdtempSync(NodePath.join(NodeOS.tmpdir(), "openade-sqlite-"));
-    const directory = NodePath.join(home, ".openade");
+    const home = mkdtempSync(NodePath.join(NodeOS.tmpdir(), "poseidon-sqlite-"));
+    const directory = NodePath.join(home, ".poseidon");
     yield* Effect.sync(() => setUp(directory));
     const filename = NodePath.join(directory, "state.sqlite");
     const built = yield* Layer.build(layer({ filename }));

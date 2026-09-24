@@ -20,8 +20,8 @@
 
 import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
-import type { ThreadDetailView } from "@OpenAde/client-runtime/clientState";
-import type { ApprovalDecision } from "@OpenAde/contracts/enums";
+import type { ThreadDetailView } from "@poseidon/client-runtime/clientState";
+import type { ApprovalDecision } from "@poseidon/contracts/enums";
 import { expect } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
@@ -42,7 +42,7 @@ const CREATE = "Create a file named hello.txt containing exactly the text: hi";
 const TOUCH = "Run the shell command `touch denied.txt` with the Bash tool.";
 const CAT_ENV = "Run the shell command `cat .env` with the Bash tool and tell me what it prints.";
 /** Not a secret: the scratch repo's `.env`, there to be refused. */
-const ENV_LINE = "OPENADE_SCENARIO_KEY=not-a-real-key";
+const ENV_LINE = "POSEIDON_SCENARIO_KEY=not-a-real-key";
 
 type PendingApproval = NonNullable<ThreadDetailView["pendingApproval"]>;
 

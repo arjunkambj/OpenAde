@@ -21,10 +21,10 @@
  * projection of it, not a second place rules can live.
  */
 
-import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
-import type { InteractionMode, RuntimeMode } from "@OpenAde/contracts/enums";
-import type { ApprovalRequest } from "@OpenAde/contracts/runtime";
-import type { PermissionRule, PermissionScope } from "@OpenAde/contracts/settings";
+import type { ProjectId, ThreadId } from "@poseidon/contracts/ids";
+import type { InteractionMode, RuntimeMode } from "@poseidon/contracts/enums";
+import type { ApprovalRequest } from "@poseidon/contracts/runtime";
+import type { PermissionRule, PermissionScope } from "@poseidon/contracts/settings";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -57,7 +57,7 @@ const localPathOf = (url: string): string | null => {
  *
  * The last clause is what makes the contract's own words about `full-access`
  * true: "allows everything except sensitive paths and deny rules". Every
- * OpenAde MCP tool is classified `mcp_tool`, so the check used to skip them
+ * Poseidon MCP tool is classified `mcp_tool`, so the check used to skip them
  * entirely and the ladder fell through to `allow` — `browser_open` with a
  * `file:` URL followed by `browser_get text body` read `~/.ssh/id_ed25519`
  * with no card ever shown, where `read_file` on the same path prompts.

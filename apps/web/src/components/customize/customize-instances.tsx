@@ -6,7 +6,7 @@
  */
 
 import { useAtomValue } from "@effect/atom-react";
-import type { ConnectorSummary } from "@OpenAde/contracts/connectors";
+import type { ConnectorSummary } from "@poseidon/contracts/connectors";
 import type * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 

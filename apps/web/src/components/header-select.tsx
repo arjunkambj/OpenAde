@@ -15,10 +15,10 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@OpenAde/ui/components/select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import type { CapabilitySwitch } from "@OpenAde/contracts/runtime";
-import { cn } from "@OpenAde/ui/lib/utils";
+} from "@poseidon/ui/components/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
+import type { CapabilitySwitch } from "@poseidon/contracts/runtime";
+import { cn } from "@poseidon/ui/lib/utils";
 import type { HoneyIcon } from "@honeyicons/react";
 
 export interface HeaderOption {

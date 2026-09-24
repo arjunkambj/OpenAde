@@ -14,14 +14,14 @@
  */
 
 import { useAtomSet } from "@effect/atom-react";
-import { Button } from "@OpenAde/ui/components/button";
-import { Checkbox } from "@OpenAde/ui/components/checkbox";
-import { Input } from "@OpenAde/ui/components/input";
-import { cn } from "@OpenAde/ui/lib/utils";
-import type { RequestId, ThreadId } from "@OpenAde/contracts/ids";
-import { QUESTION_OPTION_COMMANDS } from "@OpenAde/contracts/keybindings";
-import { makeCommandId } from "@OpenAde/contracts/ids";
-import type { UserQuestion } from "@OpenAde/contracts/runtime";
+import { Button } from "@poseidon/ui/components/button";
+import { Checkbox } from "@poseidon/ui/components/checkbox";
+import { Input } from "@poseidon/ui/components/input";
+import { cn } from "@poseidon/ui/lib/utils";
+import type { RequestId, ThreadId } from "@poseidon/contracts/ids";
+import { QUESTION_OPTION_COMMANDS } from "@poseidon/contracts/keybindings";
+import { makeCommandId } from "@poseidon/contracts/ids";
+import type { UserQuestion } from "@poseidon/contracts/runtime";
 import * as React from "react";
 
 import {

@@ -15,12 +15,12 @@
  */
 
 import { useAtomSet } from "@effect/atom-react";
-import { Button } from "@OpenAde/ui/components/button";
-import type { ApprovalDecision } from "@OpenAde/contracts/enums";
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import { makeCommandId } from "@OpenAde/contracts/ids";
-import type { ApprovalRequest } from "@OpenAde/contracts/runtime";
-import { parsePattern } from "@OpenAde/shared/permissionPattern";
+import { Button } from "@poseidon/ui/components/button";
+import type { ApprovalDecision } from "@poseidon/contracts/enums";
+import type { ThreadId } from "@poseidon/contracts/ids";
+import { makeCommandId } from "@poseidon/contracts/ids";
+import type { ApprovalRequest } from "@poseidon/contracts/runtime";
+import { parsePattern } from "@poseidon/shared/permissionPattern";
 import * as React from "react";
 
 import { CardShell } from "@/components/approvals/card-shell";

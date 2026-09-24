@@ -7,10 +7,10 @@
 import * as React from "react";
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
-import { Badge } from "@OpenAde/ui/components/badge";
-import { Button } from "@OpenAde/ui/components/button";
-import { Checkbox } from "@OpenAde/ui/components/checkbox";
-import { Label } from "@OpenAde/ui/components/label";
+import { Badge } from "@poseidon/ui/components/badge";
+import { Button } from "@poseidon/ui/components/button";
+import { Checkbox } from "@poseidon/ui/components/checkbox";
+import { Label } from "@poseidon/ui/components/label";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { toast } from "sonner";
 
@@ -80,13 +80,13 @@ function HowItAttaches() {
           <p>
             In the desktop app the agent drives this thread’s own tabs in the browser pane — the
             same pages you see, with your logins in that thread. It connects through a private local
-            endpoint that reaches only that thread’s tabs, never the OpenAde window, other threads
+            endpoint that reaches only that thread’s tabs, never the Poseidon window, other threads
             or the rest of your computer’s browsers. Chrome’s remote-debugging port stays closed.
           </p>
           <p>
             Each thread keeps its own cookies and storage. Anything you do in a tab interrupts the
             agent’s current step, and it is told so. Starting the app with{" "}
-            <code className="font-mono">OPENADE_REMOTE_DEBUG=0</code> turns the agent’s browser off
+            <code className="font-mono">POSEIDON_REMOTE_DEBUG=0</code> turns the agent’s browser off
             entirely.
           </p>
         </div>
@@ -123,7 +123,7 @@ function ToolStatus() {
                 </div>
               ))}
               <p className="text-xs text-muted-foreground">
-                Restart OpenAde after installing so the server finds it.
+                Restart Poseidon after installing so the server finds it.
               </p>
             </div>
           )}
@@ -136,7 +136,7 @@ function ToolStatus() {
 function ClearData() {
   const [open, setOpen] = React.useState(false);
   const clearHistory = useClearBrowserHistory();
-  const clearAll = window.openade?.browserPane?.clearAll;
+  const clearAll = window.poseidon?.browserPane?.clearAll;
 
   const clear = async () => {
     clearHistory();

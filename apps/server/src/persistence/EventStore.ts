@@ -11,9 +11,9 @@
  * makes "events, projections and the receipt commit in one transaction" true.
  */
 
-import type { CommandId } from "@OpenAde/contracts/ids";
-import type { CommandReceipt, StreamKind } from "@OpenAde/contracts/orchestration";
-import { OrchestrationEvent } from "@OpenAde/contracts/orchestration";
+import type { CommandId } from "@poseidon/contracts/ids";
+import type { CommandReceipt, StreamKind } from "@poseidon/contracts/orchestration";
+import { OrchestrationEvent } from "@poseidon/contracts/orchestration";
 import * as Context from "effect/Context";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";

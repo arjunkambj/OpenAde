@@ -14,7 +14,7 @@
  * ready.
  */
 
-import type { ConnectorProbe, ConnectorSummary } from "@OpenAde/contracts/connectors";
+import type { ConnectorProbe, ConnectorSummary } from "@poseidon/contracts/connectors";
 
 export type ConnectorHealthState = "ready" | "probing" | "not-installed" | "signed-out" | "error";
 

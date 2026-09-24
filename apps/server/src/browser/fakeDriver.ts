@@ -12,7 +12,7 @@ import { writeFileSync } from "node:fs";
 
 import * as Effect from "effect/Effect";
 
-import type { BrowserHumanInput } from "@OpenAde/contracts/rpc";
+import type { BrowserHumanInput } from "@poseidon/contracts/rpc";
 
 import { AgentBrowserError } from "./agentBrowser";
 import type { BrowserDriver, DriverMode } from "./driver";

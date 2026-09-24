@@ -16,25 +16,25 @@
  * (`../../preload/bridge.ts`) serves the other end.
  */
 
-export const TAB_REQUEST_CHANNEL = "openade:browser-tab-request";
-export const TAB_ANSWER_CHANNEL = "openade:browser-tab-answer";
+export const TAB_REQUEST_CHANNEL = "poseidon:browser-tab-request";
+export const TAB_ANSWER_CHANNEL = "poseidon:browser-tab-answer";
 /**
  * The window asks main to wipe a deleted thread's partition (`./clearThread`).
  * Declared here, beside the other pane channels, because the sandboxed
  * preload imports this module and `./clearThread` pulls in `node:crypto`.
  */
-export const CLEAR_THREAD_CHANNEL = "openade:browser-clear-thread";
+export const CLEAR_THREAD_CHANNEL = "poseidon:browser-clear-thread";
 /**
  * The window asks main for a PNG of a pane tab, by its guest's `webContents`
  * id — the pane's "screenshot to chat". Only a pane guest is captured.
  */
-export const CAPTURE_CHANNEL = "openade:browser-capture";
+export const CAPTURE_CHANNEL = "poseidon:browser-capture";
 /** The window asks main to clear every thread's partition (Browser settings). */
-export const CLEAR_ALL_CHANNEL = "openade:browser-clear-all";
+export const CLEAR_ALL_CHANNEL = "poseidon:browser-clear-all";
 
 /** What a window with no tab host answers; the preload sends it on the renderer's behalf. */
-export const NO_TAB_HOST = "the OpenAde window cannot open browser tabs";
-export const WINDOW_NOT_OPEN = "the OpenAde window is not open";
+export const NO_TAB_HOST = "the Poseidon window cannot open browser tabs";
+export const WINDOW_NOT_OPEN = "the Poseidon window is not open";
 
 export type TabRequest =
   | {
@@ -139,7 +139,7 @@ export const makeTabsChannel = (options: TabsChannelOptions): TabsChannel => {
         ...(opener !== undefined && { opener }),
       });
       if (answer.wcId === undefined) {
-        throw new Error("the OpenAde window opened a tab but did not say which");
+        throw new Error("the Poseidon window opened a tab but did not say which");
       }
       return answer.wcId;
     },

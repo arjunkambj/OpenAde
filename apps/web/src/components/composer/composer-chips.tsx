@@ -14,10 +14,10 @@
 
 import * as React from "react";
 
-import type { TurnReference } from "@OpenAde/contracts/runtime";
-import { Button } from "@OpenAde/ui/components/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import { cn } from "@OpenAde/ui/lib/utils";
+import type { TurnReference } from "@poseidon/contracts/runtime";
+import { Button } from "@poseidon/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
+import { cn } from "@poseidon/ui/lib/utils";
 
 import { Close, File as FileIcon, Puzzle, Sparkles, type HoneyIcon } from "@honeyicons/react";
 

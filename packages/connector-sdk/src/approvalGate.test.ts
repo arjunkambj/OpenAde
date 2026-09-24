@@ -1,5 +1,5 @@
-import { makeRequestId, makeThreadId } from "@OpenAde/contracts/ids";
-import type { ApprovalRequest } from "@OpenAde/contracts/runtime";
+import { makeRequestId, makeThreadId } from "@poseidon/contracts/ids";
+import type { ApprovalRequest } from "@poseidon/contracts/runtime";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";

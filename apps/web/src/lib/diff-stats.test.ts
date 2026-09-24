@@ -1,4 +1,4 @@
-import fixture from "@OpenAde/contracts/fixtures/thread-detail-snapshot.json";
+import fixture from "@poseidon/contracts/fixtures/thread-detail-snapshot.json";
 import { describe, expect, it } from "vitest";
 
 import { diffStats, hasHunkHeader } from "./diff-stats";

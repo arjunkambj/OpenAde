@@ -6,7 +6,7 @@
  * item through the same row dispatcher.
  */
 
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
+import type { ItemSnapshot } from "@poseidon/contracts/runtime";
 
 import type { TimelineWorkGroupRow } from "@/components/timeline/fold";
 import { DisclosureRow, FailedCount } from "@/components/timeline/row-shell";

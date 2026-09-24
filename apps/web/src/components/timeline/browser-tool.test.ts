@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { browserToolLabel } from "./browser-tool";
 
 const label = (tool: string, input: unknown = {}) =>
-  browserToolLabel(`mcp__openade__browser_${tool}`, input);
+  browserToolLabel(`mcp__poseidon__browser_${tool}`, input);
 
 describe("browserToolLabel", () => {
   it("says what the agent did to the page", () => {
@@ -46,7 +46,7 @@ describe("browserToolLabel", () => {
 
   it("leaves other tools alone", () => {
     expect(browserToolLabel("mcp__github__create_issue", {})).toBe(null);
-    expect(browserToolLabel("mcp__openade__browser_teleport", {})).toBe(null);
+    expect(browserToolLabel("mcp__poseidon__browser_teleport", {})).toBe(null);
     expect(browserToolLabel("read_file", {})).toBe(null);
   });
 });

@@ -65,18 +65,18 @@ describe("connectorLeaks", () => {
   it("fails a server file that imports a concrete connector", () => {
     const leaks = connectorLeaks(
       "apps/server/src/rpc/handlers.ts",
-      `// the handlers\n${importing("@OpenAde/connector-cmd/definition")}`,
+      `// the handlers\n${importing("@poseidon/connector-cmd/definition")}`,
     );
     expect(lines(leaks)).toEqual([2]);
-    expect(leaks[0].message).toContain("@OpenAde/connector-cmd");
+    expect(leaks[0].message).toContain("@poseidon/connector-cmd");
   });
 
   it("catches dynamic imports and any connector package but the sdk", () => {
     expect(
-      connectorLeaks("apps/web/src/lib/a.ts", "await import(`@OpenAde/connector-next/x`);\n"),
+      connectorLeaks("apps/web/src/lib/a.ts", "await import(`@poseidon/connector-next/x`);\n"),
     ).toHaveLength(1);
     expect(
-      connectorLeaks("packages/client-runtime/src/a.ts", importing("@OpenAde/connector-sdk/ids")),
+      connectorLeaks("packages/client-runtime/src/a.ts", importing("@poseidon/connector-sdk/ids")),
     ).toEqual([]);
   });
 
@@ -84,13 +84,13 @@ describe("connectorLeaks", () => {
     expect(
       connectorLeaks(
         "apps/server/src/boot.ts",
-        `${importing("@OpenAde/connector-cmd/definition")}const kind = "cmd";\n`,
+        `${importing("@poseidon/connector-cmd/definition")}const kind = "cmd";\n`,
       ),
     ).toEqual([]);
   });
 
   it("passes server tests and the end-to-end harness", () => {
-    const source = `${importing("@OpenAde/connector-cmd/definition")}const kind = "cmd";\n`;
+    const source = `${importing("@poseidon/connector-cmd/definition")}const kind = "cmd";\n`;
     expect(connectorLeaks("apps/server/src/hooks/cmdConformance.test.ts", source)).toEqual([]);
     expect(connectorLeaks("apps/server/test/e2e/harness.ts", source)).toEqual([]);
   });

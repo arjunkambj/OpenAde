@@ -34,8 +34,8 @@
  * so it refetches nothing.
  */
 
-import type { ThreadWorktree, WorktreeSetupFrame } from "@OpenAde/contracts/git";
-import type { ProjectId } from "@OpenAde/contracts/ids";
+import type { ThreadWorktree, WorktreeSetupFrame } from "@poseidon/contracts/git";
+import type { ProjectId } from "@poseidon/contracts/ids";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
 import type * as Atom from "effect/unstable/reactivity/Atom";

@@ -3,8 +3,8 @@
  * form `connectors.describe` serves — and what an instance of it offers.
  */
 
-import { eraseConnectorDefinition } from "@OpenAde/connector-sdk/definition";
-import { makeConnectorInstanceId } from "@OpenAde/contracts/ids";
+import { eraseConnectorDefinition } from "@poseidon/connector-sdk/definition";
+import { makeConnectorInstanceId } from "@poseidon/contracts/ids";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";

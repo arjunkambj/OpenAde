@@ -10,8 +10,8 @@
     "interactionMode": "default"
   },
   "worktree": {
-    "path": "/Users/dev/.openade/worktrees/openade/health-check",
-    "branch": "openade/health-check",
+    "path": "/Users/dev/.poseidon/worktrees/poseidon/health-check",
+    "branch": "poseidon/health-check",
     "baseBranch": "main"
   },
   "snapshotSequence": 24,
@@ -21,7 +21,7 @@
     {
       "checkpointId": "0199c0de-0009-7000-8000-000000000001",
       "turnId": "0199c0de-0004-7000-8000-000000000001",
-      "ref": "refs/openade/checkpoints/0199c0de-0002-7000-8000-000000000001/0199c0de-0004-7000-8000-000000000001",
+      "ref": "refs/poseidon/checkpoints/0199c0de-0002-7000-8000-000000000001/0199c0de-0004-7000-8000-000000000001",
       "createdAt": "2026-09-15T12:00:00.000Z"
     }
   ],
@@ -30,7 +30,7 @@
     "connectorKind": "cmd",
     "sessionRef": {
       "sessionId": "5bc08bab-1c4e-4c2f-9f2a-7a6f0b9c1d22",
-      "cwd": "/Users/dev/.openade/worktrees/openade/health-check"
+      "cwd": "/Users/dev/.poseidon/worktrees/poseidon/health-check"
     }
   },
   "currentTurnId": null,

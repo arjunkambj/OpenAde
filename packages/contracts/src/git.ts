@@ -5,7 +5,7 @@
  * Kept apart from `rpc.ts` so the branch, commit and worktree surface can grow
  * without pushing the RPC group past its size limit: the RPCs are defined
  * here, their method names are spread into `RPC_METHODS`, and `rpc.ts` lists
- * them in `OpenAdeRpcGroup`. `orchestration` imports `ThreadWorktree` from
+ * them in `PoseidonRpcGroup`. `orchestration` imports `ThreadWorktree` from
  * here because a thread records its worktree when it is created.
  */
 
@@ -14,7 +14,7 @@ import * as Rpc from "effect/unstable/rpc/Rpc";
 
 import { NonEmptyString } from "./base";
 import { ProjectId, ThreadId } from "./ids";
-import { OpenAdeRpcError } from "./rpcError";
+import { PoseidonRpcError } from "./rpcError";
 
 /**
  * The git worktree a thread works in instead of its project's folder.
@@ -154,7 +154,7 @@ export const GIT_RPC_METHODS = {
 export const GitBranchesRpc = Rpc.make(GIT_RPC_METHODS.gitBranches, {
   payload: Schema.Struct({ projectId: ProjectId, threadId: Schema.optional(ThreadId) }),
   success: GitBranchList,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /**
@@ -171,7 +171,7 @@ export const GitBranchCreateRpc = Rpc.make(GIT_RPC_METHODS.gitBranchCreate, {
     checkout: Schema.Boolean,
   }),
   success: GitBranchList,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /**
@@ -186,7 +186,7 @@ export const GitBranchCheckoutRpc = Rpc.make(GIT_RPC_METHODS.gitCheckout, {
     branch: NonEmptyString,
   }),
   success: GitBranchList,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /**
@@ -204,7 +204,7 @@ export const GitCommitRpc = Rpc.make(GIT_RPC_METHODS.gitCommit, {
     paths: Schema.optional(Schema.Array(NonEmptyString)),
   }),
   success: GitCommitResult,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /**
@@ -215,7 +215,7 @@ export const GitCommitRpc = Rpc.make(GIT_RPC_METHODS.gitCommit, {
 export const GitPushRpc = Rpc.make(GIT_RPC_METHODS.gitPush, {
   payload: Schema.Struct({ projectId: ProjectId, threadId: Schema.optional(ThreadId) }),
   success: GitPushResult,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /**
@@ -232,13 +232,13 @@ export const GitPullRequestCreateRpc = Rpc.make(GIT_RPC_METHODS.gitPullRequestCr
     base: Schema.optional(NonEmptyString),
   }),
   success: GitPullRequestResult,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /**
  * Creates a worktree for a new thread: branch `<branchPrefix><slug of name>`
  * cut `--no-track` from `baseBranch` (default: the default branch), in
- * `<OpenAde home>/worktrees/<project>/<slug>`, with `-2`, `-3`… appended when
+ * `<Poseidon home>/worktrees/<project>/<slug>`, with `-2`, `-3`… appended when
  * the branch or the directory is taken. `name` is free text — the thread's
  * first message will do. Answers what `thread.create` records as its
  * `worktree`.
@@ -250,14 +250,14 @@ export const GitWorktreeCreateRpc = Rpc.make(GIT_RPC_METHODS.gitWorktreeCreate, 
     baseBranch: Schema.optional(NonEmptyString),
   }),
   success: ThreadWorktree,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /** Every worktree of the project's repository, its own checkout first. */
 export const GitWorktreeListRpc = Rpc.make(GIT_RPC_METHODS.gitWorktreeList, {
   payload: Schema.Struct({ projectId: ProjectId }),
   success: Schema.Array(GitWorktreeInfo),
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /**
@@ -275,7 +275,7 @@ export const GitWorktreeRemoveRpc = Rpc.make(GIT_RPC_METHODS.gitWorktreeRemove, 
     force: Schema.optional(Schema.Boolean),
   }),
   success: Schema.Struct({}),
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
 });
 
 /**
@@ -286,6 +286,6 @@ export const GitWorktreeRemoveRpc = Rpc.make(GIT_RPC_METHODS.gitWorktreeRemove, 
 export const GitWorktreeSetupRpc = Rpc.make(GIT_RPC_METHODS.gitWorktreeSetup, {
   payload: Schema.Struct({ projectId: ProjectId, path: NonEmptyString }),
   success: WorktreeSetupFrame,
-  error: OpenAdeRpcError,
+  error: PoseidonRpcError,
   stream: true,
 });

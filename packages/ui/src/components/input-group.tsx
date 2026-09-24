@@ -1,10 +1,10 @@
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
-import { cn } from "@OpenAde/ui/lib/utils";
+import { cn } from "@poseidon/ui/lib/utils";
 
-import { Button } from "@OpenAde/ui/components/button";
-import { Input } from "@OpenAde/ui/components/input";
-import { Textarea } from "@OpenAde/ui/components/textarea";
+import { Button } from "@poseidon/ui/components/button";
+import { Input } from "@poseidon/ui/components/input";
+import { Textarea } from "@poseidon/ui/components/textarea";
 
 function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (

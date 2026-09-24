@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { recordingNames } from "@OpenAde/testkit/recording";
+import { recordingNames } from "@poseidon/testkit/recording";
 
 import { FakeGuestPort, openSession, replayScenario, replyTo } from "./test/replay";
 

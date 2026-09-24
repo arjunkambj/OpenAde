@@ -1,13 +1,13 @@
 /**
  * How the desktop main process (or a dev shell) learns where the server is.
  * fd 3 is the Electron spawn pipe; without it the same JSON goes to stdout as
- * one line. In dev the file `~/.openade/dev/connection.json` is the Vite
- * plugin's answer to `GET /__openade/connection`.
+ * one line. In dev the file `~/.poseidon/dev/connection.json` is the Vite
+ * plugin's answer to `GET /__poseidon/connection`.
  */
 
 import { chmodSync, mkdirSync, writeFileSync, writeSync } from "node:fs";
 import { dirname } from "node:path";
-import { devConnectionPath } from "@OpenAde/shared/paths";
+import { devConnectionPath } from "@poseidon/shared/paths";
 import * as Effect from "effect/Effect";
 
 export interface ServerHandshake {
@@ -24,8 +24,8 @@ export interface ServerHandshake {
  * an earlier build left world-readable is tightened on the next boot.
  *
  * The default path is resolved per call, not once at import: `boot` may set
- * `OPENADE_HOME` after this module loads, and a handshake written to the real
- * `~/.openade` would point a dev client at the wrong server.
+ * `POSEIDON_HOME` after this module loads, and a handshake written to the real
+ * `~/.poseidon` would point a dev client at the wrong server.
  *
  * `path` is a parameter so a test can point it somewhere disposable.
  */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { parseShortcut } from "@OpenAde/client-runtime/keybindings";
-import { DEFAULT_KEYBINDINGS, RESERVED_KEYBINDINGS } from "@OpenAde/contracts/keybindings";
+import { parseShortcut } from "@poseidon/client-runtime/keybindings";
+import { DEFAULT_KEYBINDINGS, RESERVED_KEYBINDINGS } from "@poseidon/contracts/keybindings";
 
 import { COMMAND_AREAS, COMMAND_CATALOG, FIXED_KEYS } from "./command-catalog";
 

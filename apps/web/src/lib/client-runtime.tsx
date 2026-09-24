@@ -13,8 +13,8 @@
  */
 
 import { RegistryProvider } from "@effect/atom-react";
-import type { ConnectionLayer } from "@OpenAde/client-runtime/atoms";
-import { makeRuntime } from "@OpenAde/client-runtime/atoms";
+import type { ConnectionLayer } from "@poseidon/client-runtime/atoms";
+import { makeRuntime } from "@poseidon/client-runtime/atoms";
 import * as React from "react";
 
 import { getAppAtoms } from "@/state/app-runtime";

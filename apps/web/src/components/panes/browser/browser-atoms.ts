@@ -3,7 +3,7 @@
  * way the changes pane builds its git atoms, so they share the one socket.
  */
 
-import { makeBrowserAtoms, type BrowserAtoms } from "@OpenAde/client-runtime/browserAtoms";
+import { makeBrowserAtoms, type BrowserAtoms } from "@poseidon/client-runtime/browserAtoms";
 
 import { getAppAtoms } from "@/state/app-runtime";
 

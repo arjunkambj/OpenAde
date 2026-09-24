@@ -17,16 +17,16 @@
  * session gave it: `queued` when it arrives, `started` when it drains into a
  * turn — folded or fresh — and then one terminal state (`completed`,
  * `cancelled`, `discarded`, `refused`). A folded message is `started` before
- * the running turn's `result`; one that runs next is not. So OpenAde's turn
+ * the running turn's `result`; one that runs next is not. So Poseidon's turn
  * is over at a `result` only once every message steered into it has been
  * `started` or has ended: before that, a `result` closes one of the CLI's
- * turns and OpenAde's goes on to the next. `fixtures/claude/signed-out-steer/`
+ * turns and Poseidon's goes on to the next. `fixtures/claude/signed-out-steer/`
  * is the run-next path recorded.
  *
  * A held turn can also end with no `result` at all: a steered message that
  * reaches an end state without ever being `started` — cancelled by Stop's
  * `cancelQueued` in the moment between two of the CLI's turns — starts no
- * turn of the CLI's, so no `result` will close OpenAde's. `observe` says so
+ * turn of the CLI's, so no `result` will close Poseidon's. `observe` says so
  * (`dropped`), and the session ends the held turn there.
  *
  * The receipts are the CLI's `msg_lifecycle_v1` capability, which its
@@ -37,7 +37,7 @@
  * the CLI has said either way.
  */
 
-import type { TurnUsage } from "@OpenAde/contracts/orchestration";
+import type { TurnUsage } from "@poseidon/contracts/orchestration";
 
 import { asRecord, asString } from "./translate/pending";
 
@@ -104,7 +104,7 @@ export const makeSteerLedger = (): SteerLedger => {
 /**
  * A turn's usage across the CLI's `result`s. Each `result` reports its own
  * CLI turn's tokens and price; a steered message that ran next makes two of
- * them one OpenAde turn, whose usage is their sum.
+ * them one Poseidon turn, whose usage is their sum.
  */
 export const addUsage = (carried: TurnUsage | null, next: TurnUsage): TurnUsage => {
   if (carried === null) return next;

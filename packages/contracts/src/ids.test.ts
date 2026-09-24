@@ -1,4 +1,4 @@
-import { isUuidV7 } from "@OpenAde/shared/ids";
+import { isUuidV7 } from "@poseidon/shared/ids";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";

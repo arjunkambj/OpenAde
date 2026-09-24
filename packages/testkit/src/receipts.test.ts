@@ -1,6 +1,6 @@
-import { makeCommandId } from "@OpenAde/contracts/ids";
-import type { CommandId } from "@OpenAde/contracts/ids";
-import type { CommandReceipt } from "@OpenAde/contracts/orchestration";
+import { makeCommandId } from "@poseidon/contracts/ids";
+import type { CommandId } from "@poseidon/contracts/ids";
+import type { CommandReceipt } from "@poseidon/contracts/orchestration";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";

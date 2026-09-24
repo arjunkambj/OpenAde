@@ -1,6 +1,6 @@
 import * as React from "react";
 import { ContextMenu as ContextMenuPrimitive } from "@base-ui/react/context-menu";
-import { cn } from "@OpenAde/ui/lib/utils";
+import { cn } from "@poseidon/ui/lib/utils";
 import { Check, ChevronRight } from "@honeyicons/react";
 
 function ContextMenu({ ...props }: ContextMenuPrimitive.Root.Props) {

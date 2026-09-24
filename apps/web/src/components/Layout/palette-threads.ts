@@ -5,8 +5,8 @@
  * still should not crowd out the threads in use.
  */
 
-import { THREAD_JUMP_COMMANDS } from "@OpenAde/contracts/keybindings";
-import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
+import { THREAD_JUMP_COMMANDS } from "@poseidon/contracts/keybindings";
+import type { ThreadSummary } from "@poseidon/contracts/orchestration";
 
 export const paletteThreads = <T extends Pick<ThreadSummary, "status">>(
   threads: ReadonlyArray<T>,

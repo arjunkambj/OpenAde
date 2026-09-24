@@ -22,9 +22,9 @@
 
 import { mkdir } from "node:fs/promises";
 
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import type { ConnectorLogLevel, ConnectorServices } from "@OpenAde/connector-sdk/definition";
-import { configPath } from "@OpenAde/shared/paths";
+import type { ThreadId } from "@poseidon/contracts/ids";
+import type { ConnectorLogLevel, ConnectorServices } from "@poseidon/connector-sdk/definition";
+import { configPath } from "@poseidon/shared/paths";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -65,8 +65,8 @@ export class ConnectorHost extends Context.Service<
       //
       // Created by `install` rather than here. This layer is built by every
       // test that wires the manager graph, and `configPath` resolves against
-      // the process's `OPENADE_HOME` — so creating it at build time made a
-      // plain `vitest run` write into the developer's real `~/.openade`.
+      // the process's `POSEIDON_HOME` — so creating it at build time made a
+      // plain `vitest run` write into the developer's real `~/.poseidon`.
       // `install` is the booted app saying it is about to run turns, which is
       // the first moment a connector can be asked for the directory.
       const attachmentsDir = configPath(["attachments"]);

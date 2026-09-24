@@ -5,7 +5,7 @@ title: "[Feedback] "
 labels: ["feedback"]
 ---
 
-## What would make OpenADE better for you
+## What would make Poseidon better for you
 
 <!-- Describe the problem you are solving or the workflow you wish existed.
      Concrete examples of what you tried help the most. -->

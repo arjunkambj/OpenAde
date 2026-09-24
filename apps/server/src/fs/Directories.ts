@@ -35,8 +35,8 @@ import { homedir } from "node:os";
 import * as nodePath from "node:path";
 import type { Dirent } from "node:fs";
 
-import type { FsEntry, FsListing } from "@OpenAde/contracts/rpc";
-import { FS_BROWSE_ENTRY_LIMIT, FsBrowseError } from "@OpenAde/contracts/rpc";
+import type { FsEntry, FsListing } from "@poseidon/contracts/rpc";
+import { FS_BROWSE_ENTRY_LIMIT, FsBrowseError } from "@poseidon/contracts/rpc";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 

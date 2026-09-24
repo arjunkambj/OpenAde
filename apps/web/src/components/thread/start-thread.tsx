@@ -58,12 +58,12 @@ import { ComposerSurface, composerInputClassName } from "@/components/composer/c
 import { startThreadPlaceholder } from "@/components/composer/composer-placeholder";
 import { ComposerToolbar } from "@/components/composer/composer-toolbar";
 import { ThreadSettingsControls } from "@/components/header-controls";
-import { makeThreadId, type ProjectId, type ThreadId } from "@OpenAde/contracts/ids";
-import type { ProjectSummary, ThreadSettingsPatch } from "@OpenAde/contracts/orchestration";
+import { makeThreadId, type ProjectId, type ThreadId } from "@poseidon/contracts/ids";
+import type { ProjectSummary, ThreadSettingsPatch } from "@poseidon/contracts/orchestration";
 
 import { ComposerChips } from "@/components/composer/composer-chips";
 import { composerEnter, keymapChord, menuMove } from "@/components/composer/composer-keys";
-import { detectComposerTrigger } from "@OpenAde/client-runtime/composerTrigger";
+import { detectComposerTrigger } from "@poseidon/client-runtime/composerTrigger";
 import { useComposerTrigger } from "@/components/composer/use-composer-trigger";
 import { useMentionMenus } from "@/components/composer/use-mention-menus";
 import { useAttachments } from "@/components/composer/use-attachments";

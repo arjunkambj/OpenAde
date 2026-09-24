@@ -10,7 +10,7 @@
  */
 import * as React from "react";
 
-import type { BrowserHumanInput, BrowserState } from "@OpenAde/contracts/rpc";
+import type { BrowserHumanInput, BrowserState } from "@poseidon/contracts/rpc";
 
 import { cn } from "@/lib/utils";
 

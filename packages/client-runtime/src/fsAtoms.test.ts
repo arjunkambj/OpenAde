@@ -7,8 +7,8 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
-import type { FsListing } from "@OpenAde/contracts/rpc";
-import { FsBrowseError } from "@OpenAde/contracts/rpc";
+import type { FsListing } from "@poseidon/contracts/rpc";
+import { FsBrowseError } from "@poseidon/contracts/rpc";
 import type * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -29,7 +29,7 @@ import {
   Connection,
   ConnectionStateRef,
   type ConnectionState,
-  type OpenAdeRpcClient,
+  type PoseidonRpcClient,
 } from "./connection";
 
 const CONNECTED: ConnectionState = { status: "connected", serverInstanceId: null };
@@ -45,8 +45,8 @@ const listing = (path: string): FsListing => ({
 /** Every payload `fs.browse` was called with, in order. */
 type Calls = Array<{ path?: string; showHidden?: boolean }>;
 
-const fakeClient = (calls: Calls, failing: Ref.Ref<boolean>): OpenAdeRpcClient =>
-  new Proxy({} as OpenAdeRpcClient, {
+const fakeClient = (calls: Calls, failing: Ref.Ref<boolean>): PoseidonRpcClient =>
+  new Proxy({} as PoseidonRpcClient, {
     get: (_target, key) => {
       if (key === "fs.browse") {
         return (payload: { path?: string; showHidden?: boolean }) =>
@@ -68,7 +68,7 @@ const fakeClient = (calls: Calls, failing: Ref.Ref<boolean>): OpenAdeRpcClient =
     },
   });
 
-const runtimeWith = (client: OpenAdeRpcClient, initial: ConnectionState) =>
+const runtimeWith = (client: PoseidonRpcClient, initial: ConnectionState) =>
   Effect.gen(function* () {
     const stateRef = yield* SubscriptionRef.make(initial);
     const layer = Layer.mergeAll(

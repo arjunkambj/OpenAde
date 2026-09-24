@@ -1,10 +1,10 @@
 /**
- * Scenario (j): OpenAde's own tools, offered to the harness.
+ * Scenario (j): Poseidon's own tools, offered to the harness.
  *
  * The browser tools are not built into Command Code — they are ours, served
  * over an MCP endpoint the running app mounts per thread. For the model to be
  * able to call them, three things have to line up while a session is open: the
- * gateway has to be listening with a per-session bearer, an `openade` entry
+ * gateway has to be listening with a per-session bearer, an `poseidon` entry
  * has to exist in the harness's *local* MCP scope for this project, and that
  * entry has to name the endpoint the gateway is actually on.
  *
@@ -36,7 +36,7 @@ import {
 } from "./harness";
 
 /**
- * The project directories under a harness home that hold an `openade` MCP
+ * The project directories under a harness home that hold an `poseidon` MCP
  * entry naming `url`.
  *
  * Searching by url rather than by directory is the point: the live driver
@@ -57,7 +57,7 @@ const entriesNaming = (harnessHome: string, url: string): ReadonlyArray<string> 
       const parsed = JSON.parse(
         NodeFS.readFileSync(NodePath.join(root, dir, "mcp.json"), "utf8"),
       ) as { mcpServers?: Record<string, { url?: string }> };
-      return parsed.mcpServers?.["openade"]?.url === url;
+      return parsed.mcpServers?.["poseidon"]?.url === url;
     } catch {
       return false;
     }
@@ -88,7 +88,7 @@ const gateway = (driver: Driver) => {
 
             // Registered, and in a directory the harness itself chose.
             const found = entriesNaming(harnessHome, url);
-            expect(found, `no openade entry naming ${url}`).toHaveLength(1);
+            expect(found, `no poseidon entry naming ${url}`).toHaveLength(1);
 
             const entry = (
               JSON.parse(
@@ -97,7 +97,7 @@ const gateway = (driver: Driver) => {
                   "utf8",
                 ),
               ) as { mcpServers: Record<string, Record<string, unknown>> }
-            ).mcpServers["openade"]!;
+            ).mcpServers["poseidon"]!;
             expect(entry["transport"]).toBe("http");
             expect(entry["enabled"]).toBe(true);
             // The per-session bearer stays a placeholder on disk: the harness
@@ -105,7 +105,7 @@ const gateway = (driver: Driver) => {
             // a file in the user's project would outlive the session that
             // minted it.
             const serialized = JSON.stringify(entry);
-            expect(serialized).toContain("OPENADE_MCP_TOKEN");
+            expect(serialized).toContain("POSEIDON_MCP_TOKEN");
             expect(serialized).toContain("${");
 
             // The gateway is up and refuses anyone without the bearer — which

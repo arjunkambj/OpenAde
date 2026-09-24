@@ -25,9 +25,9 @@
  * resolves at once, rather than waiting on a listener that came too late.
  */
 
-import type { ApprovalDecision, InteractionMode, RuntimeMode } from "@OpenAde/contracts/enums";
-import type { RequestId, ThreadId } from "@OpenAde/contracts/ids";
-import type { ApprovalRequest } from "@OpenAde/contracts/runtime";
+import type { ApprovalDecision, InteractionMode, RuntimeMode } from "@poseidon/contracts/enums";
+import type { RequestId, ThreadId } from "@poseidon/contracts/ids";
+import type { ApprovalRequest } from "@poseidon/contracts/runtime";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";

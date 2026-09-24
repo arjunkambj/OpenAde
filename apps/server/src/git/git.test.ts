@@ -17,7 +17,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
-import { makeProjectId, makeThreadId, makeTurnId } from "@OpenAde/contracts/ids";
+import { makeProjectId, makeThreadId, makeTurnId } from "@poseidon/contracts/ids";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -38,10 +38,10 @@ const git = (cwd: string, ...args: Array<string>) =>
 
 /** A fresh repo with one committed file. */
 const makeRepo = () => {
-  const root = mkdtempSync(nodePath.join(tmpdir(), "openade-git-test-"));
+  const root = mkdtempSync(nodePath.join(tmpdir(), "poseidon-git-test-"));
   git(root, "init", "-q");
-  git(root, "config", "user.email", "test@openade.local");
-  git(root, "config", "user.name", "OpenAde Test");
+  git(root, "config", "user.email", "test@poseidon.local");
+  git(root, "config", "user.name", "Poseidon Test");
   writeFileSync(nodePath.join(root, "a.txt"), "one\n");
   git(root, "add", "-A");
   git(root, "commit", "-qm", "init");
@@ -74,7 +74,9 @@ const stack = (root: string) =>
             GhRunner.layer,
             SettingsStore.layer.pipe(Layer.provide(sqlite)),
             // No test here cuts a worktree, so nothing is created under it.
-            Layer.succeed(WorktreesRoot, { path: nodePath.join(tmpdir(), "openade-no-worktrees") }),
+            Layer.succeed(WorktreesRoot, {
+              path: nodePath.join(tmpdir(), "poseidon-no-worktrees"),
+            }),
           ),
         ),
       ),
@@ -196,7 +198,7 @@ describe("w8 git", () => {
         expect(live[0]?.checkpointId).toBe(kept.checkpointId);
 
         // A workspace with no repository simply has none.
-        const plain = mkdtempSync(nodePath.join(tmpdir(), "openade-plain-"));
+        const plain = mkdtempSync(nodePath.join(tmpdir(), "poseidon-plain-"));
         const { projectId: plainProject, git: plainGit } = yield* stack(plain);
         expect(yield* plainGit.checkpoints(plainProject, threadId)).toEqual([]);
       }),
@@ -408,7 +410,7 @@ describe("w8 git", () => {
         const { projectId, git: gitService } = yield* stack(root);
         writeFileSync(nodePath.join(root, "fresh.txt"), "brand new\n");
         const tempIndexes = () =>
-          readdirSync(tmpdir()).filter((name) => name.startsWith("openade-index-"));
+          readdirSync(tmpdir()).filter((name) => name.startsWith("poseidon-index-"));
         const before = new Set(tempIndexes());
         yield* gitService.diff({ projectId }, {});
         const leaked = tempIndexes().filter((name) => !before.has(name));
@@ -467,7 +469,7 @@ describe("w8 git", () => {
   it.live("a workspace that is not a repository is named, not guessed at", () =>
     Effect.scoped(
       Effect.gen(function* () {
-        const plain = mkdtempSync(nodePath.join(tmpdir(), "openade-plain-"));
+        const plain = mkdtempSync(nodePath.join(tmpdir(), "poseidon-plain-"));
         const { projectId, git: gitService } = yield* stack(plain);
 
         // Empty results, but the pane can tell this apart from a clean repo.
@@ -503,7 +505,7 @@ describe("w8 git", () => {
       Effect.gen(function* () {
         // A plain folder, never `git init`ed — opening one as a project must
         // not turn every `#` keystroke in the composer into an RPC error.
-        const root = mkdtempSync(nodePath.join(tmpdir(), "openade-plain-"));
+        const root = mkdtempSync(nodePath.join(tmpdir(), "poseidon-plain-"));
         mkdirSync(nodePath.join(root, "src"));
         mkdirSync(nodePath.join(root, "node_modules"));
         mkdirSync(nodePath.join(root, "build"));
@@ -530,7 +532,7 @@ describe("w8 git", () => {
         // `**/node_modules` is the idiom half of the ecosystem writes, and git
         // treats the leading `**/` as "the bare pattern, at any depth" — the
         // root copy has to be ignored just as the nested one is.
-        const root = mkdtempSync(nodePath.join(tmpdir(), "openade-plain-"));
+        const root = mkdtempSync(nodePath.join(tmpdir(), "poseidon-plain-"));
         mkdirSync(nodePath.join(root, "node_modules"));
         mkdirSync(nodePath.join(root, "src"));
         mkdirSync(nodePath.join(root, "src", "node_modules"));
@@ -553,12 +555,12 @@ describe("w8 git", () => {
         // `git ls-files` lists a symlink (mode 120000), so the fallback must
         // not silently drop one — linked config files and pnpm-style layouts
         // would go missing from the `#` menu.
-        const root = mkdtempSync(nodePath.join(tmpdir(), "openade-plain-"));
+        const root = mkdtempSync(nodePath.join(tmpdir(), "poseidon-plain-"));
         mkdirSync(nodePath.join(root, "src"));
         writeFileSync(nodePath.join(root, "src", "keep-me-real.ts"), "export const a = 1\n");
         symlinkSync("keep-me-real.ts", nodePath.join(root, "src", "keep-me-link.ts"));
         // A link to a directory is listed, but never descended into.
-        const outside = mkdtempSync(nodePath.join(tmpdir(), "openade-outside-"));
+        const outside = mkdtempSync(nodePath.join(tmpdir(), "poseidon-outside-"));
         writeFileSync(nodePath.join(outside, "keep-me-hidden.ts"), "unreachable\n");
         symlinkSync(outside, nodePath.join(root, "keep-me-elsewhere"));
 
@@ -579,7 +581,7 @@ describe("w8 git", () => {
     Effect.scoped(
       Effect.gen(function* () {
         const root = makeRepo();
-        const outside = mkdtempSync(nodePath.join(tmpdir(), "openade-outside-"));
+        const outside = mkdtempSync(nodePath.join(tmpdir(), "poseidon-outside-"));
         writeFileSync(nodePath.join(outside, "secret.txt"), "do not serve\n");
         // A symlink inside the repo whose target lives outside it — the
         // lexical prefix check passes, the canonical one must not.

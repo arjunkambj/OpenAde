@@ -119,7 +119,7 @@ export type McpToolRef = typeof McpToolRef.Type;
  * unmodelled on purpose: the approval card shows a rendering of it, and the
  * permission engine matches patterns against `toolName` plus the fields it
  * knows. `patternSuggestion` is what "allow always" would persist, in
- * OpenAde's own pattern vocabulary (`@OpenAde/shared/permissionPattern`) —
+ * Poseidon's own pattern vocabulary (`@poseidon/shared/permissionPattern`) —
  * the connector maps its harness's tool onto it — and is editable in the card
  * before it is accepted. `mcpTool` names the server and tool of an MCP call so
  * an `Mcp(server.tool)` rule can match it; it is optional because requests
@@ -150,7 +150,7 @@ export type CapabilitySwitch = typeof CapabilitySwitch.Type;
  * - `interrupt` — what stopping cancels: only the running `turn`, or the whole
  *   `session` (a harness whose one process serves every turn).
  * - `rollback` — the harness can rewind its own conversation to an earlier
- *   turn. OpenAde's checkpoints are git and do not depend on it.
+ *   turn. Poseidon's checkpoints are git and do not depend on it.
  * - `compaction` — the connector can ask the harness to compact its context on
  *   demand. Compaction the harness does by itself needs no flag.
  * - `questions` — the harness can put a question to the user mid-turn.
@@ -163,7 +163,7 @@ export type CapabilitySwitch = typeof CapabilitySwitch.Type;
  *   only when it is true, and a harness without it takes the queue instead.
  *
  * `fork` is declared, but nothing reads it yet: no harness so far forks
- * anywhere OpenAde can show. It is read once one does.
+ * anywhere Poseidon can show. It is read once one does.
  */
 export const ConnectorCapabilities = Schema.Struct({
   modelSwitch: CapabilitySwitch,

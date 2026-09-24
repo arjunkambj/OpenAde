@@ -26,7 +26,7 @@
  *    server gave it when it is opened.
  */
 
-import type { TerminalId } from "@OpenAde/contracts/ids";
+import type { TerminalId } from "@poseidon/contracts/ids";
 
 export interface HandOverSteps {
   /** Whether the project's drawer is open, and the terminals the client knows it has. */

@@ -135,7 +135,7 @@ export const McpServerConfig = Schema.Struct({
   scope: McpServerScope,
   enabled: Schema.Boolean,
   /**
-   * Read-side hint: `true` when the entry carries our `_openade` marker, so
+   * Read-side hint: `true` when the entry carries our `_poseidon` marker, so
    * the editor knows upsert/remove will be accepted. The server ignores it on
    * write — ownership is decided by the marker on disk, not by the payload.
    */

@@ -65,13 +65,13 @@ const APPIMAGE_PATH_VARS = [
 
 /**
  * The environment a terminal's shell starts with: the server's own, minus what
- * belongs to OpenAde itself.
+ * belongs to Poseidon itself.
  *
  * - `ELECTRON_RUN_AS_NODE` goes: the desktop app sets it to run this server
  *   under its Electron binary, and left in place it would turn every
  *   Electron-based CLI started from the terminal into plain Node.
- * - Every `OPENADE_*` key goes. They configure this server, and a leaked
- *   `OPENADE_HOME` would point a nested dev run at the real state.
+ * - Every `POSEIDON_*` key goes. They configure this server, and a leaked
+ *   `POSEIDON_HOME` would point a nested dev run at the real state.
  * - Under an AppImage, its runtime variables and the mount point's entries in
  *   the search paths go, so programs the user runs do not load the app's
  *   bundled libraries.
@@ -90,13 +90,13 @@ export const terminalEnv = (
   for (const [key, value] of Object.entries(baseEnv)) {
     if (value === undefined) continue;
     const folded = fold(key);
-    if (folded === "ELECTRON_RUN_AS_NODE" || folded.startsWith("OPENADE_")) continue;
+    if (folded === "ELECTRON_RUN_AS_NODE" || folded.startsWith("POSEIDON_")) continue;
     env[key] = value;
   }
   if (isAppImage(env)) scrubAppImage(env);
   env.TERM = "xterm-256color";
   env.COLORTERM = "truecolor";
-  env.TERM_PROGRAM = "OpenAde";
+  env.TERM_PROGRAM = "Poseidon";
   if (platform === "darwin" && (env.LANG === undefined || env.LANG === "")) {
     env.LANG = "en_US.UTF-8";
   }

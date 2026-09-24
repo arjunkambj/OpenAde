@@ -51,7 +51,7 @@ describe("questionSubject", () => {
 
 describe("planSubject", () => {
   it("names the plan file", () => {
-    expect(planSubject("/Users/dev/projects/openade/plans/health-check.md")).toBe(
+    expect(planSubject("/Users/dev/projects/poseidon/plans/health-check.md")).toBe(
       "health-check.md",
     );
     expect(planSubject("C:\\plans\\ready.md")).toBe("ready.md");

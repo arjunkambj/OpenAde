@@ -2,7 +2,7 @@
  * The two tool calls that are the model talking to the user rather than
  * acting on the machine, answered from `canUseTool`:
  *
- * - **AskUserQuestion** opens OpenAde's question card (`user-input.requested`)
+ * - **AskUserQuestion** opens Poseidon's question card (`user-input.requested`)
  *   and parks the call until the user answers (`respondToUserInput`). The
  *   answer goes back as the call's `updatedInput` (`questions.ts`), and the
  *   CLI hands the model its result. A call the CLI withdraws — its signal
@@ -15,9 +15,9 @@
  *   plan comes as the thread's next turn, not as this call's result.
  */
 
-import type { RequestId } from "@OpenAde/contracts/ids";
-import { makeRequestId } from "@OpenAde/contracts/ids";
-import type { UserQuestion, UserQuestionAnswer } from "@OpenAde/contracts/runtime";
+import type { RequestId } from "@poseidon/contracts/ids";
+import { makeRequestId } from "@poseidon/contracts/ids";
+import type { UserQuestion, UserQuestionAnswer } from "@poseidon/contracts/runtime";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";

@@ -23,8 +23,8 @@
  * reader the same way before they move it.
  */
 
-import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
-import { uuidV7Millis } from "@OpenAde/shared/ids";
+import type { ThreadDetailSnapshot } from "@poseidon/contracts/orchestration";
+import { uuidV7Millis } from "@poseidon/shared/ids";
 import { LegendList, type LegendListRef } from "@legendapp/list/react";
 import * as React from "react";
 

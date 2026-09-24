@@ -8,7 +8,7 @@
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
-import { makeThreadId } from "@OpenAde/contracts/ids";
+import { makeThreadId } from "@poseidon/contracts/ids";
 import { describe, expect, it } from "vitest";
 
 import { stageAttachments } from "./attachments";

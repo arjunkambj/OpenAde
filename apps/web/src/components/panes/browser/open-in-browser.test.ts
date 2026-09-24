@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { makeThreadId, type ThreadId } from "@OpenAde/contracts/ids";
+import { makeThreadId, type ThreadId } from "@poseidon/contracts/ids";
 import { AtomRegistry } from "effect/unstable/reactivity";
 
 import { updateBrowserTabs, type BrowserTabsState } from "@/state/browser-tabs";

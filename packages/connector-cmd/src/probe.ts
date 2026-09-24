@@ -21,9 +21,9 @@
  */
 
 import { execFile } from "node:child_process";
-import type { ModelOption } from "@OpenAde/contracts/connectors";
-import type { ConnectorProbe } from "@OpenAde/connector-sdk/definition";
-import { ProbeFailed } from "@OpenAde/connector-sdk/definition";
+import type { ModelOption } from "@poseidon/contracts/connectors";
+import type { ConnectorProbe } from "@poseidon/connector-sdk/definition";
+import { ProbeFailed } from "@poseidon/connector-sdk/definition";
 import * as Effect from "effect/Effect";
 
 import { resolveBinary, type ResolvedBinary, terminalCommand } from "./binary";
@@ -267,7 +267,7 @@ const withContextWindow = (
 };
 
 /**
- * The model OpenAde starts a new thread on when nobody has picked one. Moved to
+ * The model Poseidon starts a new thread on when nobody has picked one. Moved to
  * the front of the list so the server's "first model of the routed instance"
  * fallback lands on it — only when the binary actually lists it, so an account
  * or release without it keeps the CLI's own order.
@@ -301,7 +301,7 @@ export const probe = (
     const probedAt = new Date().toISOString();
     const binary = resolve(config);
     // The probe's children get the same leak guard the turns do: no
-    // OPENADE_SERVER_*, ANTHROPIC_* or OPENAI_* reaches them — and the
+    // POSEIDON_SERVER_*, ANTHROPIC_* or OPENAI_* reaches them — and the
     // operator's extraEnv does, so a COMMAND_CODE_API_KEY supplied there is
     // not reported as "not authenticated" while turns work fine.
     const env = envAllowlist(process.env, config.extraEnv ?? {});
@@ -369,7 +369,7 @@ export const probe = (
     const warnings: Array<string> = [];
     if (parsed.version !== undefined && isBelowOldestTested(parsed.version)) {
       warnings.push(
-        `cmd ${parsed.version} is older than ${OLDEST_TESTED_VERSION}, the oldest release OpenAde has been tested against`,
+        `cmd ${parsed.version} is older than ${OLDEST_TESTED_VERSION}, the oldest release Poseidon has been tested against`,
       );
     }
 

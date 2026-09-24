@@ -7,7 +7,7 @@
  * file walks the tree, feeds them and reports.
  *
  *  1. Import boundaries. Every import that names another workspace package is
- *     checked against the allowlist — the scoped `@OpenAde/*` packages and the
+ *     checked against the allowlist — the scoped `@poseidon/*` packages and the
  *     three unscoped apps (`web`, `desktop`, `server`) alike. A package may
  *     always import itself; anything else has to be listed. A package with no
  *     rule may not import any workspace package. A relative specifier that
@@ -160,7 +160,7 @@ const WORKSPACE_DIRECTORIES = [...listDirectories("apps"), ...listDirectories("p
  * Published package name -> workspace directory, for every workspace.
  *
  * Apps are unscoped, so `web`, `desktop` and `server` are import targets
- * that no `@OpenAde/` prefix would ever reveal.
+ * that no `@poseidon/` prefix would ever reveal.
  */
 const WORKSPACE_BY_PACKAGE_NAME = new Map(
   WORKSPACE_DIRECTORIES.map((directory) => [

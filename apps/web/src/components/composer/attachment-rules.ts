@@ -15,8 +15,8 @@ import {
   IMAGE_EXTENSIONS,
   IMAGE_MEDIA_TYPES,
   MAX_ATTACHMENT_BYTES,
-} from "@OpenAde/shared/imageBytes";
-import type { ImageMediaType } from "@OpenAde/shared/imageBytes";
+} from "@poseidon/shared/imageBytes";
+import type { ImageMediaType } from "@poseidon/shared/imageBytes";
 
 /** The `accept` attribute of the file picker, from the one list of types. */
 export const ATTACHMENT_ACCEPT = IMAGE_MEDIA_TYPES.join(",");

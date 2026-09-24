@@ -28,13 +28,13 @@
  * stream and the decider.
  */
 
-import { applyThreadStreamItem } from "@OpenAde/client-runtime/clientState";
-import type { ConnectionLayer } from "@OpenAde/client-runtime/atoms";
+import { applyThreadStreamItem } from "@poseidon/client-runtime/clientState";
+import type { ConnectionLayer } from "@poseidon/client-runtime/atoms";
 import {
   Connection,
   ConnectionStateRef,
   type ConnectionState,
-} from "@OpenAde/client-runtime/connection";
+} from "@poseidon/client-runtime/connection";
 import type {
   Command,
   CommandReceipt,
@@ -42,7 +42,7 @@ import type {
   OrchestrationEventType,
   ThreadDetailSnapshot,
   ThreadStreamItem,
-} from "@OpenAde/contracts/orchestration";
+} from "@poseidon/contracts/orchestration";
 import {
   makeConnectorInstanceId,
   makeEventId,
@@ -51,11 +51,11 @@ import {
   makeThreadId,
   makeCheckpointId,
   makeTurnId,
-} from "@OpenAde/contracts/ids";
-import type { ConnectorInstanceId, ProjectId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
-import type { ConnectorSummary } from "@OpenAde/contracts/connectors";
-import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
-import { uuidV7 } from "@OpenAde/shared/ids";
+} from "@poseidon/contracts/ids";
+import type { ConnectorInstanceId, ProjectId, ThreadId, TurnId } from "@poseidon/contracts/ids";
+import type { ConnectorSummary } from "@poseidon/contracts/connectors";
+import type { ConnectorCapabilities } from "@poseidon/contracts/runtime";
+import { uuidV7 } from "@poseidon/shared/ids";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Queue from "effect/Queue";
@@ -233,7 +233,7 @@ export const makeFixtureClient = (): FixtureClient => {
       checkpoint: {
         checkpointId: makeCheckpointId(),
         turnId,
-        ref: `refs/openade/checkpoints/${threadId}/${turnId}`,
+        ref: `refs/poseidon/checkpoints/${threadId}/${turnId}`,
         createdAt: new Date().toISOString(),
       },
     });

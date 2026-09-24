@@ -20,9 +20,9 @@
  */
 
 import { RegistryContext, useAtomValue } from "@effect/atom-react";
-import type { GitBranchList } from "@OpenAde/contracts/git";
-import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
-import type { GitStatus } from "@OpenAde/contracts/rpc";
+import type { GitBranchList } from "@poseidon/contracts/git";
+import type { ProjectId, ThreadId } from "@poseidon/contracts/ids";
+import type { GitStatus } from "@poseidon/contracts/rpc";
 import * as React from "react";
 
 import { useKeybindingFlag } from "@/lib/shortcuts";

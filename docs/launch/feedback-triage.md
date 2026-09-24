@@ -1,7 +1,7 @@
 # Feedback triage — how launch feedback becomes work
 
 Applies from the first public launch. The channel is GitHub Issues on
-`arjunkambj/OpenAde`; the site's "Send feedback" link opens the issue chooser
+`arjunkambj/Poseidon`; the site's "Send feedback" link opens the issue chooser
 (bug report / feedback-or-idea templates). Once the repository is public this
 works for anyone; while it is private, feedback comes in through whichever
 channel the maintainer exposes and is logged here the same way.

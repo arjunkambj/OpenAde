@@ -14,9 +14,9 @@ import type {
   ConnectorExtensionFailed,
   ConnectorExtensions as InstanceExtensions,
   ExtensionScope,
-} from "@OpenAde/connector-sdk/extensions";
-import type { ConnectorInstanceId, ProjectId } from "@OpenAde/contracts/ids";
-import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
+} from "@poseidon/connector-sdk/extensions";
+import type { ConnectorInstanceId, ProjectId } from "@poseidon/contracts/ids";
+import { PoseidonRpcError } from "@poseidon/contracts/rpc";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
@@ -25,10 +25,10 @@ import { ConnectorExtensions } from "../rpc/services";
 import { ConnectorRegistryService } from "./ConnectorManager";
 
 const fromExtension = (error: ConnectorExtensionFailed) =>
-  new OpenAdeRpcError({ code: error.code, message: error.message });
+  new PoseidonRpcError({ code: error.code, message: error.message });
 
 const unavailable = (instanceId: ConnectorInstanceId, what: string) =>
-  new OpenAdeRpcError({
+  new PoseidonRpcError({
     code: "unavailable",
     message: `connector instance ${instanceId} does not manage ${what}`,
   });
@@ -64,13 +64,13 @@ export const layer = Layer.effect(
     /** The user scope, plus the project's workspace root when one is named. */
     const scopeOf = (
       projectId: ProjectId | undefined,
-    ): Effect.Effect<ExtensionScope, OpenAdeRpcError> =>
+    ): Effect.Effect<ExtensionScope, PoseidonRpcError> =>
       projectId === undefined
         ? Effect.succeed({ workspaceRoot: null })
         : readModels.getProjectDoc(projectId).pipe(
             Effect.mapError(
               (error) =>
-                new OpenAdeRpcError({
+                new PoseidonRpcError({
                   code: "internal",
                   message: `project lookup failed: ${error.message}`,
                 }),

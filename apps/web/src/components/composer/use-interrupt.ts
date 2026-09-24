@@ -9,8 +9,8 @@
  */
 
 import { useAtomSet } from "@effect/atom-react";
-import { makeCommandId } from "@OpenAde/contracts/ids";
-import type { ThreadId } from "@OpenAde/contracts/ids";
+import { makeCommandId } from "@poseidon/contracts/ids";
+import type { ThreadId } from "@poseidon/contracts/ids";
 import * as React from "react";
 
 import { useClientRuntime } from "@/lib/client-runtime";

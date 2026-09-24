@@ -18,10 +18,10 @@
  */
 
 import * as NodeCrypto from "node:crypto";
-import type { ItemKind } from "@OpenAde/contracts/enums";
-import type { ItemId } from "@OpenAde/contracts/ids";
-import { makeItemId } from "@OpenAde/contracts/ids";
-import type { ItemSnapshot, RuntimeEvent, Todo } from "@OpenAde/contracts/runtime";
+import type { ItemKind } from "@poseidon/contracts/enums";
+import type { ItemId } from "@poseidon/contracts/ids";
+import { makeItemId } from "@poseidon/contracts/ids";
+import type { ItemSnapshot, RuntimeEvent, Todo } from "@poseidon/contracts/runtime";
 
 import type { CmdUsage } from "./ndjson";
 import { isPlanWrite, PLAN_SAVED } from "./plans";

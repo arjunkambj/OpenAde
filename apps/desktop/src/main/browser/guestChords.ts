@@ -10,15 +10,15 @@
  *
  * `preventDefault` there also stops the menu. The app installs no menu of its
  * own, so Electron's default one is live, and its Reload (`Cmd+R`, Force
- * Reload with Shift) reloads the whole OpenAde window — every pane tab with
+ * Reload with Shift) reloads the whole Poseidon window — every pane tab with
  * it. Those two chords are always swallowed inside a guest, bound or not.
  *
  * Pure and Electron-free: `../ipc.ts` adapts `Electron.Input`, and the
  * sandboxed preload imports the channel names from here.
  */
 
-export const CHORDS_CHANNEL = "openade:browser-chords";
-export const COMMAND_CHANNEL = "openade:browser-command";
+export const CHORDS_CHANNEL = "poseidon:browser-chords";
+export const COMMAND_CHANNEL = "poseidon:browser-command";
 
 /** One chord, with the platform modifier already resolved to Meta or Control. */
 export interface GuestChord {

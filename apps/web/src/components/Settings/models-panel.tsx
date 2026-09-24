@@ -11,9 +11,9 @@
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
-import { Card, CardContent } from "@OpenAde/ui/components/card";
-import { Effort, RuntimeMode } from "@OpenAde/contracts/enums";
-import { SettingsDefaults, type Settings as SettingsDoc } from "@OpenAde/contracts/settings";
+import { Card, CardContent } from "@poseidon/ui/components/card";
+import { Effort, RuntimeMode } from "@poseidon/contracts/enums";
+import { SettingsDefaults, type Settings as SettingsDoc } from "@poseidon/contracts/settings";
 import * as Exit from "effect/Exit";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { toast } from "sonner";

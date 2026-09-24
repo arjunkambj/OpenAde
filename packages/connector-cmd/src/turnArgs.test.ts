@@ -8,9 +8,9 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import * as NodeURL from "node:url";
 import { describe, expect, it } from "@effect/vitest";
-import { makeThreadId } from "@OpenAde/contracts/ids";
-import type { ThreadSettings } from "@OpenAde/contracts/orchestration";
-import type { TurnInput } from "@OpenAde/connector-sdk/definition";
+import { makeThreadId } from "@poseidon/contracts/ids";
+import type { ThreadSettings } from "@poseidon/contracts/orchestration";
+import type { TurnInput } from "@poseidon/connector-sdk/definition";
 
 import { cmdEffort, prepareTurn } from "./turnArgs";
 
@@ -29,7 +29,7 @@ const prepare = (interactionMode: ThreadSettings["interactionMode"]) =>
   prepareTurn({
     turn: { text: "hi", attachments: [], mentions: [] },
     settings: settings(interactionMode),
-    attachmentsDir: NodePath.join(NodeFS.realpathSync(NodePath.resolve("/tmp")), "openade-none"),
+    attachmentsDir: NodePath.join(NodeFS.realpathSync(NodePath.resolve("/tmp")), "poseidon-none"),
     threadId: makeThreadId(),
     resumeSessionId: null,
   });
@@ -39,7 +39,7 @@ describe("prepareTurn", () => {
     const prepared = await prepareTurn({
       turn: { text: "hi", attachments: [], mentions: [] },
       settings: { ...settings("default"), effort: "minimal" },
-      attachmentsDir: NodePath.join(NodeFS.realpathSync(NodePath.resolve("/tmp")), "openade-none"),
+      attachmentsDir: NodePath.join(NodeFS.realpathSync(NodePath.resolve("/tmp")), "poseidon-none"),
       threadId: makeThreadId(),
       resumeSessionId: null,
     });
@@ -104,7 +104,7 @@ describe("prepareTurn", () => {
 /** The prompt `prepareTurn` builds for one turn: argv's second element. */
 const promptOf = async (
   turn: TurnInput,
-  attachmentsDir = NodePath.join(NodeFS.realpathSync(NodePath.resolve("/tmp")), "openade-none"),
+  attachmentsDir = NodePath.join(NodeFS.realpathSync(NodePath.resolve("/tmp")), "poseidon-none"),
 ) => {
   const prepared = await prepareTurn({
     turn,
@@ -119,7 +119,7 @@ const promptOf = async (
 
 describe("skill and plugin references in the prompt", () => {
   it("writes the text, then mentions, then skills, then attachments", async () => {
-    const attachmentsDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "openade-refs-"));
+    const attachmentsDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "poseidon-refs-"));
     const threadId = makeThreadId();
     const staged = NodePath.join(attachmentsDir, threadId, "abc-shot.png");
     NodeFS.mkdirSync(NodePath.dirname(staged), { recursive: true });

@@ -22,15 +22,15 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@OpenAde/ui/components/card";
+} from "@poseidon/ui/components/card";
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from "@OpenAde/ui/components/empty";
-import type { PermissionRule } from "@OpenAde/contracts/settings";
+} from "@poseidon/ui/components/empty";
+import type { PermissionRule } from "@poseidon/contracts/settings";
 import * as Exit from "effect/Exit";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { toast } from "sonner";
@@ -53,7 +53,7 @@ const GROUP_REACH: Record<PermissionRule["scope"], string> = {
 };
 
 const DELETE_DESCRIPTION: Record<PermissionRule["decision"], string> = {
-  allow: "OpenAde asks again before running requests this rule allowed.",
+  allow: "Poseidon asks again before running requests this rule allowed.",
   deny: "Requests this rule denied are decided again by your other rules and the thread's runtime mode.",
 };
 

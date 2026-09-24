@@ -9,8 +9,8 @@ import { createReadStream, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 
-import { makeStreamCollector } from "@OpenAde/connector-sdk/streamCollector";
-import { makeTerminalId, makeThreadId } from "@OpenAde/contracts/ids";
+import { makeStreamCollector } from "@poseidon/connector-sdk/streamCollector";
+import { makeTerminalId, makeThreadId } from "@poseidon/contracts/ids";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
 
@@ -84,7 +84,7 @@ describe.skipIf(process.platform === "win32")("killing a shell that ignores SIGH
       Effect.scoped(
         Effect.gen(function* () {
           const home = yield* Effect.acquireRelease(
-            Effect.sync(() => mkdtempSync(nodePath.join(tmpdir(), "openade-reap-test-"))),
+            Effect.sync(() => mkdtempSync(nodePath.join(tmpdir(), "poseidon-reap-test-"))),
             (path) => Effect.sync(() => rmSync(path, { recursive: true, force: true })),
           );
           const session = yield* makeSession({

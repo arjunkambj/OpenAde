@@ -14,14 +14,14 @@
  */
 
 import { RegistryContext, scheduleTask } from "@effect/atom-react";
-import { makeRuntime } from "@OpenAde/client-runtime/atoms";
+import { makeRuntime } from "@poseidon/client-runtime/atoms";
 import {
   Connection,
   ConnectionStateRef,
   makeConnection,
   type ConnectionState,
-} from "@OpenAde/client-runtime/connection";
-import { resolveConnection, type ResolvedConnection } from "@OpenAde/client-runtime/resolver";
+} from "@poseidon/client-runtime/connection";
+import { resolveConnection, type ResolvedConnection } from "@poseidon/client-runtime/resolver";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as SubscriptionRef from "effect/SubscriptionRef";
@@ -83,7 +83,7 @@ const reresolve = Effect.promise(() => resolveConnection().catch(() => null));
  */
 const hasDesktopSupervisor = (): boolean =>
   typeof window !== "undefined" &&
-  (window.openade?.onServerState !== undefined || window.openade?.getServerState !== undefined);
+  (window.poseidon?.onServerState !== undefined || window.poseidon?.getServerState !== undefined);
 
 export const installAppAtoms = (resolved: ResolvedConnection | null): AppAtoms => {
   appAtoms ??= makeRuntime(

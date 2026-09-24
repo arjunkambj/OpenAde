@@ -13,7 +13,7 @@
  * `sidebarThreads`.
  */
 
-import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
+import type { ThreadSummary } from "@poseidon/contracts/orchestration";
 
 import { sidebarThreads } from "@/components/sidebar/visible-threads";
 

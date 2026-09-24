@@ -9,7 +9,7 @@ import { childEnv, expandHome } from "./env";
 import { makeProcessGroup, type ClaudeSpawnOptions } from "./spawn";
 
 /**
- * What OpenAde inherits when it is started from inside a Claude Code session:
+ * What Poseidon inherits when it is started from inside a Claude Code session:
  * the names are the ones such a process really carries, the values are ours.
  */
 const PARENT_SESSION: Readonly<Record<string, string>> = {
@@ -23,7 +23,7 @@ const PARENT_SESSION: Readonly<Record<string, string>> = {
   ANTHROPIC_BASE_URL: "https://parent.invalid",
   ANTHROPIC_API_KEY: "parent-api-key",
   CLAUDE_CONFIG_DIR: "/parent/config",
-  OPENADE_SERVER_TOKEN: "server-token",
+  POSEIDON_SERVER_TOKEN: "server-token",
 };
 
 const INHERITED: Readonly<Record<string, string>> = {

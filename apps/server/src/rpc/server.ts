@@ -6,7 +6,7 @@
 
 import { Buffer } from "node:buffer";
 import { timingSafeEqual } from "node:crypto";
-import { OpenAdeRpcGroup } from "@OpenAde/contracts/rpc";
+import { PoseidonRpcGroup } from "@poseidon/contracts/rpc";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -46,7 +46,7 @@ const wsRoute = Effect.gen(function* () {
   const serialization = yield* Layer.build(RpcSerialization.layerJson);
   const handlers = yield* Layer.build(handlersLayer);
   // The full per-connection effect: protocol + server + upgrade in one.
-  const wsHandler = yield* RpcServer.toHttpEffectWebsocket(OpenAdeRpcGroup, {
+  const wsHandler = yield* RpcServer.toHttpEffectWebsocket(PoseidonRpcGroup, {
     disableTracing: true,
   }).pipe(Effect.provide(handlers), Effect.provide(serialization));
 

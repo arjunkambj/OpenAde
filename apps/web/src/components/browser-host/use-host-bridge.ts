@@ -4,7 +4,7 @@
  * - **Tab requests.** The host is the window's tab host: it answers the
  *   shell's `create` / `close` / `select` (the agent's `Target.createTarget`,
  *   `closeTarget` and `bringToFront`, and a page's popups) through
- *   `window.openade.browserPane.serveTabs`, and resolves `create` with the new
+ *   `window.poseidon.browserPane.serveTabs`, and resolves `create` with the new
  *   guest's `webContents` id once its webview can tell it.
  * - **Human input.** Every gesture the shell relays from a pane webview goes
  *   to the server as `browser.humanInput` — here rather than in the pane, so
@@ -17,13 +17,13 @@
 import * as React from "react";
 
 import { useAtomSet } from "@effect/atom-react";
-import type { BrowserPaneTabRequest } from "@OpenAde/client-runtime/resolver";
-import { decodeThreadId, type ThreadId } from "@OpenAde/contracts/ids";
-import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
+import type { BrowserPaneTabRequest } from "@poseidon/client-runtime/resolver";
+import { decodeThreadId, type ThreadId } from "@poseidon/contracts/ids";
+import type { ThreadSummary } from "@poseidon/contracts/orchestration";
 import {
   BrowserHumanInput as BrowserHumanInputSchema,
   type BrowserHumanInput,
-} from "@OpenAde/contracts/rpc";
+} from "@poseidon/contracts/rpc";
 import * as Schema from "effect/Schema";
 
 import { getAppAtoms } from "@/state/app-runtime";
@@ -42,7 +42,7 @@ import {
 
 import { whenTabReady } from "./tab-views";
 
-type PaneBridge = NonNullable<NonNullable<Window["openade"]>["browserPane"]>;
+type PaneBridge = NonNullable<NonNullable<Window["poseidon"]>["browserPane"]>;
 type SetTabs = (update: (state: BrowserTabsState) => BrowserTabsState) => void;
 
 /** What a pane tab may be opened on. */

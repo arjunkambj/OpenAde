@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { makeThreadId } from "@OpenAde/contracts/ids";
-import type { BrowserState } from "@OpenAde/contracts/rpc";
+import { makeThreadId } from "@poseidon/contracts/ids";
+import type { BrowserState } from "@poseidon/contracts/rpc";
 
 import {
   BROWSER_DISABLED_LABEL,
@@ -128,7 +128,7 @@ describe("browserModeLabel", () => {
   it("labels the web renderer's headless browser and the kill switch", () => {
     expect(browserModeLabel("owned-chromium")).toBe("Headless browser (web mode)");
     expect(browserModeLabel("disabled")).toBe(
-      "In-app browser is disabled (OPENADE_REMOTE_DEBUG=0)",
+      "In-app browser is disabled (POSEIDON_REMOTE_DEBUG=0)",
     );
     expect(BROWSER_DISABLED_LABEL).toBe(browserModeLabel("disabled"));
   });

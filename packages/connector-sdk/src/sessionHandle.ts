@@ -10,10 +10,10 @@
  * 64 slots only terminal events may use.
  */
 
-import type { ApprovalDecision } from "@OpenAde/contracts/enums";
-import type { RequestId, TurnId } from "@OpenAde/contracts/ids";
-import type { PlanResponseAction, ThreadSettingsPatch } from "@OpenAde/contracts/orchestration";
-import type { RuntimeEvent, UserQuestionAnswer } from "@OpenAde/contracts/runtime";
+import type { ApprovalDecision } from "@poseidon/contracts/enums";
+import type { RequestId, TurnId } from "@poseidon/contracts/ids";
+import type { PlanResponseAction, ThreadSettingsPatch } from "@poseidon/contracts/orchestration";
+import type { RuntimeEvent, UserQuestionAnswer } from "@poseidon/contracts/runtime";
 import type * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Queue from "effect/Queue";

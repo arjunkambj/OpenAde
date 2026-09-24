@@ -5,8 +5,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { makeCheckpointId, makeProjectId, makeThreadId, makeTurnId } from "@OpenAde/contracts/ids";
-import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
+import { makeCheckpointId, makeProjectId, makeThreadId, makeTurnId } from "@poseidon/contracts/ids";
+import type { CheckpointSummary } from "@poseidon/contracts/orchestration";
 
 import { branchBaseFor, checkpointLabel, diffRangeFor, pickTurn, turnRange } from "./selection";
 
@@ -21,8 +21,8 @@ describe("changes pane selection", () => {
   it("diffs a turn from the checkpoint before it to its own, in the thread's root", () => {
     // The thread rides along so the server diffs its worktree, when it has one.
     const scope = { projectId: makeProjectId(), threadId: makeThreadId() };
-    const first = checkpoint("refs/openade/checkpoints/t/1");
-    const second = checkpoint("refs/openade/checkpoints/t/2");
+    const first = checkpoint("refs/poseidon/checkpoints/t/1");
+    const second = checkpoint("refs/poseidon/checkpoints/t/2");
     const turn = (previous: CheckpointSummary | undefined, shown: CheckpointSummary) =>
       diffRangeFor(scope, { scope: "turn", ...turnRange(previous, shown) });
 
@@ -63,13 +63,13 @@ describe("changes pane selection", () => {
   });
 
   it("shows the picked turn while it exists, else the latest", () => {
-    const first = checkpoint("refs/openade/checkpoints/t/1");
-    const second = checkpoint("refs/openade/checkpoints/t/2");
+    const first = checkpoint("refs/poseidon/checkpoints/t/1");
+    const second = checkpoint("refs/poseidon/checkpoints/t/2");
     // Nothing picked follows the latest turn.
     expect(pickTurn([first, second], null)).toBe(1);
     expect(pickTurn([first, second], first.ref)).toBe(0);
     // A pruned ref never reaches git: the latest turn stands in.
-    expect(pickTurn([first, second], "refs/openade/checkpoints/t/9")).toBe(1);
+    expect(pickTurn([first, second], "refs/poseidon/checkpoints/t/9")).toBe(1);
     // No checkpoints, no turn.
     expect(pickTurn([], null)).toBe(-1);
   });

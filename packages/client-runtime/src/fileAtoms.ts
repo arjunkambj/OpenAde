@@ -33,9 +33,9 @@
  * built, so these atoms share the one socket with everything else.
  */
 
-import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
-import { FILES_STAT_MAX_PATHS } from "@OpenAde/contracts/rpc";
-import type { FileContent, FileSearchResult, FileStat } from "@OpenAde/contracts/rpc";
+import type { ProjectId, ThreadId } from "@poseidon/contracts/ids";
+import { FILES_STAT_MAX_PATHS } from "@poseidon/contracts/rpc";
+import type { FileContent, FileSearchResult, FileStat } from "@poseidon/contracts/rpc";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";

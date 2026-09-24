@@ -14,7 +14,7 @@ import * as Atom from "effect/unstable/reactivity/Atom";
 
 import type { DesktopServerState } from "./resolver";
 
-const bridge = () => (typeof window === "undefined" ? undefined : window.openade);
+const bridge = () => (typeof window === "undefined" ? undefined : window.poseidon);
 
 /**
  * `null` means "no desktop shell here". Seeded from `getServerState()` and
@@ -24,21 +24,21 @@ const bridge = () => (typeof window === "undefined" ? undefined : window.openade
  * @public The desktop shell's connection banner reads this.
  */
 export const desktopServerStateAtom = Atom.make<DesktopServerState | null>((get) => {
-  const openade = bridge();
-  if (openade?.onServerState === undefined) {
+  const poseidon = bridge();
+  if (poseidon?.onServerState === undefined) {
     return null;
   }
   let mounted = true;
-  const unsubscribe = openade.onServerState((state) => get.setSelf(state));
+  const unsubscribe = poseidon.onServerState((state) => get.setSelf(state));
   get.addFinalizer(() => {
     mounted = false;
     unsubscribe();
   });
-  if (openade.getServerState !== undefined) {
+  if (poseidon.getServerState !== undefined) {
     // The subscription only pushes transitions, so the current value has to be
     // asked for. A preload that throws here just leaves the atom at null, and
     // an unmount that wins the race must not write into a dead node.
-    void Promise.resolve(openade.getServerState())
+    void Promise.resolve(poseidon.getServerState())
       .then((state) => {
         if (mounted) {
           get.setSelf(state);

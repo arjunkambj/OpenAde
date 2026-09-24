@@ -8,7 +8,7 @@
  * (`browserToolLabel`).
  */
 
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
+import type { ItemSnapshot } from "@poseidon/contracts/runtime";
 import type { ReactNode } from "react";
 
 import { browserToolLabel } from "@/components/timeline/browser-tool";

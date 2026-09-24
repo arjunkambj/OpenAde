@@ -16,11 +16,11 @@
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
-import { Button } from "@OpenAde/ui/components/button";
-import { TooltipProvider } from "@OpenAde/ui/components/tooltip";
-import { cn } from "@OpenAde/ui/lib/utils";
-import type { Keybinding } from "@OpenAde/contracts/settings";
-import { detectModKey } from "@OpenAde/client-runtime/keybindings";
+import { Button } from "@poseidon/ui/components/button";
+import { TooltipProvider } from "@poseidon/ui/components/tooltip";
+import { cn } from "@poseidon/ui/lib/utils";
+import type { Keybinding } from "@poseidon/contracts/settings";
+import { detectModKey } from "@poseidon/client-runtime/keybindings";
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 

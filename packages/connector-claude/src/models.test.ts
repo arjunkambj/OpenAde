@@ -5,7 +5,7 @@
 
 import * as NodeOS from "node:os";
 import { describe, expect, it } from "@effect/vitest";
-import { loadSdkStreamRecording } from "@OpenAde/testkit/sdkStreamRecording";
+import { loadSdkStreamRecording } from "@poseidon/testkit/sdkStreamRecording";
 import * as Effect from "effect/Effect";
 
 import { replay } from "../test/replay";

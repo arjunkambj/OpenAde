@@ -41,12 +41,12 @@ export const IMPORT_ALLOWLIST = new Map([
 /**
  * What a workspace's *test* files may import on top of its own allowlist.
  *
- * `@OpenAde/testkit` is the fakes and the receipt helpers; the server drives
+ * `@poseidon/testkit` is the fakes and the receipt helpers; the server drives
  * them from its tests and must never ship them, because apps/server is bundled
- * to `out/main.cjs` for packaging. `@OpenAde/client-runtime` joins in
+ * to `out/main.cjs` for packaging. `@poseidon/client-runtime` joins in
  * tests for the transport suite, which exercises the real client against the
- * real server over a WebSocket. `@OpenAde/connector-cmd` and
- * `@OpenAde/connector-claude` are here because a conformance or end-to-end
+ * real server over a WebSocket. `@poseidon/connector-cmd` and
+ * `@poseidon/connector-claude` are here because a conformance or end-to-end
  * test assembles a real connector the same way the composition root does.
  * Keeping them all out of the production list is what makes an accidental
  * import in `src/main.ts` fail the gate.
@@ -57,7 +57,7 @@ export const IMPORT_ALLOWLIST = new Map([
  *
  * `apps/desktop` tests get `testkit` for the same reason: the browser
  * bridge's tests replay the agent-browser recordings through
- * `@OpenAde/testkit/recording` rather than resolving fixture paths by hand,
+ * `@poseidon/testkit/recording` rather than resolving fixture paths by hand,
  * and the shell's entry points are bundled, so the rule keeps it out of them.
  */
 export const TEST_ONLY_ALLOWLIST = new Map([
@@ -119,7 +119,7 @@ export const allowedImportsFor = (file, workspaceDirectory) => {
 /**
  * Matches `from "x"`, bare `import "x"`, `import("x")` and `require("x")`.
  *
- * Backticks count: `import(\`@OpenAde/${name}/ids\`)` is still a boundary
+ * Backticks count: `import(\`@poseidon/${name}/ids\`)` is still a boundary
  * crossing, and a template literal whose package segment is static is exactly
  * how one would be written to slip past a quote-only pattern.
  */
@@ -150,7 +150,7 @@ const COMPOSITION_ROOT = "apps/server/src/boot.ts";
 const SOURCE_FILE = /\.[cm]?[jt]sx?$/;
 
 /** A workspace connector package other than the SDK every connector builds on. */
-const CONNECTOR_PACKAGE = /^@OpenAde\/connector-(?!sdk(?:\/|$))[^/]+/;
+const CONNECTOR_PACKAGE = /^@poseidon\/connector-(?!sdk(?:\/|$))[^/]+/;
 
 /**
  * A quoted connector kind. `ConnectorKind` values travel as data (the

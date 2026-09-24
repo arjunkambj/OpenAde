@@ -86,7 +86,7 @@ describe("patchHelperPath", () => {
     );
 
   it("leaves a path already in app.asar.unpacked alone", () => {
-    const dir = "/A/OpenAde.app/Contents/Resources/app.asar.unpacked/out/server/prebuilds";
+    const dir = "/A/Poseidon.app/Contents/Resources/app.asar.unpacked/out/server/prebuilds";
     expect(helperFor(dir)).toBe(`${dir}/spawn-helper`);
   });
 

@@ -31,9 +31,9 @@ export interface ServerStateChannel {
   readonly senders: () => ReadonlyArray<{ send: (channel: string, payload: unknown) => void }>;
 }
 
-export const SERVER_STATE_PUSH_CHANNEL = "openade:server-state";
-export const SERVER_STATE_GET_CHANNEL = "openade:server-state:get";
-export const CONNECTION_CHANNEL = "openade:connection";
+export const SERVER_STATE_PUSH_CHANNEL = "poseidon:server-state";
+export const SERVER_STATE_GET_CHANNEL = "poseidon:server-state:get";
+export const CONNECTION_CHANNEL = "poseidon:connection";
 
 export const registerServerStateBridge = (
   channel: ServerStateChannel,

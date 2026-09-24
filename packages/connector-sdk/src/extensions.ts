@@ -20,7 +20,7 @@ import type {
   McpServerScope,
   PluginSummary,
   SkillSummary,
-} from "@OpenAde/contracts/connectors";
+} from "@poseidon/contracts/connectors";
 import * as Data from "effect/Data";
 import type * as Effect from "effect/Effect";
 

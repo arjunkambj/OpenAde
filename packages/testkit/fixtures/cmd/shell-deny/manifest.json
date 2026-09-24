@@ -36,9 +36,9 @@
       ],
       "envKeys": [
         "HOME",
-        "OPENADE_RECORD_HOOK_LOG",
-        "OPENADE_RECORD_HOOK_POLICY",
-        "OPENADE_THREAD_ID",
+        "POSEIDON_RECORD_HOOK_LOG",
+        "POSEIDON_RECORD_HOOK_POLICY",
+        "POSEIDON_THREAD_ID",
         "PATH",
         "SHELL",
         "SSH_AUTH_SOCK",
@@ -220,8 +220,8 @@
           "chars": 331
         }
       ],
-      "transcriptPath": "<HOME>/.commandcode/projects/private-tmp-claude-501-volumes-main-code-open-ade-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-shell-deny-82e27d30-repo/a2ec1746-355b-4f1d-b8ba-7536194c7162.jsonl",
-      "guessedTranscriptPath": "<HOME>/.commandcode/projects/private-tmp-claude-501--volumes-main-code-openade-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-shell-deny-82e27d30-repo/a2ec1746-355b-4f1d-b8ba-7536194c7162.jsonl",
+      "transcriptPath": "<HOME>/.commandcode/projects/private-tmp-claude-501-volumes-main-code-poseidon-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-shell-deny-82e27d30-repo/a2ec1746-355b-4f1d-b8ba-7536194c7162.jsonl",
+      "guessedTranscriptPath": "<HOME>/.commandcode/projects/private-tmp-claude-501--volumes-main-code-poseidon-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-shell-deny-82e27d30-repo/a2ec1746-355b-4f1d-b8ba-7536194c7162.jsonl",
       "transcriptDirMatchesConnectorSlug": false,
       "projectDirListing": [
         "a2ec1746-355b-4f1d-b8ba-7536194c7162.checkpoints.jsonl",

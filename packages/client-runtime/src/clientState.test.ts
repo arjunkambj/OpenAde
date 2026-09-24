@@ -13,13 +13,13 @@ import {
   makeRequestId,
   makeThreadId,
   makeTurnId,
-} from "@OpenAde/contracts/ids";
-import { UNANSWERED_OUTCOME } from "@OpenAde/contracts/decisions";
+} from "@poseidon/contracts/ids";
+import { UNANSWERED_OUTCOME } from "@poseidon/contracts/decisions";
 import type {
   OrchestrationEvent,
   ThreadDetailSnapshot,
   ThreadSummary,
-} from "@OpenAde/contracts/orchestration";
+} from "@poseidon/contracts/orchestration";
 
 import { applyThreadEvent, applyThreadListItem, applyThreadStreamItem } from "./clientState";
 
@@ -244,7 +244,7 @@ describe("clientState fold", () => {
     const checkpoint = {
       checkpointId: makeCheckpointId(),
       turnId: makeTurnId(),
-      ref: "refs/openade/checkpoints/1",
+      ref: "refs/poseidon/checkpoints/1",
       createdAt: "2026-01-01T00:00:00.000Z",
     };
     const ordered = applyThreadEvent(
@@ -289,7 +289,7 @@ describe("clientState fold", () => {
     const checkpoint = {
       checkpointId: makeCheckpointId(),
       turnId: first,
-      ref: "refs/openade/checkpoints/1",
+      ref: "refs/poseidon/checkpoints/1",
       createdAt: "2026-01-01T00:00:00.000Z",
     };
     const message = (turnId: typeof first) => ({
@@ -314,7 +314,7 @@ describe("clientState fold", () => {
     const checkpoint = {
       checkpointId: makeCheckpointId(),
       turnId: makeTurnId(),
-      ref: "refs/openade/checkpoints/1",
+      ref: "refs/poseidon/checkpoints/1",
       createdAt: "2026-01-01T00:00:00.000Z",
     };
     const restoring = applyThreadEvent(

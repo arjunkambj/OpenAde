@@ -1,6 +1,6 @@
 import { Link, useMatchRoute } from "@tanstack/react-router";
 
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@OpenAde/ui/components/sidebar";
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@poseidon/ui/components/sidebar";
 
 import { SquarePen, Widget } from "@honeyicons/react";
 

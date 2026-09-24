@@ -12,8 +12,8 @@
 
 import * as React from "react";
 
-import { Alert, AlertDescription, AlertTitle } from "@OpenAde/ui/components/alert";
-import { Button } from "@OpenAde/ui/components/button";
+import { Alert, AlertDescription, AlertTitle } from "@poseidon/ui/components/alert";
+import { Button } from "@poseidon/ui/components/button";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import type { WorktreeStartState } from "@/components/thread/use-start-in-worktree";

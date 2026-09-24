@@ -8,7 +8,7 @@
  * only renders them.
  */
 
-import type { GitDiffFile } from "@OpenAde/contracts/rpc";
+import type { GitDiffFile } from "@poseidon/contracts/rpc";
 
 import type { ChangesReview } from "@/state/ui";
 

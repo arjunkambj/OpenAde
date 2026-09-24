@@ -25,9 +25,9 @@
  * proof that a process tree is gone cannot come from the stream by definition.
  */
 
-import { RuntimeEvent } from "@OpenAde/contracts/runtime";
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import type { ConnectorInstanceId } from "@OpenAde/contracts/ids";
+import { RuntimeEvent } from "@poseidon/contracts/runtime";
+import type { ThreadId } from "@poseidon/contracts/ids";
+import type { ConnectorInstanceId } from "@poseidon/contracts/ids";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";

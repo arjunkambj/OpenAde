@@ -18,7 +18,7 @@
 
 import * as Effect from "effect/Effect";
 
-import type { BrowserFrame, BrowserHumanInput } from "@OpenAde/contracts/rpc";
+import type { BrowserFrame, BrowserHumanInput } from "@poseidon/contracts/rpc";
 
 import type { AgentBrowserError, AgentBrowserUnavailable } from "./agentBrowser";
 import type { StreamClientError } from "./streamClient";

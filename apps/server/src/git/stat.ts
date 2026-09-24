@@ -11,7 +11,7 @@
  */
 import { realpath, stat } from "node:fs/promises";
 import * as nodePath from "node:path";
-import type { FileStat } from "@OpenAde/contracts/rpc";
+import type { FileStat } from "@poseidon/contracts/rpc";
 
 /** How many paths are resolved at once; a batch is at most a hundred. */
 const CONCURRENCY = 16;

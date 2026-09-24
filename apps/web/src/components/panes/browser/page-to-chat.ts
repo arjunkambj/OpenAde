@@ -25,7 +25,7 @@ export interface PickedElement {
 
 /** The page-side picker; one at a time — a second call cancels the first. */
 export const PICK_SCRIPT = `(() => new Promise((resolve) => {
-  window.__openadePicker?.cancel();
+  window.__poseidonPicker?.cancel();
   const box = document.createElement("div");
   box.style.cssText = "position:fixed;pointer-events:none;z-index:2147483647;display:none;outline:2px solid #2563eb;background:rgba(37,99,235,0.12)";
   document.documentElement.appendChild(box);
@@ -56,7 +56,7 @@ export const PICK_SCRIPT = `(() => new Promise((resolve) => {
   const done = (value) => {
     for (const [type, fn] of listeners) removeEventListener(type, fn, true);
     box.remove();
-    delete window.__openadePicker;
+    delete window.__poseidonPicker;
     resolve(value);
   };
   on("mousemove", move);
@@ -76,10 +76,10 @@ export const PICK_SCRIPT = `(() => new Promise((resolve) => {
     });
   });
   on("keydown", (event) => { if (event.key === "Escape") { swallow(event); done(null); } });
-  window.__openadePicker = { cancel: () => done(null) };
+  window.__poseidonPicker = { cancel: () => done(null) };
 }))()`;
 
-export const CANCEL_PICK_SCRIPT = "window.__openadePicker?.cancel()";
+export const CANCEL_PICK_SCRIPT = "window.__poseidonPicker?.cancel()";
 
 const text = (value: unknown, max: number): string | null =>
   typeof value === "string" ? value.slice(0, max) : null;

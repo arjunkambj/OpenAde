@@ -2,23 +2,23 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 
 /**
- * Where OpenAde keeps everything it owns on disk: the SQLite database, the
+ * Where Poseidon keeps everything it owns on disk: the SQLite database, the
  * generated Command Code hook script, the threads' git worktrees, the dev
- * connection file. `~/.openade` by default; set `OPENADE_HOME` to point a test,
+ * connection file. `~/.poseidon` by default; set `POSEIDON_HOME` to point a test,
  * a sandbox or a second install somewhere else.
  */
 
-export const CONFIG_DIR_NAME = ".openade";
+export const CONFIG_DIR_NAME = ".poseidon";
 
-export const OPENADE_HOME_ENV = "OPENADE_HOME";
+export const POSEIDON_HOME_ENV = "POSEIDON_HOME";
 
 type Env = Readonly<Record<string, string | undefined>>;
 
 const defaultEnv = (): Env => globalThis.process?.env ?? {};
 
-/** Absolute path of the OpenAde configuration directory. */
+/** Absolute path of the Poseidon configuration directory. */
 export const configDir = (env: Env = defaultEnv()): string => {
-  const override = env[OPENADE_HOME_ENV]?.trim();
+  const override = env[POSEIDON_HOME_ENV]?.trim();
   if (override !== undefined && override !== "") {
     return NodePath.resolve(override);
   }

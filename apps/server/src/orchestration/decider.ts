@@ -12,17 +12,17 @@
 
 import { isAbsolute } from "node:path";
 
-import { DEFAULT_RUNTIME_MODE } from "@OpenAde/contracts/enums";
-import type { Effort, RuntimeMode } from "@OpenAde/contracts/enums";
-import type { EventId, ItemId, ProjectId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
-import { threadLocksConnector } from "@OpenAde/contracts/orchestration";
+import { DEFAULT_RUNTIME_MODE } from "@poseidon/contracts/enums";
+import type { Effort, RuntimeMode } from "@poseidon/contracts/enums";
+import type { EventId, ItemId, ProjectId, ThreadId, TurnId } from "@poseidon/contracts/ids";
+import { threadLocksConnector } from "@poseidon/contracts/orchestration";
 import type {
   Actor,
   Command,
   OrchestrationEvent,
   StreamKind,
-} from "@OpenAde/contracts/orchestration";
-import type { PermissionScope } from "@OpenAde/contracts/settings";
+} from "@poseidon/contracts/orchestration";
+import type { PermissionScope } from "@poseidon/contracts/settings";
 import type { PlannedEvent } from "../persistence/EventStore";
 import type { ProjectDoc, ThreadDoc } from "./state";
 

@@ -9,7 +9,7 @@
  * its scripted client.
  */
 
-import { makeFileAtoms, type FileAtoms } from "@OpenAde/client-runtime/fileAtoms";
+import { makeFileAtoms, type FileAtoms } from "@poseidon/client-runtime/fileAtoms";
 
 import { type ClientRuntime, useClientRuntime } from "@/lib/client-runtime";
 

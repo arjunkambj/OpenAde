@@ -35,7 +35,7 @@ import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 
-import type { ItemId, TurnId } from "@OpenAde/contracts/ids";
+import type { ItemId, TurnId } from "@poseidon/contracts/ids";
 
 export interface PlanProposal {
   /** Absolute path of the plan's markdown file. */
@@ -136,7 +136,7 @@ const planFileIn = (toolName: unknown, input: unknown): string | null => {
  * the model and the workspace in a mode the UI presents as read-only — so
  * print mode refuses this write like any other. The refusal is not a failure
  * the user needs to see: the content was in the frame that announced the call
- * and OpenAde saves the file itself.
+ * and Poseidon saves the file itself.
  */
 export const isPlanWrite = (toolName: unknown, input: unknown): boolean =>
   planFileIn(toolName, input) !== null;

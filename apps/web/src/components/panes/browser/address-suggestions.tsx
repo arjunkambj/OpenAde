@@ -10,8 +10,8 @@
  */
 import * as React from "react";
 
-import { Command, CommandGroup, CommandItem, CommandList } from "@OpenAde/ui/components/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@OpenAde/ui/components/popover";
+import { Command, CommandGroup, CommandItem, CommandList } from "@poseidon/ui/components/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@poseidon/ui/components/popover";
 
 import type { Suggestion } from "./suggestions";
 import { History, Server } from "@honeyicons/react";

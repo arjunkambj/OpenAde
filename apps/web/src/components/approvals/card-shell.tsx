@@ -16,8 +16,8 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@OpenAde/ui/components/card";
-import { cn } from "@OpenAde/ui/lib/utils";
+} from "@poseidon/ui/components/card";
+import { cn } from "@poseidon/ui/lib/utils";
 
 export function CardShell({
   icon: Glyph,

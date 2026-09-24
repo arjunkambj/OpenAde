@@ -5,7 +5,7 @@
  * work does not dominate the main transcript.
  */
 
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
+import type { ItemSnapshot } from "@poseidon/contracts/runtime";
 
 import { DisclosureRow } from "@/components/timeline/row-shell";
 import { TimelineItemView } from "@/components/timeline/timeline-item";

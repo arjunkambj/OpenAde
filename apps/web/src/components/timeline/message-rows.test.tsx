@@ -1,12 +1,12 @@
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
+import type { ItemSnapshot } from "@poseidon/contracts/runtime";
 import {
   makeCheckpointId,
   makeItemId,
   makeProjectId,
   makeThreadId,
   makeTurnId,
-} from "@OpenAde/contracts/ids";
-import { uuidV7Millis } from "@OpenAde/shared/ids";
+} from "@poseidon/contracts/ids";
+import { uuidV7Millis } from "@poseidon/shared/ids";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
@@ -117,7 +117,7 @@ describe("the user message footer", () => {
   const checkpoint = {
     checkpointId: makeCheckpointId(),
     turnId: t1,
-    ref: `refs/openade/checkpoints/t/${t1}`,
+    ref: `refs/poseidon/checkpoints/t/${t1}`,
     createdAt: "2026-01-01T00:00:00.000Z",
   };
   const thread = (fields: Partial<TimelineThread> = {}): TimelineThread => ({

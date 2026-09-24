@@ -412,7 +412,7 @@ process.stdout.write(JSON.stringify({
   version: "1.54.0",
   user: [
     process.env.ANTHROPIC_API_KEY ?? "-",
-    process.env.OPENADE_SERVER_SECRET ?? "-",
+    process.env.POSEIDON_SERVER_SECRET ?? "-",
     process.env.COMMAND_CODE_API_KEY ?? "-",
   ].join("|"),
 }));
@@ -420,7 +420,7 @@ process.exit(0);
 `);
       const previous = { ...process.env };
       process.env.ANTHROPIC_API_KEY = "leaked";
-      process.env.OPENADE_SERVER_SECRET = "leaked";
+      process.env.POSEIDON_SERVER_SECRET = "leaked";
       try {
         const result = yield* probe({
           binaryPath,

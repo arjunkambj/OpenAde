@@ -15,10 +15,10 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { AsyncResult } from "effect/unstable/reactivity";
 import * as React from "react";
 
-import { Alert, AlertAction, AlertDescription, AlertTitle } from "@OpenAde/ui/components/alert";
-import { Button } from "@OpenAde/ui/components/button";
-import type { ConnectorSummary } from "@OpenAde/contracts/connectors";
-import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
+import { Alert, AlertAction, AlertDescription, AlertTitle } from "@poseidon/ui/components/alert";
+import { Button } from "@poseidon/ui/components/button";
+import type { ConnectorSummary } from "@poseidon/contracts/connectors";
+import type { ThreadDetailSnapshot } from "@poseidon/contracts/orchestration";
 
 import { CopyCommand } from "@/components/copy-command";
 import { helpUrlFor } from "@/components/Settings/probe-help";

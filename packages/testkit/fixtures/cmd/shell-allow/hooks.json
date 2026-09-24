@@ -3,7 +3,7 @@
     "at": 1789686208189,
     "stdin": {
       "session_id": "da3e8d98-1787-473f-82c2-215cf7b20c83",
-      "transcript_path": "<HOME>/.commandcode/projects/private-tmp-claude-501-volumes-main-code-open-ade-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-shell-allow-5e2d37e2-repo/da3e8d98-1787-473f-82c2-215cf7b20c83.jsonl",
+      "transcript_path": "<HOME>/.commandcode/projects/private-tmp-claude-501-volumes-main-code-poseidon-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-shell-allow-5e2d37e2-repo/da3e8d98-1787-473f-82c2-215cf7b20c83.jsonl",
       "cwd": "<SCRATCH>/repo",
       "hook_event_name": "PreToolUse",
       "permission_mode": "default",
@@ -32,7 +32,7 @@
     "at": 1789686215782,
     "stdin": {
       "session_id": "da3e8d98-1787-473f-82c2-215cf7b20c83",
-      "transcript_path": "<HOME>/.commandcode/projects/private-tmp-claude-501-volumes-main-code-open-ade-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-shell-allow-5e2d37e2-repo/da3e8d98-1787-473f-82c2-215cf7b20c83.jsonl",
+      "transcript_path": "<HOME>/.commandcode/projects/private-tmp-claude-501-volumes-main-code-poseidon-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-shell-allow-5e2d37e2-repo/da3e8d98-1787-473f-82c2-215cf7b20c83.jsonl",
       "cwd": "<SCRATCH>/repo",
       "hook_event_name": "PreToolUse",
       "permission_mode": "default",
@@ -60,7 +60,7 @@
     "at": 1789686229023,
     "stdin": {
       "session_id": "da3e8d98-1787-473f-82c2-215cf7b20c83",
-      "transcript_path": "<HOME>/.commandcode/projects/private-tmp-claude-501-volumes-main-code-open-ade-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-shell-allow-5e2d37e2-repo/da3e8d98-1787-473f-82c2-215cf7b20c83.jsonl",
+      "transcript_path": "<HOME>/.commandcode/projects/private-tmp-claude-501-volumes-main-code-poseidon-bbf9a782-77eb-4016-826b-a790bd6c8313-scratchpad-rec-shell-allow-5e2d37e2-repo/da3e8d98-1787-473f-82c2-215cf7b20c83.jsonl",
       "cwd": "<SCRATCH>/repo",
       "hook_event_name": "PreToolUse",
       "permission_mode": "default",

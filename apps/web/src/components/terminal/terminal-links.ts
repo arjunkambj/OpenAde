@@ -7,7 +7,7 @@
  * a `file:` or custom-scheme link has no business there.
  */
 
-import type { ModKey } from "@OpenAde/client-runtime/keybindings";
+import type { ModKey } from "@poseidon/client-runtime/keybindings";
 
 /** The URL to open for this click on `uri`, or null to leave it alone. */
 export const linkToOpen = (

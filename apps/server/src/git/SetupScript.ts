@@ -6,8 +6,8 @@
  * reads it from there and checks the path is one of the project's worktrees
  * before anything here runs; a client never supplies either. It runs as
  * `/bin/sh -c <script>` in argv form with the worktree as its working
- * directory, and learns where it is from `OPENADE_WORKTREE_PATH` and
- * `OPENADE_PROJECT_ROOT`.
+ * directory, and learns where it is from `POSEIDON_WORKTREE_PATH` and
+ * `POSEIDON_PROJECT_ROOT`.
  *
  * The shell is spawned detached, so it leads a process group of its own, and
  * a stream that ends before the script does — the client closed the dialog,
@@ -23,7 +23,7 @@
  * delete a tree the script is still writing into.
  */
 import { spawn } from "node:child_process";
-import type { WorktreeSetupFrame } from "@OpenAde/contracts/git";
+import type { WorktreeSetupFrame } from "@poseidon/contracts/git";
 import * as Effect from "effect/Effect";
 import * as Queue from "effect/Queue";
 import * as Stream from "effect/Stream";
@@ -32,7 +32,7 @@ import * as Stream from "effect/Stream";
 export const SETUP_OUTPUT_LIMIT_BYTES = 1024 * 1024;
 
 const TRUNCATED_NOTICE =
-  "\n[OpenAde: the setup script's output passed 1 MiB; the rest is not shown.]\n";
+  "\n[Poseidon: the setup script's output passed 1 MiB; the rest is not shown.]\n";
 
 /** How long the group gets to exit after SIGTERM before it is sent SIGKILL. */
 const TERM_GRACE_MS = 3_000;
@@ -132,8 +132,8 @@ export const runSetupScript = (options: {
             ...process.env,
             // `pwd` in the script answers the worktree, not the server's cwd.
             PWD: options.cwd,
-            OPENADE_WORKTREE_PATH: options.cwd,
-            OPENADE_PROJECT_ROOT: options.projectRoot,
+            POSEIDON_WORKTREE_PATH: options.cwd,
+            POSEIDON_PROJECT_ROOT: options.projectRoot,
           },
           detached: true,
           stdio: ["ignore", "pipe", "pipe"],

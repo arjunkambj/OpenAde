@@ -7,7 +7,7 @@
  * production composition will.
  */
 
-import type { ConnectorInstance } from "@OpenAde/connector-sdk/definition";
+import type { ConnectorInstance } from "@poseidon/connector-sdk/definition";
 import * as Layer from "effect/Layer";
 import type { MigrationError } from "effect/unstable/sql/Migrator";
 import type { SqlError } from "effect/unstable/sql/SqlError";

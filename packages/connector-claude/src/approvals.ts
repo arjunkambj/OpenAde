@@ -1,8 +1,8 @@
 /**
- * Claude Code's tool vocabulary, mapped onto OpenAde's approval model: which
+ * Claude Code's tool vocabulary, mapped onto Poseidon's approval model: which
  * kind of permission a call asks for, the MCP server and tool it names, the
- * pattern its "allow always" starts from — in OpenAde's own pattern vocabulary
- * (`@OpenAde/shared/permissionPattern`, docs/architecture.md "Permissions"),
+ * pattern its "allow always" starts from — in Poseidon's own pattern vocabulary
+ * (`@poseidon/shared/permissionPattern`, docs/architecture.md "Permissions"),
  * never the CLI's — and the line the card shows.
  *
  * The request is what the permission ladder reads, so its `input` is the
@@ -13,9 +13,9 @@
  * rung would never see it.
  */
 
-import type { ApprovalKind } from "@OpenAde/contracts/enums";
-import { makeRequestId } from "@OpenAde/contracts/ids";
-import type { ApprovalRequest, McpToolRef } from "@OpenAde/contracts/runtime";
+import type { ApprovalKind } from "@poseidon/contracts/enums";
+import { makeRequestId } from "@poseidon/contracts/ids";
+import type { ApprovalRequest, McpToolRef } from "@poseidon/contracts/runtime";
 
 /** The tool the model puts a question to the user with. */
 export const ASK_USER_QUESTION = "AskUserQuestion";

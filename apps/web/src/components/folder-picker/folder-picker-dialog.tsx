@@ -21,10 +21,10 @@
  */
 
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
-import type { FsQuery } from "@OpenAde/client-runtime/fsAtoms";
-import type { FsEntry, FsListing } from "@OpenAde/contracts/rpc";
-import { Button } from "@OpenAde/ui/components/button";
-import { Checkbox } from "@OpenAde/ui/components/checkbox";
+import type { FsQuery } from "@poseidon/client-runtime/fsAtoms";
+import type { FsEntry, FsListing } from "@poseidon/contracts/rpc";
+import { Button } from "@poseidon/ui/components/button";
+import { Checkbox } from "@poseidon/ui/components/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -32,9 +32,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@OpenAde/ui/components/dialog";
-import { Input } from "@OpenAde/ui/components/input";
-import { Label } from "@OpenAde/ui/components/label";
+} from "@poseidon/ui/components/dialog";
+import { Input } from "@poseidon/ui/components/input";
+import { Label } from "@poseidon/ui/components/label";
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 

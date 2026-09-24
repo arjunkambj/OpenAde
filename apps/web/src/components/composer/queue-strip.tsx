@@ -13,11 +13,11 @@
  */
 
 import { useAtomSet } from "@effect/atom-react";
-import { Button } from "@OpenAde/ui/components/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import { makeCommandId } from "@OpenAde/contracts/ids";
-import type { ItemId, ThreadId } from "@OpenAde/contracts/ids";
-import type { Command, QueuedMessage } from "@OpenAde/contracts/orchestration";
+import { Button } from "@poseidon/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
+import { makeCommandId } from "@poseidon/contracts/ids";
+import type { ItemId, ThreadId } from "@poseidon/contracts/ids";
+import type { Command, QueuedMessage } from "@poseidon/contracts/orchestration";
 import * as React from "react";
 
 import { useClientRuntime } from "@/lib/client-runtime";

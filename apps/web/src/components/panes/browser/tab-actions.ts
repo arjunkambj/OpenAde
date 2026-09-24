@@ -9,7 +9,7 @@
  * and the keys the shell relays from inside a page (`../browser-host`) come
  * through here.
  */
-import type { BrowserHumanInput } from "@OpenAde/contracts/rpc";
+import type { BrowserHumanInput } from "@poseidon/contracts/rpc";
 
 import type { WebviewElement } from "@/components/browser-host/tab-views";
 

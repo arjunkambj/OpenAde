@@ -31,7 +31,7 @@ import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 
-import { makeStreamCollector, type StreamCollector } from "@OpenAde/connector-sdk/streamCollector";
+import { makeStreamCollector, type StreamCollector } from "@poseidon/connector-sdk/streamCollector";
 import {
   makeCommandId,
   makeProjectId,
@@ -39,9 +39,9 @@ import {
   makeThreadId,
   type ProjectId,
   type ThreadId,
-} from "@OpenAde/contracts/ids";
-import type { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
-import { TERMINALS_PER_OWNER, type TerminalStreamItem } from "@OpenAde/contracts/terminal";
+} from "@poseidon/contracts/ids";
+import type { PoseidonRpcError } from "@poseidon/contracts/rpc";
+import { TERMINALS_PER_OWNER, type TerminalStreamItem } from "@poseidon/contracts/terminal";
 import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -69,7 +69,7 @@ const line = (text: string) => new RegExp(`(^|\\n)${escapeRegExp(text)}\\r?\\n`)
 
 const tempDir = (label: string) =>
   Effect.acquireRelease(
-    Effect.sync(() => mkdtempSync(nodePath.join(tmpdir(), `openade-terminal-${label}-`))),
+    Effect.sync(() => mkdtempSync(nodePath.join(tmpdir(), `poseidon-terminal-${label}-`))),
     (path) => Effect.sync(() => rmSync(path, { recursive: true, force: true })),
   );
 
@@ -149,7 +149,7 @@ const buildStack: Effect.Effect<Stack, never, Scope.Scope> = Effect.gen(function
         settings: { model: "fake/model" },
         ...(worktree === undefined
           ? {}
-          : { worktree: { path: worktree, branch: "openade/fix", baseBranch: "main" } }),
+          : { worktree: { path: worktree, branch: "poseidon/fix", baseBranch: "main" } }),
       });
       return threadId;
     }).pipe(Effect.orDie);
@@ -182,7 +182,7 @@ const withTerminal = Effect.gen(function* () {
   return { ...stack, terminals, threadId, terminalId, opened };
 });
 
-const failureCode = <A>(effect: Effect.Effect<A, OpenAdeRpcError>) =>
+const failureCode = <A>(effect: Effect.Effect<A, PoseidonRpcError>) =>
   Effect.map(Effect.flip(effect), (error) => error.code);
 
 describe.skipIf(process.platform === "win32")("TerminalService", () => {

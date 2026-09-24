@@ -17,9 +17,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@OpenAde/ui/components/select";
-import { cn } from "@OpenAde/ui/lib/utils";
-import type { ProjectId } from "@OpenAde/contracts/ids";
+} from "@poseidon/ui/components/select";
+import { cn } from "@poseidon/ui/lib/utils";
+import type { ProjectId } from "@poseidon/contracts/ids";
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 

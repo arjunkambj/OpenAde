@@ -12,10 +12,10 @@
  */
 import * as React from "react";
 
-import type { BrowserHumanInput, BrowserState } from "@OpenAde/contracts/rpc";
-import { Button } from "@OpenAde/ui/components/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import { Input } from "@OpenAde/ui/components/input";
+import type { BrowserHumanInput, BrowserState } from "@poseidon/contracts/rpc";
+import { Button } from "@poseidon/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
+import { Input } from "@poseidon/ui/components/input";
 
 import { cn } from "@/lib/utils";
 import { normalizeAddress } from "./address";

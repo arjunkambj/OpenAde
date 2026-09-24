@@ -18,12 +18,12 @@
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
-import { cn } from "@OpenAde/ui/lib/utils";
-import { makeCommandId, type ProjectId, type ThreadId } from "@OpenAde/contracts/ids";
+import { cn } from "@poseidon/ui/lib/utils";
+import { makeCommandId, type ProjectId, type ThreadId } from "@poseidon/contracts/ids";
 import {
   detectComposerTrigger,
   replaceComposerTrigger,
-} from "@OpenAde/client-runtime/composerTrigger";
+} from "@poseidon/client-runtime/composerTrigger";
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 

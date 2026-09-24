@@ -1,4 +1,4 @@
-import type { DevServer } from "@OpenAde/contracts/rpc";
+import type { DevServer } from "@poseidon/contracts/rpc";
 import { describe, expect, it } from "vitest";
 
 import type { HistoryEntry } from "./history";

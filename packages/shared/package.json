@@ -1,5 +1,5 @@
 {
-  "name": "@OpenAde/shared",
+  "name": "@poseidon/shared",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -34,7 +34,7 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "@OpenAde/config": "workspace:*",
+    "@poseidon/config": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

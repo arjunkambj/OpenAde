@@ -34,12 +34,12 @@
  */
 
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
-import type { FileQuery } from "@OpenAde/client-runtime/fileAtoms";
-import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
-import type { FileSearchResult } from "@OpenAde/contracts/rpc";
-import { Button } from "@OpenAde/ui/components/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import { Input } from "@OpenAde/ui/components/input";
+import type { FileQuery } from "@poseidon/client-runtime/fileAtoms";
+import type { ProjectId, ThreadId } from "@poseidon/contracts/ids";
+import type { FileSearchResult } from "@poseidon/contracts/rpc";
+import { Button } from "@poseidon/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
+import { Input } from "@poseidon/ui/components/input";
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 

@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
-import { UserQuestion } from "@OpenAde/contracts/runtime";
+import { UserQuestion } from "@poseidon/contracts/runtime";
 import * as Schema from "effect/Schema";
 
 import { describeAnswers, normalizeQuestions } from "./questions";

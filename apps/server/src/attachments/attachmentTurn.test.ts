@@ -12,23 +12,23 @@
  * prompt the connector hands the CLI, which the replay records, and the answer
  * the real CLI gave when it was handed the same thing.
  *
- * Nothing touches the real `~/.commandcode` or `~/.openade`: both are
+ * Nothing touches the real `~/.commandcode` or `~/.poseidon`: both are
  * redirected into a temp directory for the file.
  */
 
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
-import { makeCmdSession } from "@OpenAde/connector-cmd/session";
-import type { ConnectorServices } from "@OpenAde/connector-sdk/definition";
-import { makeStreamCollector } from "@OpenAde/connector-sdk/streamCollector";
-import { makeConnectorInstanceId, makeThreadId } from "@OpenAde/contracts/ids";
-import type { ThreadId } from "@OpenAde/contracts/ids";
+import { makeCmdSession } from "@poseidon/connector-cmd/session";
+import type { ConnectorServices } from "@poseidon/connector-sdk/definition";
+import { makeStreamCollector } from "@poseidon/connector-sdk/streamCollector";
+import { makeConnectorInstanceId, makeThreadId } from "@poseidon/contracts/ids";
+import type { ThreadId } from "@poseidon/contracts/ids";
 import {
   loadRecording,
   replayConfig,
   replayedInvocations,
-} from "@OpenAde/testkit/replayCmdProcess";
+} from "@poseidon/testkit/replayCmdProcess";
 import { describe, expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -85,19 +85,19 @@ const servicesFor = (attachmentsDir: string): Effect.Effect<ConnectorServices> =
     }),
   );
 
-const openadeHomeAt = (path: string) =>
+const poseidonHomeAt = (path: string) =>
   Effect.acquireRelease(
     Effect.sync(() => {
-      const previous = process.env.OPENADE_HOME;
-      process.env.OPENADE_HOME = path;
+      const previous = process.env.POSEIDON_HOME;
+      process.env.POSEIDON_HOME = path;
       return previous;
     }),
     (previous) =>
       Effect.sync(() => {
         if (previous === undefined) {
-          delete process.env.OPENADE_HOME;
+          delete process.env.POSEIDON_HOME;
         } else {
-          process.env.OPENADE_HOME = previous;
+          process.env.POSEIDON_HOME = previous;
         }
       }),
   );
@@ -134,7 +134,7 @@ describe("an attachment reaching the harness", () => {
     Effect.scoped(
       Effect.gen(function* () {
         const f = yield* fixture();
-        yield* openadeHomeAt(NodePath.join(f.home, "openade"));
+        yield* poseidonHomeAt(NodePath.join(f.home, "poseidon"));
         const threadId = makeThreadId();
         const staged = yield* f.store.stage({
           threadId,

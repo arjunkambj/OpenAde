@@ -43,10 +43,10 @@
  * that is known (`turnEndedAt`), rather than stopping as its answer began.
  */
 
-import type { ResolvedDecision } from "@OpenAde/contracts/decisions";
-import type { TurnId } from "@OpenAde/contracts/ids";
-import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
-import { uuidV7Millis } from "@OpenAde/shared/ids";
+import type { ResolvedDecision } from "@poseidon/contracts/decisions";
+import type { TurnId } from "@poseidon/contracts/ids";
+import type { ItemSnapshot } from "@poseidon/contracts/runtime";
+import { uuidV7Millis } from "@poseidon/shared/ids";
 
 import {
   FOLDABLE_KINDS,

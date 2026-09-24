@@ -10,7 +10,7 @@
  *
  * Signatures are the documented ones and no more: PNG's eight-byte header,
  * JPEG's `FF D8 FF` SOI, the two GIF versions, and RIFF/WEBP's split container
- * magic. Anything else is not an image as far as OpenAde is concerned.
+ * magic. Anything else is not an image as far as Poseidon is concerned.
  */
 
 /** The media types the composer accepts, in the order the file picker lists. */

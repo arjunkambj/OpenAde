@@ -17,7 +17,7 @@ import { appUserModelId, productName, resolveChannel } from "./channel";
  * stable must not share a userData directory or a taskbar group.
  */
 export function applyPlatformDefaults() {
-  const channel = resolveChannel(process.env.OPENADE_CHANNEL);
+  const channel = resolveChannel(process.env.POSEIDON_CHANNEL);
   app.setName(productName(channel));
   if (process.platform === "win32") {
     app.setAppUserModelId(appUserModelId(channel));

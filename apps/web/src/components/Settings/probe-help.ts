@@ -13,7 +13,7 @@
  * the renderer: the links arrive over the wire.
  */
 
-import type { ConnectorProbe } from "@OpenAde/contracts/connectors";
+import type { ConnectorProbe } from "@poseidon/contracts/connectors";
 
 import { probeHealthState } from "@/lib/connector-health";
 

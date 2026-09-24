@@ -6,7 +6,7 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import { resolveRendererRequest } from "./rendererRequest";
 
-const root = mkdtempSync(join(tmpdir(), "openade-renderer-"));
+const root = mkdtempSync(join(tmpdir(), "poseidon-renderer-"));
 mkdirSync(join(root, "assets"));
 writeFileSync(join(root, "index.html"), "<!doctype html>", "utf8");
 writeFileSync(join(root, "assets", "main.js"), "export {};", "utf8");

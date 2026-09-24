@@ -1,12 +1,12 @@
 /**
- * Wires `OpenAdeRpcGroup` to services. Orchestration reads and writes go to
+ * Wires `PoseidonRpcGroup` to services. Orchestration reads and writes go to
  * the engine; every other surface resolves to its Tag service, so one can be
  * swapped without touching this file.
  */
 
-import { OpenAdeRpcError, OpenAdeRpcGroup, PROTOCOL_VERSION } from "@OpenAde/contracts/rpc";
-import type { Command } from "@OpenAde/contracts/orchestration";
-import { terminalOwnerOf } from "@OpenAde/contracts/terminal";
+import { PoseidonRpcError, PoseidonRpcGroup, PROTOCOL_VERSION } from "@poseidon/contracts/rpc";
+import type { Command } from "@poseidon/contracts/orchestration";
+import { terminalOwnerOf } from "@poseidon/contracts/terminal";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
 
@@ -26,20 +26,20 @@ import {
   TerminalService,
 } from "./services";
 
-const toRpcError = (error: unknown): OpenAdeRpcError =>
-  error instanceof OpenAdeRpcError
+const toRpcError = (error: unknown): PoseidonRpcError =>
+  error instanceof PoseidonRpcError
     ? error
     : error instanceof ConcurrencyConflict
-      ? new OpenAdeRpcError({
+      ? new PoseidonRpcError({
           code: "conflict",
           message: `stale stream version for ${error.streamId}: ${error.message}`,
         })
       : // Internal details (SQL, paths) stay server-side; the client only
         // learns that something failed.
-        new OpenAdeRpcError({ code: "internal", message: "internal error" });
+        new PoseidonRpcError({ code: "internal", message: "internal error" });
 
 /** The RPC handler layer — every method in the group, one implementation each. */
-export const handlersLayer = OpenAdeRpcGroup.toLayer(
+export const handlersLayer = PoseidonRpcGroup.toLayer(
   Effect.gen(function* () {
     const engine = yield* OrchestrationEngine;
     const identity = yield* ServerIdentity;

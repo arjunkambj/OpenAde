@@ -6,9 +6,9 @@
  *
  * DevTools opens in its own window beside the shell's bridge debugger — a
  * guest takes both at once. Zoom is Chromium's per-site zoom inside the
- * thread's own partition, so it never reaches the OpenAde window.
+ * thread's own partition, so it never reaches the Poseidon window.
  */
-import { Button } from "@OpenAde/ui/components/button";
+import { Button } from "@poseidon/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,8 +16,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
-} from "@OpenAde/ui/components/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+} from "@poseidon/ui/components/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 import { toast } from "sonner";
 
 import { getTabView, type WebviewElement } from "@/components/browser-host/tab-views";

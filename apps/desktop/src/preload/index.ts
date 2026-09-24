@@ -15,9 +15,9 @@ import {
   FULLSCREEN_CHANNEL,
 } from "../platform/attributes";
 
-import { makeOpenAdeBridge } from "./bridge";
+import { makePoseidonBridge } from "./bridge";
 
-contextBridge.exposeInMainWorld("openade", makeOpenAdeBridge(ipcRenderer));
+contextBridge.exposeInMainWorld("poseidon", makePoseidonBridge(ipcRenderer));
 
 function markDesktop(): boolean {
   const root = document.documentElement;

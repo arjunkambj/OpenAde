@@ -12,8 +12,8 @@
  * leaves the SDK's `model` option out entirely rather than naming a model.
  */
 
-import { EFFORT_ORDER, type Effort } from "@OpenAde/contracts/enums";
-import type { ModelOption } from "@OpenAde/contracts/connectors";
+import { EFFORT_ORDER, type Effort } from "@poseidon/contracts/enums";
+import type { ModelOption } from "@poseidon/contracts/connectors";
 
 /** The model id that means "whatever the CLI's default is". */
 export const DEFAULT_MODEL = "default";
@@ -29,7 +29,7 @@ export interface ClaudeModelInfo {
   readonly supportedEffortLevels?: ReadonlyArray<string>;
 }
 
-/** The model's effort rungs that OpenAde knows, lowest first. */
+/** The model's effort rungs that Poseidon knows, lowest first. */
 const effortsOf = (info: ClaudeModelInfo): Array<Effort> => {
   const offered = new Set(info.supportedEffortLevels ?? []);
   return EFFORT_ORDER.filter((effort) => offered.has(effort));

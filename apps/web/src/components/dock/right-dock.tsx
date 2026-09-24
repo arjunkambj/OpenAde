@@ -57,8 +57,8 @@
 
 import * as React from "react";
 
-import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
-import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
+import type { ProjectId, ThreadId } from "@poseidon/contracts/ids";
+import type { ThreadDetailSnapshot } from "@poseidon/contracts/orchestration";
 
 import { BrowserPane } from "@/components/panes/browser/browser-pane";
 import { ChangesPane } from "@/components/panes/changes/changes-pane";

@@ -4,8 +4,8 @@
  * toggle and the theme. State lives in the page; this only draws it.
  */
 
-import { Button } from "@OpenAde/ui/components/button";
-import { Separator } from "@OpenAde/ui/components/separator";
+import { Button } from "@poseidon/ui/components/button";
+import { Separator } from "@poseidon/ui/components/separator";
 import type * as React from "react";
 
 import { ModeToggle } from "@/components/mode-toggle";

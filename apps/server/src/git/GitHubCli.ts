@@ -13,13 +13,13 @@
 import { execFile } from "node:child_process";
 import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
-import type { GitPullRequestResult } from "@OpenAde/contracts/git";
+import type { GitPullRequestResult } from "@poseidon/contracts/git";
 import * as Context from "effect/Context";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
+import { PoseidonRpcError } from "@poseidon/contracts/rpc";
 
 /** `gh` could not be started at all: it is not installed, or not where we looked. */
 export class GhMissing extends Data.TaggedError("GhMissing")<{ readonly message: string }> {}
@@ -114,7 +114,7 @@ const runGh = (args: ReadonlyArray<string>, cwd: string): Effect.Effect<GhOutput
 
 // ── Creating a pull request ────────────────────────────────────
 
-const unavailable = (message: string) => new OpenAdeRpcError({ code: "unavailable", message });
+const unavailable = (message: string) => new PoseidonRpcError({ code: "unavailable", message });
 
 /** The last pull-request URL in some gh output, e.g. `https://github.com/o/r/pull/12`. */
 const pullRequestUrl = (text: string): string | null => {
@@ -140,7 +140,7 @@ export const createPullRequest = (
     readonly title: string;
     readonly body: string;
   },
-): Effect.Effect<GitPullRequestResult, OpenAdeRpcError> =>
+): Effect.Effect<GitPullRequestResult, PoseidonRpcError> =>
   Effect.gen(function* () {
     const version = yield* gh.run(["--version"], cwd);
     if (version.exitCode !== 0) {
@@ -172,7 +172,7 @@ export const createPullRequest = (
       if (url !== null) return { url, created: true };
     } else if (!ALREADY_EXISTS.test(created.stderr)) {
       return yield* Effect.fail(
-        new OpenAdeRpcError({
+        new PoseidonRpcError({
           code: "conflict",
           message: created.stderr.trim() || `gh pr create exited ${created.exitCode}`,
         }),
@@ -186,7 +186,7 @@ export const createPullRequest = (
     const url = viewed.exitCode === 0 ? pullRequestUrl(viewed.stdout) : null;
     if (url === null) {
       return yield* Effect.fail(
-        new OpenAdeRpcError({
+        new PoseidonRpcError({
           code: "internal",
           message: `gh did not report the pull request's URL: ${viewed.stderr.trim()}`,
         }),

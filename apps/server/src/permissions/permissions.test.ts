@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { makeRequestId } from "@OpenAde/contracts/ids";
-import type { ApprovalKind } from "@OpenAde/contracts/enums";
-import type { ApprovalRequest } from "@OpenAde/contracts/runtime";
+import { makeRequestId } from "@poseidon/contracts/ids";
+import type { ApprovalKind } from "@poseidon/contracts/enums";
+import type { ApprovalRequest } from "@poseidon/contracts/runtime";
 
 import { parsePattern, patternMatches, requestPath } from "./patterns";
 import { commandTouchesSensitivePath, isSensitivePath } from "./sensitivePaths";
@@ -307,22 +307,22 @@ const rows: ReadonlyArray<Row> = [
   // ones, so `browser_open file:///…/.ssh/id_ed25519` never showed a card.
   {
     kind: "mcp_tool",
-    toolName: "mcp__openade__browser_open",
+    toolName: "mcp__poseidon__browser_open",
     input: { url: "file:///Users/someone/.ssh/id_ed25519" },
     mode: "full-access",
     want: "prompt",
   },
   {
     kind: "mcp_tool",
-    toolName: "mcp__openade__browser_open",
+    toolName: "mcp__poseidon__browser_open",
     input: { url: "file:///Users/someone/project/.env" },
     mode: "full-access",
-    rules: [{ pattern: "mcp__openade__browser_*", decision: "allow" }],
+    rules: [{ pattern: "mcp__poseidon__browser_*", decision: "allow" }],
     want: "prompt",
   },
   {
     kind: "mcp_tool",
-    toolName: "mcp__openade__browser_open",
+    toolName: "mcp__poseidon__browser_open",
     input: { url: "https://example.com/.env" },
     mode: "full-access",
     want: "allow",

@@ -15,15 +15,15 @@
  * when the thread is deleted.
  */
 
-import type { ConnectorInstanceId, ThreadId } from "@OpenAde/contracts/ids";
-import type { ConnectorError, ConnectorInstance } from "@OpenAde/connector-sdk/definition";
-import { ConnectorNotFound } from "@OpenAde/connector-sdk/definition";
-import type { ConnectorRegistry } from "@OpenAde/connector-sdk/registry";
-import type { SessionHandle } from "@OpenAde/connector-sdk/sessionHandle";
+import type { ConnectorInstanceId, ThreadId } from "@poseidon/contracts/ids";
+import type { ConnectorError, ConnectorInstance } from "@poseidon/connector-sdk/definition";
+import { ConnectorNotFound } from "@poseidon/connector-sdk/definition";
+import type { ConnectorRegistry } from "@poseidon/connector-sdk/registry";
+import type { SessionHandle } from "@poseidon/connector-sdk/sessionHandle";
 import {
   makeTurnScopedHandle,
   type TurnScopedSessionHandle,
-} from "@OpenAde/connector-sdk/turnScopedHandle";
+} from "@poseidon/connector-sdk/turnScopedHandle";
 import * as Context from "effect/Context";
 import * as Data from "effect/Data";
 import * as Duration from "effect/Duration";
@@ -299,7 +299,7 @@ export class SessionManager extends Context.Service<
        * started it and is closed by `close(threadId)`. Nothing closed the ones
        * still open when the server itself stopped, so their finalizers never
        * ran: the child process was left behind, and so were the two files the
-       * connector puts in the user's Command Code config. An `openade` MCP
+       * connector puts in the user's Command Code config. An `poseidon` MCP
        * entry naming a port nothing is listening on is worse than none, and it
        * accumulated one per session, forever.
        */

@@ -5,8 +5,8 @@
  * capture listener existed to get right.
  */
 
-import { resolveKeybinding, type ShortcutEvent } from "@OpenAde/client-runtime/keybindings";
-import type { Keybinding } from "@OpenAde/contracts/settings";
+import { resolveKeybinding, type ShortcutEvent } from "@poseidon/client-runtime/keybindings";
+import type { Keybinding } from "@poseidon/contracts/settings";
 import { describe, expect, it } from "vitest";
 
 import { keybindingContext, type FocusSnapshot } from "@/lib/keybinding-context";

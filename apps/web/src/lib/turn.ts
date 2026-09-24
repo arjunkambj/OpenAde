@@ -10,8 +10,8 @@
  * server rejects as "a turn is already running".
  */
 
-import type { ProjectId } from "@OpenAde/contracts/ids";
-import type { ThreadDetailSnapshot, ThreadSummary } from "@OpenAde/contracts/orchestration";
+import type { ProjectId } from "@poseidon/contracts/ids";
+import type { ThreadDetailSnapshot, ThreadSummary } from "@poseidon/contracts/orchestration";
 
 export const turnInFlight = (snapshot: ThreadDetailSnapshot): boolean =>
   snapshot.currentTurnId !== null || snapshot.status === "running";

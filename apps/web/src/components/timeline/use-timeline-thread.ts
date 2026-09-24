@@ -23,8 +23,8 @@
  */
 
 import { RegistryContext, useAtomValue } from "@effect/atom-react";
-import type { TurnId } from "@OpenAde/contracts/ids";
-import type { CheckpointRestore, ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
+import type { TurnId } from "@poseidon/contracts/ids";
+import type { CheckpointRestore, ThreadDetailSnapshot } from "@poseidon/contracts/orchestration";
 import { AsyncResult } from "effect/unstable/reactivity";
 import * as React from "react";
 

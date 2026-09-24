@@ -38,20 +38,20 @@
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
-import everyKindJson from "@OpenAde/contracts/fixtures/thread-detail-snapshot.json";
-import { makeCommandId } from "@OpenAde/contracts/ids";
+import everyKindJson from "@poseidon/contracts/fixtures/thread-detail-snapshot.json";
+import { makeCommandId } from "@poseidon/contracts/ids";
 import {
   type Command,
   type CommandReceipt,
   ThreadDetailSnapshot,
-} from "@OpenAde/contracts/orchestration";
-import { cn } from "@OpenAde/ui/lib/utils";
+} from "@poseidon/contracts/orchestration";
+import { cn } from "@poseidon/ui/lib/utils";
 import * as Schema from "effect/Schema";
 import { AsyncResult } from "effect/unstable/reactivity";
 import * as React from "react";
 
-import { Button } from "@OpenAde/ui/components/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+import { Button } from "@poseidon/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 
 import { TimelineFixtureControls, type Scenario } from "@/components/dev/timeline-fixture-controls";
 import { FilesPane } from "@/components/panes/files/files-pane";

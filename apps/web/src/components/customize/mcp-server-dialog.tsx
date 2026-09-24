@@ -6,8 +6,8 @@
  */
 
 import { useAtomSet } from "@effect/atom-react";
-import { Button } from "@OpenAde/ui/components/button";
-import { Checkbox } from "@OpenAde/ui/components/checkbox";
+import { Button } from "@poseidon/ui/components/button";
+import { Checkbox } from "@poseidon/ui/components/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -15,17 +15,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@OpenAde/ui/components/dialog";
+} from "@poseidon/ui/components/dialog";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@OpenAde/ui/components/select";
-import { Textarea } from "@OpenAde/ui/components/textarea";
-import type { ConnectorInstanceId, ProjectId } from "@OpenAde/contracts/ids";
-import type { McpServerConfig, McpServerScope } from "@OpenAde/contracts/connectors";
+} from "@poseidon/ui/components/select";
+import { Textarea } from "@poseidon/ui/components/textarea";
+import type { ConnectorInstanceId, ProjectId } from "@poseidon/contracts/ids";
+import type { McpServerConfig, McpServerScope } from "@poseidon/contracts/connectors";
 import * as Exit from "effect/Exit";
 import * as React from "react";
 

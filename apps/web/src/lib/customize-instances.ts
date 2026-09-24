@@ -5,7 +5,7 @@
  * connectors page's order. A disabled or unopened instance manages nothing.
  */
 
-import type { ConnectorSummary } from "@OpenAde/contracts/connectors";
+import type { ConnectorSummary } from "@poseidon/contracts/connectors";
 
 /** The kinds the Customize page has a tab for; plugins are read by the composer alone. */
 export type ExtensionKind = Extract<keyof ConnectorSummary["extensions"], "skills" | "mcpServers">;

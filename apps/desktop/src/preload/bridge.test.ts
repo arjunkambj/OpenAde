@@ -2,7 +2,7 @@
  * The renderer half of the server-state seam, asserted against a fake channel.
  *
  * Two earlier passes each believed the *other* side of this bridge was the
- * incomplete one, so the members the renderer's `Window["openade"]` type
+ * incomplete one, so the members the renderer's `Window["poseidon"]` type
  * declares are pinned here: all three server-state members exist, the state
  * carries its `connection`, and every subscription hands back an unsubscribe
  * that actually detaches the listener.
@@ -20,7 +20,7 @@ import {
   TAB_ANSWER_CHANNEL,
   TAB_REQUEST_CHANNEL,
 } from "../main/browser/tabsChannel";
-import { makeOpenAdeBridge, type PreloadIpc, type ServerState } from "./bridge";
+import { makePoseidonBridge, type PreloadIpc, type ServerState } from "./bridge";
 
 type Listener = (event: unknown, ...args: never) => void;
 
@@ -77,9 +77,9 @@ const READY: ServerState = {
   reason: null,
 };
 
-describe("makeOpenAdeBridge", () => {
+describe("makePoseidonBridge", () => {
   it("exposes the three server-state members the renderer type declares", () => {
-    const bridge = makeOpenAdeBridge(fakeIpc().ipc);
+    const bridge = makePoseidonBridge(fakeIpc().ipc);
     expect(typeof bridge.getConnection).toBe("function");
     expect(typeof bridge.getServerState).toBe("function");
     expect(typeof bridge.onServerState).toBe("function");
@@ -87,19 +87,19 @@ describe("makeOpenAdeBridge", () => {
 
   it("answers getServerState with the connection the main process published", async () => {
     const fake = fakeIpc();
-    fake.answer("openade:server-state:get", READY);
-    const state = await makeOpenAdeBridge(fake.ipc).getServerState();
+    fake.answer("poseidon:server-state:get", READY);
+    const state = await makePoseidonBridge(fake.ipc).getServerState();
     expect(state).toEqual(READY);
     expect(state.connection?.serverInstanceId).toBe("boot-1");
-    expect(fake.invokes).toEqual([{ channel: "openade:server-state:get", args: [] }]);
+    expect(fake.invokes).toEqual([{ channel: "poseidon:server-state:get", args: [] }]);
   });
 
   it("delivers a restart's fresh connection to an onServerState subscriber", () => {
     const fake = fakeIpc();
     const seen: Array<ServerState> = [];
-    const stop = makeOpenAdeBridge(fake.ipc).onServerState((state) => seen.push(state));
+    const stop = makePoseidonBridge(fake.ipc).onServerState((state) => seen.push(state));
 
-    fake.push("openade:server-state", {
+    fake.push("poseidon:server-state", {
       status: "restarting",
       connection: null,
       attempt: 1,
@@ -111,7 +111,7 @@ describe("makeOpenAdeBridge", () => {
       attempt: null,
       reason: null,
     };
-    fake.push("openade:server-state", restarted);
+    fake.push("poseidon:server-state", restarted);
 
     expect(seen.map((state) => state.status)).toEqual(["restarting", "ready"]);
     expect(seen[1]?.connection).toEqual(restarted.connection);
@@ -120,31 +120,31 @@ describe("makeOpenAdeBridge", () => {
 
   it("detaches its own listener on unsubscribe and leaves other subscribers alone", () => {
     const fake = fakeIpc();
-    const bridge = makeOpenAdeBridge(fake.ipc);
+    const bridge = makePoseidonBridge(fake.ipc);
     const first: Array<ServerState> = [];
     const second: Array<ServerState> = [];
     const stopFirst = bridge.onServerState((state) => first.push(state));
     const stopSecond = bridge.onServerState((state) => second.push(state));
-    expect(fake.listenerCount("openade:server-state")).toBe(2);
+    expect(fake.listenerCount("poseidon:server-state")).toBe(2);
 
     stopFirst();
-    fake.push("openade:server-state", READY);
+    fake.push("poseidon:server-state", READY);
 
     expect(first).toEqual([]);
     expect(second).toEqual([READY]);
-    expect(fake.listenerCount("openade:server-state")).toBe(1);
+    expect(fake.listenerCount("poseidon:server-state")).toBe(1);
     stopSecond();
-    expect(fake.listenerCount("openade:server-state")).toBe(0);
+    expect(fake.listenerCount("poseidon:server-state")).toBe(0);
   });
 
   it("routes the rest of the surface to its own channel", async () => {
     const fake = fakeIpc();
-    const bridge = makeOpenAdeBridge(fake.ipc);
+    const bridge = makePoseidonBridge(fake.ipc);
     await bridge.openExternal("https://example.test");
     await bridge.pickDirectory();
     expect(fake.invokes).toEqual([
-      { channel: "openade:open-external", args: ["https://example.test"] },
-      { channel: "openade:pick-directory", args: [] },
+      { channel: "poseidon:open-external", args: ["https://example.test"] },
+      { channel: "poseidon:pick-directory", args: [] },
     ]);
     expect(bridge.browserPane).not.toHaveProperty("attach");
     expect(bridge.browserPane).not.toHaveProperty("detach");
@@ -153,14 +153,14 @@ describe("makeOpenAdeBridge", () => {
   it("hands browser-pane input through with its thread and tab", () => {
     const fake = fakeIpc();
     const seen: Array<{ threadId: string; wcId: number; input: unknown }> = [];
-    const stop = makeOpenAdeBridge(fake.ipc).browserPane.onInput((payload) => seen.push(payload));
-    fake.push("openade:browser-input", {
+    const stop = makePoseidonBridge(fake.ipc).browserPane.onInput((payload) => seen.push(payload));
+    fake.push("poseidon:browser-input", {
       threadId: "thread-1",
       wcId: 12,
       input: { kind: "click", x: 1, y: 2 },
     });
     stop();
-    fake.push("openade:browser-input", {
+    fake.push("poseidon:browser-input", {
       threadId: "thread-1",
       wcId: 12,
       input: { kind: "key", key: "a" },
@@ -172,7 +172,7 @@ describe("makeOpenAdeBridge", () => {
 
   it("answers tab requests with no tab host at once, then through the host", async () => {
     const fake = fakeIpc();
-    const bridge = makeOpenAdeBridge(fake.ipc);
+    const bridge = makePoseidonBridge(fake.ipc);
 
     fake.push(TAB_REQUEST_CHANNEL, { id: 1, op: "select", wcId: 4 });
     const requests: Array<unknown> = [];
@@ -209,7 +209,7 @@ describe("makeOpenAdeBridge", () => {
   it("hands a popup's opener to the tab host and answers with the new tab", async () => {
     const fake = fakeIpc();
     const requests: Array<unknown> = [];
-    const stop = makeOpenAdeBridge(fake.ipc).browserPane.serveTabs(async (request) => {
+    const stop = makePoseidonBridge(fake.ipc).browserPane.serveTabs(async (request) => {
       requests.push(request);
       return { wcId: 40 };
     });
@@ -233,13 +233,13 @@ describe("makeOpenAdeBridge", () => {
 
   it("asks main to clear a deleted thread's browsing data on its own channel", async () => {
     const fake = fakeIpc();
-    await makeOpenAdeBridge(fake.ipc).browserPane.clearThread("thread-1");
+    await makePoseidonBridge(fake.ipc).browserPane.clearThread("thread-1");
     expect(fake.invokes).toEqual([{ channel: CLEAR_THREAD_CHANNEL, args: ["thread-1"] }]);
   });
 
   it("hands main the pane's chords and delivers the commands it relays back", async () => {
     const fake = fakeIpc();
-    const pane = makeOpenAdeBridge(fake.ipc).browserPane;
+    const pane = makePoseidonBridge(fake.ipc).browserPane;
     const chords = [
       { command: "browser.reload", key: "r", meta: true, control: false, alt: false, shift: false },
     ];
@@ -256,7 +256,7 @@ describe("makeOpenAdeBridge", () => {
 
   it("delivers the agent's pointer until unsubscribed", () => {
     const fake = fakeIpc();
-    const pane = makeOpenAdeBridge(fake.ipc).browserPane;
+    const pane = makePoseidonBridge(fake.ipc).browserPane;
     const seen: Array<unknown> = [];
     const stop = pane.onAgentPointer((payload) => seen.push(payload));
     const pointer = { threadId: "thread-1", wcId: 12, x: 5, y: 6, kind: "press" };
@@ -271,7 +271,7 @@ describe("makeOpenAdeBridge", () => {
     const fake = fakeIpc();
     const png = new Uint8Array([0x89, 0x50]);
     fake.answer(CAPTURE_CHANNEL, png);
-    const pane = makeOpenAdeBridge(fake.ipc).browserPane;
+    const pane = makePoseidonBridge(fake.ipc).browserPane;
     await expect(pane.capture(12)).resolves.toBe(png);
     expect(fake.invokes).toEqual([{ channel: CAPTURE_CHANNEL, args: [12] }]);
   });
@@ -279,7 +279,7 @@ describe("makeOpenAdeBridge", () => {
   it("asks main to clear every thread's browsing data", async () => {
     const fake = fakeIpc();
     fake.answer(CLEAR_ALL_CHANNEL, 3);
-    const pane = makeOpenAdeBridge(fake.ipc).browserPane;
+    const pane = makePoseidonBridge(fake.ipc).browserPane;
     await expect(pane.clearAll()).resolves.toBe(3);
     expect(fake.invokes).toEqual([{ channel: CLEAR_ALL_CHANNEL, args: [] }]);
   });

@@ -1,5 +1,5 @@
-import type { QueuedMessage } from "@OpenAde/contracts/orchestration";
-import { makeItemId } from "@OpenAde/contracts/ids";
+import type { QueuedMessage } from "@poseidon/contracts/orchestration";
+import { makeItemId } from "@poseidon/contracts/ids";
 import { describe, expect, it } from "vitest";
 
 import { queueSummary } from "@/components/composer/queue-summary";

@@ -14,23 +14,23 @@
  * captures the next chord, `hidden` renders nothing.
  */
 
-import { Button } from "@OpenAde/ui/components/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
-import { Checkbox } from "@OpenAde/ui/components/checkbox";
-import { Input } from "@OpenAde/ui/components/input";
+import { Button } from "@poseidon/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
+import { Checkbox } from "@poseidon/ui/components/checkbox";
+import { Input } from "@poseidon/ui/components/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@OpenAde/ui/components/select";
+} from "@poseidon/ui/components/select";
 import {
   settingsFormFields,
   type SettingsFormField,
   type SettingsFormFieldDescriptor,
-} from "@OpenAde/contracts/settings";
-import { detectModKey, formatEventAsShortcut } from "@OpenAde/client-runtime/keybindings";
+} from "@poseidon/contracts/settings";
+import { detectModKey, formatEventAsShortcut } from "@poseidon/client-runtime/keybindings";
 
 import { selectedOptionLabel } from "./select-label";
 import { isObject, isString } from "effect/Predicate";

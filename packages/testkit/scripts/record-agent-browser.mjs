@@ -36,14 +36,14 @@ import * as NodePath from "node:path";
 import * as NodeReadline from "node:readline";
 import * as NodeURL from "node:url";
 
-import { bridgeThreadUrl } from "@OpenAde/shared/browserBridge";
+import { bridgeThreadUrl } from "@poseidon/shared/browserBridge";
 
 const HERE = NodePath.dirname(NodeURL.fileURLToPath(import.meta.url));
 const REPO = NodePath.resolve(HERE, "..", "..", "..");
 const FIXTURES = NodePath.join(HERE, "..", "fixtures", "agent-browser");
 const DESKTOP = NodePath.join(REPO, "apps", "desktop");
 const HOST_ENTRY = NodePath.join(DESKTOP, "scripts", "bridge-recording-host.mjs");
-const NAMESPACE = "openade-record";
+const NAMESPACE = "poseidon-record";
 
 /** The pages every scenario browses; served from 127.0.0.1 on a fresh port. */
 const PAGES = {
@@ -245,7 +245,7 @@ const SCENARIOS = {
 };
 
 const resolveBinary = () => {
-  const override = process.env.OPENADE_AGENT_BROWSER?.trim();
+  const override = process.env.POSEIDON_AGENT_BROWSER?.trim();
   if (override) return override;
   return execFileSync("/usr/bin/which", ["agent-browser"], { encoding: "utf8" }).trim();
 };
@@ -279,7 +279,7 @@ const startHost = async (scratch) => {
     logLevel: "warning",
   });
   const child = spawn(electron, [bundle], {
-    env: { ...process.env, OPENADE_RECORD_HOST_DIR: scratch },
+    env: { ...process.env, POSEIDON_RECORD_HOST_DIR: scratch },
     stdio: ["pipe", "pipe", "inherit"],
   });
   const frames = [];
@@ -472,7 +472,7 @@ const main = async () => {
     .split(/\s+/)
     .at(-1);
   const scratch = NodeFS.mkdtempSync(
-    NodePath.join(process.env.RECORD_SCRATCH ?? NodeOS.tmpdir(), "openade-record-agent-browser-"),
+    NodePath.join(process.env.RECORD_SCRATCH ?? NodeOS.tmpdir(), "poseidon-record-agent-browser-"),
   );
   const site = await serveSite();
   const sitePort = site.address().port;

@@ -9,15 +9,15 @@
  * lookup the matcher calls.
  *
  * The keys themselves, with what each means and who sets it, are listed in
- * `KEYBINDING_CONTEXT_KEYS` (`@OpenAde/client-runtime/keymap`). The built-in
+ * `KEYBINDING_CONTEXT_KEYS` (`@poseidon/client-runtime/keymap`). The built-in
  * ones are answered here and never from the registry, so no component can
  * publish a focus it does not hold; every other name is the registry's, read
  * under its canonical name so an old clause saying `threadRunning` still reads
  * `turnRunning`.
  */
 
-import type { WhenContext } from "@OpenAde/client-runtime/keybindings";
-import { KEYBINDING_CONTEXT_KEYS } from "@OpenAde/client-runtime/keymap";
+import type { WhenContext } from "@poseidon/client-runtime/keybindings";
+import { KEYBINDING_CONTEXT_KEYS } from "@poseidon/client-runtime/keymap";
 
 import type { FlagValue } from "@/lib/command-registry";
 

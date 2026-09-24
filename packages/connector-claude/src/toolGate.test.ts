@@ -4,10 +4,10 @@
  * ladder here answers one fixed verdict; the real ladder is the server's.
  */
 
-import { makeApprovalGate, type ApprovalGateEvent } from "@OpenAde/connector-sdk/approvalGate";
-import type { ConnectorPermissions, PermissionDecision } from "@OpenAde/connector-sdk/definition";
-import { makeThreadId } from "@OpenAde/contracts/ids";
-import type { ThreadSettings } from "@OpenAde/contracts/orchestration";
+import { makeApprovalGate, type ApprovalGateEvent } from "@poseidon/connector-sdk/approvalGate";
+import type { ConnectorPermissions, PermissionDecision } from "@poseidon/connector-sdk/definition";
+import { makeThreadId } from "@poseidon/contracts/ids";
+import type { ThreadSettings } from "@poseidon/contracts/orchestration";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
@@ -111,7 +111,7 @@ describe("the PreToolUse hook", () => {
     }),
   );
 
-  it.effect("asks the ladder in OpenAde's vocabulary, not the CLI's", () =>
+  it.effect("asks the ladder in Poseidon's vocabulary, not the CLI's", () =>
     Effect.gen(function* () {
       const seen: Array<unknown> = [];
       const { toolGate } = yield* ladder((input) =>

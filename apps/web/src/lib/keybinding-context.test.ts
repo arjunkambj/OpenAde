@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_KEYBINDINGS } from "@OpenAde/contracts/keybindings";
-import { resolveKeybinding } from "@OpenAde/client-runtime/keybindings";
+import { DEFAULT_KEYBINDINGS } from "@poseidon/contracts/keybindings";
+import { resolveKeybinding } from "@poseidon/client-runtime/keybindings";
 
 import {
   FOCUS_SURFACE,

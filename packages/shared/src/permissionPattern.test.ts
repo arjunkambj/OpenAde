@@ -20,7 +20,7 @@ const request = (
 });
 
 describe("parsePattern", () => {
-  it("parses OpenAde's call forms", () => {
+  it("parses Poseidon's call forms", () => {
     expect(parsePattern("Read(/docs/**)")).toMatchObject({ family: "read", arg: "/docs/**" });
     expect(parsePattern("Fetch(https://*)")).toMatchObject({ family: "fetch", arg: "https://*" });
     expect(parsePattern("Mcp(github.*)")).toMatchObject({ family: "mcp", arg: "github.*" });

@@ -5,7 +5,7 @@
  * database, a connector with a stub host, a renderer fold over hand-made
  * events. This one builds the product: `boot()` from `apps/server/src/boot.ts`
  * assembles the same graph `main.ts` ships, `makeConnection` from
- * `@OpenAde/client-runtime` dials it over a real WebSocket, and the folds the
+ * `@poseidon/client-runtime` dials it over a real WebSocket, and the folds the
  * renderer's atoms use (`applyThreadStreamItem`, `applyThreadListItem`) turn
  * the subscription into the very view a pane renders. What the assertions look
  * at is therefore what a user would see.
@@ -14,7 +14,7 @@
  * a live run and the gate's:
  *
  * - `liveDriver` lets the connector discover the operator's own `cmd` and
- *   spends their plan. It is opt-in (`OPENADE_LIVE_CMD=1`).
+ *   spends their plan. It is opt-in (`POSEIDON_LIVE_CMD=1`).
  * - `replayDriver` points the connector's binary path at testkit's replayer,
  *   which puts a recording of that same run back on the wire. It is what runs
  *   in the gate.
@@ -23,9 +23,9 @@
  * everything else through the subscription, so a scenario that never happens
  * ends as a failed `awaitItem` rather than a slow pass.
  *
- * Safety: every test gets a fresh `OPENADE_HOME` and a throwaway git repo
+ * Safety: every test gets a fresh `POSEIDON_HOME` and a throwaway git repo
  * under the system temp directory, so nothing here can touch the operator's
- * real `~/.openade`. The replay driver also redirects `HOME`, so it cannot
+ * real `~/.poseidon`. The replay driver also redirects `HOME`, so it cannot
  * touch `~/.commandcode` either; the live driver deliberately does not, since
  * that is where the CLI's credentials live — the only thing it writes there is
  * the session record the CLI writes for any run.
@@ -36,30 +36,30 @@ import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 
-import type { ThreadDetailView } from "@OpenAde/client-runtime/clientState";
+import type { ThreadDetailView } from "@poseidon/client-runtime/clientState";
 import {
   Connection,
   makeConnection,
   type ConnectionCredentials,
   type ConnectionState,
-  type OpenAdeRpcClient,
-} from "@OpenAde/client-runtime/connection";
+  type PoseidonRpcClient,
+} from "@poseidon/client-runtime/connection";
 import {
   makeCommandId,
   makeConnectorInstanceId,
   makeProjectId,
   makeThreadId,
-} from "@OpenAde/contracts/ids";
-import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
+} from "@poseidon/contracts/ids";
+import type { ProjectId, ThreadId } from "@poseidon/contracts/ids";
 import type {
   Attachment,
   Command,
   CommandReceipt,
   ThreadSettingsPatch,
-} from "@OpenAde/contracts/orchestration";
-import { defaultSettings } from "@OpenAde/contracts/settings";
-import type { ConnectorInstanceConfig } from "@OpenAde/contracts/settings";
-import { replayConfig } from "@OpenAde/testkit/replayCmdProcess";
+} from "@poseidon/contracts/orchestration";
+import { defaultSettings } from "@poseidon/contracts/settings";
+import type { ConnectorInstanceConfig } from "@poseidon/contracts/settings";
+import { replayConfig } from "@poseidon/testkit/replayCmdProcess";
 import { describe, it } from "@effect/vitest";
 import { vi } from "vitest";
 import * as Context from "effect/Context";
@@ -85,15 +85,15 @@ import { SettingsStore } from "../../src/rpc/services";
 export const E2E_MODEL = "meta/muse-spark-1.3-contributor";
 
 /** Whether the live driver may spend the operator's plan. */
-const LIVE = process.env.OPENADE_LIVE_CMD === "1";
+const LIVE = process.env.POSEIDON_LIVE_CMD === "1";
 
 // ── Homes ──────────────────────────────────────────────────────
 
 export interface E2EHome {
   /** The temp root everything below hangs off; removed with the scope. */
   readonly root: string;
-  /** `OPENADE_HOME` for this boot: database, attachments, hook script. */
-  readonly openade: string;
+  /** `POSEIDON_HOME` for this boot: database, attachments, hook script. */
+  readonly poseidon: string;
   /** A `HOME` for anything the replay driver spawns. */
   readonly cmdHome: string;
   /** A git repository to use as the project's workspace root. */
@@ -132,18 +132,18 @@ export const makeHome = (
     const root = yield* Effect.acquireRelease(
       Effect.sync(() => {
         NodeFS.mkdirSync(parent, { recursive: true });
-        return NodeFS.mkdtempSync(NodePath.join(parent, `openade-e2e-${label}-`));
+        return NodeFS.mkdtempSync(NodePath.join(parent, `poseidon-e2e-${label}-`));
       }),
       (path) => Effect.sync(() => NodeFS.rmSync(path, { recursive: true, force: true })),
     );
     const home: E2EHome = {
       root,
-      openade: NodePath.join(root, "openade"),
+      poseidon: NodePath.join(root, "poseidon"),
       cmdHome: NodePath.join(root, "cmd-home"),
       workspace: NodePath.join(root, "workspace"),
     };
     yield* Effect.sync(() => {
-      NodeFS.mkdirSync(home.openade, { recursive: true });
+      NodeFS.mkdirSync(home.poseidon, { recursive: true });
       NodeFS.mkdirSync(home.cmdHome, { recursive: true });
       initWorkspace(home.workspace, seed);
     });
@@ -222,7 +222,7 @@ export const forEachDriver = (title: string, body: (driver: Driver) => void): vo
   for (const driver of drivers) {
     if (driver.name === "live" && !LIVE) {
       describe.skip(`${title} [live]`, () => {
-        it("is only run with OPENADE_LIVE_CMD=1 — it spends the operator's plan", () => {
+        it("is only run with POSEIDON_LIVE_CMD=1 — it spends the operator's plan", () => {
           // Intentionally empty: the skip itself is the statement.
         });
       });
@@ -257,7 +257,7 @@ export const seedSettings = (
   Effect.scoped(
     Effect.gen(function* () {
       const sqlite = Layer.succeedContext(
-        yield* Layer.build(sqliteLayer({ filename: NodePath.join(home.openade, "state.sqlite") })),
+        yield* Layer.build(sqliteLayer({ filename: NodePath.join(home.poseidon, "state.sqlite") })),
       );
       const store = Context.get(
         yield* Layer.build(SettingsStore.layer.pipe(Layer.provide(sqlite))),
@@ -268,7 +268,7 @@ export const seedSettings = (
   ).pipe(Effect.orDie);
 
 /**
- * Boots the real graph in the calling scope and restores `OPENADE_HOME` when
+ * Boots the real graph in the calling scope and restores `POSEIDON_HOME` when
  * it closes — `boot` sets the variable process-wide on purpose, so that
  * spawned children inherit it, and a test must not leave it pointing at a
  * directory it is about to delete.
@@ -278,22 +278,22 @@ export const bootServer = (
   options: { readonly dev?: boolean; readonly claudeCode?: BootOptions["claudeCode"] } = {},
 ) =>
   Effect.acquireRelease(
-    Effect.sync(() => process.env.OPENADE_HOME),
+    Effect.sync(() => process.env.POSEIDON_HOME),
     (previous) =>
       Effect.sync(() => {
         if (previous === undefined) {
-          delete process.env.OPENADE_HOME;
+          delete process.env.POSEIDON_HOME;
         } else {
-          process.env.OPENADE_HOME = previous;
+          process.env.POSEIDON_HOME = previous;
         }
       }),
   ).pipe(
     Effect.andThen(
       boot({
-        home: home.openade,
+        home: home.poseidon,
         dev: options.dev ?? false,
         port: 0,
-        // The harness's own config, redirected for both drivers. `OPENADE_HOME`
+        // The harness's own config, redirected for both drivers. `POSEIDON_HOME`
         // cannot move it — it is the user's `~/.commandcode` — so without this
         // the settings scenario would edit the operator's real one.
         commandCodeHome: NodePath.join(home.cmdHome, ".commandcode"),
@@ -315,7 +315,7 @@ export interface E2EClient {
    * renderer's atoms use, which is what lets a scenario restart the server
    * under a client and keep going.
    */
-  readonly rpc: Effect.Effect<OpenAdeRpcClient>;
+  readonly rpc: Effect.Effect<PoseidonRpcClient>;
   /** The connection's own state, for asserting a reconnect really happened. */
   readonly state: SubscriptionRef.SubscriptionRef<ConnectionState>;
   /** Dispatches and returns the receipt, so a caller can wait for its write. */

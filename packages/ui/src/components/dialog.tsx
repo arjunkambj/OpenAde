@@ -2,9 +2,9 @@
 
 import * as React from "react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import { cn } from "@OpenAde/ui/lib/utils";
+import { cn } from "@poseidon/ui/lib/utils";
 
-import { Button } from "@OpenAde/ui/components/button";
+import { Button } from "@poseidon/ui/components/button";
 import { Close as CloseIcon } from "@honeyicons/react";
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {

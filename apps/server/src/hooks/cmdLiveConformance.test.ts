@@ -4,7 +4,7 @@
  * Every other test in the repo replays a recording. This one spends the
  * operator's plan, so it is opt-in and never runs in CI:
  *
- *     OPENADE_LIVE_CMD=1 pnpm vitest run apps/server/src/hooks/cmdLiveConformance.test.ts
+ *     POSEIDON_LIVE_CMD=1 pnpm vitest run apps/server/src/hooks/cmdLiveConformance.test.ts
  *
  * What it proves that a replay cannot: that the argv the connector builds is
  * argv the current `cmd` accepts, that the session id still arrives on stderr,
@@ -17,7 +17,7 @@
  *
  * `HOME` is the operator's own, because that is where the CLI's credentials
  * live — the only thing written there is the session record the CLI writes for
- * any run. `OPENADE_HOME` is redirected, so nothing of ours is touched.
+ * any run. `POSEIDON_HOME` is redirected, so nothing of ours is touched.
  */
 
 import { createServer } from "node:http";
@@ -28,12 +28,12 @@ import * as NodePath from "node:path";
 import { NodeHttpServer } from "@effect/platform-node";
 import { afterAll, describe, expect, it } from "@effect/vitest";
 import { vi } from "vitest";
-import { runConnectorConformance } from "@OpenAde/connector-sdk/conformance";
-import type { ConnectorServices } from "@OpenAde/connector-sdk/definition";
-import { makeStreamCollector } from "@OpenAde/connector-sdk/streamCollector";
-import { cmdConnectorDefinition } from "@OpenAde/connector-cmd/definition";
-import { makeConnectorInstanceId, makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
-import type { ThreadId } from "@OpenAde/contracts/ids";
+import { runConnectorConformance } from "@poseidon/connector-sdk/conformance";
+import type { ConnectorServices } from "@poseidon/connector-sdk/definition";
+import { makeStreamCollector } from "@poseidon/connector-sdk/streamCollector";
+import { cmdConnectorDefinition } from "@poseidon/connector-cmd/definition";
+import { makeConnectorInstanceId, makeProjectId, makeThreadId } from "@poseidon/contracts/ids";
+import type { ThreadId } from "@poseidon/contracts/ids";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -43,7 +43,7 @@ import * as HttpRouter from "effect/unstable/http/HttpRouter";
 
 import { HookBridge } from "./HookBridge";
 
-const LIVE = process.env.OPENADE_LIVE_CMD === "1";
+const LIVE = process.env.POSEIDON_LIVE_CMD === "1";
 
 /**
  * The only models a live turn may run on. `cmd --list-models` offers about
@@ -57,11 +57,11 @@ const AUTHORISED_MODELS = [
   "inclusionai/ling-3.0-flash-sante:free",
 ] as const;
 
-const MODEL = process.env.OPENADE_LIVE_CMD_MODEL ?? AUTHORISED_MODELS[0];
+const MODEL = process.env.POSEIDON_LIVE_CMD_MODEL ?? AUTHORISED_MODELS[0];
 
 if (!LIVE) {
   describe("the real Command Code CLI", () => {
-    it.skip("is only driven when OPENADE_LIVE_CMD=1 — it spends the operator's plan", () => {
+    it.skip("is only driven when POSEIDON_LIVE_CMD=1 — it spends the operator's plan", () => {
       // Intentionally empty.
     });
   });
@@ -88,8 +88,8 @@ if (!LIVE) {
     execFileSync("git", args, { cwd: WORKSPACE, stdio: "ignore" });
   }
 
-  const previousOpenadeHome = process.env.OPENADE_HOME;
-  process.env.OPENADE_HOME = NodePath.join(TMP, "openade");
+  const previousPoseidonHome = process.env.POSEIDON_HOME;
+  process.env.POSEIDON_HOME = NodePath.join(TMP, "poseidon");
 
   const bridgeState: { scope: Scope.Closeable | null; bridge: HookBridge["Service"] | null } = {
     scope: null,
@@ -124,10 +124,10 @@ if (!LIVE) {
 
   afterAll(() => {
     NodeFS.rmSync(TMP, { recursive: true, force: true });
-    if (previousOpenadeHome === undefined) {
-      delete process.env.OPENADE_HOME;
+    if (previousPoseidonHome === undefined) {
+      delete process.env.POSEIDON_HOME;
     } else {
-      process.env.OPENADE_HOME = previousOpenadeHome;
+      process.env.POSEIDON_HOME = previousPoseidonHome;
     }
     if (bridgeState.scope !== null) {
       return Effect.runPromise(Scope.close(bridgeState.scope, Exit.succeed(undefined)));
@@ -165,7 +165,7 @@ if (!LIVE) {
     logger: {
       log: (level, message) =>
         Effect.sync(() => {
-          if (process.env.OPENADE_LIVE_CMD_DEBUG === "1") {
+          if (process.env.POSEIDON_LIVE_CMD_DEBUG === "1") {
             process.stderr.write(`[${level}] ${message}\n`);
           }
         }),

@@ -19,8 +19,8 @@
  * until the server answers, and kept at the last answer when a call fails.
  */
 
-import type { ThreadId } from "@OpenAde/contracts/ids";
-import type { BrowserToolStatus, DevServer } from "@OpenAde/contracts/rpc";
+import type { ThreadId } from "@poseidon/contracts/ids";
+import type { BrowserToolStatus, DevServer } from "@poseidon/contracts/rpc";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";

@@ -7,14 +7,14 @@
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
-import type { ThreadId } from "@OpenAde/contracts/ids";
+import type { ThreadId } from "@poseidon/contracts/ids";
 import { describe, expect, it } from "vitest";
 
 import { stageTurnAttachments } from "./attachments";
 
 const THREAD = "0199c0de-0002-7000-8000-000000000001" as ThreadId;
 
-const tempRoot = () => mkdtempSync(NodePath.join(NodeOS.tmpdir(), "openade-cmd-attachments-"));
+const tempRoot = () => mkdtempSync(NodePath.join(NodeOS.tmpdir(), "poseidon-cmd-attachments-"));
 
 describe("stageTurnAttachments", () => {
   it("asks for nothing when the turn has no attachments", async () => {

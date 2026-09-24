@@ -7,7 +7,7 @@
  */
 import { app } from "electron";
 
-import { mintLaunchKey } from "@OpenAde/shared/browserBridge";
+import { mintLaunchKey } from "@poseidon/shared/browserBridge";
 
 import type { BridgeForServer } from "../../backend/serverEnv";
 import type { PointerRelay } from "./agentPointer";

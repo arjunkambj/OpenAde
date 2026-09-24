@@ -14,14 +14,14 @@
 
 import { useAtomSet } from "@effect/atom-react";
 
-import { Button } from "@OpenAde/ui/components/button";
+import { Button } from "@poseidon/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@OpenAde/ui/components/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+} from "@poseidon/ui/components/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@poseidon/ui/components/tooltip";
 
 import { useTheme } from "@/components/theme-provider";
 import { useAppAtoms } from "@/lib/app-runtime";

@@ -14,7 +14,7 @@
 
 import * as Effect from "effect/Effect";
 
-import { readManifest } from "@OpenAde/testkit/recording";
+import { readManifest } from "@poseidon/testkit/recording";
 
 import { makeAgentBrowser, type ChildRunner } from "../agentBrowser";
 
@@ -40,7 +40,7 @@ export interface ReplayedRun {
 }
 
 /** The namespace every replayed run carries, as the server's would. */
-const REPLAY_NAMESPACE = "openade-replay";
+const REPLAY_NAMESPACE = "poseidon-replay";
 
 /** A bridge of the right shape; the recordings scrubbed the real key and port. */
 const REPLAY_BRIDGE = { base: "ws://127.0.0.1:47000", key: "0".repeat(64) } as const;
