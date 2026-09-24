@@ -22,7 +22,16 @@ import * as React from "react";
 
 import { useClientRuntime } from "@/lib/client-runtime";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
+import { queueSummary } from "@/components/composer/queue-summary";
 import { ChevronDown, ChevronUp, Close, ListOrdered } from "@honeyicons/react";
+
+/** What a queued message carries besides its text, or nothing. */
+function QueuedMessageSummary({ message }: { readonly message: QueuedMessage }) {
+  const summary = queueSummary(message);
+  return summary === null ? null : (
+    <span className="shrink-0 text-xs text-muted-foreground">{summary}</span>
+  );
+}
 
 export function QueueStrip({
   threadId,
@@ -101,12 +110,7 @@ export function QueueStrip({
               {index + 1}
             </span>
             <span className="min-w-0 flex-1 truncate">{message.text}</span>
-            {message.mentions.length + message.attachments.length > 0 ? (
-              <span className="shrink-0 text-xs text-muted-foreground">
-                {message.mentions.length > 0 ? `#×${message.mentions.length}` : null}
-                {message.attachments.length > 0 ? ` +${message.attachments.length} file(s)` : null}
-              </span>
-            ) : null}
+            <QueuedMessageSummary message={message} />
             <Tooltip>
               <TooltipTrigger
                 render={

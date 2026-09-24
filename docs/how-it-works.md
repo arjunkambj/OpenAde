@@ -456,7 +456,10 @@ per reference and adds a chip: `@name ` for a plugin and `$name ` for a skill,
 even a skill picked from `@`, so a plugin and a skill of the same name never
 share a token. Removing the chip removes the token, and editing the token away
 drops the chip. The turn carries them as typed `references`
-(`{ kind: "skill" | "plugin", name }`), sent only when there are some.
+(`{ kind: "skill" | "plugin", name }`), sent only when there are some. The
+sent message's bubble (`UserMessageRow` in `timeline/message-rows.tsx`) draws
+the same chips above its text, from the `user_message` row's `references`; a
+row without any renders as text alone.
 
 The model picker, on the start screen and in the thread header, has one
 section per enabled connector instance (`modelCatalogAtom`), headed by the
@@ -1069,13 +1072,16 @@ A harness that cannot steer — a print-mode one takes no mid-turn message — h
 a send made while a turn is running go on a queue instead of racing the
 session. `thread.turn.start` with
 `queued: true` emits `thread.message.queued`, carrying the whole composer input
-— text, attachments and mentions. An interrupt that has not settled yet always
-queues, whatever the caller asked for.
+— text, attachments, mentions and references. An interrupt that has not settled
+yet always queues, whatever the caller asked for.
 
 The strip (`apps/web/src/components/composer/queue-strip.tsx`) is a projection
-of `doc.queue`; nothing is removed locally. `thread.queue.remove` and
-`thread.queue.reorder` are commands, and the reorder event carries the whole
-new order rather than the move, so a projector never replays arithmetic.
+of `doc.queue`; nothing is removed locally. Each row ends with what the message
+carries besides its text (`queue-summary.ts`), counted under the draft tokens:
+`#×2 $×1 @×1 +1 file(s)` is two file mentions, a skill, a plugin and an
+attachment. `thread.queue.remove` and `thread.queue.reorder` are commands, and
+the reorder event carries the whole new order rather than the move, so a
+projector never replays arithmetic.
 
 Draining happens on `thread.turn.completed`. The dequeue is chosen **inside**
 the append transaction, on the document as it is at append time, so a

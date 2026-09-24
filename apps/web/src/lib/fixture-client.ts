@@ -2,9 +2,10 @@
  * The `/dev/composer` fixture: a `Connection` layer over an in-process fake
  * whose `orchestration.dispatch` runs a tiny decider — `approval.respond`
  * emits `approval.resolved`, `turn.start` emits `message.queued` or
- * `turn.requested`+`turn.started`, and so on — so the cards and the queue
- * strip exercise the real round trip: the UI changes only when the event
- * lands on the subscription, never optimistically.
+ * `turn.requested`, the user's `item.upserted` row and `turn.started`, and so
+ * on — so the cards, the queue strip and the sent bubbles exercise the real
+ * round trip: the UI changes only when the event lands on the subscription,
+ * never optimistically.
  *
  * `fixture.emit(type, payload)` folds the event into the fixture's doc and
  * pushes it onto the stream, which is how the page's scenario buttons drive
@@ -330,6 +331,20 @@ export const makeFixtureClient = (): FixtureClient => {
               attachments: command.attachments,
               mentions: command.mentions,
               ...(command.references === undefined ? {} : { references: command.references }),
+            });
+            // The user's own row, minted beside the request as the server's
+            // decider does, so the page can show the sent bubble.
+            next("thread.item.upserted", {
+              turnId,
+              item: {
+                itemId: makeItemId(),
+                kind: "user_message",
+                status: "completed",
+                turnId,
+                text: command.text,
+                ...(command.attachments.length === 0 ? {} : { attachments: command.attachments }),
+                ...(command.references === undefined ? {} : { references: command.references }),
+              },
             });
             next("thread.turn.started", { turnId });
           },

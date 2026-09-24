@@ -4,7 +4,9 @@
  * is the `Connection` layer (`makeFixtureClient`), whose dispatch decider
  * emits the resolved events a server would — so the approval card really does
  * close on `thread.approval.resolved`, the queue strip really fills from
- * `thread.message.queued`, and the command log shows every dispatch.
+ * `thread.message.queued`, a send adds its `user_message` bubble (with its
+ * skill and plugin chips) to the sent messages, and the command log shows
+ * every dispatch.
  *
  * Scenario buttons emit the events a connector/session would produce mid-turn.
  * The Steering toggle flips the connector's `steering` capability and rebinds
@@ -28,6 +30,7 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { Composer } from "@/components/composer/composer";
 import { HeaderControls } from "@/components/header-controls";
 import { KeybindingsEditor } from "@/components/keybindings/keybindings-editor";
+import { UserMessageRow } from "@/components/timeline/message-rows";
 import { ClientRuntimeProvider, useClientRuntime } from "@/lib/client-runtime";
 import { makeFixtureClient, type FixtureClient } from "@/lib/fixture-client";
 import { KeybindingsProvider, useKeybindingCommand, useKeybindingFlag } from "@/lib/shortcuts";
@@ -185,6 +188,10 @@ function DevComposerInner({ fixture }: { readonly fixture: FixtureClient }) {
         text: "First queued follow-up",
         attachments: [],
         mentions: ["src/app.tsx"],
+        references: [
+          { kind: "skill", name: "commit" },
+          { kind: "plugin", name: "formatter" },
+        ],
         queuedAt: new Date().toISOString(),
       },
     });
@@ -237,6 +244,17 @@ function DevComposerInner({ fixture }: { readonly fixture: FixtureClient }) {
           Header controls
         </h2>
         <HeaderControls threadId={fixture.threadId} />
+      </section>
+
+      <section className="flex flex-col gap-2" aria-label="Sent messages">
+        <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          Sent messages
+        </h2>
+        {(doc?.items ?? [])
+          .filter((item) => item.kind === "user_message")
+          .map((item) => (
+            <UserMessageRow key={item.itemId} item={item} />
+          ))}
       </section>
 
       <section className="flex flex-col gap-2" aria-label="Composer">

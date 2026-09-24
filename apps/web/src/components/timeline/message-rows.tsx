@@ -7,6 +7,11 @@
  * replay — so each thumbnail asks the server for its file and draws it as a
  * `data:` URL. The request goes over the same authenticated socket as
  * everything else, which is why an attachment needs no public route.
+ *
+ * It also shows the skills and plugins the user picked from `@` or `$`, as
+ * the same chips the composer drew, so the bubble says what the turn carried
+ * besides its text. A row from before references existed has none and renders
+ * as it always did.
  */
 
 import { useAtomValue } from "@effect/atom-react";
@@ -19,6 +24,7 @@ import { MarkdownBody } from "@/components/timeline/markdown";
 import { useTimelineThreadId } from "@/components/timeline/thread-context";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { cn } from "@/lib/utils";
+import { Puzzle, Sparkles } from "@honeyicons/react";
 
 function AttachmentThumbnail({
   threadId,
@@ -76,6 +82,31 @@ function Attachments({ item }: { readonly item: ItemSnapshot }) {
   );
 }
 
+function References({ item }: { readonly item: ItemSnapshot }) {
+  const references = item.references ?? [];
+  if (references.length === 0) {
+    return null;
+  }
+  return (
+    <span role="list" aria-label="References" className="mb-1 flex flex-wrap gap-1">
+      {references.map((reference) => {
+        const Icon = reference.kind === "skill" ? Sparkles : Puzzle;
+        return (
+          <span
+            key={`${reference.kind}:${reference.name}`}
+            role="listitem"
+            className="inline-flex h-6 max-w-56 items-center gap-1 rounded-md bg-muted px-1.5 text-xs"
+            title={`${reference.kind === "skill" ? "Skill" : "Plugin"} ${reference.name}`}
+          >
+            <Icon variant="bold" className="size-3 shrink-0 text-muted-foreground" />
+            <span className="truncate">{reference.name}</span>
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 export function UserMessageRow({ item }: { item: ItemSnapshot }) {
   // LegendList wraps every row in its own container, so `self-end` on the
   // bubble cannot reach the list's flex column; the row right-aligns itself.
@@ -86,6 +117,7 @@ export function UserMessageRow({ item }: { item: ItemSnapshot }) {
         className="max-w-[min(400px,85%)] rounded-xl rounded-tr-sm bg-hover px-4 py-2 text-sm leading-normal whitespace-pre-wrap text-foreground"
       >
         <Attachments item={item} />
+        <References item={item} />
         {item.text ?? ""}
       </div>
     </div>
