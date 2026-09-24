@@ -15,7 +15,9 @@
  *
  * `useSendAnchor` decides who owns the scroll: it follows the end, holds a
  * just-sent message near the top while its reply streams in, or leaves the
- * reader alone once they scroll (`send-anchor.ts`).
+ * reader alone once they scroll (`send-anchor.ts`). The turn rail
+ * (`turn-rail-view.tsx`) hands the scroll to the reader the same way before it
+ * moves it.
  */
 
 import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
@@ -28,6 +30,7 @@ import { ALL_FOLDS_OPEN, buildTimeline } from "@/components/timeline/fold";
 import { JumpToLatest } from "@/components/timeline/jump-to-latest";
 import { TimelineThreadProvider } from "@/components/timeline/thread-context";
 import { TimelineRowView } from "@/components/timeline/timeline-item";
+import { TurnRail, useTurnNavigation } from "@/components/timeline/turn-rail-view";
 import { useSendAnchor } from "@/components/timeline/use-send-anchor";
 import { useTimelineThreadValue } from "@/components/timeline/use-timeline-thread";
 import { useKeybindingCommand } from "@/lib/shortcuts";
@@ -63,6 +66,7 @@ export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
     threadId: snapshot.threadId,
     turnActive: options.turnActive,
   });
+  const navigation = useTurnNavigation({ listRef, rows: projection.rows, release: anchor.release });
   const setDisclosures = useSetRowDisclosures();
   useKeybindingCommand("timeline.jumpToLatest", anchor.jumpToLatest);
   useKeybindingCommand("timeline.collapseAll", () => setDisclosures(everyDisclosure(), false));
@@ -108,6 +112,7 @@ export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
           hidden={anchor.placing}
           onJump={anchor.jumpToLatest}
         />
+        <TurnRail listRef={listRef} navigation={navigation} />
       </div>
     </TimelineThreadProvider>
   );

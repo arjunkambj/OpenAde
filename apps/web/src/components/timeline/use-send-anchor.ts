@@ -41,7 +41,7 @@ const APPROACH_MAX_MS = 1_500;
 /** How long a send waits for the list to measure the reserve under it. */
 const RESERVE_WAIT_MAX_MS = 500;
 
-const prefersReducedMotion = (): boolean =>
+export const prefersReducedMotion = (): boolean =>
   typeof window !== "undefined" &&
   typeof window.matchMedia === "function" &&
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -175,6 +175,8 @@ export interface SendAnchor {
   readonly placing: boolean;
   /** Scroll to the end and follow again: the jump button and `timeline.jumpToLatest`. */
   readonly jumpToLatest: () => void;
+  /** Hand the scroll to the reader, as their own scroll would: the turn rail and its keys. */
+  readonly release: () => void;
 }
 
 export function useSendAnchor({
@@ -292,6 +294,7 @@ export function useSendAnchor({
     dispatch({ type: "jumpToLatest" });
     void listRef.current?.scrollToEnd({ animated: !prefersReducedMotion() });
   }, [listRef]);
+  const release = React.useCallback(() => dispatch({ type: "userScrollIntent" }), []);
 
   return {
     maintainScrollAtEnd: props.maintainScrollAtEnd,
@@ -301,5 +304,6 @@ export function useSendAnchor({
         : { anchorIndex: reserveIndex, anchorOffset: ANCHOR_OFFSET, onReady: onReserveReady },
     placing: anchorRowId !== null && placed !== placement,
     jumpToLatest,
+    release,
   };
 }

@@ -962,6 +962,21 @@ is on its way to the top the list is away from its end on purpose, so the
 button stays hidden then. `timeline.jumpToLatest` and the button both resume
 following; the scroll to the end is instant under reduced motion.
 
+A slim turn rail sits at the timeline's right edge (`turn-rail.ts`, drawn by
+`turn-rail-view.tsx`): one tick per user message, steered messages included.
+Hovering a tick previews the message's first line with its markdown marks
+stripped, cut to 80 characters; pressing it scrolls the message to 8px below
+the viewport top. The tick of the turn in view is solid: the last message at or
+above the row 24px below the top, or, with the list at its end, the last
+message on screen, since a short last turn cannot reach the top. The rail reads
+this from the scroll offset and the list's row positions once a frame while the
+list scrolls or its rows settle. It is hidden with fewer than two messages, and
+when the timeline is narrower than 800px, measured by its own container query.
+Each tick is a 24px target until they no longer fit, then they shrink together
+to share the rail's height. Pressing a tick hands the scroll to the reader
+first, the same event a wheel sends, so a held send anchor lets go rather than
+pulling the list back. The scroll is instant under reduced motion.
+
 ### Closing the turn
 
 `run_end` produces `turn.completed` with a `stopReason` of `end_turn`,
