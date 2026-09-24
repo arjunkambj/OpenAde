@@ -157,12 +157,12 @@ export function DrawerMessage({
   message?: string | null;
   action?: React.ReactNode;
 }) {
-  // Compact, and scrolling rather than spilling out of the drawer: a drawer
-  // dragged down to its minimum has room for little more than the title,
-  // and the action below it has to stay within reach.
+  // Scrolling rather than spilling out of the drawer: a drawer dragged down
+  // to its minimum has room for little more than the title, and the action
+  // below it has to stay within reach.
   return (
     <div className="flex size-full flex-col overflow-y-auto">
-      <Empty className="gap-2 p-2">
+      <Empty>
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <Terminal variant="bold" />
