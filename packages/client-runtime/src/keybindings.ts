@@ -1,17 +1,24 @@
 /**
  * The keybinding matcher: parses the `Keybinding.shortcut` notation
- * (`Cmd+Shift+B`, `Escape`), matches it against a `KeyboardEvent`-shaped value,
+ * (`Mod+Shift+B`, `Escape`), matches it against a `KeyboardEvent`-shaped value,
  * and evaluates the optional `when` clause against caller-supplied context.
  *
- * `Cmd` is the platform modifier — Meta on macOS/iOS, Ctrl elsewhere — so one
- * stored binding works on every keyboard. `Ctrl` means the physical Control
- * key everywhere. Matching is exact on modifiers: `Escape` does not fire on
- * `Shift+Escape`, and `Cmd+K` does not fire on `Cmd+Alt+K`.
+ * `Mod` is the platform modifier — Meta on macOS/iOS, Ctrl elsewhere — so one
+ * stored binding works on every keyboard. `Cmd` and `Meta` are aliases of it,
+ * so a table written as `Cmd+…` keeps working. `Ctrl` means the physical
+ * Control key everywhere. Matching is exact on modifiers: `Escape` does not
+ * fire on `Shift+Escape`, and `Mod+K` does not fire on `Mod+Alt+K`.
+ *
+ * With Alt or Shift held, `event.key` is often not the key's own character —
+ * macOS Option+R reports `®`, Shift+[ reports `{` — so a chord with Alt or
+ * Shift also matches on the key `event.code` names. A press where AltGr is
+ * typing a character (Ctrl+Alt on a European layout) never matches anything.
  *
  * `when` is a small expression over context flags: `composerFocus`,
  * `!composerFocus`, `a && b`, `a || b`, parentheses, and `flag == "value"`.
  * Unknown flags evaluate as false, so a binding for a context that does not
- * exist yet is simply inert.
+ * exist yet is simply inert. While focus is in a text field (`inputFocus`),
+ * only chords that cannot be typing fire — see `firesInTextField`.
  */
 
 import type { Keybinding } from "@OpenAde/contracts/settings";
@@ -76,6 +83,9 @@ const MODIFIER_TOKENS = new Set([
   "shift",
 ]);
 
+/** Keys that only modify — a press of one alone is not a chord yet. */
+const MODIFIER_KEYS = new Set([...MODIFIER_TOKENS, "altgraph", "os", "super", "hyper", "fn"]);
+
 const normaliseKey = (token: string): string | null => {
   const lower = token.toLowerCase();
   const aliased = KEY_ALIASES[lower] ?? lower;
@@ -83,8 +93,9 @@ const normaliseKey = (token: string): string | null => {
 };
 
 /**
- * `Cmd+Shift+B` → `{ key: "b", mod: true, shift: true }`. Returns null when
- * the chord has no non-modifier key — a bare `Cmd` is not a shortcut.
+ * `Mod+Shift+B` → `{ key: "b", mod: true, shift: true }`. `Cmd` and `Meta`
+ * parse as `Mod`. Returns null when the chord has no non-modifier key — a
+ * bare `Mod` is not a shortcut.
  */
 export const parseShortcut = (notation: string): ParsedShortcut | null => {
   const parts = notation.split("+").map((part) => part.trim());
@@ -98,7 +109,7 @@ export const parseShortcut = (notation: string): ParsedShortcut | null => {
   let key: string | null = null;
   for (const part of parts) {
     const lower = part.toLowerCase();
-    if (lower === "cmd" || lower === "mod" || lower === "meta") {
+    if (lower === "mod" || lower === "cmd" || lower === "meta") {
       mod = true;
     } else if (lower === "ctrl" || lower === "control") {
       ctrl = true;
@@ -122,10 +133,14 @@ export const parseShortcut = (notation: string): ParsedShortcut | null => {
 /** The subset of `KeyboardEvent` the matcher reads — structural, DOM-free. */
 export interface ShortcutEvent {
   readonly key: string;
+  /** The physical key (`KeyR`, `BracketLeft`), independent of layout and modifiers. */
+  readonly code?: string;
   readonly metaKey: boolean;
   readonly ctrlKey: boolean;
   readonly altKey: boolean;
   readonly shiftKey: boolean;
+  /** Only ever asked about `AltGraph`; a DOM or React keyboard event fits. */
+  readonly getModifierState?: (key: "AltGraph") => boolean;
 }
 
 const eventKey = (event: ShortcutEvent): string => {
@@ -133,18 +148,59 @@ const eventKey = (event: ShortcutEvent): string => {
   return KEY_ALIASES[lower] ?? lower;
 };
 
+const CODE_KEYS: Readonly<Record<string, string>> = {
+  Minus: "-",
+  Equal: "=",
+  BracketLeft: "[",
+  BracketRight: "]",
+  Backslash: "\\",
+  Semicolon: ";",
+  Quote: "'",
+  Comma: ",",
+  Period: ".",
+  Slash: "/",
+  Backquote: "`",
+};
+
+/** `KeyR` → `r`, `Digit1` → `1`, `BracketLeft` → `[`; anything else is unknown. */
+const keyFromCode = (code: string | undefined): string | undefined => {
+  if (code === undefined) {
+    return undefined;
+  }
+  const letter = /^Key([A-Z])$/u.exec(code);
+  if (letter !== null) {
+    return letter[1]!.toLowerCase();
+  }
+  const digit = /^Digit(\d)$/u.exec(code);
+  return digit !== null ? digit[1]! : CODE_KEYS[code];
+};
+
+/**
+ * The key `event.code` names, when `event.key` is not a plain letter or digit
+ * and so may be what a modifier turned the key into. A reported letter or
+ * digit is trusted as is: on AZERTY the key at `KeyQ` types `a`, and a chord
+ * on A must not fire on Q.
+ */
+const codeFallbackKey = (event: ShortcutEvent): string | undefined =>
+  /^[a-z0-9]$/u.test(eventKey(event)) ? undefined : keyFromCode(event.code);
+
 /**
  * Exact-modifier match. `mod` is the platform modifier — `metaKey` on macOS,
  * `ctrlKey` elsewhere — while `ctrl` always means the physical Control key.
- * Undeclared modifiers must not be held: `Cmd+K` does not fire on
- * `Cmd+Alt+K`, and `Escape` does not fire on `Shift+Escape`.
+ * Undeclared modifiers must not be held: `Mod+K` does not fire on
+ * `Mod+Alt+K`, and `Escape` does not fire on `Shift+Escape`. A chord with Alt
+ * or Shift also matches on the key `event.code` names, so `Mod+Shift+[`
+ * matches a macOS press reporting `{` and `Mod+Alt+R` one reporting `®`.
  */
 export const matchShortcut = (
   shortcut: ParsedShortcut,
   event: ShortcutEvent,
   modKey: ModKey,
 ): boolean => {
-  if (eventKey(event) !== shortcut.key) {
+  const keyMatches =
+    eventKey(event) === shortcut.key ||
+    ((shortcut.alt || shortcut.shift) && codeFallbackKey(event) === shortcut.key);
+  if (!keyMatches) {
     return false;
   }
   const expectedCtrl = shortcut.ctrl || (modKey === "ctrl" && shortcut.mod);
@@ -157,21 +213,80 @@ export const matchShortcut = (
   );
 };
 
+/** What Shift turns a US key into, so Ctrl+Alt+Shift+[ typing `{` is not AltGr. */
+const US_SHIFTED: Readonly<Record<string, string>> = {
+  "1": "!",
+  "2": "@",
+  "3": "#",
+  "4": "$",
+  "5": "%",
+  "6": "^",
+  "7": "&",
+  "8": "*",
+  "9": "(",
+  "0": ")",
+  "-": "_",
+  "=": "+",
+  "[": "{",
+  "]": "}",
+  "\\": "|",
+  ";": ":",
+  "'": '"',
+  ",": "<",
+  ".": ">",
+  "/": "?",
+  "`": "~",
+};
+
 /**
- * Turns a captured `KeyboardEvent` back into `Cmd+Shift+B` notation for the
- * editor's record field. Modifier-only presses return null so holding Cmd
- * while deciding does not commit anything.
+ * True when the press is AltGr typing a character rather than a chord: the
+ * event reports the AltGraph modifier, or — off macOS, where AltGr arrives as
+ * Ctrl+Alt — Ctrl and Alt are held and the key typed a printable character
+ * that is not the key's own. AltGr+C typing `ć` must not fire `Mod+Alt+C`.
+ */
+export const isAltGraphTyping = (event: ShortcutEvent, modKey: ModKey): boolean => {
+  if (event.getModifierState?.("AltGraph") === true) {
+    return true;
+  }
+  if (modKey === "meta" || !event.ctrlKey || !event.altKey || event.code === undefined) {
+    return false;
+  }
+  const typed = event.key;
+  if ([...typed].length !== 1 || /\s/u.test(typed)) {
+    return false;
+  }
+  const own = keyFromCode(event.code);
+  const lower = typed.toLowerCase();
+  return own !== lower && !(event.shiftKey && own !== undefined && US_SHIFTED[own] === typed);
+};
+
+const keyLabel = (key: string): string =>
+  key === " "
+    ? "Space"
+    : key === "+"
+      ? "Plus"
+      : key.length === 1
+        ? key.toUpperCase()
+        : `${key[0]!.toUpperCase()}${key.slice(1)}`;
+
+/**
+ * Turns a captured `KeyboardEvent` back into `Mod+Shift+B` notation for the
+ * editor's record field. Modifier-only presses return null so holding Mod
+ * while deciding does not commit anything. With Alt held, or Shift on a key
+ * that is not a letter or digit, the key `event.code` names is written, so the
+ * recorder stores `Mod+Alt+R` rather than `Mod+Alt+®`.
  */
 export const formatEventAsShortcut = (event: ShortcutEvent, modKey: ModKey): string | null => {
-  const key = eventKey(event);
-  if (MODIFIER_TOKENS.has(key) || key === "control") {
+  const typed = eventKey(event);
+  if (MODIFIER_KEYS.has(typed)) {
     return null;
   }
+  const key = (event.altKey || event.shiftKey ? codeFallbackKey(event) : undefined) ?? typed;
   const parts: Array<string> = [];
   const modPressed = modKey === "meta" ? event.metaKey : event.ctrlKey;
   const otherPressed = modKey === "meta" ? event.ctrlKey : event.metaKey;
   if (modPressed) {
-    parts.push("Cmd");
+    parts.push("Mod");
   }
   if (otherPressed) {
     parts.push("Ctrl");
@@ -182,20 +297,27 @@ export const formatEventAsShortcut = (event: ShortcutEvent, modKey: ModKey): str
   if (event.shiftKey) {
     parts.push("Shift");
   }
-  parts.push(
-    key === " "
-      ? "Space"
-      : key.length === 1
-        ? key.toUpperCase()
-        : `${key[0]!.toUpperCase()}${key.slice(1)}`,
-  );
+  parts.push(keyLabel(key));
   return parts.join("+");
 };
 
-// ── `when` evaluation ──────────────────────────────────────────
+// ── `when` parsing and evaluation ──────────────────────────────
 
 /** The values a `when` clause may read: flags, or strings for `==`/`!=`. */
 export type WhenContext = (name: string) => boolean | string | undefined;
+
+/** A parsed `when` clause. An empty clause is `{ kind: "const", value: true }`. */
+export type WhenNode =
+  | { readonly kind: "const"; readonly value: boolean }
+  | { readonly kind: "flag"; readonly name: string }
+  | {
+      readonly kind: "compare";
+      readonly name: string;
+      readonly value: string;
+      readonly equal: boolean;
+    }
+  | { readonly kind: "not"; readonly operand: WhenNode }
+  | { readonly kind: "and" | "or"; readonly left: WhenNode; readonly right: WhenNode };
 
 type Token =
   | { readonly kind: "ident"; readonly value: string }
@@ -207,145 +329,202 @@ const tokenizeWhen = (source: string): ReadonlyArray<Token> | null => {
   let index = 0;
   while (index < source.length) {
     const char = source[index]!;
+    const pair = source.slice(index, index + 2);
     if (/\s/u.test(char)) {
       index += 1;
-      continue;
-    }
-    if (char === "(" || char === ")" || char === "!") {
-      if (char === "!" && source[index + 1] === "=") {
-        tokens.push({ kind: "op", value: "!=" });
-        index += 2;
-      } else {
-        tokens.push({ kind: "op", value: char });
-        index += 1;
-      }
-      continue;
-    }
-    if (char === "&" && source[index + 1] === "&") {
-      tokens.push({ kind: "op", value: "&&" });
+    } else if (pair === "!=" || pair === "&&" || pair === "||" || pair === "==") {
+      tokens.push({ kind: "op", value: pair });
       index += 2;
-      continue;
-    }
-    if (char === "|" && source[index + 1] === "|") {
-      tokens.push({ kind: "op", value: "||" });
-      index += 2;
-      continue;
-    }
-    if (char === "=" && source[index + 1] === "=") {
-      tokens.push({ kind: "op", value: "==" });
-      index += 2;
-      continue;
-    }
-    if (char === '"' || char === "'") {
+    } else if (char === "(" || char === ")" || char === "!") {
+      tokens.push({ kind: "op", value: char });
+      index += 1;
+    } else if (char === '"' || char === "'") {
       const end = source.indexOf(char, index + 1);
       if (end === -1) {
         return null;
       }
       tokens.push({ kind: "string", value: source.slice(index + 1, end) });
       index = end + 1;
-      continue;
+    } else {
+      const ident = /^[A-Za-z_][\w-]*/u.exec(source.slice(index));
+      if (ident === null) {
+        return null;
+      }
+      tokens.push({ kind: "ident", value: ident[0] });
+      index += ident[0].length;
     }
-    const ident = /^[A-Za-z_][\w-]*/u.exec(source.slice(index));
-    if (ident === null) {
-      return null;
-    }
-    tokens.push({ kind: "ident", value: ident[0] });
-    index += ident[0].length;
   }
   return tokens;
 };
 
 /**
- * Recursive-descent over `or := and (|| and)*`, `and := unary (&& unary)*`,
- * `unary := !unary | (expr) | ident (==|!= literal)?`. Leftover tokens or a
- * parse gap make the whole clause false — an unparseable `when` disables the
- * binding rather than misfiring.
+ * Recursive descent over `or := and (|| and)*`, `and := unary (&& unary)*`,
+ * `unary := !unary | (or) | ident (==|!= literal)? | "string"`. Returns null
+ * for anything that does not parse — leftover tokens included — and the
+ * constant true for an empty clause.
  */
-export const evaluateWhen = (expression: string, context: WhenContext): boolean => {
+export const parseWhen = (expression: string): WhenNode | null => {
   const tokens = tokenizeWhen(expression);
-  if (tokens === null || tokens.length === 0) {
-    return expression.trim().length === 0 ? true : false;
+  if (tokens === null) {
+    return null;
+  }
+  if (tokens.length === 0) {
+    return { kind: "const", value: true };
   }
   let index = 0;
   const peek = () => tokens[index];
   const take = () => tokens[index++];
+  const isOp = (token: Token | undefined, value: string): boolean =>
+    token?.kind === "op" && token.value === value;
 
-  const parsePrimary = (): boolean | string | null => {
+  const parsePrimary = (): WhenNode | null => {
     const token = take();
     if (token === undefined) {
       return null;
     }
-    if (token.kind === "op" && token.value === "(") {
-      const value = parseOr();
-      const close = take();
-      return close?.kind === "op" && close.value === ")" ? value : null;
-    }
-    if (token.kind === "ident") {
-      const next = peek();
-      if (next?.kind === "op" && (next.value === "==" || next.value === "!=")) {
-        take();
-        const literal = take();
-        if (literal === undefined || (literal.kind !== "string" && literal.kind !== "ident")) {
-          return null;
-        }
-        const actual = context(token.value);
-        const equal = actual !== undefined && String(actual) === literal.value;
-        return next.value === "==" ? equal : !equal;
-      }
-      const value = context(token.value);
-      return typeof value === "string" ? value : value === true;
+    if (isOp(token, "(")) {
+      const inner = parseOr();
+      return isOp(take(), ")") ? inner : null;
     }
     if (token.kind === "string") {
-      return token.value;
+      return { kind: "const", value: token.value.length > 0 };
     }
-    return null;
+    if (token.kind !== "ident") {
+      return null;
+    }
+    const next = peek();
+    if (isOp(next, "==") || isOp(next, "!=")) {
+      take();
+      const literal = take();
+      if (literal === undefined || literal.kind === "op") {
+        return null;
+      }
+      return { kind: "compare", name: token.value, value: literal.value, equal: isOp(next, "==") };
+    }
+    return { kind: "flag", name: token.value };
   };
 
-  const parseUnary = (): boolean | string | null => {
-    const token = peek();
-    if (token?.kind === "op" && token.value === "!") {
+  const parseUnary = (): WhenNode | null => {
+    if (isOp(peek(), "!")) {
       take();
-      const value = parseUnary();
-      return value === null
-        ? null
-        : !(value === true || (typeof value === "string" && value.length > 0));
+      const operand = parseUnary();
+      return operand === null ? null : { kind: "not", operand };
     }
     return parsePrimary();
   };
 
-  const truthy = (value: boolean | string | null): boolean =>
-    value === true || (typeof value === "string" && value.length > 0);
-
-  const parseAnd = (): boolean | string | null => {
-    let left = parseUnary();
-    while (peek()?.kind === "op" && (peek() as { value: string }).value === "&&") {
+  const parseBinary = (
+    kind: "and" | "or",
+    op: string,
+    parseOperand: () => WhenNode | null,
+  ): WhenNode | null => {
+    let left = parseOperand();
+    while (left !== null && isOp(peek(), op)) {
       take();
-      const right = parseUnary();
-      left = left === null || right === null ? null : truthy(left) && truthy(right);
+      const right = parseOperand();
+      left = right === null ? null : { kind, left, right };
     }
     return left;
   };
 
-  const parseOr = (): boolean | string | null => {
-    let left = parseAnd();
-    while (peek()?.kind === "op" && (peek() as { value: string }).value === "||") {
-      take();
-      const right = parseAnd();
-      left = left === null || right === null ? null : truthy(left) || truthy(right);
-    }
-    return left;
-  };
+  const parseAnd = () => parseBinary("and", "&&", parseUnary);
+  const parseOr = (): WhenNode | null => parseBinary("or", "||", parseAnd);
 
-  const value = parseOr();
-  return index === tokens.length && value !== null ? truthy(value) : false;
+  const node = parseOr();
+  return index === tokens.length ? node : null;
 };
+
+/**
+ * A flag is true when the context says `true` or a non-empty string;
+ * `name == "v"` compares the context value's string form, and a missing value
+ * equals nothing.
+ */
+export const evaluateWhenNode = (node: WhenNode, context: WhenContext): boolean => {
+  switch (node.kind) {
+    case "const":
+      return node.value;
+    case "flag": {
+      const value = context(node.name);
+      return value === true || (typeof value === "string" && value.length > 0);
+    }
+    case "compare": {
+      const actual = context(node.name);
+      const equal = actual !== undefined && String(actual) === node.value;
+      return node.equal ? equal : !equal;
+    }
+    case "not":
+      return !evaluateWhenNode(node.operand, context);
+    case "and":
+      return evaluateWhenNode(node.left, context) && evaluateWhenNode(node.right, context);
+    case "or":
+      return evaluateWhenNode(node.left, context) || evaluateWhenNode(node.right, context);
+  }
+};
+
+/**
+ * Evaluates a clause. An empty clause is true; an unparseable one is false —
+ * it disables the binding rather than misfiring.
+ */
+export const evaluateWhen = (expression: string, context: WhenContext): boolean => {
+  const node = parseWhen(expression);
+  return node !== null && evaluateWhenNode(node, context);
+};
+
+// ── The text-field rule ────────────────────────────────────────
+
+/** The context keys that say where focus is; naming one opts a binding into text fields. */
+const FOCUS_CONTEXT_KEYS: ReadonlySet<string> = new Set([
+  "inputFocus",
+  "composerFocus",
+  "terminalFocus",
+  "browserFocus",
+]);
+
+const namesIn = (node: WhenNode, into: Set<string>): Set<string> => {
+  switch (node.kind) {
+    case "const":
+      return into;
+    case "flag":
+    case "compare":
+      return into.add(node.name);
+    case "not":
+      return namesIn(node.operand, into);
+    case "and":
+    case "or":
+      return namesIn(node.right, namesIn(node.left, into));
+  }
+};
+
+/** True when the clause mentions a focus key, negated or not. */
+export const whenNamesFocus = (when: string | undefined): boolean => {
+  const node = when === undefined ? null : parseWhen(when);
+  return (
+    node !== null && [...namesIn(node, new Set())].some((name) => FOCUS_CONTEXT_KEYS.has(name))
+  );
+};
+
+const FUNCTION_KEY = /^f(?:[1-9]|1\d|2[0-4])$/u;
+
+/**
+ * Whether a binding may fire while focus is in a text field. A chord with Mod
+ * or Ctrl, Escape, or an F-key cannot be typing, so it may; anything else —
+ * a plain key, Shift+key, Alt+key, Tab, Enter, an arrow — only when its `when`
+ * clause names a focus key and so says where it means to apply.
+ */
+export const firesInTextField = (shortcut: ParsedShortcut, when: string | undefined): boolean =>
+  shortcut.mod ||
+  shortcut.ctrl ||
+  shortcut.key === "escape" ||
+  FUNCTION_KEY.test(shortcut.key) ||
+  whenNamesFocus(when);
 
 // ── Resolution ─────────────────────────────────────────────────
 
 /**
  * The command a keypress dispatches: the first binding whose shortcut matches
  * and whose `when` clause holds. First match wins, so user bindings listed
- * ahead of defaults shadow them.
+ * ahead of defaults shadow them. AltGr typing resolves to nothing, and while
+ * `inputFocus` is true only bindings `firesInTextField` allows are considered.
  */
 export const resolveKeybinding = (
   keybindings: ReadonlyArray<Keybinding>,
@@ -353,9 +532,16 @@ export const resolveKeybinding = (
   context: WhenContext,
   modKey: ModKey,
 ): Keybinding | null => {
+  if (isAltGraphTyping(event, modKey)) {
+    return null;
+  }
+  const typing = context("inputFocus") === true;
   for (const binding of keybindings) {
     const parsed = parseShortcut(binding.shortcut);
     if (parsed === null || !matchShortcut(parsed, event, modKey)) {
+      continue;
+    }
+    if (typing && !firesInTextField(parsed, binding.when)) {
       continue;
     }
     if (binding.when !== undefined && !evaluateWhen(binding.when, context)) {
@@ -364,28 +550,4 @@ export const resolveKeybinding = (
     return binding;
   }
   return null;
-};
-
-/**
- * Bindings sharing a shortcut inside the same `when` scope — the editor flags
- * these as conflicts because only the first can ever fire.
- */
-export const findKeybindingConflicts = (
-  keybindings: ReadonlyArray<Keybinding>,
-): ReadonlyArray<ReadonlyArray<Keybinding>> => {
-  const groups = new Map<string, Array<Keybinding>>();
-  for (const binding of keybindings) {
-    const parsed = parseShortcut(binding.shortcut);
-    if (parsed === null) {
-      continue;
-    }
-    const key = `${binding.when ?? ""}${binding.shortcut.toLowerCase()}`;
-    const group = groups.get(key);
-    if (group === undefined) {
-      groups.set(key, [binding]);
-    } else {
-      group.push(binding);
-    }
-  }
-  return [...groups.values()].filter((group) => group.length > 1);
 };

@@ -39,14 +39,14 @@ describe("DEFAULT_KEYBINDINGS", () => {
     Effect.gen(function* () {
       const bindings = yield* Effect.succeed(DEFAULT_KEYBINDINGS);
       const byCommand = new Map(bindings.map((binding) => [binding.command, binding.shortcut]));
-      expect(byCommand.get("thread.new")).toBe("Cmd+N");
-      expect(byCommand.get("commandPalette.toggle")).toBe("Cmd+K");
-      expect(byCommand.get("composer.queue")).toBe("Cmd+Enter");
+      expect(byCommand.get("thread.new")).toBe("Mod+N");
+      expect(byCommand.get("commandPalette.toggle")).toBe("Mod+K");
+      expect(byCommand.get("composer.queue")).toBe("Mod+Enter");
       expect(byCommand.get("thread.interrupt")).toBe("Escape");
-      expect(byCommand.get("browserPane.toggle")).toBe("Cmd+Shift+B");
-      expect(byCommand.get("sidebar.toggle")).toBe("Cmd+B");
-      expect(byCommand.get("skills.open")).toBe("Cmd+Shift+S");
-      expect(byCommand.get("settings.open")).toBe("Cmd+,");
+      expect(byCommand.get("browserPane.toggle")).toBe("Mod+Shift+B");
+      expect(byCommand.get("sidebar.toggle")).toBe("Mod+B");
+      expect(byCommand.get("skills.open")).toBe("Mod+Shift+S");
+      expect(byCommand.get("settings.open")).toBe("Mod+,");
     }),
   );
 

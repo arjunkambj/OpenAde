@@ -502,7 +502,12 @@ Everything a client needs that is not React.
   Models settings page read. It follows `connectorsAtom`, and an instance whose
   `connectors.models` fails lists no models without emptying the others.
 - `resolver.ts`, `desktop.ts` — how a client finds its server and its shell.
-- `composerTrigger.ts`, `keybindings.ts` — shared input logic.
+- `composerTrigger.ts`, `keybindings.ts` — shared input logic. `keybindings.ts`
+  is the matcher: chord notation, matching one keypress, `when` clauses and the
+  text-field rule.
+- `keymap.ts` — the keymap as a whole: the context keys a `when` clause may
+  name and the axioms between them, the physical chord a binding is on each
+  platform, the overlap-aware conflict finder, and the chords the system owns.
 
 May import `contracts` and `shared`.
 

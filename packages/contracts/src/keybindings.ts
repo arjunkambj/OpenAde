@@ -28,14 +28,14 @@ import type { Keybinding } from "./settings";
  * stored document holds only overrides.
  */
 export const DEFAULT_KEYBINDINGS: ReadonlyArray<Keybinding> = [
-  { command: "thread.new", shortcut: "Cmd+N" },
-  { command: "commandPalette.toggle", shortcut: "Cmd+K" },
-  { command: "composer.queue", shortcut: "Cmd+Enter" },
+  { command: "thread.new", shortcut: "Mod+N" },
+  { command: "commandPalette.toggle", shortcut: "Mod+K" },
+  { command: "composer.queue", shortcut: "Mod+Enter" },
   { command: "thread.interrupt", shortcut: "Escape" },
-  { command: "browserPane.toggle", shortcut: "Cmd+Shift+B" },
-  { command: "sidebar.toggle", shortcut: "Cmd+B" },
-  { command: "skills.open", shortcut: "Cmd+Shift+S" },
-  { command: "settings.open", shortcut: "Cmd+," },
+  { command: "browserPane.toggle", shortcut: "Mod+Shift+B" },
+  { command: "sidebar.toggle", shortcut: "Mod+B" },
+  { command: "skills.open", shortcut: "Mod+Shift+S" },
+  { command: "settings.open", shortcut: "Mod+," },
 ];
 
 /**
@@ -139,7 +139,8 @@ export const diffKeymap = (
 /**
  * Turns a full table stored before the document held overrides into
  * overrides. Rows are compared by exact string equality, which is sound
- * because the recorder always wrote the canonical `Cmd+…` form.
+ * because the recorder of that build always wrote the canonical `Cmd+…` form
+ * (today's writes `Mod+…`; the matcher reads both).
  *
  * - A legacy command whose rows are exactly its legacy default gets no
  *   override, so it follows the defaults from now on.

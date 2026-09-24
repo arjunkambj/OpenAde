@@ -70,7 +70,7 @@ const KEY_LABELS: Readonly<Record<string, string>> = {
 };
 
 /**
- * `Cmd+Shift+B` → `["⌘", "⇧", "B"]` on macOS, `["Ctrl", "Shift", "B"]`
+ * `Mod+Shift+B` → `["⌘", "⇧", "B"]` on macOS, `["Ctrl", "Shift", "B"]`
  * elsewhere. An unparseable chord draws nothing rather than a wrong hint.
  */
 export const keycapsFor = (shortcut: string, modKey: ModKey): ReadonlyArray<string> => {
@@ -83,7 +83,7 @@ export const keycapsFor = (shortcut: string, modKey: ModKey): ReadonlyArray<stri
   if (parsed.mod) {
     caps.push(names.mod!);
   }
-  // `Cmd` already resolves to Control off macOS — do not draw it twice.
+  // `Mod` already resolves to Control off macOS — do not draw it twice.
   if (parsed.ctrl && !(parsed.mod && modKey === "ctrl")) {
     caps.push(names.ctrl!);
   }

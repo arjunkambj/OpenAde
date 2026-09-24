@@ -406,13 +406,13 @@ function in `composer-keys.ts`:
 
 What a send then does is `sendMode` in `send-mode.ts`:
 
-| The thread                               | Enter or the send button                     | `Cmd+Enter`                                                   |
+| The thread                               | Enter or the send button                     | `Mod+Enter`                                                   |
 | ---------------------------------------- | -------------------------------------------- | ------------------------------------------------------------- |
 | idle                                     | `thread.turn.start` — a new turn             | `thread.turn.start { queued: true }`, which starts a turn too |
 | a turn running, the harness cannot steer | `thread.turn.start { queued: true }` — queue | the same                                                      |
 | a turn running, the harness steers       | `thread.turn.steer` — into the running turn  | `thread.turn.start { queued: true }` — queue                  |
 
-`Cmd+Enter` is the `composer.queue` binding, and it always queues, so a
+`Mod+Enter` is the `composer.queue` binding, and it always queues, so a
 follow-up meant for after the turn still waits for it on a harness that steers.
 Whether the harness steers is the `steering` capability of the instance the
 thread runs on (`instanceCapabilities`, the same read the attach button uses).
@@ -1973,24 +1973,70 @@ fields entirely.
 
 | command                 | shortcut      |
 | ----------------------- | ------------- |
-| `thread.new`            | `Cmd+N`       |
-| `commandPalette.toggle` | `Cmd+K`       |
-| `composer.queue`        | `Cmd+Enter`   |
+| `thread.new`            | `Mod+N`       |
+| `commandPalette.toggle` | `Mod+K`       |
+| `composer.queue`        | `Mod+Enter`   |
 | `thread.interrupt`      | `Escape`      |
-| `browserPane.toggle`    | `Cmd+Shift+B` |
-| `sidebar.toggle`        | `Cmd+B`       |
-| `skills.open`           | `Cmd+Shift+S` |
-| `settings.open`         | `Cmd+,`       |
-| `terminal.toggle`       | `Cmd+J`       |
+| `browserPane.toggle`    | `Mod+Shift+B` |
+| `sidebar.toggle`        | `Mod+B`       |
+| `skills.open`           | `Mod+Shift+S` |
+| `settings.open`         | `Mod+,`       |
+| `terminal.toggle`       | `Mod+J`       |
 
-`Cmd` is the platform modifier — Meta on macOS and iOS, Ctrl elsewhere — so one
-stored binding works on every keyboard; `Ctrl` always means the physical Control
-key. Matching is exact on modifiers: `Escape` does not fire on `Shift+Escape`,
-`Cmd+K` does not fire on `Cmd+Alt+K`. A binding may carry a `when` clause over
-context flags (`composerFocus`, `threadRunning`, …) with `!`, `&&`, `||`,
-parentheses and `==`/`!=`; an unknown flag is false and an unparseable clause
-disables the binding rather than misfiring
-(`packages/client-runtime/src/keybindings.ts`).
+The matcher is `packages/client-runtime/src/keybindings.ts`:
+
+- **Notation.** `Mod` is the platform modifier: Meta on macOS and iOS, Ctrl
+  elsewhere, so one stored binding works on every keyboard. `Cmd` and `Meta`
+  are aliases of it, so a table stored as `Cmd+…` keeps working, and the
+  recorder writes `Mod+…`. `Ctrl` always means the physical Control key.
+- **Exact modifiers.** `Escape` does not fire on `Shift+Escape`, and `Mod+K`
+  does not fire on `Mod+Alt+K`.
+- **Layout-safe keys.** With Alt or Shift held, `event.key` is often not the
+  key's own character: macOS Option+R reports `®`, Shift+[ reports `{`. So a
+  chord with Alt or Shift also matches on the key `event.code` names (`KeyR` →
+  `r`, `BracketLeft` → `[`), and the recorder writes that key, storing
+  `Mod+Alt+R` rather than `Mod+Alt+®`. A reported letter or digit is trusted as
+  it is, so on AZERTY a chord on A does not fire on the key at `KeyQ`.
+- **AltGr.** A press where AltGr is typing a character resolves to nothing
+  (`isAltGraphTyping`): the event reports the AltGraph modifier, or, off macOS,
+  Ctrl and Alt are held and the key typed a printable character that is not its
+  own. AltGr+C typing `ć` on a Polish layout never fires `Mod+Alt+C`.
+- **`when` clauses** read context flags with `!`, `&&`, `||`, parentheses and
+  `==`/`!=`. An unknown flag is false, and an unparseable clause disables its
+  binding rather than misfiring.
+- **The text-field rule.** While `inputFocus` is true, a binding fires only if
+  its chord has Mod or Ctrl, its key is Escape or F1–F24, or its `when` clause
+  names a focus key (`inputFocus`, `composerFocus`, `terminalFocus`,
+  `browserFocus`). A plain key, Shift+key, Alt+key, Tab, Enter or an arrow
+  never fires while the user is typing unless its clause says where it applies,
+  as `Shift+Tab` with `when: composerFocus` does (`firesInTextField`).
+
+The context keys a clause may name are listed, with what each means and who
+sets it, in `KEYBINDING_CONTEXT_KEYS` (`packages/client-runtime/src/keymap.ts`).
+The listener computes `inputFocus`, `composerFocus`, `terminalFocus`,
+`browserFocus`, `dialogOpen` and `isMac` from the keypress; components publish
+`threadOpen`, `dockOpen`, `turnRunning` (`threadRunning` is an alias),
+`approvalPending`, `questionPending` and `planPending`. `CONTEXT_AXIOMS`
+records what always holds between them: `composerFocus` and `terminalFocus`
+each imply `inputFocus`; focus is in at most one of the composer, the terminal
+and the browser; at most one of an approval, a question and a plan is pending;
+`isMac` is fixed per platform.
+
+Conflicts are found by the same module, per platform
+(`findKeybindingConflicts`). Two rows for different commands conflict when they
+are the same physical chord on that platform — off macOS `Mod+K` and `Ctrl+K`
+are the same keys, on macOS they are not — and their contexts can hold at
+once. Each row's context is its clause plus the implicit `!inputFocus` the
+text-field rule adds to a plain chord; `whenOverlaps` decides by brute force
+over the flags both clauses name, skipping assignments the axioms rule out, so
+`1` for an approval and `1` for a plan never conflict, and neither conflicts
+with a `1` bound only in the composer. A `x == "v"` comparison counts as an
+independent flag, which can only report more conflicts, never fewer.
+`SYSTEM_RESERVED_CHORDS` lists, per platform and with a reason, the chords the
+operating system, the text system or the Electron default menu already owns —
+quit, close, hide, reload, devtools, zoom, the editing and text-navigation
+chords, and on macOS the Cocoa `Ctrl+letter` editing keys — and
+`reservedChordReason` looks one up.
 
 There is exactly one listener, mounted at the app root
 (`apps/web/src/lib/shortcuts.tsx`). It runs in bubble phase so focused controls

@@ -55,6 +55,10 @@
     "./keybindings": {
       "types": "./src/keybindings.ts",
       "import": "./src/keybindings.ts"
+    },
+    "./keymap": {
+      "types": "./src/keymap.ts",
+      "import": "./src/keymap.ts"
     }
   },
   "scripts": {

@@ -30,6 +30,7 @@ import {
   type SettingsFormField,
   type SettingsFormFieldDescriptor,
 } from "@OpenAde/contracts/settings";
+import { detectModKey, formatEventAsShortcut } from "@OpenAde/client-runtime/keybindings";
 
 import { selectedOptionLabel } from "./select-label";
 import { isObject, isString } from "effect/Predicate";
@@ -198,7 +199,7 @@ export function KeyValueInput({
 
 /**
  * A `shortcut` control: click, then press the chord. The stored notation is
- * `Cmd+Shift+B` — `Cmd` stands for the platform modifier and is normalised at
+ * `Mod+Shift+B` — `Mod` stands for the platform modifier and is normalised at
  * the point of use. Escape alone records `Escape`; it is a real binding.
  *
  * There is no "clear". A `shortcut` field is a `NonEmptyString` by contract, so
@@ -227,22 +228,12 @@ function ShortcutInput({
         }
         event.preventDefault();
         event.stopPropagation();
-        if (["Meta", "Control", "Alt", "Shift"].includes(event.key)) {
+        const shortcut = formatEventAsShortcut(event, detectModKey());
+        if (shortcut === null) {
+          // A lone modifier — keep listening for the rest of the chord.
           return;
         }
-        const parts: Array<string> = [];
-        if (event.metaKey || event.ctrlKey) {
-          parts.push("Cmd");
-        }
-        if (event.altKey) {
-          parts.push("Alt");
-        }
-        if (event.shiftKey) {
-          parts.push("Shift");
-        }
-        const key = event.key === " " ? "Space" : event.key;
-        parts.push(key.length === 1 ? key.toUpperCase() : key);
-        onChange(parts.join("+"));
+        onChange(shortcut);
         setListening(false);
       }}
     >

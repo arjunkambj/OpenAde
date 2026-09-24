@@ -32,7 +32,8 @@ import {
 import { cn } from "@OpenAde/ui/lib/utils";
 import type { Keybinding } from "@OpenAde/contracts/settings";
 import { DEFAULT_KEYBINDINGS, diffKeymap } from "@OpenAde/contracts/keybindings";
-import { findKeybindingConflicts, parseShortcut } from "@OpenAde/client-runtime/keybindings";
+import { detectModKey, parseShortcut } from "@OpenAde/client-runtime/keybindings";
+import { findKeybindingConflicts } from "@OpenAde/client-runtime/keymap";
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 
@@ -41,12 +42,16 @@ import { useClientRuntime } from "@/lib/client-runtime";
 import { effectiveKeybindings } from "@/lib/keybindings";
 import { Add as AddIcon, AlertTriangle, Close, Keyboard, Undo } from "@honeyicons/react";
 
-/** Rows whose (shortcut, when) pair collides with an earlier row. */
+/**
+ * Commands with a row on the same physical chord as another command's row,
+ * in contexts that can hold at once on this platform.
+ */
 const conflictCommands = (keybindings: ReadonlyArray<Keybinding>): ReadonlySet<string> =>
   new Set(
-    findKeybindingConflicts(keybindings)
-      .flat()
-      .map((binding) => binding.command),
+    findKeybindingConflicts(keybindings, detectModKey()).flatMap((conflict) => [
+      conflict.first.command,
+      conflict.second.command,
+    ]),
   );
 
 const sameTable = (a: ReadonlyArray<Keybinding>, b: ReadonlyArray<Keybinding>): boolean =>

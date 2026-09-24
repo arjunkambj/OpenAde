@@ -14,7 +14,7 @@ describe("effectiveKeybindings", () => {
     const overrides: ReadonlyArray<Keybinding> = [{ command: "thread.new", shortcut: "Cmd+J" }];
     const table = effectiveKeybindings(overrides);
     expect(shortcutFor(table, "thread.new")).toBe("Cmd+J");
-    expect(shortcutFor(table, "sidebar.toggle")).toBe("Cmd+B");
+    expect(shortcutFor(table, "sidebar.toggle")).toBe("Mod+B");
     expect(table).toHaveLength(DEFAULT_KEYBINDINGS.length);
   });
 
@@ -44,7 +44,7 @@ describe("yieldsToTerminal", () => {
 
 describe("shortcutFor", () => {
   it("finds the chord a command is bound to", () => {
-    expect(shortcutFor(DEFAULT_KEYBINDINGS, "sidebar.toggle")).toBe("Cmd+B");
+    expect(shortcutFor(DEFAULT_KEYBINDINGS, "sidebar.toggle")).toBe("Mod+B");
   });
 
   it("returns null for a command the table does not bind", () => {
@@ -54,6 +54,7 @@ describe("shortcutFor", () => {
 
 describe("keycapsFor", () => {
   it("draws the platform modifier as a glyph on macOS", () => {
+    expect(keycapsFor("Mod+Shift+B", "meta")).toEqual(["⌘", "⇧", "B"]);
     expect(keycapsFor("Cmd+Shift+B", "meta")).toEqual(["⌘", "⇧", "B"]);
   });
 

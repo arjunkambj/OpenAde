@@ -164,8 +164,9 @@ export type PermissionRule = typeof PermissionRule.Type;
 
 /**
  * One shortcut. `command` is the action id the renderer dispatches; `shortcut`
- * is the chord in the table's own notation (`Cmd+Shift+B`), normalised per
- * platform at the point of use. `when` narrows a binding to a context, the way
+ * is the chord in the table's own notation (`Mod+Shift+B`, where `Mod` is Cmd on
+ * macOS and Ctrl elsewhere, and `Cmd` is accepted as an alias of it),
+ * normalised per platform at the point of use. `when` narrows a binding to a context, the way
  * VS Code's `when` clauses do. In the stored document a `-X` command unbinds
  * `X`; the defaults and how overrides layer on them live in `./keybindings`.
  */
