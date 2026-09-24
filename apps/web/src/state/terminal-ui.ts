@@ -8,6 +8,10 @@
  * The tabs themselves are not here: which terminals an owner has is the
  * server's to say, and the drawer keeps its view of them in
  * `@/components/terminal/drawer-state`.
+ *
+ * When the New task page hands its project's terminals to the thread it just
+ * started (`terminal.adopt`), an open drawer goes with them
+ * (`handOverDrawerOpen`): open on the thread, closed on the project.
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
@@ -59,6 +63,19 @@ export const withDrawerOpen = (
   return next;
 };
 
+/**
+ * The map after a hand-over from `from` to `to`: an open drawer opens on `to`
+ * and closes on `from`; a closed one leaves the map as it was.
+ */
+export const handOverDrawerOpen = (
+  openByThread: Readonly<Record<string, true>>,
+  from: string,
+  to: string,
+): Readonly<Record<string, true>> =>
+  openByThread[from] === true
+    ? withDrawerOpen(withDrawerOpen(openByThread, from, false), to, true)
+    : openByThread;
+
 const readOpenByThread = (): Readonly<Record<string, true>> => {
   try {
     return parseOpenByThread(globalThis.localStorage?.getItem(OPEN_KEY));
@@ -77,7 +94,31 @@ export const openByThreadAtom = Atom.keepAlive(
   Atom.make<Readonly<Record<string, true>>>(readOpenByThread()),
 );
 
-/** `[open, setOpen]` for one thread's terminal drawer. */
+const persistOpen = (openByThread: Readonly<Record<string, true>>) => {
+  try {
+    globalThis.localStorage?.setItem(OPEN_KEY, JSON.stringify(openByThread));
+  } catch {
+    // localStorage can throw (private mode, quota); the atom still updates.
+  }
+};
+
+/** Moves an open drawer from one owner's key to another's (`handOverDrawerOpen`). */
+export const useDrawerOpenHandOver = () => {
+  const setOpenByThread = useAtomSet(openByThreadAtom);
+  return React.useCallback(
+    (from: string, to: string) =>
+      setOpenByThread((current) => {
+        const next = handOverDrawerOpen(current, from, to);
+        if (next !== current) {
+          persistOpen(next);
+        }
+        return next;
+      }),
+    [setOpenByThread],
+  );
+};
+
+/** `[open, setOpen]` for one owner's terminal drawer. */
 export const useTerminalOpen = (threadId: string) => {
   const open = useAtomValue(
     openByThreadAtom,
@@ -93,11 +134,7 @@ export const useTerminalOpen = (threadId: string) => {
         const wanted = typeof update === "function" ? update(current[threadId] === true) : update;
         const next = withDrawerOpen(current, threadId, wanted);
         if (next !== current) {
-          try {
-            globalThis.localStorage?.setItem(OPEN_KEY, JSON.stringify(next));
-          } catch {
-            // localStorage can throw (private mode, quota); the atom still updates.
-          }
+          persistOpen(next);
         }
         return next;
       }),

@@ -2404,6 +2404,17 @@ neither. A session keeps its shell and hub, so a live subscriber streams on;
 calls under the project answer `not-found` from then on. A worktree thread
 takes nothing: the shells stay the project's, still running in its folder.
 
+On the client the hand-over is `useTerminalHandOver`
+(`apps/web/src/components/terminal/use-terminal-hand-over.ts`), which the New
+task composer awaits between creating a local thread and sending its first
+message. After the server has moved the terminals it moves what the client
+keeps per owner: the drawer's tabs and the one in front
+(`handOverDrawerState` in `drawer-state.ts`), then whether the drawer is open
+(`handOverDrawerOpen` in `apps/web/src/state/terminal-ui.ts`) — open on the
+thread, closed on the project, in that order so the page's drawer never sits
+open with no tabs, which would start a fresh shell. The thread's drawer then
+finds the terminals on its first listing, with the same one in front.
+
 The shell comes from `resolveShell` in
 `apps/server/src/terminal/shell.ts`: `$SHELL` when it is an absolute path,
 else `/bin/zsh` on macOS and bash (or `sh`) on Linux, with `-l` so it reads the

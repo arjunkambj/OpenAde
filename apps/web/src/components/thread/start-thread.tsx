@@ -72,6 +72,7 @@ import { HarnessHealthBanner } from "@/components/thread/harness-health-banner";
 import { ProjectPicker } from "@/components/thread/project-picker";
 import { worktreeName } from "@/components/thread/start-in-worktree";
 import { useStartInWorktree } from "@/components/thread/use-start-in-worktree";
+import { useTerminalHandOver } from "@/components/terminal/use-terminal-hand-over";
 import { useWorkspaceChoice, WorkspaceModePicker } from "@/components/thread/workspace-mode-picker";
 import { WorktreeSetupPanel } from "@/components/thread/worktree-setup-panel";
 import type { DockPane } from "@/components/dock/dock-toggle";
@@ -166,6 +167,7 @@ function StartComposer({
   const sendFirstMessage = () =>
     sendDraft({ text: text.trim(), mentions, references, mode: "start" });
   const choice = useWorkspaceChoice(project.projectId);
+  const handOverTerminals = useTerminalHandOver();
   const worktreeStart = useStartInWorktree(project.projectId, {
     createThread: (worktree) =>
       create(project.projectId, { threadId, navigate: false, settings: shownSettings, worktree }),
@@ -196,6 +198,8 @@ function StartComposer({
       } else if (
         await create(project.projectId, { threadId, navigate: false, settings: shownSettings })
       ) {
+        // A local thread works in the project's folder: its shells go with it.
+        await handOverTerminals(project.projectId, threadId);
         sendFirstMessage();
       }
     } finally {

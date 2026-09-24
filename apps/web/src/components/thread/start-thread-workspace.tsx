@@ -8,7 +8,9 @@
  *   page's draft id: the thread that draft becomes may run in a new worktree,
  *   and the server has no thread by that id until it is sent. A selection
  *   quoted from them goes into that draft, though, since it is the composer
- *   on screen.
+ *   on screen. When the first message starts a local thread, the composer
+ *   hands them to it (`useTerminalHandOver`), open drawer and all; a
+ *   worktree thread leaves them with the project.
  * - The dock (`RightDock`, project scope) offers Changes and Files. What it
  *   shows travels in `/`'s `?pane=`, and `useDockState` gives it the thread
  *   dock's rules — closed by default, the launcher loading nothing until a

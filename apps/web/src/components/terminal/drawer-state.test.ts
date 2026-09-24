@@ -3,7 +3,13 @@ import type { TerminalId } from "@OpenAde/contracts/ids";
 import type { TerminalSummary } from "@OpenAde/contracts/terminal";
 import { describe, expect, it } from "vitest";
 
-import { emptyDrawerState, nextTitle, reduceDrawer, type DrawerState } from "./drawer-state";
+import {
+  emptyDrawerState,
+  handOverDrawerState,
+  nextTitle,
+  reduceDrawer,
+  type DrawerState,
+} from "./drawer-state";
 
 const id = (n: number) => `0199c0de-0012-7000-8000-00000000000${n}` as TerminalId;
 
@@ -155,5 +161,32 @@ describe("nextTitle", () => {
 
   it("ignores titles of another shape", () => {
     expect(nextTitle([{ title: "build" }])).toBe("Terminal 1");
+  });
+});
+
+describe("handOverDrawerState", () => {
+  const project = "project:0199c0de-0001-7000-8000-000000000001";
+  const thread = "0199c0de-0002-7000-8000-000000000001";
+
+  it("moves the project's tabs to a fresh thread, the one in front still in front", () => {
+    const states = { [project]: withTabs([1, 2, 3], 2) };
+    expect(handOverDrawerState(states, project, thread)).toEqual({
+      [thread]: withTabs([1, 2, 3], 2),
+    });
+  });
+
+  it("puts them after the thread's own, keeping its tab in front", () => {
+    const states = { [project]: withTabs([2, 3], 3), [thread]: withTabs([1], 1) };
+    expect(handOverDrawerState(states, project, thread)).toEqual({
+      [thread]: withTabs([1, 2, 3], 1),
+    });
+  });
+
+  it("leaves every other owner alone, and changes nothing with nothing to move", () => {
+    const other = "0199c0de-0002-7000-8000-000000000002";
+    const states = { [project]: withTabs([1], 1), [other]: withTabs([4], 4) };
+    expect(handOverDrawerState(states, project, thread)[other]).toBe(states[other]);
+    const empty = { [other]: withTabs([4], 4) };
+    expect(handOverDrawerState(empty, project, thread)).toBe(empty);
   });
 });
