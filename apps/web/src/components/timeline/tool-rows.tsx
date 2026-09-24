@@ -16,7 +16,7 @@ import { PathChip, PathChipsProvider } from "@/components/timeline/path-chips";
 import { DisclosureRow, JsonBlock, MonoBlock } from "@/components/timeline/row-shell";
 import { toolPathTarget, toolTarget } from "@/components/timeline/tool-target";
 import { cn } from "@/lib/utils";
-import { Close, Globe, Lightbulb, Server, Terminal } from "@honeyicons/react";
+import { Globe, Hammer, Lightbulb, Server, Terminal } from "@honeyicons/react";
 
 /** First line of a value for a row label — strings verbatim, objects compact. */
 const preview = (value: unknown, max = 80): string | undefined => {
@@ -154,7 +154,7 @@ export function ToolCallRow({ item }: { item: ItemSnapshot }) {
       {(path) => (
         <DisclosureRow
           rowId={item.itemId}
-          icon={Close}
+          icon={Hammer}
           label={
             <>
               {name}

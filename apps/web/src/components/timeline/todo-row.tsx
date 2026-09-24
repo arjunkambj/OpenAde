@@ -6,16 +6,17 @@
 import type { ItemSnapshot, Todo } from "@OpenAde/contracts/runtime";
 
 import { cn } from "@/lib/utils";
-import { Check, Close } from "@honeyicons/react";
+import { Check, Minus, PlayMini } from "@honeyicons/react";
 
+/** One mark per status: done is a check, the current step a play mark, the rest a dash. */
 function TodoIcon({ status }: { status: Todo["status"] }) {
   if (status === "completed") {
     return <Check variant="bold" className="size-3.5 text-added" />;
   }
   if (status === "in_progress") {
-    return <Close variant="bold" className="size-3.5 text-permission" />;
+    return <PlayMini variant="bold" className="size-3.5 text-permission" />;
   }
-  return <Close variant="bold" className="size-3.5 text-muted-foreground" />;
+  return <Minus variant="bold" className="size-3.5 text-muted-foreground" />;
 }
 
 export function TodoRow({ item }: { item: ItemSnapshot }) {
