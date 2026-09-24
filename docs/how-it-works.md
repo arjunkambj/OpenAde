@@ -2165,6 +2165,8 @@ The matcher is `packages/client-runtime/src/keybindings.ts`:
   elsewhere, so one stored binding works on every keyboard. `Cmd` and `Meta`
   are aliases of it, so a table stored as `Cmd+…` keeps working, and the
   recorder writes `Mod+…`. `Ctrl` always means the physical Control key.
+  Off macOS the notation has no token for Super/Win, so the recorder ignores
+  a press with it held rather than store a chord that fires on another key.
 - **Exact modifiers.** `Escape` does not fire on `Shift+Escape`, and `Mod+K`
   does not fire on `Mod+Alt+K`.
 - **Layout-safe keys.** With Alt or Shift held, `event.key` is often not the

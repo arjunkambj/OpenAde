@@ -98,6 +98,21 @@ describe("formatEventAsShortcut", () => {
     expect(formatEventAsShortcut(press("Meta", { metaKey: true }), "meta")).toBeNull();
     expect(formatEventAsShortcut(press("Shift", { shiftKey: true }), "meta")).toBeNull();
   });
+
+  it("refuses a Super/Win press off macOS rather than write it as Ctrl", () => {
+    // The regression: Super+K recorded as `Ctrl+K`, which off macOS fires on
+    // Ctrl+K and never on the Super+K that recorded it.
+    expect(formatEventAsShortcut(press("k", { code: "KeyK", metaKey: true }), "ctrl")).toBeNull();
+    expect(
+      formatEventAsShortcut(press("k", { code: "KeyK", metaKey: true, ctrlKey: true }), "ctrl"),
+    ).toBeNull();
+    expect(
+      formatEventAsShortcut(press("K", { code: "KeyK", metaKey: true, shiftKey: true }), "ctrl"),
+    ).toBeNull();
+    expect(formatEventAsShortcut(press("k", { ctrlKey: true, metaKey: true }), "meta")).toBe(
+      "Mod+Ctrl+K",
+    );
+  });
 });
 
 describe("evaluateWhen", () => {

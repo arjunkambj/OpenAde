@@ -39,7 +39,8 @@ export function ShortcutRecorder({
     event.stopPropagation();
     const shortcut = formatEventAsShortcut(event, detectModKey());
     if (shortcut === null) {
-      // A lone modifier — keep listening for the rest of the chord.
+      // A lone modifier, or a key the notation cannot write (Super off
+      // macOS) — keep listening for a chord it can.
       return;
     }
     setArmed(false);

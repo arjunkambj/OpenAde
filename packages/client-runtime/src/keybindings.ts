@@ -286,21 +286,22 @@ const keyLabel = (key: string): string =>
  * editor's record field. Modifier-only presses return null so holding Mod
  * while deciding does not commit anything. With Alt held, or Shift on a key
  * that is not a letter or digit, the key `event.code` names is written, so the
- * recorder stores `Mod+Alt+R` rather than `Mod+Alt+®`.
+ * recorder stores `Mod+Alt+R` rather than `Mod+Alt+®`. Off macOS a press with
+ * Super/Win (`metaKey`) held also returns null: the notation has no token for
+ * that key there (`Mod` is Ctrl, `Ctrl` is Control), and writing it as `Ctrl`
+ * would store a chord that fires on Ctrl and never on the press that made it.
  */
 export const formatEventAsShortcut = (event: ShortcutEvent, modKey: ModKey): string | null => {
   const typed = eventKey(event);
-  if (MODIFIER_KEYS.has(typed)) {
+  if (MODIFIER_KEYS.has(typed) || (modKey === "ctrl" && event.metaKey)) {
     return null;
   }
   const key = (event.altKey || event.shiftKey ? codeFallbackKey(event) : undefined) ?? typed;
   const parts: Array<string> = [];
-  const modPressed = modKey === "meta" ? event.metaKey : event.ctrlKey;
-  const otherPressed = modKey === "meta" ? event.ctrlKey : event.metaKey;
-  if (modPressed) {
+  if (modKey === "meta" ? event.metaKey : event.ctrlKey) {
     parts.push("Mod");
   }
-  if (otherPressed) {
+  if (modKey === "meta" && event.ctrlKey) {
     parts.push("Ctrl");
   }
   if (event.altKey) {
