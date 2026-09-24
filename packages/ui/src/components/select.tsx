@@ -20,7 +20,7 @@ function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
   return (
     <SelectPrimitive.Value
       data-slot="select-value"
-      className={cn("flex flex-1 text-left", className)}
+      className={cn("block min-w-0 flex-1 truncate text-left", className)}
       {...props}
     />
   );
@@ -32,7 +32,7 @@ const selectTriggerVariants = cva(
     variants: {
       variant: {
         composer:
-          "h-8 max-w-full min-w-0 rounded-full border-0 bg-transparent px-2 py-1 text-xs text-foreground shadow-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/50",
+          "h-7 max-w-full min-w-0 gap-1 rounded-lg border-0 bg-transparent px-2 py-1 text-xs text-foreground shadow-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/50",
         default:
           "w-fit rounded-lg bg-input/50 py-2 pr-2 pl-2.5 transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 data-[size=default]:h-8 data-[size=sm]:h-7 dark:bg-input/30 dark:hover:bg-input/50",
         // Filled like a secondary button: a pane's picker under an active tab.

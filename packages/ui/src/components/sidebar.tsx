@@ -388,7 +388,7 @@ function SidebarContent({
 
 const sidebarGroupPadding = {
   default: "p-2",
-  section: "px-2 pt-6 pb-2",
+  section: "px-2 pt-5 pb-2",
 } as const;
 
 function SidebarGroup({
