@@ -72,6 +72,7 @@ import { HarnessHealthBanner } from "@/components/thread/harness-health-banner";
 import { ProjectPicker } from "@/components/thread/project-picker";
 import { worktreeName } from "@/components/thread/start-in-worktree";
 import { useStartInWorktree } from "@/components/thread/use-start-in-worktree";
+import { useStartSend } from "@/components/thread/use-start-send";
 import { useTerminalHandOver } from "@/components/terminal/use-terminal-hand-over";
 import { useWorkspaceChoice, WorkspaceModePicker } from "@/components/thread/workspace-mode-picker";
 import { WorktreeSetupPanel } from "@/components/thread/worktree-setup-panel";
@@ -178,21 +179,13 @@ function StartComposer({
   // discarded, the draft and the pickers wait.
   const inWorktreeFlow = worktreeState.step !== "idle";
 
-  const busy = pending || sending || inWorktreeFlow;
-  // A failed setup waits on the user (Start anyway or Discard): the button
-  // stays down, but nothing is running, so it does not spin.
-  const working = pending || sending || (inWorktreeFlow && worktreeState.step !== "failed");
   const canSend = text.trim().length > 0 || attachments.files.length > 0;
-
-  // `pending` is state, so a second Enter before the re-render would create
-  // the same thread twice; the ref closes that window.
-  const startingRef = React.useRef(false);
-  const send = async () => {
-    if (!canSend || busy || startingRef.current) {
-      return;
-    }
-    startingRef.current = true;
-    try {
+  // One span from the click to the first message (`useStartSend`), so the
+  // button spins through the hand-over's round trip too.
+  const { starting, send } = useStartSend({
+    canSend,
+    blocked: pending || sending || inWorktreeFlow,
+    start: async () => {
       if (choice.mode === "worktree") {
         await worktreeStart.start(worktreeName(text), choice.baseBranch);
       } else if (
@@ -202,10 +195,13 @@ function StartComposer({
         await handOverTerminals(project.projectId, threadId);
         sendFirstMessage();
       }
-    } finally {
-      startingRef.current = false;
-    }
-  };
+    },
+  });
+  const busy = starting || pending || sending || inWorktreeFlow;
+  // A failed setup waits on the user (Start anyway or Discard): the button
+  // stays down, but nothing is running, so it does not spin.
+  const working =
+    starting || pending || sending || (inWorktreeFlow && worktreeState.step !== "failed");
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const keymapAnswers = useKeymapAnswers();
