@@ -102,3 +102,13 @@ describe("a task's start", () => {
     expect(subagents.opened("call-a", itemId, input, parent)).toEqual([]);
   });
 });
+
+describe("a task's lifecycle", () => {
+  /** Never read: a call with no task row is refused before its message is. */
+  const message = { n: 1 };
+
+  it("reads nothing of a call whose row is not a task's, for the translator to keep unmapped", () => {
+    // A background shell command's task_* messages name its Bash call.
+    expect(makeSubagents().lifecycle("call-bash", message)).toBeNull();
+  });
+});

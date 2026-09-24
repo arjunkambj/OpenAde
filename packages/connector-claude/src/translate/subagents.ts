@@ -13,8 +13,10 @@
  *   `task_notification` then name only one of the two. They become
  *   `task.updated` while the task runs and `task.completed` once it settled —
  *   `completed`, or `failed` for a failure, a kill or a stop. The same family
- *   reports the CLI's background shell commands; a task whose call opened a
- *   row of another kind is that row's business, and adds nothing;
+ *   reports the CLI's background shell commands, whose own row settled when
+ *   the command was launched and cannot say how it ended; a `task_*` message
+ *   whose call opened a row of another kind is kept unmapped, whole, until a
+ *   mapping onto that row exists;
  * - the subagent's own messages — its stream, its snapshots and the results of
  *   its calls — carrying the call's id as `parent_tool_use_id`. The translator
  *   reads them as it reads the main loop's, and every row they open is nested
@@ -91,11 +93,16 @@ export interface Subagents {
    */
   readonly callOf: (message: Json) => string | undefined;
   /**
-   * A `task_*` system message whose call has a row → its task events. None
-   * for a call whose row is not a task's: a background shell command, or
-   * another tool the CLI runs as a task, which its own row tells.
+   * A `task_*` system message whose call has a row → its task events: none
+   * for what a settled task's row already shows. Null for a message this does
+   * not read — a call whose row is not a task's (a background shell command,
+   * or another tool the CLI runs as a task), or a `task_*` kind it does not
+   * know — which the translator keeps unmapped.
    */
-  readonly lifecycle: (toolUseId: string, message: Json) => ReadonlyArray<PendingRuntimeEvent>;
+  readonly lifecycle: (
+    toolUseId: string,
+    message: Json,
+  ) => ReadonlyArray<PendingRuntimeEvent> | null;
   /** Holds a subagent's message until its task's row opens. */
   readonly hold: (toolUseId: string, message: Json) => void;
   /** The held messages whose task row is open now, taken out. */
@@ -152,7 +159,7 @@ export const makeSubagents = (): Subagents => {
 
   const lifecycle: Subagents["lifecycle"] = (toolUseId, message) => {
     const task = tasks.get(toolUseId);
-    if (task === undefined) return [];
+    if (task === undefined) return null;
     if (task.settled) return [];
     const settle = (status: ItemStatus): ReadonlyArray<PendingRuntimeEvent> => {
       task.settled = true;
@@ -181,7 +188,7 @@ export const makeSubagents = (): Subagents => {
       case "task_notification":
         return settle(settledTaskStatus(asString(message.status)) ?? "completed");
       default:
-        return [];
+        return null;
     }
   };
 

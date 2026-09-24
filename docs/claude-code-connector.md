@@ -536,8 +536,11 @@ CLI's `task_started`, `task_progress`, `task_updated` and `task_notification`
 system messages name the call's `tool_use_id`, or a `task_id` their
 `task_started` tied to it. They become `task.updated` while the task runs and
 `task.completed` once it settles: `completed`, or `failed` for a failure, a
-kill or a stop. A task_* message for a background shell command is that
-command's row's business and adds nothing.
+kill or a stop. A task_* message for a background shell command — whose row
+settled with the CLI's placeholder when the command was launched — or of a
+kind the connector does not know is kept as `event.unmapped`, whole, until a
+recording shows how it maps onto that row; one for a task already settled
+restates it and adds nothing.
 
 With `forwardSubagentText`, every message the subagent sends carries the
 call's id as `parent_tool_use_id`. Each is translated as a main-loop message

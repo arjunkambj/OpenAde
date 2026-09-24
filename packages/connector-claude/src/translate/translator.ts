@@ -357,6 +357,10 @@ export const makeTranslator = (options: {
     return nest(subagentMessage(message, toolUseId, row.itemId), row.itemId);
   };
 
+  /** A `task_*` message's task events, or the message kept unmapped when it is not a task's. */
+  const lifecycleOf = (toolUseId: string, message: Json): ReadonlyArray<PendingRuntimeEvent> =>
+    subagents.lifecycle(toolUseId, message) ?? [unmapped(message)];
+
   /** A `task_*` system message: its task's events, held while the call has no row. */
   const taskMessage = (message: Json): ReadonlyArray<PendingRuntimeEvent> => {
     const toolUseId = subagents.callOf(message);
@@ -365,7 +369,7 @@ export const makeTranslator = (options: {
       subagents.hold(toolUseId, message);
       return [];
     }
-    return subagents.lifecycle(toolUseId, message);
+    return lifecycleOf(toolUseId, message);
   };
 
   /** The held messages whose task row has opened since, read now. */
@@ -374,7 +378,7 @@ export const makeTranslator = (options: {
       .takeReady(tools.rowOf)
       .flatMap(({ toolUseId, message }) =>
         message.type === "system"
-          ? subagents.lifecycle(toolUseId, message)
+          ? lifecycleOf(toolUseId, message)
           : fromSubagent(message, toolUseId),
       );
 
