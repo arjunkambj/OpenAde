@@ -66,6 +66,7 @@ import { cloneDecisions, cloneItems } from "@/lib/fixture-clone";
 import { turnOrder } from "@/components/timeline/turn-checkpoints";
 import { KeybindingsProvider, useKeybindingFlag } from "@/lib/shortcuts";
 import { type FileRevealTarget, useFileRevealRequests } from "@/state/file-reveal";
+import { noteLocalSend } from "@/state/local-sends";
 import { Close } from "@honeyicons/react";
 
 const everyKind = Schema.decodeUnknownSync(ThreadDetailSnapshot)(everyKindJson);
@@ -187,6 +188,7 @@ function TimelineFixturePage({ client }: { readonly client: FixtureClient }) {
     client.completeTurn();
     const text = SEND_ASKS[sends.current % SEND_ASKS.length] ?? SEND_ASKS[0];
     sends.current += 1;
+    noteLocalSend(client.threadId);
     void dispatch({
       commandId: makeCommandId(),
       createdAt: new Date().toISOString(),

@@ -22,6 +22,8 @@
 import type { LegendListRef } from "@legendapp/list/react";
 import * as React from "react";
 
+import { sentHereRecently } from "@/state/local-sends";
+
 import type { TimelineRow } from "./fold";
 import {
   INITIAL_SEND_ANCHOR,
@@ -210,7 +212,12 @@ export function useSendAnchor({
     }
     const newUserMessageId = sentUserMessageId(seen.current?.ids ?? null, rows) ?? undefined;
     seen.current = { threadId, ids: rowIdSet(rows) };
-    dispatch({ type: "rowsChanged", newUserMessageId, turnActive });
+    dispatch({
+      type: "rowsChanged",
+      newUserMessageId,
+      turnActive,
+      sentHere: newUserMessageId !== undefined && sentHereRecently(threadId),
+    });
     if (wasActive.current && !turnActive) {
       dispatch({ type: "turnSettled" });
     }

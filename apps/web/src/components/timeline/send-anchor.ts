@@ -7,7 +7,8 @@
  * - `anchored` starts when the user sends: the new message is placed near the
  *   top of the viewport and held there while the reply streams in below it.
  * - `free` starts when the reader scrolls while anchored: nothing moves the
- *   list until it is back at its end or the reader jumps to the latest row.
+ *   list until it is back at its end or the reader jumps to the latest row —
+ *   or until they send a message themselves (`sentHere`).
  *
  * The last sent message keeps an end reserve (`reserveRowId`, LegendList's
  * `anchoredEndSpace`) in every mode: the trailing space that lets it reach the
@@ -17,7 +18,10 @@
  *
  * Only a user message that appears after the list mounted, while a turn is
  * requested or running, counts as a send. That covers a queued message whose
- * turn starts later; the history a thread opens with never anchors.
+ * turn starts later; the history a thread opens with never anchors. From
+ * `free` it takes a send this window just made (`state/local-sends.ts`): a
+ * queued message drained minutes later, or one sent from another window, would
+ * otherwise pull a reader who scrolled away back down without their asking.
  */
 
 import type { TimelineRow } from "./fold";
@@ -38,6 +42,8 @@ export type SendAnchorEvent =
       /** A user message row that was not there before, when it is the latest one. */
       readonly newUserMessageId?: string | undefined;
       readonly turnActive: boolean;
+      /** This window sent that message just now, rather than the queue or another window. */
+      readonly sentHere?: boolean | undefined;
     }
   | { readonly type: "userScrollIntent" }
   | { readonly type: "reachedEnd" }
@@ -57,6 +63,9 @@ export const sendAnchorReducer = (
   switch (event.type) {
     case "rowsChanged":
       if (event.newUserMessageId === undefined || !event.turnActive) {
+        return state;
+      }
+      if (state.mode === "free" && event.sentHere !== true) {
         return state;
       }
       return {

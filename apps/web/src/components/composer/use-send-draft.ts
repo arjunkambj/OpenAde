@@ -27,6 +27,7 @@ import type { SendMode } from "@/components/composer/send-mode";
 import type { Attachments } from "@/components/composer/use-attachments";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
+import { noteLocalSend } from "@/state/local-sends";
 
 /** What the composer holds when the user presses Enter. */
 export interface Draft {
@@ -77,6 +78,8 @@ export function useSendDraft(
           mentions: [...draft.mentions],
           ...(draft.references?.length ? { references: [...draft.references] } : {}),
         };
+        // Before the dispatch: the message row can arrive before the receipt.
+        noteLocalSend(threadId);
         return dispatch(
           draft.mode === "steer"
             ? { ...message, type: "thread.turn.steer" }

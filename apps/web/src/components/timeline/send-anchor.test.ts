@@ -25,10 +25,11 @@ const working: TimelineRow = { kind: "working", id: "working", startedAt: undefi
 const run = (events: ReadonlyArray<SendAnchorEvent>, from = INITIAL_SEND_ANCHOR) =>
   events.reduce(sendAnchorReducer, from);
 
-const send = (id: string): SendAnchorEvent => ({
+const send = (id: string, sentHere = true): SendAnchorEvent => ({
   type: "rowsChanged",
   newUserMessageId: id,
   turnActive: true,
+  sentHere,
 });
 
 const anchored: SendAnchorState = run([send("u2")]);
@@ -82,12 +83,20 @@ describe("sendAnchorReducer", () => {
     });
   });
 
-  it("anchors from any mode, placing the message again", () => {
+  it("anchors a send made here from any mode, placing the message again", () => {
     const free = run([{ type: "userScrollIntent" }], anchored);
     const again = run([send("u3")], free);
     expect(again.mode).toBe("anchored");
     expect(again.sentRowId).toBe("u3");
     expect(again.placement).toBe(anchored.placement + 1);
+  });
+
+  it("leaves a reader who scrolled away alone for a message this window did not just send", () => {
+    // A queued message drained minutes later, or one sent from another window.
+    const free = run([{ type: "userScrollIntent" }], anchored);
+    expect(run([send("u3", false)], free)).toBe(free);
+    // Following, the list is at its end anyway, so the message is anchored.
+    expect(run([send("u3", false)]).mode).toBe("anchored");
   });
 
   it("releases to the reader on a scroll, keeping the reserve", () => {

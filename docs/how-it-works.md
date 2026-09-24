@@ -976,7 +976,12 @@ fold closes, the message is held again rather than jumping. **Free** starts
 when the reader scrolls while anchored — a wheel, a touch drag, a scrolling key
 in the list, a press on its scrollbar, or a text selection inside it — and
 nothing moves the list until it is back at its end, which resumes following, or
-the reader jumps to the latest row. That scroll stops a running hold on the
+the reader jumps to the latest row, or sends a message of their own. Only a
+send this window made in the last ten seconds anchors from Free
+(`state/local-sends.ts`, noted by the composer as it dispatches): a queued
+message the server drains minutes later, or one sent from another window,
+leaves a reader who scrolled away where they are, and the jump button's dot
+says something new arrived. That scroll stops a running hold on the
 spot, in the event itself rather than on the next render, so the hold never
 reads the reader's first wheel tick as the list moving and puts it back. The last sent message keeps its reserve in
 every mode; it shrinks by itself as the reply grows past a screen, so it never

@@ -607,7 +607,9 @@ its rules in pure modules with unit tests and its rows in thin components:
 
 Row state that must outlive a recycled container — disclosures, turn folds,
 "Show more" — lives in the row disclosure map (`state/ui.ts`,
-`state/turn-folds.ts`), and stateful subtrees are keyed by item id.
+`state/turn-folds.ts`), and stateful subtrees are keyed by item id. The
+composer notes each send in `state/local-sends.ts`, which the send anchor
+reads to tell this reader's send from a drained queue or another window.
 
 Public seam: none; it is a leaf. May import `ui`, `contracts`,
 `client-runtime`, `shared`. Must never name a connector.
