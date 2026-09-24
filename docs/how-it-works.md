@@ -398,8 +398,10 @@ rejected path in the field so it can be corrected.
 `apps/web/src/components/composer/` owns the draft. What Enter means is a pure
 function in `composer-keys.ts`:
 
+- an IME mid-composition → **insert**: the Enter commits the composition, even
+  while a menu has rows;
 - a `/`, `#`, `@` or `$` menu that has rows → **pick** the highlighted one;
-- an IME mid-composition, or Shift held → **insert** a newline;
+- Shift held → **insert** a newline;
 - otherwise → **send**.
 
 What a send then does is `sendMode` in `send-mode.ts`:

@@ -38,6 +38,15 @@ describe("composerEnter", () => {
     expect(composerEnter(input({ composing: true }))).toBe("insert");
   });
 
+  it("leaves a composing IME alone even while a menu has rows", () => {
+    // An inline IME's uncommitted letters sit in the draft, so `@le` mid-pinyin
+    // can have skill rows open; the Enter that commits the composition must not
+    // pick one of them.
+    expect(composerEnter(input({ triggerOpen: true, menuItemCount: 3, composing: true }))).toBe(
+      "insert",
+    );
+  });
+
   it("still picks for Shift+Enter while a populated menu is open", () => {
     // Unchanged: the menu owns Enter whenever it has a row under the cursor.
     expect(composerEnter(input({ triggerOpen: true, menuItemCount: 2, shiftKey: true }))).toBe(

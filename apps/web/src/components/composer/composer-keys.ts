@@ -11,6 +11,12 @@
  *
  * So the rule is written down here instead of living inside the key handler: a
  * menu with no items does not own Enter.
+ *
+ * An IME comes before any menu. On macOS the Enter that commits a composition
+ * arrives as a keydown with `key` "Enter" and `isComposing` set, and the
+ * uncommitted Latin letters of an inline IME (pinyin, say) are already in the
+ * draft — so `@le` can have skill rows open under it. That Enter belongs to the
+ * IME: picking there would drop a chip into the middle of the composition.
  */
 
 export type ComposerEnter =
@@ -32,10 +38,13 @@ export interface ComposerEnterInput {
 }
 
 export const composerEnter = (input: ComposerEnterInput): ComposerEnter => {
+  if (input.composing) {
+    return "insert";
+  }
   if (input.triggerOpen && input.menuItemCount > 0) {
     return "pick";
   }
-  if (input.composing || input.shiftKey) {
+  if (input.shiftKey) {
     return "insert";
   }
   return "send";
