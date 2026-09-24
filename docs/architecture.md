@@ -1957,7 +1957,15 @@ screenshots answering in every state; a `window.open` became the selected
 pane tab; archiving the thread took its tabs down at once and the agent's
 `tab new` was refused with "the thread is archived"; deleting a thread took
 its tabs down after the grace and left its partition with no local storage
-and no cookies; and `clearThread("../Default")` was refused.
+and no cookies; and `clearThread("../Default")` was refused. With a fresh
+`OPENADE_HOME`, launching the app, adding a project and opening a thread left
+one `webContents` (the window) and no agent-browser process; agent-browser's
+first call on that thread created a hidden tab with the dock left closed,
+read its title and clicked it, and the header showed "Agent is using the
+browser — Show"; Show opened the pane on the same tab. With
+`openPaneOnAgentUse` on, a second thread's first call opened the pane without
+remembering it as the dock tab, and after the user closed it the agent's next
+tab did not reopen it.
 
 **Residual risk.** The endpoint is on loopback, so it is protected by a
 256-bit capability rather than by the OS. The launch key sits in the server's
