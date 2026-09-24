@@ -237,7 +237,8 @@ export type Theme = typeof Theme.Type;
 
 /**
  * A region's base text size in px, in half-px steps. Every text step in that
- * region scales by `size / DEFAULT_FONT_SIZE`; spacing and layout stay as they are.
+ * region scales by `size / DEFAULT_FONT_SIZE`, and so does the spacing unit, so
+ * icons, row heights and padding grow with the text.
  */
 export const MIN_FONT_SIZE = 11;
 export const MAX_FONT_SIZE = 20;

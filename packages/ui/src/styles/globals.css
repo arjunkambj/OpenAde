@@ -166,11 +166,13 @@
      --sidebar-font-scale on html; each region redeclares the text steps so
      they resolve against its own scale (a custom property's var() resolves on
      the element that declares it). The sidebars are the left sidebar and the
-     right dock. */
+     right dock. The spacing unit scales with them, so icons, row heights and
+     padding keep their proportion to the text. */
   :root,
   [data-slot="sidebar"],
   [data-font-scope="sidebar"] {
     --font-scale: var(--main-font-scale, 1);
+    --spacing: calc(0.25rem * var(--font-scale));
     --text-xs: calc(0.75rem * var(--font-scale));
     --text-sm: calc(0.875rem * var(--font-scale));
     --text-base: calc(1rem * var(--font-scale));
