@@ -3,6 +3,7 @@ import { createFileRoute, notFound } from "@tanstack/react-router";
 import { decodeThreadId } from "@OpenAde/contracts/ids";
 
 import { isDockPane, type DockPane } from "@/components/dock/dock-toggle";
+import { parseChangesLink, type ChangesLink } from "@/components/panes/changes/deep-link";
 import { ThreadView } from "@/components/thread/thread-view";
 
 export const Route = createFileRoute("/_home/t/$threadId")({
@@ -19,10 +20,14 @@ export const Route = createFileRoute("/_home/t/$threadId")({
   },
   // `pane` is optional on purpose: links that never mention the dock keep
   // working, and `?pane=` is only present while the dock is open — on a tab,
-  // or `home` for its launcher. Anything else reads as a closed dock.
-  validateSearch: (search): { pane?: DockPane } => ({
-    pane: isDockPane(search.pane) ? search.pane : undefined,
-  }),
+  // or `home` for its launcher. Anything else reads as a closed dock. `turn`
+  // and `file` are a link into the Changes pane, kept only beside
+  // `pane=changes`; the pane clears them once it has acted on them
+  // (`panes/changes/deep-link.ts`).
+  validateSearch: (search): { pane?: DockPane } & ChangesLink => {
+    const pane = isDockPane(search.pane) ? search.pane : undefined;
+    return { pane, ...(pane === "changes" ? parseChangesLink(search) : {}) };
+  },
   component: ThreadPage,
 });
 

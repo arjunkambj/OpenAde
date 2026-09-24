@@ -13,6 +13,10 @@
  * `task` children (rows whose `parentItemId` resolves to a task) leave the top
  * level and render nested inside the task row via `childrenByParent`.
  *
+ * A turn summary names the checkpoint its turn left behind, when there is one:
+ * the turn id of the segment's first row that carries one, looked up in the
+ * thread's checkpoints — so its "Open in Changes" can show that very turn.
+ *
  * Answered approvals, questions and plans come in as `ResolvedDecision`s and
  * land as one `decision` row right after the row holding their `afterItemId` —
  * a work group ends there, so the record sits between what came before the
@@ -62,6 +66,8 @@ export interface TimelineTurnSummaryRow {
   readonly added: number;
   readonly removed: number;
   readonly failedCount: number;
+  /** The ref of the checkpoint the turn left, for the Changes pane; undefined when it has none. */
+  readonly checkpointRef: string | undefined;
 }
 
 /** The one-line record of an answered approval, question or plan. */
@@ -150,6 +156,7 @@ const mergeKind = (earlier: FileChangeKind, later: FileChangeKind): FileChangeKi
 const turnSummaryRow = (
   segment: ReadonlyArray<ItemSnapshot>,
   childrenByParent: ReadonlyMap<string, ReadonlyArray<ItemSnapshot>>,
+  checkpointRefByTurn: ReadonlyMap<string, string>,
 ): TimelineTurnSummaryRow => {
   // Every item the turn produced, task children (at any depth) included.
   const all: ItemSnapshot[] = [];
@@ -188,6 +195,7 @@ const turnSummaryRow = (
   }
 
   const list = [...files.values()];
+  const turnId = all.find((item) => item.turnId !== undefined)?.turnId;
   const durationMs =
     firstMs !== undefined && lastMs !== undefined && lastMs > firstMs
       ? lastMs - firstMs
@@ -200,6 +208,7 @@ const turnSummaryRow = (
     added: list.reduce((sum, file) => sum + file.added, 0),
     removed: list.reduce((sum, file) => sum + file.removed, 0),
     failedCount,
+    checkpointRef: turnId === undefined ? undefined : checkpointRefByTurn.get(turnId),
   };
 };
 
@@ -213,6 +222,10 @@ export interface BuildTimelineOptions {
   readonly turnStartedAt?: number | undefined;
   /** The thread's answered decisions, oldest first (`snapshot.decisions`). */
   readonly decisions?: ReadonlyArray<ResolvedDecision> | undefined;
+  /** The thread's checkpoints (`snapshot.checkpoints`), for the turn summaries' links. */
+  readonly checkpoints?:
+    | ReadonlyArray<{ readonly turnId: string; readonly ref: string }>
+    | undefined;
 }
 
 /** The start of the running turn: the given time, else the last user message's id. */
@@ -298,6 +311,10 @@ export const buildTimeline = (
     }
   }
 
+  const checkpointRefByTurn = new Map<string, string>(
+    (options.checkpoints ?? []).map((checkpoint) => [checkpoint.turnId, checkpoint.ref]),
+  );
+
   const rows: TimelineRow[] = [];
   const lastSegment = segments.length - 1;
   const pushDecisions = (decisions: ReadonlyArray<ResolvedDecision> | undefined) => {
@@ -344,7 +361,7 @@ export const buildTimeline = (
     // Only a turn — a segment the user opened — gets a closing line, and only
     // when it did work: a plain exchange needs no "Worked for".
     if (worked && segment[0].kind === "user_message") {
-      rows.push(turnSummaryRow(segment, childrenByParent));
+      rows.push(turnSummaryRow(segment, childrenByParent, checkpointRefByTurn));
     }
   });
 

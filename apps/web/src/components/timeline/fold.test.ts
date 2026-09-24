@@ -1,5 +1,5 @@
 import type { ItemKind } from "@OpenAde/contracts/enums";
-import type { ItemId } from "@OpenAde/contracts/ids";
+import { makeTurnId, type ItemId } from "@OpenAde/contracts/ids";
 import type { ResolvedDecision } from "@OpenAde/contracts/decisions";
 import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
 import { describe, expect, it } from "vitest";
@@ -206,6 +206,27 @@ describe("buildTimeline turn summaries", () => {
 
     const leading = [item("tool_call"), item("assistant_message")];
     expect(summaries(buildTimeline(leading, { turnActive: false }).rows)).toEqual([]);
+  });
+
+  it("names the checkpoint its turn left, and nothing for a turn without one", () => {
+    const first = makeTurnId();
+    const second = makeTurnId();
+    const items = [
+      item("user_message", { turnId: first }),
+      edit("a.ts", "+a", { turnId: first }),
+      item("user_message", { turnId: second }),
+      edit("b.ts", "+b", { turnId: second }),
+      // A turn from before turn ids were recorded.
+      item("user_message"),
+      edit("c.ts", "+c"),
+    ];
+    const checkpoints = [{ turnId: first, ref: "refs/openade/checkpoints/t/1" }];
+    const rows = summaries(buildTimeline(items, { turnActive: false, checkpoints }).rows);
+    expect(rows.map((summary) => summary.checkpointRef)).toEqual([
+      "refs/openade/checkpoints/t/1",
+      undefined,
+      undefined,
+    ]);
   });
 
   it("drops a duration the ids cannot measure", () => {

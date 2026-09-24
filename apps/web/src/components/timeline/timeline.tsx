@@ -32,6 +32,7 @@ export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
         turnStartedAt:
           snapshot.currentTurnId === null ? undefined : uuidV7Millis(snapshot.currentTurnId),
         decisions: snapshot.decisions,
+        checkpoints: snapshot.checkpoints,
       }),
     [snapshot],
   );

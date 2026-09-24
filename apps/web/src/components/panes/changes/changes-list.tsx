@@ -56,6 +56,8 @@ export function ChangesList({
   status,
   connected,
   diffStyle,
+  reveal,
+  onRevealed,
   onRetry,
 }: {
   threadId: string;
@@ -63,6 +65,9 @@ export function ChangesList({
   status: PaneQuery<GitStatus> | null;
   connected: boolean;
   diffStyle: DiffStyle;
+  /** A file a link asked to open and scroll to once the files are in, or `null`. */
+  reveal: string | null;
+  onRevealed: () => void;
   onRetry: () => void;
 }) {
   const { gitDiffAtom } = useGitAtoms();
@@ -100,7 +105,15 @@ export function ChangesList({
   if (diff.value.files.length === 0) {
     return <PaneMessage icon={GitDiffIcon} text="No changes in this comparison." />;
   }
-  return <ReviewList threadId={threadId} files={diff.value.files} diffStyle={diffStyle} />;
+  return (
+    <ReviewList
+      threadId={threadId}
+      files={diff.value.files}
+      diffStyle={diffStyle}
+      reveal={reveal}
+      onRevealed={onRevealed}
+    />
+  );
 }
 
 export function NotARepository() {
