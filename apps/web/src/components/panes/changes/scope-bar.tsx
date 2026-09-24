@@ -1,6 +1,6 @@
 /**
- * The Changes pane's toolbar: what to compare, how much changed, and the
- * actions. One line, so the diffs start right under it.
+ * The Changes pane's toolbar: what to compare, and the actions. One line; the
+ * sum of what changed sits on the list's own summary line right under it.
  *
  * One Compare menu picks the comparison:
  *
@@ -52,7 +52,6 @@ export function ScopeBar({
   onValueChange,
   turns,
   range,
-  totals,
   restore,
   diffStyle,
   onDiffStyleChange,
@@ -65,8 +64,6 @@ export function ScopeBar({
   turns: ReadonlyArray<CompareOption>;
   /** Beside the menu: the pair "Branch" compares, or nothing. */
   range: ReactNode;
-  /** The comparison's `+`/`−` line counts, once its diff has answered. */
-  totals: ReactNode;
   /** Leads the actions: the restore control, only while a turn is shown. */
   restore: ReactNode;
   diffStyle: DiffStyle;
@@ -112,7 +109,6 @@ export function ScopeBar({
         </SelectContent>
       </Select>
       <div className="flex min-w-0 items-center">{range}</div>
-      <div className="shrink-0">{totals}</div>
       <div className="flex-1" />
       {restore}
       <Tooltip>

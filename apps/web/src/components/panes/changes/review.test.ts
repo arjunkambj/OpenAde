@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 
 import { emptyChangesReview } from "@/state/ui";
 
-import { isOpen, OPEN_LINES_LIMIT, startsOpen, withOpen } from "./review";
+import { everyFileOpen, isOpen, OPEN_LINES_LIMIT, startsOpen, withOpen } from "./review";
 
 const file = (additions: number, deletions = 0) => ({ additions, deletions });
 
@@ -38,5 +38,21 @@ describe("changes review", () => {
     expect(closed.open).toEqual({ "keep.ts": true, "a.ts": false, "b.ts": false });
     // The input is not written to.
     expect(start.open).toEqual({ "keep.ts": true });
+  });
+
+  it("collapses all only once every file with a patch is open", () => {
+    const files = [
+      { path: "a.ts", diff: "@@ a" },
+      { path: "b.ts", diff: "@@ b" },
+      // A binary or mode-only change has no patch, so it never counts.
+      { path: "logo.png", diff: "" },
+    ];
+    expect(everyFileOpen(emptyChangesReview, files, false)).toBe(false);
+    expect(everyFileOpen(withOpen(emptyChangesReview, ["a.ts"], true), files, false)).toBe(false);
+    expect(everyFileOpen(withOpen(emptyChangesReview, ["a.ts", "b.ts"], true), files, false)).toBe(
+      true,
+    );
+    // Nothing to open is nothing to collapse.
+    expect(everyFileOpen(emptyChangesReview, [{ path: "logo.png", diff: "" }], true)).toBe(false);
   });
 });

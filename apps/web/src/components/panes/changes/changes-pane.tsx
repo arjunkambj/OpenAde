@@ -35,7 +35,7 @@ import { useConnectionState } from "@/state/hooks";
 import { useChangesScope, useDiffStyle } from "@/state/ui";
 
 import { BaseLine, RestoreProgress } from "./changes-header";
-import { ChangesList, DiffTotals, NotARepository, queryValue } from "./changes-list";
+import { ChangesList, NotARepository, queryValue } from "./changes-list";
 import { useGitAtoms } from "./git-atoms";
 import { RestoreCheckpointDialog } from "./restore-dialog";
 import { BRANCH, ScopeBar, UNCOMMITTED } from "./scope-bar";
@@ -171,7 +171,6 @@ export function ChangesPane({ snapshot }: { snapshot: ThreadDetailView }) {
             <BaseLine base={range.mergeBase} current={branchList?.current ?? null} />
           ) : null
         }
-        totals={range === null ? null : <DiffTotals range={range} />}
         restore={
           shownScope === "turn" ? (
             <RestoreCheckpointDialog

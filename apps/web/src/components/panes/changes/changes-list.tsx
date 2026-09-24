@@ -11,31 +11,32 @@
  * another comparison does not open them all again. Each patch renders through
  * `InlineDiff`, so highlighting stays on the shared worker pool and the dock
  * never blocks the main thread.
+ *
+ * One line above the files sums the comparison up — how many files, how many
+ * lines, how many the user has viewed — with the toggle that opens or closes
+ * them all at once.
  */
 
 import { useAtomValue } from "@effect/atom-react";
 import { isRepoless, type GitDiffRange, type GitQuery } from "@OpenAde/client-runtime/gitAtoms";
 import type { GitDiff, GitDiffFile, GitStatus } from "@OpenAde/contracts/rpc";
 import { Button } from "@OpenAde/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import { AsyncResult } from "effect/unstable/reactivity";
 
 import { PaneMessage } from "@/components/panes/files/pane-message";
-import { InlineDiff } from "@/components/timeline/diff-pool";
-import { cn } from "@/lib/utils";
 import { useChangesReview, type DiffStyle } from "@/state/ui";
 
+import { FileSection, LineCounts } from "./file-section";
 import { useGitAtoms } from "./git-atoms";
-import { isOpen, startsOpen, withOpen } from "./review";
+import { everyFileOpen, isOpen, startsOpen, withOpen } from "./review";
 import {
-  type HoneyIcon,
   AlertTriangle,
-  ChevronRight,
-  Edit,
-  FileAdd,
-  FileRemove,
   GitDiff as GitDiffIcon,
   Repeat,
   Spinner,
+  UnfoldLess,
+  UnfoldMore,
   WifiOff,
 } from "@honeyicons/react";
 
@@ -58,92 +59,6 @@ export const queryValue = <A,>(
   result: AsyncResult.AsyncResult<GitQuery<A>, unknown>,
 ): PaneQuery<A> | null =>
   AsyncResult.isSuccess(result) ? result.value : AsyncResult.isFailure(result) ? BROKEN : null;
-
-const KIND_ICON: Record<GitDiffFile["kind"], HoneyIcon> = {
-  create: FileAdd,
-  edit: Edit,
-  delete: FileRemove,
-};
-
-/** `+12 −3`, each side only when it is not zero. */
-function LineCounts({ additions, deletions }: { additions: number; deletions: number }) {
-  if (additions === 0 && deletions === 0) {
-    return null;
-  }
-  return (
-    <span className="inline-flex shrink-0 gap-1.5 font-mono text-xs tabular-nums">
-      {additions > 0 ? <span className="text-added">+{additions}</span> : null}
-      {deletions > 0 ? <span className="text-removed">−{deletions}</span> : null}
-    </span>
-  );
-}
-
-/** A path as a muted directory and a bright file name, the name never cut. */
-function FilePath({ path }: { path: string }) {
-  const slash = path.lastIndexOf("/");
-  return (
-    <span className="flex min-w-0 flex-1 font-mono text-xs" title={path}>
-      {slash === -1 ? null : (
-        <span className="min-w-0 truncate text-muted-foreground">{path.slice(0, slash + 1)}</span>
-      )}
-      <span className="shrink-0 text-foreground">{path.slice(slash + 1)}</span>
-    </span>
-  );
-}
-
-/**
- * One file of the stack: a header that sticks to the top while its patch
- * scrolls under it, and the patch. A closed file keeps nothing mounted.
- */
-function FileSection({
-  file,
-  open,
-  onOpenChange,
-  diffStyle,
-}: {
-  file: GitDiffFile;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  diffStyle: DiffStyle;
-}) {
-  const Glyph = KIND_ICON[file.kind];
-  const expandable = file.diff !== "";
-  return (
-    <section>
-      <button
-        type="button"
-        disabled={!expandable}
-        aria-expanded={expandable ? open : undefined}
-        onClick={() => onOpenChange(!open)}
-        className="sticky top-0 z-10 flex w-full items-center gap-2 border-b border-border bg-sidebar px-3 py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring enabled:cursor-pointer enabled:hover:bg-hover"
-      >
-        <ChevronRight
-          variant="bold"
-          className={cn(
-            "size-3.5 shrink-0 text-muted-foreground transition-transform duration-150 ease-out",
-            open && expandable && "rotate-90",
-            !expandable && "invisible",
-          )}
-        />
-        <Glyph variant="bold" className="size-3.5 shrink-0 text-foreground/85" />
-        {file.oldPath === undefined ? (
-          <FilePath path={file.path} />
-        ) : (
-          <span className="flex min-w-0 flex-1 gap-1 font-mono text-xs">
-            <span className="min-w-0 truncate text-muted-foreground">{file.oldPath} →</span>
-            <FilePath path={file.path} />
-          </span>
-        )}
-        <LineCounts additions={file.additions} deletions={file.deletions} />
-      </button>
-      {open && expandable ? (
-        <div className="border-b border-border">
-          <InlineDiff patch={file.diff} diffStyle={diffStyle} className="rounded-none" />
-        </div>
-      ) : null}
-    </section>
-  );
-}
 
 /** The files of one comparison, read from its own `git.diff` atom. */
 export function ChangesList({
@@ -199,7 +114,63 @@ export function ChangesList({
   return <ReviewList threadId={threadId} files={diff.value.files} diffStyle={diffStyle} />;
 }
 
-/** A comparison's files once its diff has answered, with the thread's review over them. */
+/**
+ * The line over the files: `3 files · +20 −4`, and the toggle that opens every
+ * file or closes them all.
+ */
+function ReviewSummary({
+  files,
+  allOpen,
+  onAllOpenChange,
+}: {
+  files: ReadonlyArray<GitDiffFile>;
+  allOpen: boolean;
+  onAllOpenChange: (open: boolean) => void;
+}) {
+  let additions = 0;
+  let deletions = 0;
+  for (const file of files) {
+    additions += file.additions;
+    deletions += file.deletions;
+  }
+  const label = allOpen ? "Collapse all files" : "Expand all files";
+  return (
+    <div className="flex h-7 shrink-0 items-center gap-1.5 border-t border-border pr-2 pl-3 type-micro text-muted-foreground">
+      <span className="shrink-0">
+        {files.length} {files.length === 1 ? "file" : "files"}
+      </span>
+      {additions > 0 || deletions > 0 ? (
+        <>
+          <span aria-hidden>·</span>
+          <LineCounts additions={additions} deletions={deletions} />
+        </>
+      ) : null}
+      <div className="flex-1" />
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              aria-label={label}
+              disabled={!allOpen && files.every((file) => file.diff === "")}
+              onClick={() => onAllOpenChange(!allOpen)}
+            />
+          }
+        >
+          {allOpen ? <UnfoldLess variant="bold" /> : <UnfoldMore variant="bold" />}
+        </TooltipTrigger>
+        <TooltipContent>{label}</TooltipContent>
+      </Tooltip>
+    </div>
+  );
+}
+
+/**
+ * A comparison's files once its diff has answered, with the thread's review
+ * over them. The summary stays put and the files scroll under it.
+ */
 function ReviewList({
   threadId,
   files,
@@ -211,17 +182,31 @@ function ReviewList({
 }) {
   const [review, updateReview] = useChangesReview(threadId);
   const byDefault = startsOpen(files);
+  const setOpen = (paths: ReadonlyArray<string>, open: boolean) =>
+    updateReview((current) => withOpen(current, paths, open));
   return (
-    <div className="flex flex-col border-t border-border">
-      {files.map((file) => (
-        <FileSection
-          key={file.path}
-          file={file}
-          open={isOpen(review, file.path, byDefault)}
-          onOpenChange={(open) => updateReview((current) => withOpen(current, [file.path], open))}
-          diffStyle={diffStyle}
-        />
-      ))}
+    <div className="flex min-h-0 flex-1 flex-col">
+      <ReviewSummary
+        files={files}
+        allOpen={everyFileOpen(review, files, byDefault)}
+        onAllOpenChange={(open) =>
+          setOpen(
+            files.filter((file) => file.diff !== "").map((file) => file.path),
+            open,
+          )
+        }
+      />
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto border-t border-border">
+        {files.map((file) => (
+          <FileSection
+            key={file.path}
+            file={file}
+            open={isOpen(review, file.path, byDefault)}
+            onOpenChange={(open) => setOpen([file.path], open)}
+            diffStyle={diffStyle}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -233,20 +218,4 @@ export function NotARepository() {
       text="This workspace is not a git repository, so there is nothing to compare."
     />
   );
-}
-
-/** The comparison's summed `+`/`−`, read off the same `git.diff` atom as the list. */
-export function DiffTotals({ range }: { range: GitDiffRange }) {
-  const { gitDiffAtom } = useGitAtoms();
-  const diff = queryValue<GitDiff>(useAtomValue(gitDiffAtom(range)));
-  if (diff?._tag !== "ok") {
-    return null;
-  }
-  let additions = 0;
-  let deletions = 0;
-  for (const file of diff.value.files) {
-    additions += file.additions;
-    deletions += file.deletions;
-  }
-  return <LineCounts additions={additions} deletions={deletions} />;
 }

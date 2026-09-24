@@ -42,3 +42,17 @@ export const withOpen = (
   }
   return { ...review, open: next };
 };
+
+/**
+ * Whether the summary line's toggle collapses: every file that has a patch to
+ * show is open. Anything less and it expands, so one click always opens the
+ * lot — the same way a mixed selection's checkbox checks everything first.
+ */
+export const everyFileOpen = (
+  review: ChangesReview,
+  files: ReadonlyArray<Pick<GitDiffFile, "path" | "diff">>,
+  byDefault: boolean,
+): boolean => {
+  const expandable = files.filter((file) => file.diff !== "");
+  return expandable.length > 0 && expandable.every((file) => isOpen(review, file.path, byDefault));
+};
