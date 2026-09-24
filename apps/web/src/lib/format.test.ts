@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   formatClock,
+  formatDurationMs,
   formatElapsed,
   formatFullDate,
   relativeTime,
@@ -14,6 +15,25 @@ describe("turnSummaryLead", () => {
   it("counts the files the turn changed", () => {
     expect(turnSummaryLead({ files: files(3) })).toBe("Changed 3 files");
     expect(turnSummaryLead({ files: files(1) })).toBe("Changed 1 file");
+  });
+});
+
+describe("formatDurationMs", () => {
+  it("reads milliseconds, tenths of a second, then minutes and seconds", () => {
+    expect(formatDurationMs(420)).toBe("420ms");
+    expect(formatDurationMs(4_250)).toBe("4.3s");
+    expect(formatDurationMs(12_000)).toBe("12s");
+    expect(formatDurationMs(123_000)).toBe("2m 3s");
+  });
+
+  it("rounds before it splits, so no unit ever reads a full next one", () => {
+    expect(formatDurationMs(999.4)).toBe("999ms");
+    expect(formatDurationMs(999.6)).toBe("1s");
+    expect(formatDurationMs(59_940)).toBe("59.9s");
+    expect(formatDurationMs(59_960)).toBe("1m 0s");
+    expect(formatDurationMs(60_000)).toBe("1m 0s");
+    expect(formatDurationMs(119_400)).toBe("1m 59s");
+    expect(formatDurationMs(119_600)).toBe("2m 0s");
   });
 });
 

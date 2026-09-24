@@ -1,18 +1,22 @@
 /**
  * `formatDurationMs(4_250)` → `"4.3s"`. The turn fold's "Worked for", a
  * reasoning group's "Thought for" and the final answer's footer use this:
- * sub-second precision matters, minute-plus durations read as `1m 5s`.
+ * sub-second precision matters, minute-plus durations read as `1m 5s`. The
+ * duration is rounded to the precision it is shown at before it is split, so
+ * 59.96 seconds reads as "1m 0s", never "60s", and 119.6 as "2m 0s", never
+ * "1m 60s".
  */
 export const formatDurationMs = (ms: number): string => {
-  if (ms < 1_000) {
-    return `${Math.round(ms)}ms`;
+  const millis = Math.round(ms);
+  if (millis < 1_000) {
+    return `${millis}ms`;
   }
-  if (ms < 60_000) {
-    return `${(ms / 1_000).toFixed(1).replace(/\.0$/, "")}s`;
+  const tenths = Math.round(ms / 100);
+  if (tenths < 600) {
+    return `${(tenths / 10).toFixed(1).replace(/\.0$/, "")}s`;
   }
-  const minutes = Math.floor(ms / 60_000);
-  const seconds = Math.round((ms - minutes * 60_000) / 1_000);
-  return `${minutes}m ${seconds}s`;
+  const seconds = Math.round(ms / 1_000);
+  return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
 };
 
 const plural = (count: number, one: string, many: string): string =>
