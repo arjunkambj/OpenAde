@@ -107,8 +107,8 @@ export function ModelPicker({
       items={items.map((item) => ({ value: item.value, label: item.label }))}
     >
       <SelectTrigger aria-label="Model" title={title} size="sm" variant="composer">
-        <span className="flex items-center gap-1.5">
-          <Brain variant="bold" className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="flex min-w-0 items-center gap-1">
+          <Brain variant="bold" className="size-3.5 shrink-0 text-foreground/85" />
           <SelectValue className="max-w-52" />
         </span>
       </SelectTrigger>
@@ -157,7 +157,7 @@ export function ModelPicker({
     select
   ) : (
     <Tooltip>
-      <TooltipTrigger render={<span className="inline-flex" />}>{select}</TooltipTrigger>
+      <TooltipTrigger render={<span className="inline-flex min-w-0" />}>{select}</TooltipTrigger>
       <TooltipContent>{disabledReason}</TooltipContent>
     </Tooltip>
   );

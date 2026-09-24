@@ -17,6 +17,14 @@
  * sections are disabled. Efforts read lowest first in the contract's order
  * (`@/lib/efforts`).
  *
+ * Layout: both components render `contents`, so the pickers are flex items
+ * of the row they are placed in — the composer toolbar
+ * (`./composer/composer-toolbar`) — and follow its `@container/toolbar`
+ * width: wide, the model/effort pill sits beside Send; narrow, it takes a line
+ * of its own and the model name truncates, so the pill never wraps inside
+ * itself and the runtime mode shows only its icon when even the first line
+ * runs short.
+ *
  * Keys: `ThreadSettingsKeys` (`./thread-settings-keys`) answers plan mode
  * (Shift+Tab in the composer), the runtime-mode cycle, the pickers and the
  * effort steps through the same `onChange` a click uses; the pickers are
@@ -24,6 +32,7 @@
  */
 
 import { Button } from "@OpenAde/ui/components/button";
+import { cn } from "@OpenAde/ui/lib/utils";
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import {
   Tooltip,
@@ -108,7 +117,7 @@ export function HeaderControls({
   }
 
   return (
-    <div className={className}>
+    <div className={cn("contents", className)}>
       <ThreadSettingsControls
         settings={doc.settings}
         catalog={catalog}
@@ -121,7 +130,7 @@ export function HeaderControls({
         onChange={update}
       />
       {error === null ? null : (
-        <p className="text-xs text-destructive" role="alert">
+        <p className="order-4 basis-full text-xs text-destructive" role="alert">
           {error}
         </p>
       )}
@@ -197,8 +206,10 @@ export function ThreadSettingsControls({
         onOpenModel={() => setModelOpen(settings.model !== undefined && modelSwitch !== "restart")}
         onOpenEffort={() => setEffortOpen(effortSwitch !== "restart")}
       />
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+      <div className="contents">
         <HeaderSelect
+          className="shrink-0"
+          collapseValue
           icon={Lock}
           label="Runtime mode"
           value={currentMode}
@@ -216,7 +227,8 @@ export function ThreadSettingsControls({
                   type="button"
                   variant={planning ? "default" : "ghost"}
                   tone={planning ? "default" : "muted"}
-                  size={planning ? "default" : "icon"}
+                  size={planning ? "sm" : "icon-sm"}
+                  className="shrink-0"
                   aria-label="Plan mode"
                   aria-pressed={planning}
                   onClick={() => onChange({ interactionMode: planning ? "default" : "plan" })}
@@ -232,32 +244,37 @@ export function ThreadSettingsControls({
             </TooltipContent>
           </Tooltip>
         ) : null}
-        <div className="ml-auto flex min-w-0 flex-wrap items-center rounded-full bg-muted">
-          {settings.model ? (
-            <ModelPicker
-              catalog={catalog}
-              instanceId={connectorInstanceId}
-              model={settings.model}
-              locked={locked}
-              title={
-                modelSwitch === "per-turn" || modelSwitch === "next-turn" ? NEXT_TURN_HINT : "Model"
-              }
-              disabledReason={modelSwitch === "restart" ? RESTART_TOOLTIP : undefined}
-              open={modelOpen}
-              onOpenChange={setModelOpen}
-              onPick={(pick) => onChange(modelPickPatch(pick, locked))}
+        <div className="order-1 flex min-w-0 @max-xl/toolbar:order-3 @max-xl/toolbar:basis-full">
+          <div className="flex max-w-full min-w-0 items-center rounded-lg bg-muted">
+            {settings.model ? (
+              <ModelPicker
+                catalog={catalog}
+                instanceId={connectorInstanceId}
+                model={settings.model}
+                locked={locked}
+                title={
+                  modelSwitch === "per-turn" || modelSwitch === "next-turn"
+                    ? NEXT_TURN_HINT
+                    : "Model"
+                }
+                disabledReason={modelSwitch === "restart" ? RESTART_TOOLTIP : undefined}
+                open={modelOpen}
+                onOpenChange={setModelOpen}
+                onPick={(pick) => onChange(modelPickPatch(pick, locked))}
+              />
+            ) : null}
+            <HeaderSelect
+              className="shrink-0"
+              icon={Lightning}
+              label="Effort"
+              value={effort}
+              options={effortOptions}
+              capability={effortSwitch}
+              open={effortOpen}
+              onOpenChange={setEffortOpen}
+              onPick={(next) => onChange({ effort: next as Effort })}
             />
-          ) : null}
-          <HeaderSelect
-            icon={Lightning}
-            label="Effort"
-            value={effort}
-            options={effortOptions}
-            capability={effortSwitch}
-            open={effortOpen}
-            onOpenChange={setEffortOpen}
-            onPick={(next) => onChange({ effort: next as Effort })}
-          />
+          </div>
         </div>
       </div>
     </TooltipProvider>

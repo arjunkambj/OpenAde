@@ -8,6 +8,12 @@
  * `thread.interrupt` binding: a user who never learns the chord still has a
  * way to end a turn that is going wrong.
  *
+ * The row is its own size container. `settings` renders `contents`, so its
+ * pickers sit in this row as flex items: wide, the model/effort pill sits
+ * beside Send; below `@xl/toolbar` it drops to a line of its own under the
+ * row (`order-3 basis-full`, see `../header-controls`) instead of wrapping
+ * inside itself.
+ *
  * Attach is disabled, with the reason as its tooltip, when the thread's
  * connector cannot take attachments (`@/lib/attachment-support`). The file
  * input's ref is the caller's, so the `composer.attach` key can open the same
@@ -22,7 +28,7 @@ import type * as React from "react";
 import { ATTACHMENT_ACCEPT } from "@/components/composer/attachment-rules";
 import { CommandKbd } from "@/lib/shortcuts";
 
-import { Add, ArrowUp, ListOrdered, Send, Spinner, Stop as StopIcon } from "@honeyicons/react";
+import { Add, ListOrdered, Send, Spinner, Stop as StopIcon } from "@honeyicons/react";
 
 export function ComposerToolbar({
   settings,
@@ -62,129 +68,130 @@ export function ComposerToolbar({
 }) {
   const attachDisabled = attachDisabledReason !== undefined;
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-2">
-      <input
-        key={filesKey}
-        ref={fileInputRef}
-        type="file"
-        hidden
-        multiple
-        accept={ATTACHMENT_ACCEPT}
-        onChange={(event) => {
-          onFilesPicked([...(event.target.files ?? [])]);
-          // Emptied on the way out, not only when the list resets: a file the
-          // rules refused leaves the list unchanged, so without this the same
-          // file picked twice fires no `change` the second time and the user
-          // gets no answer at all.
-          event.target.value = "";
-        }}
-      />
-      {/* The trigger wraps the button rather than being it: a disabled button
+    <div className="@container/toolbar min-w-0">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-2">
+        <input
+          key={filesKey}
+          ref={fileInputRef}
+          type="file"
+          hidden
+          multiple
+          accept={ATTACHMENT_ACCEPT}
+          onChange={(event) => {
+            onFilesPicked([...(event.target.files ?? [])]);
+            // Emptied on the way out, not only when the list resets: a file the
+            // rules refused leaves the list unchanged, so without this the same
+            // file picked twice fires no `change` the second time and the user
+            // gets no answer at all.
+            event.target.value = "";
+          }}
+        />
+        {/* The trigger wraps the button rather than being it: a disabled button
           takes no pointer events, and the tooltip is where a refused attach
           says why. */}
-      <Tooltip>
-        <TooltipTrigger render={<span className="inline-flex" />}>
-          <Button
-            type="button"
-            variant="ghost"
-            tone="muted"
-            size="icon"
-            aria-label="Attach files"
-            disabled={attachDisabled}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Add variant="bold" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          {attachDisabledReason ?? (
-            <>
-              Attach files
-              <CommandKbd command="composer.attach" />
-            </>
-          )}
-        </TooltipContent>
-      </Tooltip>
-      {settings}
-      <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-        {steerable ? <span>Steering the running turn</span> : null}
-        {contextUsed !== undefined && contextLimit !== undefined ? (
-          <span className="tabular-nums" title="Context window used">
-            {Math.round((contextUsed / Math.max(1, contextLimit)) * 100)}%
-          </span>
+        <Tooltip>
+          <TooltipTrigger render={<span className="inline-flex" />}>
+            <Button
+              type="button"
+              variant="ghost"
+              tone="muted"
+              size="icon-sm"
+              aria-label="Attach files"
+              disabled={attachDisabled}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Add variant="bold" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {attachDisabledReason ?? (
+              <>
+                Attach files
+                <CommandKbd command="composer.attach" />
+              </>
+            )}
+          </TooltipContent>
+        </Tooltip>
+        {settings}
+        <span aria-hidden className="flex-1" />
+        <span className="order-2 flex items-center gap-2 text-xs text-muted-foreground">
+          {steerable ? <span>Steering the running turn</span> : null}
+          {contextUsed !== undefined && contextLimit !== undefined ? (
+            <span className="tabular-nums" title="Context window used">
+              {Math.round((contextUsed / Math.max(1, contextLimit)) * 100)}%
+            </span>
+          ) : null}
+        </span>
+        {running ? (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon-sm"
+                  shape="pill"
+                  className="order-2 ml-1 shrink-0"
+                  aria-label="Stop turn"
+                  disabled={interrupting}
+                  onClick={onInterrupt}
+                />
+              }
+            >
+              {interrupting ? <Spinner variant="bold" /> : <StopIcon variant="bold" />}
+            </TooltipTrigger>
+            <TooltipContent>
+              Stop turn
+              <CommandKbd command="thread.interrupt" />
+            </TooltipContent>
+          </Tooltip>
         ) : null}
-      </span>
-      {running ? (
         <Tooltip>
           <TooltipTrigger
             render={
               <Button
                 type="button"
-                variant="secondary"
-                size="icon"
+                size="icon-sm"
                 shape="pill"
-                className="shrink-0"
-                aria-label="Stop turn"
-                disabled={interrupting}
-                onClick={onInterrupt}
+                className="order-2 ml-1 shrink-0"
+                aria-label={steerable ? "Steer turn" : running ? "Queue message" : "Send message"}
+                disabled={!canSend || sending}
+                onClick={onSend}
               />
             }
           >
-            {interrupting ? <Spinner variant="bold" /> : <StopIcon variant="bold" />}
+            {sending ? (
+              <Spinner variant="bold" />
+            ) : running && !steerable ? (
+              <ListOrdered variant="bold" />
+            ) : (
+              <Send variant="bold" />
+            )}
           </TooltipTrigger>
           <TooltipContent>
-            Stop turn
-            <CommandKbd command="thread.interrupt" />
+            {steerable ? (
+              <span className="flex flex-col gap-1">
+                <span className="flex items-center gap-1.5">
+                  Send to the running turn<Kbd>↵</Kbd>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  Queue instead
+                  <CommandKbd command="composer.queue" />
+                </span>
+              </span>
+            ) : running ? (
+              <>
+                Queue message
+                <CommandKbd command="composer.queue" />
+              </>
+            ) : (
+              <>
+                Send<Kbd>↵</Kbd>
+              </>
+            )}
           </TooltipContent>
         </Tooltip>
-      ) : null}
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              type="button"
-              size="icon"
-              shape="pill"
-              className="shrink-0"
-              aria-label={steerable ? "Steer turn" : running ? "Queue message" : "Send message"}
-              disabled={!canSend || sending}
-              onClick={onSend}
-            />
-          }
-        >
-          {sending ? (
-            <Spinner variant="bold" />
-          ) : steerable ? (
-            <Send variant="bold" />
-          ) : running ? (
-            <ListOrdered variant="bold" />
-          ) : (
-            <ArrowUp variant="bold" />
-          )}
-        </TooltipTrigger>
-        <TooltipContent>
-          {steerable ? (
-            <span className="flex flex-col gap-1">
-              <span className="flex items-center gap-1.5">
-                Send to the running turn<Kbd>↵</Kbd>
-              </span>
-              <span className="flex items-center gap-1.5">
-                Queue instead
-                <CommandKbd command="composer.queue" />
-              </span>
-            </span>
-          ) : running ? (
-            <>
-              Queue message
-              <CommandKbd command="composer.queue" />
-            </>
-          ) : (
-            <>
-              Send<Kbd>↵</Kbd>
-            </>
-          )}
-        </TooltipContent>
-      </Tooltip>
+      </div>
     </div>
   );
 }

@@ -332,7 +332,7 @@ export function Composer({
           className={composerInputClassName}
         />
         <ComposerToolbar
-          settings={<HeaderControls threadId={threadId} className="min-w-0 flex-1" />}
+          settings={<HeaderControls threadId={threadId} />}
           running={running}
           steerable={steerable}
           canSend={canSend}

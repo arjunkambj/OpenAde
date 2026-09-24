@@ -18,6 +18,7 @@ import {
 } from "@OpenAde/ui/components/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import type { CapabilitySwitch } from "@OpenAde/contracts/runtime";
+import { cn } from "@OpenAde/ui/lib/utils";
 import type { HoneyIcon } from "@honeyicons/react";
 
 export interface HeaderOption {
@@ -37,6 +38,8 @@ export const NEXT_TURN_HINT = "applies next turn";
  * per-turn contract — so the hint stays.
  */
 export function HeaderSelect({
+  className,
+  collapseValue = false,
   icon: Glyph,
   label,
   value,
@@ -46,6 +49,9 @@ export function HeaderSelect({
   onOpenChange,
   onPick,
 }: {
+  readonly className?: string;
+  /** Hides the value in a narrow toolbar and keeps the icon; the label stays the name. */
+  readonly collapseValue?: boolean;
   readonly icon: HoneyIcon;
   readonly label: string;
   readonly value: string;
@@ -82,9 +88,13 @@ export function HeaderSelect({
         size="sm"
         variant="composer"
       >
-        <span className="flex items-center gap-1.5">
-          <Glyph variant="bold" className="size-3.5 shrink-0 text-muted-foreground" />
-          <SelectValue className="max-w-52" />
+        <span className="flex items-center gap-1">
+          <Glyph variant="bold" className="size-3.5 shrink-0 text-foreground/85" />
+          {collapseValue ? (
+            <SelectValue className="max-w-52 @max-xs/toolbar:hidden" />
+          ) : (
+            <SelectValue className="max-w-52" />
+          )}
         </span>
       </SelectTrigger>
       <SelectContent align="start" alignItemWithTrigger={false} className="min-w-44">
@@ -105,7 +115,7 @@ export function HeaderSelect({
   );
 
   return (
-    <span className="inline-flex min-w-0 items-center gap-1">
+    <span className={cn("inline-flex min-w-0 items-center gap-1", className)}>
       {restartLocked ? (
         <Tooltip>
           <TooltipTrigger render={<span className="inline-flex" />}>{select}</TooltipTrigger>

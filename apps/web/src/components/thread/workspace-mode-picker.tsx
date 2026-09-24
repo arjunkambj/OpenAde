@@ -111,8 +111,8 @@ function BaseBranchPicker({
         variant="composer"
         className="min-w-0"
       >
-        <span className="flex min-w-0 items-center gap-1.5">
-          <GitBranch variant="bold" className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="flex min-w-0 items-center gap-1">
+          <GitBranch variant="bold" className="size-3.5 shrink-0 text-foreground/85" />
           <SelectValue placeholder="Default branch" />
         </span>
       </SelectTrigger>
@@ -160,8 +160,8 @@ export function WorkspaceModePicker({
       }))}
     >
       <SelectTrigger aria-label="Workspace" size="sm" variant="composer" className="min-w-0">
-        <span className="flex min-w-0 items-center gap-1.5">
-          <Glyph variant="bold" className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="flex min-w-0 items-center gap-1">
+          <Glyph variant="bold" className="size-3.5 shrink-0 text-foreground/85" />
           <SelectValue />
         </span>
       </SelectTrigger>

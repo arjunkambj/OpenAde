@@ -13,7 +13,7 @@ import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
 
 export const RUNTIME_MODE_LABELS: Readonly<Record<RuntimeMode, string>> = {
   "approval-required": "Ask first",
-  "auto-accept-edits": "Auto-accept edits",
+  "auto-accept-edits": "Auto",
   "full-access": "Full access",
 };
 

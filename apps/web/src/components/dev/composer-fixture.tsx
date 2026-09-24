@@ -243,7 +243,7 @@ function DevComposerInner({ fixture }: { readonly fixture: FixtureClient }) {
         <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
           Header controls
         </h2>
-        <HeaderControls threadId={fixture.threadId} />
+        <HeaderControls threadId={fixture.threadId} className="flex flex-wrap items-center gap-2" />
       </section>
 
       <section className="flex flex-col gap-2" aria-label="Sent messages">
