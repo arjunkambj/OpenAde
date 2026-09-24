@@ -8,8 +8,10 @@
  * colour parser does the conversion — and handed over as `rgb()`/`rgba()`.
  *
  * Only the surface colours come from tokens: background, foreground, cursor
- * and selection. The 16 ANSI colours stay xterm's built-in palette, so the
- * terminal invents no colour values of its own. Find's match highlights are
+ * and selection. The block cursor is the foreground, and the glyph under it
+ * the background, so a character stays legible beneath it in either theme.
+ * The 16 ANSI colours stay xterm's built-in palette, so the terminal invents
+ * no colour values of its own. Find's match highlights are
  * the foreground mixed into the background, since the search addon takes
  * nothing but opaque `#rrggbb`.
  */
@@ -49,6 +51,9 @@ export const themeFromPixels = (colors: {
   const theme: { -readonly [K in keyof ITheme]: ITheme[K] } = {};
   if (colors.background !== null) {
     theme.background = formatPixel(colors.background);
+    // Unset, xterm draws the glyph under a block cursor in fixed black,
+    // which disappears into the near-black cursor of the light theme.
+    theme.cursorAccent = formatPixel(colors.background);
   }
   if (colors.foreground !== null) {
     theme.foreground = formatPixel(colors.foreground);

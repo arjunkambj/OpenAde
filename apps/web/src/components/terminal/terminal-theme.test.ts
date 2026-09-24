@@ -39,6 +39,7 @@ describe("themeFromPixels", () => {
       background: "rgb(255, 255, 255)",
       foreground: "rgb(24, 24, 27)",
       cursor: "rgb(24, 24, 27)",
+      cursorAccent: "rgb(255, 255, 255)",
       selectionBackground: "rgba(24, 24, 27, 0.251)",
     });
   });
@@ -47,7 +48,17 @@ describe("themeFromPixels", () => {
     expect(themeFromPixels({ background: null, foreground: null })).toEqual({});
     expect(themeFromPixels({ background, foreground: null })).toEqual({
       background: "rgb(255, 255, 255)",
+      cursorAccent: "rgb(255, 255, 255)",
     });
+  });
+
+  it("draws the glyph under the block cursor in the background, in either theme", () => {
+    const dark = themeFromPixels({ background: foreground, foreground: background });
+    expect(dark.cursorAccent).toBe(dark.background);
+    expect(dark.cursorAccent).not.toBe(dark.cursor);
+    const light = themeFromPixels({ background, foreground });
+    expect(light.cursorAccent).toBe(light.background);
+    expect(light.cursorAccent).not.toBe(light.cursor);
   });
 
   it("names no ANSI colour", () => {

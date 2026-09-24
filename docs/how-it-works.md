@@ -1735,7 +1735,9 @@ The theme is read from our own tokens at runtime
 (`apps/web/src/components/terminal/terminal-theme.ts`): background,
 foreground, cursor and selection are resolved to RGBA through a 1×1 canvas,
 because the tokens are `oklch(…)` and xterm cannot parse that, and are read
-again when the theme changes. The 16 ANSI colours stay xterm's own palette.
+again when the theme changes. The block cursor is the foreground with the
+character under it in the background, so the character stays readable. The 16
+ANSI colours stay xterm's own palette.
 
 ### Reattaching
 
