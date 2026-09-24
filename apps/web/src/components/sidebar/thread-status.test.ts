@@ -1,13 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { threadStatusMark } from "./thread-status";
-import {
-  AlertTriangle,
-  Bell,
-  ClipboardCheck,
-  SpinnerOrbit,
-  SpinnerWave,
-} from "@honeyicons/react";
+import { AlertTriangle, Bell, ClipboardCheck, SpinnerOrbit, SpinnerWave } from "@honeyicons/react";
 
 const NEEDS_YOU = { icon: Bell, label: "Needs you", tone: "text-permission" };
 
