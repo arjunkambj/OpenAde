@@ -6,6 +6,7 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { AsyncResult } from "effect/unstable/reactivity";
 import * as React from "react";
 
+import { BrowserHost } from "@/components/browser-host/browser-host";
 import { ThemeProvider, useTheme } from "@/components/theme-provider";
 import { AppShortcuts } from "@/components/Layout/app-shortcuts";
 import { SearchProvider } from "@/components/Layout/search-command";
@@ -136,6 +137,12 @@ function RootComponent() {
               <SearchProvider>
                 <DiffWorkerPoolProvider>
                   <Outlet />
+                  {/*
+                    Above the routes too: the thread's browser tabs must
+                    outlive the dock, a thread switch and /settings, which
+                    renders a layout of its own.
+                  */}
+                  <BrowserHost />
                   <Toaster richColors />
                   {/* Beside the toasts whose "Remove anyway" opens it. */}
                   <WorktreeForceRemovalHost />

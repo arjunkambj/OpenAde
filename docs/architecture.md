@@ -229,6 +229,11 @@ Owns the operating system. Nothing about orchestration lives here.
   a pane gesture is observable; each is sent to the guest's current embedder
   tagged with its thread and `webContents` id, and the renderer forwards it as
   `browser.humanInput`), and the bridge registry.
+  It also answers `openade:browser-clear-thread` (`browser/clearThread.ts`):
+  the window asks it to clear a deleted thread's `persist:thread-<id>`
+  partition (storage and cache), and main checks the id against the bridge's
+  thread-id pattern before it names a partition, and leaves alone a partition
+  that was never written to disk.
 - `apps/desktop/src/main/browser/` — the browser bridge: the scoped CDP
   endpoint agent-browser drives the pane webviews through
   ([below](#the-browser-bridge)). `upgradeGate.ts`, `cdpPolicy.ts`,
@@ -385,6 +390,40 @@ server's: the drawer's tabs are a fold of `terminal.list`
 (`apps/web/src/components/terminal/drawer-state.ts`), kept in memory per
 thread so the active tab survives a thread switch, and a terminal the server
 no longer knows drops out of them.
+The in-app browser's tabs are the same kind of state, in
+`apps/web/src/state/browser-tabs.ts`: per thread, the tabs (`tabId`, the
+guest's `wcId`, url, title, loading, history, and who opened it — the agent,
+a popup or a person) and the selected one, with pure reducers.
+
+**The browser host.** A pane tab is an Electron `<webview>`, and its guest
+lives exactly as long as the element keeps its place in the DOM: unmounting,
+re-keying or reparenting it destroys the guest, which the agent sees as
+`tab_gone`. So no pane renders one. `BrowserHost`
+(`apps/web/src/components/browser-host/`) is mounted in `routes/__root.tsx`,
+above both the home and the settings layouts, and renders every live tab of
+every thread in one list in creation order — a list that only appends and
+removes, so React never moves a webview. Each is `position: fixed` and placed
+by CSS alone (`host-geometry.ts`): the selected tab of the thread whose pane
+is on screen is laid over the pane's `BrowserSlot` (`data-browser-slot`,
+tracked with a `ResizeObserver` and the window's resize and scroll), above
+the dock and below dialogs; every other tab keeps the pane's last rect (or
+1024×768 before the pane was ever shown), clamped inside the viewport, and is
+`opacity-0 pointer-events-none` beneath the app. Never offscreen, 0×0,
+`visibility: hidden` or `display: none`: a guest laid out that way gets no
+input and never answers `Page.captureScreenshot` (the spike's hidden-pane
+runs). The host is the window's tab host (`serveTabs`): it answers the shell's
+`create` — refused for a thread the list does not hold or shows archived, and
+for anything but http(s) and `about:blank` — with the new guest's
+`webContents` id at its first `dom-ready` (the earliest a webview answers
+`getWebContentsId`; `did-attach` comes before it), `close` and `select` by
+`wcId`, and places a popup right after the tab that opened it. It forwards
+every relayed guest gesture as `browser.humanInput` and each thread's
+selected tab as a passive `location`, whether or not the pane is open. It
+drops an archived thread's tabs at once, and a deleted one's — gone from the
+list for 2 s while connected, 10 s when the list is empty, since that is also
+what a resnapshot looks like before its snapshot lands — and asks the shell to
+clear that thread's partition. On quit the webviews go with the window. The
+web renderer has no preload bridge, so the host renders nothing there.
 There is no `unread` flag on the wire: whether this window has looked at a
 thread is not the server's business, and a thread with no stamp is deliberately
 not unread.
@@ -1845,10 +1884,12 @@ guest's `webContents` id, and only the window that was asked may answer. No
 window, a window that closes, or no answer in time is a clear CDP error ("the
 OpenAde window is not open"). The preload serves the requests through
 `window.openade.browserPane.serveTabs`, and answers at once with "the OpenAde
-window cannot open browser tabs" while no tab host has registered — which is
-the case today, so an agent's `tab new`, every popup, and the first call on a
-thread whose pane has no webview yet fail with that error, while a webview the
-open pane already shows stays drivable. Every webview guest gets a
+window cannot open browser tabs" while no tab host has registered. The tab
+host is the renderer's browser host ([apps/web](#appsweb)), so an agent's
+`tab new`, a popup, and the first call on a thread with no tab yet each open
+a pane tab — hidden unless that thread's pane is on screen. A popup's request
+names the tab that opened it (`opener`), so the pane places it beside its
+opener. Every webview guest gets a
 `setWindowOpenHandler` at creation that always denies the native window and
 routes an http(s) popup to a new pane tab of the same thread; the popup loses
 `window.opener`, since it is a fresh guest rather than a child window.
@@ -1884,7 +1925,17 @@ sequences were recorded the same way (the `cli-*` scenarios): a fresh daemon
 does open its frame stream, `stream disable` closes it and it stays closed
 across a daemon restart, a pinned session whose tab the pane removed fails
 `tab_gone` (in the error text — `data` is `{targetId, lastUrl}` with no
-`code`), and after `close` both of the pane's tabs were still listed.
+`code`), and after `close` both of the pane's tabs were still listed. With
+the browser host in the app, a thread whose dock was closed got its first
+tab from agent-browser's `tab list` and was driven hidden — open, click, read
+text, screenshot — and that tab kept its `webContents` id and target id
+through opening the pane, switching to the Changes tab, closing the dock,
+switching thread, visiting /settings and coming back, with clicks and
+screenshots answering in every state; a `window.open` became the selected
+pane tab; archiving the thread took its tabs down at once and the agent's
+`tab new` was refused with "the thread is archived"; deleting a thread took
+its tabs down after the grace and left its partition with no local storage
+and no cookies; and `clearThread("../Default")` was refused.
 
 **Residual risk.** The endpoint is on loopback, so it is protected by a
 256-bit capability rather than by the OS. The launch key sits in the server's

@@ -1739,9 +1739,24 @@ that speaks CDP for one thread's pane webviews, at
 else. Each pane webview is set up once, when Electron creates it: the bridge
 registry recognises its thread by its `persist:thread-<id>` session and
 attaches its debugger, its `window.open` handler turns popups into requests
-for a pane tab (which the window cannot serve yet, so they are dropped with a
-logged error), and its input relay tags every gesture with the thread and the
-guest's `webContents` id. The pane's webview starts on `about:blank`.
+for a pane tab, and its input relay tags every gesture with the thread and the
+guest's `webContents` id.
+
+The webviews themselves belong to the renderer's browser host
+(`apps/web/src/components/browser-host/`), mounted above the routes rather
+than in the dock, so a tab outlives closing the dock, switching dock tab or
+thread, and /settings. Nothing creates one at start: a thread's first tab
+appears when the agent's first call asks the bridge for it
+(`Target.createTarget`), when a page opens a popup (placed right after its
+opener), or when a person types an address into an empty pane. The selected
+tab of the thread on screen is laid over the pane; every other tab stays laid
+out at the pane's last size inside the window, transparent and beneath the
+app, because a guest that is offscreen, 0×0 or `display: none` takes no
+clicks and never answers a screenshot. The host refuses a tab for a thread
+that is archived or not in the list, forwards the guests' gestures as
+`browser.humanInput` whether or not the pane is open, and takes a thread's
+tabs down when it is archived — and when it is deleted, also clears its
+`persist:thread-<id>` partition through the shell.
 
 `apps/server/src/browser/agentBrowser.ts` finds the CLI (`OPENADE_AGENT_BROWSER`,
 then `agent-browser` on `PATH`) and runs every call as argv-form `execFile`,

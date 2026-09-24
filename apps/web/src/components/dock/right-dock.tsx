@@ -184,15 +184,11 @@ export function RightDock({
         <div className="min-h-0 flex-1 overflow-y-auto">
           {tab === "changes" ? <ChangesPane snapshot={snapshot} /> : null}
           {/*
-            The browser pane hides rather than unmounts. Unmounting it destroys
-            the Electron `<webview>` guest, the agent's next call fails
-            `tab_gone`, and the reopen finds no pane to attach to — which
-            downgrades the thread to owned Chromium for good. A dock tab switch
-            must not cost the thread its live view.
+            Unmounting the pane is safe: its tabs are webviews the browser
+            host keeps above the routes, and the pane only marks where the
+            selected one goes.
           */}
-          <div className={tab === "browser" ? "contents" : "hidden"}>
-            <BrowserPane threadId={snapshot.threadId} />
-          </div>
+          {tab === "browser" ? <BrowserPane threadId={snapshot.threadId} /> : null}
           {tab === "files" ? (
             <FilesPane
               projectId={snapshot.projectId}

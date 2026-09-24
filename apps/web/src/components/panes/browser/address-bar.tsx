@@ -17,16 +17,21 @@ import { ChevronLeft, ChevronRight, Repeat } from "@honeyicons/react";
 
 export interface AddressBarProps {
   readonly state: BrowserState | null;
+  /**
+   * The url to show when the pane knows it better than the server does — the
+   * in-app pane's selected tab. Absent, the server's url is shown.
+   */
+  readonly url?: string | undefined;
   readonly onAction: (input: BrowserHumanInput) => void;
 }
 
 const normalizeAddress = (raw: string): string =>
   /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(raw) ? raw : `https://${raw}`;
 
-export function AddressBar({ state, onAction }: AddressBarProps) {
+export function AddressBar({ state, url, onAction }: AddressBarProps) {
   const [draft, setDraft] = React.useState("");
   const [editing, setEditing] = React.useState(false);
-  const displayUrl = state?.url ?? "";
+  const displayUrl = url ?? state?.url ?? "";
   const status = browserStatus(state);
 
   // The address mirrors the live url unless the human is mid-edit.

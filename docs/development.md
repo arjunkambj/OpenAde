@@ -909,6 +909,15 @@ Everything OpenAde owns hangs off `configDir()` — `~/.openade`, or
 migration ids are contiguous from 1 and a merged migration file is never
 edited — new ones append.
 
+The in-app browser's per-thread browsing data is the desktop's, not the
+server's: Electron keeps each thread's `persist:thread-<id>` partition under
+its own session data directory
+(`~/Library/Application Support/OpenAde/Partitions/thread-<id>` on macOS),
+which `OPENADE_HOME` does not move. Deleting a thread in the app clears its
+partition's storage and cache; a live check against a scratch
+`OPENADE_HOME` still writes there, so remove the `thread-<id>` directories it
+created afterwards.
+
 A `desktop.json` left there by an older build is ignored: its one key,
 `browserPane`, opened Chromium's remote-debugging port, which the shell no
 longer does.
