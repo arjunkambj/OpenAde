@@ -249,6 +249,33 @@ describe("page sessions", () => {
     expect(port.maxConcurrentFocus).toBe(1);
   });
 
+  it("shows the shell each native input it lets through, and nothing else", async () => {
+    const seen: Array<unknown> = [];
+    const { port, session } = openSession(THREAD, new FakeGuestPort(), (wcId, method, params) =>
+      seen.push({ wcId, method, params }),
+    );
+    port.addGuest(THREAD, "OWN-TARGET");
+    await session.receive({
+      id: 1,
+      method: "Target.attachToTarget",
+      params: { targetId: "OWN-TARGET", flatten: true },
+    });
+    await session.receive({
+      id: 2,
+      method: "Input.dispatchMouseEvent",
+      sessionId: "SESSION-1",
+      params: { type: "mousePressed", x: 3, y: 4 },
+    });
+    await session.receive({ id: 3, method: "Runtime.evaluate", sessionId: "SESSION-1" });
+    expect(seen).toEqual([
+      {
+        wcId: 1,
+        method: "Input.dispatchMouseEvent",
+        params: { type: "mousePressed", x: 3, y: 4 },
+      },
+    ]);
+  });
+
   it("forces auto-attach flat and relays the children it creates", async () => {
     const { port, session, sent } = await attached();
     const forwarded: Array<unknown> = [];

@@ -9,6 +9,7 @@
  * rather than left to a hand-check against the running app.
  */
 
+import { POINTER_CHANNEL, type AgentPointer } from "../main/browser/agentPointer";
 import {
   CHORDS_CHANNEL,
   COMMAND_CHANNEL,
@@ -55,6 +56,9 @@ export interface BrowserPaneGuestInput {
 
 /** A pane key pressed inside a page, matched by main against the window's chords. */
 export type BrowserPaneCommand = GuestCommandPayload;
+
+/** Where the agent's pointer moved or pressed in a pane tab (`main/browser/agentPointer.ts`). */
+export type BrowserPaneAgentPointer = AgentPointer;
 
 /** What main asks the window's tab host to do (`main/browser/tabsChannel.ts`). */
 export type BrowserTabRequest = Readonly<{ id: number } & TabRequest>;
@@ -145,7 +149,9 @@ export const makeOpenAdeBridge = (ipc: PreloadIpc) => {
      * wipes a deleted thread's browsing data; main validates the id.
      * `setChords` hands main the pane's resolved `browser.*` chords, and
      * `onCommand` delivers each one pressed while a pane page had focus —
-     * which the window's own key listener never sees.
+     * which the window's own key listener never sees. `onAgentPointer`
+     * delivers where the agent moves and presses its pointer in a tab, for
+     * the cursor the pane draws.
      */
     browserPane: {
       onInput: (callback: (payload: BrowserPaneGuestInput) => void): (() => void) =>
@@ -159,6 +165,8 @@ export const makeOpenAdeBridge = (ipc: PreloadIpc) => {
       },
       onCommand: (callback: (payload: BrowserPaneCommand) => void): (() => void) =>
         subscribe<BrowserPaneCommand>(ipc, COMMAND_CHANNEL, callback),
+      onAgentPointer: (callback: (payload: BrowserPaneAgentPointer) => void): (() => void) =>
+        subscribe<BrowserPaneAgentPointer>(ipc, POINTER_CHANNEL, callback),
     },
   };
 };

@@ -9,6 +9,7 @@ import { BrowserWindow, app, protocol, session } from "electron";
 import { ServerSupervisor } from "../backend/ServerSupervisor";
 import { serverSpawnSpec, showServerCrashDialog } from "../backend/serverDeps";
 import type { BridgeForServer } from "../backend/serverEnv";
+import { makePointerRelay, POINTER_CHANNEL } from "./browser/agentPointer";
 import { createGuestRegistry } from "./browser/guests";
 import { startPaneBridge } from "./browser/start";
 import { makeTabsChannel } from "./browser/tabsChannel";
@@ -59,9 +60,12 @@ if (!app.requestSingleInstanceLock()) {
   let bridge: BridgeForServer = { kind: "disabled" };
   let closeBridge: () => Promise<void> = async () => undefined;
 
-  const tabs = makeTabsChannel({
-    window: () =>
-      BrowserWindow.getAllWindows().find((win) => !win.isDestroyed())?.webContents ?? null,
+  const windowContents = () =>
+    BrowserWindow.getAllWindows().find((win) => !win.isDestroyed())?.webContents ?? null;
+  const tabs = makeTabsChannel({ window: windowContents });
+  // The agent's pointer, for the cursor the pane draws over its tab.
+  const pointer = makePointerRelay({
+    send: (moved) => windowContents()?.send(POINTER_CHANNEL, moved),
   });
   const guests = createGuestRegistry({
     fromPartition: (partition) => session.fromPartition(partition),
@@ -79,7 +83,7 @@ if (!app.requestSingleInstanceLock()) {
     registerAppProtocol();
     registerIpc(supervisor, { guests, tabs });
     if (bridgeSetting.kind === "enabled") {
-      const started = await startPaneBridge(guests.port);
+      const started = await startPaneBridge(guests.port, pointer);
       bridge = started.forServer;
       if (started.server !== null) closeBridge = started.server.close;
     }

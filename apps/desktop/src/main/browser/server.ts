@@ -38,6 +38,13 @@ export interface BridgeServerOptions {
   readonly version: BrowserVersion;
   /** One line per refused handshake and per connection, for the shell's log. */
   readonly log?: (entry: Readonly<Record<string, unknown>>) => void;
+  /** Each native-input command an agent sends, by thread and tab (`./agentPointer`). */
+  readonly onAgentInput?: (
+    threadId: string,
+    wcId: number,
+    method: string,
+    params: Readonly<Record<string, unknown>>,
+  ) => void;
   /** Every message on every connection, for recordings. */
   readonly onFrame?: (
     frame: Readonly<{
@@ -85,6 +92,12 @@ export const startBridgeServer = async (options: BridgeServerOptions): Promise<B
           socket.send(JSON.stringify(message));
         }
       },
+      ...(options.onAgentInput === undefined
+        ? {}
+        : {
+            onAgentInput: (wcId, method, params) =>
+              options.onAgentInput?.(threadId, wcId, method, params),
+          }),
       ...(options.onFrame === undefined
         ? {}
         : {

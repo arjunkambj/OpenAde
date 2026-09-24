@@ -20,6 +20,7 @@ import {
   makeSerialQueue,
   openBridgeSession,
   type BridgeSession,
+  type BridgeSessionOptions,
   type GuestEvent,
   type GuestInfo,
   type GuestPort,
@@ -163,6 +164,7 @@ type Message = Readonly<Record<string, unknown>>;
 export const openSession = (
   threadId: string,
   port: FakeGuestPort = new FakeGuestPort(),
+  onAgentInput?: BridgeSessionOptions["onAgentInput"],
 ): { port: FakeGuestPort; session: BridgeSession; sent: Array<Message> } => {
   const sent: Array<Message> = [];
   const session = openBridgeSession({
@@ -171,6 +173,7 @@ export const openSession = (
     version: VERSION,
     inputQueue: makeSerialQueue(),
     emit: (message) => sent.push(message),
+    ...(onAgentInput === undefined ? {} : { onAgentInput }),
   });
   return { port, session, sent };
 };

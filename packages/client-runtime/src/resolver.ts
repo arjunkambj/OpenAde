@@ -62,6 +62,18 @@ export interface BrowserPaneCommand {
 }
 
 /**
+ * Where the agent moved (`move`) or pressed (`press`) its pointer in a pane
+ * tab, in CSS pixels of the page's viewport.
+ */
+export interface BrowserPaneAgentPointer {
+  readonly threadId: string;
+  readonly wcId: number;
+  readonly x: number;
+  readonly y: number;
+  readonly kind: "move" | "press";
+}
+
+/**
  * What the desktop supervisor is doing with the server process. `connection`
  * is null until the server is up and whenever it is being replaced, and it
  * carries the new port, token and boot id once a restart lands — which is how
@@ -128,6 +140,10 @@ declare global {
         readonly setChords?: (chords: ReadonlyArray<BrowserPaneChord>) => Promise<void>;
         /** A pane chord pressed while a pane page had focus. */
         readonly onCommand?: (callback: (payload: BrowserPaneCommand) => void) => () => void;
+        /** The agent's pointer in a pane tab, for the cursor drawn over it. */
+        readonly onAgentPointer?: (
+          callback: (payload: BrowserPaneAgentPointer) => void,
+        ) => () => void;
       };
     };
   }

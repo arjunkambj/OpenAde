@@ -10,6 +10,7 @@ import { app } from "electron";
 import { mintLaunchKey } from "@OpenAde/shared/browserBridge";
 
 import type { BridgeForServer } from "../../backend/serverEnv";
+import type { PointerRelay } from "./agentPointer";
 import type { GuestPort } from "./bridgeSession";
 import { startBridgeServer, type BridgeServer } from "./server";
 
@@ -18,7 +19,11 @@ export interface StartedBridge {
   readonly server: BridgeServer | null;
 }
 
-export const startPaneBridge = async (port: GuestPort): Promise<StartedBridge> => {
+/** `pointer` sees the agents' native mouse input, for the pane's agent cursor. */
+export const startPaneBridge = async (
+  port: GuestPort,
+  pointer: PointerRelay,
+): Promise<StartedBridge> => {
   const launchKey = mintLaunchKey();
   try {
     const server = await startBridgeServer({
@@ -31,6 +36,7 @@ export const startPaneBridge = async (port: GuestPort): Promise<StartedBridge> =
         userAgent: app.userAgentFallback,
         jsVersion: process.versions.v8,
       },
+      onAgentInput: pointer,
       // Refusal reasons never carry the capability (`./upgradeGate`).
       log: (entry) => console.info(`[browser-bridge] ${JSON.stringify(entry)}`),
     });

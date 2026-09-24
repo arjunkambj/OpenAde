@@ -119,6 +119,12 @@ export interface BridgeSessionOptions {
   readonly inputQueue: SerialQueue;
   /** Writes one message to the client. */
   readonly emit: (message: Readonly<Record<string, unknown>>) => void;
+  /**
+   * Sees each native-input command the policy let through, just before it
+   * is queued for the guest — where the shell learns what to draw of the
+   * agent's pointer (`./agentPointer`).
+   */
+  readonly onAgentInput?: (wcId: number, method: string, params: Params) => void;
   /** Sees every message either way, for recordings and the shell's log. */
   readonly onFrame?: (
     direction: "from-client" | "to-client",
@@ -330,6 +336,7 @@ export const openBridgeSession = (options: BridgeSessionOptions): BridgeSession 
     // Auto-attach is only ever flat: a nested session would bypass the router.
     const sent = method === "Target.setAutoAttach" ? { ...params, flatten: true } : params;
     if (kind === "forward-with-focus") {
+      options.onAgentInput?.(owned.wcId, method, sent);
       return options.inputQueue.run(() =>
         port.withFocus(owned.wcId, () => port.send(owned.wcId, method, sent, sessionId)),
       );

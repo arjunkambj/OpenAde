@@ -10,6 +10,7 @@
 
 import { describe, expect, it } from "vitest";
 
+import { POINTER_CHANNEL } from "../main/browser/agentPointer";
 import { CHORDS_CHANNEL, COMMAND_CHANNEL } from "../main/browser/guestChords";
 import {
   CLEAR_THREAD_CHANNEL,
@@ -249,5 +250,18 @@ describe("makeOpenAdeBridge", () => {
     stop();
     fake.push(COMMAND_CHANNEL, { threadId: "thread-1", wcId: 12, command: "browser.back" });
     expect(seen).toEqual([{ threadId: "thread-1", wcId: 12, command: "browser.reload" }]);
+  });
+
+  it("delivers the agent's pointer until unsubscribed", () => {
+    const fake = fakeIpc();
+    const pane = makeOpenAdeBridge(fake.ipc).browserPane;
+    const seen: Array<unknown> = [];
+    const stop = pane.onAgentPointer((payload) => seen.push(payload));
+    const pointer = { threadId: "thread-1", wcId: 12, x: 5, y: 6, kind: "press" };
+    fake.push(POINTER_CHANNEL, pointer);
+    stop();
+    fake.push(POINTER_CHANNEL, { ...pointer, kind: "move" });
+    expect(seen).toEqual([pointer]);
+    expect(fake.listenerCount(POINTER_CHANNEL)).toBe(0);
   });
 });
