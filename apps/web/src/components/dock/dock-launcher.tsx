@@ -1,9 +1,11 @@
 /**
  * The dock's launcher: what `dock.toggle` and the header's dock button open
- * onto when this thread has no tab to go back to (`?pane=home`).
+ * onto when the thread — or, on the New task page, the project — has no tab
+ * to go back to (`?pane=home`).
  *
- * A short list, one row per tab — Changes, Browser, Files — each with its
- * icon, its name and its key. It reads nothing: no git status, no diff, no
+ * A short list, one row per tab the dock offers (`tabs`) — Changes, Browser,
+ * Files for a thread; Changes and Files for a project on the New task page —
+ * each with its icon, its name and its key. It reads nothing: no git status, no diff, no
  * browser state. Opening the dock loads nothing until the user picks a tab,
  * and the tab then loads what it shows. The key handling is the pure half,
  * `./launcher`.
@@ -27,13 +29,14 @@ import { DOCK_TAB_META } from "./dock-tab-meta";
 import { dockTabs, type DockTab } from "./dock-toggle";
 import { launcherFocusMove, launcherLetterPick } from "./launcher";
 
-const ROWS = dockTabs.map((tab) => ({ tab, label: DOCK_TAB_META[tab].label }));
-
 export function DockLauncher({
+  tabs = dockTabs,
   onPick,
   focusFirst = false,
   onFocused,
 }: {
+  /** The tabs this dock offers, in order. */
+  tabs?: ReadonlyArray<DockTab>;
   /** Open this tab. */
   onPick: (tab: DockTab) => void;
   /** Focus the first row — the user opened the dock onto the launcher. */
@@ -41,6 +44,7 @@ export function DockLauncher({
   /** `focusFirst` was acted on, so the request is spent once. */
   onFocused?: () => void;
 }) {
+  const rows = tabs.map((tab) => ({ tab, label: DOCK_TAB_META[tab].label }));
   const buttons = React.useRef<Array<HTMLButtonElement | null>>([]);
   const [focusIndex, setFocusIndex] = React.useState(0);
 
@@ -64,13 +68,13 @@ export function DockLauncher({
     if (event.metaKey || event.ctrlKey || event.altKey) {
       return;
     }
-    const move = launcherFocusMove(event.key, ROWS.length, focusIndex);
+    const move = launcherFocusMove(event.key, rows.length, focusIndex);
     if (move !== null) {
       event.preventDefault();
       focusRow(move);
       return;
     }
-    const picked = launcherLetterPick(event.key, ROWS);
+    const picked = launcherLetterPick(event.key, rows);
     if (picked !== null) {
       event.preventDefault();
       onPick(picked);
@@ -90,7 +94,7 @@ export function DockLauncher({
           onKeyDown={onKeyDown}
           className="flex flex-col gap-1"
         >
-          {ROWS.map((row, index) => {
+          {rows.map((row, index) => {
             const meta = DOCK_TAB_META[row.tab];
             return (
               <Button

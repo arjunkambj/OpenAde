@@ -1,8 +1,10 @@
 /**
- * "Add selection to chat": the terminal's selected text, appended to this
- * thread's composer draft as a quoted block. It writes the per-thread draft
- * atom and nothing else — the composer renders from that atom, so the text
- * shows up there without the composer knowing where it came from.
+ * "Add selection to chat": the terminal's selected text, appended to the
+ * composer draft on screen as a quoted block — the thread's, or on the New
+ * task page the draft the thread will get (`threadId` is that draft's key).
+ * It writes the per-thread draft atom and nothing else — the composer renders
+ * from that atom, so the text shows up there without the composer knowing
+ * where it came from.
  *
  * Focus then moves to the composer, caret after the quote, since what comes
  * next is the question about it. Clearing the selection disables this button,

@@ -1,6 +1,7 @@
 /**
- * The terminal drawer's tabs for each thread: which terminals it shows, in
- * what order, and which one is in front.
+ * The terminal drawer's tabs for each owner — a thread, or on the New task
+ * page a project: which terminals it shows, in what order, and which one is
+ * in front.
  *
  * The server's `terminal.list` is the truth about which terminals exist; the
  * reducer only adds what the list cannot say — the active tab, and what this
@@ -8,11 +9,14 @@
  * back in, so a terminal another window closed, or one a server restart
  * forgot, drops out here too.
  *
- * Kept in memory, keyed by threadId, in a `keepAlive` map for the same reason
- * as the composer draft (`composerDraftAtom` in `@/state/ui`): the only
- * subscriber is the drawer of the thread on screen, and without `keepAlive`
- * switching threads would throw away the very state that switching back is
- * supposed to find.
+ * Kept in memory, keyed by the owner's `terminalOwnerKey`, in a `keepAlive`
+ * map for the same reason as the composer draft (`composerDraftAtom` in
+ * `@/state/ui`): the only subscriber is the drawer on screen, and without
+ * `keepAlive` switching threads would throw away the very state that
+ * switching back is supposed to find. When the New task page hands its
+ * project's terminals to the thread it just started, their tabs move with
+ * them once the move is known (`handOverDrawerState`, run by
+ * `./terminal-hand-over`), the one in front still in front.
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
@@ -116,6 +120,30 @@ export const reduceDrawer = (state: DrawerState, action: DrawerAction): DrawerSt
   }
 };
 
+/**
+ * The states after `from`'s terminals were handed to `to`: `from`'s tabs
+ * join `to`'s — after any `to` already had, which a fresh thread has none of —
+ * and `from` keeps nothing. The tab in front stays in front: `to`'s own, when
+ * it had one, else `from`'s.
+ */
+export const handOverDrawerState = (
+  states: Readonly<Record<string, DrawerState>>,
+  from: string,
+  to: string,
+): Readonly<Record<string, DrawerState>> => {
+  const moving = states[from];
+  if (moving === undefined) {
+    return states;
+  }
+  const held = states[to] ?? emptyDrawerState;
+  const tabs = [
+    ...held.tabs,
+    ...moving.tabs.filter((tab) => !held.tabs.some((own) => own.terminalId === tab.terminalId)),
+  ];
+  const { [from]: _moved, ...rest } = states;
+  return { ...rest, [to]: { tabs, activeId: held.activeId ?? moving.activeId } };
+};
+
 /** `Terminal N` with the smallest N no tab is titled with. */
 export const nextTitle = (tabs: ReadonlyArray<Pick<TerminalTab, "title">>): string => {
   const taken = new Set(tabs.map((tab) => tab.title));
@@ -126,9 +154,21 @@ export const nextTitle = (tabs: ReadonlyArray<Pick<TerminalTab, "title">>): stri
   return `Terminal ${n}`;
 };
 
-const drawerStatesAtom = Atom.keepAlive(Atom.make<Readonly<Record<string, DrawerState>>>({}));
+/** Every owner's tabs, by owner key; read directly only by the New task hand-over. */
+export const drawerStatesAtom = Atom.keepAlive(
+  Atom.make<Readonly<Record<string, DrawerState>>>({}),
+);
 
-/** One thread's tabs, and the dispatch that changes them. */
+/** Moves one owner's tabs to another's (`handOverDrawerState`). */
+export const useDrawerStateHandOver = () => {
+  const setStates = useAtomSet(drawerStatesAtom);
+  return React.useCallback(
+    (from: string, to: string) => setStates((states) => handOverDrawerState(states, from, to)),
+    [setStates],
+  );
+};
+
+/** One owner's tabs, and the dispatch that changes them. */
 export const useDrawerState = (threadId: string) => {
   const state = useAtomValue(
     drawerStatesAtom,

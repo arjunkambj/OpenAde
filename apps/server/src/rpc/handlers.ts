@@ -6,6 +6,7 @@
 
 import { OpenAdeRpcError, OpenAdeRpcGroup, PROTOCOL_VERSION } from "@OpenAde/contracts/rpc";
 import type { Command } from "@OpenAde/contracts/orchestration";
+import { terminalOwnerOf } from "@OpenAde/contracts/terminal";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
 
@@ -152,16 +153,30 @@ export const handlersLayer = OpenAdeRpcGroup.toLayer(
           Effect.mapError(toRpcError),
         ),
 
-      "terminal.open": ({ threadId, terminalId, cols, rows, title }) =>
-        terminals.open({ threadId, terminalId, cols, rows, title }),
-      "terminal.write": ({ threadId, terminalId, data }) =>
-        terminals.write(threadId, terminalId, data).pipe(Effect.as({})),
-      "terminal.resize": ({ threadId, terminalId, cols, rows }) =>
-        terminals.resize(threadId, terminalId, cols, rows).pipe(Effect.as({})),
-      "terminal.close": ({ threadId, terminalId }) =>
-        terminals.close(threadId, terminalId).pipe(Effect.as({})),
-      "terminal.list": ({ threadId }) => terminals.list(threadId),
-      "terminal.subscribe": ({ threadId, terminalId }) => terminals.subscribe(threadId, terminalId),
+      // Each payload names a thread or a project (`TerminalOwner`); the
+      // service is handed that owner and nothing else of the payload.
+      "terminal.open": (payload) =>
+        terminals.open({
+          ...terminalOwnerOf(payload),
+          terminalId: payload.terminalId,
+          cols: payload.cols,
+          rows: payload.rows,
+          title: payload.title,
+        }),
+      "terminal.write": (payload) =>
+        terminals
+          .write(terminalOwnerOf(payload), payload.terminalId, payload.data)
+          .pipe(Effect.as({})),
+      "terminal.resize": (payload) =>
+        terminals
+          .resize(terminalOwnerOf(payload), payload.terminalId, payload.cols, payload.rows)
+          .pipe(Effect.as({})),
+      "terminal.close": (payload) =>
+        terminals.close(terminalOwnerOf(payload), payload.terminalId).pipe(Effect.as({})),
+      "terminal.list": (payload) => terminals.list(terminalOwnerOf(payload)),
+      "terminal.subscribe": (payload) =>
+        terminals.subscribe(terminalOwnerOf(payload), payload.terminalId),
+      "terminal.adopt": ({ projectId, threadId }) => terminals.adopt(projectId, threadId),
     };
   }),
 );

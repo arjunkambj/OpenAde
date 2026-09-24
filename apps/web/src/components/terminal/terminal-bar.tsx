@@ -1,7 +1,7 @@
 /**
- * The strip the thread's terminal drawer collapses to: the Terminal button and,
- * where the open drawer has its hide chevron, a chevron up — both show the
- * drawer. They fire `terminal.toggle` rather than flipping the open state
+ * The strip the terminal drawer — a thread's, or the New task page's —
+ * collapses to: the Terminal button and, where the open drawer has its hide
+ * chevron, a chevron up — both show the drawer. They fire `terminal.toggle` rather than flipping the open state
  * itself, so a click and the chord take one path — the one that also moves
  * focus into the terminal it just opened. The open drawer hides itself from
  * its own toolbar.

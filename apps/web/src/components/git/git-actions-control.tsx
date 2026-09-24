@@ -1,7 +1,14 @@
 /**
- * The thread header's git actions: a single Commit button. It opens the
- * commit dialog, which offers Commit, Commit & push, and Commit & create PR
- * as buttons.
+ * The git actions in the thread header — and in the New task page's header,
+ * before any thread exists: a single Commit button. It opens the commit
+ * dialog, which offers Commit, Commit & push, and Commit & create PR as
+ * buttons.
+ *
+ * With a thread (`snapshot`) it works in the thread's workspace — its
+ * worktree, when it has one. Without one it works in the project's own
+ * folder: the git calls carry the `projectId` alone, and the commit message
+ * and pull request title are drafted from the files and the branch rather
+ * than a thread title.
  *
  * An action is planned from the workspace's status and branches
  * (`@/lib/git-actions`): any action that commits opens the commit dialog
@@ -12,10 +19,15 @@
  * order with one toast each, and stop at the first refusal with the server's
  * message (`./use-git-actions`).
  *
- * The whole control is disabled while this thread's turn runs, and each
+ * The whole control is disabled while the thread's turn runs, and each
  * action that cannot run says why — in the button's tooltip, or in the
- * dialog's. The status is refetched when a turn finishes, because the agent
- * changes files, and when the user comes back to the window, because an
+ * dialog's. On the New task page there is no thread, so it is disabled, with
+ * the same reason, while a local thread of the project runs a turn in its
+ * folder (`projectFolderTurnRunning`). The thread list cannot see a turn
+ * paused on the user; the server refuses a commit under that one itself.
+ *
+ * The status is refetched when that turn finishes, because the agent changes
+ * files, and when the user comes back to the window, because an
  * editor or a terminal changes them too — without that, a
  * Commit disabled as "No changes to commit" would stay so after an outside
  * edit, with no click of its own to refresh it. When the status cannot be
@@ -36,6 +48,7 @@ import { Button } from "@OpenAde/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import type { GitQuery } from "@OpenAde/client-runtime/gitAtoms";
 import type { GitBranchList } from "@OpenAde/contracts/git";
+import type { ProjectId } from "@OpenAde/contracts/ids";
 import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
 import type { GitStatus } from "@OpenAde/contracts/rpc";
 
@@ -52,9 +65,9 @@ import {
   TURN_RUNNING_REASON,
   type GitAction,
 } from "@/lib/git-actions";
-import { turnInFlight } from "@/lib/turn";
+import { projectFolderTurnRunning, turnInFlight } from "@/lib/turn";
 import { useWindowReturn } from "@/lib/window-return";
-import { useConnectionState } from "@/state/hooks";
+import { useConnectionState, useThreadList } from "@/state/hooks";
 import { Git, Spinner } from "@honeyicons/react";
 
 import { CommitDialog, type CommitChoice } from "./commit-dialog";
@@ -95,23 +108,38 @@ type OpenDialog =
   | { readonly kind: "commit"; readonly action: GitAction; readonly key: number }
   | { readonly kind: "pull-request"; readonly action: GitAction; readonly key: number };
 
-export function GitActionsControl({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
+export function GitActionsControl({
+  projectId,
+  snapshot,
+}: {
+  projectId: ProjectId;
+  /** The thread whose workspace this acts on; absent, the project's own folder. */
+  snapshot?: ThreadDetailSnapshot | undefined;
+}) {
   const { gitStatusAtom, gitBranchesAtom, refreshProject } = useGitAtoms();
   const registry = React.useContext(RegistryContext);
   const connected = useConnectionState().status === "connected";
-  const scope = { projectId: snapshot.projectId, threadId: snapshot.threadId };
+  const scope = snapshot === undefined ? { projectId } : { projectId, threadId: snapshot.threadId };
   const statusAtom = gitStatusAtom(scope);
   const status = readOf<GitStatus>(useAtomValue(statusAtom), connected);
   const branches = readOf<GitBranchList>(useAtomValue(gitBranchesAtom(scope)), connected);
   const refreshStatus = useAtomRefresh(statusAtom);
-  const { run } = useGitActions(snapshot);
+  const { run } = useGitActions(scope);
 
   const [dialog, setDialog] = React.useState<OpenDialog | null>(null);
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [pending, setPending] = React.useState(false);
 
-  // The agent changes files; its turn is over when `currentTurnId` falls back to null.
-  const currentTurnId = snapshot.currentTurnId;
+  // With no thread, the project's local threads are the ones that can be
+  // working in its folder.
+  const threads = useThreadList();
+  const turnRunning =
+    snapshot === undefined ? projectFolderTurnRunning(threads, projectId) : turnInFlight(snapshot);
+
+  // The agent changes files; its turn is over when `currentTurnId` falls back
+  // to null — or, with no thread, when no local thread runs one any more.
+  const currentTurnId =
+    snapshot === undefined ? (turnRunning ? "folder" : null) : snapshot.currentTurnId;
   const lastTurnId = React.useRef(currentTurnId);
   React.useEffect(() => {
     const previous = lastTurnId.current;
@@ -120,7 +148,7 @@ export function GitActionsControl({ snapshot }: { snapshot: ThreadDetailSnapshot
       refreshStatus();
     }
   }, [currentTurnId, refreshStatus]);
-  useWindowReturn(() => refreshProject(registry, snapshot.projectId));
+  useWindowReturn(() => refreshProject(registry, projectId));
 
   // `git.commit` and `git.push` do what the button and the dialog's Commit &
   // push do. The hooks run before the early return below; `start` is assigned
@@ -140,7 +168,6 @@ export function GitActionsControl({ snapshot }: { snapshot: ThreadDetailSnapshot
     status._tag === "ok" && branches._tag === "ok"
       ? { status: status.value, branches: branches.value }
       : null;
-  const turnRunning = turnInFlight(snapshot);
   const blocked =
     status._tag === "unavailable"
       ? status.reason
@@ -230,7 +257,7 @@ export function GitActionsControl({ snapshot }: { snapshot: ThreadDetailSnapshot
           onOpenChange={setDialogOpen}
           initialAction={dialog.action}
           reasons={actionRecord(reasonFor)}
-          threadTitle={snapshot.title}
+          threadTitle={snapshot?.title ?? ""}
           branch={branch}
           files={files}
           onSubmit={commitChosen}
@@ -247,7 +274,7 @@ export function GitActionsControl({ snapshot }: { snapshot: ThreadDetailSnapshot
               : stepsLabel(planWithoutCommit(dialog.action, ready.status, ready.branches))) ??
             "Create PR"
           }
-          initialTitle={pullRequestTitleDraft(snapshot.title, branch)}
+          initialTitle={pullRequestTitleDraft(snapshot?.title ?? "", branch)}
           branch={branch}
           onSubmit={(pullRequest) => void execute(dialog.action, { pullRequest })}
         />

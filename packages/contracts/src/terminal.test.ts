@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
-import { makeTerminalId, makeThreadId } from "./ids";
+import { makeProjectId, makeTerminalId, makeThreadId } from "./ids";
 import { OpenAdeRpcGroup, RPC_METHODS } from "./rpc";
 import {
   TERMINAL_BATCH_CHARS,
@@ -11,8 +11,12 @@ import {
   TERMINAL_STREAM_BUDGET_BYTES,
   TERMINAL_STREAM_BUDGET_ITEMS,
   TERMINAL_WRITE_MAX_CHARS,
-  TERMINALS_PER_THREAD,
+  TERMINALS_PER_OWNER,
   TerminalSize,
+  TerminalSummary,
+  decodeTerminalOwnerKey,
+  terminalOwnerKey,
+  terminalOwnerOf,
 } from "./terminal";
 
 describe("TerminalSize", () => {
@@ -58,6 +62,117 @@ describe("terminal.write", () => {
   );
 });
 
+describe("the terminal owner", () => {
+  const payloadOf = (method: string) => {
+    const rpc = OpenAdeRpcGroup.requests.get(method);
+    expect(rpc).toBeDefined();
+    return Schema.decodeUnknownExit(rpc!.payloadSchema as Schema.Codec<unknown>);
+  };
+
+  it.effect("is exactly one of a thread and a project on every call", () =>
+    Effect.gen(function* () {
+      const terminalId = makeTerminalId();
+      const size = { cols: 80, rows: 24 };
+      const calls = [
+        [RPC_METHODS.terminalOpen, { terminalId, ...size }],
+        [RPC_METHODS.terminalWrite, { terminalId, data: "ls\n" }],
+        [RPC_METHODS.terminalResize, { terminalId, ...size }],
+        [RPC_METHODS.terminalClose, { terminalId }],
+        [RPC_METHODS.terminalSubscribe, { terminalId }],
+        [RPC_METHODS.terminalList, {}],
+      ] as const;
+      for (const [method, rest] of calls) {
+        const decode = payloadOf(method);
+        const byThread = yield* Effect.sync(() => decode({ threadId: makeThreadId(), ...rest }));
+        const byProject = yield* Effect.sync(() => decode({ projectId: makeProjectId(), ...rest }));
+        const byNobody = yield* Effect.sync(() => decode(rest));
+        const byBoth = yield* Effect.sync(() =>
+          decode({ threadId: makeThreadId(), projectId: makeProjectId(), ...rest }),
+        );
+        expect([byThread._tag, byProject._tag, byNobody._tag, byBoth._tag], method).toEqual([
+          "Success",
+          "Success",
+          "Failure",
+          "Failure",
+        ]);
+      }
+    }),
+  );
+
+  it.effect("refuses a summary that names both a thread and a project", () =>
+    Effect.gen(function* () {
+      const decode = Schema.decodeUnknownExit(TerminalSummary);
+      const summary = {
+        terminalId: makeTerminalId(),
+        title: "Terminal 1",
+        cwd: "/repo",
+        pid: 1,
+        cols: 80,
+        rows: 24,
+        status: "running",
+        exitCode: null,
+        createdAt: "2026-09-24T12:00:00.000Z",
+      };
+      const threadId = makeThreadId();
+      const projectId = makeProjectId();
+      const tags = yield* Effect.sync(() => [
+        decode({ ...summary, threadId })._tag,
+        decode({ ...summary, projectId })._tag,
+        decode({ ...summary, threadId, projectId })._tag,
+      ]);
+      expect(tags).toEqual(["Success", "Success", "Failure"]);
+    }),
+  );
+
+  it.effect("keys a thread by its bare id and a project apart from it, both ways", () =>
+    Effect.gen(function* () {
+      const threadId = makeThreadId();
+      const projectId = makeProjectId();
+      const keys = yield* Effect.succeed({
+        thread: terminalOwnerKey({ threadId }),
+        project: terminalOwnerKey({ projectId }),
+      });
+      expect(keys.thread).toBe(threadId);
+      expect(keys.project).toBe(`project:${projectId}`);
+      expect(decodeTerminalOwnerKey(keys.thread)).toEqual({ threadId });
+      expect(decodeTerminalOwnerKey(keys.project)).toEqual({ projectId });
+    }),
+  );
+
+  it.effect("is read off a payload without the rest of it", () =>
+    Effect.gen(function* () {
+      const threadId = makeThreadId();
+      const projectId = makeProjectId();
+      const terminalId = makeTerminalId();
+      const byThread = { threadId, terminalId, cols: 80, rows: 24 };
+      const byProject = { projectId, terminalId, data: "ls\n" };
+      const owners = yield* Effect.sync(() => [
+        terminalOwnerOf(byThread),
+        terminalOwnerOf(byProject),
+      ]);
+      expect(owners).toEqual([{ threadId }, { projectId }]);
+    }),
+  );
+});
+
+describe("terminal.adopt", () => {
+  it.effect("names the project that hands its terminals over and the thread that takes them", () =>
+    Effect.gen(function* () {
+      const rpc = OpenAdeRpcGroup.requests.get(RPC_METHODS.terminalAdopt);
+      expect(rpc).toBeDefined();
+      const decode = Schema.decodeUnknownExit(rpc!.payloadSchema as Schema.Codec<unknown>);
+      const projectId = makeProjectId();
+      const threadId = makeThreadId();
+      const tags = yield* Effect.sync(() => [
+        decode({ projectId, threadId })._tag,
+        decode({ projectId })._tag,
+        decode({ threadId })._tag,
+      ]);
+      expect(tags).toEqual(["Success", "Failure", "Failure"]);
+    }),
+  );
+});
+
 describe("the terminal limits", () => {
   it.effect("are the ones the contract names, so server and client cannot drift", () =>
     Effect.gen(function* () {
@@ -67,7 +182,7 @@ describe("the terminal limits", () => {
         batchChars: TERMINAL_BATCH_CHARS,
         streamBytes: TERMINAL_STREAM_BUDGET_BYTES,
         streamItems: TERMINAL_STREAM_BUDGET_ITEMS,
-        perThread: TERMINALS_PER_THREAD,
+        perOwner: TERMINALS_PER_OWNER,
         writeChars: TERMINAL_WRITE_MAX_CHARS,
       });
       expect(limits).toEqual({
@@ -76,7 +191,7 @@ describe("the terminal limits", () => {
         batchChars: 65_536,
         streamBytes: 4_194_304,
         streamItems: 4096,
-        perThread: 8,
+        perOwner: 8,
         writeChars: 1_048_576,
       });
     }),

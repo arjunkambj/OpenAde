@@ -7,7 +7,9 @@ import {
   dockToggleTarget,
   isDockPane,
   isDockTab,
+  isProjectDockPane,
   noteDockShown,
+  projectDockTabs,
   rememberDockMove,
 } from "./dock-toggle";
 
@@ -100,5 +102,30 @@ describe("adjacentDockTab", () => {
     expect(adjacentDockTab("home", 1)).toBe("browser");
     expect(adjacentDockTab("home", -1)).toBe("files");
     expect(adjacentDockTab("home", 1)).toBe(adjacentDockTab("changes", 1));
+  });
+});
+
+describe("a project's dock", () => {
+  it("offers Changes and Files, and no Browser", () => {
+    expect(projectDockTabs).toEqual(["changes", "files"]);
+  });
+
+  it("steps along its own strip, from the launcher too", () => {
+    expect(adjacentDockTab("changes", 1, projectDockTabs)).toBe("files");
+    expect(adjacentDockTab("files", 1, projectDockTabs)).toBe("changes");
+    expect(adjacentDockTab("changes", -1, projectDockTabs)).toBe("files");
+    expect(adjacentDockTab("home", 1, projectDockTabs)).toBe("files");
+  });
+
+  it("steps from its first tab when asked from a tab it does not hold", () => {
+    expect(adjacentDockTab("browser", 1, projectDockTabs)).toBe("files");
+  });
+
+  it("reads a Browser `?pane=` as a closed dock", () => {
+    expect(isProjectDockPane("changes")).toBe(true);
+    expect(isProjectDockPane("files")).toBe(true);
+    expect(isProjectDockPane("home")).toBe(true);
+    expect(isProjectDockPane("browser")).toBe(false);
+    expect(isProjectDockPane(undefined)).toBe(false);
   });
 });

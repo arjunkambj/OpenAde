@@ -74,13 +74,17 @@ export type ChangesSelection =
 /**
  * The `git.diff` payload for one selection, or `null` for "Branch" with no
  * base to compare with. A `HEAD` start becomes an omitted end, and the thread
- * picks the directory — its worktree, when it has one.
+ * picks the directory — its worktree, when it has one; with no thread (the
+ * New task page) it is the project's own folder.
  */
 export const diffRangeFor = (
-  where: { readonly projectId: ProjectId; readonly threadId: ThreadId },
+  where: { readonly projectId: ProjectId; readonly threadId?: ThreadId | undefined },
   selection: ChangesSelection,
 ): GitDiffRange | null => {
-  const scope = { projectId: where.projectId, threadId: where.threadId };
+  const scope =
+    where.threadId === undefined
+      ? { projectId: where.projectId }
+      : { projectId: where.projectId, threadId: where.threadId };
   switch (selection.scope) {
     case "turn":
       return {

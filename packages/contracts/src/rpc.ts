@@ -58,9 +58,11 @@ import { OpenAdeRpcError } from "./rpcError";
 import { Keybinding, Settings, SettingsPatch } from "./settings";
 import {
   TERMINAL_WRITE_MAX_CHARS,
+  TerminalOwner,
   TerminalSize,
   TerminalStreamItem,
   TerminalSummary,
+  terminalOwned,
 } from "./terminal";
 
 // ── Errors ─────────────────────────────────────────────────────
@@ -301,6 +303,7 @@ export const RPC_METHODS = {
   terminalClose: "terminal.close",
   terminalList: "terminal.list",
   terminalSubscribe: "terminal.subscribe",
+  terminalAdopt: "terminal.adopt",
 } as const;
 
 // ── The RPCs ───────────────────────────────────────────────────
@@ -646,19 +649,20 @@ const KeybindingsUpdateRpc = Rpc.make(RPC_METHODS.keybindingsUpdate, {
 });
 
 /**
- * The integrated terminal (`./terminal`). Every call names the thread as well
- * as the terminal, so the server can refuse a terminal that belongs to another
- * thread. `terminal.write` runs whatever it is sent in the user's shell; it
- * rides the same authenticated loopback socket as `orchestration.dispatch`.
+ * The integrated terminal (`./terminal`). Every call names the terminal's
+ * owner — a thread, or a project that has no thread yet — as well as the
+ * terminal, so the server can refuse a terminal that belongs to another owner.
+ * `terminal.write` runs whatever it is sent in the user's shell; it rides the
+ * same authenticated loopback socket as `orchestration.dispatch`.
  */
-const terminalRef = { threadId: ThreadId, terminalId: TerminalId };
+const terminalRef = { terminalId: TerminalId };
 
 /**
  * Starts the shell, or answers the one already running under this id — the
  * client mints the id, so a retried or repeated open never starts a second.
  */
 const TerminalOpenRpc = Rpc.make(RPC_METHODS.terminalOpen, {
-  payload: Schema.Struct({
+  payload: terminalOwned({
     ...terminalRef,
     ...TerminalSize.fields,
     title: Schema.optional(NonEmptyString),
@@ -669,7 +673,7 @@ const TerminalOpenRpc = Rpc.make(RPC_METHODS.terminalOpen, {
 
 /** Input for the shell: typed keys, a paste. */
 const TerminalWriteRpc = Rpc.make(RPC_METHODS.terminalWrite, {
-  payload: Schema.Struct({
+  payload: terminalOwned({
     ...terminalRef,
     data: Schema.String.check(Schema.isMaxLength(TERMINAL_WRITE_MAX_CHARS)),
   }),
@@ -678,31 +682,49 @@ const TerminalWriteRpc = Rpc.make(RPC_METHODS.terminalWrite, {
 });
 
 const TerminalResizeRpc = Rpc.make(RPC_METHODS.terminalResize, {
-  payload: Schema.Struct({ ...terminalRef, ...TerminalSize.fields }),
+  payload: terminalOwned({ ...terminalRef, ...TerminalSize.fields }),
   success: empty,
   error: OpenAdeRpcError,
 });
 
 /** Kills the shell and forgets the terminal, output and all. */
 const TerminalCloseRpc = Rpc.make(RPC_METHODS.terminalClose, {
-  payload: Schema.Struct(terminalRef),
+  payload: terminalOwned(terminalRef),
   success: empty,
   error: OpenAdeRpcError,
 });
 
-/** The thread's terminals, exited ones included, oldest first. */
+/** The owner's terminals, exited ones included, oldest first. */
 const TerminalListRpc = Rpc.make(RPC_METHODS.terminalList, {
-  payload: Schema.Struct({ threadId: ThreadId }),
+  payload: TerminalOwner,
   success: Schema.Array(TerminalSummary),
   error: OpenAdeRpcError,
 });
 
 /** A snapshot with the recent scrollback, then live output; see `TerminalStreamItem`. */
 const TerminalSubscribeRpc = Rpc.make(RPC_METHODS.terminalSubscribe, {
-  payload: Schema.Struct(terminalRef),
+  payload: terminalOwned(terminalRef),
   success: TerminalStreamItem,
   error: OpenAdeRpcError,
   stream: true,
+});
+
+/**
+ * Hands every terminal a project owns — running or exited, scrollback and ids
+ * intact — to a thread just started from the New task page, and answers with
+ * them as the thread's. The server enforces what "just started" means: the
+ * project exists, and the thread is live (not archived or deleted), the
+ * project's, local (no worktree, so it works in the folder those shells run
+ * in) and not yet started (no turn running or queued, nothing in its
+ * timeline). Anything else is refused and the shells stay the project's.
+ * Nothing to hand over answers an empty list. The client calls it right after
+ * `thread.create` and before the first message, so the thread's drawer finds
+ * them on its first listing.
+ */
+const TerminalAdoptRpc = Rpc.make(RPC_METHODS.terminalAdopt, {
+  payload: Schema.Struct({ projectId: ProjectId, threadId: ThreadId }),
+  success: Schema.Array(TerminalSummary),
+  error: OpenAdeRpcError,
 });
 
 export const OpenAdeRpcGroup = RpcGroup.make(
@@ -756,4 +778,5 @@ export const OpenAdeRpcGroup = RpcGroup.make(
   TerminalCloseRpc,
   TerminalListRpc,
   TerminalSubscribeRpc,
+  TerminalAdoptRpc,
 );

@@ -126,7 +126,8 @@ export function FilePreview({
   scroll,
 }: {
   readonly projectId: ProjectId;
-  readonly threadId: ThreadId;
+  /** `null` reads the project's own folder, as the New task page's Files tab does. */
+  readonly threadId: ThreadId | null;
   readonly path: string;
   readonly connected: boolean;
   /**
@@ -142,7 +143,12 @@ export function FilePreview({
 }) {
   const atoms = useFileAtoms();
   const { offset, visited } = page;
-  const atom = atoms.fileContentAtom({ projectId, threadId, path, ...windowFor(offset) });
+  const atom = atoms.fileContentAtom({
+    projectId,
+    threadId: threadId ?? undefined,
+    path,
+    ...windowFor(offset),
+  });
   const result = useAtomValue(atom);
   const refresh = useAtomRefresh(atom);
 

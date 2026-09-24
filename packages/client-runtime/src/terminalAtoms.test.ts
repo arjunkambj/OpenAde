@@ -3,15 +3,25 @@
  * cannot get from the server: every output item reaches the callback even when
  * several arrive in one chunk, an overflow or a dropped socket reattaches with
  * a fresh snapshot, a terminal the server forgot is reported once as `gone`,
- * the list follows reconnects and opens, input reaches the shell in order, and
- * a failed write does not leave the rest of a paste to arrive later.
+ * the list follows reconnects and opens, a project's terminals are listed apart
+ * from a thread's and follow a hand-over to one, input reaches the shell in
+ * order, and a failed write does not leave the rest of a paste to arrive later.
  */
 
 import { describe, expect, it } from "@effect/vitest";
-import { makeTerminalId, makeThreadId } from "@OpenAde/contracts/ids";
+import {
+  makeProjectId,
+  makeTerminalId,
+  makeThreadId,
+  type ProjectId,
+  type ThreadId,
+} from "@OpenAde/contracts/ids";
 import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
 import {
   TERMINAL_WRITE_MAX_CHARS,
+  terminalOwnerKey,
+  terminalOwnerOf,
+  type TerminalOwner,
   type TerminalStreamItem,
   type TerminalSummary,
 } from "@OpenAde/contracts/terminal";
@@ -130,20 +140,40 @@ const fakeClient = (script: Script): OpenAdeRpcClient =>
             return "fail" in answer ? Stream.fail(answer.fail) : Stream.fromIterable(answer.items);
           };
         case "terminal.list":
-          return () =>
+          // The server lists one owner's terminals: a thread's, or a project's.
+          return (payload: TerminalOwner) =>
             Effect.sync(() => {
               script.listCalls += 1;
-              return [...script.terminals];
+              const key = terminalOwnerKey(payload);
+              return script.terminals.filter((terminal) => terminalOwnerKey(terminal) === key);
             });
         case "terminal.open":
           return (payload: TerminalRef) =>
             Effect.sync(() => {
               const opened = summary({
-                threadId: payload.threadId,
+                ...terminalOwnerOf(payload),
                 terminalId: payload.terminalId,
               });
               script.terminals.push(opened);
               return opened;
+            });
+        case "terminal.adopt":
+          // The server's hand-over: every terminal the project owns becomes the thread's.
+          return (payload: { projectId: ProjectId; threadId: ThreadId }) =>
+            Effect.sync(() => {
+              const from = terminalOwnerKey({ projectId: payload.projectId });
+              const moved: Array<TerminalSummary> = [];
+              script.terminals.forEach((terminal, index) => {
+                if (terminalOwnerKey(terminal) === from) {
+                  const adopted = summary({
+                    threadId: payload.threadId,
+                    terminalId: terminal.terminalId,
+                  });
+                  script.terminals[index] = adopted;
+                  moved.push(adopted);
+                }
+              });
+              return moved;
             });
         case "terminal.write":
           return (payload: { data: string }) =>
@@ -215,10 +245,14 @@ const attachUntilDone = (
 };
 
 const newRef = (): TerminalRef => ({ threadId: makeThreadId(), terminalId: makeTerminalId() });
+const newProjectRef = (): TerminalRef => ({
+  projectId: makeProjectId(),
+  terminalId: makeTerminalId(),
+});
 
 describe("terminal atoms", () => {
   it("a terminal round-trips through its family key", () => {
-    const refs = [newRef(), newRef()];
+    const refs = [newRef(), newRef(), newProjectRef(), newProjectRef()];
     for (const ref of refs) {
       expect(decodeTerminalKey(encodeTerminalKey(ref))).toEqual(ref);
     }
@@ -296,7 +330,7 @@ describe("terminal atoms", () => {
       const ref = newRef();
       const script = newScript();
       const { registry, stateRef, terminalListAtom, openTerminal } = yield* runtimeWith(script);
-      const list = terminalListAtom(ref.threadId);
+      const list = terminalListAtom(terminalOwnerKey(ref));
       registry.mount(list);
       registry.mount(openTerminal);
 
@@ -314,11 +348,79 @@ describe("terminal atoms", () => {
 
       // A terminal another window opened while this one was offline: only the
       // reconnect can tell this client about it.
-      script.terminals.push(summary(newRef()));
+      script.terminals.push(summary({ ...ref, terminalId: makeTerminalId() }));
       yield* SubscriptionRef.set(stateRef, RECONNECTING);
       yield* SubscriptionRef.set(stateRef, CONNECTED);
       yield* Effect.promise(() => awaitValue(registry, list, isOk(2)));
       expect(script.listCalls).toBe(3);
+    }),
+  );
+
+  it.live("lists a project's terminals apart from a thread's", () =>
+    Effect.gen(function* () {
+      const thread = newRef();
+      const projectId = makeProjectId();
+      const project = { projectId, terminalId: makeTerminalId() };
+      const script = newScript();
+      const { registry, terminalListAtom, openTerminal } = yield* runtimeWith(script);
+      const threadList = terminalListAtom(terminalOwnerKey(thread));
+      const projectList = terminalListAtom(terminalOwnerKey(project));
+      registry.mount(threadList);
+      registry.mount(projectList);
+      registry.mount(openTerminal);
+
+      const ids = (length: number) => (query: TerminalListQuery) =>
+        query._tag === "ok" && query.terminals.length === length;
+      registry.set(openTerminal, { ...project, cols: 80, rows: 24 });
+      const listed = yield* Effect.promise(() => awaitValue(registry, projectList, ids(1)));
+      expect(listed._tag === "ok" && listed.terminals[0]).toMatchObject(project);
+      yield* Effect.promise(() => awaitValue(registry, threadList, ids(0)));
+    }),
+  );
+
+  it.live("a hand-over moves the project's terminals into the thread's list", () =>
+    Effect.gen(function* () {
+      const projectId = makeProjectId();
+      const threadId = makeThreadId();
+      const project = { projectId, terminalId: makeTerminalId() };
+      const script = newScript();
+      const { registry, terminalListAtom, openTerminal, adoptTerminals } =
+        yield* runtimeWith(script);
+      const projectList = terminalListAtom(terminalOwnerKey({ projectId }));
+      const threadList = terminalListAtom(terminalOwnerKey({ threadId }));
+      registry.mount(projectList);
+      registry.mount(threadList);
+      registry.mount(openTerminal);
+      registry.mount(adoptTerminals);
+
+      const count = (length: number) => (query: TerminalListQuery) =>
+        query._tag === "ok" && query.terminals.length === length;
+      registry.set(openTerminal, { ...project, cols: 80, rows: 24 });
+      yield* Effect.promise(() => awaitValue(registry, projectList, count(1)));
+
+      registry.set(adoptTerminals, { projectId, threadId });
+      const taken = yield* Effect.promise(() => awaitValue(registry, threadList, count(1)));
+      expect(taken._tag === "ok" && taken.terminals[0]).toMatchObject({
+        threadId,
+        terminalId: project.terminalId,
+      });
+      yield* Effect.promise(() => awaitValue(registry, projectList, count(0)));
+    }),
+  );
+
+  it.live("listTerminals answers one owner's terminals, once", () =>
+    Effect.gen(function* () {
+      const thread = newRef();
+      const script = newScript();
+      script.terminals.push(summary(thread), summary(newRef()));
+      const { registry, listTerminals } = yield* runtimeWith(script);
+      registry.mount(listTerminals);
+      registry.set(listTerminals, terminalOwnerKey(thread));
+      const listed = yield* AtomRegistry.getResult(registry, listTerminals, {
+        suspendOnWaiting: true,
+      });
+      expect(listed.map((terminal) => terminal.terminalId)).toEqual([thread.terminalId]);
+      expect(script.listCalls).toBe(1);
     }),
   );
 

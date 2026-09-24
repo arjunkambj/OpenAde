@@ -14,7 +14,8 @@
  * long list runs one interval rather than one per row.
  *
  * A project row folds its threads away on click; the folded set persists
- * through `useProjectCollapsed`. The open thread stays listed under a folded
+ * through `useProjectCollapsed`. It also counts the shells still running in
+ * the project's own folder, when there are any (`ProjectTerminalsBadge`). The open thread stays listed under a folded
  * project, so the sidebar never loses track of where you are.
  *
  * Archived threads are not listed: they live on Settings → Archived threads.
@@ -55,6 +56,7 @@ import type { ProjectId } from "@OpenAde/contracts/ids";
 import type { ProjectSummary, ThreadSummary } from "@OpenAde/contracts/orchestration";
 
 import { AddProjectDialog } from "@/components/sidebar/add-project-dialog";
+import { ProjectTerminalsBadge } from "@/components/terminal/project-terminals-badge";
 import { ProjectRowMenu } from "@/components/sidebar/project-menu";
 import { ThreadRow } from "@/components/sidebar/thread-row";
 import { sidebarThreadGroups } from "@/components/sidebar/thread-order";
@@ -285,6 +287,7 @@ function ProjectSection({
           </span>
           <span className="ml-1.5 min-w-0 flex-1 truncate">{project.name}</span>
         </button>
+        <ProjectTerminalsBadge projectId={project.projectId} />
         <span className="flex items-center opacity-0 transition-opacity duration-150 ease-out group-hover/project:opacity-100 group-focus-within/project:opacity-100 [&:has([data-popup-open])]:opacity-100">
           <ProjectRowMenu
             project={project}

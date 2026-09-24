@@ -12,7 +12,8 @@
  *
  * The git actions control (`components/git/git-actions-control.tsx`) sits at
  * the right, before the status: commit, push and open a pull request from
- * the thread's workspace.
+ * the thread's workspace. The terminal and dock toggles end the row
+ * (`./header-toggles`, shared with the New task page's header).
  *
  * A narrow header (a small window, the dock open) squeezes the project, the
  * title and the branch, the only parts that shrink. The branch is the one
@@ -27,8 +28,6 @@
  * drag region, with its controls opted out.
  */
 
-import { Button } from "@OpenAde/ui/components/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import type { ThreadDetailSnapshot, ThreadStatus } from "@OpenAde/contracts/orchestration";
 
 import type { DockPane } from "@/components/dock/dock-toggle";
@@ -36,12 +35,10 @@ import { BranchPicker } from "@/components/git/branch-picker";
 import { GitActionsControl } from "@/components/git/git-actions-control";
 import { ThreadHeaderChrome, useThreadHeaderChrome } from "@/components/Layout/window-chrome";
 import { AgentBrowserIndicator } from "@/components/thread/agent-browser-indicator";
-import { TERMINAL_TOGGLE_COMMAND } from "@/lib/keybindings";
-import { CommandKbd, useKeybindingDispatch } from "@/lib/shortcuts";
+import { HeaderToggles } from "@/components/thread/header-toggles";
 import { cn } from "@/lib/utils";
 import { useProjects } from "@/state/hooks";
-import { useTerminalOpen } from "@/state/terminal-ui";
-import { Folder, LayoutAlignBottom, LayoutAlignRight, Spinner } from "@honeyicons/react";
+import { Folder, Spinner } from "@honeyicons/react";
 
 const STATUS_LABEL: Record<ThreadStatus, string> = {
   idle: "Idle",
@@ -83,10 +80,6 @@ export function ThreadHeader({
 }) {
   const project = useProjects().find((candidate) => candidate.projectId === snapshot.projectId);
   const chrome = useThreadHeaderChrome();
-  // Fires the command rather than flipping the state, so the click also moves
-  // focus into the terminal it opens, as the chord does.
-  const fire = useKeybindingDispatch();
-  const [terminalOpen] = useTerminalOpen(snapshot.threadId);
 
   return (
     <header
@@ -118,55 +111,15 @@ export function ThreadHeader({
       <div className="flex-1" />
       <div className={cn("flex shrink-0 items-center gap-2", chrome && "app-region-no-drag")}>
         {onShowBrowser === null ? null : <AgentBrowserIndicator onShow={onShowBrowser} />}
-        <GitActionsControl snapshot={snapshot} />
+        <GitActionsControl projectId={snapshot.projectId} snapshot={snapshot} />
         {/* Idle is the resting state, not news: the pill shows only while
           something is happening or wrong. */}
         {snapshot.status === "idle" ? null : <StatusPill status={snapshot.status} />}
-        <span className="inline-flex shrink-0">
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={terminalOpen ? "Hide terminal" : "Show terminal"}
-                  aria-pressed={terminalOpen}
-                  onClick={() => fire(TERMINAL_TOGGLE_COMMAND)}
-                />
-              }
-            >
-              <LayoutAlignBottom variant="bold" className={cn(terminalOpen && "text-foreground")} />
-            </TooltipTrigger>
-            <TooltipContent>
-              {terminalOpen ? "Hide terminal" : "Show terminal"}
-              <CommandKbd command={TERMINAL_TOGGLE_COMMAND} />
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={dockTab === undefined ? "Open dock" : "Close dock"}
-                  aria-pressed={dockTab !== undefined}
-                  onClick={onDockToggle}
-                />
-              }
-            >
-              <LayoutAlignRight
-                variant="bold"
-                className={cn(dockTab !== undefined && "text-foreground")}
-              />
-            </TooltipTrigger>
-            <TooltipContent>
-              {dockTab === undefined ? "Open dock" : "Close dock"}
-              <CommandKbd command="dock.toggle" />
-            </TooltipContent>
-          </Tooltip>
-        </span>
+        <HeaderToggles
+          terminalKey={snapshot.threadId}
+          dockTab={dockTab}
+          onDockToggle={onDockToggle}
+        />
       </div>
     </header>
   );

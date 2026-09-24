@@ -88,7 +88,7 @@ describe.skipIf(process.platform === "win32")("killing a shell that ignores SIGH
             (path) => Effect.sync(() => rmSync(path, { recursive: true, force: true })),
           );
           const session = yield* makeSession({
-            threadId: makeThreadId(),
+            owner: { threadId: makeThreadId() },
             terminalId: makeTerminalId(),
             title: "Terminal",
             cwd: home,

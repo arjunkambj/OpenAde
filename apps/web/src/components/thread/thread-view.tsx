@@ -7,13 +7,14 @@
  * has to know whether the socket is mid-resnapshot.
  *
  * The dock keys — `dock.toggle`, `dock.changes`, `dock.files` and
- * `browserPane.toggle` — are answered here, through `DockShortcuts`, because
- * they need the thread's dock. The dock starts closed: `?pane=` says what it
- * shows (a tab, or `home` for its launcher), and the only thing that opens it
- * unasked is coming back, in the same session, to a thread whose dock was
- * left open (`useDockMemory`, in memory, so a relaunch finds every dock
- * shut). The toggle reopens the last tab this thread used this session, else
- * the launcher (`@/components/dock/dock-toggle`). The timeline's file chips
+ * `browserPane.toggle` — are answered here, through `DockShortcuts` and
+ * `BrowserPaneShortcut`, because they need the thread's dock. The dock starts
+ * closed: `?pane=` says what it shows (a tab, or `home` for its launcher), and
+ * the only thing that opens it unasked is coming back, in the same session,
+ * to a thread whose dock was left open (`useDockState`, over a memory kept in
+ * memory, so a relaunch finds every dock shut). The toggle reopens the last
+ * tab this thread used this session, else the launcher
+ * (`@/components/dock/dock-toggle`). The timeline's file chips
  * ask for a file with `useRequestFileReveal`; `useFileRevealRequests` answers
  * here by writing it into the thread's Files view (`useRevealFile`) and
  * opening the dock on Files. The rest of the thread-scoped bindings —
@@ -45,30 +46,25 @@ import type * as OpenAdeRpcError from "@OpenAde/contracts/rpc";
 import type * as RpcClientError from "effect/unstable/rpc/RpcClientError";
 
 import { Composer } from "@/components/composer/composer";
-import {
-  DOCK_HOME,
-  dockArrivalTarget,
-  dockToggleTarget,
-  noteDockShown,
-  rememberDockMove,
-  type DockPane,
-  type DockTab,
-} from "@/components/dock/dock-toggle";
+import type { DockPane } from "@/components/dock/dock-toggle";
 import { RightDock } from "@/components/dock/right-dock";
+import { useDockState } from "@/components/dock/use-dock-state";
 import { useRevealFile } from "@/components/panes/files/files-view";
-import { ThreadTerminal } from "@/components/terminal/terminal-drawer";
+import { ThreadTerminal } from "@/components/terminal/owned-terminal";
 import { useAgentBrowser } from "@/components/thread/agent-browser-indicator";
 import { ThreadHarnessBanner } from "@/components/thread/harness-health-banner";
 import { ThreadHeader } from "@/components/thread/thread-header";
 import { ThreadGreeting } from "@/components/thread/thread-greeting";
-import { DockShortcuts, ThreadShortcuts } from "@/components/thread/thread-shortcuts";
+import {
+  BrowserPaneShortcut,
+  DockShortcuts,
+  ThreadShortcuts,
+} from "@/components/thread/thread-shortcuts";
 import { Timeline } from "@/components/timeline/timeline";
 import { useKeybindingFlag } from "@/lib/shortcuts";
-import { usePresence } from "@/lib/use-presence";
 import { useConnectionState, useProjects, useThreadDetail } from "@/state/hooks";
 import { useBrowserRevealRequests } from "@/state/browser-activity";
 import { type FileRevealTarget, useFileRevealRequests } from "@/state/file-reveal";
-import { useDockMemory } from "@/state/ui";
 import { AlertTriangle, Spinner, WifiOff } from "@honeyicons/react";
 
 type ThreadDetailResult = AsyncResult.AsyncResult<
@@ -162,15 +158,6 @@ export function ThreadView({
   const connection = useConnectionState();
   const navigate = useNavigate();
 
-  const [dockMemory, updateDockMemory] = useDockMemory(threadId);
-
-  // Set by the Files key, read once by the Files pane as it mounts; any other
-  // move of the dock clears it, so a later click on the tab does not focus.
-  const [focusFilesSearch, setFocusFilesSearch] = React.useState(false);
-  // The same for the launcher's first row: set only when the user opens the
-  // dock onto it, so arriving at a thread whose dock was left on the launcher
-  // (or reloading onto one) leaves the focus where it is.
-  const [focusLauncher, setFocusLauncher] = React.useState(false);
   const navigateDock = React.useCallback(
     (tab: DockPane | null) =>
       void navigate({
@@ -187,19 +174,14 @@ export function ThreadView({
   // tab — only the user's own choice is.
   const autoOpenBrowser = React.useCallback(() => navigateDock("browser"), [navigateDock]);
   const agentBrowser = useAgentBrowser(threadId, dockTab, autoOpenBrowser);
-  const { noteUserDock } = agentBrowser;
 
-  /** Every dock move the user makes: remembered for the thread, and noted. */
-  const setDockTab = React.useCallback(
-    (tab: DockPane | null) => {
-      setFocusFilesSearch(false);
-      setFocusLauncher(false);
-      noteUserDock(dockTab, tab ?? undefined);
-      updateDockMemory((memory) => rememberDockMove(memory, tab));
-      navigateDock(tab);
-    },
-    [dockTab, noteUserDock, updateDockMemory, navigateDock],
-  );
+  const dock = useDockState({
+    memoryKey: threadId,
+    dockTab,
+    navigateDock,
+    onUserMove: agentBrowser.noteUserDock,
+  });
+  const { setDockTab } = dock;
 
   const showBrowser = React.useCallback(() => setDockTab("browser"), [setDockTab]);
   // `openInThreadBrowser` asks for the pane from outside the thread view.
@@ -217,35 +199,6 @@ export function ThreadView({
   );
   useFileRevealRequests(threadId, showFile);
 
-  // Arriving with no `?pane=` — a sidebar link — reopens what this thread's
-  // dock was left on earlier in the session, and nothing otherwise: the memory
-  // is not persisted, so after a relaunch every dock starts closed. Closing
-  // the dock forgets it, so this cannot re-open what the user just closed.
-  const arrival = dockArrivalTarget(dockMemory);
-  React.useEffect(() => {
-    if (dockTab === undefined && arrival !== undefined) {
-      navigateDock(arrival);
-    }
-  }, [dockTab, navigateDock, arrival]);
-
-  // Whatever put a tab on screen — the user, a link to a turn's changes, the
-  // browser opening itself for the agent — makes it the one the toggle goes
-  // back to. Only the user's own moves are reopened on arrival.
-  React.useEffect(() => {
-    updateDockMemory((memory) => noteDockShown(memory, dockTab));
-  }, [dockTab, updateDockMemory]);
-  const toggleDock = () => {
-    const target = dockToggleTarget(dockTab, dockMemory?.lastTab);
-    setDockTab(target);
-    setFocusLauncher(target === DOCK_HOME);
-  };
-  const showDockTab = (tab: DockTab | null, focus = false) => {
-    setDockTab(tab);
-    setFocusFilesSearch(focus && tab === "files");
-  };
-  const onFilesSearchFocused = React.useCallback(() => setFocusFilesSearch(false), []);
-  const onLauncherFocused = React.useCallback(() => setFocusLauncher(false), []);
-
   const snapshot = snapshotOf(result);
 
   // The client fold turns `thread.deleted` into this status for exactly this
@@ -259,15 +212,6 @@ export function ThreadView({
   }, [deleted, navigate]);
 
   useKeybindingFlag("threadOpen", true);
-  useKeybindingFlag("dockOpen", dockTab !== undefined);
-
-  // The dock stays up through its close, showing the tab it closed on.
-  const dockPhase = usePresence(dockTab !== undefined);
-  const heldDockTab = React.useRef(dockTab);
-  if (dockTab !== undefined) {
-    heldDockTab.current = dockTab;
-  }
-  const shownDockTab = dockTab ?? heldDockTab.current;
 
   // `thread.interrupt`, `composer.queue` and the `turnRunning` flag belong to
   // the `Composer` below, not here. Both components used to register all three,
@@ -288,14 +232,15 @@ export function ThreadView({
         {snapshot !== null ? (
           <>
             <ThreadShortcuts threadId={threadId} title={snapshot.title} status={snapshot.status} />
-            <DockShortcuts dockTab={dockTab} onToggle={toggleDock} onShow={showDockTab} />
+            <DockShortcuts dockTab={dockTab} onToggle={dock.toggleDock} onShow={dock.showDockTab} />
+            <BrowserPaneShortcut dockTab={dockTab} onShow={dock.showDockTab} />
           </>
         ) : null}
         {snapshot !== null ? (
           <ThreadHeader
             snapshot={snapshot}
             dockTab={dockTab}
-            onDockToggle={toggleDock}
+            onDockToggle={dock.toggleDock}
             onShowBrowser={agentBrowser.indicator ? showBrowser : null}
           />
         ) : null}
@@ -314,16 +259,16 @@ export function ThreadView({
           />
         ) : null}
       </section>
-      {dockPhase !== null && shownDockTab !== undefined && snapshot !== null ? (
+      {dock.phase !== null && dock.shownDockTab !== undefined && snapshot !== null ? (
         <RightDock
-          pane={shownDockTab}
-          phase={dockPhase}
+          pane={dock.shownDockTab}
+          phase={dock.phase}
           onPaneChange={setDockTab}
-          snapshot={snapshot}
-          focusFilesSearch={focusFilesSearch}
-          onFilesSearchFocused={onFilesSearchFocused}
-          focusLauncher={focusLauncher}
-          onLauncherFocused={onLauncherFocused}
+          scope={{ snapshot }}
+          focusFilesSearch={dock.focusFilesSearch}
+          onFilesSearchFocused={dock.onFilesSearchFocused}
+          focusLauncher={dock.focusLauncher}
+          onLauncherFocused={dock.onLauncherFocused}
         />
       ) : null}
     </div>

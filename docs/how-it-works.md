@@ -1621,6 +1621,14 @@ tab. A scope select at the top picks what to compare
   is `HEAD`, so a line under the select says only uncommitted work shows.
 - **Uncommitted** — the working tree against `HEAD`, both ends omitted.
 
+The New task page's dock has a Changes tab of its own
+(`project-changes-pane.tsx`), for the picked project's folder before any
+thread exists: Uncommitted and Branch vs base (against the default branch),
+with `git.status` and `git.diff` given the `projectId` alone. There are no
+turns, so no turn scope and no restore; the file list and its review are the
+thread pane's (`ComparisonBody` in `changes-list.tsx`), and "Add to chat"
+writes into the page's draft.
+
 `git.diff` answers with the file list, because `GitDiff.files` already
 carries the path, the `+`/`-` counts and the per-file patch. `git.status` is
 read alongside for the branch line and to tell "not a git repository"
@@ -1825,7 +1833,9 @@ with `created: false`. Tests swap in a fake runner that answers with gh's own
 wording; nothing talks to GitHub.
 
 The thread header's git actions control
-(`apps/web/src/components/git/git-actions-control.tsx`) is the client of these:
+(`apps/web/src/components/git/git-actions-control.tsx`) is the client of these
+— and the New task page's header carries it too, before any thread exists,
+acting on the picked project's own folder with the `projectId` alone:
 a Commit button, and a menu with Commit, Commit & push, and Commit, push &
 create PR. An action is a stack of steps, planned from the root's status and
 branch list (`planGitAction` in `apps/web/src/lib/git-actions.ts`): a commit
@@ -1871,10 +1881,11 @@ has one toast that starts as `Committing…`, `Pushing to origin/<branch>…` or
 with an Open action — or `<Step> failed: <the server's message>`, which is how
 a hook's refusal, a rejected push or `gh not available` reach the user. After a
 commit or a push every git read of the project refetches, the way a branch
-switch does. The last pull request URL is remembered per thread in
-localStorage (`usePullRequestLink` in `apps/web/src/state/ui.ts`, web links
-only) and offered as View pull request, which opens it in the system browser
-(`openExternal`).
+switch does. The last pull request URL is also remembered per thread (or,
+from the New task page, per project folder) in localStorage
+(`usePullRequestLink` in `apps/web/src/state/ui.ts`, web links only); nothing
+in the UI reads it back yet, so the toast's Open action, through
+`openExternal`, is the one way to it.
 
 ### Worktrees
 
@@ -2329,7 +2340,9 @@ No agent-browser daemon outlives what started it
 ## 11. The terminal
 
 Each thread has a terminal drawer at the bottom of its column: real shells,
-running on the server in the thread's project folder, shown in xterm.
+running on the server in the thread's workspace, shown in xterm. The New task
+page has one too, before any thread exists: its shells belong to the picked
+project and run in the project's folder.
 
 ### Opening one
 
@@ -2337,10 +2350,11 @@ running on the server in the thread's project folder, shown in xterm.
 the closed drawer collapses to, at the bottom of the thread column
 (`terminal-bar.tsx`), all fire the same command, `terminal.toggle`; the open
 drawer's own "Hide terminal" button closes it. The command is answered by
-`ThreadTerminal` (`apps/web/src/components/terminal/terminal-drawer.tsx`),
-which is always mounted with the thread view, so the button and the chord take
-one path — the one that also moves focus into the terminal it opens. Whether a
-thread's drawer is open, and how tall the drawer is, is presentation state in
+`ThreadTerminal` (`apps/web/src/components/terminal/owned-terminal.tsx`),
+which is always mounted with the thread view — or, on the New task page, by
+`ProjectTerminal` — so the button and the chord take one path — the one that
+also moves focus into the terminal it opens. Whether a thread's (or a
+project's) drawer is open, and how tall the drawer is, is presentation state in
 localStorage (`apps/web/src/state/terminal-ui.ts`). The drawer is at least
 120px tall and at most 70% of the column, and never so tall that the
 conversation above it gets less than 120px: the header and composer keep their
@@ -2354,18 +2368,75 @@ A drawer that opens with no terminals starts one, once `terminal.list` has
 said there are none and the xterm has measured the grid to start it at. The
 client mints the `TerminalId`, so `terminal.open` is idempotent: a repeated
 open answers the shell already running under that id instead of starting a
-second one. The New tab button is disabled at `TERMINALS_PER_THREAD` (8), its
+second one. The New tab button is disabled at `TERMINALS_PER_OWNER` (8), its
 tooltip saying so, and the server refuses a ninth with `conflict`; an exited
 terminal still counts until it is closed. A long tab title shrinks, truncating,
 before the strip overflows, though never so far that "Terminal 3" loses its
 number; past that the strip scrolls sideways, fades at an edge with more tabs
 beyond it, and turns a vertical mouse wheel into a sideways scroll.
 
-On the server, `TerminalService` (`apps/server/src/terminal/TerminalService.ts`)
-asks `workspaceOf` for the directory: the thread's workspace root from
-`threadWorkspaceRoot` — its worktree when it has one, its project's folder
-otherwise — refused as `not-found` for a deleted thread, and as `invalid` for
-an archived one or a folder that no longer exists on disk. The shell comes from `resolveShell` in
+Every terminal has an owner (`TerminalOwner` in
+`packages/contracts/src/terminal.ts`): a thread, whose payloads carry
+`threadId`, or a project with no thread yet, whose payloads carry `projectId`
+in its place. The New task page's draft id is never used as an owner — the
+thread it becomes may run in a new worktree, and the server has no thread by
+that id until it is sent. On the server, `TerminalService`
+(`apps/server/src/terminal/TerminalService.ts`) keys its registry by
+`terminalOwnerKey`, so a project's terminals and its threads' are separate
+sets, and asks `workspaceOf` for the directory: for a thread, its workspace
+root from `threadWorkspaceRoot` — its worktree when it has one, its project's
+folder otherwise — refused as `not-found` for a deleted thread, and as
+`invalid` for an archived one or a folder that no longer exists on disk; for a
+project, its folder, refused as `not-found` once the project is removed and as
+`invalid` when the folder is gone.
+
+A project's terminals follow the first message. When the New task page starts
+a local thread — no worktree, so it works in the folder those shells run in —
+the client calls `terminal.adopt` right after `thread.create` and before it
+opens the thread, and the service hands every terminal the project owns,
+running or exited, to the thread: same ids, same scrollback, the summary now
+naming the thread. `adoptionCheckOf` refuses a missing or removed project, a
+thread in its own worktree, one of another project, an archived or missing
+one, and one that has already started — a turn running or queued, or
+anything in its timeline — and the move is refused
+whole if it would take the thread past `TERMINALS_PER_OWNER`. It takes both
+owners' locks, in one fixed order, then moves every session in one
+synchronous step, so no reader finds a terminal under both owners or under
+neither. A session keeps its shell and hub, so a live subscriber streams on;
+calls under the project answer `not-found` from then on. A worktree thread
+takes nothing: the shells stay the project's, still running in its folder.
+
+On the client the hand-over is `useTerminalHandOver`
+(`apps/web/src/components/terminal/use-terminal-hand-over.ts`), which the New
+task composer awaits between creating a local thread and sending its first
+message; the order is `runHandOver` in `terminal-hand-over.ts`. An open drawer
+whose listing says it has no terminals starts one, and once the shells have
+moved the project's listing is empty — a refetch answered before adopt's
+reply, or a reconnect after the socket dropped with the reply in flight, can
+bring that listing at any moment. So the project's drawer is closed before
+adopt is called, noting whether it was open and which terminals the project
+had, and the client state follows only once the move is known: the drawer's
+tabs and the one in front (`handOverDrawerState` in `drawer-state.ts`), then
+an open drawer on the thread. When adopt fails or its reply is lost, the
+thread's own listing (`listTerminals`) decides: terminals the project had
+there mean the move went through, and the state follows as if adopt had
+answered; none mean the shells stayed, and a drawer that was open on them
+opens again; no listing either leaves the project's drawer closed and the
+thread's drawer to find whatever the server gave it. The thread's drawer then
+finds the terminals on its first listing, with the same one in front.
+
+Shells a project still owns — left behind by a worktree thread, or started on
+the New task page again later — are counted where they can be found:
+`ProjectTerminalsBadge` (`project-terminals-badge.tsx`), a stock `Badge` with
+the running count and a tooltip such as "2 terminals running in this
+project's folder", sits beside the New task header's terminal toggle and on
+the project's sidebar row, and shows nothing while none is running. It
+counts the project's `terminal.list`, reread on connecting, after every open,
+close, exit the drawer sees and hand-over, and on a return to the window —
+once per project, since both badges share its list atom and its return
+refetch (`useSharedWindowReturn` in `apps/web/src/lib/window-return.ts`).
+
+The shell comes from `resolveShell` in
 `apps/server/src/terminal/shell.ts`: `$SHELL` when it is an absolute path,
 else `/bin/zsh` on macOS and bash (or `sh`) on Linux, with `-l` so it reads the
 user's profile — an app launched from the Finder has only launchd's bare
@@ -2478,9 +2549,10 @@ closed, so the last thing a command printed is still readable.
 ### Teardown
 
 A shell ends on `terminal.close` — closing a tab, and closing the last tab
-hides the drawer — on `thread.deleted` and `thread.archived`, which the service
-watches on the engine's event stream the way the browser pane's teardown does,
-and when the server shuts down. Killing is bounded: SIGHUP, what a closing
+hides the drawer — on `thread.deleted` and `thread.archived` for a thread's,
+and `project.removed` for a project's own, which the service watches on the
+engine's event stream the way the browser pane's teardown does, and when the
+server shuts down. Killing is bounded: SIGHUP, what a closing
 terminal sends, then after one second SIGKILL to the shell, to every process
 under it and to every process group they are in, and at most two seconds more
 waiting for the exit (the `ps` read below is bounded at two seconds too). The
@@ -2508,7 +2580,8 @@ A printed http(s) link opens on a mod-click (`Cmd` on macOS, `Ctrl`
 elsewhere) and nowhere else: a plain click in a terminal places the selection.
 It opens in the thread's own browser pane — the dock switches to its Browser
 tab and the pane is sent a human `navigate`, as its address bar would send
-(`use-open-link.ts`, `terminal-links.ts`).
+(`use-open-link.ts`, `terminal-links.ts`). On the New task page there is no
+thread, so no browser pane: a link opens in the system browser.
 
 Find is a row under the drawer's toolbar (`terminal-find.tsx`) that searches
 the xterm in front as the user types: Enter for the next match, Shift+Enter for
@@ -2516,8 +2589,8 @@ the previous one, Escape to close it and return focus to the terminal. Match
 highlights are our foreground mixed into our background, since xterm's search
 addon takes only opaque `#rrggbb`.
 
-"Add selection to chat" quotes the terminal's selection into the thread's
-composer draft (`appendQuotedBlock` in `apps/web/src/lib/quote-selection.ts`):
+"Add selection to chat" quotes the terminal's selection into the composer
+draft on screen — the thread's, or the New task page's (`appendQuotedBlock` in `apps/web/src/lib/quote-selection.ts`):
 the padding xterm adds to each selected line and any blank lines around the
 text are trimmed, each line gets `> `, and a blank line separates the block
 from text already in the draft and from what the user types next. It writes
@@ -2614,8 +2687,8 @@ fields entirely.
 | Composer | `composer.attach`                                     | `Mod+U`                       |                                                                                        |
 | Composer | `composer.clearDraft`                                 | `Mod+Shift+Backspace`         | `composerFocus`                                                                        |
 | View     | `sidebar.toggle`                                      | `Mod+B`                       |                                                                                        |
-| View     | `dock.toggle`                                         | `Mod+Alt+B`                   | `threadOpen`                                                                           |
-| View     | `dock.changes` / `dock.files`                         | `Mod+Shift+D` / `Mod+P`       | `threadOpen`                                                                           |
+| View     | `dock.toggle`                                         | `Mod+Alt+B`                   | `threadOpen \|\| newTaskOpen`                                                          |
+| View     | `dock.changes` / `dock.files`                         | `Mod+Shift+D` / `Mod+P`       | `threadOpen \|\| newTaskOpen`                                                          |
 | View     | `browserPane.toggle`                                  | `Mod+Shift+B`                 |                                                                                        |
 | View     | `terminal.toggle`                                     | `Mod+J`                       |                                                                                        |
 | View     | `font.increase` / `decrease` / `reset`                | `Mod+Alt+=` / `-` / `0`       |                                                                                        |
@@ -2663,7 +2736,8 @@ on is held where it sat on screen — or, when collapsing folded away every
 row on screen, the nearest row above them, usually the fold that hid them,
 goes to the top — until the rows stop moving or the reader scrolls.
 
-The git keys belong to the thread header. `git.commit` is the Commit button
+The git keys belong to the thread header, or the New task page's when that is
+on screen. `git.commit` is the Commit button
 and `git.push` is Commit & push, which pushes straight away when there is
 nothing to commit (`git-actions-control.tsx`); `git.branchPicker` opens the
 branch popover (`branch-picker.tsx`). Each does nothing from its key while its
@@ -2769,12 +2843,13 @@ The context keys a clause may name are listed, with what each means and who
 sets it, in `KEYBINDING_CONTEXT_KEYS` (`packages/client-runtime/src/keymap.ts`).
 The listener computes `inputFocus`, `composerFocus`, `terminalFocus`,
 `browserFocus`, `dialogOpen` and `isMac` from the keypress; components publish
-`threadOpen`, `dockOpen`, `changesOpen`, `turnRunning` (`threadRunning` is an alias),
+`threadOpen`, `newTaskOpen`, `dockOpen`, `changesOpen`, `turnRunning` (`threadRunning` is an alias),
 `approvalPending`, `questionPending` and `planPending`. `CONTEXT_AXIOMS`
 records what always holds between them: `composerFocus` and `terminalFocus`
 each imply `inputFocus`; focus is in at most one of the composer, the terminal
 and the browser; at most one of an approval, a question and a plan is pending;
-`isMac` is fixed per platform.
+a thread and the New task page are never on screen together; `isMac` is fixed
+per platform.
 
 Conflicts are found by the same module, per platform
 (`findKeybindingConflicts`). Two rows for different commands conflict when they
@@ -2811,12 +2886,13 @@ registry under its canonical name, so an older stored clause naming
 `threadRunning` still reads `turnRunning`. A component cannot publish a
 built-in key. Who publishes the rest:
 
-| key                                                 | published by                                    |
-| --------------------------------------------------- | ----------------------------------------------- |
-| `threadOpen`, `dockOpen`                            | `ThreadView`, while mounted / while the dock is |
-| `changesOpen`                                       | `ChangesPane`, while the dock shows it          |
-| `turnRunning`                                       | `Composer`                                      |
-| `approvalPending`, `questionPending`, `planPending` | `PendingCard`, for exactly the card it shows    |
+| key                                                 | published by                                                   |
+| --------------------------------------------------- | -------------------------------------------------------------- |
+| `threadOpen`, `dockOpen`                            | `ThreadView`, while mounted / while the dock is                |
+| `newTaskOpen`, `dockOpen`                           | the New task page, with a project / its dock                   |
+| `changesOpen`                                       | `ChangesPane` or `ProjectChangesPane`, while the dock shows it |
+| `turnRunning`                                       | `Composer`                                                     |
+| `approvalPending`, `questionPending`, `planPending` | `PendingCard`, for exactly the card it shows                   |
 
 There is exactly one listener, mounted at the app root
 (`apps/web/src/lib/shortcuts.tsx`). It runs in bubble phase so focused controls
@@ -2905,6 +2981,14 @@ form with the marker; until then the same row migrates to the same answer on
 every start. The `keybindings.get`/`update` RPCs kept their shape, so there was
 no protocol bump — an older server's full table still resolves to the same
 keys, because each of its rows replaces only its own command's defaults.
+
+The dock keys once defaulted to `when: threadOpen`, and the editor keeps a
+row's clause when its chord is rebound, so a stored override of `dock.toggle`,
+`dock.changes` or `dock.files` could still carry that clause and stay dead on
+the New task page. The `0007_dock_keys_new_task` migration rewrites exactly
+those rows — one of the three commands, with a clause that is exactly
+`threadOpen` — to `threadOpen || newTaskOpen`, once; any other clause is the
+user's own and is left alone.
 
 ### Connector instances
 
@@ -3146,7 +3230,7 @@ wedged pty cannot hold the shutdown up.
 | the RPC surface                        | `packages/contracts/src/rpc.ts`                                                                                                                                      |
 | the composition root                   | `apps/server/src/boot.ts`                                                                                                                                            |
 | the decider                            | `apps/server/src/orchestration/decider.ts`                                                                                                                           |
-| the integrated terminal                | `apps/server/src/terminal/TerminalService.ts`, `apps/web/src/components/terminal/terminal-drawer.tsx`                                                                |
+| the integrated terminal                | `apps/server/src/terminal/TerminalService.ts`, `apps/web/src/components/terminal/owned-terminal.tsx`                                                                 |
 | the Command Code session               | `packages/connector-cmd/src/session.ts`                                                                                                                              |
 | what the real CLI does                 | `packages/testkit/fixtures/cmd/README.md`                                                                                                                            |
 | the product, end to end                | `apps/server/test/e2e/` — eleven scenarios over a real server and a real socket; the ten with a harness run the real CLI (`OPENADE_LIVE_CMD=1`) or a recording of it |

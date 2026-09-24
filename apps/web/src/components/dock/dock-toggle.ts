@@ -4,8 +4,13 @@
  *
  * The dock is either closed (`?pane=` absent), open on one of its tabs
  * (`changes | browser | files`), or open with no tab chosen yet: the
- * launcher, `?pane=home`, a short list of the three tabs and their keys.
+ * launcher, `?pane=home`, a short list of the tabs and their keys.
  * `DockPane` is that open state; `DockTab` is only the tabs.
+ *
+ * A thread's dock has all three tabs. The New task page's dock, for a project
+ * with no thread yet, has `projectDockTabs`: Changes (the project folder's
+ * working tree and branch) and Files. The Browser tab is a thread's browser,
+ * so there is none to show before the thread exists.
  *
  * The dock starts closed. Nothing about it survives a relaunch: a thread
  * reached with no `?pane=` (a sidebar link, a fresh start) opens with the
@@ -30,6 +35,9 @@ export type DockTab = (typeof DOCK_TABS)[number];
 /** The tabs, in strip order. */
 export const dockTabs: ReadonlyArray<DockTab> = DOCK_TABS;
 
+/** The tabs a project's dock offers before any thread exists, in strip order. */
+export const projectDockTabs: ReadonlyArray<DockTab> = ["changes", "files"];
+
 /** The launcher: the dock open with no tab chosen. */
 export const DOCK_HOME = "home";
 
@@ -42,6 +50,10 @@ export const isDockTab = (value: unknown): value is DockTab =>
 /** What `?pane=` may carry; anything else reads as a closed dock. */
 export const isDockPane = (value: unknown): value is DockPane =>
   value === DOCK_HOME || isDockTab(value);
+
+/** What the New task page's `?pane=` may carry: the launcher, or a tab a project's dock offers. */
+export const isProjectDockPane = (value: unknown): value is DockPane =>
+  value === DOCK_HOME || (isDockTab(value) && projectDockTabs.includes(value));
 
 export const dockToggleTarget = (
   open: DockPane | undefined,
@@ -85,12 +97,17 @@ export const dockArrivalTarget = (memory: DockMemory | undefined): DockPane | un
   memory?.shown;
 
 /**
- * The tab `step` places from `from` along the strip, wrapping at either end.
- * The launcher selects no tab, but the strip's one Tab stop is then its first
- * tab, so the arrows step from there: Right to the second, Left round to the
- * last — the same as from a selected first tab.
+ * The tab `step` places from `from` along a strip of `tabs`, wrapping at
+ * either end. The launcher selects no tab, but the strip's one Tab stop is
+ * then its first tab, so the arrows step from there: Right to the second, Left
+ * round to the last — the same as from a selected first tab. A tab the strip
+ * does not hold steps from its first tab too.
  */
-export const adjacentDockTab = (from: DockPane, step: 1 | -1): DockTab => {
-  const index = isDockTab(from) ? DOCK_TABS.indexOf(from) : 0;
-  return DOCK_TABS[(index + step + DOCK_TABS.length) % DOCK_TABS.length] as DockTab;
+export const adjacentDockTab = (
+  from: DockPane,
+  step: 1 | -1,
+  tabs: ReadonlyArray<DockTab> = dockTabs,
+): DockTab => {
+  const index = isDockTab(from) ? Math.max(0, tabs.indexOf(from)) : 0;
+  return tabs[(index + step + tabs.length) % tabs.length] as DockTab;
 };

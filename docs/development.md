@@ -419,7 +419,7 @@ into the view a pane renders. Eleven scenarios:
 | `settings.test.ts`    | the settings pages, against the user's real files     |
 | `attachment.test.ts`  | an image on a turn                                    |
 | `mcp.test.ts`         | OpenAde's own tools, offered to the harness           |
-| `terminal.test.ts`    | a terminal over the wire, from open to close          |
+| `terminal.test.ts`    | a thread's and a project's terminal over the wire     |
 
 Each scenario with a harness in it runs against two drivers
 (`apps/server/test/e2e/harness.ts`):

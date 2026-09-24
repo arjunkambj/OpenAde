@@ -29,8 +29,8 @@ import "@xterm/xterm/css/xterm.css";
 import { useAtomSet } from "@effect/atom-react";
 import { detectModKey, resolveKeybinding } from "@OpenAde/client-runtime/keybindings";
 import { encodeTerminalKey } from "@OpenAde/client-runtime/terminalAtoms";
-import type { TerminalId, ThreadId } from "@OpenAde/contracts/ids";
-import type { TerminalSize } from "@OpenAde/contracts/terminal";
+import type { TerminalId } from "@OpenAde/contracts/ids";
+import { decodeTerminalOwnerKey, type TerminalSize } from "@OpenAde/contracts/terminal";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
 import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -83,13 +83,14 @@ function useLookVersion(): string {
 }
 
 function TerminalAttachment({
-  threadId,
+  ownerKey,
   terminalId,
   terminal,
   onExited,
   onGone,
 }: {
-  threadId: ThreadId;
+  /** The terminal's owner, a thread or a project, by `terminalOwnerKey`. */
+  ownerKey: string;
   terminalId: TerminalId;
   terminal: Terminal;
   onExited: (terminalId: TerminalId, exitCode: number | null) => void;
@@ -97,7 +98,9 @@ function TerminalAttachment({
 }) {
   const atoms = useTerminalAtoms();
   const setAttach = useAtomSet(
-    atoms.terminalAttachAtom(encodeTerminalKey({ threadId, terminalId })),
+    atoms.terminalAttachAtom(
+      encodeTerminalKey({ ...decodeTerminalOwnerKey(ownerKey), terminalId }),
+    ),
   );
   const write = useAtomSet(atoms.writeTerminal);
   const resize = useAtomSet(atoms.resizeTerminal);
@@ -105,7 +108,7 @@ function TerminalAttachment({
   handlersRef.current = { onExited, onGone };
 
   React.useEffect(() => {
-    const ref = { threadId, terminalId };
+    const ref = { ...decodeTerminalOwnerKey(ownerKey), terminalId };
     let sent: TerminalSize | null = null;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -146,13 +149,13 @@ function TerminalAttachment({
       grid.dispose();
       setAttach(Atom.Reset);
     };
-  }, [threadId, terminalId, terminal, setAttach, write, resize]);
+  }, [ownerKey, terminalId, terminal, setAttach, write, resize]);
 
   return null;
 }
 
 export default function TerminalView({
-  threadId,
+  ownerKey,
   terminalId,
   focusRequest,
   settling,
@@ -162,7 +165,8 @@ export default function TerminalView({
   onHandle,
   onOpenLink,
 }: {
-  threadId: ThreadId;
+  /** The terminal's owner, a thread or a project, by `terminalOwnerKey`. */
+  ownerKey: string;
   terminalId: TerminalId | null;
   /** Focus the terminal whenever this changes; 0 means "not asked yet". */
   focusRequest: number;
@@ -335,7 +339,7 @@ export default function TerminalView({
       {xterm !== null && terminalId !== null ? (
         <TerminalAttachment
           key={terminalId}
-          threadId={threadId}
+          ownerKey={ownerKey}
           terminalId={terminalId}
           terminal={xterm.terminal}
           onExited={onExited}
