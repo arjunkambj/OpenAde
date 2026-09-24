@@ -11,6 +11,13 @@
  *   list until it is back at its end or the reader jumps to the latest row —
  *   or until they send a message themselves (`sentHere`).
  *
+ * Expand-all and collapse-all (`timeline.expandAll` / `collapseAll`) open or
+ * close every turn fold at once, most of them in turns above the viewport, so
+ * rows come and go above the reader. They are not the reader opening a fold
+ * under their eyes and do not hand over the scroll: a list following at its
+ * end stays there (`bulkFoldKeepsEnd`), and otherwise the row the reader is
+ * on keeps its place on screen (`viewAnchors`, `pickViewAnchor`).
+ *
  * The last sent message keeps an end reserve (`reserveRowId`, LegendList's
  * `anchoredEndSpace`) in every mode: the trailing space that lets it reach the
  * top while the reply is still shorter than a screen. The reserve shrinks on
@@ -30,6 +37,7 @@
  */
 
 import type { TimelineRow } from "./fold";
+import { rowAtOffset } from "./turn-rail";
 
 export type SendAnchorMode = "follow" | "anchored" | "free";
 
@@ -169,3 +177,55 @@ const SCROLL_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 export const isScrollKey = (key: string): boolean => SCROLL_KEYS.has(key);
+
+/** A row and where its top sat on screen, px below the viewport top. */
+export interface ViewAnchor {
+  readonly rowId: string;
+  readonly offset: number;
+}
+
+/** Rows above the viewport a bulk fold change may fall back to. */
+const ANCHORS_ABOVE = 50;
+
+/**
+ * What a bulk fold change keeps in place, best first: every row on screen
+ * from the top down, where it sits, then the rows above it, nearest first,
+ * to put at the top — collapse-all can fold away every row on screen, and
+ * the fold row that hid them sits above. `positionAt` is the list's row
+ * positions; `top` and `bottom` bound the viewport in the same coordinates.
+ */
+export const viewAnchors = (
+  rowIds: ReadonlyArray<string>,
+  positionAt: (index: number) => number | undefined,
+  top: number,
+  bottom: number,
+): ReadonlyArray<ViewAnchor> => {
+  const first = Math.max(0, rowAtOffset(rowIds.length, positionAt, top));
+  const anchors: ViewAnchor[] = [];
+  for (let index = first; index < rowIds.length; index += 1) {
+    const position = positionAt(index);
+    if (position === undefined || position >= bottom) {
+      break;
+    }
+    anchors.push({ rowId: rowIds[index]!, offset: position - top });
+  }
+  for (let index = first - 1; index >= Math.max(0, first - ANCHORS_ABOVE); index -= 1) {
+    anchors.push({ rowId: rowIds[index]!, offset: 0 });
+  }
+  return anchors;
+};
+
+/** The first anchor whose row the list still holds. */
+export const pickViewAnchor = (
+  anchors: ReadonlyArray<ViewAnchor>,
+  holds: (rowId: string) => boolean,
+): ViewAnchor | undefined => anchors.find((anchor) => holds(anchor.rowId));
+
+/**
+ * Whether a bulk fold change leaves the scroll to the list's follow: only
+ * while following with the list at its end, which it keeps as the rows above
+ * change. Anchored, the list sits at its end by design and the held message
+ * keeps its place instead.
+ */
+export const bulkFoldKeepsEnd = (mode: SendAnchorMode, atEnd: boolean): boolean =>
+  mode === "follow" && atEnd;

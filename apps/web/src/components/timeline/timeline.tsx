@@ -8,7 +8,9 @@
  * `timeline.collapseAll` / `expandAll` write a disclosure override for every
  * row that folds (`disclosureIds`), nested and grouped rows included. The ids
  * come from the projection with every turn fold open, so the rows a closed
- * fold hides are opened or closed along with it.
+ * fold hides are opened or closed along with it. Most of those folds are
+ * above the viewport, so the send anchor is told first (`beforeFoldAll`) and
+ * keeps the reader's place rather than handing them the scroll.
  *
  * A turn fold changes which rows the list holds, so the projection depends on
  * the open folds (`useOpenTurnFolds`) as well as on the snapshot.
@@ -77,8 +79,13 @@ export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
   const navigation = useTurnNavigation({ listRef, rows: projection.rows, release: anchor.release });
   const setDisclosures = useSetRowDisclosures();
   useKeybindingCommand("timeline.jumpToLatest", anchor.jumpToLatest);
-  useKeybindingCommand("timeline.collapseAll", () => setDisclosures(everyDisclosure(), false));
-  useKeybindingCommand("timeline.expandAll", () => setDisclosures(everyDisclosure(), true));
+  // Folds above the viewport open and close too: the anchor holds the reader's place.
+  const foldAll = (open: boolean) => {
+    anchor.beforeFoldAll();
+    setDisclosures(everyDisclosure(), open);
+  };
+  useKeybindingCommand("timeline.collapseAll", () => foldAll(false));
+  useKeybindingCommand("timeline.expandAll", () => foldAll(true));
 
   const renderItem = React.useCallback(
     ({ item }: { item: (typeof projection.rows)[number] }) => (

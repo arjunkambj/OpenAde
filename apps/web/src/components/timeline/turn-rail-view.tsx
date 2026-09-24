@@ -45,7 +45,7 @@ import {
   rowAtOffset,
   wheelPixels,
 } from "./turn-rail";
-import { prefersReducedMotion } from "./use-send-anchor";
+import { contentScrollTop, prefersReducedMotion } from "./use-send-anchor";
 
 /** Room left above a message the rail scrolls to, in px. Less than the row gap. */
 const RAIL_OFFSET = 8;
@@ -72,10 +72,7 @@ interface ViewRows {
  */
 const viewRows = (list: LegendListRef): ViewRows => {
   const node = list.getScrollableNode();
-  const content = node.firstElementChild;
-  const padding =
-    content instanceof HTMLElement ? Number.parseFloat(getComputedStyle(content).paddingTop) : 0;
-  const top = node.scrollTop - (Number.isFinite(padding) ? padding : 0);
+  const top = contentScrollTop(list);
   const state = list.getState();
   const rowAt = (offset: number) => rowAtOffset(state.data.length, state.positionAtIndex, offset);
   return {

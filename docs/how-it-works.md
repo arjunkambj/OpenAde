@@ -2634,6 +2634,13 @@ children, turn summary cards and answered-decision records (`disclosureIds`
 in `components/timeline/disclosure.ts`). The ids come from the timeline built
 with every turn fold open, so expanding all opens each settled turn's fold
 and the work groups inside it in one go, and collapsing all closes them.
+Most of those folds sit above the viewport, and the list's own scroll
+anchoring does not cover rows added or removed, so neither key hands the
+scroll to the reader as opening one fold does (`send-anchor.ts`): a list
+following at its end stays at its end, and otherwise the row the reader was
+on is held where it sat on screen — or, when collapsing folded away every
+row on screen, the nearest row above them, usually the fold that hid them,
+goes to the top — until the rows stop moving or the reader scrolls.
 
 The git keys belong to the thread header. `git.commit` is the Commit button
 and `git.push` is Commit & push, which pushes straight away when there is

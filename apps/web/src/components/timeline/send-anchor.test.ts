@@ -4,15 +4,18 @@ import { describe, expect, it } from "vitest";
 
 import type { TimelineRow } from "./fold";
 import {
+  bulkFoldKeepsEnd,
   foldsOpened,
   INITIAL_SEND_ANCHOR,
   isScrollKey,
+  pickViewAnchor,
   rowIdSet,
   sendAnchorProps,
   sendAnchorReducer,
   sentUserMessageId,
   type SendAnchorEvent,
   type SendAnchorState,
+  viewAnchors,
 } from "./send-anchor";
 
 const row = (id: string, kind: ItemKind = "assistant_message"): TimelineRow => ({
@@ -182,6 +185,52 @@ describe("sendAnchorReducer", () => {
     const free = run([{ type: "userScrollIntent" }], anchored);
     expect(run([{ type: "turnSettled" }], free)).toBe(free);
     expect(run([{ type: "turnSettled" }])).toBe(INITIAL_SEND_ANCHOR);
+  });
+});
+
+describe("bulk fold changes", () => {
+  // Rows 100px tall from 0; the viewport shows 250..550.
+  const ids = ["u1", "fold1", "a1", "u2", "fold2", "a2", "u3", "a3"];
+  const positionAt = (index: number) => (index < ids.length ? index * 100 : undefined);
+
+  it("keeps every row on screen where it sits, then falls back to the rows above", () => {
+    expect(viewAnchors(ids, positionAt, 250, 550)).toEqual([
+      // The row straddling the top, above it by 50px, then the rest on screen.
+      { rowId: "a1", offset: -50 },
+      { rowId: "u2", offset: 50 },
+      { rowId: "fold2", offset: 150 },
+      { rowId: "a2", offset: 250 },
+      // Above the viewport, nearest first, to put at the top.
+      { rowId: "fold1", offset: 0 },
+      { rowId: "u1", offset: 0 },
+    ]);
+    expect(viewAnchors([], positionAt, 0, 300)).toEqual([]);
+  });
+
+  it("picks the first anchor whose row survived the change", () => {
+    const anchors = viewAnchors(ids, positionAt, 250, 550);
+    // Expand-all only adds rows: the row at the top stays the anchor.
+    expect(pickViewAnchor(anchors, () => true)).toEqual({ rowId: "a1", offset: -50 });
+    // Collapse-all folded away the work on screen: the next message holds.
+    const kept = new Set(["u1", "fold1", "u2", "u3"]);
+    expect(pickViewAnchor(anchors, (rowId) => kept.has(rowId))).toEqual({
+      rowId: "u2",
+      offset: 50,
+    });
+    // Nothing on screen survived: the nearest row above, the fold, goes to the top.
+    expect(pickViewAnchor(anchors, (rowId) => rowId === "fold1" || rowId === "u1")).toEqual({
+      rowId: "fold1",
+      offset: 0,
+    });
+    expect(pickViewAnchor(anchors, () => false)).toBeUndefined();
+  });
+
+  it("leaves the scroll to the follow only while following at the end", () => {
+    expect(bulkFoldKeepsEnd("follow", true)).toBe(true);
+    expect(bulkFoldKeepsEnd("follow", false)).toBe(false);
+    // Anchored, the list is at its end by design; the held message keeps its place.
+    expect(bulkFoldKeepsEnd("anchored", true)).toBe(false);
+    expect(bulkFoldKeepsEnd("free", true)).toBe(false);
   });
 });
 
