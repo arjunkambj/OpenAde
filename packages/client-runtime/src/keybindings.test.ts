@@ -11,7 +11,7 @@ import {
   parseShortcut,
   parseWhen,
   resolveKeybinding,
-  whenNamesFocus,
+  whenNeedsTextFocus,
   type ShortcutEvent,
 } from "./keybindings";
 
@@ -319,8 +319,25 @@ describe("the text-field rule", () => {
     expect(resolve(press("x", { altKey: true }), () => false)).toBe("plain.alt");
   });
 
-  it("lets a clause that names a focus key opt in", () => {
+  it("lets a clause that needs a text field opt in", () => {
     expect(resolve(press("Tab", { shiftKey: true }), typing)).toBe("composer.planMode.toggle");
+  });
+
+  it("keeps a clause that only negates a focus key out of text fields", () => {
+    // `!browserFocus` keeps a chord away from the browser pane; it says nothing
+    // about text fields, so a plain key under it must not eat typed characters.
+    const scoped: ReadonlyArray<Keybinding> = [
+      { command: "x", shortcut: "J", when: "!terminalFocus" },
+      { command: "y", shortcut: "I", when: "threadOpen && !browserFocus" },
+      { command: "z", shortcut: "Backspace", when: "!browserFocus" },
+    ];
+    const open = (name: string) => typing(name) || name === "threadOpen";
+    const run = (event: ShortcutEvent) =>
+      resolveKeybinding(scoped, event, open, "meta")?.command ?? null;
+    expect(run(press("j"))).toBeNull();
+    expect(run(press("i"))).toBeNull();
+    expect(run(press("Backspace"))).toBeNull();
+    expect(resolveKeybinding(scoped, press("j"), () => false, "meta")?.command).toBe("x");
   });
 
   it("lets Escape, F-keys and Mod chords through", () => {
@@ -337,15 +354,24 @@ describe("the text-field rule", () => {
     expect(fires("F25")).toBe(false);
     expect(fires("Enter")).toBe(false);
     expect(fires("ArrowUp")).toBe(false);
-    expect(fires("Tab", "!terminalFocus")).toBe(true);
+    expect(fires("Tab", "composerFocus")).toBe(true);
+    expect(fires("Tab", "!terminalFocus")).toBe(false);
   });
 
-  it("finds focus keys in a clause", () => {
-    expect(whenNamesFocus("approvalPending && !browserFocus")).toBe(true);
-    expect(whenNamesFocus('inputFocus == "yes"')).toBe(true);
-    expect(whenNamesFocus("approvalPending")).toBe(false);
-    expect(whenNamesFocus("composerFocus &&")).toBe(false);
-    expect(whenNamesFocus(undefined)).toBe(false);
+  it("opts in only a clause that cannot hold outside a text field", () => {
+    expect(whenNeedsTextFocus("composerFocus")).toBe(true);
+    expect(whenNeedsTextFocus("terminalFocus && !dialogOpen")).toBe(true);
+    expect(whenNeedsTextFocus("inputFocus && (a || b)")).toBe(true);
+    expect(whenNeedsTextFocus("composerFocus || terminalFocus")).toBe(true);
+    expect(whenNeedsTextFocus('inputFocus == "true"')).toBe(true);
+    expect(whenNeedsTextFocus("!terminalFocus")).toBe(false);
+    expect(whenNeedsTextFocus("approvalPending && !browserFocus")).toBe(false);
+    expect(whenNeedsTextFocus("composerFocus || approvalPending")).toBe(false);
+    expect(whenNeedsTextFocus('mode == "plan"')).toBe(false);
+    expect(whenNeedsTextFocus("browserFocus")).toBe(false);
+    expect(whenNeedsTextFocus("approvalPending")).toBe(false);
+    expect(whenNeedsTextFocus("composerFocus &&")).toBe(false);
+    expect(whenNeedsTextFocus(undefined)).toBe(false);
   });
 });
 

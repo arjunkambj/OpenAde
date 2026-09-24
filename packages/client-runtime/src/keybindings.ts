@@ -472,35 +472,89 @@ export const evaluateWhen = (expression: string, context: WhenContext): boolean 
 
 // ── The text-field rule ────────────────────────────────────────
 
-/** The context keys that say where focus is; naming one opts a binding into text fields. */
-const FOCUS_CONTEXT_KEYS: ReadonlySet<string> = new Set([
+/**
+ * The context keys that put focus in a text field. A clause that cannot hold
+ * without one of them opts a binding into text fields. `browserFocus` is not
+ * one: the browser pane has an address bar, but most of it is not a field.
+ */
+const TEXT_FOCUS_KEYS: ReadonlySet<string> = new Set([
   "inputFocus",
   "composerFocus",
   "terminalFocus",
-  "browserFocus",
 ]);
 
-const namesIn = (node: WhenNode, into: Set<string>): Set<string> => {
+type WhenLeaf = Extract<WhenNode, { kind: "flag" | "compare" }>;
+
+/** Evaluates a clause with each flag or comparison answered by `leaf`. */
+const evaluateLeaves = (node: WhenNode, leaf: (node: WhenLeaf) => boolean): boolean => {
+  switch (node.kind) {
+    case "const":
+      return node.value;
+    case "flag":
+    case "compare":
+      return leaf(node);
+    case "not":
+      return !evaluateLeaves(node.operand, leaf);
+    case "and":
+      return evaluateLeaves(node.left, leaf) && evaluateLeaves(node.right, leaf);
+    case "or":
+      return evaluateLeaves(node.left, leaf) || evaluateLeaves(node.right, leaf);
+  }
+};
+
+/** A comparison is its own atom, true when it holds: `x == "v"`, never `x != "v"`. */
+const leafAtom = (node: WhenLeaf): string =>
+  node.kind === "flag" ? node.name : `${node.name}==${JSON.stringify(node.value)}`;
+
+const leafAtoms = (node: WhenNode, into: Set<string>): Set<string> => {
   switch (node.kind) {
     case "const":
       return into;
     case "flag":
     case "compare":
-      return into.add(node.name);
+      return TEXT_FOCUS_KEYS.has(node.name) ? into : into.add(leafAtom(node));
     case "not":
-      return namesIn(node.operand, into);
+      return leafAtoms(node.operand, into);
     case "and":
     case "or":
-      return namesIn(node.right, namesIn(node.left, into));
+      return leafAtoms(node.right, leafAtoms(node.left, into));
   }
 };
 
-/** True when the clause mentions a focus key, negated or not. */
-export const whenNamesFocus = (when: string | undefined): boolean => {
+/** Beyond this many other atoms the check gives up and does not opt in. */
+const MAX_OTHER_ATOMS = 12;
+
+/**
+ * True when the clause cannot hold unless focus is in a text field: it is
+ * false under every assignment in which `inputFocus`, `composerFocus` and
+ * `terminalFocus` are all false. `composerFocus` and `inputFocus && x` need a
+ * text field; `!terminalFocus`, `threadOpen && !browserFocus` and
+ * `x || composerFocus` do not, so naming a focus key is not enough. Every
+ * other flag, and every `x == "v"`, is tried both ways.
+ */
+export const whenNeedsTextFocus = (when: string | undefined): boolean => {
   const node = when === undefined ? null : parseWhen(when);
-  return (
-    node !== null && [...namesIn(node, new Set())].some((name) => FOCUS_CONTEXT_KEYS.has(name))
-  );
+  if (node === null) {
+    return false;
+  }
+  const atoms = [...leafAtoms(node, new Set())];
+  if (atoms.length > MAX_OTHER_ATOMS) {
+    return false;
+  }
+  for (let mask = 0; mask < 1 << atoms.length; mask += 1) {
+    const holds = evaluateLeaves(node, (leaf) => {
+      if (TEXT_FOCUS_KEYS.has(leaf.name)) {
+        // The focus key is false here; a comparison reads it as `false`.
+        return leaf.kind === "flag" ? false : (leaf.value === "false") === leaf.equal;
+      }
+      const value = (mask & (1 << atoms.indexOf(leafAtom(leaf)))) !== 0;
+      return leaf.kind === "compare" && !leaf.equal ? !value : value;
+    });
+    if (holds) {
+      return false;
+    }
+  }
+  return true;
 };
 
 const FUNCTION_KEY = /^f(?:[1-9]|1\d|2[0-4])$/u;
@@ -509,14 +563,15 @@ const FUNCTION_KEY = /^f(?:[1-9]|1\d|2[0-4])$/u;
  * Whether a binding may fire while focus is in a text field. A chord with Mod
  * or Ctrl, Escape, or an F-key cannot be typing, so it may; anything else —
  * a plain key, Shift+key, Alt+key, Tab, Enter, an arrow — only when its `when`
- * clause names a focus key and so says where it means to apply.
+ * clause cannot hold outside a text field (`whenNeedsTextFocus`), and so says
+ * which field it means to act in.
  */
 export const firesInTextField = (shortcut: ParsedShortcut, when: string | undefined): boolean =>
   shortcut.mod ||
   shortcut.ctrl ||
   shortcut.key === "escape" ||
   FUNCTION_KEY.test(shortcut.key) ||
-  whenNamesFocus(when);
+  whenNeedsTextFocus(when);
 
 // ── Resolution ─────────────────────────────────────────────────
 

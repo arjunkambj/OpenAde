@@ -2120,8 +2120,10 @@ the build, on either platform, in these cases:
 - two defaults share a physical chord in contexts that can overlap;
 - a default collides with a reserved row;
 - a default takes a system-reserved chord;
-- Tab, Enter, Space or a plain arrow is bound without a clause that names a
-  focus key;
+- Tab, Enter, Space or a plain arrow is bound without a clause that needs a
+  text field;
+- a plain or Shift-only printable key has a clause that neither needs a text
+  field nor rules one out with `!inputFocus`;
 - anything plain or Shift-only is bound on a trigger character;
 - a shortcut or a clause fails to parse.
 
@@ -2173,10 +2175,13 @@ The matcher is `packages/client-runtime/src/keybindings.ts`:
   binding rather than misfiring.
 - **The text-field rule.** While `inputFocus` is true, a binding fires only if
   its chord has Mod or Ctrl, its key is Escape or F1–F24, or its `when` clause
-  names a focus key (`inputFocus`, `composerFocus`, `terminalFocus`,
-  `browserFocus`). A plain key, Shift+key, Alt+key, Tab, Enter or an arrow
-  never fires while the user is typing unless its clause says where it applies,
-  as `Shift+Tab` with `when: composerFocus` does (`firesInTextField`).
+  cannot hold outside a text field: it is false whenever `inputFocus`,
+  `composerFocus` and `terminalFocus` are all false (`whenNeedsTextFocus`). A
+  plain key, Shift+key, Alt+key, Tab, Enter or an arrow never fires while the
+  user is typing unless its clause names the field it acts in, as `Shift+Tab`
+  with `when: composerFocus` does (`firesInTextField`). Naming a focus key only
+  to rule it out is not enough: a plain key under `!browserFocus` or
+  `threadOpen && !terminalFocus` still stays out of text fields.
 
 The context keys a clause may name are listed, with what each means and who
 sets it, in `KEYBINDING_CONTEXT_KEYS` (`packages/client-runtime/src/keymap.ts`).

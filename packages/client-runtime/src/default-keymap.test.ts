@@ -10,8 +10,8 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_KEYBINDINGS, RESERVED_KEYBINDINGS } from "@OpenAde/contracts/keybindings";
 import type { Keybinding } from "@OpenAde/contracts/settings";
 
-import { parseShortcut, parseWhen, whenNamesFocus, type ModKey } from "./keybindings";
-import { findKeybindingConflicts, reservedChordReason } from "./keymap";
+import { parseShortcut, parseWhen, whenNeedsTextFocus, type ModKey } from "./keybindings";
+import { findKeybindingConflicts, reservedChordReason, whenOverlaps } from "./keymap";
 
 const PLATFORMS: ReadonlyArray<ModKey> = ["meta", "ctrl"];
 
@@ -29,6 +29,26 @@ const TEXT_KEYS = new Set(["tab", "enter", " ", "arrowup", "arrowdown", "arrowle
 /** The composer's trigger characters, and the US digits Shift turns into them. */
 const TRIGGER_CHARACTERS = new Set(["@", "#", "$", "/"]);
 const SHIFTED_TRIGGERS = new Set(["2", "3", "4"]);
+
+/**
+ * Plain or Shift-only printable keys whose clause neither needs a text field
+ * nor rules one out. A printable key either acts in a named field or says
+ * `!inputFocus`, so where it fires is written in the clause rather than left
+ * to the text-field rule.
+ */
+const unscopedPlainKeys = (table: ReadonlyArray<Keybinding>): ReadonlyArray<Keybinding> =>
+  table.filter((row) => {
+    const parsed = parseShortcut(row.shortcut);
+    return (
+      parsed !== null &&
+      !parsed.mod &&
+      !parsed.ctrl &&
+      !parsed.alt &&
+      [...parsed.key].length === 1 &&
+      !whenNeedsTextFocus(row.when) &&
+      PLATFORMS.some((platform) => whenOverlaps(row.when, "inputFocus", platform))
+    );
+  });
 
 describe("the default keymap", () => {
   it("parses every shortcut and every when clause", () => {
@@ -56,7 +76,7 @@ describe("the default keymap", () => {
     expect(taken).toEqual([]);
   });
 
-  it("binds Tab, Enter, Space and plain arrows only where a clause names the focus", () => {
+  it("binds Tab, Enter, Space and plain arrows only where a clause needs a text field", () => {
     const loose = DEFAULT_KEYBINDINGS.filter((row) => {
       const parsed = parseShortcut(row.shortcut);
       return (
@@ -65,10 +85,14 @@ describe("the default keymap", () => {
         !parsed.ctrl &&
         !parsed.alt &&
         TEXT_KEYS.has(parsed.key) &&
-        !whenNamesFocus(row.when)
+        !whenNeedsTextFocus(row.when)
       );
     });
     expect(loose.map(describeRow)).toEqual([]);
+  });
+
+  it("scopes every plain or Shift-only key to a text field or to outside one", () => {
+    expect(unscopedPlainKeys(DEFAULT_KEYBINDINGS).map(describeRow)).toEqual([]);
   });
 
   it("leaves the composer's trigger characters to be typed", () => {
@@ -97,6 +121,19 @@ describe("the default keymap", () => {
 });
 
 describe("the collision checks themselves", () => {
+  it("catch a plain key scoped only by a negated focus key", () => {
+    const rows: ReadonlyArray<Keybinding> = [
+      { command: "extra.thing", shortcut: "I", when: "!browserFocus" },
+      { command: "extra.other", shortcut: "Shift+J", when: "threadOpen && !terminalFocus" },
+      { command: "extra.fine", shortcut: "J", when: "threadOpen && !inputFocus" },
+      { command: "extra.typed", shortcut: "J", when: "composerFocus" },
+    ];
+    expect(unscopedPlainKeys(rows).map((row) => row.command)).toEqual([
+      "extra.thing",
+      "extra.other",
+    ]);
+  });
+
   it("catch a duplicate chord in an overlapping context", () => {
     const table = [...DEFAULT_KEYBINDINGS, { command: "extra.thing", shortcut: "Mod+Shift+L" }];
     expect(describeConflicts(table, "meta")).toHaveLength(1);
