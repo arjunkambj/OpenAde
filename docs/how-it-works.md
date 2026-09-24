@@ -1831,6 +1831,45 @@ shell matches it in the guest, swallows it and relays the command, and the
 tab it came from moves. That also means `Cmd+R` in a page reloads the page:
 the default menu's window reload never fires from inside a pane tab.
 
+### Dev servers and suggestions
+
+Focusing the address field lists the project's running dev servers, then the
+pages the project's tabs have visited; typing narrows both, the arrow keys
+highlight one and Enter loads it (or what was typed, with none highlighted).
+The empty pane offers the same servers as one-click buttons. History is kept
+per project in the window's localStorage — http(s) pages only, a revisit
+moved to the front, at most 50 — and on the desktop every tab is recorded,
+the agent's hidden ones included.
+
+The servers come from `browser.discoverServers`
+(`apps/server/src/browser/discovery.ts`), because only the server sees the
+machine. It answers "which of this project's processes serve a page here?"
+in three steps:
+
+1. `lsof -nP -iTCP -sTCP:LISTEN -F pcn` lists every listening TCP socket with
+   its pid and command (argv-form, never a shell, 3 s at most). Only loopback
+   and wildcard sockets count; one bound to a LAN address is not what
+   `localhost` reaches.
+2. `lsof -a -d cwd -p <pids> -Fn` gives each one's working directory, and a
+   listener counts only when that is the project's folder or inside it. This
+   is the step that keeps another project's dev server, a chat app's local
+   port and macOS's AirPlay receiver on `*:5000` out of the list — a bare port
+   probe cannot tell whose a port is.
+3. One `GET /` per candidate on its own loopback address (`[::1]` for a
+   server bound there, which is where Vite lands when `localhost` resolves to
+   IPv6), 500 ms each, eight at a time. Only an HTML answer or a redirect is
+   kept, so a database, a language server or a debugger port is never
+   offered as a page.
+
+Every server is offered as `http://localhost:<port>` with its process name,
+sorted by port, sixteen at most; the server's own port is never among them.
+Without `lsof` (Windows, a Linux without it) nothing can say whose a port is,
+so the fallback probes a fixed list of at most sixteen common dev ports on
+`localhost` — never a range — and offers what answers with no process name.
+Nothing scans in the background: the pane asks while the address bar is on
+screen and each time its list opens, and the server reuses a project's
+answer for 10 s.
+
 ### Tools
 
 The agent reaches the browser through MCP. `apps/server/src/mcp/McpGateway.ts`

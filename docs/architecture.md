@@ -483,6 +483,23 @@ the page they come back from the shell (`openade:browser-command`, see
 `apps/desktop/src/main/ipc.ts`) to the host's `use-guest-keys.ts`, which moves
 the tab the key came from and hands `browser.focusAddress` to the command
 registry. The host re-sends the chords whenever the table changes.
+
+**Suggestions.** Focusing the address field opens a stock `Popover` holding a
+stock `Command` list (`address-suggestions.tsx`) with the project's running
+dev servers, then the pages the project's tabs visited (`suggestions.ts`
+narrows both by what is typed). Focus stays in the field: the popover opens
+without taking it, a press in the list is kept from blurring it, and the
+arrow keys move the highlighted row from the field, so Enter loads the
+highlighted row or, with none, what was typed. The servers come from
+`browser.discoverServers` (`packages/client-runtime/src/browserAtoms.ts`),
+asked while the bar is on screen and again each time the list opens; the
+empty pane lists the same servers as buttons that open a tab through
+`openInThreadBrowser`. The history is per project, in this window's
+localStorage (`apps/web/src/state/browser-history.ts`, pure rules in
+`history.ts`): http(s) only, a revisit moves to the front, at most 50 pages.
+On the desktop the browser host records every tab of every thread, shown or
+not (`use-history-recorder.ts`); the web renderer's pane records the headless
+browser's page.
 There is no `unread` flag on the wire: whether this window has looked at a
 thread is not the server's business, and a thread with no stamp is deliberately
 not unread.
@@ -526,7 +543,7 @@ Directories, relative to `apps/server/`:
 | `src/permissions/`   | the ladder, the pattern re-export, the sensitive-path list                                                       |
 | `src/hooks/`         | the PreToolUse bridge                                                                                            |
 | `src/mcp/`           | the MCP gateway and its HTTP routes                                                                              |
-| `src/browser/`       | browser service, agent-browser CLI, driver, tool catalogue                                                       |
+| `src/browser/`       | browser service, agent-browser CLI, drivers, tool catalogue, dev-server discovery                                |
 | `src/terminal/`      | terminal service and sessions, pty seam, shell and env, scrollback, batcher                                      |
 | `src/git/`           | status/diff, branches, commit/push, gh pull requests, worktrees and their setup script, file search, checkpoints |
 | `src/fs/`            | `fs.browse`                                                                                                      |
@@ -656,7 +673,9 @@ Everything a client needs that is not React.
   projection of the server's projection; it decides nothing. Between snapshots
   it appends the same decision records the server keeps, and the next snapshot
   is authoritative.
-- `atoms.ts`, `gitAtoms.ts`, `fileAtoms.ts`, `fsAtoms.ts` — the atom factories.
+- `atoms.ts`, `gitAtoms.ts`, `fileAtoms.ts`, `fsAtoms.ts`, `browserAtoms.ts` — the
+  atom factories. `browserAtoms.ts` holds `devServersAtom(threadId)`, which a
+  failed call leaves an empty list rather than an error.
 - `gitCommands.ts` — the worktree writes: create, the setup script (a stream
   atom whose value is the run so far, so the output shows as it arrives) and
   remove; and the header's commit, push and pull request. Built on
@@ -1651,6 +1670,7 @@ the client in the terminal `incompatible` state.
 | `checkpoints.list`            | call   | Checkpoints that still exist as refs, read in the thread's root                     |
 | `browser.subscribe`           | stream | The browser pane's state, and frames when the browser is ours                       |
 | `browser.humanInput`          | call   | A human gesture into the browser the agent is driving                               |
+| `browser.discoverServers`     | call   | The dev servers running under the thread's project, for the address bar             |
 | `settings.get`                | call   | The settings document                                                               |
 | `settings.update`             | call   | Applies a patch, returns the new document                                           |
 | `settings.subscribe`          | stream | The settings document as it changes                                                 |

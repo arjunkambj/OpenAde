@@ -752,6 +752,21 @@ which it deletes afterwards. It scrubs the site and bridge ports to
 on any agent-browser or Electron upgrade: `cdpPolicy.test.ts` fails when the
 CLI starts sending a method the bridge refuses.
 
+### The lsof capture behind dev-server discovery
+
+`apps/server/src/browser/test/discovery/` is a real capture of the two `lsof`
+commands discovery runs, taken on macOS with four servers started for it (an
+HTML page and a redirect under a scratch project, a non-HTTP listener under
+it, and an HTML page outside it) among whatever else was listening. Its
+`manifest.json` names the commands, the four servers' pids and ports and what
+each answered `curl`. The home and scratch directories are scrubbed to
+`<HOME>` and `<SCRATCH>`. `discovery.test.ts` parses it and replays the
+recorded answers through the cwd filter; the probe itself runs against real
+local sockets, and one test runs the real `lsof` when the machine has it. To
+re-capture: start servers like those four from their folders, run the two
+commands from the manifest (the second with every pid the first printed),
+scrub, and update the manifest's pids and ports.
+
 ### Scrubbing
 
 Recordings are scrubbed on the way in: the scratch root becomes `<SCRATCH>`,
