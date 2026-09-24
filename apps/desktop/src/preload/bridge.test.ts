@@ -10,6 +10,7 @@
 
 import { describe, expect, it } from "vitest";
 
+import { NO_TAB_HOST, TAB_ANSWER_CHANNEL, TAB_REQUEST_CHANNEL } from "../main/browser/tabsChannel";
 import { makeOpenAdeBridge, type PreloadIpc, type ServerState } from "./bridge";
 
 type Listener = (event: unknown, ...args: never) => void;
@@ -17,11 +18,13 @@ type Listener = (event: unknown, ...args: never) => void;
 /** Records invokes and lets a test push on a channel, as the main process does. */
 const fakeIpc = () => {
   const invokes: Array<{ channel: string; args: ReadonlyArray<unknown> }> = [];
+  const invokeWaiters: Array<() => void> = [];
   const listeners = new Map<string, Array<Listener>>();
   const answers = new Map<string, unknown>();
   const ipc: PreloadIpc = {
     invoke: (channel, ...args) => {
       invokes.push({ channel, args });
+      invokeWaiters.splice(0).forEach((wake) => wake());
       return Promise.resolve(answers.get(channel));
     },
     on: (channel, listener) => {
@@ -41,6 +44,15 @@ const fakeIpc = () => {
     invokes,
     answer: (channel: string, value: unknown) => answers.set(channel, value),
     listenerCount: (channel: string) => (listeners.get(channel) ?? []).length,
+    /** Resolves once `count` invokes have been made in all. */
+    invoked: (count: number): Promise<void> =>
+      new Promise((resolve) => {
+        const check = () => {
+          if (invokes.length >= count) resolve();
+          else invokeWaiters.push(check);
+        };
+        check();
+      }),
     push: (channel: string, payload: unknown) => {
       for (const listener of listeners.get(channel) ?? []) {
         (listener as (event: unknown, payload: unknown) => void)({}, payload);
@@ -121,26 +133,67 @@ describe("makeOpenAdeBridge", () => {
     const bridge = makeOpenAdeBridge(fake.ipc);
     await bridge.openExternal("https://example.test");
     await bridge.pickDirectory();
-    await bridge.browserPane.attach("thread-1");
-    await bridge.browserPane.detach("thread-1");
     expect(fake.invokes).toEqual([
       { channel: "openade:open-external", args: ["https://example.test"] },
       { channel: "openade:pick-directory", args: [] },
-      { channel: "openade:browser-attach", args: ["thread-1"] },
-      { channel: "openade:browser-detach", args: ["thread-1"] },
     ]);
+    expect(bridge.browserPane).not.toHaveProperty("attach");
+    expect(bridge.browserPane).not.toHaveProperty("detach");
   });
 
-  it("hands browser-pane input through with its thread id", () => {
+  it("hands browser-pane input through with its thread and tab", () => {
     const fake = fakeIpc();
-    const seen: Array<{ threadId: string; input: unknown }> = [];
+    const seen: Array<{ threadId: string; wcId: number; input: unknown }> = [];
     const stop = makeOpenAdeBridge(fake.ipc).browserPane.onInput((payload) => seen.push(payload));
     fake.push("openade:browser-input", {
       threadId: "thread-1",
+      wcId: 12,
       input: { kind: "click", x: 1, y: 2 },
     });
     stop();
-    fake.push("openade:browser-input", { threadId: "thread-1", input: { kind: "key", key: "a" } });
-    expect(seen).toEqual([{ threadId: "thread-1", input: { kind: "click", x: 1, y: 2 } }]);
+    fake.push("openade:browser-input", {
+      threadId: "thread-1",
+      wcId: 12,
+      input: { kind: "key", key: "a" },
+    });
+    expect(seen).toEqual([
+      { threadId: "thread-1", wcId: 12, input: { kind: "click", x: 1, y: 2 } },
+    ]);
+  });
+
+  it("answers tab requests with no tab host at once, then through the host", async () => {
+    const fake = fakeIpc();
+    const bridge = makeOpenAdeBridge(fake.ipc);
+
+    fake.push(TAB_REQUEST_CHANNEL, { id: 1, op: "select", wcId: 4 });
+    const requests: Array<unknown> = [];
+    const stop = bridge.browserPane.serveTabs(async (request) => {
+      requests.push(request);
+      if (request.op === "close") throw new Error("no such tab");
+      return request.op === "create" ? { wcId: 31 } : {};
+    });
+    fake.push(TAB_REQUEST_CHANNEL, {
+      id: 2,
+      op: "create",
+      threadId: "t",
+      url: "about:blank",
+      background: true,
+    });
+    fake.push(TAB_REQUEST_CHANNEL, { id: 3, op: "close", wcId: 31 });
+    await fake.invoked(3);
+    stop();
+    fake.push(TAB_REQUEST_CHANNEL, { id: 4, op: "select", wcId: 31 });
+    await fake.invoked(4);
+
+    expect(requests).toEqual([
+      { op: "create", threadId: "t", url: "about:blank", background: true },
+      { op: "close", wcId: 31 },
+    ]);
+    expect(fake.invokes).toEqual([
+      { channel: TAB_ANSWER_CHANNEL, args: [{ id: 1, ok: false, error: NO_TAB_HOST }] },
+      { channel: TAB_ANSWER_CHANNEL, args: [{ id: 2, ok: true, wcId: 31 }] },
+      { channel: TAB_ANSWER_CHANNEL, args: [{ id: 3, ok: false, error: "no such tab" }] },
+      { channel: TAB_ANSWER_CHANNEL, args: [{ id: 4, ok: false, error: NO_TAB_HOST }] },
+    ]);
   });
 });

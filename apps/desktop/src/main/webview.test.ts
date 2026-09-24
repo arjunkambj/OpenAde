@@ -54,31 +54,47 @@ describe("applyWebviewAttachPolicy", () => {
       experimentalFeatures: false,
       webviewTag: false,
       plugins: false,
-      disablePopups: true,
     });
   });
 
-  /**
-   * Electron derives these two into `webPreferences` *before* the event fires
-   * and builds the guest from that object, so the attributes are already spent:
-   * only the preferences the policy writes can still deny the capability.
-   */
-  it("pins popups and plugins off in the preferences Electron already derived", () => {
-    const params = electronParams({ allowpopups: true, plugins: true });
-    const preferences: GuestPreferences = { disablePopups: false, plugins: true };
-
-    expect(applyWebviewAttachPolicy(preferences, params)).toBeNull();
-    expect(preferences.disablePopups).toBe(true);
-    expect(preferences.plugins).toBe(false);
+  it("attaches a blank tab the agent opened", () => {
+    expect(applyWebviewAttachPolicy({}, electronParams({ src: "about:blank" }))).toBeNull();
   });
 
-  it("pins popups and plugins off on a refused attach too", () => {
-    const preferences: GuestPreferences = { disablePopups: false, plugins: true };
+  /**
+   * Electron derives `plugins` and `disablePopups` into `webPreferences`
+   * *before* the event fires and builds the guest from that object, so only
+   * the preferences the policy writes can still deny a capability.
+   */
+  it("permits popups but still pins plugins off in the derived preferences", () => {
+    const params = electronParams({ allowpopups: true, plugins: true });
+    const preferences: GuestPreferences = {
+      disablePopups: false,
+      plugins: true,
+      nodeIntegration: true,
+      sandbox: false,
+      webviewTag: true,
+    };
+
+    expect(applyWebviewAttachPolicy(preferences, params)).toBeNull();
+    expect(preferences.disablePopups).toBe(false);
+    expect(params["allowpopups"]).toBe(true);
+    expect(preferences).toMatchObject({
+      plugins: false,
+      nodeIntegration: false,
+      sandbox: true,
+      contextIsolation: true,
+      webSecurity: true,
+      webviewTag: false,
+    });
+  });
+
+  it("pins plugins off on a refused attach too", () => {
+    const preferences: GuestPreferences = { plugins: true };
 
     expect(
       applyWebviewAttachPolicy(preferences, electronParams({ src: "file:///etc/passwd" })),
     ).not.toBeNull();
-    expect(preferences.disablePopups).toBe(true);
     expect(preferences.plugins).toBe(false);
   });
 
@@ -95,7 +111,6 @@ describe("applyWebviewAttachPolicy", () => {
     const params = electronParams({
       preload: "file:///tmp/evil.js",
       nodeintegration: true,
-      allowpopups: true,
       plugins: true,
       webpreferences: "nodeIntegration=yes,contextIsolation=no",
     });
@@ -104,18 +119,33 @@ describe("applyWebviewAttachPolicy", () => {
     expect(params["preload"]).toBe("");
     expect(params["webpreferences"]).toBe("");
     expect(params["nodeintegration"]).toBe(false);
-    expect(params["allowpopups"]).toBe(false);
     expect(params["plugins"]).toBe(false);
   });
 
   it("refuses a partition outside the pane's own namespace", () => {
-    for (const partition of ["", "persist:other", "thread-1", "persist:thread-a/b", null]) {
+    for (const partition of [
+      "",
+      "persist:other",
+      "thread-1",
+      "persist:thread-a/b",
+      "persist:thread-",
+      null,
+    ]) {
       expect(applyWebviewAttachPolicy({}, electronParams({ partition }))).toMatch(/partition/);
     }
   });
 
-  it("refuses a src that is not http(s)", () => {
-    for (const src of ["", "file:///etc/passwd", "openade://app/", "javascript:alert(1)"]) {
+  it("refuses a src that is not http(s) or a blank tab", () => {
+    for (const src of [
+      "",
+      "file:///etc/passwd",
+      "openade://app/",
+      "javascript:alert(1)",
+      "about:blank#x",
+      "about:srcdoc",
+      "data:text/html,hi",
+      "chrome://gpu",
+    ]) {
       expect(applyWebviewAttachPolicy({}, electronParams({ src }))).toMatch(/src/);
     }
   });

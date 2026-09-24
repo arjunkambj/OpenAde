@@ -7,7 +7,10 @@
  * Navigation and title changes are reported upward as passive `location`
  * inputs — they synchronize our state but do NOT claim human control (the
  * human's real gestures arrive through `window.openade.browserPane.onInput`,
- * hooked in main.ts's before-input-event relay).
+ * from the shell's per-guest input relay).
+ *
+ * `allowpopups` lets `window.open` reach the shell's window-open handler,
+ * which never opens a native window: it asks for a pane tab instead.
  *
  * Mount it with `key={threadId}`. Electron refuses a `partition` change once
  * the guest is attached, so reusing one element across threads keeps the first
@@ -37,14 +40,6 @@ export interface WebviewSurfaceProps {
 
 export function WebviewSurface({ threadId, attachUrl, onLocation }: WebviewSurfaceProps) {
   const ref = React.useRef<WebviewElement | null>(null);
-  const bridge = window.openade?.browserPane;
-
-  React.useEffect(() => {
-    void bridge?.attach(threadId);
-    return () => {
-      void bridge?.detach(threadId);
-    };
-  }, [threadId, bridge]);
 
   React.useEffect(() => {
     const view = ref.current;
@@ -55,27 +50,22 @@ export function WebviewSurface({ threadId, attachUrl, onLocation }: WebviewSurfa
         onLocation(url, view.getTitle());
       }
     };
-    const onNewWindow = (event: Event) => {
-      const url = (event as { url?: string }).url;
-      if (typeof url === "string" && /^https?:\/\//.test(url)) {
-        void window.openade?.openExternal?.(url);
-      }
-    };
     view.addEventListener("did-navigate", report);
     view.addEventListener("did-navigate-in-page", report);
     view.addEventListener("page-title-updated", report);
-    view.addEventListener("new-window", onNewWindow);
     return () => {
       view.removeEventListener("did-navigate", report);
       view.removeEventListener("did-navigate-in-page", report);
       view.removeEventListener("page-title-updated", report);
-      view.removeEventListener("new-window", onNewWindow);
     };
   }, [attachUrl, onLocation]);
 
-  const webviewProps = {
+  // Electron reads `allowpopups` by presence, so it goes through as a plain
+  // attribute rather than React's typed boolean.
+  const webviewProps: Readonly<Record<string, string>> = {
     src: attachUrl,
     partition: `persist:thread-${threadId}`,
+    allowpopups: "",
     className: "block min-h-0 flex-1",
   };
   return <webview ref={ref} {...webviewProps} />;

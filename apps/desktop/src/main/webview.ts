@@ -14,6 +14,15 @@
  * that somehow reaches this point still runs sandboxed, context-isolated and
  * without Node or a preload script.
  *
+ * Popups are the one capability the pane opts into. A pane tab carries
+ * `allowpopups` so that `window.open` reaches the guest's
+ * `setWindowOpenHandler`, which `./ipc.ts` installs on every webview guest the
+ * moment it is created: it always denies the native window and turns an
+ * http(s) popup into a new pane tab in the same thread (`./browser/guests.ts`).
+ * Without the attribute a popup is dropped before any handler sees it.
+ * The popup loses `window.opener`, since it is a fresh guest rather than a
+ * child window.
+ *
  * Which object to write to matters. Electron's guest-view manager derives the
  * `webPreferences` it will build the guest from *before* it emits
  * `will-attach-webview` — `plugins: params.plugins`,
@@ -25,6 +34,7 @@
  *
  * Kept free of `electron` imports so the whole policy is unit-testable.
  */
+import { threadIdOfPartition } from "./browser/guests";
 
 /** The subset of `Electron.WebPreferences` the policy pins for a guest. */
 export interface GuestPreferences {
@@ -42,15 +52,12 @@ export interface GuestPreferences {
   /** Pepper plugins. Electron derives this straight from the `plugins` attribute. */
   plugins?: boolean;
   /**
-   * Electron's internal inverse of `allowpopups`: `true` blocks `window.open`
-   * from the guest. No `setWindowOpenHandler` is installed on a guest, so this
-   * is the only thing standing between an injected tag and a popup.
+   * Electron's internal inverse of `allowpopups`, derived from the attribute.
+   * The policy leaves it alone: every guest's window-open handler denies the
+   * native window, so a popup can only ever become a pane tab.
    */
   disablePopups?: boolean;
 }
-
-/** Only the browser pane's own per-thread partitions may attach. */
-const PANE_PARTITION = /^persist:thread-[A-Za-z0-9_-]+$/;
 
 /**
  * Attributes that grant capabilities the pane never opts into. Electron sends
@@ -60,9 +67,12 @@ const ESCALATION_ATTRIBUTES = {
   preload: "",
   webpreferences: "",
   nodeintegration: false,
-  allowpopups: false,
   plugins: false,
 } as const;
+
+/** What a pane tab may start on: a web page, or a blank tab the agent opened. */
+const isPaneSrc = (src: unknown): boolean =>
+  typeof src === "string" && (/^https?:\/\//.test(src) || src === "about:blank");
 
 const isUnset = (value: unknown): boolean =>
   value === undefined ||
@@ -95,10 +105,9 @@ export const applyWebviewAttachPolicy = (
   preferences.experimentalFeatures = false;
   // A guest may not nest another webview.
   preferences.webviewTag = false;
-  // Already derived from `params.plugins` / `params.allowpopups` by the time
-  // this handler runs, so resetting the attributes below would come too late.
+  // Already derived from `params.plugins` by the time this handler runs, so
+  // resetting the attribute below would come too late.
   preferences.plugins = false;
-  preferences.disablePopups = true;
 
   // Reset the escalation attributes to the values Electron sends when the tag
   // never set them, so nothing downstream reads a renderer-supplied one.
@@ -109,13 +118,13 @@ export const applyWebviewAttachPolicy = (
   }
 
   const partition = params["partition"];
-  if (typeof partition !== "string" || !PANE_PARTITION.test(partition)) {
+  if (threadIdOfPartition(partition) === null) {
     return `partition ${JSON.stringify(partition)} is not a browser-pane partition`;
   }
 
   const src = params["src"];
-  if (typeof src !== "string" || !/^https?:\/\//.test(src)) {
-    return `src ${JSON.stringify(src)} is not http(s)`;
+  if (!isPaneSrc(src)) {
+    return `src ${JSON.stringify(src)} is not http(s) or about:blank`;
   }
 
   return null;

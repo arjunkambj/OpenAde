@@ -216,25 +216,35 @@ Owns the operating system. Nothing about orchestration lives here.
   deadline for the server child).
 - `apps/desktop/src/main/protocol.ts` — the `openade://app/` scheme.
 - `apps/desktop/src/main/webview.ts` — the `will-attach-webview` policy for the browser
-  pane. Only `persist:thread-*` partitions may attach, and the handler
-  overwrites the guest's `webPreferences` rather than only refusing bad ones,
-  so a guest that reaches that point still runs sandboxed, context-isolated,
-  without Node and without a preload.
-- `apps/desktop/src/main/ipc.ts` — the preload bridge's handlers, including the guest input
-  relay: `before-input-event` and `before-mouse-event` on the guest webContents
-  are the only place a pane gesture is observable, and they are relayed to the
-  host, which forwards them as `browser.humanInput`.
+  pane. Only `persist:thread-*` partitions may attach, with an http(s) or
+  `about:blank` src, and the handler overwrites the guest's `webPreferences`
+  rather than only refusing bad ones, so a guest that reaches that point still
+  runs sandboxed, context-isolated, without Node and without a preload. Popups
+  are the one capability a pane tab opts into (`allowpopups`); see
+  [The browser bridge](#the-browser-bridge) for where they go.
+- `apps/desktop/src/main/ipc.ts` — the preload bridge's handlers, and the one-time
+  setup of every pane guest at `web-contents-created`: its window-open
+  handler, the human-input relay (`browser/guestInput.ts`:
+  `before-input-event` and `before-mouse-event` on the guest are the only place
+  a pane gesture is observable; each is sent to the guest's current embedder
+  tagged with its thread and `webContents` id, and the renderer forwards it as
+  `browser.humanInput`), and the bridge registry.
 - `apps/desktop/src/main/browser/` — the browser bridge: the scoped CDP
   endpoint agent-browser drives the pane webviews through
-  ([below](#the-browser-bridge)). Electron-free — `upgradeGate.ts`,
-  `cdpPolicy.ts`, `bridgeSession.ts` and `server.ts` take the Electron side as
-  an injected `GuestPort` — and not yet wired into `index.ts`.
+  ([below](#the-browser-bridge)). `upgradeGate.ts`, `cdpPolicy.ts`,
+  `bridgeSession.ts`, `server.ts` and `tabsChannel.ts` are Electron-free;
+  `guests.ts` is the Electron side (the `GuestPort`), written against
+  Electron's types with its runtime pieces injected; `start.ts` starts it from
+  `index.ts`.
 - `apps/desktop/src/main/updater.ts` — an update-check stub that does nothing.
   The app has no update feed, and no UI or menu offers updates;
   `OPENADE_UPDATER=1` only logs that no feed is configured.
 - `apps/desktop/src/backend/` — `ServerSupervisor`, the spawn spec, the public server state
   the renderer sees.
-- `apps/desktop/src/platform/` — per-platform window defaults, lifecycle, the CDP port.
+- `apps/desktop/src/platform/` — per-platform window defaults, lifecycle, and
+  `browserBridge.ts`: whether the bridge starts (the `OPENADE_REMOTE_DEBUG=0`
+  kill switch) and the remote-debugging switches stripped from the command
+  line.
 
 Public seam: the preload bridge object, whose shape the renderer declares in
 `packages/client-runtime/src/resolver.ts`. May import `contracts` and `shared`
@@ -1683,23 +1693,18 @@ target, the interrupt rule and teardown on thread close. Every call is one
 Two modes (`apps/server/src/browser/driver.ts`), opened lazily on first use so
 opening the pane never launches Chrome:
 
-- **cdp-attach** — `OPENADE_CDP_PORT` is set, so the desktop launched with
-  remote debugging. The driver binds the pane's own webview guest through
+- **cdp-attach** — the driver binds the pane's own webview guest through
   agent-browser's CDP mode and pins the tab, so a destroyed pane reports
   `tab_gone` rather than silently driving another target. Human input lands in
-  the guest directly.
-- **owned-chromium** — no CDP endpoint, or no webview target inside the attach
-  window: agent-browser runs its own headless Chrome and the driver streams
-  JPEG frames over the session's WebSocket and forwards human input into it.
-  Every gesture on that pane is human by construction — the agent cannot click
-  an `<img>` — so each one bumps the epoch.
-
-The remote-debugging port is opt-in for a reason: anything else running as this
-user can drive the renderer through it. The shell opens one only when the
-browser pane is enabled — `browserPane: true` in `desktop.json`, or the
-`OPENADE_BROWSER_PANE` / `OPENADE_CDP_PORT` overrides, with
-`OPENADE_REMOTE_DEBUG=0` as a veto — and with no port every thread runs
-owned-chromium.
+  the guest directly. The driver still enters this mode only when
+  `OPENADE_CDP_PORT` is set, and the desktop no longer sets it: Chromium's
+  remote-debugging port is gone, and the in-app webviews are reachable only
+  through the browser bridge below, which the server is told about but does not
+  dial yet. So today every thread runs owned-chromium.
+- **owned-chromium** — agent-browser runs its own headless Chrome and the
+  driver streams JPEG frames over the session's WebSocket and forwards human
+  input into it. Every gesture on that pane is human by construction — the
+  agent cannot click an `<img>` — so each one bumps the epoch.
 
 A missing `agent-browser` binary is not fatal: the service reports no binary,
 every call fails with `AgentBrowserUnavailable`, and the pane renders an install
@@ -1707,11 +1712,14 @@ prompt.
 
 ### The browser bridge
 
-The in-app browser is meant to be driven through a CDP endpoint that can reach
-the thread's pane webviews and nothing else, rather than through Chromium's
-remote-debugging port, which exposes the app window itself. The bridge's core
-is in `apps/desktop/src/main/browser/` and is built and tested; the shell does
-not start it yet, so the cdp-attach mode above still runs over the opt-in port.
+The in-app browser is driven through a CDP endpoint that can reach the
+thread's pane webviews and nothing else, rather than through Chromium's
+remote-debugging port, which exposes the app window itself. The shell starts
+it at launch (`apps/desktop/src/main/browser/start.ts`, from `index.ts`,
+before the server is spawned) and never opens the remote-debugging port: the
+`remote-debugging-port`, `-address`, `-pipe` and `remote-allow-origins`
+switches are stripped from the command line even when the app was launched
+with them (`apps/desktop/src/platform/browserBridge.ts`).
 
 **Shape.** One `http.Server` on `127.0.0.1:0` for every thread
 (`server.ts`). It has no HTTP surface: every plain request is a 404, and a
@@ -1724,6 +1732,16 @@ nothing. The capability is `HMAC-SHA256(launchKey, threadId)`
 (`packages/shared/src/browserBridge.ts`): the shell mints a 32-byte launch key
 per launch, the server mints the thread's `ws://` URL from it, and the gate
 compares in constant time.
+
+**Handing it to the server.** `apps/desktop/src/backend/serverEnv.ts` spawns
+the server with `OPENADE_SERVER_BROWSER_BRIDGE` (the bridge's `ws://` origin,
+or `disabled`) and `OPENADE_SERVER_BROWSER_BRIDGE_KEY` (the launch key). The
+`OPENADE_SERVER_` prefix matters: the harness spawn passes `OPENADE_*`
+through and drops only that prefix, so neither reaches an agent. Anything the
+shell itself inherited under those names, and the retired `OPENADE_CDP_PORT`,
+is dropped. agent-browser is to receive a thread's URL only as
+`AGENT_BROWSER_CDP` in its environment, never in argv, where any local
+process could read it from the process table.
 
 **Routing** (`bridgeSession.ts`, one per connection). The root session is a
 virtual browser: `Browser.getVersion` is answered locally, and
@@ -1744,6 +1762,50 @@ while the guest holds window focus, since CDP input lands in whatever widget
 has it. When a client disconnects, every session it opened is detached. The
 list fails closed: a method it does not name is an error in the tool result.
 
+**The Electron side** (`guests.ts`, the `GuestPort`). The attach policy tells
+the registry each thread whose webview it admits, before the guest exists; at
+`web-contents-created` a webview guest belongs to the thread whose
+`session.fromPartition("persist:thread-<id>")` is its session, and to nothing
+otherwise. Once the guest is attached to its window (`did-attach-webview`, or
+its first `dom-ready`), the registry attaches its debugger — once — and reads
+its target id with `Target.getTargetInfo`. Child sessions are
+`Target.attachToTarget({ targetId: self, flatten: true })` on that debugger,
+and its messages are routed by session id; messages on the debugger's root
+session are dropped. `created` / `changed` / `destroyed` come from the
+guest's own life: registration, `did-navigate`, `did-navigate-in-page` and
+`page-title-updated`, and `destroyed` or a debugger detach. A crashed guest
+re-registers on its next `dom-ready`. The focus hand-off runs
+`executeJavaScript` in the guest's window with only the numeric
+`webContents` id: find the `<webview>` whose `getWebContentsId()` matches,
+remember `document.activeElement`, focus the view, run the command, and give
+focus back to that element (or blur the view when nothing else had it). It
+refuses to run when the view is not in the window, so agent typing never
+lands in the composer.
+
+**Tabs and popups** (`tabsChannel.ts`). A pane tab is the renderer's
+`<webview>`, and Electron answers `Target.createTarget` with "Not supported",
+so `createTarget`, `closeTarget`, `bringToFront` and popups become requests
+to the window on `openade:browser-tab-request`, each with an id and a 10 s
+deadline; the window answers on `openade:browser-tab-answer` with the new
+guest's `webContents` id, and only the window that was asked may answer. No
+window, a window that closes, or no answer in time is a clear CDP error ("the
+OpenAde window is not open"). The preload serves the requests through
+`window.openade.browserPane.serveTabs`, and answers at once with "the OpenAde
+window cannot open browser tabs" while no tab host has registered — which is
+the case today, so an agent's `tab new` and every popup fail with that error
+while the pane's existing webview stays drivable. Every webview guest gets a
+`setWindowOpenHandler` at creation that always denies the native window and
+routes an http(s) popup to a new pane tab of the same thread; the popup loses
+`window.opener`, since it is a fresh guest rather than a child window.
+
+**The kill switch.** `OPENADE_REMOTE_DEBUG=0` (or `false`) starts no bridge,
+attaches no debugger, and spawns the server with
+`OPENADE_SERVER_BROWSER_BRIDGE=disabled`; a bridge that fails to start is
+reported the same way. Any other value of the variable is ignored — the old
+`=1` / `=<port>` forms, which opened a DevTools port for attaching by hand,
+are gone, because that port exposes the app window. `desktop.json`'s
+`browserPane` key, `OPENADE_BROWSER_PANE` and `OPENADE_CDP_PORT` are ignored.
+
 **Evidence.** The design came out of a spike against agent-browser 0.38.1 and
 Electron 44.3.0, and the recordings under
 `packages/testkit/fixtures/agent-browser/` are the proof it works: the real
@@ -1752,14 +1814,27 @@ CLI, given the thread URL in `AGENT_BROWSER_CDP`, connected, drove a page
 created a tab in an empty thread, opened and closed a tab, picked up a
 `window.open` popup and reloaded, with every command allowed and no request
 for `/json/*`. The same spike showed the raw port lets any local process
-evaluate in the app window.
+evaluate in the app window. Against the shell itself, launched with
+`--remote-debugging-port`, the port was not open; `/json/version`,
+`/json/list` and `/` on the bridge port were 404; agent-browser listed only
+its own thread's webviews, filled, clicked, typed and pressed keys with the
+host window's focused input untouched and its focus restored, reloaded a tab
+without reloading the window, and saw a removed tab disappear and its
+remounted successor appear with a new target id; a cross-thread capability
+and a request with an `Origin` were refused; and under the kill switch no
+bridge listened and no guest had a debugger attached.
 
 **Residual risk.** The endpoint is on loopback, so it is protected by a
-256-bit capability rather than by the OS; the capability sits in the
-agent-browser child's environment. The bridge owns a CDP filter, which must be
-re-checked against a fresh recording on every Electron or agent-browser
-upgrade. The focus hand-off can race a user typing at the same moment.
-Windows and Linux are unverified.
+256-bit capability rather than by the OS. The launch key sits in the server's
+environment, and each thread's capability in its agent-browser child's; a
+process running as the same user can read another's initial environment from
+the process table (`ps eww` on macOS), so the bridge does not defend against
+the same user — what it removes is the reach: a web page cannot connect, and
+whoever holds a capability reaches that thread's pane webviews and not the
+app window, the RPC token or another thread. The bridge owns a CDP filter,
+which must be re-checked against a fresh recording on every Electron or
+agent-browser upgrade. The focus hand-off can race a user typing at the same
+moment. Windows and Linux are unverified.
 
 ## Permissions
 

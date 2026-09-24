@@ -11,6 +11,7 @@ import { decideNavigation } from "./navigation";
 import { APP_URL } from "./protocol";
 import { titleBarStyle, trafficLightPosition } from "../platform";
 import { FULLSCREEN_CHANNEL } from "../platform/attributes";
+import { threadIdOfPartition, type GuestRegistry } from "./browser/guests";
 import { applyWebviewAttachPolicy } from "./webview";
 import {
   captureWindowState,
@@ -121,17 +122,29 @@ const guardNavigation = (contents: Electron.WebContents) => {
 
 /**
  * Only the browser pane's `persist:thread-<id>` partitions may attach, and
- * every guest runs with preferences this side pins — see `./webview`.
+ * every guest runs with preferences this side pins — see `./webview`. An
+ * admitted attach names its thread to the guest registry before the guest
+ * exists, so the registry can recognise the guest by its session, and the
+ * attached guest is handed over for its debugger.
  */
-const guardWebviewAttach = (contents: Electron.WebContents) => {
+const guardWebviewAttach = (contents: Electron.WebContents, panes: WindowOptions["panes"]) => {
   contents.on("will-attach-webview", (event, preferences, params) => {
     const refusal = applyWebviewAttachPolicy(preferences, params);
     if (refusal !== null) {
       console.warn(`[webview] refused attach: ${refusal}`);
       event.preventDefault();
+      return;
     }
+    const threadId = threadIdOfPartition(params["partition"]);
+    if (threadId !== null) panes.noteThread(threadId);
   });
+  contents.on("did-attach-webview", (_event, guest) => panes.attached(guest));
 };
+
+export interface WindowOptions {
+  /** The guest registry (`./browser/guests`): told about each pane webview. */
+  readonly panes: Pick<GuestRegistry, "noteThread" | "attached">;
+}
 
 const waitForDevServer = async (url: string): Promise<boolean> => {
   for (let i = 0; i < 120; i++) {
@@ -145,7 +158,7 @@ const waitForDevServer = async (url: string): Promise<boolean> => {
   return false;
 };
 
-export async function createWindow(): Promise<BrowserWindow> {
+export async function createWindow(options: WindowOptions): Promise<BrowserWindow> {
   const { maximized, fullScreen, ...bounds } = loadWindowState();
   const lights = trafficLightPosition();
   const win = new BrowserWindow({
@@ -181,7 +194,7 @@ export async function createWindow(): Promise<BrowserWindow> {
     return { action: "deny" };
   });
   guardNavigation(win.webContents);
-  guardWebviewAttach(win.webContents);
+  guardWebviewAttach(win.webContents, options.panes);
 
   const target =
     DEV_SERVER_URL !== undefined && (await waitForDevServer(DEV_SERVER_URL))

@@ -142,6 +142,19 @@ server nor the Vite plugin. `boot()` sets it process-wide when it is given a
 Other environment knobs the server itself reads: `OPENADE_PORT` (default `0`,
 meaning ask the OS), `OPENADE_DEV=1` (same as `--dev`).
 
+The desktop shell reads one: `OPENADE_REMOTE_DEBUG=0` (or `false`) turns the
+in-app browser off — no browser bridge, no debugger on the pane webviews, and
+the server is spawned with `OPENADE_SERVER_BROWSER_BRIDGE=disabled`. Any other
+value is ignored, as are the retired `OPENADE_BROWSER_PANE` and
+`OPENADE_CDP_PORT`. The shell never opens Chromium's remote-debugging port,
+and strips `--remote-debugging-port` and its relatives from its own command
+line, so launching Electron with them does nothing. To look at a pane guest
+over CDP by hand, mint the thread's bridge URL
+(`bridgeThreadUrl` in `packages/shared/src/browserBridge.ts`, from the origin
+and key in the server's `OPENADE_SERVER_BROWSER_BRIDGE*` environment) and give
+it to agent-browser as `AGENT_BROWSER_CDP`, with an `AGENT_BROWSER_NAMESPACE`
+of your own so its sessions do not mix with the app's.
+
 ## The gate
 
 ```sh
@@ -879,7 +892,6 @@ Everything OpenAde owns hangs off `configDir()` — `~/.openade`, or
 ```
 ~/.openade/
 ├── state.sqlite            event log, projections, settings, permissions
-├── desktop.json            shell preferences read before Electron is ready
 ├── attachments/            staged uploads
 ├── worktrees/<project>/<slug>/  threads' own git worktrees
 ├── bin/
@@ -892,14 +904,9 @@ Everything OpenAde owns hangs off `configDir()` — `~/.openade`, or
 migration ids are contiguous from 1 and a merged migration file is never
 edited — new ones append.
 
-`desktop.json` is the shell's own small file, read synchronously at startup
-because it decides Chromium command-line flags. Today it holds one key:
-`{ "browserPane": true }` turns on the in-app `<webview>` browser pane, which
-makes Chromium open a loopback remote-debugging port. Off by default, and the
-server then drives its own Chromium through `agent-browser` instead.
-`OPENADE_BROWSER_PANE=1` and `OPENADE_CDP_PORT=<port>` turn it on for one run;
-`OPENADE_REMOTE_DEBUG=0` vetoes it. Anything running as this user can drive the
-renderer through that port, which is why it is opt-in.
+A `desktop.json` left there by an older build is ignored: its one key,
+`browserPane`, opened Chromium's remote-debugging port, which the shell no
+longer does.
 
 The hook script is regenerated only when its content hash changes, so starting
 a session does not churn the file under a running `cmd`.

@@ -9,6 +9,14 @@
  * rather than left to a hand-check against the running app.
  */
 
+import {
+  NO_TAB_HOST,
+  TAB_ANSWER_CHANNEL,
+  TAB_REQUEST_CHANNEL,
+  type TabAnswer,
+  type TabRequest,
+} from "../main/browser/tabsChannel";
+
 export interface ServerConnection {
   readonly url: string;
   readonly token: string;
@@ -33,8 +41,16 @@ export interface ServerState {
 /** One gesture from inside a pane webview, already contract-shaped. */
 export interface BrowserPaneGuestInput {
   readonly threadId: string;
+  /** The guest's `webContents` id: which tab of the thread it came from. */
+  readonly wcId: number;
   readonly input: unknown;
 }
+
+/** What main asks the window's tab host to do (`main/browser/tabsChannel.ts`). */
+export type BrowserTabRequest = Readonly<{ id: number } & TabRequest>;
+
+/** The tab host's work: resolves the new tab's `webContents` id for `create`. */
+export type BrowserTabHandler = (request: TabRequest) => Promise<{ readonly wcId?: number }>;
 
 /** A main→renderer push listener: the event object, then the payload. */
 export type PreloadIpcListener = (event: unknown, ...args: Array<unknown>) => void;
@@ -63,31 +79,64 @@ const subscribe = <A>(ipc: PreloadIpc, channel: string, callback: (payload: A) =
   };
 };
 
-export const makeOpenAdeBridge = (ipc: PreloadIpc) => ({
-  getConnection: (): Promise<ServerConnection | null> =>
-    ipc.invoke("openade:connection") as Promise<ServerConnection | null>,
-  /** The current state, for a renderer that mounted after the last transition. */
-  getServerState: (): Promise<ServerState> =>
-    ipc.invoke("openade:server-state:get") as Promise<ServerState>,
-  onServerState: (callback: (state: ServerState) => void): (() => void) =>
-    subscribe<ServerState>(ipc, "openade:server-state", callback),
-  openExternal: (url: string): Promise<void> =>
-    ipc.invoke("openade:open-external", url) as Promise<void>,
-  pickDirectory: (): Promise<string | null> =>
-    ipc.invoke("openade:pick-directory") as Promise<string | null>,
-  /**
-   * Browser-pane bridge (the driver's `cdp-attach` mode): `attach` registers
-   * this window as the host of the thread's `persist:thread-*` webview guest;
-   * `onInput` then delivers every real pointer/keyboard/wheel gesture it sees —
-   * already shaped like `BrowserHumanInput` — which the pane forwards as a
-   * `browser.humanInput` call so the server can mark human control.
-   */
-  browserPane: {
-    attach: (threadId: string): Promise<void> =>
-      ipc.invoke("openade:browser-attach", threadId) as Promise<void>,
-    detach: (threadId: string): Promise<void> =>
-      ipc.invoke("openade:browser-detach", threadId) as Promise<void>,
-    onInput: (callback: (payload: BrowserPaneGuestInput) => void): (() => void) =>
-      subscribe<BrowserPaneGuestInput>(ipc, "openade:browser-input", callback),
-  },
-});
+/**
+ * Answers main's tab requests. At most one handler serves them — the
+ * renderer's tab host, once it mounts — and until then, or after it goes,
+ * every request is answered with `NO_TAB_HOST` at once instead of leaving
+ * main to time out.
+ */
+const serveTabRequests = (ipc: PreloadIpc) => {
+  let handler: BrowserTabHandler | null = null;
+  const answer = (payload: TabAnswer) => void ipc.invoke(TAB_ANSWER_CHANNEL, payload);
+  ipc.on(TAB_REQUEST_CHANNEL, (_event, ...args) => {
+    const request = args[0] as BrowserTabRequest | undefined;
+    if (typeof request?.id !== "number") return;
+    const { id, ...body } = request;
+    if (handler === null) {
+      answer({ id, ok: false, error: NO_TAB_HOST });
+      return;
+    }
+    handler(body as TabRequest).then(
+      (result) =>
+        answer(result.wcId === undefined ? { id, ok: true } : { id, ok: true, wcId: result.wcId }),
+      (error: unknown) =>
+        answer({ id, ok: false, error: error instanceof Error ? error.message : String(error) }),
+    );
+  });
+  return (next: BrowserTabHandler): (() => void) => {
+    handler = next;
+    return () => {
+      if (handler === next) handler = null;
+    };
+  };
+};
+
+export const makeOpenAdeBridge = (ipc: PreloadIpc) => {
+  const serveTabs = serveTabRequests(ipc);
+  return {
+    getConnection: (): Promise<ServerConnection | null> =>
+      ipc.invoke("openade:connection") as Promise<ServerConnection | null>,
+    /** The current state, for a renderer that mounted after the last transition. */
+    getServerState: (): Promise<ServerState> =>
+      ipc.invoke("openade:server-state:get") as Promise<ServerState>,
+    onServerState: (callback: (state: ServerState) => void): (() => void) =>
+      subscribe<ServerState>(ipc, "openade:server-state", callback),
+    openExternal: (url: string): Promise<void> =>
+      ipc.invoke("openade:open-external", url) as Promise<void>,
+    pickDirectory: (): Promise<string | null> =>
+      ipc.invoke("openade:pick-directory") as Promise<string | null>,
+    /**
+     * The browser pane's guests. `onInput` delivers every real
+     * pointer/keyboard/wheel gesture inside a pane webview — already shaped
+     * like `BrowserHumanInput`, tagged with its thread and tab — which the pane
+     * forwards as `browser.humanInput` so the server can mark human control.
+     * `serveTabs` makes the caller the window's tab host, which opens, closes
+     * and selects pane tabs when the agent or a popup asks.
+     */
+    browserPane: {
+      onInput: (callback: (payload: BrowserPaneGuestInput) => void): (() => void) =>
+        subscribe<BrowserPaneGuestInput>(ipc, "openade:browser-input", callback),
+      serveTabs,
+    },
+  };
+};

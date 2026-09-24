@@ -23,8 +23,21 @@ export interface ResolvedConnection {
 /** One gesture from inside a pane webview, shaped like `BrowserHumanInput`. */
 export interface BrowserPaneGuestInput {
   readonly threadId: string;
+  /** The guest's `webContents` id: which of the thread's tabs it came from. */
+  readonly wcId: number;
   readonly input: unknown;
 }
+
+/** What the desktop shell asks the window's browser-tab host to do. */
+export type BrowserPaneTabRequest =
+  | {
+      readonly op: "create";
+      readonly threadId: string;
+      readonly url: string;
+      readonly background: boolean;
+    }
+  | { readonly op: "close"; readonly wcId: number }
+  | { readonly op: "select"; readonly wcId: number };
 
 /**
  * What the desktop supervisor is doing with the server process. `connection`
@@ -76,14 +89,17 @@ declare global {
       /** Opens `url` in the system browser — the only sanctioned way out. */
       readonly openExternal?: (url: string) => Promise<void>;
       /**
-       * Desktop-only browser-pane bridge, for the driver's `cdp-attach` mode.
+       * Desktop-only browser-pane bridge: human input from the pane's
+       * webviews, and the tab host the shell asks to open, close and select
+       * pane tabs (resolving the new tab's `webContents` id for `create`).
        * Absent under a plain browser — the pane then renders the
        * owned-Chromium frame stream.
        */
       readonly browserPane?: {
-        readonly attach: (threadId: string) => Promise<void>;
-        readonly detach: (threadId: string) => Promise<void>;
         readonly onInput: (callback: (payload: BrowserPaneGuestInput) => void) => () => void;
+        readonly serveTabs?: (
+          handler: (request: BrowserPaneTabRequest) => Promise<{ readonly wcId?: number }>,
+        ) => () => void;
       };
     };
   }

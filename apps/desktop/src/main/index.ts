@@ -1,14 +1,20 @@
 /**
- * App lifecycle glue: single instance, protocol privileges, the server
- * supervisor, and window creation. Everything else lives in the modules
- * alongside (`protocol`, `window`, `ipc`, `updater`, and `../platform`).
+ * App lifecycle glue: single instance, protocol privileges, the browser
+ * bridge, the server supervisor, and window creation. Everything else lives in
+ * the modules alongside (`protocol`, `window`, `ipc`, `updater`, `browser/`,
+ * and `../platform`).
  */
-import { BrowserWindow, app, protocol } from "electron";
+import { BrowserWindow, app, protocol, session } from "electron";
 
 import { ServerSupervisor } from "../backend/ServerSupervisor";
 import { serverSpawnSpec, showServerCrashDialog } from "../backend/serverDeps";
+import type { BridgeForServer } from "../backend/serverEnv";
+import { createGuestRegistry } from "./browser/guests";
+import { startPaneBridge } from "./browser/start";
+import { makeTabsChannel } from "./browser/tabsChannel";
 import { registerIpc } from "./ipc";
 import { applyPlatformDefaults } from "../platform";
+import { resolveBrowserBridge } from "../platform/browserBridge";
 import { quitsWhenAllWindowsClosed } from "../platform/lifecycle";
 import { APP_SCHEME, registerAppProtocol } from "./protocol";
 import { makeQuitHandler } from "./quit";
@@ -45,24 +51,49 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   app.on("second-instance", focusExistingWindow);
 
+  const bridgeSetting = resolveBrowserBridge(process.env);
+  if (bridgeSetting.kind === "disabled") {
+    console.warn(`[browser-bridge] ${bridgeSetting.reason}`);
+  }
+  /** What the server is told on every (re)spawn; set before the first one. */
+  let bridge: BridgeForServer = { kind: "disabled" };
+  let closeBridge: () => Promise<void> = async () => undefined;
+
+  const tabs = makeTabsChannel({
+    window: () =>
+      BrowserWindow.getAllWindows().find((win) => !win.isDestroyed())?.webContents ?? null,
+  });
+  const guests = createGuestRegistry({
+    fromPartition: (partition) => session.fromPartition(partition),
+    tabs,
+    debug: bridgeSetting.kind === "enabled",
+    log: (entry) => console.info(`[browser-guests] ${JSON.stringify(entry)}`),
+  });
+
   const supervisor = new ServerSupervisor({
-    spec: serverSpawnSpec,
+    spec: () => serverSpawnSpec(bridge),
     onRepeatedFailure: showServerCrashDialog,
   });
 
   void app.whenReady().then(async () => {
     registerAppProtocol();
-    registerIpc(supervisor);
+    registerIpc(supervisor, { guests, tabs });
+    if (bridgeSetting.kind === "enabled") {
+      const started = await startPaneBridge(guests.port);
+      bridge = started.forServer;
+      if (started.server !== null) closeBridge = started.server.close;
+    }
     supervisor.start();
     checkForUpdates();
-    await createWindow();
+    await createWindow({ panes: guests });
 
     app.on("activate", async () => {
       if (BrowserWindow.getAllWindows().length === 0) {
-        await createWindow();
+        await createWindow({ panes: guests });
       }
     });
   });
+  app.on("will-quit", () => void closeBridge());
 
   app.on(
     "before-quit",

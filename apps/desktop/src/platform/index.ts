@@ -1,21 +1,15 @@
 /**
  * Platform-facing setup that must run before `app.whenReady`: product name,
- * the Windows user-model id, and the loopback CDP endpoint the browser pane
- * attaches through (the driver's `cdp-attach` mode; docs/architecture.md, "The
- * MCP gateway and the browser").
+ * the Windows user-model id, and the Chromium switches the shell refuses.
  *
- * Remote debugging is off by default and never leaves `127.0.0.1`; it turns on
- * for `browserPane: true` in the shell's preferences file (`./preferences`),
- * and `./cdp` documents the environment overrides on top of that.
+ * Chromium's remote-debugging port is never opened — the in-app browser goes
+ * through the scoped bridge instead, and `./browserBridge` decides whether
+ * that starts (docs/architecture.md, "The browser bridge").
  */
 import { app } from "electron";
 
-import { randomCdpPort, resolveCdpPort } from "./cdp";
+import { stripRemoteDebugging } from "./browserBridge";
 import { appUserModelId, productName, resolveChannel } from "./channel";
-import { readDesktopPreferences } from "./preferences";
-
-/** The remote-debugging port Chromium bound, or `null` when it opened none. */
-export let cdpPort: number | null = null;
 
 /**
  * Keeps userData/cache tied to the product rather than the package name, and
@@ -29,11 +23,10 @@ export function applyPlatformDefaults() {
     app.setAppUserModelId(appUserModelId(channel));
   }
 
-  const preferences = readDesktopPreferences();
-  cdpPort = resolveCdpPort(process.env, randomCdpPort, preferences.browserPane);
-  if (cdpPort === null) return;
-  app.commandLine.appendSwitch("remote-debugging-address", "127.0.0.1");
-  app.commandLine.appendSwitch("remote-debugging-port", String(cdpPort));
+  const removed = stripRemoteDebugging(app.commandLine);
+  if (removed.length > 0) {
+    console.warn(`[platform] ignored ${removed.map((name) => `--${name}`).join(", ")}`);
+  }
 }
 
 export const titleBarStyle = (): "hidden" | "default" =>

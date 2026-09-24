@@ -5,24 +5,19 @@
  */
 import { app, dialog } from "electron";
 
-import { cdpPort } from "../platform";
 import { devServerEntry, packagedServerEntry } from "./serverArgs";
+import { serverEnv, type BridgeForServer } from "./serverEnv";
 import type { SpawnSpec } from "./ServerSupervisor";
 
 // Bundled to cjs — `__dirname` is real at runtime.
 declare const __dirname: string;
 
-/** The bundled server entry, or the TypeScript entry in dev. */
-export const serverSpawnSpec = (): SpawnSpec => {
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
-    ELECTRON_RUN_AS_NODE: "1",
-    OPENADE_DEV: app.isPackaged ? "" : "1",
-    // The loopback CDP endpoint the browser pane's webview is reachable on
-    // (the driver's `cdp-attach` mode). Empty when remote debugging is
-    // disabled.
-    OPENADE_CDP_PORT: cdpPort === null ? "" : String(cdpPort),
-  };
+/**
+ * The bundled server entry, or the TypeScript entry in dev, with the browser
+ * bridge as it stands when the server is (re)spawned (`./serverEnv`).
+ */
+export const serverSpawnSpec = (bridge: BridgeForServer): SpawnSpec => {
+  const env = serverEnv(process.env, { packaged: app.isPackaged, bridge });
   const entry = app.isPackaged
     ? packagedServerEntry(process.execPath, __dirname)
     : devServerEntry(process.execPath, __dirname);

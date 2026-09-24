@@ -56,7 +56,10 @@ the connector-neutral `RuntimeEvent` vocabulary in
 `apps/desktop/src/main/index.ts` takes the single-instance lock, registers the
 app's own `openade://` scheme as privileged, and constructs a `ServerSupervisor`
 (`apps/desktop/src/backend/ServerSupervisor.ts`) before the first window
-opens.
+opens. Once Electron is ready it starts the browser bridge — the loopback CDP
+endpoint for the pane's webviews ([§10](#10-the-browser-pane)) — unless
+`OPENADE_REMOTE_DEBUG=0`, and only then spawns the server, so the server's
+environment can name it.
 
 What is spawned comes from `apps/desktop/src/backend/serverArgs.ts`:
 
@@ -69,9 +72,12 @@ Both run under `ELECTRON_RUN_AS_NODE=1`. The dev form uses `--import` rather
 than the `tsx` CLI deliberately: the CLI re-execs node as its own child, and
 the grandchild does not inherit the supervisor's fd 3, so the handshake never
 arrives (`serverArgs.ts` documents the failure in full).
-`apps/desktop/src/backend/serverDeps.ts` adds the environment — `OPENADE_DEV`,
-and `OPENADE_CDP_PORT` when remote debugging is on, which is what later decides
-the browser pane's mode.
+`apps/desktop/src/backend/serverEnv.ts` builds the environment: the shell's own,
+plus `OPENADE_DEV`, `OPENADE_SERVER_BROWSER_BRIDGE` (the bridge's `ws://`
+origin, or `disabled`) and `OPENADE_SERVER_BROWSER_BRIDGE_KEY` (the launch key
+the server mints thread URLs from). An inherited `OPENADE_CDP_PORT` or bridge
+variable is dropped. The `OPENADE_SERVER_` prefix keeps both out of the
+harness, whose spawn drops exactly that prefix.
 
 The child is spawned with `stdio: ["ignore", "inherit", "inherit", "pipe"]`.
 Stdout and stderr are the server's log; **fd 3 carries the handshake**.
@@ -1708,17 +1714,30 @@ over mid-call.
 
 `apps/server/src/browser/driver.ts` picks one per session:
 
-- **`cdp-attach`** — the desktop launched the server with `OPENADE_CDP_PORT`
-  set, which it does only when the browser pane is enabled (the port is an
-  attach surface; see [architecture.md](architecture.md#the-mcp-gateway-and-the-browser)).
-  The driver lists CDP targets through `agent-browser --cdp <port> tab --json`
-  and pins the pane's `<webview>` guest, identified by the marker page it loads
-  (`GET /browser/attach/:threadId`). There is no frame to ship: the webview is
-  already showing the page, and human input lands in the guest directly.
-- **`owned-chromium`** — no CDP endpoint, or no webview target inside the
-  attach window. `agent-browser` runs its own headless Chrome, the driver
-  connects its `stream` WebSocket, and the pane renders the JPEG frames that
-  come back and forwards gestures into it.
+- **`cdp-attach`** — the driver lists CDP targets through
+  `agent-browser --cdp <port> tab --json` and pins the pane's `<webview>`
+  guest, identified by the marker page it loads (`GET /browser/attach/:threadId`).
+  There is no frame to ship: the webview is already showing the page, and
+  human input lands in the guest directly. The driver takes this mode only
+  when `OPENADE_CDP_PORT` is set, which the desktop no longer does, so it is
+  not reached today.
+- **`owned-chromium`** — `agent-browser` runs its own headless Chrome, the
+  driver connects its `stream` WebSocket, and the pane renders the JPEG frames
+  that come back and forwards gestures into it. Every thread runs this mode
+  for now.
+
+The desktop side of the in-app browser is the bridge
+(`apps/desktop/src/main/browser/`, see
+[architecture.md](architecture.md#the-browser-bridge)). Chromium's
+remote-debugging port is never opened; the bridge is a loopback WebSocket
+that speaks CDP for one thread's pane webviews, at
+`ws://127.0.0.1:<port>/cdp/<threadId>/<capability>`, and 404s everything
+else. Each pane webview is set up once, when Electron creates it: the bridge
+registry recognises its thread by its `persist:thread-<id>` session and
+attaches its debugger, its `window.open` handler turns popups into requests
+for a pane tab (which the window cannot serve yet, so they are dropped with a
+logged error), and its input relay tags every gesture with the thread and the
+guest's `webContents` id.
 
 `apps/server/src/browser/agentBrowser.ts` finds the CLI (`OPENADE_AGENT_BROWSER`,
 then `agent-browser` on `PATH`) and runs every call as argv-form `execFile`,
