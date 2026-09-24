@@ -263,7 +263,7 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
     case "thread.session.bound":
       // The capabilities ride along when the connector announced them — the
       // decider reads `steering` here. A session bound before they were
-      // recorded has none, which reads as "cannot steer".
+      // recorded has none: not known to steer, so a steer is queued.
       return {
         ...next,
         session: {

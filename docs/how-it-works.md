@@ -1079,12 +1079,17 @@ mentions — and the decider answers it from the thread as it is:
 | ---------------------------------------- | ---------------------------------------------------------------- |
 | no turn running                          | a new turn, as an unqueued `thread.turn.start` would start       |
 | a turn stopping (`interrupting`)         | `thread.message.queued`, drained on that turn's completion       |
+| a turn running, not known to steer       | `thread.message.queued`, as a send would queue it                |
 | a turn running, the session cannot steer | rejected: "this thread's harness cannot take a message mid-turn" |
 | a turn running, the session steers       | `thread.turn.steered` plus the user's row, both on that turn     |
 
 The first row absorbs a race: the turn ended while the user was still typing,
-and the message simply starts the next one. A session bound before
-capabilities were recorded has none, and reads as one that cannot steer. The
+and the message simply starts the next one. "Not known to steer" is a thread
+whose session has not bound yet — the first turn of a new thread while its
+harness starts, or any Command Code turn before its first run has ended, since
+that connector learns its session id only then — or a session bound before
+capabilities were recorded. Nothing has said the harness steers, and nothing
+has said it cannot, so the message waits on the queue rather than failing. The
 same checks as a send bar a steer outright — a missing or archived thread, a
 checkpoint restore in this thread or a sibling.
 

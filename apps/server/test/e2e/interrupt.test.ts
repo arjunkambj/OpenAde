@@ -10,8 +10,9 @@
  * 2. the thread takes the next message;
  * 3. a message queued *during* the turn — Cmd+Enter while it runs — starts by
  *    itself afterwards, with its attachments still on it. Command Code cannot
- *    take a message into a running turn, so a steer is refused with the
- *    reason that says to queue instead, and the queue is the way.
+ *    take a message into a running turn, so the queue is the way: even a
+ *    steer sent while its first turn runs — before its session has bound and
+ *    said so — waits on the queue rather than joining the turn.
  *
  * `fixtures/cmd/interrupt-continue/` is the recording: a real SIGINT mid-run,
  * then the next message in a new session, because the interrupted run left no
@@ -63,14 +64,15 @@ const interrupts = (driver: Driver) => {
         const interruptedTurnId = running.value.currentTurnId;
 
         // Command Code says it cannot steer — which is why the composer
-        // queues here — so the decider refuses a steer outright rather than
-        // racing the running process, and says to queue instead.
+        // queues here. Its session binds only once a run has ended, so during
+        // this first turn nothing on the thread says so yet: the decider does
+        // not guess, and a steer waits on the queue, never joining the turn.
         const connectors = yield* (yield* client.rpc)
           ["connectors.list"]({ refresh: false })
           .pipe(Effect.orDie);
         const cmd = connectors.find((entry) => entry.kind === "cmd");
         expect(cmd?.capabilities?.steering).toBe(false);
-        const steer = yield* client.dispatch(
+        const steer = yield* client.send(
           command({
             type: "thread.turn.steer",
             threadId: open.threadId,
@@ -79,8 +81,23 @@ const interrupts = (driver: Driver) => {
             mentions: [],
           }),
         );
-        expect(steer.status).toBe("rejected");
-        expect(steer.reason).toContain("queue it instead");
+        const steerQueued = yield* open.view.awaitValue(
+          (view) => view.snapshotSequence >= steer.lastSequence,
+        );
+        expect(steerQueued.queue.map((message) => message.text)).toEqual([FOLLOW_UP]);
+        expect(steerQueued.items.filter((item) => item.kind === "user_message")).toHaveLength(1);
+        // Taken off again: the recording has one message queued, sent below.
+        const removed = yield* client.send(
+          command({
+            type: "thread.queue.remove",
+            threadId: open.threadId,
+            queuedMessageId: steerQueued.queue[0]!.queuedMessageId,
+          }),
+        );
+        const unqueued = yield* open.view.awaitValue(
+          (view) => view.snapshotSequence >= removed.lastSequence,
+        );
+        expect(unqueued.queue).toEqual([]);
 
         // Cmd+Enter while it runs: the follow-up goes on the queue rather than
         // racing the session, and it carries an image.

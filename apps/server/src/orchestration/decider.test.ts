@@ -1228,15 +1228,21 @@ describe("steering a running turn", () => {
     });
   });
 
-  it("refuses a session bound before capabilities were recorded", () => {
+  /** The events a steer became, or its refusal. */
+  const outcome = (result: ReturnType<typeof steer>) =>
+    result.accepted ? result.events.map((event) => event.type) : result.reason;
+
+  it("queues for a session bound before capabilities were recorded", () => {
     const result = steer(
       running({ connectorInstanceId: INSTANCE, connectorKind: "cmd", sessionRef: {} }),
     );
-    expect(result.accepted).toBe(false);
+    expect(outcome(result)).toEqual(["thread.message.queued"]);
   });
 
-  it("refuses a running turn with no session bound yet", () => {
-    expect(steer(running(null)).accepted).toBe(false);
+  it("queues for a running turn whose session has not bound yet", () => {
+    // The thread's first turn, while its harness is still starting: nothing
+    // has said whether it steers, and the message waits rather than fails.
+    expect(outcome(steer(running(null)))).toEqual(["thread.message.queued"]);
   });
 
   it("is barred by the same checks as starting a turn", () => {

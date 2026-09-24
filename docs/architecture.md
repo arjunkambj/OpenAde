@@ -683,10 +683,11 @@ carries the `ConnectorCapabilities` the session announced, and only a session
 whose `steering` is true is steered — `thread.turn.steered` plus the user's
 row, stamped with the running turn. Everything else about the command is the
 same as `thread.turn.start`: the same checks bar it, with no turn running it
-starts one, while an interrupt settles it queues, and for a harness that cannot
-steer it is refused with the queue as the recourse. `capabilities` is optional
-on the session and on the event, so a log written before it decodes, and such
-a session reads as one that cannot steer.
+starts one, while an interrupt settles it queues, and for a harness whose
+session says it cannot steer it is refused with the queue as the recourse.
+Before anything has said either way — no session bound yet, or one bound
+without capabilities — it is queued. `capabilities` is optional on the session
+and on the event, so a log written before it decodes.
 
 Commands do not appear as individual RPCs: `orchestration.dispatch` takes the
 whole union, which is what keeps the decider the single place a state change is

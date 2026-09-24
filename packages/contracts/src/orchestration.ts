@@ -130,7 +130,8 @@ const ThreadTurnStartCommand = command("thread.turn.start", {
  * Deliver a message into the running turn, for a thread whose harness can
  * steer (`capabilities.steering` on its bound session). With no turn running
  * it starts one, so a turn that ended while the user typed loses nothing; a
- * turn that is stopping queues it; a harness that cannot steer is refused.
+ * turn that is stopping, or whose session has not said whether it steers,
+ * queues it; a harness that says it cannot steer is refused.
  */
 const ThreadTurnSteerCommand = command("thread.turn.steer", {
   threadId: ThreadId,

@@ -321,10 +321,17 @@ export const decide = (
       if (thread.interrupting) {
         return accepted([queueMessage(emit, env, command)]);
       }
-      // Only a harness that said it can steer is steered. A thread bound
-      // before capabilities were recorded has none, which reads as "no".
-      if (thread.session?.capabilities?.steering !== true) {
+      // Only a harness that said it can steer is steered, and one that said
+      // it cannot is refused. Not knowing yet — the session still starting
+      // for the thread's first turn, or bound before capabilities were
+      // recorded — is not a refusal: the message waits on the queue, as it
+      // would for a harness that cannot steer.
+      const steering = thread.session?.capabilities?.steering;
+      if (steering === false) {
         return rejected("this thread's harness cannot take a message mid-turn; queue it instead");
+      }
+      if (steering !== true) {
+        return accepted([queueMessage(emit, env, command)]);
       }
       const turnId = thread.currentTurn.turnId;
       return accepted([
