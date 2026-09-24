@@ -20,10 +20,10 @@
  * Layout: both components render `contents`, so the pickers are flex items
  * of the row they are placed in — the composer toolbar
  * (`./composer/composer-toolbar`) — and follow its `@container/toolbar`
- * width: wide, the model/effort pill sits beside Send; narrow, it takes a line
- * of its own and the model name truncates, so the pill never wraps inside
- * itself and the runtime mode shows only its icon when even the first line
- * runs short.
+ * width: wide, model and effort sit together beside Send, styled like the
+ * runtime-mode picker; narrow, they take a line of their own and the model
+ * name truncates, so the pair never wraps inside itself and the runtime mode
+ * shows only its icon when even the first line runs short.
  *
  * Keys: `ThreadSettingsKeys` (`./thread-settings-keys`) answers plan mode
  * (Shift+Tab in the composer), the runtime-mode cycle, the pickers and the
@@ -245,7 +245,7 @@ export function ThreadSettingsControls({
           </Tooltip>
         ) : null}
         <div className="order-1 flex min-w-0 @max-xl/toolbar:order-3 @max-xl/toolbar:basis-full">
-          <div className="flex max-w-full min-w-0 items-center rounded-lg bg-muted">
+          <div className="flex max-w-full min-w-0 items-center gap-1">
             {settings.model ? (
               <ModelPicker
                 catalog={catalog}

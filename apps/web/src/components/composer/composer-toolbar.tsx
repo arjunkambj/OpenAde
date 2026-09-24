@@ -9,10 +9,10 @@
  * way to end a turn that is going wrong.
  *
  * The row is its own size container. `settings` renders `contents`, so its
- * pickers sit in this row as flex items: wide, the model/effort pill sits
- * beside Send; below `@xl/toolbar` it drops to a line of its own under the
- * row (`order-3 basis-full`, see `../header-controls`) instead of wrapping
- * inside itself.
+ * pickers sit in this row as flex items: wide, model and effort sit beside
+ * Send; below `@xl/toolbar` the pair drops to a line of its own under the row
+ * (`order-3 basis-full`, see `../header-controls`) instead of wrapping inside
+ * itself.
  *
  * Attach is disabled, with the reason as its tooltip, when the thread's
  * connector cannot take attachments (`@/lib/attachment-support`). The file
