@@ -1297,7 +1297,10 @@ rename is one row named by its new path, and picking it stages its old path
 too, so the commit records the rename rather than a copy. Nothing
 staged is `conflict` "Nothing to commit.", a hook's refusal is `conflict` with
 the hook's own output, and a commit is refused like a switch while a turn runs
-in that root.
+in that root. The index is saved (`git write-tree`) before anything is staged
+and put back (`git read-tree`) whenever no commit comes of the call — a path git
+cannot stage, nothing staged, a hook's refusal — so a failed commit never costs
+the user what they had staged.
 
 A push goes to the branch's `branch.<name>.remote`, else `origin`, else the
 only remote; no remote is `unavailable`. A branch with an upstream is pushed

@@ -320,6 +320,44 @@ describe("git.commit", () => {
     ),
   );
 
+  it.live("leaves what the user had staged in place when no commit is made", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = makeRepo();
+        // A partly staged a.txt: one version in the index, a newer one on disk.
+        write(root, "a.txt", "staged\n");
+        git(root, "add", "a.txt");
+        write(root, "a.txt", "staged\nand more\n");
+        write(root, "b.txt", "new\n");
+        const stagedBefore = git(root, "diff", "--cached");
+        const { projectId, git: service } = yield* stack(root);
+
+        // A picked path git cannot stage: nothing is committed, and the index
+        // the reset would have wiped is back.
+        const missing = yield* service
+          .commit({ projectId }, { message: "x", paths: ["b.txt", "nope.txt"] })
+          .pipe(Effect.flip);
+        expect(missing.code).toBe("invalid");
+        expect(git(root, "diff", "--cached")).toBe(stagedBefore);
+
+        // A hook that refuses, after everything was staged: the same.
+        const hook = nodePath.join(root, ".git", "hooks", "pre-commit");
+        writeFileSync(hook, "#!/bin/sh\nexit 1\n");
+        chmodSync(hook, 0o755);
+        git(root, "config", "core.hooksPath", nodePath.dirname(hook));
+        for (const paths of [undefined, ["b.txt"]]) {
+          const refused = yield* service
+            .commit({ projectId }, { message: "x", ...(paths === undefined ? {} : { paths }) })
+            .pipe(Effect.flip);
+          expect(refused.code).toBe("conflict");
+          expect(git(root, "diff", "--cached")).toBe(stagedBefore);
+        }
+        expect(git(root, "rev-list", "--count", "HEAD").trim()).toBe("1");
+        expect(git(root, "show", ":a.txt")).toBe("staged\n");
+      }),
+    ),
+  );
+
   it.live("refuses while a turn runs in the same root", () =>
     Effect.scoped(
       Effect.gen(function* () {

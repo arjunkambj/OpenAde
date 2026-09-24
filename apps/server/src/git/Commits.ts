@@ -92,6 +92,9 @@ const withRenameSources = (cwd: string, paths: ReadonlyArray<string>) =>
  * deletion and an untracked file, so a picked rename's old path is staged
  * with it (`withRenameSources`); otherwise the commit would add a copy and
  * leave the deletion behind.
+ *
+ * Either way the index is only rearranged for a commit that is then made:
+ * `commit` saves it first and puts it back when staging or the commit fails.
  */
 const stage = (cwd: string, paths: ReadonlyArray<string> | undefined) =>
   Effect.gen(function* () {
@@ -113,26 +116,45 @@ const stage = (cwd: string, paths: ReadonlyArray<string> | undefined) =>
   });
 
 /**
+ * The index as a tree object, so a failed commit can put back what the user
+ * had staged; `null` when it cannot be written (unmerged entries mid-merge),
+ * and there is then nothing to restore to.
+ */
+const saveIndex = (cwd: string) =>
+  run(cwd, ["write-tree"], { allowNonZeroExit: true }).pipe(
+    Effect.map((result) => (result.exitCode === 0 ? result.stdout.trim() : null)),
+  );
+
+/** Puts the index saved by `saveIndex` back; the working tree is untouched. */
+const restoreIndex = (cwd: string, tree: string | null) =>
+  tree === null ? Effect.void : run(cwd, ["read-tree", tree]).pipe(Effect.ignore);
+
+/**
  * Commits the working tree's changes — all of them, or only `paths` — with
- * `message`, and answers the commit that was made.
+ * `message`, and answers the commit that was made. A call that makes no
+ * commit — a path git cannot stage, nothing staged, a hook that refuses —
+ * leaves the index as the user had it, as `git commit` itself does.
  */
 export const commit = (
   cwd: string,
   options: { readonly message: string; readonly paths?: ReadonlyArray<string> | undefined },
 ) =>
   Effect.gen(function* () {
-    yield* stage(cwd, options.paths);
-    const staged = yield* run(cwd, ["diff", "--cached", "--quiet"], { allowNonZeroExit: true });
-    if (staged.exitCode === 0) {
-      return yield* Effect.fail(conflict("Nothing to commit."));
-    }
-    // `-m` means git never opens an editor; the hooks still run.
-    const committed = yield* run(cwd, ["commit", "-q", "-m", options.message], {
-      allowNonZeroExit: true,
-    });
-    if (committed.exitCode !== 0) {
-      return yield* Effect.fail(conflict(refusalText(committed)));
-    }
+    const saved = yield* saveIndex(cwd);
+    yield* Effect.gen(function* () {
+      yield* stage(cwd, options.paths);
+      const staged = yield* run(cwd, ["diff", "--cached", "--quiet"], { allowNonZeroExit: true });
+      if (staged.exitCode === 0) {
+        return yield* Effect.fail(conflict("Nothing to commit."));
+      }
+      // `-m` means git never opens an editor; the hooks still run.
+      const committed = yield* run(cwd, ["commit", "-q", "-m", options.message], {
+        allowNonZeroExit: true,
+      });
+      if (committed.exitCode !== 0) {
+        return yield* Effect.fail(conflict(refusalText(committed)));
+      }
+    }).pipe(Effect.onError(() => restoreIndex(cwd, saved)));
     const head = yield* run(cwd, ["log", "-1", "--format=%H%x00%s"]);
     const [sha = "", subject = ""] = head.stdout.replace(/\n$/, "").split("\0");
     return { sha, subject, branch: yield* currentBranch(cwd) } satisfies GitCommitResult;
