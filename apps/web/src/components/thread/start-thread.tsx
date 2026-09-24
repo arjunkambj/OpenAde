@@ -38,9 +38,13 @@
  * that does not exist yet has no turn to queue behind. Enter is decided by the
  * same `composerEnter` rule, so chorded Enter is left to the keymap.
  *
- * With no server it says so. A fresh install lands here with no projects, so
- * the empty state carries the same Add project dialog the sidebar does —
- * without it the screen would be an input with nowhere to send it.
+ * Around them sits the frame a thread has, for the picked project's own
+ * folder (`StartThreadWorkspace`): a header with the git actions and the
+ * terminal and dock toggles, the project's terminal drawer and its dock
+ * (`?pane=`). The draft's id is minted here, above both, so a terminal
+ * selection quoted into the chat lands in this composer's draft.
+ *
+ * With no server, or no projects yet, it says so (`StartThreadEmpty`).
  */
 
 import { useNavigate } from "@tanstack/react-router";
@@ -53,7 +57,7 @@ import { useAppAtoms } from "@/lib/app-runtime";
 import { ComposerSurface, composerInputClassName } from "@/components/composer/composer-surface";
 import { ComposerToolbar } from "@/components/composer/composer-toolbar";
 import { ThreadSettingsControls } from "@/components/header-controls";
-import { makeThreadId, type ProjectId } from "@OpenAde/contracts/ids";
+import { makeThreadId, type ProjectId, type ThreadId } from "@OpenAde/contracts/ids";
 import type { ProjectSummary, ThreadSettingsPatch } from "@OpenAde/contracts/orchestration";
 
 import { ComposerChips } from "@/components/composer/composer-chips";
@@ -70,7 +74,9 @@ import { worktreeName } from "@/components/thread/start-in-worktree";
 import { useStartInWorktree } from "@/components/thread/use-start-in-worktree";
 import { useWorkspaceChoice, WorkspaceModePicker } from "@/components/thread/workspace-mode-picker";
 import { WorktreeSetupPanel } from "@/components/thread/worktree-setup-panel";
-import { AddProjectDialog } from "@/components/sidebar/add-project-dialog";
+import type { DockPane } from "@/components/dock/dock-toggle";
+import { StartThreadEmpty } from "@/components/thread/start-thread-empty";
+import { StartThreadWorkspace } from "@/components/thread/start-thread-workspace";
 import { ThreadGreeting } from "@/components/thread/thread-greeting";
 import { attachmentRefusal } from "@/lib/attachment-support";
 import { instanceCapabilities, threadConnectorInstanceId } from "@/lib/connector-routing";
@@ -82,10 +88,13 @@ import { useConnectionState, useProjects } from "@/state/hooks";
 import { useComposerDraft, useLastProject } from "@/state/ui";
 
 function StartComposer({
+  threadId,
   projects,
   project,
   onPickProject,
 }: {
+  /** Minted as the page mounts: the draft is kept under it, and the thread gets it. */
+  readonly threadId: ThreadId;
   readonly projects: ReadonlyArray<ProjectSummary>;
   readonly project: ProjectSummary;
   readonly onPickProject: (projectId: ProjectId) => void;
@@ -93,7 +102,6 @@ function StartComposer({
   const navigate = useNavigate();
   const { create, pending } = useCreateThread();
 
-  const [threadId] = React.useState(makeThreadId);
   const { text, mentions, references, files, setText, setMentions, setReferences, setFiles } =
     useComposerDraft(threadId);
   const atoms = useAppAtoms();
@@ -352,7 +360,8 @@ function StartComposer({
   );
 }
 
-export function StartThread() {
+export function StartThread({ dockTab }: { readonly dockTab: DockPane | undefined }) {
+  const [draftId] = React.useState(makeThreadId);
   const projects = useProjects();
   const connection = useConnectionState();
   const connected = connection.status === "connected";
@@ -365,33 +374,22 @@ export function StartThread() {
   const project = projects.find((entry) => entry.projectId === lastProject) ?? projects[0];
 
   if (!connected || empty || project === undefined) {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-10">
-        <div className="flex w-full max-w-[684px] flex-col items-center gap-5 text-center">
-          <div className="flex flex-col gap-1.5">
-            <h1 className="text-base font-medium text-foreground">
-              {empty ? "No projects yet" : "Start a thread"}
-            </h1>
-            <p className="type-body text-muted-foreground">
-              {!connected
-                ? "No server is connected, so there is nothing to start a thread on yet."
-                : "A thread belongs to a project — a directory on this machine the agent works in. Add one to start."}
-            </p>
-          </div>
-          {empty ? <AddProjectDialog trigger="button" /> : null}
-        </div>
-      </div>
-    );
+    return <StartThreadEmpty connected={connected} empty={empty} />;
   }
 
   // Laid out like an open thread with no messages: the greeting in the
   // middle, the composer pinned to the bottom.
   return (
-    <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+    <StartThreadWorkspace projectId={project.projectId} draftId={draftId} dockTab={dockTab}>
       <ThreadGreeting project={project} />
       <div className="flex w-full shrink-0 justify-center px-6 pb-4">
-        <StartComposer projects={projects} project={project} onPickProject={rememberProject} />
+        <StartComposer
+          threadId={draftId}
+          projects={projects}
+          project={project}
+          onPickProject={rememberProject}
+        />
       </div>
-    </section>
+    </StartThreadWorkspace>
   );
 }

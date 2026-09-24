@@ -282,7 +282,7 @@ The renderer. TanStack Router routes under `apps/web/src/routes`, state through
 
 | Route                             | What it is                                                                                        |
 | --------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `_home/index`                     | start a thread, pick a project                                                                    |
+| `_home/index`                     | the New task page: start a thread, pick a project; `?pane=` carries the project dock's tab        |
 | `_home/t/$threadId`               | the thread view; `?pane=` carries the dock tab                                                    |
 | `_home/customize/{skills,mcp}`    | what extends the agent, one tab per kind, one section per instance                                |
 | `settings`, eight pages           | general, models, connectors, keybindings, permissions, git & worktrees, browser, archived threads |
@@ -309,6 +309,12 @@ The dock has keys of its own, answered by the thread view: `dock.toggle`
 `dock.changes` (Mod+Shift+D), `browserPane.toggle` (Mod+Shift+B) and
 `dock.files` (Mod+P) open their tab, or close the dock when it already shows
 that tab. Opening Files by its key also puts the cursor in the Files search.
+The New task page, before any thread exists, has the same frame for the
+picked project's own folder: a one-row header with the git actions and the
+terminal and dock toggles, the project's terminal drawer, and a dock with
+Changes (the folder's uncommitted work, or its branch against the default
+branch) and Files — no Browser, which is a thread's — answering the same keys
+but `browserPane.toggle`.
 Archived threads leave the sidebar tree for the archived threads settings page,
 which unarchives or deletes them. The keybindings settings page
 (`apps/web/src/components/keybindings/keybindings-editor.tsx`) lists every
@@ -1003,7 +1009,8 @@ creates a branch only for a local thread; a worktree thread's branch is its
 own. Beside it, the git actions control
 (`apps/web/src/components/git/git-actions-control.tsx`) commits, pushes and
 opens a pull request from the thread's root, as stacked steps planned by
-`apps/web/src/lib/git-actions.ts`. The Changes pane's "Branch vs base" scope
+`apps/web/src/lib/git-actions.ts` — and, in the New task page's header, from
+the project's own folder. The Changes pane's "Branch vs base" scope
 compares the thread's root with the worktree's `baseBranch`, or with the
 repository's default branch for a local thread.
 Deleting such a thread is where one goes: the delete confirmation offers to

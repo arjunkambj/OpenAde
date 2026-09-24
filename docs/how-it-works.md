@@ -1621,6 +1621,14 @@ tab. A scope select at the top picks what to compare
   is `HEAD`, so a line under the select says only uncommitted work shows.
 - **Uncommitted** — the working tree against `HEAD`, both ends omitted.
 
+The New task page's dock has a Changes tab of its own
+(`project-changes-pane.tsx`), for the picked project's folder before any
+thread exists: Uncommitted and Branch vs base (against the default branch),
+with `git.status` and `git.diff` given the `projectId` alone. There are no
+turns, so no turn scope and no restore; the file list and its review are the
+thread pane's (`ComparisonBody` in `changes-list.tsx`), and "Add to chat"
+writes into the page's draft.
+
 `git.diff` answers with the file list, because `GitDiff.files` already
 carries the path, the `+`/`-` counts and the per-file patch. `git.status` is
 read alongside for the branch line and to tell "not a git repository"
@@ -1825,7 +1833,9 @@ with `created: false`. Tests swap in a fake runner that answers with gh's own
 wording; nothing talks to GitHub.
 
 The thread header's git actions control
-(`apps/web/src/components/git/git-actions-control.tsx`) is the client of these:
+(`apps/web/src/components/git/git-actions-control.tsx`) is the client of these
+— and the New task page's header carries it too, before any thread exists,
+acting on the picked project's own folder with the `projectId` alone:
 a Commit button, and a menu with Commit, Commit & push, and Commit, push &
 create PR. An action is a stack of steps, planned from the root's status and
 branch list (`planGitAction` in `apps/web/src/lib/git-actions.ts`): a commit
@@ -2628,8 +2638,8 @@ fields entirely.
 | Composer | `composer.attach`                                     | `Mod+U`                       |                                                                                        |
 | Composer | `composer.clearDraft`                                 | `Mod+Shift+Backspace`         | `composerFocus`                                                                        |
 | View     | `sidebar.toggle`                                      | `Mod+B`                       |                                                                                        |
-| View     | `dock.toggle`                                         | `Mod+Alt+B`                   | `threadOpen`                                                                           |
-| View     | `dock.changes` / `dock.files`                         | `Mod+Shift+D` / `Mod+P`       | `threadOpen`                                                                           |
+| View     | `dock.toggle`                                         | `Mod+Alt+B`                   | `threadOpen \|\| newTaskOpen`                                                          |
+| View     | `dock.changes` / `dock.files`                         | `Mod+Shift+D` / `Mod+P`       | `threadOpen \|\| newTaskOpen`                                                          |
 | View     | `browserPane.toggle`                                  | `Mod+Shift+B`                 |                                                                                        |
 | View     | `terminal.toggle`                                     | `Mod+J`                       |                                                                                        |
 | View     | `font.increase` / `decrease` / `reset`                | `Mod+Alt+=` / `-` / `0`       |                                                                                        |
@@ -2677,7 +2687,8 @@ on is held where it sat on screen — or, when collapsing folded away every
 row on screen, the nearest row above them, usually the fold that hid them,
 goes to the top — until the rows stop moving or the reader scrolls.
 
-The git keys belong to the thread header. `git.commit` is the Commit button
+The git keys belong to the thread header, or the New task page's when that is
+on screen. `git.commit` is the Commit button
 and `git.push` is Commit & push, which pushes straight away when there is
 nothing to commit (`git-actions-control.tsx`); `git.branchPicker` opens the
 branch popover (`branch-picker.tsx`). Each does nothing from its key while its
@@ -2783,12 +2794,13 @@ The context keys a clause may name are listed, with what each means and who
 sets it, in `KEYBINDING_CONTEXT_KEYS` (`packages/client-runtime/src/keymap.ts`).
 The listener computes `inputFocus`, `composerFocus`, `terminalFocus`,
 `browserFocus`, `dialogOpen` and `isMac` from the keypress; components publish
-`threadOpen`, `dockOpen`, `changesOpen`, `turnRunning` (`threadRunning` is an alias),
+`threadOpen`, `newTaskOpen`, `dockOpen`, `changesOpen`, `turnRunning` (`threadRunning` is an alias),
 `approvalPending`, `questionPending` and `planPending`. `CONTEXT_AXIOMS`
 records what always holds between them: `composerFocus` and `terminalFocus`
 each imply `inputFocus`; focus is in at most one of the composer, the terminal
 and the browser; at most one of an approval, a question and a plan is pending;
-`isMac` is fixed per platform.
+a thread and the New task page are never on screen together; `isMac` is fixed
+per platform.
 
 Conflicts are found by the same module, per platform
 (`findKeybindingConflicts`). Two rows for different commands conflict when they
@@ -2828,6 +2840,7 @@ built-in key. Who publishes the rest:
 | key                                                 | published by                                    |
 | --------------------------------------------------- | ----------------------------------------------- |
 | `threadOpen`, `dockOpen`                            | `ThreadView`, while mounted / while the dock is |
+| `newTaskOpen`, `dockOpen`                           | the New task page, with a project / its dock    |
 | `changesOpen`                                       | `ChangesPane`, while the dock shows it          |
 | `turnRunning`                                       | `Composer`                                      |
 | `approvalPending`, `questionPending`, `planPending` | `PendingCard`, for exactly the card it shows    |

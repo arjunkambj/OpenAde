@@ -149,15 +149,17 @@ function useInsetChrome(): boolean {
 /**
  * The chrome row above the inset, while the sidebar that normally holds it
  * is hidden. A thread draws the same controls at the start of its own header
- * (`ThreadHeaderChrome`), so the thread keeps one top row instead of two.
+ * (`ThreadHeaderChrome`), and so does the New task page at `/`
+ * (`StartThreadHeader`), so each keeps one top row instead of two.
  */
 export function InsetWindowChrome() {
   const { isMobile } = useSidebar();
   const inset = useInsetChrome();
   const matchRoute = useMatchRoute();
   const onThread = Boolean(matchRoute({ to: "/t/$threadId", fuzzy: true }));
+  const onNewTask = Boolean(matchRoute({ to: "/" }));
 
-  if (!inset || onThread) {
+  if (!inset || onThread || onNewTask) {
     return null;
   }
 
@@ -172,10 +174,11 @@ export function InsetWindowChrome() {
 }
 
 /**
- * The chrome's controls at the start of the thread header, while the sidebar
- * is hidden: the traffic-lights gap, the sidebar toggle, search and history.
- * `null` while the sidebar shows them itself. The header it sits in is the
- * window's drag region then, so the controls opt out of it.
+ * The chrome's controls at the start of the thread header (and the New task
+ * page's), while the sidebar is hidden: the traffic-lights gap, the sidebar
+ * toggle, search and history. `null` while the sidebar shows them itself.
+ * The header it sits in is the window's drag region then, so the controls
+ * opt out of it.
  */
 export function ThreadHeaderChrome() {
   if (!useInsetChrome()) {
