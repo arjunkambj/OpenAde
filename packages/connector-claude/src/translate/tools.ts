@@ -227,6 +227,10 @@ export interface ToolRows {
   readonly abandonOpen: (reason: string) => ReadonlyArray<PendingRuntimeEvent>;
   /** How many calls have finished without an error: the calls that ran. */
   readonly ran: () => number;
+  /** The row a `tool_use` id opened, if one did. */
+  readonly rowOf: (
+    toolUseId: string,
+  ) => { readonly itemId: ItemId; readonly kind: ItemKind } | undefined;
 }
 
 export const makeToolRows = (): ToolRows => {
@@ -317,5 +321,10 @@ export const makeToolRows = (): ToolRows => {
     return events;
   };
 
-  return { started, finished, planProposed, abandonOpen, ran: () => ran };
+  const rowOf = (toolUseId: string) => {
+    const row = rows.get(toolUseId);
+    return row === undefined ? undefined : { itemId: row.snapshot.itemId, kind: row.snapshot.kind };
+  };
+
+  return { started, finished, planProposed, abandonOpen, ran: () => ran, rowOf };
 };

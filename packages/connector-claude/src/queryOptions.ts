@@ -110,6 +110,9 @@ export const buildQueryOptions = (input: QueryOptionsInput): Options => {
     settingSources: ["user", "project", "local"],
     systemPrompt: { type: "preset", preset: "claude_code" },
     includePartialMessages: true,
+    // A subagent's text and thinking too, not only its tool calls, so its
+    // task row holds the whole of what it did (`translate/subagents.ts`).
+    forwardSubagentText: true,
     permissionMode: permissionModeFor(input.settings),
     // The SDK requires it before `bypassPermissions` — full access — can be
     // used, whether at start or by a switch mid-session. The hook still gates

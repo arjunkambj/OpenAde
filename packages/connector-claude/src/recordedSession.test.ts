@@ -10,7 +10,8 @@
  * `plan-accept`: a plan turn whose ExitPlanMode becomes the plan card and a
  * turn that stops there, then the implementation turn out of plan mode.
  * `question`: AskUserQuestion as a question card, answered with its first
- * option, and the answer reaching the model.
+ * option, and the answer reaching the model. `subagent`: a Task delegation,
+ * its task lifecycle, and the subagent's rows nested under the task's row.
  * The recordings were made through the real server; only their session launch
  * is played here — the probe's launches are a different class and are never
  * asked for.
@@ -356,6 +357,37 @@ describe.skipIf(!recorded("question"))("a Claude Code session replaying claude/q
           item.fileChange?.path.endsWith("colour.txt"),
         );
         expect((write?.fileChange?.diff ?? "").toLowerCase()).toContain(chosen.toLowerCase());
+      }),
+    ),
+  );
+});
+
+describe.skipIf(!recorded("subagent"))("a Claude Code session replaying claude/subagent", () => {
+  it.live("opens a task for the delegation and nests the subagent's rows under it", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const events = yield* replayTurn("subagent", "full-access", "deny");
+        expect(ofType(events, "event.unmapped")).toEqual([]);
+        expect(ofType(events, "session.warning")).toEqual([]);
+
+        // The Task call's row is the task: announced with its id, and settled.
+        const task = rows(events, "task")[0];
+        expect(task?.status).toBe("completed");
+        const started = ofType(events, "task.started");
+        expect(started.map((event) => event.payload.taskId)).toContain(task!.itemId);
+        const completed = ofType(events, "task.completed").filter(
+          (event) => event.payload.taskId === task!.itemId,
+        );
+        expect(completed.map((event) => event.payload.status)).toEqual(["completed"]);
+
+        // What the subagent did carries the task as its parent, from its first
+        // snapshot to its last; the main loop's own rows do not.
+        const nested = ofType(events, "item.completed")
+          .map((event) => event.payload.item)
+          .filter((item) => item.parentItemId === task!.itemId);
+        expect(nested.length).toBeGreaterThan(0);
+        const answer = rows(events, "assistant_message").at(-1);
+        expect(answer?.parentItemId).toBeUndefined();
       }),
     ),
   );

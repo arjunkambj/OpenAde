@@ -25,6 +25,13 @@
  *   thread keeps the id the user picked;
  * - `result` → `usage.updated`, `context.updated` and `turn.completed`
  *   (`result.ts`);
+ * - a Task or Agent call → a `task` row and `task.started`, the `task_*`
+ *   system messages → `task.updated` and `task.completed`, and every message
+ *   a subagent sends (`parent_tool_use_id`) → rows nested under that task
+ *   (`subagents.ts`). A subagent's messages are read as the main loop's are,
+ *   but they never move the session's context, cost or rewind point: those
+ *   are the main conversation's. The user message a subagent is handed is the
+ *   call's own prompt, already on the task's row, and adds nothing;
  * - a `system/status` that only reports the CLI's permission mode → nothing;
  *   the session reads the mode off it (`isModeReport`);
  * - `command_lifecycle` and `system/status: requesting` → nothing, on purpose.
@@ -33,13 +40,14 @@
  *   what it sent and from the `result` that ends it. The second says a request
  *   is on its way to the API, which the deltas that follow say again.
  *
- * Everything else — subagent traffic, a user message that is not tool
- * results, status and lifecycle notices — is kept whole as `event.unmapped`
- * until a mapping exists
- * for it. Nothing is dropped silently; the stream events skipped here are the
- * block boundaries and message-level bookkeeping the snapshot restates.
+ * Everything else — a user message that is not tool results, status and
+ * lifecycle notices, a task nothing here has heard of — is kept whole as
+ * `event.unmapped` until a mapping exists for it. Nothing is dropped silently;
+ * the stream events skipped here are the block boundaries and message-level
+ * bookkeeping the snapshot restates.
  */
 
+import type { ItemId } from "@OpenAde/contracts/ids";
 import type { McpServerStatus } from "@OpenAde/contracts/runtime";
 
 import {
@@ -53,6 +61,7 @@ import {
   type PendingRuntimeEvent,
 } from "./pending";
 import { resultEvents, type TurnContext } from "./result";
+import { makeSubagents } from "./subagents";
 import { makeTextRows } from "./textRows";
 import { makeToolRows } from "./tools";
 
@@ -68,6 +77,17 @@ const RESTATED_STREAM_EVENTS = new Set([
 
 /** `system/status` values that only say a request is under way. */
 const REQUEST_STATUSES = new Set(["requesting"]);
+
+/** The `task_*` system messages: a subagent's, or a background command's, lifecycle. */
+const TASK_MESSAGES = new Set([
+  "task_started",
+  "task_progress",
+  "task_updated",
+  "task_notification",
+]);
+
+/** The key the main loop's stream is kept under; a subagent's is its call's id. */
+const MAIN_LOOP = "";
 
 /**
  * A `system/status` with no status but a `permissionMode`: the CLI saying
@@ -116,7 +136,11 @@ export const makeTranslator = (options: {
 }): Translator => {
   const rows = makeTextRows();
   const tools = makeToolRows();
-  let streamMessage: string | null = null;
+  const subagents = makeSubagents();
+  /** The message each stream is in the middle of: the main loop's, and each subagent's. */
+  const streamMessages = new Map<string, string>();
+  /** Every row a subagent opened → the task row it is nested under. */
+  const nestedUnder = new Map<ItemId, ItemId>();
   let model: string | null = null;
   let contextUsed: number | null = null;
   let contextLimit: number | null = null;
@@ -124,31 +148,34 @@ export const makeTranslator = (options: {
   let errorReported = false;
   let lastAssistantUuid: string | undefined;
 
-  const streamEvent = (message: Json): ReadonlyArray<PendingRuntimeEvent> => {
+  const streamEvent = (message: Json, stream: string): ReadonlyArray<PendingRuntimeEvent> => {
     const event = asRecord(message.event);
     const type = asString(event.type);
     const index = asNumber(event.index) ?? 0;
+    const current = streamMessages.get(stream);
     switch (type) {
       case "message_start": {
-        streamMessage = asString(asRecord(event.message).id) ?? null;
+        const id = asString(asRecord(event.message).id);
+        if (id === undefined) streamMessages.delete(stream);
+        else streamMessages.set(stream, id);
         return [];
       }
       case "content_block_start": {
         const block = asString(asRecord(event.content_block).type);
-        if (streamMessage === null) return [];
-        if (block === "text") return rows.open(streamMessage, index, "assistant_message");
-        if (block === "thinking") return rows.open(streamMessage, index, "reasoning");
+        if (current === undefined) return [];
+        if (block === "text") return rows.open(current, index, "assistant_message");
+        if (block === "thinking") return rows.open(current, index, "reasoning");
         // Tool-use and other blocks are told by the snapshot that follows.
         return [];
       }
       case "content_block_delta": {
         const delta = asRecord(event.delta);
-        if (streamMessage === null) return [];
+        if (current === undefined) return [];
         if (delta.type === "text_delta") {
-          return rows.delta(streamMessage, index, asString(delta.text) ?? "");
+          return rows.delta(current, index, asString(delta.text) ?? "");
         }
         if (delta.type === "thinking_delta") {
-          return rows.delta(streamMessage, index, asString(delta.thinking) ?? "");
+          return rows.delta(current, index, asString(delta.thinking) ?? "");
         }
         // Tool input and thinking signatures arrive whole in the snapshot.
         return [];
@@ -185,24 +212,14 @@ export const makeTranslator = (options: {
     ];
   };
 
-  const assistant = (message: Json): ReadonlyArray<PendingRuntimeEvent> => {
-    const error = asString(message.error);
-    if (error !== undefined) return failedRequest(message, error);
-    lastAssistantUuid = asString(message.uuid) ?? lastAssistantUuid;
+  /**
+   * The rows of one snapshot's blocks: text and thinking settle, each call
+   * opens its row, and a Task or Agent call starts its task too. `parent` is
+   * the task a subagent's snapshot belongs to.
+   */
+  const snapshotRows = (message: Json, parent: ItemId | undefined) => {
     const body = asRecord(message.message);
     const messageId = asString(body.id) ?? asString(message.uuid) ?? "";
-    const reported = asRecord(message.context_usage);
-    const usage = asRecord(body.usage);
-    const used =
-      asNumber(reported.total_tokens) ??
-      tokens(usage.input_tokens) +
-        tokens(usage.cache_read_input_tokens) +
-        tokens(usage.cache_creation_input_tokens) +
-        tokens(usage.output_tokens);
-    if (used > 0) contextUsed = used;
-    const limit = asNumber(reported.raw_max_tokens);
-    if (limit !== undefined && limit > 0) contextLimit = limit;
-
     const events: Array<PendingRuntimeEvent> = [];
     let untold = false;
     for (const entry of asArray(body.content)) {
@@ -214,12 +231,36 @@ export const makeTranslator = (options: {
         if (thinking !== "") events.push(...rows.settle(messageId, "reasoning", thinking));
       } else if (block.type === "tool_use") {
         events.push(...tools.started(block));
+        const id = asString(block.id);
+        const row = id === undefined ? undefined : tools.rowOf(id);
+        if (id !== undefined && row?.kind === "task") {
+          events.push(...subagents.opened(id, row.itemId, asRecord(block.input), parent));
+        }
       } else {
         untold = true;
       }
     }
-    if (untold) events.push(unmapped(message));
-    return events;
+    return { events, untold };
+  };
+
+  const assistant = (message: Json): ReadonlyArray<PendingRuntimeEvent> => {
+    const error = asString(message.error);
+    if (error !== undefined) return failedRequest(message, error);
+    lastAssistantUuid = asString(message.uuid) ?? lastAssistantUuid;
+    const body = asRecord(message.message);
+    const reported = asRecord(message.context_usage);
+    const usage = asRecord(body.usage);
+    const used =
+      asNumber(reported.total_tokens) ??
+      tokens(usage.input_tokens) +
+        tokens(usage.cache_read_input_tokens) +
+        tokens(usage.cache_creation_input_tokens) +
+        tokens(usage.output_tokens);
+    if (used > 0) contextUsed = used;
+    const limit = asNumber(reported.raw_max_tokens);
+    if (limit !== undefined && limit > 0) contextLimit = limit;
+    const { events, untold } = snapshotRows(message, undefined);
+    return untold ? [...events, unmapped(message)] : events;
   };
 
   /**
@@ -235,6 +276,113 @@ export const makeTranslator = (options: {
     return results.flatMap((block) => tools.finished(block, structured));
   };
 
+  /** A subagent's message, read as the main loop's but moving none of its state. */
+  const subagentMessage = (
+    message: Json,
+    stream: string,
+    parent: ItemId | undefined,
+  ): ReadonlyArray<PendingRuntimeEvent> => {
+    switch (message.type) {
+      case "stream_event":
+        return streamEvent(message, stream);
+      case "assistant": {
+        // A subagent's failed request is its own text, and its task's result.
+        const { events, untold } = snapshotRows(message, parent);
+        return untold ? [...events, unmapped(message)] : events;
+      }
+      case "user": {
+        const content = asRecord(message.message).content;
+        const blocks = asArray(content).map(asRecord);
+        const prompt =
+          typeof content === "string" ||
+          (blocks.length > 0 && blocks.every((block) => block.type === "text"));
+        return prompt ? [] : user(message);
+      }
+      default:
+        return [unmapped(message)];
+    }
+  };
+
+  /** Nests every row in `events` under `parent`, and remembers it for later snapshots. */
+  const nest = (
+    events: ReadonlyArray<PendingRuntimeEvent>,
+    parent: ItemId,
+  ): ReadonlyArray<PendingRuntimeEvent> => {
+    for (const event of events) {
+      if (event.type === "item.started" || event.type === "item.completed") {
+        if (event.payload.item.itemId !== parent) {
+          nestedUnder.set(event.payload.item.itemId, parent);
+        }
+      }
+    }
+    return withParents(events);
+  };
+
+  /**
+   * Every row a subagent opened carries its task, whichever path settles it —
+   * the subagent's own result, a plan, or the turn failing what is still open.
+   */
+  const withParents = (
+    events: ReadonlyArray<PendingRuntimeEvent>,
+  ): ReadonlyArray<PendingRuntimeEvent> =>
+    nestedUnder.size === 0
+      ? events
+      : events.map((event) => {
+          if (event.type !== "item.started" && event.type !== "item.completed") return event;
+          const item = event.payload.item;
+          const parent = nestedUnder.get(item.itemId);
+          if (parent === undefined || item.parentItemId !== undefined) return event;
+          return {
+            ...event,
+            payload: { ...event.payload, item: { ...item, parentItemId: parent } },
+          };
+        });
+
+  /** A message from inside a subagent: nested, or held until its task's row opens. */
+  const fromSubagent = (message: Json, toolUseId: string): ReadonlyArray<PendingRuntimeEvent> => {
+    const row = tools.rowOf(toolUseId);
+    if (row === undefined) {
+      subagents.hold(toolUseId, message);
+      return [];
+    }
+    return nest(subagentMessage(message, toolUseId, row.itemId), row.itemId);
+  };
+
+  /** A `task_*` system message: its task's events, held while the call has no row. */
+  const taskMessage = (message: Json): ReadonlyArray<PendingRuntimeEvent> => {
+    const toolUseId = subagents.callOf(message);
+    if (toolUseId === undefined) return [unmapped(message)];
+    if (tools.rowOf(toolUseId) === undefined) {
+      subagents.hold(toolUseId, message);
+      return [];
+    }
+    return subagents.lifecycle(toolUseId, message);
+  };
+
+  /** The held messages whose task row has opened since, read now. */
+  const released = (): ReadonlyArray<PendingRuntimeEvent> =>
+    subagents
+      .takeReady(tools.rowOf)
+      .flatMap(({ toolUseId, message }) =>
+        message.type === "system"
+          ? subagents.lifecycle(toolUseId, message)
+          : fromSubagent(message, toolUseId),
+      );
+
+  /**
+   * The turn ended with messages still held: their task never opened a row.
+   * A subagent's rows are shown unnested; a lifecycle message with no row to
+   * move is kept unmapped.
+   */
+  const orphans = (): ReadonlyArray<PendingRuntimeEvent> =>
+    subagents
+      .takeAll()
+      .flatMap((message) =>
+        message.type === "system"
+          ? [unmapped(message)]
+          : subagentMessage(message, asString(message.parent_tool_use_id) ?? MAIN_LOOP, undefined),
+      );
+
   const init = (message: Json): ReadonlyArray<PendingRuntimeEvent> => {
     model = asString(message.model) ?? model;
     const servers = asArray(message.mcp_servers).flatMap((entry) => {
@@ -246,27 +394,30 @@ export const makeTranslator = (options: {
     return [{ type: "mcp.status.updated", payload: { servers } }];
   };
 
-  const translate = (
-    raw: unknown,
+  const system = (message: Json): ReadonlyArray<PendingRuntimeEvent> => {
+    const subtype = asString(message.subtype) ?? "";
+    if (subtype === "init") return init(message);
+    if (TASK_MESSAGES.has(subtype)) return taskMessage(message);
+    if (subtype === "status") {
+      if (REQUEST_STATUSES.has(asString(message.status) ?? "")) return [];
+      if (isModeReport(message)) return [];
+    }
+    return [unmapped(message)];
+  };
+
+  const mainLoop = (
+    message: Json,
     turn: TurnContext | null,
   ): ReadonlyArray<PendingRuntimeEvent> => {
-    const message = asRecord(raw);
-    const mainLoop =
-      message.parent_tool_use_id === null || message.parent_tool_use_id === undefined;
     switch (message.type) {
       case "stream_event":
-        return mainLoop ? streamEvent(message) : [unmapped(message)];
+        return streamEvent(message, MAIN_LOOP);
       case "assistant":
-        return mainLoop ? assistant(message) : [unmapped(message)];
+        return assistant(message);
       case "user":
-        return mainLoop ? user(message) : [unmapped(message)];
+        return user(message);
       case "system":
-        if (message.subtype === "init") return init(message);
-        if (message.subtype === "status" && REQUEST_STATUSES.has(asString(message.status) ?? "")) {
-          return [];
-        }
-        if (message.subtype === "status" && isModeReport(message)) return [];
-        return [unmapped(message)];
+        return system(message);
       case "command_lifecycle":
         return [];
       case "result": {
@@ -279,11 +430,24 @@ export const makeTranslator = (options: {
         });
         if (total !== null) totalCost = total;
         errorReported = false;
-        return [...tools.abandonOpen(TURN_ENDED_UNDER_TOOL), ...events];
+        return [...orphans(), ...tools.abandonOpen(TURN_ENDED_UNDER_TOOL), ...events];
       }
       default:
         return [unmapped(message)];
     }
+  };
+
+  const translate = (
+    raw: unknown,
+    turn: TurnContext | null,
+  ): ReadonlyArray<PendingRuntimeEvent> => {
+    const message = asRecord(raw);
+    const parent = asString(message.parent_tool_use_id);
+    const events =
+      parent !== undefined && message.type !== "system" && message.type !== "result"
+        ? fromSubagent(message, parent)
+        : mainLoop(message, turn);
+    return withParents([...events, ...released()]);
   };
 
   return {
@@ -291,6 +455,6 @@ export const makeTranslator = (options: {
     lastAssistantUuid: () => lastAssistantUuid,
     totalCost: () => totalCost,
     toolCallsRan: tools.ran,
-    planProposed: tools.planProposed,
+    planProposed: (toolUseId, markdown) => withParents(tools.planProposed(toolUseId, markdown)),
   };
 };
