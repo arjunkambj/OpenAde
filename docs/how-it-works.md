@@ -761,7 +761,7 @@ turns the flat item list into rows:
   reader needs without opening it stays in view under the fold row, in order:
   todos, plans, errors, compactions, steered messages and answered-decision
   records. Then comes the final answer (the turn's last `assistant_message`)
-  and, when the turn changed files, the `turn-summary` row. A turn with no
+  and, when the turn changed files, the `turn-summary` card. A turn with no
   answer (interrupted, failed) folds all of its work and keeps its errors in
   view. The time runs from the user message to the turn's last item, task
   children included;
@@ -785,12 +785,15 @@ turns the flat item list into rows:
   three the rest fold into "and N more". A work group reads the same way
   ("Ran 2 commands, edited 1 file"), or "Thought for 2s" when it holds only
   reasoning;
-- a settled turn that changed files ends with one `turn-summary` row,
-  "Changed 3 files +20 −4", after its final answer. Its file list — one line
-  per distinct path, diff line counts summed across the turn — opens from the
-  row, with a link to that turn in the Changes pane, and each path opens that
-  file there. It lists paths and counts only, never a diff. A turn that changed no files has no summary, and the live turn and
-  the leading turn have none;
+- the `turn-summary` card, "Changed 3 files +20 −4", starts open and lists
+  one line per distinct path with its diff counts summed across the turn,
+  five at most, then "Show N more" (kept in the disclosure map under
+  `turn-summary-files:<row id>`). It lists paths and counts only, never a
+  diff; each path opens that file's diff for this turn in the Changes pane.
+  Under the files are "Undo", which restores the workspace to how it was
+  before the turn (§8, "Restoring from the timeline"), and "Open in Changes",
+  which shows that turn there. A turn that changed no files has no card, and
+  the live turn and the leading turn have none;
 - the final answer of each settled turn carries a `turnEnd` with the turn's id
   and duration, for the footer under it. The live turn has none (the
   work-group, fold and summary builders live in `timeline/fold-rows.ts`);
@@ -909,7 +912,8 @@ are not paths stay links. When two chips in one message share a name, each
 shows the parent folders that tell them apart (`lib/format.ts`,
 `src/format.ts`). A file-change row shows its path the same way, relative to
 the workspace even when the agent reported it absolute, as does a tool row's
-file target. Those chips show the whole relative path, and a row whose label holds one keeps its toggle under the rest
+file target. Those chips show the whole relative path, and a row whose label
+holds one keeps its toggle under the rest
 of the line (`DisclosureRow`'s `triggerLabel`), since a chip cannot sit
 inside a button.
 
@@ -1555,10 +1559,15 @@ so the pane never offers a restore that can only fail.
 ### Restoring from the timeline
 
 Each user message offers "Restore to here" in its footer: the workspace as it
-was before that message was sent. A checkpoint is the workspace _after_ its
-turn, so that is the checkpoint of the turn before the message's turn
-(`checkpointBefore` in `timeline/turn-checkpoints.ts`). Turns are ordered by
-where their items first appear, and a message steered into a running turn
+was before that message was sent. A settled turn's summary card offers the
+same restore as "Undo": the workspace as it was before that turn ran, which
+also undoes every turn after it. Both are `timeline/restore-before-turn.tsx`,
+so they appear, hide and disable by the same rules.
+
+A checkpoint is the workspace _after_ its turn, so that is the checkpoint of
+the turn before the message's turn (`checkpointBefore` in
+`timeline/turn-checkpoints.ts`). Turns are ordered by where their items first
+appear, and a message steered into a running turn
 carries that turn's id, so it restores to the same point as the message that
 opened the turn. There is nothing before the thread's first turn, and a
 workspace that is not a git repository records no checkpoints, so neither
@@ -1574,9 +1583,9 @@ before it; while the list loads, or when it fails offline, the fold stands
 alone. A restore settling — restored or failed — rereads every git read of the
 project, the list among them, and the Changes pane with it.
 
-The button is disabled, with the reason in its tooltip, while the server is
+The buttons are disabled, with the reason in the tooltip, while the server is
 out of reach, while a restore is running, and while a turn is in flight
-(`turnInFlight`, since the server holds its turn from `turn.requested`). It
+(`turnInFlight`, since the server holds its turn from `turn.requested`). Each
 opens `timeline/restore-checkpoint-dialog.tsx`, which confirms, dispatches
 `thread.checkpoint.restore` and reports a rejected receipt or an unreachable
 server inside the dialog, as the pane's does. The conversation is left as it
@@ -2510,7 +2519,7 @@ settings document through the same `useFontSizes` hook as the Appearance
 steppers, so the steppers follow. `timeline.collapseAll` and `expandAll` set
 every disclosure in the open thread: tool, reasoning, file-change, task and
 plan rows, turn folds, work groups and the rows folded in them, task
-children, turn summaries and answered-decision records (`disclosureIds`
+children, turn summary cards and answered-decision records (`disclosureIds`
 in `components/timeline/disclosure.ts`). The ids come from the timeline built
 with every turn fold open, so expanding all opens each settled turn's fold
 and the work groups inside it in one go, and collapsing all closes them.

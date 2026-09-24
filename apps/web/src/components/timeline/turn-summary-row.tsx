@@ -1,32 +1,52 @@
 /**
- * `turn-summary` — the closing line of a settled turn that changed files:
- * "Changed 3 files +20 −4". How long the turn took is the fold row's to say,
- * above the answer. The row opens onto one line per path with its counts; it
- * lists paths only and never renders a diff, so a long history of turns costs
- * no highlighting work. The diffs themselves live in the turn's work groups
- * and in the Changes pane, which the body links to: "Open in Changes" shows
+ * `turn-summary` — the card after a settled turn's answer, when the turn
+ * changed files: "Changed 3 files +20 −4", then one line per path with its
+ * counts. It lists paths only and never renders a diff, so a long history of
+ * turns costs no highlighting work; the diffs live in the turn's work groups
+ * and in the Changes pane, which the card links to: "Open in Changes" shows
  * this very turn — the checkpoint it left, or the latest turn when it left
  * none — and each path opens that file in it, scrolled into view
  * (`changesLink`).
+ *
+ * The card starts open, like a plan card, and folds with collapse-all. It
+ * lists five files, then "Show N more", whose state is in the row disclosure
+ * map (`turn-summary-files:<row id>`) so it holds when the row is recycled.
+ *
+ * Under the files: "Undo", which restores the workspace to the checkpoint
+ * before this turn through the timeline's restore dialog — left out when
+ * there is none (the thread's first turn, a workspace without git), disabled
+ * with the reason while no restore can start — and "Open in Changes".
  */
 
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@OpenAde/ui/components/collapsible";
+import type { TurnId } from "@OpenAde/contracts/ids";
 import { Button } from "@OpenAde/ui/components/button";
 import { useNavigate } from "@tanstack/react-router";
 
 import { changesLink } from "@/components/panes/changes/deep-link";
 import { FileChangeKindBadge } from "@/components/timeline/file-change-badge";
 import type { TimelineTurnSummaryRow, TurnSummaryFile } from "@/components/timeline/fold";
-import { DisclosureRow } from "@/components/timeline/row-shell";
+import { RestoreBeforeTurn } from "@/components/timeline/restore-before-turn";
 import { useTimelineThreadId } from "@/components/timeline/thread-context";
 import { turnSummaryLead } from "@/lib/format";
-import { GitDiff, Stopwatch } from "@honeyicons/react";
+import { useRowDisclosure } from "@/state/ui";
+import { ChevronDown, ChevronRight, ChevronUp, GitDiff, Undo } from "@honeyicons/react";
+
+/** Files the card lists before "Show N more". */
+const SUMMARY_FILE_LIMIT = 5;
+
+type OpenInChanges = (file?: string) => void;
 
 function DiffCounts({ added, removed }: { added: number; removed: number }) {
   if (added === 0 && removed === 0) {
     return null;
   }
   return (
-    <span className="ml-1.5 inline-flex gap-1.5 font-mono text-xs tabular-nums">
+    <span className="ml-1.5 inline-flex gap-1.5 font-mono text-xs font-normal tabular-nums">
       {added > 0 ? <span className="text-added">+{added}</span> : null}
       {removed > 0 ? <span className="text-removed">−{removed}</span> : null}
     </span>
@@ -37,7 +57,7 @@ function DiffCounts({ added, removed }: { added: number; removed: number }) {
  * Opens the thread's Changes pane on this turn, and on one of its files when
  * given; `null` where there is no thread to open it in (fixtures).
  */
-function useOpenInChanges(checkpointRef: string | undefined) {
+function useOpenInChanges(checkpointRef: string | undefined): OpenInChanges | null {
   const threadId = useTimelineThreadId();
   const navigate = useNavigate();
   if (threadId === null) {
@@ -53,13 +73,7 @@ function useOpenInChanges(checkpointRef: string | undefined) {
   };
 }
 
-function SummaryFile({
-  file,
-  onOpen,
-}: {
-  file: TurnSummaryFile;
-  onOpen: ((file: string) => void) | null;
-}) {
+function SummaryFile({ file, onOpen }: { file: TurnSummaryFile; onOpen: OpenInChanges | null }) {
   const line = (
     <>
       <span className="min-w-0 truncate font-mono text-xs text-foreground">{file.path}</span>
@@ -90,34 +104,95 @@ function SummaryFile({
 
 function OpenChanges({ onOpen }: { onOpen: () => void }) {
   return (
-    <Button variant="ghost" size="xs" className="self-start" onClick={onOpen}>
+    <Button variant="ghost" size="xs" onClick={onOpen}>
       <GitDiff variant="bold" data-icon="inline-start" />
       Open in Changes
     </Button>
   );
 }
 
-export function TurnSummaryRow({ summary }: { summary: TimelineTurnSummaryRow }) {
-  const open = useOpenInChanges(summary.checkpointRef);
+function UndoTurn({ turnId }: { turnId: TurnId | undefined }) {
   return (
-    <DisclosureRow
-      rowId={summary.id}
-      icon={Stopwatch}
-      label={
-        <span>
+    <RestoreBeforeTurn
+      turnId={turnId}
+      tooltip="Restore the workspace to before this turn"
+      title="Undo this turn?"
+      description="The workspace goes back to how it was before this turn ran: every tracked file returns to that checkpoint and files created since are removed, so this turn's changes and those of any turn after it are undone. Uncommitted work that is not in a checkpoint is lost. The conversation stays as it is."
+      skippedNote="The turn before this one has no checkpoint, so this goes back to an earlier one and undoes that turn's changes too."
+      renderButton={(props) => (
+        <Button variant="ghost" size="xs" {...props}>
+          <Undo variant="bold" data-icon="inline-start" />
+          Undo
+        </Button>
+      )}
+    />
+  );
+}
+
+function FileList({
+  summary,
+  onOpen,
+}: {
+  summary: TimelineTurnSummaryRow;
+  onOpen: OpenInChanges | null;
+}) {
+  const [all, setAll] = useRowDisclosure(`turn-summary-files:${summary.id}`);
+  const hiddenCount = summary.files.length - SUMMARY_FILE_LIMIT;
+  const files = all ? summary.files : summary.files.slice(0, SUMMARY_FILE_LIMIT);
+  const listId = `${summary.id}:files`;
+  return (
+    <>
+      <ul id={listId} className="flex flex-col">
+        {files.map((file) => (
+          <SummaryFile key={file.path} file={file} onOpen={onOpen} />
+        ))}
+      </ul>
+      {hiddenCount > 0 ? (
+        <Button
+          variant="ghost"
+          size="xs"
+          className="self-start"
+          aria-expanded={all}
+          aria-controls={listId}
+          onClick={() => setAll(!all)}
+        >
+          {all ? (
+            <ChevronUp variant="bold" data-icon="inline-start" />
+          ) : (
+            <ChevronDown variant="bold" data-icon="inline-start" />
+          )}
+          {all ? "Show less" : `Show ${hiddenCount} more`}
+        </Button>
+      ) : null}
+    </>
+  );
+}
+
+export function TurnSummaryRow({ summary }: { summary: TimelineTurnSummaryRow }) {
+  const [open, setOpen] = useRowDisclosure(summary.id, true);
+  const openInChanges = useOpenInChanges(summary.checkpointRef);
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} variant="card">
+      <CollapsibleTrigger variant="card">
+        <GitDiff variant="bold" className="size-3.5 shrink-0" />
+        <span className="min-w-0 flex-1 truncate text-left">
           {turnSummaryLead(summary)}
           <DiffCounts added={summary.added} removed={summary.removed} />
         </span>
-      }
-    >
-      <div className="flex flex-col gap-1">
-        <ul className="flex flex-col">
-          {summary.files.map((file) => (
-            <SummaryFile key={file.path} file={file} onOpen={open} />
-          ))}
-        </ul>
-        {open === null ? null : <OpenChanges onOpen={() => open()} />}
-      </div>
-    </DisclosureRow>
+        <ChevronRight
+          variant="bold"
+          className="size-3.5 shrink-0 text-muted-foreground transition-reveal duration-150 ease-out group-data-open/row:rotate-90"
+        />
+      </CollapsibleTrigger>
+      <CollapsibleContent keepMounted variant="card">
+        <div className="flex flex-col gap-1">
+          <FileList summary={summary} onOpen={openInChanges} />
+          <div className="flex flex-wrap items-center gap-1">
+            <UndoTurn key={summary.id} turnId={summary.turnId} />
+            {openInChanges === null ? null : <OpenChanges onOpen={() => openInChanges()} />}
+          </div>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }

@@ -6,7 +6,8 @@
  * searches, a passing command, a create and two edits, interim narration); the
  * second is a long message with two screenshots and a skill and a plugin
  * reference (web search, an in-app browser call, a failing command, an edit
- * given as an absolute path, a delete, a skill, a todo list); the third is a
+ * given as an absolute path, a delete, a sweep over four more files so its
+ * summary card has more than it lists, a skill, a todo list); the third is a
  * markdown message (a plan and its decision, an allowed and a denied approval,
  * an answered question, a subagent task with nested calls, an error, and a
  * steered second message inside the same turn); the fourth answers with two
@@ -86,6 +87,21 @@ const healthTurn = (b: Builder, first: boolean): void => {
   b.settle(t, !first);
 };
 
+/** The settings files the accent sweep touches: with the turn's other three, more than a card lists. */
+const ACCENT_SWEEP = ["sidebar.tsx", "layout.tsx", "theme.ts", "index.ts"].map(
+  (name) => `apps/web/src/settings/${name}`,
+);
+
+const accentDiff = (path: string): string =>
+  [
+    `--- a/${path}`,
+    `+++ b/${path}`,
+    "@@ -3 +3 @@",
+    "-  accent: '#3b82f6',",
+    "+  accent: 'var(--primary)',",
+    "",
+  ].join("\n");
+
 /** The long message with screenshots: browsing, a failure and its fix, a delete, a todo list. */
 const settingsTurn = (b: Builder): void => {
   const t = turn(b, 4 * 60_000);
@@ -151,6 +167,9 @@ const settingsTurn = (b: Builder): void => {
   );
   b.add(t, 2_000, say(text.NARRATION.testFailed));
   b.add(t, 5_000, change("apps/web/src/settings/banner.test.tsx", "edit", text.DIFF_BANNER_TEST));
+  for (const path of ACCENT_SWEEP) {
+    b.add(t, 1_500, change(path, "edit", accentDiff(path)));
+  }
   b.add(t, 12_000, run("pnpm --filter web test -- settings", 0, "Test Files  12 passed (12)\n"));
   b.add(t, 2_000, { ...tool("activate_skill", { name: "review" }), kind: "skill", text: "review" });
   b.add(t, 11_000, say(text.ANSWER_SETTINGS));
