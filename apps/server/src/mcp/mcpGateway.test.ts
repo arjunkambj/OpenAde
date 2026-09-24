@@ -9,6 +9,8 @@
  * - `tools/call browser_open` drives the fake driver through the session's
  *   serialized queue — the same path `mcp__openade__browser_open` takes.
  * - `revoke` kills the bearer — dead requests 401.
+ * - A snapshot past the 64KB cap is capped in `structuredContent` too, not
+ *   only in the text.
  */
 
 import { createServer } from "node:http";
@@ -35,7 +37,7 @@ import { testLayer as sqliteTestLayer } from "../persistence/Sqlite";
 import { PermissionService } from "../permissions/PermissionService";
 import { BrowserService } from "../rpc/services";
 import { mcpRoutesLayer } from "./httpRoute";
-import { capText, McpGateway } from "./McpGateway";
+import { capStructured, capText, McpGateway } from "./McpGateway";
 
 const threadId = makeThreadId();
 
@@ -266,6 +268,83 @@ describe("McpGateway", () => {
       }),
     ),
   );
+});
+
+describe("oversized results", () => {
+  it.live("caps a large snapshot's structuredContent, and the text says it was cut", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        // Thousands of refs: the snapshot text and its refs map are each well
+        // past 64KB.
+        const page: FakePage = {
+          ...fakePage(),
+          lines: Array.from({ length: 4000 }, (_, index) => ({
+            role: "link",
+            name: `A link with a reasonably long accessible name, number ${index}`,
+            ref: `e${index}`,
+          })),
+        };
+        const { gateway, port } = yield* buildStack(() => Effect.succeed(makeFakeDriver(page)));
+        const { bearer } = yield* gateway.endpoint(threadId);
+        const url = `http://127.0.0.1:${port}/mcp`;
+        yield* Effect.promise(() =>
+          post(url, bearer, {
+            jsonrpc: "2.0",
+            id: 1,
+            method: "tools/call",
+            params: { name: "browser_open", arguments: { url: "https://example.com/big" } },
+          }),
+        );
+        const snapshot = yield* Effect.promise(() =>
+          post(url, bearer, {
+            jsonrpc: "2.0",
+            id: 2,
+            method: "tools/call",
+            params: { name: "browser_snapshot", arguments: {} },
+          }),
+        );
+
+        const result = snapshot.body?.result;
+        expect(result?.isError).toBe(false);
+        const structured = result?.structuredContent ?? {};
+        expect(Buffer.byteLength(JSON.stringify(structured), "utf8")).toBeLessThanOrEqual(
+          64 * 1024,
+        );
+        expect(structured).toMatchObject({
+          url: "https://example.com/big",
+          title: "Fake https://example.com/big",
+          truncated: true,
+        });
+        expect(structured.snapshot).toBeUndefined();
+        expect(structured.refs).toBeUndefined();
+        const text = result?.content?.[0]?.text ?? "";
+        expect(text).toContain("truncated at 65536 bytes");
+        expect(text).toContain("e0");
+      }),
+    ),
+  );
+});
+
+describe("capStructured", () => {
+  it("leaves a result inside the cap alone", () => {
+    const data = { url: "https://example.com/", title: "Example", snapshot: "- link" };
+    expect(capStructured(data)).toBe(data);
+  });
+
+  it("keeps only where the page is, and only when that is short", () => {
+    const capped = capStructured({
+      origin: "https://example.com",
+      url: `https://example.com/?q=${"x".repeat(5000)}`,
+      title: "Example",
+      text: "の".repeat(40_000),
+    });
+    expect(capped).toEqual({
+      origin: "https://example.com",
+      title: "Example",
+      truncated: true,
+      bytes: expect.any(Number),
+    });
+  });
 });
 
 describe("capText", () => {

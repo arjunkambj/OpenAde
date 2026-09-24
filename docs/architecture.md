@@ -1675,7 +1675,9 @@ settles under a different epoch than it started returns
 agent does counts: the shell relays a guest's `before-input-event`, and input
 synthesized over CDP never fires one, so a person clicking while
 `browser_click` runs interrupts it. Results are capped at 64 KiB counted in
-bytes, cut on a byte boundary.
+bytes, cut on a byte boundary, and so is the result's `structuredContent`
+(`capStructured` in `McpGateway.ts`): a snapshot's refs map used to ride past
+the text's cap beside it, so over the cap only where the page is stays.
 
 Timeline rows for `mcp__openade__browser_*` come from the harness transcript
 through the connector's translator, not from the gateway — emitting items there

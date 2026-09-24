@@ -9,8 +9,8 @@
  * serialized queue and the `interrupted_by_human` epoch live — this module
  * stays thin JSON-RPC plumbing.
  *
- * Tool results cap at 64KB of text; `browser_screenshot` adds an image
- * content block. Timeline rows for `mcp__openade__browser_*` come from the
+ * Tool results cap at 64KB of text, and `structuredContent` at the same 64KB
+ * serialized; `browser_screenshot` adds an image content block. Timeline rows for `mcp__openade__browser_*` come from the
  * harness transcript (the connector's translator), not from here — emitting
  * `thread.item.upserted` in this layer would double every row.
  */
@@ -96,6 +96,30 @@ export const capText = (text: string): string => {
   return `${decoded}\n… truncated at ${RESULT_CAP_BYTES} bytes`;
 };
 
+/** The small fields a capped structured result keeps: where the page is. */
+const KEPT_FIELDS = ["origin", "url", "title", "targetId"] as const;
+const KEPT_FIELD_MAX_BYTES = 2048;
+
+/**
+ * The same 64KB cap on the result's `structuredContent`. A snapshot carries
+ * its text *and* a refs map, so leaving this uncapped let every large page
+ * past the cap `capText` puts on the text beside it. Over the cap, the bodies
+ * go and only where the page is stays, with `truncated` and the size that
+ * was dropped; the text content still carries the truncated body.
+ */
+export const capStructured = (data: Record<string, unknown>): Record<string, unknown> => {
+  const bytes = Buffer.byteLength(JSON.stringify(data), "utf8");
+  if (bytes <= RESULT_CAP_BYTES) return data;
+  const kept: Record<string, unknown> = {};
+  for (const field of KEPT_FIELDS) {
+    const value = data[field];
+    if (typeof value === "string" && Buffer.byteLength(value, "utf8") <= KEPT_FIELD_MAX_BYTES) {
+      kept[field] = value;
+    }
+  }
+  return { ...kept, truncated: true, bytes };
+};
+
 /** The text the agent reads back from a browser_* call. */
 const outcomeText = (outcome: BrowserCallOutcome): string => {
   switch (outcome.kind) {
@@ -110,7 +134,7 @@ const outcomeText = (outcome: BrowserCallOutcome): string => {
     case "interrupted":
       return "interrupted_by_human — the user took control of the browser while this call was running; re-snapshot before continuing or stop driving";
     case "error":
-      return outcome.message;
+      return capText(outcome.message);
   }
 };
 
@@ -215,10 +239,10 @@ export class McpGateway extends Context.Service<
             isError: outcome.kind === "error",
             structuredContent:
               outcome.kind === "ok"
-                ? outcome.data
+                ? capStructured(outcome.data)
                 : outcome.kind === "interrupted"
                   ? { status: "interrupted_by_human" }
-                  : { error: outcome.message },
+                  : { error: capText(outcome.message) },
           });
         });
 
