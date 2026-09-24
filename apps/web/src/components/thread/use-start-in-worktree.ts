@@ -8,6 +8,12 @@
  * kills the script on the server; the run then reads as failed, with what it
  * printed, and the user picks between starting anyway and discarding the
  * worktree like after any other failure.
+ *
+ * Leaving the start screen leaves nobody to make that choice, so unmounting
+ * marks the sequence abandoned (see `start-in-worktree.ts`): a running setup
+ * is stopped and the worktree discarded, a failed one waiting on the user is
+ * discarded, and a thread created meanwhile keeps its draft unsent instead of
+ * pulling the user back to it. Each discard says so in a toast.
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
@@ -65,6 +71,30 @@ export const useStartInWorktree = (projectId: ProjectId, thread: WorktreeThreadS
 
   const [state, setState] = React.useState<WorktreeStartState>(IDLE);
   const stoppedRef = React.useRef(false);
+  const abandonedRef = React.useRef(false);
+  // A sequence is between its first step and its outcome; it checks
+  // `abandonedRef` itself.
+  const runningRef = React.useRef(false);
+  // The worktree a failed sequence left for the user to keep or discard.
+  const heldRef = React.useRef<ThreadWorktree | null>(null);
+
+  /** The screen is gone: remove the worktree nobody is left to keep, saying so. */
+  const discardAbandoned = React.useCallback(
+    async (worktree: ThreadWorktree) => {
+      const exit = await removeWorktree({ projectId, path: worktree.path, force: true });
+      if (Exit.isSuccess(exit)) {
+        toast.info(
+          `Left the new thread before it started, so its worktree was removed; the branch ${worktree.branch} is kept`,
+        );
+      } else {
+        toast.error(
+          `The worktree at ${worktree.path} was not removed: ${describeExitError(exit, "unknown error")}`,
+        );
+      }
+    },
+    [projectId, removeWorktree],
+  );
+
   // The caller's closures change every render (the draft text, the settings);
   // the steps read the latest ones when they run.
   const threadRef = React.useRef(thread);
@@ -96,11 +126,21 @@ export const useStartInWorktree = (projectId: ProjectId, thread: WorktreeThreadS
       createThread: (worktree) => threadRef.current.createThread(worktree),
       send: () => threadRef.current.send(),
       onStep: setState,
+      abandoned: () => abandonedRef.current,
+      discard: discardAbandoned,
     }),
-    [worktreeCreate, projectId, runSetup],
+    [worktreeCreate, projectId, runSetup, discardAbandoned],
   );
 
   const settle = (outcome: WorktreeStartOutcome) => {
+    if (outcome._tag === "setup-failed" || outcome._tag === "thread-rejected") {
+      if (abandonedRef.current) {
+        // Failed just as the screen went: nobody is left to see the panel.
+        void discardAbandoned(outcome.worktree);
+        return;
+      }
+      heldRef.current = outcome.worktree;
+    }
     switch (outcome._tag) {
       case "started":
         setState(IDLE);
@@ -127,17 +167,54 @@ export const useStartInWorktree = (projectId: ProjectId, thread: WorktreeThreadS
           output: "",
           threadRejected: true,
         });
+        return;
+      case "abandoned":
+        if (outcome.threadCreated) {
+          toast.info(
+            `The thread in ${outcome.worktree.branch} was created; its first message waits in its composer`,
+          );
+        }
+    }
+  };
+
+  const sequence = async (run: () => Promise<WorktreeStartOutcome>) => {
+    runningRef.current = true;
+    heldRef.current = null;
+    try {
+      settle(await run());
+    } finally {
+      runningRef.current = false;
     }
   };
 
   const start = async (name: string, baseBranch: string | undefined) => {
     controlSetup(Atom.Reset);
-    settle(await startInWorktree(steps(name, baseBranch)));
+    await sequence(() => startInWorktree(steps(name, baseBranch)));
   };
 
   const startAnyway = async (worktree: ThreadWorktree) => {
-    settle(await finishInWorktree(steps(worktree.branch, undefined), worktree));
+    await sequence(() => finishInWorktree(steps(worktree.branch, undefined), worktree));
   };
+
+  // Only an unmount abandons the sequence, so the effect below must not re-run.
+  const discardAbandonedRef = React.useRef(discardAbandoned);
+  discardAbandonedRef.current = discardAbandoned;
+  React.useEffect(() => {
+    abandonedRef.current = false;
+    return () => {
+      abandonedRef.current = true;
+      if (runningRef.current) {
+        // The sequence discards the worktree once the stopped setup returns.
+        controlSetup(Atom.Interrupt);
+        return;
+      }
+      const held = heldRef.current;
+      heldRef.current = null;
+      if (held !== null) {
+        void discardAbandonedRef.current(held);
+      }
+    };
+  }, [controlSetup]);
 
   const stop = () => {
     stoppedRef.current = true;
@@ -146,11 +223,13 @@ export const useStartInWorktree = (projectId: ProjectId, thread: WorktreeThreadS
 
   /** Removes the worktree with whatever the setup left in it; its branch stays. */
   const discard = async (worktree: ThreadWorktree) => {
+    heldRef.current = null;
     const exit = await removeWorktree({ projectId, path: worktree.path, force: true });
     if (Exit.isSuccess(exit)) {
       toast.success(`Removed the worktree; the branch ${worktree.branch} is kept`);
       setState(IDLE);
     } else {
+      heldRef.current = worktree;
       toast.error(describeExitError(exit, "The worktree was not removed"));
     }
   };

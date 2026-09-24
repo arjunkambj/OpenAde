@@ -14,6 +14,12 @@
  * A failed create leaves nothing behind, so it only reports the server's
  * message. Past it the worktree exists, so every outcome carries it — the
  * caller owes the user a way to keep it or discard it.
+ *
+ * The user may leave the start screen at any step, and then nobody is left to
+ * make that choice. Between steps the sequence asks `abandoned`: until the
+ * thread exists it discards the worktree and stops; once the thread exists it
+ * stops before sending, so the draft waits in the thread's own composer and
+ * nothing moves the user off the page they went to.
  */
 
 import type { WorktreeSetupProgress } from "@OpenAde/client-runtime/gitCommands";
@@ -38,6 +44,10 @@ export interface WorktreeStartSteps {
   readonly createThread: (worktree: ThreadWorktree) => Promise<boolean>;
   readonly send: () => void;
   readonly onStep?: (step: WorktreeStartStep) => void;
+  /** True once the screen that started the sequence is gone. */
+  readonly abandoned?: () => boolean;
+  /** Removes a worktree nobody is left to keep or discard. */
+  readonly discard?: (worktree: ThreadWorktree) => Promise<void>;
 }
 
 export type WorktreeStartOutcome =
@@ -51,7 +61,16 @@ export type WorktreeStartOutcome =
       readonly reason: string;
       readonly output: string;
     }
-  | { readonly _tag: "thread-rejected"; readonly worktree: ThreadWorktree };
+  | { readonly _tag: "thread-rejected"; readonly worktree: ThreadWorktree }
+  /**
+   * The screen was left. Without a thread the worktree has been discarded;
+   * with one, the draft was not sent and waits in the thread's composer.
+   */
+  | {
+      readonly _tag: "abandoned";
+      readonly worktree: ThreadWorktree;
+      readonly threadCreated: boolean;
+    };
 
 /** The free text the branch is named from: the message's first non-blank line. */
 export const worktreeName = (text: string): string =>
@@ -82,13 +101,31 @@ const fieldOf = (error: unknown, field: "message" | "output"): string | null =>
     ? ((error as Record<string, unknown>)[field] as string)
     : null;
 
+const isAbandoned = (steps: WorktreeStartSteps): boolean => steps.abandoned?.() ?? false;
+
+/** Nobody is left to choose, and there is no thread: the worktree goes. */
+const leave = async (
+  steps: WorktreeStartSteps,
+  worktree: ThreadWorktree,
+): Promise<WorktreeStartOutcome> => {
+  await steps.discard?.(worktree);
+  return { _tag: "abandoned", worktree, threadCreated: false };
+};
+
 /** Steps 3 and 4 on their own: what "Start anyway" runs after a failed setup. */
 export const finishInWorktree = async (
   steps: WorktreeStartSteps,
   worktree: ThreadWorktree,
 ): Promise<WorktreeStartOutcome> => {
+  if (isAbandoned(steps)) {
+    return leave(steps, worktree);
+  }
   steps.onStep?.({ step: "starting", worktree });
-  if (!(await steps.createThread(worktree))) {
+  const created = await steps.createThread(worktree);
+  if (isAbandoned(steps)) {
+    return created ? { _tag: "abandoned", worktree, threadCreated: true } : leave(steps, worktree);
+  }
+  if (!created) {
     return { _tag: "thread-rejected", worktree };
   }
   steps.send();
@@ -107,17 +144,27 @@ export const startInWorktree = async (steps: WorktreeStartSteps): Promise<Worktr
     };
   }
 
+  if (isAbandoned(steps)) {
+    return leave(steps, worktree);
+  }
+
   steps.onStep?.({ step: "setup", worktree });
   let run: WorktreeSetupProgress;
   try {
     run = await steps.runSetup(worktree);
   } catch (error) {
+    if (isAbandoned(steps)) {
+      return leave(steps, worktree);
+    }
     return {
       _tag: "setup-failed",
       worktree,
       reason: fieldOf(error, "message") ?? "Setup script could not run",
       output: fieldOf(error, "output") ?? "",
     };
+  }
+  if (isAbandoned(steps)) {
+    return leave(steps, worktree);
   }
   if (!setupSucceeded(run)) {
     return { _tag: "setup-failed", worktree, reason: setupFailureReason(run), output: run.output };

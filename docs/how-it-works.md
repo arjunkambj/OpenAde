@@ -1432,7 +1432,13 @@ Sending in that mode runs `start-in-worktree.ts`, a sequence of injected steps:
 
 The pickers and the composer wait from step 1 until the thread starts or the
 worktree is discarded, and the draft stays put throughout, so a discarded
-attempt can be sent again. Once the thread exists, its header's branch picker
+attempt can be sent again. Leaving the start screen before then leaves nobody
+to choose (`use-start-in-worktree.ts`): a running setup is stopped and the
+worktree removed with `force`, as is one waiting on Start anyway or Discard,
+each with a toast saying so and that the branch is kept. A thread that was
+already being created when the user left is kept, but its first message is
+not sent and the screen does not pull the user to it — the draft waits in that
+thread's own composer. Once the thread exists, its header's branch picker
 shows the branch with a fork mark and the path in a tooltip, and its sidebar
 row carries a fork mark.
 
