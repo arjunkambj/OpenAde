@@ -6,7 +6,13 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
-import { makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
+import {
+  decodeCheckpointId,
+  decodeTurnId,
+  makeProjectId,
+  makeThreadId,
+} from "@OpenAde/contracts/ids";
+import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
 import type { GitBranchList } from "@OpenAde/contracts/git";
 import type { GitDiff, GitStatus } from "@OpenAde/contracts/rpc";
 import type * as Cause from "effect/Cause";
@@ -19,8 +25,10 @@ import { AsyncResult, AtomRegistry } from "effect/unstable/reactivity";
 import type * as Atom from "effect/unstable/reactivity/Atom";
 
 import {
+  decodeCheckpointsKey,
   decodeDiffRange,
   decodeGitScope,
+  encodeCheckpointsKey,
   encodeDiffRange,
   encodeGitScope,
   isRepoless,
@@ -68,7 +76,15 @@ interface Calls {
   readonly diff: Array<{ from?: string; to?: string; mergeBase?: string }>;
   readonly branches?: Array<{ projectId: string; threadId?: string }>;
   readonly checkout?: Array<{ projectId: string; threadId?: string; branch: string }>;
+  readonly checkpoints?: Array<{ projectId: string; threadId: string }>;
 }
+
+const checkpoint = (n: number): CheckpointSummary => ({
+  checkpointId: decodeCheckpointId(`0190a000-0000-7000-8000-00000000000${n}`),
+  turnId: decodeTurnId(`0190a000-0000-7000-8000-00000000010${n}`),
+  ref: `refs/openade/checkpoints/t/${n}`,
+  createdAt: "2026-01-01T00:00:00.000Z",
+});
 
 const branchList = (current: string): GitBranchList => ({
   isRepository: true,
@@ -111,6 +127,16 @@ const fakeClient = (calls: Calls, failStatus: Ref.Ref<boolean>): OpenAdeRpcClien
           Effect.sync(() => {
             calls.branches?.push({ ...payload });
             return branchList(calls.checkout?.at(-1)?.branch ?? "main");
+          });
+      }
+      if (key === "checkpoints.list") {
+        return (payload: { projectId: string; threadId: string }) =>
+          Effect.sync(() => {
+            calls.checkpoints?.push({ ...payload });
+            // One more checkpoint exists at every read, as turns complete.
+            return Array.from({ length: calls.checkpoints?.length ?? 0 }, (_, n) =>
+              checkpoint(n + 1),
+            );
           });
       }
       if (key === "git.checkout") {
@@ -186,6 +212,62 @@ describe("git atoms", () => {
     }
     expect(new Set(scopes.map(encodeGitScope)).size).toBe(scopes.length);
   });
+
+  it("a checkpoints key round-trips through its family key", () => {
+    const key = { projectId: makeProjectId(), threadId: makeThreadId(), revision: "3" };
+    expect(decodeCheckpointsKey(encodeCheckpointsKey(key))).toEqual(key);
+  });
+
+  it.live(
+    "checkpoints list in the thread's scope, afresh for a new revision and on a project refresh",
+    () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const projectId = makeProjectId();
+          const threadId = makeThreadId();
+          const calls: Calls = { status: [], diff: [], checkpoints: [] };
+          const failing = yield* Ref.make(false);
+          const { registry, checkpointsAtom, refreshProject } = yield* runtimeWith(
+            fakeClient(calls, failing),
+            CONNECTED,
+          );
+          type Listed = GitQuery<ReadonlyArray<CheckpointSummary>>;
+          const first = checkpointsAtom({ projectId, threadId, revision: "1" });
+          registry.mount(first);
+          const one = yield* Effect.promise(() =>
+            awaitValue<Listed, Cause.NoSuchElementError>(registry, first, (q) => q._tag === "ok"),
+          );
+          expect(one._tag === "ok" && one.value.map((entry) => entry.ref)).toEqual([
+            "refs/openade/checkpoints/t/1",
+          ]);
+          // The revision never reaches the server.
+          expect(calls.checkpoints).toEqual([{ projectId, threadId }]);
+
+          // Same key: the same atom, no second call.
+          expect(checkpointsAtom({ projectId, threadId, revision: "1" })).toBe(first);
+
+          // A new revision is a new atom that reads the list again.
+          const second = checkpointsAtom({ projectId, threadId, revision: "2" });
+          registry.mount(second);
+          const two = yield* Effect.promise(() =>
+            awaitValue<Listed, Cause.NoSuchElementError>(registry, second, (q) => q._tag === "ok"),
+          );
+          expect(two._tag === "ok" && two.value).toHaveLength(2);
+
+          // A project refresh — a restore settling, the pane's refresh — rereads
+          // the mounted list too.
+          refreshProject(registry, projectId);
+          const three = yield* Effect.promise(() =>
+            awaitValue<Listed, Cause.NoSuchElementError>(
+              registry,
+              second,
+              (q) => q._tag === "ok" && q.value.length > 2,
+            ),
+          );
+          expect(three._tag).toBe("ok");
+        }),
+      ),
+  );
 
   it("a repo-less status is recognised, a real one is not", () => {
     expect(isRepoless(status(null))).toBe(true);

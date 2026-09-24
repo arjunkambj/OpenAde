@@ -9,6 +9,9 @@
  *   turn checkpoint"; supplying both diffs checkpoint to checkpoint, and
  *   `mergeBase` diffs the working tree against where the branch forked.
  * - `gitBranchesAtom(scope)` — `git.branches`, the branch picker's list.
+ * - `checkpointsAtom(key)` — `checkpoints.list`, the thread's checkpoints that
+ *   still exist in the repository, which the timeline intersects with its own
+ *   fold before it offers a restore.
  * - `createBranch` / `checkout` — the picker's two writes, each a one-shot
  *   call (`./oneShot`) that resolves with its own `Exit`: the new branch list,
  *   or the server's refusal. A success refetches every git read of the
@@ -37,6 +40,7 @@
  */
 
 import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
+import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
 import type { GitStatus } from "@OpenAde/contracts/rpc";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
@@ -116,6 +120,27 @@ export const decodeDiffRange = (key: string): GitDiffRange => {
     ...(to === null ? {} : { to }),
     ...(mergeBase === null ? {} : { mergeBase }),
   };
+};
+
+/**
+ * Which thread's checkpoints to list, and for which revision of its fold.
+ * `revision` is the caller's word for "the list may have changed" — the
+ * timeline passes the number of checkpoints its fold holds — and a new one is
+ * a new atom, read fresh: an answer from before a checkpoint was created can
+ * never be taken for one after it. It is not sent to the server.
+ */
+export interface CheckpointsKey {
+  readonly projectId: ProjectId;
+  readonly threadId: ThreadId;
+  readonly revision: string;
+}
+
+export const encodeCheckpointsKey = (key: CheckpointsKey): string =>
+  JSON.stringify([key.projectId, key.threadId, key.revision]);
+
+export const decodeCheckpointsKey = (key: string): CheckpointsKey => {
+  const [projectId, threadId, revision] = JSON.parse(key) as [ProjectId, ThreadId, string];
+  return { projectId, threadId, revision };
 };
 
 /** The branch picker's "new branch": cut from `from` (default `HEAD`), switched to when `checkout`. */
@@ -214,10 +239,18 @@ export const makeGitAtoms = (runtime: Atom.AtomRuntime<Connection | ConnectionSt
     return gitRead(scope.projectId, (client) => client["git.branches"](scopePayload(scope)));
   });
 
+  const checkpointsByKeyAtom = Atom.family((key: string) => {
+    const { projectId, threadId } = decodeCheckpointsKey(key);
+    return gitRead<ReadonlyArray<CheckpointSummary>>(projectId, (client) =>
+      client["checkpoints.list"]({ projectId, threadId }),
+    );
+  });
+
   /** The pane's handles: one atom per scope and per comparison, shared across mounts. */
   const gitStatusAtom = (scope: GitScope) => gitStatusByKeyAtom(encodeGitScope(scope));
   const gitDiffAtom = (range: GitDiffRange) => gitDiffByKeyAtom(encodeDiffRange(range));
   const gitBranchesAtom = (scope: GitScope) => gitBranchesByKeyAtom(encodeGitScope(scope));
+  const checkpointsAtom = (key: CheckpointsKey) => checkpointsByKeyAtom(encodeCheckpointsKey(key));
 
   /**
    * After a branch write every git read of the project is stale: the current
@@ -265,6 +298,7 @@ export const makeGitAtoms = (runtime: Atom.AtomRuntime<Connection | ConnectionSt
     gitStatusAtom,
     gitDiffAtom,
     gitBranchesAtom,
+    checkpointsAtom,
     createBranch,
     checkout,
     refreshProject,

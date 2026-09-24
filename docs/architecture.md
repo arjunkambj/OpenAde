@@ -749,7 +749,11 @@ Everything a client needs that is not React.
   `fileStatAtom`, keyed by the sorted, deduplicated set of paths so the same
   candidates are one call and then a cached answer, held five minutes after its
   last reader so a timeline row scrolled away and back does not ask again; a
-  set larger than one `files.stat` carries goes out as several calls. The
+  set larger than one `files.stat` carries goes out as several calls.
+  `gitAtoms.ts` holds `checkpointsAtom`, keyed by the thread and a revision the
+  caller names (the timeline passes its fold's checkpoint count), so a list
+  read before a checkpoint was created is never mistaken for one after it; a
+  project refresh rereads it like every git read. The
   renderer builds the file and git read atoms once per client runtime
   (`panes/files/file-atoms.ts`, `panes/changes/git-atoms.ts`), so the fixture
   pages get them over their scripted client.
