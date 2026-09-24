@@ -20,7 +20,7 @@ import { Input } from "@OpenAde/ui/components/input";
 import { cn } from "@/lib/utils";
 import { normalizeAddress } from "./address";
 import { AddressSuggestions } from "./address-suggestions";
-import { browserStatus } from "./status";
+import { browserStatus, browserStatusVisible } from "./status";
 import { moveActive, suggestionsFor } from "./suggestions";
 import type { SuggestionSource } from "./use-suggestions";
 import { ChevronLeft, ChevronRight, Repeat, Stop } from "@honeyicons/react";
@@ -214,13 +214,15 @@ export function AddressBar({
           aria-expanded={suggestions.length > 0}
         />
       </AddressSuggestions>
-      <div
-        className="text-muted-foreground flex max-w-[40%] items-center gap-1.5 truncate px-1 text-xs"
-        title={status.label}
-      >
-        <span className={cn("size-1.5 shrink-0 rounded-full", status.dot)} />
-        <span className="truncate">{status.label}</span>
-      </div>
+      {browserStatusVisible(state) ? (
+        <div
+          className="text-muted-foreground flex max-w-[40%] items-center gap-1.5 truncate px-1 text-xs"
+          title={status.label}
+        >
+          <span className={cn("size-1.5 shrink-0 rounded-full", status.dot)} />
+          <span className="truncate">{status.label}</span>
+        </div>
+      ) : null}
       {children}
     </div>
   );

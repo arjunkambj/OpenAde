@@ -3,7 +3,13 @@ import { describe, expect, it } from "vitest";
 import { makeThreadId } from "@OpenAde/contracts/ids";
 import type { BrowserState } from "@OpenAde/contracts/rpc";
 
-import { BROWSER_DISABLED_LABEL, browserModeLabel, browserStatus, frameFallback } from "./status";
+import {
+  BROWSER_DISABLED_LABEL,
+  browserModeLabel,
+  browserStatus,
+  browserStatusVisible,
+  frameFallback,
+} from "./status";
 
 const base: BrowserState = {
   threadId: makeThreadId(),
@@ -95,6 +101,26 @@ describe("frameFallback", () => {
     expect(frameFallback(state({ status: "error", message: "agent-browser not found" }))).toBe(
       "agent-browser not found",
     );
+  });
+});
+
+describe("browserStatusVisible", () => {
+  const inApp: BrowserState = { ...base, mode: "in-app" };
+
+  it("hides an idle in-app session: the address bar already shows the page", () => {
+    expect(browserStatusVisible({ ...inApp, status: "stopped" })).toBe(false);
+    expect(browserStatusVisible({ ...inApp, status: "ready", activeTool: null })).toBe(false);
+  });
+
+  it("shows the in-app chip while the agent drives, starts or fails", () => {
+    expect(browserStatusVisible({ ...inApp, activeTool: "browser_click" })).toBe(true);
+    expect(browserStatusVisible({ ...inApp, status: "starting" })).toBe(true);
+    expect(browserStatusVisible({ ...inApp, status: "error", message: "boom" })).toBe(true);
+  });
+
+  it("always shows the headless browser's lifecycle and the connecting state", () => {
+    expect(browserStatusVisible({ ...base, status: "stopped" })).toBe(true);
+    expect(browserStatusVisible(null)).toBe(true);
   });
 });
 

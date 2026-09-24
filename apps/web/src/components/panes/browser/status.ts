@@ -61,6 +61,18 @@ export const browserStatus = (state: BrowserState | null): BrowserStatusChip => 
 };
 
 /**
+ * Whether the chip has anything to say. In the in-app browser an idle agent
+ * session — never started, or parked on a page — reads as "stopped" or the
+ * page's host, which the address bar and the tab already show; the chip only
+ * speaks up while the agent drives, the session starts, or something fails.
+ */
+export const browserStatusVisible = (state: BrowserState | null): boolean => {
+  if (state === null || state.mode !== "in-app") return true;
+  if (typeof state.activeTool === "string" && state.activeTool !== "") return true;
+  return state.status === "starting" || state.status === "error";
+};
+
+/**
  * What the frame surface says when there is no frame yet.
  *
  * It used to be `state.message ?? "starting…"`, which told a *stopped* browser
