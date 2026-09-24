@@ -43,7 +43,12 @@ import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 
 import { useClientRuntime } from "@/lib/client-runtime";
-import { makeCommandRegistry, type CommandRegistry } from "@/lib/command-registry";
+import {
+  makeCommandRegistry,
+  type CommandHandler,
+  type CommandOrigin,
+  type CommandRegistry,
+} from "@/lib/command-registry";
 import { focusSnapshot, keybindingContext, type FocusSnapshot } from "@/lib/keybinding-context";
 import {
   effectiveKeybindings,
@@ -64,7 +69,7 @@ const handlerFor = (
   keybindings: ReadonlyArray<Keybinding>,
   event: KeyboardEvent,
   modKey: ModKey,
-): (() => void) | undefined => {
+): CommandHandler | undefined => {
   if (isAltGraphTyping(event, modKey)) {
     return undefined;
   }
@@ -106,7 +111,7 @@ export function KeybindingsProvider({ children }: { readonly children: React.Rea
         return;
       }
       event.preventDefault();
-      handler();
+      handler("chord");
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -120,7 +125,10 @@ export function KeybindingsProvider({ children }: { readonly children: React.Rea
  * claim one id: the newest answers, and unmounting hands it back to whoever
  * held it before rather than leaving it unanswered — see `@/lib/command-registry`.
  */
-export function useKeybindingCommand(command: string, handler: () => void): void {
+export function useKeybindingCommand(
+  command: string,
+  handler: (origin: CommandOrigin) => void,
+): void {
   const registry = React.useContext(RegistryContext);
   const handlerRef = React.useRef(handler);
   handlerRef.current = handler;
@@ -128,7 +136,7 @@ export function useKeybindingCommand(command: string, handler: () => void): void
     if (registry === null) {
       return;
     }
-    return registry.register(command, () => handlerRef.current());
+    return registry.register(command, (origin) => handlerRef.current(origin));
   }, [registry, command]);
 }
 
@@ -136,13 +144,13 @@ export function useKeybindingCommand(command: string, handler: () => void): void
  * Fire a command by id, as if its chord had been pressed. A command no mounted
  * surface answers is a no-op — the same rule the listener follows — so the
  * palette can offer an entry without knowing whether this route has the
- * surface behind it.
+ * surface behind it. The handler is told it was a `pick`, not a `chord`.
  */
 export function useKeybindingDispatch(): (command: string) => void {
   const registry = React.useContext(RegistryContext);
   return React.useCallback(
     (command: string) => {
-      registry?.resolve(command)?.();
+      registry?.resolve(command)?.("pick");
     },
     [registry],
   );

@@ -3,7 +3,8 @@
  * area. A command is listed only while a mounted surface answers it (and its
  * `paletteWhen`, if any, holds), so a route without the surface gets no row
  * rather than a row that quietly does nothing. Picking a row fires the command
- * exactly as its chord would, and the row shows that chord with the user's
+ * as its chord would, marked as a `pick` so a handler that reads the focus
+ * knows the palette holds it, and the row shows that chord with the user's
  * overrides applied.
  */
 

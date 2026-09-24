@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { composerEnter, keymapChord, menuMove, type ComposerEnterInput } from "./composer-keys";
+import {
+  composerEnter,
+  keymapChord,
+  menuMove,
+  queueSends,
+  type ComposerEnterInput,
+} from "./composer-keys";
 
 const input = (patch: Partial<ComposerEnterInput> = {}): ComposerEnterInput => ({
   triggerOpen: false,
@@ -130,5 +136,18 @@ describe("menuMove", () => {
   it("leaves every other key alone", () => {
     expect(menuMove("Enter", false, 1, 3)).toBeNull();
     expect(menuMove("a", false, 1, 3)).toBeNull();
+  });
+});
+
+describe("queueSends", () => {
+  it("sends on the chord only from the textarea", () => {
+    expect(queueSends("chord", true)).toBe(true);
+    expect(queueSends("chord", false)).toBe(false);
+  });
+
+  it("sends on a palette pick, which fires while the palette holds the focus", () => {
+    // The regression: the palette's "Queue message" row tested the focus like
+    // the chord does, found the palette's input, and only focused the composer.
+    expect(queueSends("pick", false)).toBe(true);
   });
 });

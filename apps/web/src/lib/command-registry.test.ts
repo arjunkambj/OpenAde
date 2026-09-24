@@ -8,7 +8,7 @@ describe("command registration", () => {
     const calls: Array<string> = [];
     registry.register("commandPalette.toggle", () => calls.push("root"));
     registry.register("commandPalette.toggle", () => calls.push("settings"));
-    registry.resolve("commandPalette.toggle")?.();
+    registry.resolve("commandPalette.toggle")?.("chord");
     expect(calls).toEqual(["settings"]);
   });
 
@@ -21,7 +21,7 @@ describe("command registration", () => {
     registry.register("thread.new", () => calls.push("root"));
     const release = registry.register("thread.new", () => calls.push("settings"));
     release();
-    registry.resolve("thread.new")?.();
+    registry.resolve("thread.new")?.("chord");
     expect(calls).toEqual(["root"]);
     expect(registry.has("thread.new")).toBe(true);
   });
@@ -32,7 +32,7 @@ describe("command registration", () => {
     const releaseFirst = registry.register("thread.interrupt", () => calls.push("view"));
     registry.register("thread.interrupt", () => calls.push("composer"));
     releaseFirst();
-    registry.resolve("thread.interrupt")?.();
+    registry.resolve("thread.interrupt")?.("chord");
     expect(calls).toEqual(["composer"]);
   });
 

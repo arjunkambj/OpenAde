@@ -425,8 +425,11 @@ table row and rebinding it changes the key in the composer too. A chord it
 does not answer keeps the composer's own meaning, so Ctrl+Enter on macOS and
 Alt+Enter still send. With the focus in the composer's textarea
 `composer.queue` sends with `queued: true`; anywhere else it puts the focus
-back in the composer. On the start screen it sends, since a thread that
-does not exist yet has nothing to queue behind.
+back in the composer. Picked from the palette it sends whatever is typed
+and then focuses the composer: the registry tells a handler whether its
+command came from a `chord` or a `pick` (a palette row or a button), because
+a pick fires while the palette still holds the focus. On the start screen it
+sends, since a thread that does not exist yet has nothing to queue behind.
 
 The composer and the start screen answer the same keys
 (`use-composer-commands.ts`): `Mod+L` focuses the textarea, `Mod+U` opens the

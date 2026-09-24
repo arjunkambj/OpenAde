@@ -7,7 +7,8 @@
  * so whatever the user binds the command to is what queues. With the focus in
  * this composer's textarea it submits; anywhere else it puts the focus back
  * here, which is the useful half of "send this" when there is nothing typed
- * in front of the user.
+ * in front of the user. Picked from the palette it submits whatever is typed
+ * and then focuses the textarea (`queueSends`).
  *
  * Attach opens the same hidden file input the toolbar's button does. When the
  * connector cannot take attachments the key says so with the button's
@@ -20,6 +21,7 @@
 
 import * as React from "react";
 
+import { queueSends } from "@/components/composer/composer-keys";
 import type { Attachments } from "@/components/composer/use-attachments";
 import { onComposerFocusRequest, takeComposerFocus } from "@/lib/composer-focus";
 import { useKeybindingCommand } from "@/lib/shortcuts";
@@ -38,7 +40,7 @@ export function useComposerCommands({
   readonly fileInputRef: React.RefObject<HTMLInputElement | null>;
   readonly attachments: Attachments;
   readonly clearDraft: () => void;
-  /** What `composer.queue` does with the focus in the textarea. */
+  /** What `composer.queue` does with the focus in the textarea, or from the palette. */
   readonly submit: () => void;
 }): void {
   const focus = () => textareaRef.current?.focus();
@@ -61,10 +63,13 @@ export function useComposerCommands({
     }
   });
   useKeybindingCommand("composer.clearDraft", clearDraft);
-  useKeybindingCommand("composer.queue", () => {
-    if (textareaRef.current !== null && document.activeElement === textareaRef.current) {
+  useKeybindingCommand("composer.queue", (origin) => {
+    const inTextarea =
+      textareaRef.current !== null && document.activeElement === textareaRef.current;
+    if (queueSends(origin, inTextarea)) {
       submit();
-    } else {
+    }
+    if (!inTextarea) {
       focus();
     }
   });

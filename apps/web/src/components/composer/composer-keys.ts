@@ -29,6 +29,8 @@
  * is held), and with Shift it is a newline.
  */
 
+import type { CommandOrigin } from "@/lib/command-registry";
+
 export type ComposerEnter =
   /** Take the highlighted item out of the open trigger menu. */
   | "pick"
@@ -99,3 +101,13 @@ export const keymapChord = (
   event: { readonly metaKey: boolean; readonly ctrlKey: boolean; readonly altKey: boolean },
   answers: () => boolean,
 ): boolean => (event.metaKey || event.ctrlKey || event.altKey) && answers();
+
+/**
+ * Whether `composer.queue` sends the draft. Its chord sends only from the
+ * composer's own textarea; pressed anywhere else it puts the focus there
+ * instead. A pick from the palette always sends: the palette holds the focus
+ * while the row fires, so a focus test there would never pass and the row
+ * titled "Queue message" would only ever move the caret.
+ */
+export const queueSends = (origin: CommandOrigin, inTextarea: boolean): boolean =>
+  origin === "pick" || inTextarea;

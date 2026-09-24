@@ -27,11 +27,22 @@
 /** A `when`-clause flag: read through a getter so a changed value is live. */
 export type FlagValue = boolean | string;
 
+/**
+ * How a command was fired: `chord` from the keybinding listener, `pick` from a
+ * row or button that names the command (the palette, the settings page). Most
+ * handlers ignore it. One that acts on the focus uses it, since a pick fires
+ * while the palette still holds the focus: `composer.queue` sends the draft on
+ * a pick, where its chord pressed outside the textarea only focuses it.
+ */
+export type CommandOrigin = "chord" | "pick";
+
+export type CommandHandler = (origin: CommandOrigin) => void;
+
 export interface CommandRegistry {
   /** Answer `command` until the returned release is called. */
-  readonly register: (command: string, handler: () => void) => () => void;
+  readonly register: (command: string, handler: CommandHandler) => () => void;
   /** The handler currently answering `command`, if any. */
-  readonly resolve: (command: string) => (() => void) | undefined;
+  readonly resolve: (command: string) => CommandHandler | undefined;
   /** Whether any mounted surface answers `command`. */
   readonly has: (command: string) => boolean;
   /** Publish a `when`-clause flag until the returned release is called. */
@@ -67,7 +78,7 @@ const top = <A>(stacks: Map<string, Array<A>>, key: string): A | undefined => {
 };
 
 export const makeCommandRegistry = (): CommandRegistry => {
-  const commands = new Map<string, Array<() => void>>();
+  const commands = new Map<string, Array<CommandHandler>>();
   const flags = new Map<string, Array<() => FlagValue>>();
   return {
     register: (command, handler) => push(commands, command, handler),
