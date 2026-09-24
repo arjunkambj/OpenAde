@@ -545,12 +545,19 @@ connector's environment is default-deny and cannot carry it.
     `hook_callback`.
 
   Answers to two open harness requests may arrive in either order, and each is
-  still checked.
+  still checked. So may a user message and the answer to an open harness
+  request: a message steered into a running turn races the SDK answering the
+  CLI's hook. Whatever arrived early is held back and checked in its recorded
+  place, and anything still held back when the recording ends is a divergence.
 
 - **Id rewriting.** The SDK's own request ids (`initialize`, `interrupt`,
   `set_model`, `set_permission_mode`, …) are random. Each recorded id is mapped
   to the live one when it arrives, and the recorded `control_response` to it is
-  rewritten to carry the live id.
+  rewritten to carry the live id. The uuid each user message is stamped with
+  is the session's own too, and the CLI names the message by it afterwards (its
+  `command_lifecycle` receipts). Each recorded uuid is mapped to the live one
+  when the message arrives, and every later harness frame carries the live
+  uuid wherever the recorded one stood.
 - **Divergence is loud.** A line the recording does not have, stdin closing
   while the recording still expects input, or input after the recording has
   ended prints both sides to stderr and exits **97**. With `divergenceLog` it

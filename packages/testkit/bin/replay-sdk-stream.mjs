@@ -34,10 +34,18 @@
  *     `response.subtype`, and when it answers a request the harness made, the
  *     same `request_id` — plus the same `behavior` for `can_use_tool` and the
  *     same `permissionDecision` for `hook_callback`. Answers to two open harness
- *     requests may arrive in either order; nothing else may;
+ *     requests may arrive in either order, and so may a user message and the
+ *     answer to an open harness request — a message steered into a running
+ *     turn races the SDK answering the CLI's hook — each still checked in its
+ *     recorded place; nothing else may cross;
  *   - the SDK's own request ids are random, so each recorded one is mapped to the
  *     live one at the moment it arrives, and the recorded `control_response`s
  *     to it are rewritten to carry the live id;
+ *   - the uuid the SDK's caller stamps on each user message is its own too, and
+ *     the CLI names the message by it afterwards (its `command_lifecycle`
+ *     receipts), so each recorded one is mapped to the live one when the
+ *     message arrives, and every later harness frame carries the live uuid
+ *     wherever the recorded one stood;
  *   - after the last frame it waits for stdin to close, then leaves the way the
  *     recorded run left, by exit code or by signal.
  *
@@ -215,14 +223,19 @@ const nextLive = async () => {
 /** Requests the harness made, by recorded id → subtype. */
 const harnessRequests = new Map();
 const answered = new Set();
-/** Answers that arrived ahead of an earlier open request's answer. */
+/** Answers that arrived ahead of an earlier open request's answer, or of a user message. */
 const early = new Map();
+/** User messages that arrived while an open request's answer was awaited. */
+const earlyUsers = [];
 /** The SDK's own request ids: recorded → live. */
 const liveIds = new Map();
+/** The user messages' uuids: recorded → live. */
+const liveUuids = new Map();
 
 const isObject = (value) => value !== null && typeof value === "object";
 const answerId = (data) =>
   isObject(data) && data.type === "control_response" ? data.response?.request_id : undefined;
+const isUser = (data) => isObject(data) && data.type === "user";
 
 /** Why `live` is not the move `recorded` was, or null when it is. */
 const mismatch = (recorded, live) => {
@@ -251,7 +264,7 @@ const mismatch = (recorded, live) => {
   }
 };
 
-/** The live line that should be `recorded`, holding back early answers. */
+/** The live line that should be `recorded`, holding back what arrived early. */
 const takeLive = async (recorded) => {
   const awaited = harnessRequests.has(answerId(recorded)) ? answerId(recorded) : undefined;
   if (awaited !== undefined && early.has(awaited)) {
@@ -259,17 +272,18 @@ const takeLive = async (recorded) => {
     early.delete(awaited);
     return live;
   }
+  if (isUser(recorded) && earlyUsers.length > 0) return earlyUsers.shift();
   for (;;) {
     const live = await nextLive();
     const id = answerId(live);
-    const heldBack =
-      awaited !== undefined &&
-      id !== awaited &&
-      harnessRequests.has(id) &&
-      !answered.has(id) &&
-      !early.has(id);
-    if (!heldBack) return live;
-    early.set(id, live);
+    const openAnswer = harnessRequests.has(id) && !answered.has(id) && !early.has(id);
+    if (openAnswer && id !== awaited && (awaited !== undefined || isUser(recorded))) {
+      early.set(id, live);
+    } else if (awaited !== undefined && isUser(live)) {
+      earlyUsers.push(live);
+    } else {
+      return live;
+    }
   }
 };
 
@@ -280,12 +294,24 @@ const withLiveId = (data) => {
   return { ...data, response: { ...data.response, request_id: liveIds.get(id) } };
 };
 
+/** A harness frame with every recorded user-message uuid swapped for the live one. */
+const withLiveUuids = (data) => {
+  if (liveUuids.size === 0) return data;
+  const swap = (value) => {
+    if (typeof value === "string") return liveUuids.get(value) ?? value;
+    if (Array.isArray(value)) return value.map(swap);
+    if (!isObject(value)) return value;
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, swap(entry)]));
+  };
+  return swap(data);
+};
+
 for (const [position, frame] of frames.entries()) {
   if (frame.dir === "from-harness") {
     if (isObject(frame.data) && frame.data.type === "control_request") {
       harnessRequests.set(frame.data.request_id, frame.data.request?.subtype);
     }
-    await write(frame.channel, withLiveId(frame.data));
+    await write(frame.channel, withLiveUuids(withLiveId(frame.data)));
     continue;
   }
   const live = await takeLive(frame.data);
@@ -304,12 +330,21 @@ for (const [position, frame] of frames.entries()) {
   if (frame.data.type === "control_request") {
     liveIds.set(frame.data.request_id, live.request_id);
   }
+  if (frame.data.type === "user" && typeof frame.data.uuid === "string") {
+    if (typeof live.uuid === "string") liveUuids.set(frame.data.uuid, live.uuid);
+  }
   const id = answerId(frame.data);
   if (harnessRequests.has(id)) answered.add(id);
 }
 
 // The recording is played out: anything more the live side says is something
-// the recorded run never heard.
+// the recorded run never heard, held back early or not.
+const held = [...early.values(), ...earlyUsers];
+if (held.length > 0) {
+  await fail(
+    `the recording has ended but the live side sent\n  received: ${lineOf(held[0]).trimEnd()}`,
+  );
+}
 const extra = await nextLive();
 if (extra !== null) {
   await fail(

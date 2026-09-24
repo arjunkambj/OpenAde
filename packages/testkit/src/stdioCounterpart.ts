@@ -18,7 +18,8 @@ import * as NodeReadline from "node:readline";
  * The program: `--version` and `auth status` print one line each; a run with
  * `stream-json` in its argv prints a `ready` line with its pid, then answers
  * each stdin line — a `control_request` with a `control_response` carrying its
- * id, a `user` message with a `can_use_tool` request of its own, the answer to
+ * id, a `user` message with a `receipt` naming its uuid when it has one and a
+ * `can_use_tool` request of its own, the answer to
  * that with a `result` naming the behaviour, and anything else with an `echo` —
  * and exits 0 when stdin closes.
  */
@@ -42,6 +43,7 @@ lines.on("line", (line) => {
   if (message.type === "control_request") {
     say({ type: "control_response", response: { subtype: "success", request_id: message.request_id, response: { subtype: message.request.subtype } } });
   } else if (message.type === "user") {
+    if (message.uuid !== undefined) say({ type: "receipt", command_uuid: message.uuid });
     asked += 1;
     say({ type: "control_request", request_id: "asked-" + asked, request: { subtype: "can_use_tool", tool_name: "Anything" } });
   } else if (message.type === "control_response") {

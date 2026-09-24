@@ -66,6 +66,17 @@ const askTwice = async (run: Run): Promise<void> => {
   await run.awaitLine(typed("control_request"));
 };
 
+/** A user message stamped with `uuid`, its receipt, and its question answered. */
+const sendStamped = async (run: Run, uuid: string): Promise<unknown> => {
+  await run.awaitLine(typed("ready"));
+  run.send({ type: "user", message: { role: "user", content: "hello" }, uuid });
+  const receipt = await run.awaitLine(typed("receipt"));
+  const asked = (await run.awaitLine(typed("control_request"))) as { request_id: string };
+  run.send(answer(asked.request_id, "allow"));
+  await run.awaitLine(typed("result"));
+  return receipt;
+};
+
 beforeAll(async () => {
   const repo = NodePath.join(ROOT, "scratch", "repo");
   NodeFS.mkdirSync(repo, { recursive: true });
@@ -152,6 +163,65 @@ beforeAll(async () => {
     fixturesRoot: FIXTURES,
   });
 
+  // A user message stamped with a uuid, which the program's receipt names.
+  const stampedRaw = NodePath.join(ROOT, "raw-stamped");
+  const stamped = converse(
+    makeTeeLauncher({
+      realBinary: NodePath.join(ROOT, "bin", "counterpart.mjs"),
+      rawDir: stampedRaw,
+    }),
+    STREAM_ARGS,
+    { cwd: repo },
+  );
+  await sendStamped(stamped, "recorded-uuid");
+  stamped.child.stdin.end();
+  expect((await stamped.exited).code).toBe(0);
+  finalizeSdkStreamRecording({
+    kind: "sample",
+    scenario: "stamped",
+    rawDir: stampedRaw,
+    description: "an ordinary node program answering a uuid-stamped user message",
+    cliVersion: "9.9.9",
+    sdkVersion: "0.0.0",
+    model: "none",
+    prompts: ["hello"],
+    fixturesRoot: FIXTURES,
+  });
+
+  // Two user messages, each asked about and answered before the next is sent.
+  const oneByOneRaw = NodePath.join(ROOT, "raw-one-by-one");
+  const oneByOne = converse(
+    makeTeeLauncher({
+      realBinary: NodePath.join(ROOT, "bin", "counterpart.mjs"),
+      rawDir: oneByOneRaw,
+    }),
+    STREAM_ARGS,
+    { cwd: repo },
+  );
+  await oneByOne.awaitLine(typed("ready"));
+  for (const [content, behavior] of [
+    ["one", "allow"],
+    ["two", "deny"],
+  ] as const) {
+    oneByOne.send({ type: "user", message: { role: "user", content } });
+    const asked = (await oneByOne.awaitLine(typed("control_request"))) as { request_id: string };
+    oneByOne.send(answer(asked.request_id, behavior));
+    await oneByOne.awaitLine(typed("result"));
+  }
+  oneByOne.child.stdin.end();
+  expect((await oneByOne.exited).code).toBe(0);
+  finalizeSdkStreamRecording({
+    kind: "sample",
+    scenario: "one-by-one",
+    rawDir: oneByOneRaw,
+    description: "an ordinary node program asked about two user messages in turn",
+    cliVersion: "9.9.9",
+    sdkVersion: "0.0.0",
+    model: "none",
+    prompts: ["one", "two"],
+    fixturesRoot: FIXTURES,
+  });
+
   finalizeSdkStreamRecording({
     kind: "sample",
     scenario: "exchange",
@@ -206,6 +276,54 @@ describe("sdkStreamReplayer", () => {
     expect(await run.awaitLine(typed("result"))).toMatchObject({ behavior: "allow" });
     run.child.stdin.end();
     expect((await run.exited).code).toBe(0);
+  });
+
+  it("rewrites a user message's recorded uuid to the live one in what follows", async () => {
+    const binaryPath = replayer.config("stamped", {
+      tmpDir: NodePath.join(ROOT, `replay-${(configs += 1)}`),
+    }).binaryPath;
+    const run = converse(binaryPath, STREAM_ARGS, { cwd: REPLAY_REPO });
+    expect(await sendStamped(run, "live-uuid")).toEqual({
+      type: "receipt",
+      command_uuid: "live-uuid",
+    });
+    run.child.stdin.end();
+    expect((await run.exited).code).toBe(0);
+  });
+
+  it("takes a user message that crossed an open request's answer, in its recorded place", async () => {
+    const binaryPath = replayer.config("one-by-one", {
+      tmpDir: NodePath.join(ROOT, `replay-${(configs += 1)}`),
+    }).binaryPath;
+    const run = converse(binaryPath, STREAM_ARGS, { cwd: REPLAY_REPO });
+    await run.awaitLine(typed("ready"));
+    run.send({ type: "user", message: { role: "user", content: "one" } });
+    const first = (await run.awaitLine(typed("control_request"))) as { request_id: string };
+    // The second message goes out before the first question's answer.
+    run.send({ type: "user", message: { role: "user", content: "two" } });
+    run.send(answer(first.request_id, "allow"));
+    expect(await run.awaitLine(typed("result"))).toMatchObject({ behavior: "allow" });
+    const second = (await run.awaitLine(typed("control_request"))) as { request_id: string };
+    run.send(answer(second.request_id, "deny"));
+    expect(await run.awaitLine(typed("result"))).toMatchObject({ behavior: "deny" });
+    run.child.stdin.end();
+    expect((await run.exited).code).toBe(0);
+  });
+
+  it("exits 97 when a held-back message is never asked for", async () => {
+    const run = converse(freshBinary(), STREAM_ARGS, { cwd: REPLAY_REPO });
+    await run.awaitLine(typed("ready"));
+    run.send(initialize("live-1"));
+    await run.awaitLine(typed("control_response"));
+    run.send({ type: "user", message: { role: "user", content: "hello" } });
+    const asked = (await run.awaitLine(typed("control_request"))) as { request_id: string };
+    // A message the recording never has, sent while the question is open.
+    run.send({ type: "user", message: { role: "user", content: "extra" } });
+    run.send(answer(asked.request_id, "allow"));
+    run.child.stdin.end();
+    const exit = await run.exited;
+    expect(exit.code).toBe(REPLAY_DIVERGED);
+    expect(exit.stderr).toContain("the recording has ended but the live side sent");
   });
 
   it("exits 97 when the live answer differs from the recorded one", async () => {
