@@ -7,6 +7,11 @@ import type { HoneyIcon } from "@honeyicons/react";
  *
  * Items may carry a `group`; a muted heading is drawn where the group changes.
  * Headings are presentation only — the active index still counts rows alone.
+ *
+ * A row's name is what the user picks by, so it keeps its width and the
+ * description gets what is left: a skill's description is often a paragraph,
+ * and given its own width it would squeeze the name out of the row entirely.
+ * The full description stays on the row's tooltip.
  */
 
 import * as React from "react";
@@ -67,6 +72,7 @@ export function TriggerMenu<T extends TriggerMenuItem>({
               type="button"
               role="option"
               aria-selected={index === activeIndex}
+              title={item.description}
               className={cn(
                 "flex w-full min-w-0 items-center gap-2 rounded-xl px-2 py-1 text-left text-sm",
                 index === activeIndex && "bg-hover",
@@ -81,9 +87,9 @@ export function TriggerMenu<T extends TriggerMenuItem>({
               {item.icon === undefined ? null : (
                 <item.icon variant="bold" className="size-4 shrink-0 text-muted-foreground" />
               )}
-              <span className="min-w-0 flex-1 truncate">{item.label}</span>
+              <span className="min-w-0 truncate">{item.label}</span>
               {item.description === undefined ? null : (
-                <span className="shrink-0 truncate text-xs text-muted-foreground">
+                <span className="min-w-0 flex-1 truncate text-right text-xs text-muted-foreground">
                   {item.description}
                 </span>
               )}

@@ -116,6 +116,23 @@ const FIXTURE_SKILLS: ReadonlyArray<SkillSummary> = [
     enabled: true,
   },
   {
+    // A paragraph, like most real skill descriptions: the menus must still
+    // show the name beside it.
+    name: "migrate-database",
+    path: "skills/migrate-database.md",
+    description:
+      "Plan and run a database schema migration end to end: read the current schema, write the forward and backward migration files, run them against a scratch copy, compare row counts before and after, and report anything that would lock a large table for longer than a few seconds.",
+    enabled: true,
+  },
+  ...["changelog", "deps-audit", "docs-sync", "flaky-tests", "perf-profile", "release"].map(
+    (name): SkillSummary => ({
+      name,
+      path: `skills/${name}.md`,
+      description: `The ${name} skill`,
+      enabled: true,
+    }),
+  ),
+  {
     name: "bench",
     path: "skills/bench.md",
     description: "Run the benchmark suite",
