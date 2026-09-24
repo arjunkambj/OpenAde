@@ -35,6 +35,9 @@ const selectTriggerVariants = cva(
           "h-8 max-w-full min-w-0 rounded-full border-0 bg-transparent px-2 py-1 text-xs text-foreground shadow-none transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring/50",
         default:
           "w-fit rounded-lg bg-input/50 py-2 pr-2 pl-2.5 transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 data-[size=default]:h-8 data-[size=sm]:h-7 dark:bg-input/30 dark:hover:bg-input/50",
+        // Filled like a secondary button: a pane's picker under an active tab.
+        secondary:
+          "w-fit rounded-lg bg-secondary py-2 pr-2 pl-2.5 font-medium text-secondary-foreground transition-colors hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] focus-visible:ring-3 focus-visible:ring-ring/50 data-[size=default]:h-8 data-[size=sm]:h-7",
         // Inline in a toolbar: no box, no chevron — the value is the control.
         ghost:
           "h-auto max-w-full min-w-0 truncate rounded-lg border-0 bg-transparent px-0 py-1 text-sidebar-foreground shadow-none ring-0 transition-colors duration-150 ease-out focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-ring/50 *:data-[slot=select-icon]:hidden",
