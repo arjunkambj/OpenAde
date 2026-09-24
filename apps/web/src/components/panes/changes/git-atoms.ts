@@ -11,6 +11,11 @@
  * mounts: `useGitCommands` and `useBranchWrites` bind them to the registry in
  * context, and each call resolves with its own `Exit` even when another call
  * is in flight or the component that started it is gone.
+ *
+ * The reads are built per client runtime, as the file atoms are
+ * (`../files/file-atoms.ts`): in the app that is the one runtime above, and a
+ * fixture page under its own `ClientRuntimeProvider` reads git — the timeline's
+ * checkpoint list, say — over its scripted client instead of the app's socket.
  */
 
 import { RegistryContext } from "@effect/atom-react";
@@ -18,22 +23,29 @@ import { makeGitAtoms, type GitAtoms } from "@OpenAde/client-runtime/gitAtoms";
 import { makeGitCommands, type GitCommands } from "@OpenAde/client-runtime/gitCommands";
 import * as React from "react";
 
+import { type ClientRuntime, useClientRuntime } from "@/lib/client-runtime";
 import { getAppAtoms } from "@/state/app-runtime";
 
-let gitAtoms: GitAtoms | null = null;
+const byRuntime = new WeakMap<ClientRuntime["runtime"], GitAtoms>();
 let gitCommands: GitCommands | null = null;
 
-const getGitAtoms = (): GitAtoms => {
-  gitAtoms ??= makeGitAtoms(getAppAtoms().runtime);
-  return gitAtoms;
+const gitAtomsFor = (runtime: ClientRuntime["runtime"]): GitAtoms => {
+  let atoms = byRuntime.get(runtime);
+  if (atoms === undefined) {
+    atoms = makeGitAtoms(runtime);
+    byRuntime.set(runtime, atoms);
+  }
+  return atoms;
 };
+
+const getGitAtoms = (): GitAtoms => gitAtomsFor(getAppAtoms().runtime);
 
 const getGitCommands = (): GitCommands => {
   gitCommands ??= makeGitCommands(getAppAtoms().runtime, getGitAtoms());
   return gitCommands;
 };
 
-export const useGitAtoms = (): GitAtoms => getGitAtoms();
+export const useGitAtoms = (): GitAtoms => gitAtomsFor(useClientRuntime().runtime);
 
 /** The branch picker's writes, bound to the app's registry. */
 export const useBranchWrites = () => {
