@@ -82,6 +82,11 @@ describe("the default keymap", () => {
 
   it.each(PLATFORMS)("takes no chord the system or the shell owns (%s)", (platform) => {
     const taken = DEFAULT_KEYBINDINGS.flatMap((row) => {
+      // The one shell chord taken on purpose: `Mod+R` in the browser pane
+      // reloads the page, not the window. In the window the listener's
+      // `preventDefault` keeps the key from the default menu, and inside a
+      // page the shell swallows it (`apps/desktop/src/main/browser/guestChords.ts`).
+      if (row.command === "browser.reload" && row.when === "browserFocus") return [];
       const reason = reservedChordReason(row.shortcut, platform);
       return reason === null ? [] : [`${describeRow(row)}: ${reason}`];
     });
@@ -187,10 +192,10 @@ describe("the collision checks themselves", () => {
       { command: "browser.stop", shortcut: "Mod+Shift+.", when: "browserFocus" },
     ];
     expect(describeConflicts(table, "meta")).toHaveLength(1);
-    const scoped = [
-      ...DEFAULT_KEYBINDINGS,
-      { command: "browser.stop", shortcut: "Mod+[", when: "browserFocus" },
-    ];
+    // `Mod+[` steps the app's history everywhere but the browser pane, and
+    // the pane's own history inside it.
+    const scoped = DEFAULT_KEYBINDINGS.filter((row) => row.shortcut === "Mod+[");
+    expect(scoped.map((row) => row.command).sort()).toEqual(["browser.back", "nav.back"]);
     expect(describeConflicts(scoped, "meta")).toEqual([]);
   });
 });
