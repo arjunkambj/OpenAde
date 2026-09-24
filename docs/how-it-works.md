@@ -884,14 +884,20 @@ returns `prompt`. It never reads as allow.
 offers four answers. It is docked directly above the composer input by
 `apps/web/src/components/composer/pending-card.tsx`, which shows one card at a
 time — an approval, then a question, then a plan — across the composer's width,
-never in the timeline. Keys while it is up: `1` allow once, `2` allow for
-session, `3` always allow, `d` or `Escape` deny; a muted line under the card
-names them. The card listens in **capture** phase, so its `Escape` beats the
-global `thread.interrupt` binding (§12) while a card is open — denying the
-call, not stopping the turn. It claims a key only when nothing nearer wants it
-(`approvals/card-keys.ts`): no modifier, focus outside a text field, and no
-dialog, popover or menu on screen; a claimed key is marked with
-`preventDefault`, and nothing stops propagation.
+never in the timeline. Keys while it is up, by default: `1` allow once, `2`
+allow for session, `3` always allow, `D` or `Escape` deny; a muted line under
+the card names them, read from the live table, as do the buttons' own keycaps.
+They are ordinary rows of the keybinding table (§11) — `approval.allowOnce`,
+`approval.allowSession`, `approval.allowAlways`, `approval.deny` — so they can
+be rebound, and the card only registers handlers for them; it adds no key
+listener of its own. The claim rule is their `when` clause,
+`approvalPending && !inputFocus && !dialogOpen`: the card must be the one on
+screen, focus must be outside a text field, and no dialog, popover or menu may
+be in front. `Escape` does not compete with `thread.interrupt` either: that
+binding's clause (§7) excludes an approval pending with focus outside a text
+field, so the two are disjoint by context. With focus on the page, Escape
+denies the call; in the composer, it stops the turn. Modifiers match exactly,
+so `Shift+D` does not deny.
 
 `allow-session` and `allow-always` carry a `pattern` — the `patternSuggestion`
 the connector proposed, editable in the card before it is accepted
@@ -999,9 +1005,11 @@ The proposal becomes `thread.plan.proposed` while the turn is still open, and
 the card (`apps/web/src/components/approvals/plan-card.tsx`), docked above the
 composer like the approval card (§5), offers three answers: `1` accept, `2`
 accept and run, `3` opens the revision field, named in the same muted line
-under the card. `Escape` is left to the composer — a plan does not block the
-turn on an answer, so the card has nothing to deny. `ProviderCommandReactor`
-acts on `thread.plan.responded`:
+under the card. They are the table rows `plan.accept`, `plan.acceptAndRun` and
+`plan.revise`, live while `planPending && !inputFocus && !dialogOpen`. No plan
+row binds `Escape` — a plan does not block the turn on an answer, so the card
+has nothing to deny. `ProviderCommandReactor` acts on
+`thread.plan.responded`:
 
 | action        | settings change                                                  | follow-up turn                            |
 | ------------- | ---------------------------------------------------------------- | ----------------------------------------- |
@@ -1061,7 +1069,10 @@ channel, so the tool call takes the hook road for a different purpose
 2. the post parks; a question card
    (`apps/web/src/components/approvals/question-card.tsx`) opens above the
    composer with radio buttons, checkboxes for `multiSelect`, and a freeform
-   field where allowed;
+   field where allowed. Number keys `1`–`9` (`question.option.1`…`9`, live
+   while `questionPending && !inputFocus && !dialogOpen`) pick option N — or
+   toggle it, in a multi-select — of the question whose block holds focus,
+   else of the first question;
 3. `thread.userInput.respond` releases it;
 4. the tool is **denied**, with the user's answers — in the question's own
    words, not our ids — as `permissionDecisionReason`. The model reads them as
@@ -1090,8 +1101,13 @@ nothing and denies the call.
 
 ### Stop
 
-The Stop button and the `thread.interrupt` binding (default `Escape`) both
-dispatch `thread.turn.interrupt`. The decider rejects it when no turn is
+The Stop button and the `thread.interrupt` binding both dispatch
+`thread.turn.interrupt`. The binding is `Escape` with
+`when: turnRunning && !dialogOpen && (inputFocus || !approvalPending)`: it
+fires only while a turn runs and no dialog or menu is open, and not when an
+approval card is up and focus is outside a text field — there Escape denies the
+call instead (§5). The composer publishes `turnRunning` and answers the
+command. The decider rejects it when no turn is
 running or one is already stopping, and otherwise emits
 `thread.turn.interrupted`, which sets `interrupting` on the thread document
 without clearing `currentTurn` — the turn stays in flight until something
@@ -1971,17 +1987,21 @@ fields entirely.
 
 `DEFAULT_KEYBINDINGS` in `packages/contracts/src/keybindings.ts`:
 
-| command                 | shortcut      |
-| ----------------------- | ------------- |
-| `thread.new`            | `Mod+N`       |
-| `commandPalette.toggle` | `Mod+K`       |
-| `composer.queue`        | `Mod+Enter`   |
-| `thread.interrupt`      | `Escape`      |
-| `browserPane.toggle`    | `Mod+Shift+B` |
-| `sidebar.toggle`        | `Mod+B`       |
-| `skills.open`           | `Mod+Shift+S` |
-| `settings.open`         | `Mod+,`       |
-| `terminal.toggle`       | `Mod+J`       |
+| command                                               | shortcut        | when                                                               |
+| ----------------------------------------------------- | --------------- | ------------------------------------------------------------------ |
+| `thread.new`                                          | `Mod+N`         |                                                                    |
+| `commandPalette.toggle`                               | `Mod+K`         |                                                                    |
+| `composer.queue`                                      | `Mod+Enter`     |                                                                    |
+| `thread.interrupt`                                    | `Escape`        | `turnRunning && !dialogOpen && (inputFocus \|\| !approvalPending)` |
+| `browserPane.toggle`                                  | `Mod+Shift+B`   |                                                                    |
+| `sidebar.toggle`                                      | `Mod+B`         |                                                                    |
+| `skills.open`                                         | `Mod+Shift+S`   |                                                                    |
+| `settings.open`                                       | `Mod+,`         |                                                                    |
+| `terminal.toggle`                                     | `Mod+J`         |                                                                    |
+| `approval.allowOnce` / `allowSession` / `allowAlways` | `1` / `2` / `3` | `approvalPending && !inputFocus && !dialogOpen`                    |
+| `approval.deny`                                       | `D`, `Escape`   | the same                                                           |
+| `plan.accept` / `acceptAndRun` / `revise`             | `1` / `2` / `3` | `planPending && !inputFocus && !dialogOpen`                        |
+| `question.option.1` … `question.option.9`             | `1` … `9`       | `questionPending && !inputFocus && !dialogOpen`                    |
 
 The matcher is `packages/client-runtime/src/keybindings.ts`:
 
@@ -2038,20 +2058,36 @@ quit, close, hide, reload, devtools, zoom, the editing and text-navigation
 chords, and on macOS the Cocoa `Ctrl+letter` editing keys — and
 `reservedChordReason` looks one up.
 
+The context for each press is built by `apps/web/src/lib/keybinding-context.ts`:
+`focusSnapshot` reads whether the focused element is a text field, its closest
+`data-context` (`composer`, `terminal`, `browser`) and whether a dialog,
+alert, menu, menubar or listbox is on screen; `keybindingContext` answers the
+built-in keys from that snapshot and the platform, and every other key from the
+registry under its canonical name, so an older stored clause naming
+`threadRunning` still reads `turnRunning`. A component cannot publish a
+built-in key. Who publishes the rest:
+
+| key                                                 | published by                                    |
+| --------------------------------------------------- | ----------------------------------------------- |
+| `threadOpen`, `dockOpen`                            | `ThreadView`, while mounted / while the dock is |
+| `turnRunning`                                       | `Composer`                                      |
+| `approvalPending`, `questionPending`, `planPending` | `PendingCard`, for exactly the card it shows    |
+
 There is exactly one listener, mounted at the app root
 (`apps/web/src/lib/shortcuts.tsx`). It runs in bubble phase so focused controls
-get first refusal and it skips `defaultPrevented` events — an interaction card
-claims `1`/`2`/`3`/`d`/`Escape` in capture phase, and the composer's trigger
-menu eats `Escape` before that, so the global table only ever sees what nothing
-closer to the focus wanted. A focused terminal goes further: inside
+get first refusal and it skips `defaultPrevented`, repeated, IME-composing and
+AltGr-typing events — the composer's trigger menu eats `Escape` before it
+arrives, so the global table only ever sees what nothing closer to the focus
+wanted. The interaction cards' keys are table rows like any other (§5, §6),
+kept apart from each other and from `thread.interrupt` by their `when` clauses,
+not by listening first. A focused terminal goes further: inside
 `[data-context="terminal"]` the listener only considers `terminal.toggle` and
 leaves every other chord to the shell without calling `preventDefault`, so
-`Escape` reaches vim instead of interrupting the turn, and `Cmd+K` and `Cmd+B`
+`Escape` reaches vim instead of interrupting the turn, and `Mod+K` and `Mod+B`
 reach the program running there (`yieldsToTerminal` in
-`apps/web/src/lib/keybindings.ts`). `when` clauses can read `terminalFocus`
-the same way they read `composerFocus`. A surface that owns a command registers
-a handler while it is mounted, and a surface that is not mounted does not
-answer its command: `thread.interrupt` belongs to the composer, so it is inert on the
+`apps/web/src/lib/keybindings.ts`). A surface that owns a command registers a handler
+while it is mounted, and a surface that is not mounted does not answer its
+command: `thread.interrupt` belongs to the composer, so it is inert on the
 settings page rather than reaching into a thread nobody is looking at.
 Registration is a stack per command id, so two surfaces claiming the same id
 hand it back in order instead of blanking it

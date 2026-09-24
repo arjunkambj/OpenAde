@@ -8,11 +8,13 @@
  *
  * `browserPane.toggle` is claimed here because it needs the thread's dock. The
  * rest of the thread-scoped bindings — `thread.interrupt`, `composer.queue` and
- * the `threadRunning` flag — belong to the composer, which owns the Stop button
+ * the `turnRunning` flag — belong to the composer, which owns the Stop button
  * and the error line those bindings report through. The layout keeps the
  * bindings that work with no thread open. The terminal drawer sits in the
  * thread column below the composer and answers `terminal.toggle` itself; the
  * links it opens land on this dock's Browser tab.
+ * This view publishes `threadOpen` while it is mounted and `dockOpen` while
+ * the right dock is.
  */
 
 import { useNavigate } from "@tanstack/react-router";
@@ -39,7 +41,8 @@ import { ThreadHarnessBanner } from "@/components/thread/harness-health-banner";
 import { ThreadHeader } from "@/components/thread/thread-header";
 import { ThreadGreeting } from "@/components/thread/thread-greeting";
 import { Timeline } from "@/components/timeline/timeline";
-import { useKeybindingCommand } from "@/lib/shortcuts";
+import { useKeybindingCommand, useKeybindingFlag } from "@/lib/shortcuts";
+import { cn } from "@/lib/utils";
 import { useConnectionState, useProjects, useThreadDetail } from "@/state/hooks";
 import { useDockTabMemory } from "@/state/ui";
 import { AlertTriangle, Spinner, WifiOff } from "@honeyicons/react";
@@ -177,7 +180,10 @@ export function ThreadView({
     }
   }, [deleted, navigate]);
 
-  // `thread.interrupt`, `composer.queue` and the `threadRunning` flag belong to
+  useKeybindingFlag("threadOpen", true);
+  useKeybindingFlag("dockOpen", dockTab !== undefined);
+
+  // `thread.interrupt`, `composer.queue` and the `turnRunning` flag belong to
   // the `Composer` below, not here. Both components used to register all three,
   // and which one won depended on whether the thread detail was already cached
   // at first paint — so Escape either showed the Stop button's "Stopping…"

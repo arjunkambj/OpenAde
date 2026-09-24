@@ -22,6 +22,25 @@
 import type { Keybinding } from "./settings";
 
 /**
+ * An interaction card answers plain keys only while it is the card on screen,
+ * focus is outside a text field — where these keys are typing — and no dialog
+ * or menu is in front of it. At most one card is pending at a time, so the
+ * three families may share `1`, `2` and `3`.
+ */
+const APPROVAL_CARD = "approvalPending && !inputFocus && !dialogOpen";
+const PLAN_CARD = "planPending && !inputFocus && !dialogOpen";
+const QUESTION_CARD = "questionPending && !inputFocus && !dialogOpen";
+
+/**
+ * `question.option.1` … `question.option.9`: pick (or, in a multi-select,
+ * toggle) option N of the question that holds focus, else of the first one.
+ */
+export const QUESTION_OPTION_COMMANDS: ReadonlyArray<string> = Array.from(
+  { length: 9 },
+  (_, index) => `question.option.${index + 1}`,
+);
+
+/**
  * The server-owned defaults. The keybindings page shows these as the baseline a
  * user's overrides are diffed against, so the list is the contract, not a
  * renderer constant. A row added here reaches every install, because the
@@ -31,11 +50,29 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<Keybinding> = [
   { command: "thread.new", shortcut: "Mod+N" },
   { command: "commandPalette.toggle", shortcut: "Mod+K" },
   { command: "composer.queue", shortcut: "Mod+Enter" },
-  { command: "thread.interrupt", shortcut: "Escape" },
+  {
+    command: "thread.interrupt",
+    shortcut: "Escape",
+    when: "turnRunning && !dialogOpen && (inputFocus || !approvalPending)",
+  },
   { command: "browserPane.toggle", shortcut: "Mod+Shift+B" },
   { command: "sidebar.toggle", shortcut: "Mod+B" },
   { command: "skills.open", shortcut: "Mod+Shift+S" },
   { command: "settings.open", shortcut: "Mod+," },
+  { command: "terminal.toggle", shortcut: "Mod+J" },
+  { command: "approval.allowOnce", shortcut: "1", when: APPROVAL_CARD },
+  { command: "approval.allowSession", shortcut: "2", when: APPROVAL_CARD },
+  { command: "approval.allowAlways", shortcut: "3", when: APPROVAL_CARD },
+  { command: "approval.deny", shortcut: "D", when: APPROVAL_CARD },
+  { command: "approval.deny", shortcut: "Escape", when: APPROVAL_CARD },
+  { command: "plan.accept", shortcut: "1", when: PLAN_CARD },
+  { command: "plan.acceptAndRun", shortcut: "2", when: PLAN_CARD },
+  { command: "plan.revise", shortcut: "3", when: PLAN_CARD },
+  ...QUESTION_OPTION_COMMANDS.map((command, index) => ({
+    command,
+    shortcut: String(index + 1),
+    when: QUESTION_CARD,
+  })),
 ];
 
 /**

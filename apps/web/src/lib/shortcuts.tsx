@@ -10,31 +10,39 @@
  * not on screen is inert rather than an error.
  *
  * The listener runs in bubble phase so focused controls get first refusal —
- * the composer's trigger menu stops Escape's propagation, and an interaction
- * card's capture-phase listener settles the key before it ever arrives here —
- * and it skips `defaultPrevented` events for the same reason. Do not move it
- * to capture.
+ * the composer's trigger menu stops Escape's propagation before it arrives
+ * here — and it skips `defaultPrevented` events for the same reason. Do not
+ * move it to capture. The interaction cards' `1`/`2`/`3`/`d`/`Escape` are rows
+ * in the table like any other, told apart from each other and from
+ * `thread.interrupt` by their `when` clauses rather than by who listens first.
  *
- * `when` clauses read context flags: `composerFocus` and `terminalFocus` are
- * derived from the focused element's `data-context`, everything else is
- * published by whichever component knows it through `useKeybindingFlag`.
+ * `when` clauses read the context `@/lib/keybinding-context` builds for each
+ * press: focus, the surface it is in and whether an overlay is up come from
+ * the event and the page; everything else is published by whichever component
+ * knows it through `useKeybindingFlag`. A press where AltGr is typing a
+ * character is not a chord and is left alone.
  *
  * A focused terminal keeps its keys. Inside `[data-context="terminal"]` the
  * listener only considers `terminal.toggle` and leaves every other chord —
- * `Escape`, `Cmd+K`, `Cmd+B` — to the shell without calling `preventDefault`
+ * `Escape`, `Mod+K`, `Mod+B` — to the shell without calling `preventDefault`
  * (`yieldsToTerminal` in `@/lib/keybindings`).
  */
 
 import { useAtomValue } from "@effect/atom-react";
 import { Kbd, KbdGroup } from "@OpenAde/ui/components/kbd";
 import { useSidebar } from "@OpenAde/ui/components/sidebar";
-import { detectModKey, resolveKeybinding } from "@OpenAde/client-runtime/keybindings";
+import {
+  detectModKey,
+  isAltGraphTyping,
+  resolveKeybinding,
+} from "@OpenAde/client-runtime/keybindings";
 import type { Keybinding } from "@OpenAde/contracts/settings";
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 
 import { useClientRuntime } from "@/lib/client-runtime";
 import { makeCommandRegistry, type CommandRegistry } from "@/lib/command-registry";
+import { focusSnapshot, keybindingContext } from "@/lib/keybinding-context";
 import {
   effectiveKeybindings,
   keycapsFor,
@@ -64,11 +72,6 @@ export type ShortcutId = keyof typeof SHORTCUT_COMMANDS;
 
 const RegistryContext = React.createContext<CommandRegistry | null>(null);
 
-const focusedContext = (target: EventTarget | null): string | undefined =>
-  target instanceof HTMLElement
-    ? (target.closest("[data-context]")?.getAttribute("data-context") ?? undefined)
-    : undefined;
-
 /** The live table: the shipped defaults with the stored overrides layered on. */
 export function useKeybindings(): ReadonlyArray<Keybinding> {
   const { keybindingsAtom } = useClientRuntime();
@@ -87,21 +90,23 @@ export function KeybindingsProvider({ children }: { readonly children: React.Rea
   React.useEffect(() => {
     const modKey = detectModKey();
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.repeat || event.isComposing) {
+      if (
+        event.defaultPrevented ||
+        event.repeat ||
+        event.isComposing ||
+        isAltGraphTyping(event, modKey)
+      ) {
         return;
       }
-      const focus = focusedContext(event.target);
-      const context = (name: string): boolean | string | undefined =>
-        name === "composerFocus"
-          ? focus === "composer"
-          : name === "terminalFocus"
-            ? focus === "terminal"
-            : registry.flag(name);
+      const snapshot = focusSnapshot(event);
+      const context = keybindingContext(snapshot, registry.flag, modKey === "meta");
       // Filtered rather than checked after resolving, so a yielded binding
       // cannot shadow a toggle bound to the same chord further down.
       const table =
-        focus === "terminal"
-          ? keybindingsRef.current.filter((entry) => !yieldsToTerminal(entry.command, focus))
+        snapshot.surface === "terminal"
+          ? keybindingsRef.current.filter(
+              (entry) => !yieldsToTerminal(entry.command, snapshot.surface),
+            )
           : keybindingsRef.current;
       const binding = resolveKeybinding(table, event, context, modKey);
       const handler = binding === null ? undefined : registry.resolve(binding.command);
@@ -205,14 +210,56 @@ export function useShortcutKeys(id: ShortcutId): ReadonlyArray<string> {
 
 export function ShortcutKbd({ id }: { id: ShortcutId }) {
   const keys = useShortcutKeys(id);
-  if (keys.length === 0) {
-    return null;
-  }
+  return keys.length === 0 ? null : <Keycaps caps={keys} />;
+}
+
+/**
+ * Every chord the live table binds to `commands`, in table order, each as
+ * keycaps — user overrides applied, so a hint drawn from it never names a key
+ * the user has moved. A command with no binding contributes nothing.
+ */
+export function useCommandKeycaps(
+  commands: ReadonlyArray<string>,
+): ReadonlyArray<ReadonlyArray<string>> {
+  const keybindings = useKeybindings();
+  const modKey = detectModKey();
+  return keybindings
+    .filter((binding) => commands.includes(binding.command))
+    .map((binding) => keycapsFor(binding.shortcut, modKey))
+    .filter((caps) => caps.length > 0);
+}
+
+function Keycaps({ caps }: { readonly caps: ReadonlyArray<string> }) {
   return (
     <KbdGroup>
-      {keys.map((key) => (
+      {caps.map((key) => (
         <Kbd key={key}>{key}</Kbd>
       ))}
     </KbdGroup>
+  );
+}
+
+/**
+ * The chords bound to `commands`, one keycap group each; nothing when none is
+ * bound. `first` draws only the first chord, for a button's own label.
+ */
+export function CommandKeys({
+  commands,
+  first = false,
+}: {
+  readonly commands: ReadonlyArray<string>;
+  readonly first?: boolean;
+}) {
+  const chords = useCommandKeycaps(commands);
+  const shown = first ? chords.slice(0, 1) : chords;
+  if (shown.length === 0) {
+    return null;
+  }
+  return (
+    <>
+      {shown.map((caps) => (
+        <Keycaps key={caps.join("+")} caps={caps} />
+      ))}
+    </>
   );
 }

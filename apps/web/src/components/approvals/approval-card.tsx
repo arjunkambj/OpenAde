@@ -5,14 +5,17 @@
  * `thread.approval.resolved` event lands — a rejected receipt is shown inline
  * instead, so nothing here pretends a decision stuck before the server says so.
  *
- * Keys while the card is up: `1` allow once, `2` allow for session,
- * `3` always allow (persists the pattern), `d`/`Escape` deny. The card only
- * claims them while nothing nearer the user wants them — see `./card-keys`.
+ * Keys while the card is up, by default: `1` allow once, `2` allow for
+ * session, `3` always allow (persists the pattern), `D`/`Escape` deny. They
+ * are rows in the keybinding table (`approval.*`) whose `when` clause —
+ * `approvalPending && !inputFocus && !dialogOpen` — is the whole claim rule:
+ * a field, a dialog or the composer's trigger menu keeps its keys, and the
+ * card's `Escape` never competes with `thread.interrupt`, whose clause
+ * excludes exactly this case. The labels read the live table.
  */
 
 import { useAtomSet } from "@effect/atom-react";
 import { Button } from "@OpenAde/ui/components/button";
-import { Kbd } from "@OpenAde/ui/components/kbd";
 import type { ApprovalDecision } from "@OpenAde/contracts/enums";
 import type { ThreadId } from "@OpenAde/contracts/ids";
 import { makeCommandId } from "@OpenAde/contracts/ids";
@@ -20,11 +23,11 @@ import type { ApprovalRequest } from "@OpenAde/contracts/runtime";
 import { parsePattern } from "@OpenAde/shared/permissionPattern";
 import * as React from "react";
 
-import { approvalCardKey, cardKeyContext } from "@/components/approvals/card-keys";
 import { CardShell } from "@/components/approvals/card-shell";
 import { PatternEditor } from "@/components/approvals/pattern-editor";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
+import { CommandKeys, useKeybindingCommand } from "@/lib/shortcuts";
 import { ChevronDown, ChevronUp, Lock } from "@honeyicons/react";
 
 /** One-line summary of `request.input`, by approval kind. */
@@ -99,24 +102,17 @@ export function ApprovalCard({
     [dispatch, pattern, patternValid, request.requestId, threadId],
   );
 
-  // Capture, because `Escape` is bound to `thread.interrupt` on the same
-  // window and the card has to answer first. What it no longer does is claim
-  // the key whatever else is on screen: `approvalCardKey` stands down for a
-  // focused field, a dialog and the composer's trigger menu, and the branch
-  // that blurred the target and swallowed the event is gone. `preventDefault`
-  // alone marks a claimed key, which the keybinding listener honours.
-  React.useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const decision = approvalCardKey(cardKeyContext(event));
-      if (decision === null) {
-        return;
-      }
-      event.preventDefault();
+  // A key answers what the matching button would, and like the disabled
+  // buttons it does nothing while an answer is already on its way.
+  const byKey = (decision: ApprovalDecision) => () => {
+    if (pending === null) {
       respond(decision);
-    };
-    window.addEventListener("keydown", onKeyDown, true);
-    return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [respond]);
+    }
+  };
+  useKeybindingCommand("approval.allowOnce", byKey("allow-once"));
+  useKeybindingCommand("approval.allowSession", byKey("allow-session"));
+  useKeybindingCommand("approval.allowAlways", byKey("allow-always"));
+  useKeybindingCommand("approval.deny", byKey("deny"));
 
   return (
     <CardShell
@@ -131,7 +127,7 @@ export function ApprovalCard({
       actions={
         <>
           <Button size="sm" disabled={pending !== null} onClick={() => respond("allow-once")}>
-            Allow once <Kbd>1</Kbd>
+            Allow once <CommandKeys commands={["approval.allowOnce"]} first />
           </Button>
           <Button
             size="sm"
@@ -139,7 +135,7 @@ export function ApprovalCard({
             disabled={pending !== null || !patternValid}
             onClick={() => respond("allow-session")}
           >
-            Allow for session <Kbd>2</Kbd>
+            Allow for session <CommandKeys commands={["approval.allowSession"]} first />
           </Button>
           <Button
             size="sm"
@@ -147,7 +143,7 @@ export function ApprovalCard({
             disabled={pending !== null || !patternValid}
             onClick={() => respond("allow-always")}
           >
-            Always allow <Kbd>3</Kbd>
+            Always allow <CommandKeys commands={["approval.allowAlways"]} first />
           </Button>
           <Button
             size="sm"
@@ -156,7 +152,7 @@ export function ApprovalCard({
             disabled={pending !== null}
             onClick={() => respond("deny")}
           >
-            Deny <Kbd>D</Kbd>
+            Deny <CommandKeys commands={["approval.deny"]} first />
           </Button>
         </>
       }

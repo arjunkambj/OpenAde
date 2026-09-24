@@ -5,6 +5,12 @@
  * `thread.userInput.resolved` event clears `doc.pendingUserInput`. It stays
  * disabled until every question has an answer — an empty
  * `UserQuestionAnswer` is something the connector has to guess at.
+ *
+ * Keys, by default: `1`…`9` pick option N — toggle it, in a multi-select — of
+ * the question whose block holds focus, else of the first question. They are
+ * the `question.option.N` rows of the keybinding table, live while
+ * `questionPending && !inputFocus && !dialogOpen`, so typing a digit into the
+ * freeform field stays typing.
  */
 
 import { useAtomSet } from "@effect/atom-react";
@@ -13,6 +19,7 @@ import { Checkbox } from "@OpenAde/ui/components/checkbox";
 import { Input } from "@OpenAde/ui/components/input";
 import { cn } from "@OpenAde/ui/lib/utils";
 import type { RequestId, ThreadId } from "@OpenAde/contracts/ids";
+import { QUESTION_OPTION_COMMANDS } from "@OpenAde/contracts/keybindings";
 import { makeCommandId } from "@OpenAde/contracts/ids";
 import type { UserQuestion } from "@OpenAde/contracts/runtime";
 import * as React from "react";
@@ -20,13 +27,16 @@ import * as React from "react";
 import {
   allAnswered,
   emptyDrafts,
+  keyedQuestion,
   toAnswers,
+  toggleOption,
   EMPTY_DRAFT,
   type Draft,
 } from "@/components/approvals/answers";
 import { CardShell } from "@/components/approvals/card-shell";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
+import { useKeybindingCommand } from "@/lib/shortcuts";
 import { Chat, Clock } from "@honeyicons/react";
 
 function QuestionBlock({
@@ -39,17 +49,10 @@ function QuestionBlock({
   readonly onChange: (next: Draft) => void;
 }) {
   const multi = question.multiSelect === true;
-  const toggle = (optionId: string) => {
-    const optionIds = multi
-      ? draft.optionIds.includes(optionId)
-        ? draft.optionIds.filter((id) => id !== optionId)
-        : [...draft.optionIds, optionId]
-      : [optionId];
-    onChange({ ...draft, optionIds });
-  };
+  const toggle = (optionId: string) => onChange(toggleOption(question, draft, optionId));
 
   return (
-    <fieldset className="flex min-w-0 flex-col gap-2">
+    <fieldset className="flex min-w-0 flex-col gap-2" data-question-id={question.questionId}>
       <legend className="sr-only">{question.question}</legend>
       <div className="flex min-w-0 flex-col gap-0.5">
         {question.header === undefined ? null : (
@@ -107,6 +110,23 @@ function QuestionBlock({
   );
 }
 
+/** Answers one `question.option.N` command while mounted. */
+function OptionKey({
+  command,
+  onPress,
+}: {
+  readonly command: string;
+  readonly onPress: () => void;
+}) {
+  useKeybindingCommand(command, onPress);
+  return null;
+}
+
+/** The question block that holds focus, read off the page at the keypress. */
+const focusedQuestionId = (): string | undefined =>
+  document.activeElement?.closest("[data-question-id]")?.getAttribute("data-question-id") ??
+  undefined;
+
 export function QuestionCard({
   threadId,
   requestId,
@@ -150,6 +170,25 @@ export function QuestionCard({
     );
   };
 
+  const pickByKey = (index: number) => {
+    if (pending) {
+      return;
+    }
+    const question = keyedQuestion(questions, focusedQuestionId());
+    const option = question?.options[index];
+    if (question === undefined || option === undefined) {
+      return;
+    }
+    setDrafts((current) => ({
+      ...current,
+      [question.questionId]: toggleOption(
+        question,
+        current[question.questionId] ?? EMPTY_DRAFT,
+        option.optionId,
+      ),
+    }));
+  };
+
   return (
     <CardShell
       icon={Chat}
@@ -161,6 +200,9 @@ export function QuestionCard({
         </Button>
       }
     >
+      {QUESTION_OPTION_COMMANDS.map((command, index) => (
+        <OptionKey key={command} command={command} onPress={() => pickByKey(index)} />
+      ))}
       {questions.map((question) => (
         <QuestionBlock
           key={question.questionId}

@@ -93,7 +93,7 @@ function DevComposerInner({ fixture }: { readonly fixture: FixtureClient }) {
 
   const running = doc !== null && doc.currentTurnId !== null;
 
-  useKeybindingFlag("threadRunning", running);
+  useKeybindingFlag("turnRunning", running);
   useKeybindingCommand("commandPalette.toggle", () =>
     pushLog({ label: "commandPalette.toggle", status: "fired" }),
   );

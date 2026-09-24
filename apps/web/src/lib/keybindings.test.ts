@@ -90,8 +90,12 @@ describe("the default table and the matcher agree", () => {
     ...modifiers,
   });
 
-  const resolve = (event: ReturnType<typeof press>) =>
-    resolveKeybinding(effectiveKeybindings([]), event, () => undefined, "meta")?.command ?? null;
+  const resolve = (
+    event: ReturnType<typeof press>,
+    flags: Readonly<Record<string, boolean>> = {},
+  ) =>
+    resolveKeybinding(effectiveKeybindings([]), event, (name) => flags[name], "meta")?.command ??
+    null;
 
   it("routes every chord the shell advertises to its command", () => {
     expect(resolve(press("k", { metaKey: true }))).toBe("commandPalette.toggle");
@@ -101,11 +105,11 @@ describe("the default table and the matcher agree", () => {
     expect(resolve(press("s", { metaKey: true, shiftKey: true }))).toBe("skills.open");
     expect(resolve(press(",", { metaKey: true }))).toBe("settings.open");
     expect(resolve(press("Enter", { metaKey: true }))).toBe("composer.queue");
-    expect(resolve(press("Escape"))).toBe("thread.interrupt");
+    expect(resolve(press("Escape"), { turnRunning: true })).toBe("thread.interrupt");
     expect(resolve(press("j", { metaKey: true }))).toBe("terminal.toggle");
   });
 
   it("does not fire a bare chord when an extra modifier is held", () => {
-    expect(resolve(press("Escape", { shiftKey: true }))).toBeNull();
+    expect(resolve(press("Escape", { shiftKey: true }), { turnRunning: true })).toBeNull();
   });
 });

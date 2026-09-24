@@ -63,3 +63,24 @@ export const toAnswers = (
 
 export const emptyDrafts = (questions: ReadonlyArray<UserQuestion>): Record<string, Draft> =>
   Object.fromEntries(questions.map((question) => [question.questionId, EMPTY_DRAFT]));
+
+/** Choosing `optionId`: a single-select replaces the choice, a multi-select toggles it. */
+export const toggleOption = (question: UserQuestion, draft: Draft, optionId: string): Draft => {
+  if (question.multiSelect !== true) {
+    return { ...draft, optionIds: [optionId] };
+  }
+  const optionIds = draft.optionIds.includes(optionId)
+    ? draft.optionIds.filter((id) => id !== optionId)
+    : [...draft.optionIds, optionId];
+  return { ...draft, optionIds };
+};
+
+/**
+ * The question a number key answers: the one whose block holds focus, else the
+ * first — so a card with one question needs no focus at all.
+ */
+export const keyedQuestion = (
+  questions: ReadonlyArray<UserQuestion>,
+  focusedId: string | undefined,
+): UserQuestion | undefined =>
+  questions.find((question) => question.questionId === focusedId) ?? questions[0];

@@ -61,27 +61,27 @@ describe("context flags", () => {
   it("reads the value live, so a publisher does not have to re-register", () => {
     const registry = makeCommandRegistry();
     let running = false;
-    registry.publish("threadRunning", () => running);
-    expect(registry.flag("threadRunning")).toBe(false);
+    registry.publish("turnRunning", () => running);
+    expect(registry.flag("turnRunning")).toBe(false);
     running = true;
-    expect(registry.flag("threadRunning")).toBe(true);
+    expect(registry.flag("turnRunning")).toBe(true);
   });
 
   it("keeps the flag while another publisher is still mounted", () => {
-    // The regression: `threadRunning` is published by both ThreadView and the
+    // The regression: `turnRunning` is published by both ThreadView and the
     // Composer, and the old cleanup deleted the entry unconditionally — one
     // unmount dropped the flag out from under the other.
     const registry = makeCommandRegistry();
-    registry.publish("threadRunning", () => true);
-    const release = registry.publish("threadRunning", () => true);
+    registry.publish("turnRunning", () => true);
+    const release = registry.publish("turnRunning", () => true);
     release();
-    expect(registry.flag("threadRunning")).toBe(true);
+    expect(registry.flag("turnRunning")).toBe(true);
   });
 
   it("answers undefined for a flag nobody publishes", () => {
     const registry = makeCommandRegistry();
-    const release = registry.publish("threadRunning", () => true);
+    const release = registry.publish("turnRunning", () => true);
     release();
-    expect(registry.flag("threadRunning")).toBeUndefined();
+    expect(registry.flag("turnRunning")).toBeUndefined();
   });
 });

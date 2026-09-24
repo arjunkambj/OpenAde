@@ -202,7 +202,7 @@ export function Composer({
 
   const focusInput = React.useCallback(() => textareaRef.current?.focus(), []);
 
-  useKeybindingFlag("threadRunning", running);
+  useKeybindingFlag("turnRunning", running);
   useKeybindingCommand("thread.interrupt", interrupt);
   // Cmd+Enter inside the textarea is handled by onKeyDown; reaching here means
   // focus is elsewhere, so the useful thing to do is put it back.

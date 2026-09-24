@@ -5,6 +5,7 @@ import * as Schema from "effect/Schema";
 import {
   DEFAULT_KEYBINDINGS,
   LEGACY_DEFAULT_KEYBINDINGS,
+  QUESTION_OPTION_COMMANDS,
   diffKeymap,
   isUnbindRow,
   migrateLegacyKeybindingTable,
@@ -47,6 +48,29 @@ describe("DEFAULT_KEYBINDINGS", () => {
       expect(byCommand.get("sidebar.toggle")).toBe("Mod+B");
       expect(byCommand.get("skills.open")).toBe("Mod+Shift+S");
       expect(byCommand.get("settings.open")).toBe("Mod+,");
+    }),
+  );
+
+  it.effect("scopes the interaction-card keys and Escape by context", () =>
+    Effect.gen(function* () {
+      const bindings = yield* Effect.succeed(DEFAULT_KEYBINDINGS);
+      const rows = (command: string) =>
+        bindings
+          .filter((binding) => binding.command === command)
+          .map((binding) => `${binding.shortcut}|${binding.when ?? ""}`);
+      const approval = "approvalPending && !inputFocus && !dialogOpen";
+      expect(rows("approval.allowOnce")).toEqual([`1|${approval}`]);
+      expect(rows("approval.deny")).toEqual([`D|${approval}`, `Escape|${approval}`]);
+      expect(rows("plan.revise")).toEqual(["3|planPending && !inputFocus && !dialogOpen"]);
+      expect(QUESTION_OPTION_COMMANDS).toHaveLength(9);
+      for (const [index, command] of QUESTION_OPTION_COMMANDS.entries()) {
+        expect(rows(command)).toEqual([
+          `${index + 1}|questionPending && !inputFocus && !dialogOpen`,
+        ]);
+      }
+      expect(rows("thread.interrupt")).toEqual([
+        "Escape|turnRunning && !dialogOpen && (inputFocus || !approvalPending)",
+      ]);
     }),
   );
 

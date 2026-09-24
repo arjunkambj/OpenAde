@@ -4,9 +4,11 @@
  * it with the response. The card closes when `thread.plan.responded` clears
  * `doc.pendingPlan` — nothing here closes it optimistically.
  *
- * Keys: `1` accept, `2` accept and run, `3` focus the feedback field,
- * `Escape` is left to the composer (a plan is not a prompt that blocks on an
- * answer, so the card does not deny).
+ * Keys, by default: `1` accept, `2` accept and run, `3` open the feedback
+ * field. They are the `plan.*` rows of the keybinding table, live while
+ * `planPending && !inputFocus && !dialogOpen`. `Escape` is not among them: a
+ * plan is not a prompt that blocks on an answer, so the card has nothing to
+ * deny, and Escape keeps its ordinary meaning. The labels read the live table.
  */
 
 import { useAtomSet } from "@effect/atom-react";
@@ -20,10 +22,10 @@ import * as React from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-import { cardKeyContext, planCardKey } from "@/components/approvals/card-keys";
 import { CardShell } from "@/components/approvals/card-shell";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
+import { CommandKeys, useKeybindingCommand } from "@/lib/shortcuts";
 import { ListChecks } from "@honeyicons/react";
 
 /** The elements a plan actually uses, styled against theme tokens. */
@@ -109,26 +111,19 @@ export function PlanCard({
     [dispatch, plan.turnId, threadId],
   );
 
-  // Same shape as the approval card's listener, and `./card-keys` carries the
-  // reasoning: capture so the card answers before the window-level keybinding
-  // listener, but claiming nothing while a field, a dialog or a trigger menu
-  // is in front.
-  React.useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const action = planCardKey(cardKeyContext(event));
-      if (action === null) {
-        return;
-      }
-      event.preventDefault();
-      if (action === "revise") {
-        setRevising(true);
-        return;
-      }
+  // Like the disabled buttons, a key does nothing while an answer is on its way.
+  const byKey = (action: "accept" | "accept-auto") => () => {
+    if (pending === null) {
       respond(action);
-    };
-    window.addEventListener("keydown", onKeyDown, true);
-    return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [respond]);
+    }
+  };
+  useKeybindingCommand("plan.accept", byKey("accept"));
+  useKeybindingCommand("plan.acceptAndRun", byKey("accept-auto"));
+  useKeybindingCommand("plan.revise", () => {
+    if (pending === null) {
+      setRevising(true);
+    }
+  });
 
   React.useEffect(() => {
     if (revising) {
@@ -148,7 +143,7 @@ export function PlanCard({
       actions={
         <>
           <Button size="sm" disabled={pending !== null} onClick={() => respond("accept")}>
-            Accept <Kbd>1</Kbd>
+            Accept <CommandKeys commands={["plan.accept"]} first />
           </Button>
           <Button
             size="sm"
@@ -156,7 +151,7 @@ export function PlanCard({
             disabled={pending !== null}
             onClick={() => respond("accept-auto")}
           >
-            Accept and run <Kbd>2</Kbd>
+            Accept and run <CommandKeys commands={["plan.acceptAndRun"]} first />
           </Button>
           <Button
             size="sm"
@@ -166,7 +161,7 @@ export function PlanCard({
             onClick={() => setRevising((open) => !open)}
             aria-expanded={revising}
           >
-            Revise <Kbd>3</Kbd>
+            Revise <CommandKeys commands={["plan.revise"]} first />
           </Button>
         </>
       }

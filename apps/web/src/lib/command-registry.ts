@@ -16,7 +16,7 @@
  * So registration is a stack per id: the newest claimant answers, and releasing
  * one hands the id back to whoever held it before rather than blanking it.
  * Releasing out of order is fine — an entry is removed by identity, wherever it
- * sits. Context flags work the same way, for the same reason: `threadRunning`
+ * sits. Context flags work the same way, for the same reason: `turnRunning`
  * is published by more than one component, and an unconditional delete on the
  * first unmount dropped the flag while the other publisher was still mounted.
  *
