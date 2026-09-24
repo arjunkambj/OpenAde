@@ -787,8 +787,11 @@ Everything a client needs that is not React.
   failed call leaves an empty list rather than an error. `fileAtoms.ts` holds
   `fileStatAtom`, keyed by the sorted, deduplicated set of paths so the same
   candidates are one call and then a cached answer, held five minutes after its
-  last reader so a timeline row scrolled away and back does not ask again; a
-  set larger than one `files.stat` carries goes out as several calls.
+  last reader so a timeline row scrolled away and back does not ask again,
+  and by a revision the caller names (the timeline's count of settled turns
+  and restores), so an answer from before files were created or removed is
+  asked again; a set larger than one `files.stat` carries goes out as several
+  calls.
   `gitAtoms.ts` holds `checkpointsAtom`, keyed by the thread and a revision the
   caller names (the timeline passes its fold's checkpoint count), so a list
   read before a checkpoint was created is never mistaken for one after it; a

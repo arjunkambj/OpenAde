@@ -30,6 +30,12 @@ export interface TimelineThread {
   readonly restoreBlockedReason: string | null;
   /** The thread's turn ids, first seen first (`turn-checkpoints.ts`). */
   readonly turnOrder: ReadonlyArray<TurnId>;
+  /**
+   * The state of the workspace's files, as a name: it changes each time a
+   * turn or a restore settles, so the file chips ask `files.stat` again
+   * instead of reading an answer from before files were created or removed.
+   */
+  readonly workspaceRevision: string;
 }
 
 const TimelineThreadContext = React.createContext<TimelineThread | null>(null);

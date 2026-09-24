@@ -46,6 +46,7 @@ const thread = (fields: Partial<TimelineThread> = {}): TimelineThread => ({
   ],
   restoreBlockedReason: null,
   turnOrder: [t1, t2],
+  workspaceRevision: "0",
   ...fields,
 });
 

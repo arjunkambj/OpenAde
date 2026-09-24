@@ -14,7 +14,9 @@
  *   set, so one message's candidates make one call whatever order they were
  *   found in, and asking again for the same set reads the cached answer —
  *   for five minutes after its last reader, so a timeline row that scrolls
- *   away and back does not ask again.
+ *   away and back does not ask again. The key's `revision` names the state
+ *   of the workspace, so once files may have been created or removed the
+ *   caller asks anew rather than reading an answer that no longer holds.
  *
  * The shapes mirror `gitAtoms` on purpose, for the same two reasons:
  *
@@ -79,6 +81,13 @@ export interface FileStatKey {
   readonly projectId: ProjectId;
   readonly threadId?: ThreadId | undefined;
   readonly paths: ReadonlyArray<string>;
+  /**
+   * The caller's name for the state of the workspace it asks about. An answer
+   * holds only while the files stay put: a new revision (a turn or a restore
+   * settled, and files were created or removed) is a new question, where the
+   * same one would read the cached answer.
+   */
+  readonly revision?: string | undefined;
 }
 
 /**
@@ -124,15 +133,26 @@ export const decodeFileWindow = (encoded: string): FileWindowKey => {
  * gathered. Decoding gives back that normalized set.
  */
 export const encodeFileStat = (key: FileStatKey): string =>
-  JSON.stringify([key.projectId, key.threadId ?? null, [...new Set(key.paths)].sort()]);
+  JSON.stringify([
+    key.projectId,
+    key.threadId ?? null,
+    [...new Set(key.paths)].sort(),
+    key.revision ?? null,
+  ]);
 
 export const decodeFileStat = (encoded: string): FileStatKey => {
-  const [projectId, threadId, paths] = JSON.parse(encoded) as [
+  const [projectId, threadId, paths, revision] = JSON.parse(encoded) as [
     ProjectId,
     ThreadId | null,
     ReadonlyArray<string>,
+    string | null,
   ];
-  return { projectId, ...(threadId === null ? {} : { threadId }), paths };
+  return {
+    projectId,
+    ...(threadId === null ? {} : { threadId }),
+    paths,
+    ...(revision === null ? {} : { revision }),
+  };
 };
 
 /** How long a `files.stat` answer outlives its last reader. */

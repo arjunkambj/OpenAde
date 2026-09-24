@@ -126,6 +126,7 @@ describe("the user message footer", () => {
     checkpoints: [checkpoint],
     restoreBlockedReason: null,
     turnOrder: [t1, t2],
+    workspaceRevision: "0",
     ...fields,
   });
   // Inside a timeline the bubble's markdown reads the file atoms, so a client

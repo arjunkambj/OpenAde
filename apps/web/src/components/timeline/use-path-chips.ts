@@ -8,6 +8,11 @@
  * and each new set is a new question; the previous answer is held meanwhile,
  * so a chip already shown does not drop back to plain text for a frame.
  *
+ * The question is asked under the workspace's revision: when a turn or a
+ * restore settles, every row on screen asks again, so a file created during
+ * the turn becomes a chip and a removed one stops being one. The previous
+ * answer is held meanwhile, as above.
+ *
  * It takes the thread rather than reading it from context: outside a timeline
  * there is no workspace to ask and no runtime to ask it through, so
  * `PathChipsProvider` (`path-chips.tsx`) only calls this inside one.
@@ -42,6 +47,7 @@ export const usePathChips = (
           projectId: thread.projectId,
           threadId: thread.threadId,
           paths: candidates,
+          revision: thread.workspaceRevision,
         });
   const result = useAtomValue(atom);
   const answer =

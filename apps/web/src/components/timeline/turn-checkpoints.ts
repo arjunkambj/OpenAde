@@ -114,6 +114,16 @@ export const restoreBlockedReason = (state: {
         : null;
 
 /**
+ * Whether the workspace's files may have just moved: a turn, or a restore,
+ * settled between `was` and `now`. The timeline counts these to name the
+ * workspace's revision, which the file chips ask their `files.stat` under.
+ */
+export const workspaceSettled = (
+  was: { readonly restoring: boolean; readonly turnRunning: boolean },
+  now: { readonly restoring: boolean; readonly turnRunning: boolean },
+): boolean => (was.turnRunning && !now.turnRunning) || (was.restoring && !now.restoring);
+
+/**
  * When each turn ended, epoch ms, as far as the checkpoints tell: the server
  * captures a turn's checkpoint as the turn completes, so its `createdAt` is
  * the nearest record of the end a thread keeps. A turn with several takes the

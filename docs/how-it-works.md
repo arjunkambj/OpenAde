@@ -943,7 +943,12 @@ the workspace even when the agent reported it absolute, as does a tool row's
 file target. Those chips show the whole relative path, and a row whose label
 holds one keeps its toggle under the rest
 of the line (`DisclosureRow`'s `triggerLabel`), since a chip cannot sit
-inside a button.
+inside a button. A file-change row asks only once its change has finished,
+since a Write reports its path before the file exists. Answers are cached,
+so every question carries the workspace's revision, which the timeline bumps
+each time a turn or a restore settles: the rows on screen then ask again,
+holding their chips meanwhile, so a file created during the turn becomes a
+chip and a removed one stops being one.
 
 Clicking a chip opens the file in the dock's Files tab at that line: the
 chip writes a per-thread request (`state/file-reveal.ts`) that the thread

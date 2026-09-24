@@ -62,6 +62,9 @@ const hit = (path: string): FileSearchResult => ({
   isDirectory: false,
 });
 
+/** Files a test has "created" since the fake workspace began. */
+const created = new Set<string>();
+
 /**
  * A client whose file calls record their arguments and answer from a mutable
  * script, so a test can make the first read fail and assert the retry.
@@ -95,12 +98,12 @@ const fakeClient = (calls: Calls, failRead: Ref.Ref<boolean>): OpenAdeRpcClient 
           });
       }
       if (key === "files.stat") {
-        // Every path under `src/` exists; nothing else does.
+        // Every path under `src/` exists, and whatever a test created; nothing else does.
         return (payload: { projectId: string; paths: ReadonlyArray<string> }) =>
           Effect.sync(() => {
             calls.stat.push({ ...payload });
             return payload.paths
-              .filter((path) => path.startsWith("src/"))
+              .filter((path) => path.startsWith("src/") || created.has(path))
               .map((path): FileStat => ({
                 path,
                 relativePath: path,
@@ -184,14 +187,54 @@ describe("file atoms", () => {
     });
     const scoped: FileStatKey = { projectId, threadId, paths: ["src/a.ts"] };
     expect(decodeFileStat(encodeFileStat(scoped))).toEqual(scoped);
-    // A thread, or one more path, is a different question.
+    const revised: FileStatKey = { projectId, threadId, paths: ["src/a.ts"], revision: "2" };
+    expect(decodeFileStat(encodeFileStat(revised))).toEqual(revised);
+    // A thread, one more path, or a new workspace revision is a different question.
     const distinct = [
       encodeFileStat({ projectId, paths: ["src/a.ts"] }),
       encodeFileStat(scoped),
       encodeFileStat({ projectId, paths: ["src/a.ts", "src/c.ts"] }),
+      encodeFileStat(revised),
+      encodeFileStat({ ...revised, revision: "3" }),
     ];
     expect(new Set(distinct).size).toBe(distinct.length);
   });
+
+  it.live("a new workspace revision asks again, finding a file created since", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const projectId = makeProjectId();
+        const threadId = makeThreadId();
+        const calls: Calls = { search: [], read: [], stat: [] };
+        const failing = yield* Ref.make(false);
+        const { registry, fileStatAtom } = yield* runtimeWith(
+          fakeClient(calls, failing),
+          CONNECTED,
+        );
+        const ask = (revision: string) => {
+          const atom = fileStatAtom({ projectId, threadId, paths: ["new.ts"], revision });
+          registry.mount(atom);
+          return Effect.promise(() =>
+            awaitValue<FileQuery<ReadonlyArray<FileStat>>, Cause.NoSuchElementError>(
+              registry,
+              atom,
+              (query) => query._tag === "ok",
+            ),
+          );
+        };
+
+        // Asked while the Write that creates it is still running: not there.
+        expect(yield* ask("1")).toEqual({ _tag: "ok", value: [] });
+        created.add("new.ts");
+        // The same question reads the cached answer; the next revision asks again.
+        expect(yield* ask("1")).toEqual({ _tag: "ok", value: [] });
+        const again = yield* ask("2");
+        expect(again._tag === "ok" && again.value.map((stat) => stat.path)).toEqual(["new.ts"]);
+        expect(calls.stat).toHaveLength(2);
+        created.delete("new.ts");
+      }),
+    ),
+  );
 
   it.live("a stat batch is one call, and the same set asked again reads the cache", () =>
     Effect.scoped(

@@ -2,13 +2,15 @@
  * `file_change` — path chip + change kind, with the unified diff rendered
  * inline through the worker pool when the item carries one. The path is the
  * one the agent reported, often absolute; once the workspace confirms it, it
- * shows as a file chip with its path relative to the workspace.
+ * shows as a file chip with its path relative to the workspace. It asks only
+ * once the change has finished (`fileChangeCandidates`): a created file does
+ * not exist while its Write is still running.
  */
 
 import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
 
 import { InlineDiff } from "@/components/timeline/diff-pool";
-import { fileChangeFallbackLabel } from "@/components/timeline/file-change";
+import { fileChangeCandidates, fileChangeFallbackLabel } from "@/components/timeline/file-change";
 import {
   FILE_CHANGE_KIND_LABEL,
   FileChangeKindBadge,
@@ -57,7 +59,7 @@ export function FileChangeRow({ item }: { item: ItemSnapshot }) {
     );
   }
   return (
-    <PathChipsProvider candidates={[fileChange.path]}>
+    <PathChipsProvider candidates={fileChangeCandidates(item)}>
       <DisclosureRow
         rowId={item.itemId}
         icon={Edit}

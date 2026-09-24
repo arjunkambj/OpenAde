@@ -13,6 +13,9 @@
  *   The Changes pane follows along the same way it follows its own restores.
  * - The turn order is recomputed on every item change but only replaced when
  *   a turn is added, so a streamed delta does not rerender every row.
+ * - The workspace revision counts the turns and restores that settled while
+ *   the timeline was mounted: each may have created or removed files, so the
+ *   file chips' existence checks are asked again under the new one.
  * - The connection is the client runtime's in context, so the fixture page
  *   reads its scripted one.
  */
@@ -29,6 +32,7 @@ import {
   availableCheckpoints,
   restoreBlockedReason,
   turnOrder,
+  workspaceSettled,
 } from "@/components/timeline/turn-checkpoints";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { turnInFlight } from "@/lib/turn";
@@ -68,11 +72,17 @@ export const useTimelineThreadValue = (snapshot: ThreadDetailSnapshot): Timeline
     [orderKey],
   );
 
-  const blocked = restoreBlockedReason({
-    connected,
-    restoring,
-    turnRunning: turnInFlight(snapshot),
-  });
+  const turnRunning = turnInFlight(snapshot);
+  const blocked = restoreBlockedReason({ connected, restoring, turnRunning });
+
+  // Counted during render, so the revision changes in the same render as the
+  // turn or restore that settled rather than in a second one after it.
+  const [settles, setSettles] = React.useState({ count: 0, restoring, turnRunning });
+  if (settles.restoring !== restoring || settles.turnRunning !== turnRunning) {
+    const now = { restoring, turnRunning };
+    setSettles({ count: settles.count + (workspaceSettled(settles, now) ? 1 : 0), ...now });
+  }
+  const workspaceRevision = String(settles.count);
 
   return React.useMemo(
     () => ({
@@ -81,7 +91,8 @@ export const useTimelineThreadValue = (snapshot: ThreadDetailSnapshot): Timeline
       checkpoints,
       restoreBlockedReason: blocked,
       turnOrder: order,
+      workspaceRevision,
     }),
-    [threadId, projectId, checkpoints, blocked, order],
+    [threadId, projectId, checkpoints, blocked, order, workspaceRevision],
   );
 };

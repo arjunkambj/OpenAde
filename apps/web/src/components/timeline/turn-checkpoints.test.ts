@@ -10,6 +10,7 @@ import {
   skipsTurns,
   turnEndTimes,
   turnOrder,
+  workspaceSettled,
 } from "@/components/timeline/turn-checkpoints";
 
 const item = (turnId: TurnId | undefined, kind: ItemSnapshot["kind"] = "tool_call") =>
@@ -132,6 +133,22 @@ describe("restoreBlockedReason", () => {
     expect(restoreBlockedReason({ ...idle, turnRunning: true })).toBe(
       "A turn is running — stop it before restoring.",
     );
+  });
+});
+
+describe("workspaceSettled", () => {
+  const state = (turnRunning: boolean, restoring = false) => ({ turnRunning, restoring });
+
+  it("is true when a turn or a restore settles", () => {
+    expect(workspaceSettled(state(true), state(false))).toBe(true);
+    expect(workspaceSettled(state(false, true), state(false, false))).toBe(true);
+  });
+
+  it("is false when one starts, or nothing settles", () => {
+    expect(workspaceSettled(state(false), state(true))).toBe(false);
+    expect(workspaceSettled(state(false, false), state(false, true))).toBe(false);
+    expect(workspaceSettled(state(true), state(true))).toBe(false);
+    expect(workspaceSettled(state(false), state(false))).toBe(false);
   });
 });
 
