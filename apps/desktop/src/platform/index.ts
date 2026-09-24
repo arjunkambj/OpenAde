@@ -6,6 +6,8 @@
  * through the scoped bridge instead, and `./browserBridge` decides whether
  * that starts (docs/architecture.md, "The browser bridge").
  */
+import { join } from "node:path";
+
 import { app } from "electron";
 
 import { stripRemoteDebugging } from "./browserBridge";
@@ -27,6 +29,16 @@ export function applyPlatformDefaults() {
   if (removed.length > 0) {
     console.warn(`[platform] ignored ${removed.map((name) => `--${name}`).join(", ")}`);
   }
+}
+
+/**
+ * An unpackaged `electron .` run carries Electron's own bundle icon, so the
+ * dock shows the Poseidon icon from `assets/` instead. Packaged builds get
+ * `AppIcon.icns` from electron-builder and skip this. Call after `whenReady`.
+ */
+export function applyDevDockIcon() {
+  if (app.isPackaged || process.platform !== "darwin") return;
+  app.dock?.setIcon(join(__dirname, "..", "..", "assets", "icon-1024.png"));
 }
 
 export const titleBarStyle = (): "hidden" | "default" =>

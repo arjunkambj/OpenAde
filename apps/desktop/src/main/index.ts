@@ -14,7 +14,7 @@ import { createGuestRegistry } from "./browser/guests";
 import { startPaneBridge } from "./browser/start";
 import { makeTabsChannel } from "./browser/tabsChannel";
 import { registerIpc } from "./ipc";
-import { applyPlatformDefaults } from "../platform";
+import { applyDevDockIcon, applyPlatformDefaults } from "../platform";
 import { resolveBrowserBridge } from "../platform/browserBridge";
 import { quitsWhenAllWindowsClosed } from "../platform/lifecycle";
 import { APP_SCHEME, registerAppProtocol } from "./protocol";
@@ -80,6 +80,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(async () => {
+    applyDevDockIcon();
     registerAppProtocol();
     registerIpc(supervisor, { guests, tabs });
     if (bridgeSetting.kind === "enabled") {
