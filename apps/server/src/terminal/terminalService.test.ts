@@ -694,6 +694,25 @@ describe.skipIf(process.platform === "win32")(
       ),
     );
 
+    it.live("refuses a project that is missing or removed", () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const { terminals, thread, projectId, engine } = yield* handOverStack;
+          const threadId = yield* thread;
+          expect(yield* failureCode(terminals.adopt(makeProjectId(), threadId))).toBe("not-found");
+          yield* engine
+            .dispatch({
+              commandId: makeCommandId(),
+              createdAt: NOW,
+              type: "project.remove",
+              projectId,
+            })
+            .pipe(Effect.orDie);
+          expect(yield* failureCode(terminals.adopt(projectId, threadId))).toBe("not-found");
+        }),
+      ),
+    );
+
     it.live("answers nothing when the project has no terminals", () =>
       Effect.scoped(
         Effect.gen(function* () {

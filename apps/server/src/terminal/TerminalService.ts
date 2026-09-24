@@ -183,15 +183,21 @@ export const workspaceOf =
     );
 
 /**
- * A thread that may take a project's terminals: it exists, is not archived,
- * belongs to that project and has no worktree of its own — so it works in the
- * folder the project's shells run in. A thread in its own worktree, or one of
- * another project, is refused, and the shells stay the project's.
+ * A thread that may take a project's terminals: the project is still there
+ * (`not-found` once it is missing or removed, as `projectWorkspace` answers),
+ * and the thread exists, is not archived, belongs to that project and has no
+ * worktree of its own — so it works in the folder the project's shells run
+ * in. A thread in its own worktree, or one of another project, is refused,
+ * and the shells stay the project's.
  */
 export const adoptionCheckOf =
   (engine: OrchestrationEngine["Service"]) =>
   (projectId: ProjectId, threadId: ThreadId): Effect.Effect<void, OpenAdeRpcError> =>
     Effect.gen(function* () {
+      const project = yield* engine.projectDoc(projectId);
+      if (project === null || project.removed) {
+        return yield* notFound(`project ${projectId} does not exist`);
+      }
       const doc = yield* engine.threadDoc(threadId);
       if (doc === null || doc.deleted) {
         return yield* notFound(`thread ${threadId} does not exist`);
@@ -211,7 +217,9 @@ export const adoptionCheckOf =
       Effect.catchTag("SqlError", (error) =>
         Effect.logWarning("terminal hand-over lookup failed", error).pipe(
           Effect.andThen(
-            Effect.fail(new OpenAdeRpcError({ code: "internal", message: "thread lookup failed" })),
+            Effect.fail(
+              new OpenAdeRpcError({ code: "internal", message: "project or thread lookup failed" }),
+            ),
           ),
         ),
       ),
