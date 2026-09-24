@@ -1,81 +1,175 @@
 /**
- * The `/dev/timeline` fixture page — loaded only in a development build. Decodes
- * `contracts/fixtures/thread-detail-snapshot.json` (every `ItemKind` in one
- * thread) and renders it through the real `Timeline`, so row work can be
- * checked without a server. Controls:
+ * The `/dev/timeline` fixture page — loaded only in a development build. It
+ * renders the real `Timeline` over the real atom stack; the only fake is the
+ * `Connection` layer (`makeFixtureClient`), so every read a row makes — an
+ * attachment's bytes, the checkpoints, a dispatched restore — goes through
+ * the same RPC path the app uses and resolves offline.
  *
- *  - ×1 / ×10 / ×50 replicate the items with fresh ids — the ×50 case is the
- *    ~1,000-row virtualization check.
- *  - "Live turn" flips the last segment to in-progress so the unfolded work
- *    rows and the trailing "Working…" row are visible; its turn id is minted
- *    fresh so the row's elapsed clock starts from zero.
+ * Two scenarios, loaded into the fixture's document with `fixture.load`:
+ *
+ *  - "Every kind" decodes `contracts/fixtures/thread-detail-snapshot.json`,
+ *    one of every `ItemKind` in one thread.
+ *  - "Conversation" is `buildRichTimelineSnapshot`: settled turns with real
+ *    work, long and markdown user messages with attachments, code in several
+ *    languages, file paths, decisions, a steered message and a running turn.
+ *
+ * Controls:
+ *
+ *  - ×1 / ×10 / ×50 replicate the scenario with fresh ids — the ×50 case is
+ *    the virtualization check.
+ *  - "Live turn" starts a turn (`turn.requested` + `turn.started`, a fresh
+ *    turn id so the working clock starts from zero) or settles the running one.
+ *  - "Stream" types an assistant message into the running turn a few words at
+ *    a time, as coalesced deltas arrive; it starts a turn if none runs.
+ *  - "Send" dispatches `thread.turn.start` through the fixture's decider — the
+ *    running turn is settled first so the message is not queued — and then
+ *    streams the reply, which is the send-anchoring case.
+ *  - "Narrow" squeezes the timeline to a phone-width column.
  *  - The theme toggle exercises both token sets.
  */
 
-import * as React from "react";
-import * as Schema from "effect/Schema";
-
-import { Button } from "@OpenAde/ui/components/button";
-import fixture from "@OpenAde/contracts/fixtures/thread-detail-snapshot.json";
-import { decodeTurnId } from "@OpenAde/contracts/ids";
+import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import everyKindJson from "@OpenAde/contracts/fixtures/thread-detail-snapshot.json";
+import { makeCommandId } from "@OpenAde/contracts/ids";
 import { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
-import { uuidV7 } from "@OpenAde/shared/ids";
+import { cn } from "@OpenAde/ui/lib/utils";
+import * as Schema from "effect/Schema";
+import { AsyncResult } from "effect/unstable/reactivity";
+import * as React from "react";
 
-import { ModeToggle } from "@/components/mode-toggle";
+import { TimelineFixtureControls, type Scenario } from "@/components/dev/timeline-fixture-controls";
+import { buildRichTimelineSnapshot } from "@/components/dev/timeline-fixture-data";
+import { settleStream, streamTick } from "@/components/dev/timeline-fixture-stream";
+import { SEND_ASKS } from "@/components/dev/timeline-fixture-text";
 import { Timeline } from "@/components/timeline/timeline";
+import { ClientRuntimeProvider, useClientRuntime } from "@/lib/client-runtime";
+import { makeFixtureClient, type FixtureClient } from "@/lib/fixture-client";
 import { cloneDecisions, cloneItems } from "@/lib/fixture-clone";
+import { KeybindingsProvider } from "@/lib/shortcuts";
 
-const baseSnapshot = Schema.decodeUnknownSync(ThreadDetailSnapshot)(fixture);
+const everyKind = Schema.decodeUnknownSync(ThreadDetailSnapshot)(everyKindJson);
 
-const MULTIPLIERS = [1, 10, 50] as const;
+/** How often a Stream tick lands: slower than real deltas, so each append can be watched. */
+const STREAM_TICK_MS = 120;
+
+const scenarioSnapshot = (scenario: Scenario, copies: number): ThreadDetailSnapshot =>
+  scenario === "conversation"
+    ? buildRichTimelineSnapshot({ copies })
+    : {
+        ...everyKind,
+        items: cloneItems(everyKind.items, copies),
+        decisions: cloneDecisions(everyKind.decisions ?? [], copies),
+      };
 
 export function TimelineFixture() {
-  const [multiplier, setMultiplier] = React.useState<number>(1);
-  const [live, setLive] = React.useState(false);
+  const [client] = React.useState(() => {
+    const made = makeFixtureClient();
+    made.load(scenarioSnapshot("conversation", 1));
+    return made;
+  });
+  return (
+    <ClientRuntimeProvider layer={client.layer}>
+      {/* Nested so the timeline's keys resolve against the fixture's own
+          keybinding table, as on `/dev/composer`. */}
+      <KeybindingsProvider>
+        <TimelineFixturePage client={client} />
+      </KeybindingsProvider>
+    </ClientRuntimeProvider>
+  );
+}
 
-  const snapshot = React.useMemo<ThreadDetailSnapshot>(() => {
-    return {
-      ...baseSnapshot,
-      items: cloneItems(baseSnapshot.items, multiplier),
-      decisions: cloneDecisions(baseSnapshot.decisions ?? [], multiplier),
-      status: live ? "running" : baseSnapshot.status,
-      currentTurnId: live ? decodeTurnId(uuidV7()) : baseSnapshot.currentTurnId,
-    };
-  }, [multiplier, live]);
+function TimelineFixturePage({ client }: { readonly client: FixtureClient }) {
+  const { threadDetailAtom, dispatchAtom } = useClientRuntime();
+  const result = useAtomValue(threadDetailAtom(client.threadId));
+  const snapshot = AsyncResult.isSuccess(result) ? result.value : null;
+  const dispatch = useAtomSet(dispatchAtom, { mode: "promise" });
+
+  const [scenario, setScenario] = React.useState<Scenario>("conversation");
+  const [multiplier, setMultiplier] = React.useState(1);
+  const [streaming, setStreaming] = React.useState(false);
+  const [narrow, setNarrow] = React.useState(false);
+  const sends = React.useRef(0);
+  const running = snapshot !== null && snapshot.currentTurnId !== null;
+
+  React.useEffect(() => {
+    if (!streaming) {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      if (!streamTick(client)) {
+        setStreaming(false);
+      }
+    }, STREAM_TICK_MS);
+    return () => window.clearInterval(timer);
+  }, [client, streaming]);
+
+  const stopStreaming = () => {
+    setStreaming(false);
+    settleStream(client);
+  };
+
+  const load = (nextScenario: Scenario, nextMultiplier: number) => {
+    setStreaming(false);
+    setScenario(nextScenario);
+    setMultiplier(nextMultiplier);
+    client.load(scenarioSnapshot(nextScenario, nextMultiplier));
+  };
+
+  const toggleLive = () => {
+    if (running) {
+      stopStreaming();
+      client.completeTurn();
+    } else {
+      client.startTurn();
+    }
+  };
+
+  const send = () => {
+    stopStreaming();
+    client.completeTurn();
+    const text = SEND_ASKS[sends.current % SEND_ASKS.length] ?? SEND_ASKS[0];
+    sends.current += 1;
+    void dispatch({
+      commandId: makeCommandId(),
+      createdAt: new Date().toISOString(),
+      type: "thread.turn.start",
+      threadId: client.threadId,
+      text,
+      attachments: [],
+      mentions: [],
+      queued: false,
+    }).then((receipt) => setStreaming(receipt.status === "accepted"));
+  };
 
   return (
     <div className="flex h-svh flex-col bg-background">
-      <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2">
-        <span className="type-body font-medium text-foreground">Timeline fixture</span>
-        <span className="type-micro text-muted-foreground">
-          {snapshot.items.length} items · every row kind
-        </span>
-        <div className="ml-auto flex items-center gap-1.5">
-          {MULTIPLIERS.map((n) => (
-            <Button
-              key={n}
-              type="button"
-              variant={multiplier === n ? "secondary" : "ghost"}
-              size="sm"
-              aria-pressed={multiplier === n}
-              onClick={() => setMultiplier(n)}
-            >
-              ×{n}
-            </Button>
-          ))}
-          <Button
-            type="button"
-            variant={live ? "secondary" : "ghost"}
-            size="sm"
-            aria-pressed={live}
-            onClick={() => setLive((current) => !current)}
-          >
-            Live turn
-          </Button>
-          <ModeToggle />
+      <TimelineFixtureControls
+        scenario={scenario}
+        multiplier={multiplier}
+        onLoad={load}
+        itemCount={snapshot?.items.length ?? 0}
+        running={running}
+        onLive={toggleLive}
+        streaming={streaming}
+        onStream={() => (streaming ? stopStreaming() : setStreaming(true))}
+        onSend={send}
+        narrow={narrow}
+        onNarrow={() => setNarrow((current) => !current)}
+      />
+      <div className="flex min-h-0 flex-1 justify-center">
+        <div
+          className={cn(
+            "flex min-h-0 w-full flex-1 flex-col",
+            narrow && "max-w-sm border-x border-border",
+          )}
+        >
+          {snapshot === null ? (
+            <p className="px-4 py-3 text-sm text-muted-foreground">Loading the fixture thread…</p>
+          ) : (
+            <Timeline key={`${scenario}-${multiplier}`} snapshot={snapshot} />
+          )}
         </div>
-      </header>
-      <Timeline snapshot={snapshot} />
+      </div>
     </div>
   );
 }

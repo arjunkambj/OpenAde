@@ -1,5 +1,5 @@
 /**
- * The `/dev/composer` fixture: a `Connection` layer over an in-process fake
+ * The fixture pages' client (`/dev/composer`, `/dev/timeline`): a `Connection` layer over an in-process fake
  * whose `orchestration.dispatch` runs a tiny decider — `approval.respond`
  * emits `approval.resolved`, `turn.start` emits `message.queued` or
  * `turn.requested`, the user's `item.upserted` row and `turn.started`, and so
@@ -14,7 +14,8 @@
  * `fixture.setSteering` flips the connector's `steering` capability and
  * rebinds the fixture session with it, as the server copies capabilities onto
  * `thread.session.bound`, so the composer's steer state can be seen; the page
- * refreshes `connectors.list`.
+ * refreshes `connectors.list`. `fixture.load` swaps in a whole document — the
+ * timeline fixture's scenarios — as a server resnapshot would.
  *
  * The other RPC answers — files, models, skills, plugins, attachments,
  * keybindings — live in `fixture-rpc.ts`; this module lends it the thread
@@ -143,6 +144,12 @@ export interface FixtureClient {
   readonly setSteering: (on: boolean) => void;
   /** Restore the base document and resnapshot. */
   readonly reset: () => void;
+  /**
+   * Replace the document with `snapshot` — restamped with the fixture's own
+   * thread, project and session so every RPC keyed by them still answers —
+   * and resnapshot. The timeline fixture loads its scenarios this way.
+   */
+  readonly load: (snapshot: ThreadDetailSnapshot) => void;
   /** Called after every dispatch — the page renders this as the command log. */
   onCommand: ((command: Command, receipt: CommandReceipt) => void) | undefined;
 }
@@ -472,6 +479,15 @@ export const makeFixtureClient = (): FixtureClient => {
     connectors: () => [connector(), secondConnector()],
   });
 
+  /** Swap the whole document, as a resnapshot from the server would. */
+  const replace = (next: ThreadDetailSnapshot, reason: string): void => {
+    doc = next;
+    streamVersion = 0;
+    offer({ kind: "resnapshot-required", reason });
+    offer({ kind: "snapshot", snapshot: doc });
+    bindSession();
+  };
+
   const state = Effect.runSync(
     SubscriptionRef.make<ConnectionState>({ status: "connected", serverInstanceId }),
   );
@@ -493,13 +509,17 @@ export const makeFixtureClient = (): FixtureClient => {
       steering = on;
       bindSession();
     },
-    reset: () => {
-      doc = baseDoc(threadId, projectId, connectorInstanceId);
-      streamVersion = 0;
-      offer({ kind: "resnapshot-required", reason: "fixture reset" });
-      offer({ kind: "snapshot", snapshot: doc });
-      bindSession();
-    },
+    reset: () => replace(baseDoc(threadId, projectId, connectorInstanceId), "fixture reset"),
+    load: (snapshot) =>
+      replace(
+        {
+          ...snapshot,
+          threadId,
+          projectId,
+          session: baseDoc(threadId, projectId, connectorInstanceId).session,
+        },
+        "fixture scenario",
+      ),
     onCommand: undefined,
   };
   return handle;

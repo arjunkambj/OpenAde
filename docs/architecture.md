@@ -549,6 +549,17 @@ not unread.
 
 The three `dev/*` pages load their bodies through a dynamic import inside
 `if (import.meta.env.DEV)`, so no fixture data reaches a production bundle.
+`/dev/composer` and `/dev/timeline` run the real atom stack over
+`makeFixtureClient` (`apps/web/src/lib/fixture-client.ts`): an in-process
+`Connection` whose decider answers a command with the events a server would
+emit, and whose other RPC answers come from inline data in
+`apps/web/src/lib/fixture-rpc.ts`. `/dev/timeline` loads one of two scenarios
+into it: the contracts' every-kind snapshot, or `buildRichTimelineSnapshot`
+(`apps/web/src/components/dev/timeline-fixture-data.ts`), a thread of settled
+turns and one running turn whose ids are minted on a moving clock, so
+durations and checkpoints read as they would on a real thread. From there the
+page can start, stream into, settle and send turns, repeat the thread ×10 or
+×50, and narrow the column.
 
 Public seam: none; it is a leaf. May import `ui`, `contracts`,
 `client-runtime`, `shared`. Must never name a connector.

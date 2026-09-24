@@ -27,6 +27,8 @@ import type { Keybinding } from "@OpenAde/contracts/settings";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
 
+import { FIXTURE_IMAGES } from "@/lib/fixture-images";
+
 // ── Inline fixture data ────────────────────────────────────────
 
 export const FIXTURE_NOW = "2026-01-01T00:00:00.000Z";
@@ -186,8 +188,10 @@ export const makeFixtureRpc = (context: FixtureRpcContext): OpenAdeRpcClient => 
             );
         }
         // Attachments in the fixture never leave the browser: staging echoes a
-        // plausible reference, and reading one back answers the placeholder
-        // pixel, so the composer's upload path can be driven with no server.
+        // plausible reference, and reading one back answers what was staged,
+        // the timeline fixture's own images, or the placeholder pixel, so the
+        // composer's upload path and the timeline's thumbnails work with no
+        // server.
         case "attachments.stage":
           return ({ threadId, name, base64 }: { threadId: string; name: string; base64: string }) =>
             Effect.sync(() => {
@@ -204,7 +208,8 @@ export const makeFixtureRpc = (context: FixtureRpcContext): OpenAdeRpcClient => 
         case "attachments.read":
           return ({ path }: { path: string }) =>
             Effect.sync(() => {
-              const base64 = fixtureAttachments.get(path) ?? FIXTURE_PIXEL;
+              const base64 =
+                fixtureAttachments.get(path) ?? FIXTURE_IMAGES.get(path) ?? FIXTURE_PIXEL;
               return { mime: "image/png", size: Math.floor((base64.length * 3) / 4), base64 };
             });
         case "connectors.list":
