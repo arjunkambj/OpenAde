@@ -420,11 +420,14 @@ export const makeClaudeSession = (
         );
       });
 
-    const control = (what: string, call: () => Promise<unknown>): Effect.Effect<void> =>
+    /** One of the SDK's session controls: true once the CLI took it, logged when it did not. */
+    const control = (what: string, call: () => Promise<unknown>): Effect.Effect<boolean> =>
       Effect.tryPromise(call).pipe(
-        Effect.asVoid,
+        Effect.as(true),
         Effect.catch((error) =>
-          services.logger.log("warn", `claude ${what} failed`, { error: error.message }),
+          services.logger
+            .log("warn", `claude ${what} failed`, { error: error.message })
+            .pipe(Effect.as(false)),
         ),
       );
 
@@ -441,19 +444,46 @@ export const makeClaudeSession = (
         ),
       );
 
+    /**
+     * The thread's new settings, applied to the running CLI. The model is the
+     * SDK's `setModel` (none for `default`, so the CLI's own default applies
+     * again) and the effort its `applyFlagSettings({ effortLevel })`; both
+     * take effect from the CLI's next request. Either way `model.changed`
+     * then says what the CLI runs on: the new pick once the CLI took it, the
+     * one before when it refused, so the thread never shows a model the
+     * session is not using.
+     */
     const updateSettings = (patch: ThreadSettingsPatch): Effect.Effect<void> =>
       Effect.gen(function* () {
         const before = settings;
         settings = { ...settings, ...patch };
+        let switched = false;
         if (settings.model !== before.model) {
-          yield* control("setModel", () => session.setModel(sdkModelFor(settings.model)));
+          switched = true;
+          if (!(yield* control("setModel", () => session.setModel(sdkModelFor(settings.model))))) {
+            settings = { ...settings, model: before.model };
+          }
         }
         const mode = permissionModeFor(settings);
         if (mode !== cliMode) yield* applyMode(mode);
         if (settings.effort !== before.effort) {
-          yield* control("applyFlagSettings", () =>
-            session.applyFlagSettings({ effortLevel: sdkEffortFor(settings.effort) ?? null }),
-          );
+          switched = true;
+          const effortLevel = sdkEffortFor(settings.effort) ?? null;
+          if (
+            !(yield* control("applyFlagSettings", () => session.applyFlagSettings({ effortLevel })))
+          ) {
+            const { effort: _refused, ...rest } = settings;
+            settings = before.effort === undefined ? rest : { ...rest, effort: before.effort };
+          }
+        }
+        if (switched) {
+          yield* emit({
+            type: "model.changed",
+            payload: {
+              model: settings.model,
+              ...(settings.effort === undefined ? {} : { effort: settings.effort }),
+            },
+          });
         }
       });
 

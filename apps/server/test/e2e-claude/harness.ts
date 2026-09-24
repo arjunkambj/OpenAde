@@ -51,7 +51,11 @@ import type { ThreadSettingsPatch } from "@OpenAde/contracts/orchestration";
 import type { ConnectorInstanceConfig } from "@OpenAde/contracts/settings";
 import { recordingNames } from "@OpenAde/testkit/recording";
 import { sdkStreamReplayer } from "@OpenAde/testkit/replaySdkStream";
-import { finalizeSdkStreamRecording, makeTeeLauncher } from "@OpenAde/testkit/sdkStreamRecording";
+import {
+  finalizeSdkStreamRecording,
+  loadSdkStreamRecording,
+  makeTeeLauncher,
+} from "@OpenAde/testkit/sdkStreamRecording";
 import { describe, it } from "@effect/vitest";
 import { vi } from "vitest";
 import * as Effect from "effect/Effect";
@@ -115,6 +119,14 @@ export interface ClaudeRun {
   /** Boots the real server on this home, in the calling scope, under the caps. */
   readonly boot: Effect.Effect<BootedServer, never, Scope.Scope>;
   /**
+   * The explicit id of the model the CLI's `default` runs as — what a switch
+   * away from `default` may name without spending on another model. The
+   * recording's model under replay; what the CLI's `system/init` named so far
+   * when recording, so only after the first turn; and, live, the model the
+   * operator named in `OPENADE_CLAUDE_APPROVED_MODEL`.
+   */
+  readonly defaultModelId: Effect.Effect<string>;
+  /**
    * A project on the scratch repo and a thread on this instance and the CLI's
    * default model, with its subscription already folding.
    */
@@ -130,6 +142,8 @@ export interface ClaudeRun {
 interface Prepared {
   readonly config: ConnectorInstanceConfig["config"];
   readonly homeParent: string;
+  /** What the CLI's default runs as, when this driver can tell. */
+  readonly defaultModelId: () => string | undefined;
   /** Once the scenario passed and every process it started has exited. */
   readonly finish: () => void;
   /** Whatever happened. */
@@ -160,6 +174,7 @@ const prepareReplay = (spec: ClaudeScenario): Prepared => {
   return {
     config: { binaryPath },
     homeParent: NodeOS.tmpdir(),
+    defaultModelId: () => loadSdkStreamRecording(KIND, spec.scenario).manifest.model,
     finish: () => {
       if (NodeFS.existsSync(divergenceLog)) {
         throw new Error(
@@ -175,6 +190,7 @@ const prepareReplay = (spec: ClaudeScenario): Prepared => {
 const prepareLive = (): Prepared => ({
   config: LIVE_CONFIG_DIR === undefined ? {} : { configDir: LIVE_CONFIG_DIR },
   homeParent: NodeOS.tmpdir(),
+  defaultModelId: () => APPROVED_MODEL,
   finish: () => {},
   cleanup: () => {},
 });
@@ -238,6 +254,7 @@ const prepareRecord = (spec: ClaudeScenario): Effect.Effect<Prepared> =>
         ...(LIVE_CONFIG_DIR === undefined ? {} : { configDir: LIVE_CONFIG_DIR }),
       },
       homeParent,
+      defaultModelId: () => initModel(rawDir),
       finish: () => {
         const model = initModel(rawDir);
         if (model === undefined) {
@@ -296,6 +313,18 @@ const runScenario = (
           home,
           connectorInstanceId,
           boot: bootServer(home, { claudeCode: { limits: CLAUDE_LIMITS } }),
+          defaultModelId: Effect.suspend(() => {
+            const id = prepared.defaultModelId();
+            return id === undefined
+              ? Effect.die(
+                  new Error(
+                    driver === "live"
+                      ? "name the default's explicit model id in OPENADE_CLAUDE_APPROVED_MODEL to switch to it live"
+                      : "the CLI has not reported its model yet",
+                  ),
+                )
+              : Effect.succeed(id);
+          }),
           openThread: (client, settings = {}) =>
             driver !== "replay" && !spendable(settings.model)
               ? Effect.die(
