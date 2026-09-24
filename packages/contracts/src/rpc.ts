@@ -663,12 +663,19 @@ const ConnectorsMcpRemoveRpc = Rpc.make(RPC_METHODS.connectorsMcpRemove, {
   error: OpenAdeRpcError,
 });
 
+/**
+ * The user's keybinding overrides, not the whole keymap: the renderer layers
+ * them on `DEFAULT_KEYBINDINGS` with `resolveKeymap`. The shape is the one a
+ * full table had, so an older peer on either end degrades safely — each row it
+ * sends replaces only its own command's defaults.
+ */
 const KeybindingsGetRpc = Rpc.make(RPC_METHODS.keybindingsGet, {
   payload: empty,
   success: Schema.Array(Keybinding),
   error: OpenAdeRpcError,
 });
 
+/** Replaces the stored overrides wholesale and answers with the new ones. */
 const KeybindingsUpdateRpc = Rpc.make(RPC_METHODS.keybindingsUpdate, {
   payload: Schema.Struct({ keybindings: Schema.Array(Keybinding) }),
   success: Schema.Array(Keybinding),

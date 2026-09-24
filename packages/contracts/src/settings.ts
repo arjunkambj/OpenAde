@@ -166,7 +166,8 @@ export type PermissionRule = typeof PermissionRule.Type;
  * One shortcut. `command` is the action id the renderer dispatches; `shortcut`
  * is the chord in the table's own notation (`Cmd+Shift+B`), normalised per
  * platform at the point of use. `when` narrows a binding to a context, the way
- * VS Code's `when` clauses do.
+ * VS Code's `when` clauses do. In the stored document a `-X` command unbinds
+ * `X`; the defaults and how overrides layer on them live in `./keybindings`.
  */
 export const Keybinding = Schema.Struct({
   command: NonEmptyString.pipe(settingsForm({ label: "Command", control: "hidden" })),
@@ -182,21 +183,11 @@ export const Keybinding = Schema.Struct({
 export type Keybinding = typeof Keybinding.Type;
 
 /**
- * The server-owned defaults. The keybindings page shows these as the baseline a
- * user's overrides are diffed against, so the list is the contract, not a
- * renderer constant.
+ * What `Settings.keybindings` holds. `"overrides"` is the user's changes on top
+ * of the shipped defaults; an absent marker is a document written before that,
+ * whose table is the whole keymap and is migrated on load.
  */
-export const DEFAULT_KEYBINDINGS: ReadonlyArray<Keybinding> = [
-  { command: "thread.new", shortcut: "Cmd+N" },
-  { command: "commandPalette.toggle", shortcut: "Cmd+K" },
-  { command: "composer.queue", shortcut: "Cmd+Enter" },
-  { command: "thread.interrupt", shortcut: "Escape" },
-  { command: "browserPane.toggle", shortcut: "Cmd+Shift+B" },
-  { command: "sidebar.toggle", shortcut: "Cmd+B" },
-  { command: "skills.open", shortcut: "Cmd+Shift+S" },
-  { command: "settings.open", shortcut: "Cmd+," },
-  { command: "terminal.toggle", shortcut: "Cmd+J" },
-];
+const KeybindingsFormat = Schema.Literal("overrides");
 
 // ── Git and worktrees ──────────────────────────────────────────
 
@@ -313,8 +304,13 @@ export const Settings = Schema.Struct({
       control: "select",
     }),
   ),
+  // The user's overrides, layered on `DEFAULT_KEYBINDINGS` — never a copy of
+  // them, or a default added later would not reach this install.
   keybindings: Schema.Array(Keybinding).pipe(
     settingsForm({ label: "Keybindings", control: "hidden" }),
+  ),
+  keybindingsFormat: Schema.optional(KeybindingsFormat).pipe(
+    settingsForm({ label: "Keybindings format", control: "hidden" }),
   ),
   permissions: Schema.Array(PermissionRule).pipe(
     settingsForm({ label: "Permission rules", control: "hidden" }),
@@ -350,6 +346,7 @@ export type SettingsPatch = typeof SettingsPatch.Type;
 /**
  * The document a fresh install writes. No connectors are configured yet, so no
  * model is chosen, and the runtime mode is the one that asks before acting.
+ * No keybinding is overridden, so every shipped default applies.
  */
 export const defaultSettings = (): Settings => ({
   connectors: [],
@@ -357,7 +354,8 @@ export const defaultSettings = (): Settings => ({
   theme: "system",
   mainFontSize: DEFAULT_FONT_SIZE,
   sidebarFontSize: DEFAULT_FONT_SIZE,
-  keybindings: DEFAULT_KEYBINDINGS,
+  keybindings: [],
+  keybindingsFormat: "overrides",
   permissions: [],
   git: { branchPrefix: DEFAULT_BRANCH_PREFIX },
   projectSettings: {},

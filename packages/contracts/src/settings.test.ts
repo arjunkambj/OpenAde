@@ -7,8 +7,6 @@ import {
   ConnectorInstanceConfig,
   DEFAULT_BRANCH_PREFIX,
   DEFAULT_FONT_SIZE,
-  DEFAULT_KEYBINDINGS,
-  Keybinding,
   MAX_FONT_SIZE,
   PermissionRule,
   Settings,
@@ -41,45 +39,19 @@ describe("defaultSettings", () => {
     }),
   );
 
+  it.effect("overrides no keybinding, and says the table is overrides", () =>
+    Effect.gen(function* () {
+      const settings = yield* Effect.sync(defaultSettings);
+      expect(settings.keybindings).toEqual([]);
+      expect(settings.keybindingsFormat).toBe("overrides");
+    }),
+  );
+
   it.effect("configures no connector, so it names no model", () =>
     Effect.gen(function* () {
       const settings = yield* Effect.sync(defaultSettings);
       expect(settings.connectors).toEqual([]);
       expect(settings.defaults.model).toBeNull();
-    }),
-  );
-});
-
-describe("DEFAULT_KEYBINDINGS", () => {
-  it.effect("binds every shortcut the shell promises", () =>
-    Effect.gen(function* () {
-      const bindings = yield* Effect.succeed(DEFAULT_KEYBINDINGS);
-      const byCommand = new Map(bindings.map((binding) => [binding.command, binding.shortcut]));
-      expect(byCommand.get("thread.new")).toBe("Cmd+N");
-      expect(byCommand.get("commandPalette.toggle")).toBe("Cmd+K");
-      expect(byCommand.get("composer.queue")).toBe("Cmd+Enter");
-      expect(byCommand.get("thread.interrupt")).toBe("Escape");
-      expect(byCommand.get("browserPane.toggle")).toBe("Cmd+Shift+B");
-      expect(byCommand.get("sidebar.toggle")).toBe("Cmd+B");
-      expect(byCommand.get("skills.open")).toBe("Cmd+Shift+S");
-      expect(byCommand.get("settings.open")).toBe("Cmd+,");
-      expect(byCommand.get("terminal.toggle")).toBe("Cmd+J");
-    }),
-  );
-
-  it.effect("binds each command once", () =>
-    Effect.gen(function* () {
-      const bindings = yield* Effect.succeed(DEFAULT_KEYBINDINGS);
-      const commands = bindings.map((binding) => binding.command);
-      expect(new Set(commands).size).toBe(commands.length);
-    }),
-  );
-
-  it.effect("decodes as Keybindings", () =>
-    Effect.gen(function* () {
-      const decode = Schema.decodeUnknownSync(Schema.Array(Keybinding));
-      const decoded = yield* Effect.sync(() => decode(DEFAULT_KEYBINDINGS));
-      expect(decoded).toEqual(DEFAULT_KEYBINDINGS);
     }),
   );
 });
@@ -145,6 +117,7 @@ describe("settingsForm annotations", () => {
         "defaults",
         "git",
         "keybindings",
+        "keybindingsFormat",
         "mainFontSize",
         "permissions",
         "projectSettings",

@@ -1,7 +1,8 @@
 /**
- * The SQLite-backed settings document: what a fresh install gets, that a
- * stored document is served exactly as written, and what happens to a row this
- * build cannot read at all.
+ * The SQLite-backed settings document: what a fresh install gets, how a
+ * document stored before keybinding overrides is migrated, that a current one
+ * is served exactly as written, and what happens to a row this build cannot
+ * read at all.
  */
 
 import {
@@ -12,10 +13,11 @@ import {
   makeThreadId,
   type ThreadId,
 } from "@OpenAde/contracts/ids";
+import { LEGACY_DEFAULT_KEYBINDINGS } from "@OpenAde/contracts/keybindings";
 import {
   DEFAULT_BRANCH_PREFIX,
-  DEFAULT_KEYBINDINGS,
   defaultSettings,
+  type Keybinding,
 } from "@OpenAde/contracts/settings";
 import { describe, expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
@@ -42,6 +44,12 @@ const rowJson = (sql: SqlClient.SqlClient, key: string) =>
   `.pipe(Effect.map((rows) => rows[0]?.value_json ?? null));
 
 const NOW = "2026-01-01T00:00:00.000Z";
+
+/** A document as stored before the keybindings marker: no marker, a whole table. */
+const legacyRow = (keybindings: ReadonlyArray<Keybinding>) => {
+  const { keybindingsFormat: _format, ...rest } = defaultSettings();
+  return JSON.stringify({ ...rest, theme: "dark", keybindings });
+};
 
 const planned = (
   streamId: ThreadId,
@@ -94,31 +102,28 @@ const fixture = (row?: string) =>
   });
 
 describe("SettingsStore", () => {
-  it.effect("a fresh install gets the contracts' default keybindings", () =>
+  it.effect("a fresh install overrides no keybinding, and carries the marker", () =>
     Effect.scoped(
       Effect.gen(function* () {
         const { store } = yield* fixture();
         const settings = yield* store.get;
-        expect(settings.keybindings.length).toBe(DEFAULT_KEYBINDINGS.length);
-        expect(settings.keybindings.map((k) => k.command)).toEqual(
-          DEFAULT_KEYBINDINGS.map((k) => k.command),
-        );
+        expect(settings.keybindings).toEqual([]);
+        expect(settings.keybindingsFormat).toBe("overrides");
         expect(store.freshInstall).toBe(true);
       }),
     ),
   );
 
-  it.effect("a stored empty keybinding table survives a restart", () =>
+  it.effect("a legacy row holding the old default table is served as no overrides", () =>
     Effect.scoped(
       Effect.gen(function* () {
-        // The keybindings page can remove every row, so an empty table is a
-        // state the user can choose. Seeding defaults back over it would
-        // revert that choice on the next start, with nothing to make it stick.
-        const { store } = yield* fixture(
-          JSON.stringify({ ...defaultSettings(), keybindings: [], theme: "dark" }),
-        );
+        // What every install stored before the marker: the whole keymap of the
+        // build that wrote it. Served as written, it would shadow every default
+        // added since.
+        const { store } = yield* fixture(legacyRow(LEGACY_DEFAULT_KEYBINDINGS));
         const settings = yield* store.get;
         expect(settings.keybindings).toEqual([]);
+        expect(settings.keybindingsFormat).toBe("overrides");
         expect(settings.theme).toBe("dark");
         expect(store.freshInstall).toBe(false);
       }),
@@ -141,13 +146,60 @@ describe("SettingsStore", () => {
     ),
   );
 
-  it.effect("emptying the keybinding table through an update keeps it empty", () =>
+  it.effect("a legacy row keeps a rebinding the user made", () =>
     Effect.scoped(
       Effect.gen(function* () {
-        // The same choice arrived at from the other direction: a fresh install
-        // seeded with the defaults, then emptied. Re-reading has to answer
-        // with the empty table, not slide the defaults back in.
-        const { store } = yield* fixture();
+        const { store } = yield* fixture(
+          legacyRow(
+            LEGACY_DEFAULT_KEYBINDINGS.map((row) =>
+              row.command === "thread.new" ? { ...row, shortcut: "Cmd+Shift+T" } : row,
+            ),
+          ),
+        );
+        const settings = yield* store.get;
+        expect(settings.keybindings).toEqual([{ command: "thread.new", shortcut: "Cmd+Shift+T" }]);
+      }),
+    ),
+  );
+
+  it.effect("a legacy row keeps a binding the user removed removed", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const { store } = yield* fixture(
+          legacyRow(LEGACY_DEFAULT_KEYBINDINGS.filter((row) => row.command !== "sidebar.toggle")),
+        );
+        const settings = yield* store.get;
+        expect(settings.keybindings).toEqual([{ command: "-sidebar.toggle", shortcut: "Cmd+B" }]);
+      }),
+    ),
+  );
+
+  it.effect("an update persists the migrated overrides with the marker", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const { store, sql } = yield* fixture(
+          legacyRow(LEGACY_DEFAULT_KEYBINDINGS.filter((row) => row.command !== "skills.open")),
+        );
+        yield* store.update({ theme: "light" });
+        const stored = JSON.parse((yield* rowJson(sql, "settings"))!) as Record<string, unknown>;
+        expect(stored["keybindingsFormat"]).toBe("overrides");
+        expect(stored["keybindings"]).toEqual([
+          { command: "-skills.open", shortcut: "Cmd+Shift+S" },
+        ]);
+      }),
+    ),
+  );
+
+  it.effect("a stored override table survives a restart as written", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        // With the marker, the table is the user's own choice: an empty one
+        // means "all defaults", and an unbound command stays unbound.
+        const overrides = [{ command: "-thread.interrupt", shortcut: "Escape" }];
+        const { store } = yield* fixture(
+          JSON.stringify({ ...defaultSettings(), keybindings: overrides }),
+        );
+        expect((yield* store.get).keybindings).toEqual(overrides);
         const updated = yield* store.update({ keybindings: [] });
         expect(updated.keybindings).toEqual([]);
         expect(yield* store.get).toEqual(updated);

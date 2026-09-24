@@ -36,6 +36,7 @@ import type {
   WorktreeSetupFrame,
 } from "@OpenAde/contracts/git";
 import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
+import { migrateLegacyKeybindingTable } from "@OpenAde/contracts/keybindings";
 import { defaultSettings, Settings } from "@OpenAde/contracts/settings";
 import type { SettingsPatch } from "@OpenAde/contracts/settings";
 import type { ConnectorInstanceId, ProjectId, TerminalId, ThreadId } from "@OpenAde/contracts/ids";
@@ -567,10 +568,11 @@ export class SettingsStore extends Context.Service<
 const SETTINGS_ROW_KEY = "settings";
 
 /**
- * The server has no defaults of its own: the contracts' document is what the
- * keybindings page diffs a user's overrides against, so a second copy here
+ * The server has no defaults of its own: `defaultSettings` and
+ * `DEFAULT_KEYBINDINGS` in the contracts are the one copy, and the stored
+ * keybindings are only the user's overrides on top of them. A second copy here
  * would silently drift (it did — it shipped an empty keybinding table, which
- * disabled every shortcut in the app).
+ * disabled every shortcut in the app back when a table was the whole keymap).
  */
 
 /**
@@ -581,6 +583,24 @@ const SETTINGS_ROW_KEY = "settings";
  * a downgrade or a hand repair still has the original.
  */
 const SETTINGS_UNREADABLE_ROW_KEY = "settings.unreadable";
+
+/**
+ * A stored document with its keybindings as overrides. One written before the
+ * marker existed holds the whole keymap of the build that wrote it, and served
+ * as it is it would shadow every default added since; it is served migrated
+ * instead, and the first write through `update` (which reads through here)
+ * persists that. Migrating an untouched row again gives the same answer, so a
+ * restart before any write changes nothing. A document that has the marker is
+ * served exactly as written: an unbound command is a choice the user made.
+ */
+const withKeybindingOverrides = (settings: Settings): Settings =>
+  settings.keybindingsFormat === "overrides"
+    ? settings
+    : {
+        ...settings,
+        keybindings: migrateLegacyKeybindingTable(settings.keybindings),
+        keybindingsFormat: "overrides",
+      };
 
 const load = (sql: SqlClient.SqlClient) =>
   Effect.gen(function* () {
@@ -596,8 +616,9 @@ const load = (sql: SqlClient.SqlClient) =>
       yield* Effect.logError("settings row could not be decoded; serving defaults", decoded.cause);
       return { settings: defaultSettings(), freshInstall: false, unreadable: raw };
     }
-    // A stored document is served exactly as written: the keybindings page can
-    // add, remove and reset rows, so an empty table is a choice the user made
-    // and a "repair" here would silently revert it on the next server start.
-    return { settings: decoded.value, freshInstall: false, unreadable: null };
+    return {
+      settings: withKeybindingOverrides(decoded.value),
+      freshInstall: false,
+      unreadable: null,
+    };
   });

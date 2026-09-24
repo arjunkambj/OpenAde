@@ -21,27 +21,20 @@
   "sidebarFontSize": 14,
   "keybindings": [
     {
-      "command": "thread.new",
-      "shortcut": "Cmd+N"
-    },
-    {
-      "command": "commandPalette.toggle",
-      "shortcut": "Cmd+K"
-    },
-    {
-      "command": "composer.queue",
-      "shortcut": "Cmd+Enter"
-    },
-    {
-      "command": "thread.interrupt",
-      "shortcut": "Escape"
+      "command": "sidebar.toggle",
+      "shortcut": "Cmd+\\"
     },
     {
       "command": "browserPane.toggle",
       "shortcut": "Cmd+Shift+B",
-      "when": "browserPaneAvailable"
+      "when": "threadOpen"
+    },
+    {
+      "command": "-skills.open",
+      "shortcut": "Cmd+Shift+S"
     }
   ],
+  "keybindingsFormat": "overrides",
   "permissions": [
     {
       "scope": "global",

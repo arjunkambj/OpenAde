@@ -1,17 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_KEYBINDINGS, type Keybinding } from "@OpenAde/contracts/settings";
+import { DEFAULT_KEYBINDINGS } from "@OpenAde/contracts/keybindings";
+import type { Keybinding } from "@OpenAde/contracts/settings";
 import { resolveKeybinding } from "@OpenAde/client-runtime/keybindings";
 
 import { effectiveKeybindings, keycapsFor, shortcutFor, yieldsToTerminal } from "./keybindings";
 
 describe("effectiveKeybindings", () => {
-  it("stands the shipped defaults in for an empty server table", () => {
+  it("is exactly the shipped defaults when nothing is overridden", () => {
     expect(effectiveKeybindings([])).toEqual(DEFAULT_KEYBINDINGS);
   });
 
-  it("leaves a populated table alone, removals included", () => {
-    const table: ReadonlyArray<Keybinding> = [{ command: "thread.new", shortcut: "Cmd+J" }];
-    expect(effectiveKeybindings(table)).toBe(table);
+  it("replaces an overridden command's default and keeps every other one", () => {
+    const overrides: ReadonlyArray<Keybinding> = [{ command: "thread.new", shortcut: "Cmd+J" }];
+    const table = effectiveKeybindings(overrides);
+    expect(shortcutFor(table, "thread.new")).toBe("Cmd+J");
+    expect(shortcutFor(table, "sidebar.toggle")).toBe("Cmd+B");
+    expect(table).toHaveLength(DEFAULT_KEYBINDINGS.length);
+  });
+
+  it("leaves a command unbound by a -command row unbound", () => {
+    const table = effectiveKeybindings([{ command: "-sidebar.toggle", shortcut: "Cmd+B" }]);
+    expect(shortcutFor(table, "sidebar.toggle")).toBeNull();
   });
 });
 

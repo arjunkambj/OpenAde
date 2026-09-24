@@ -446,7 +446,10 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
     ),
   );
 
-  /** The server-owned keybinding table the editor and the matcher share. */
+  /**
+   * The user's keybinding overrides, as the server stores them. The editor and
+   * the matcher layer them on `DEFAULT_KEYBINDINGS` with `resolveKeymap`.
+   */
   const keybindingsAtom = runtime.atom(
     perConnection(
       Effect.gen(function* () {
@@ -457,7 +460,7 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
     { initialValue: [] as ReadonlyArray<Keybinding> },
   );
 
-  /** Replaces the whole table; refreshes `keybindingsAtom` on success. */
+  /** Replaces the stored overrides; refreshes `keybindingsAtom` on success. */
   const keybindingsUpdateAtom = runtime.fn((keybindings: ReadonlyArray<Keybinding>, get) =>
     Effect.gen(function* () {
       const client = yield* (yield* Connection).client;

@@ -370,9 +370,10 @@ enabled one.
 ### packages/contracts
 
 Every wire shape, as `effect/Schema` codecs. Modules: `base`, `ids`, `enums`,
-`runtime`, `orchestration`, `decisions`, `git`, `settings`, `connectors`,
-`terminal`, `rpc`. `git` holds `ThreadWorktree`, the worktree a thread was
-created in, and the branch, commit, push, pull-request and worktree RPCs with
+`runtime`, `orchestration`, `decisions`, `git`, `settings`, `keybindings`,
+`connectors`, `terminal`, `rpc`. `keybindings` holds the shipped keymap and how
+the user's stored overrides layer on it, since both server and renderer need it.
+`git` holds `ThreadWorktree`, the worktree a thread was created in, and the branch, commit, push, pull-request and worktree RPCs with
 their shapes (`GitBranch`, `GitBranchList`, `GitCommitResult`, `GitPushResult`,
 `GitPullRequestResult`, `GitWorktreeInfo`, and the `WorktreeSetupFrame` union
 the setup script streams); they are defined there rather than in `rpc.ts`,
@@ -1468,8 +1469,8 @@ the client in the terminal `incompatible` state.
 | `connectors.mcp.list`         | call   | MCP servers in one instance's harness config, user and project scope                |
 | `connectors.mcp.add`          | call   | Adds or replaces one entry we own; refuses one we do not                            |
 | `connectors.mcp.remove`       | call   | Removes one entry we own                                                            |
-| `keybindings.get`             | call   | The keybinding list                                                                 |
-| `keybindings.update`          | call   | Replaces it                                                                         |
+| `keybindings.get`             | call   | The user's keybinding overrides, layered on `DEFAULT_KEYBINDINGS` by the renderer   |
+| `keybindings.update`          | call   | Replaces the overrides; a `-command` row unbinds that command                       |
 | `terminal.open`               | call   | Starts a shell under a client-minted id, or answers the one already running         |
 | `terminal.write`              | call   | Input for the shell: typed keys, a paste                                            |
 | `terminal.resize`             | call   | The terminal's grid in character cells                                              |

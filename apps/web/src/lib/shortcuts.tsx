@@ -69,7 +69,7 @@ const focusedContext = (target: EventTarget | null): string | undefined =>
     ? (target.closest("[data-context]")?.getAttribute("data-context") ?? undefined)
     : undefined;
 
-/** The live table, with the shipped defaults standing in for an empty one. */
+/** The live table: the shipped defaults with the stored overrides layered on. */
 export function useKeybindings(): ReadonlyArray<Keybinding> {
   const { keybindingsAtom } = useClientRuntime();
   const result = useAtomValue(keybindingsAtom);

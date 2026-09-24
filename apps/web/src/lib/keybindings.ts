@@ -8,18 +8,19 @@
  */
 
 import { parseShortcut, type ModKey } from "@OpenAde/client-runtime/keybindings";
-import { DEFAULT_KEYBINDINGS, type Keybinding } from "@OpenAde/contracts/settings";
+import { DEFAULT_KEYBINDINGS, resolveKeymap } from "@OpenAde/contracts/keybindings";
+import type { Keybinding } from "@OpenAde/contracts/settings";
 
 /**
- * The table to resolve keypresses against. An empty table means the server
- * has not seeded one yet (or a migration dropped it), and a renderer with no
- * bindings at all has no shortcuts — so the shipped defaults stand in. Once
- * the table has any row it is authoritative, and a binding the user removed
- * stays removed.
+ * The table to resolve keypresses against: the shipped defaults with the
+ * user's overrides layered on (`resolveKeymap`). The server stores only the
+ * overrides, so an empty list is every default, and a default added in a
+ * later build reaches an install with no action from the user; a binding the
+ * user removed is stored as a `-command` row and stays removed.
  */
 export const effectiveKeybindings = (
-  table: ReadonlyArray<Keybinding>,
-): ReadonlyArray<Keybinding> => (table.length === 0 ? DEFAULT_KEYBINDINGS : table);
+  overrides: ReadonlyArray<Keybinding>,
+): ReadonlyArray<Keybinding> => resolveKeymap(DEFAULT_KEYBINDINGS, overrides);
 
 /** The command a focused terminal still lets the app answer. */
 export const TERMINAL_TOGGLE_COMMAND = "terminal.toggle";

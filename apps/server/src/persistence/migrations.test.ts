@@ -1,4 +1,5 @@
-import { DEFAULT_KEYBINDINGS, Settings, defaultSettings } from "@OpenAde/contracts/settings";
+import { LEGACY_DEFAULT_KEYBINDINGS } from "@OpenAde/contracts/keybindings";
+import { Settings, defaultSettings } from "@OpenAde/contracts/settings";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
@@ -136,15 +137,16 @@ describe("0006_terminal_keybinding", () => {
     }),
   );
 
-  it.effect("brings a stored default table up to today's defaults", () =>
+  it.effect("brings a stored default table up to that build's defaults", () =>
     Effect.gen(function* () {
+      const { keybindingsFormat: _format, ...legacy } = defaultSettings();
       const older = {
-        ...defaultSettings(),
-        keybindings: DEFAULT_KEYBINDINGS.filter((binding) => binding.command !== TOGGLE.command),
+        ...legacy,
+        keybindings: LEGACY_DEFAULT_KEYBINDINGS.filter((binding) => binding.command !== TOGGLE.command),
       };
       const after = yield* migrate(JSON.stringify(older));
       const decoded = Schema.decodeUnknownSync(Schema.fromJsonString(Settings))(after);
-      expect(decoded.keybindings).toEqual(DEFAULT_KEYBINDINGS);
+      expect(decoded.keybindings).toEqual(LEGACY_DEFAULT_KEYBINDINGS);
     }),
   );
 

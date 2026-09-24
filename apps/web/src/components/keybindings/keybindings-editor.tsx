@@ -1,16 +1,16 @@
 /**
- * The keybindings editor: a VS Code-style table over the server-owned
- * `Keybinding` list — rebind by capturing a chord, narrow with a `when`
- * clause, add a row, remove one, reset one to the shipped default, or restore
- * the whole table. Conflicts (two bindings on the same chord in the same scope
- * — the first always wins) are flagged inline. Edits are a local draft until
- * Save posts the whole table through `keybindings.update`.
+ * The keybindings editor: a VS Code-style table over the effective keymap —
+ * rebind by capturing a chord, narrow with a `when` clause, add a row, remove
+ * one, reset one to the shipped default, or restore the whole table.
+ * Conflicts (two bindings on the same chord in the same scope — the first
+ * always wins) are flagged inline.
  *
- * The table shown is the one the dispatcher actually resolves against —
- * `effectiveKeybindings`, so a server table that came up empty shows the
- * shipped defaults rather than nothing. Showing the raw empty list would be a
- * trap: adding a single row to it and saving makes the server table
- * authoritative, and every other shortcut would vanish with no way to see why.
+ * The draft is the table the dispatcher actually resolves against —
+ * `effectiveKeybindings`, the shipped defaults with the user's overrides
+ * layered on — so what the page shows is what the keys do. Save posts only the
+ * difference from the defaults (`diffKeymap`) through `keybindings.update`: a
+ * command left at its default stores nothing and keeps following the defaults,
+ * and a command whose last row was removed is stored as unbound and stays so.
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
@@ -31,7 +31,7 @@ import {
 } from "@OpenAde/ui/components/tooltip";
 import { cn } from "@OpenAde/ui/lib/utils";
 import type { Keybinding } from "@OpenAde/contracts/settings";
-import { DEFAULT_KEYBINDINGS } from "@OpenAde/contracts/settings";
+import { DEFAULT_KEYBINDINGS, diffKeymap } from "@OpenAde/contracts/keybindings";
 import { findKeybindingConflicts, parseShortcut } from "@OpenAde/client-runtime/keybindings";
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
@@ -104,7 +104,7 @@ export function KeybindingsEditor({ className }: { readonly className?: string }
   const save = () => {
     setSaving(true);
     setError(null);
-    void update(draft).then(
+    void update(diffKeymap(DEFAULT_KEYBINDINGS, draft)).then(
       () => setSaving(false),
       () => {
         setSaving(false);

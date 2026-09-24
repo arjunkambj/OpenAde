@@ -52,7 +52,7 @@ import type {
 } from "@OpenAde/contracts/connectors";
 import type { FileSearchResult } from "@OpenAde/contracts/rpc";
 import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
-import { defaultSettings, DEFAULT_KEYBINDINGS } from "@OpenAde/contracts/settings";
+import { defaultSettings } from "@OpenAde/contracts/settings";
 import type { Keybinding } from "@OpenAde/contracts/settings";
 import { uuidV7 } from "@OpenAde/shared/ids";
 import * as Effect from "effect/Effect";
@@ -260,7 +260,8 @@ export const makeFixtureClient = (): FixtureClient => {
   const queue = Effect.runSync(Queue.unbounded<ThreadStreamItem>());
   let doc = baseDoc(threadId, projectId, connectorInstanceId);
   let streamVersion = 0;
-  let keybindings: ReadonlyArray<Keybinding> = [...DEFAULT_KEYBINDINGS];
+  // The user's overrides, as the server stores them: none, so every default.
+  let keybindings: ReadonlyArray<Keybinding> = [];
   let steering = false;
   let handle: FixtureClient;
 

@@ -1927,13 +1927,14 @@ JSON row in the `settings` table.
 
 ```
 Settings
-  connectors   ConnectorInstanceConfig[]   id, kind, displayName, enabled, config
-  defaults     { model, effort, runtimeMode }
-  theme        system | light | dark
-  keybindings  Keybinding[]
-  permissions  PermissionRule[]            a projection of the permission_rules table
-  git          { branchPrefix }            what a new worktree's branch starts with
-  projectSettings  { [projectId]: { setupScript? } }
+  connectors         ConnectorInstanceConfig[]  id, kind, displayName, enabled, config
+  defaults           { model, effort, runtimeMode }
+  theme              system | light | dark
+  keybindings        Keybinding[]               the user's overrides on DEFAULT_KEYBINDINGS
+  keybindingsFormat  "overrides"                absent on a document from before overrides
+  permissions        PermissionRule[]           a projection of the permission_rules table
+  git                { branchPrefix }           what a new worktree's branch starts with
+  projectSettings    { [projectId]: { setupScript? } }
 ```
 
 `git` and `projectSettings`, like the two font sizes, are defaulted on decode
@@ -1968,7 +1969,7 @@ fields entirely.
 
 ### Keybinding defaults
 
-`DEFAULT_KEYBINDINGS` in `packages/contracts/src/settings.ts`:
+`DEFAULT_KEYBINDINGS` in `packages/contracts/src/keybindings.ts`:
 
 | command                 | shortcut      |
 | ----------------------- | ------------- |
@@ -2010,17 +2011,41 @@ Registration is a stack per command id, so two surfaces claiming the same id
 hand it back in order instead of blanking it
 (`apps/web/src/lib/command-registry.ts`).
 
-An empty table in the settings document falls back to `DEFAULT_KEYBINDINGS`,
-because a renderer with no shortcuts at all is indistinguishable from a bug;
-once the table holds any row it is authoritative, so a binding the user removed
-stays removed. That also means a new default never reaches someone who has saved
-settings once, so a default added later arrives through a one-time migration:
-`0006_terminal_keybinding` appends `terminal.toggle` → `Cmd+J` to a stored,
-non-empty table that neither binds the command nor uses the chord, and leaves
-every other document untouched. Running once is the point — a user who then
-removes the binding keeps it removed. The editor shows that same effective
-table rather than the raw one — showing the empty list would let someone add
-one row, save, and silently unbind everything else.
+The settings document stores only the user's overrides, never a copy of the
+defaults — a copy would pin an install to the keymap of the build that wrote
+it, and a shortcut added later would never reach it. The rule is per command
+(`resolveKeymap` in `packages/contracts/src/keybindings.ts`):
+
+- When the overrides mention a command at all, its default rows are dropped and
+  its override rows are its bindings.
+- A `-X` row (VS Code's convention) mentions `X` without binding it, so on its
+  own it unbinds `X`. Its shortcut is the chord it removed, kept for display.
+- The effective table is the override rows first, then the defaults of every
+  command the overrides do not mention. Resolution is first-match, so an
+  override shadows another command's default on the same chord.
+- An override for a command no default names is kept, and is inert until
+  something registers that command.
+
+So an empty list means "every default", and it is what a fresh install writes.
+The editor shows and edits the effective table, and Save posts
+`diffKeymap(DEFAULT_KEYBINDINGS, draft)`: a command left at its default stores
+nothing and keeps following the defaults, and a command whose last row was
+removed is stored as `-X` and stays unbound.
+
+`keybindingsFormat: "overrides"` marks a document written this way. A document
+without it is from before overrides and holds the whole keymap of its build.
+Such a table was brought up to that build's keymap once by the
+`0006_terminal_keybinding` migration, which appends `terminal.toggle` →
+`Cmd+J` where neither the command nor the chord was taken, so the frozen copy
+ends with that row. `SettingsStore`'s load migrates it (`migrateLegacyKeybindingTable`, comparing
+against a frozen copy of that old keymap): a command still bound exactly to its
+old default gets no override and follows the defaults from now on, one missing
+from the table gets a `-X` row, one with different rows keeps them, and rows for
+any other command are kept as they are. The first write persists the migrated
+form with the marker; until then the same row migrates to the same answer on
+every start. The `keybindings.get`/`update` RPCs kept their shape, so there was
+no protocol bump — an older server's full table still resolves to the same
+keys, because each of its rows replaces only its own command's defaults.
 
 ### Connector instances
 
