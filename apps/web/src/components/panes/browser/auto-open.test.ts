@@ -34,6 +34,8 @@ const tab = (openedBy: BrowserTab["openedBy"]): BrowserTab => ({
   loading: false,
   canGoBack: false,
   canGoForward: false,
+  favicon: null,
+  zoomLevel: 0,
   openedBy,
 });
 

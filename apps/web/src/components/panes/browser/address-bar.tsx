@@ -1,8 +1,10 @@
 /**
- * The pane's toolbar: back/forward/reload as human gestures (each bumps the
- * epoch, so they interrupt an in-flight agent call), an address field that
- * mirrors the live url and navigates on Enter, and the status chip that shows
- * who is driving — `agent: browser_click` while a `browser_*` call runs.
+ * The pane's toolbar: back/forward/reload — stop while the page loads — as
+ * human gestures (each bumps the epoch, so they interrupt an in-flight agent
+ * call), an address field that mirrors the live url and navigates on Enter,
+ * and the status chip that shows who is driving — `agent: browser_click`
+ * while a `browser_*` call runs. What is typed goes through `./address`: only
+ * an http(s) url or `about:blank` is ever loaded.
  */
 import * as React from "react";
 
@@ -12,8 +14,16 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/
 import { Input } from "@OpenAde/ui/components/input";
 
 import { cn } from "@/lib/utils";
+import { normalizeAddress } from "./address";
 import { browserStatus } from "./status";
-import { ChevronLeft, ChevronRight, Repeat } from "@honeyicons/react";
+import { ChevronLeft, ChevronRight, Repeat, Stop } from "@honeyicons/react";
+
+/** What the in-app pane knows about the selected tab's history. */
+export interface TabNavigation {
+  readonly canGoBack: boolean;
+  readonly canGoForward: boolean;
+  readonly loading: boolean;
+}
 
 export interface AddressBarProps {
   readonly state: BrowserState | null;
@@ -22,13 +32,47 @@ export interface AddressBarProps {
    * in-app pane's selected tab. Absent, the server's url is shown.
    */
   readonly url?: string | undefined;
+  /** The selected tab's history, in-app; absent, every button is live. */
+  readonly nav?: TabNavigation | undefined;
   readonly onAction: (input: BrowserHumanInput) => void;
+  /** The address field, for `browser.focusAddress`. */
+  readonly inputRef?: React.Ref<HTMLInputElement>;
+  /** Trailing controls: the in-app pane's zoom and "more" menu. */
+  readonly children?: React.ReactNode;
 }
 
-const normalizeAddress = (raw: string): string =>
-  /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(raw) ? raw : `https://${raw}`;
+function ToolbarButton({
+  label,
+  disabled,
+  onClick,
+  children,
+}: {
+  readonly label: string;
+  readonly disabled?: boolean;
+  readonly onClick: () => void;
+  readonly children: React.ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onClick}
+            disabled={disabled}
+            aria-label={label}
+          />
+        }
+      >
+        {children}
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
 
-export function AddressBar({ state, url, onAction }: AddressBarProps) {
+export function AddressBar({ state, url, nav, onAction, inputRef, children }: AddressBarProps) {
   const [draft, setDraft] = React.useState("");
   const [editing, setEditing] = React.useState(false);
   const displayUrl = url ?? state?.url ?? "";
@@ -45,63 +89,47 @@ export function AddressBar({ state, url, onAction }: AddressBarProps) {
       setEditing(false);
       return;
     }
-    onAction({ kind: "navigate", url: normalizeAddress(value) });
+    const target = normalizeAddress(value);
+    if (target !== null) onAction({ kind: "navigate", url: target });
     setEditing(false);
   };
 
-  const history = (direction: "back" | "forward" | "reload") => () =>
+  const history = (direction: "back" | "forward" | "reload" | "stop") => () =>
     onAction({ kind: "history", direction });
 
   return (
     <div className="flex items-center gap-1.5 px-2 py-1.5">
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button variant="ghost" size="icon-sm" onClick={history("back")} aria-label="Back" />
-          }
-        >
-          <ChevronLeft variant="bold" />
-        </TooltipTrigger>
-        <TooltipContent>Back</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={history("forward")}
-              aria-label="Forward"
-            />
-          }
-        >
-          <ChevronRight variant="bold" />
-        </TooltipTrigger>
-        <TooltipContent>Forward</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={history("reload")}
-              aria-label="Reload"
-            />
-          }
-        >
+      <ToolbarButton label="Back" disabled={nav?.canGoBack === false} onClick={history("back")}>
+        <ChevronLeft variant="bold" />
+      </ToolbarButton>
+      <ToolbarButton
+        label="Forward"
+        disabled={nav?.canGoForward === false}
+        onClick={history("forward")}
+      >
+        <ChevronRight variant="bold" />
+      </ToolbarButton>
+      {nav?.loading === true ? (
+        <ToolbarButton label="Stop" onClick={history("stop")}>
+          <Stop variant="bold" />
+        </ToolbarButton>
+      ) : (
+        <ToolbarButton label="Reload" onClick={history("reload")}>
           <Repeat variant="bold" />
-        </TooltipTrigger>
-        <TooltipContent>Reload</TooltipContent>
-      </Tooltip>
+        </ToolbarButton>
+      )}
       <Input
+        ref={inputRef}
         value={draft}
         onChange={(event) => {
           setDraft(event.target.value);
           setEditing(true);
         }}
-        onFocus={() => setEditing(true)}
         onBlur={() => setEditing(false)}
+        onFocus={(event) => {
+          setEditing(true);
+          event.currentTarget.select();
+        }}
         onKeyDown={(event) => {
           if (event.key === "Enter") submit();
           if (event.key === "Escape") {
@@ -121,6 +149,7 @@ export function AddressBar({ state, url, onAction }: AddressBarProps) {
         <span className={cn("size-1.5 shrink-0 rounded-full", status.dot)} />
         <span className="truncate">{status.label}</span>
       </div>
+      {children}
     </div>
   );
 }

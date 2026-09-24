@@ -16,7 +16,7 @@
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
-import type { BrowserTab, TabPatch } from "@/state/browser-tabs";
+import { faviconOf, type BrowserTab, type TabPatch } from "@/state/browser-tabs";
 
 import type { Rect } from "./host-geometry";
 import { forgetTabView, registerTabView, tabReady, type WebviewElement } from "./tab-views";
@@ -42,6 +42,7 @@ const history = (view: WebviewElement): TabPatch => {
       title: view.getTitle(),
       canGoBack: view.canGoBack(),
       canGoForward: view.canGoForward(),
+      zoomLevel: view.getZoomLevel(),
     };
   } catch {
     return {};
@@ -69,18 +70,24 @@ function TabWebviewImpl({ threadId, tab, rect, visible, onPatch }: TabWebviewPro
       }
     };
     const onNavigate = () => patch(history(view));
+    // A new document drops the old page's icon; its own arrives after.
+    const onDocument = () => patch({ ...history(view), favicon: null });
+    const onFavicon = (event: Event) =>
+      patch({ favicon: faviconOf((event as Event & { favicons?: unknown }).favicons) });
     const onStart = () => patch({ loading: true });
     const onStop = () => patch({ loading: false, ...history(view) });
     view.addEventListener("dom-ready", onReady);
-    view.addEventListener("did-navigate", onNavigate);
+    view.addEventListener("did-navigate", onDocument);
     view.addEventListener("did-navigate-in-page", onNavigate);
+    view.addEventListener("page-favicon-updated", onFavicon);
     view.addEventListener("page-title-updated", onNavigate);
     view.addEventListener("did-start-loading", onStart);
     view.addEventListener("did-stop-loading", onStop);
     return () => {
       view.removeEventListener("dom-ready", onReady);
-      view.removeEventListener("did-navigate", onNavigate);
+      view.removeEventListener("did-navigate", onDocument);
       view.removeEventListener("did-navigate-in-page", onNavigate);
+      view.removeEventListener("page-favicon-updated", onFavicon);
       view.removeEventListener("page-title-updated", onNavigate);
       view.removeEventListener("did-start-loading", onStart);
       view.removeEventListener("did-stop-loading", onStop);

@@ -24,6 +24,10 @@ export interface WebviewElement extends HTMLElement {
   goBack(): void;
   goForward(): void;
   reload(): void;
+  stop(): void;
+  getZoomLevel(): number;
+  setZoomLevel(level: number): void;
+  openDevTools(): void;
 }
 
 const views = new Map<string, WebviewElement>();

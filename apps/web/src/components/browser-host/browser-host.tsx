@@ -34,6 +34,7 @@ import { useConnectionState, useLoadedThreadList } from "@/state/hooks";
 
 import { placeTab } from "./host-geometry";
 import { TabWebview } from "./tab-webview";
+import { useGuestKeys } from "./use-guest-keys";
 import {
   useGuestInput,
   useLocationSync,
@@ -60,6 +61,7 @@ function InAppBrowserHost({ bridge }: { readonly bridge: PaneBridge }) {
   useGuestInput(bridge);
   useLocationSync(state);
   useThreadTeardown(bridge, state, threads, connected, setTabs);
+  useGuestKeys(bridge, state);
 
   const slot = useBrowserSlot();
   const slotRect = useElementRect(slot?.element ?? null);

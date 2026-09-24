@@ -967,6 +967,10 @@ a thread`. Scopes name the area, not the workspace path.
   other file, so `pnpm fmt` rewraps them and `pnpm fmt:check` fails on a
   document that was not rewrapped. Describe the software, not the history of
   building it.
+- **A new default keybinding goes in two places.** Add it to
+  `DEFAULT_KEYBINDINGS` and, as a new group, to `ADDED_DEFAULT_KEYBINDINGS`
+  (`packages/contracts/src/settings.ts`). A stored table is authoritative, so
+  without the group anyone who has saved their keybindings never gets it.
 - **Never `--no-verify`.** `pnpm check` is the gate; if it is red the change is
   not finished.
 
@@ -987,6 +991,12 @@ at a port nobody is listening on. Delete it and restart `pnpm -F server dev`.
 If you are running a scratch home, remember the Vite plugin resolves the file
 through the same `OPENADE_HOME` — start both sides with the same value or they
 will never meet.
+
+**Every pane tab vanished during `pnpm dev`.** Editing
+`apps/web/src/state/browser-tabs.ts` hot-replaces the module that holds the
+tabs atom, so the tabs start over empty and their webviews go with them —
+which the agent sees as `tab_gone`. Its next call opens a fresh tab. A
+packaged build never hot-replaces anything.
 
 **`cmd` not found, or found by the probe and not by the turn.** Both the probe
 and the spawn go through `resolveBinary`, so they agree; what differs is the

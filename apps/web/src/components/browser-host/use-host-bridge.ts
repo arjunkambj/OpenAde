@@ -56,7 +56,8 @@ const asThreadId = (raw: string): ThreadId | null => {
   }
 };
 
-const useSendInput = () => {
+/** Sends a gesture for a thread named by its raw id; a malformed id is dropped. */
+export const useSendInput = () => {
   const send = useAtomSet(getAppAtoms().sendBrowserInput, { mode: "promiseExit" });
   return React.useCallback(
     (raw: string, input: BrowserHumanInput) => {

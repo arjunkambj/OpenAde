@@ -228,16 +228,29 @@ Owns the operating system. Nothing about orchestration lives here.
   `before-input-event` and `before-mouse-event` on the guest are the only place
   a pane gesture is observable; each is sent to the guest's current embedder
   tagged with its thread and `webContents` id, and the renderer forwards it as
-  `browser.humanInput`), and the bridge registry.
+  `browser.humanInput`), the pane's keys (`browser/guestChords.ts`, below), and
+  the bridge registry.
   It also answers `openade:browser-clear-thread` (`browser/clearThread.ts`):
   the window asks it to clear a deleted thread's `persist:thread-<id>`
   partition (storage and cache), and main checks the id against the bridge's
   thread-id pattern before it names a partition, and leaves alone a partition
   that was never written to disk.
+  A key pressed inside a pane page goes to the guest and never reaches the
+  window's keybinding listener, so the window hands main its resolved
+  `browser.*` chords on `openade:browser-chords` (only a `window` sender may,
+  and `parseChords` keeps at most 32 well-formed `browser.*` entries), and the
+  guest's `before-input-event` matches each keyDown against them with the pure
+  `decideChord`: a match is `preventDefault`ed and relayed to the embedder as
+  `openade:browser-command {threadId, wcId, command}`, once per press, not on
+  auto-repeat. The app installs no menu, so Electron's default one is live and
+  its Reload (`Cmd+R`, `Cmd+Shift+R`; `Ctrl` off macOS) reloads the whole
+  window — every pane tab with it; those chords are swallowed inside a guest
+  whether or not anything binds them.
 - `apps/desktop/src/main/browser/` — the browser bridge: the scoped CDP
   endpoint agent-browser drives the pane webviews through
   ([below](#the-browser-bridge)). `upgradeGate.ts`, `cdpPolicy.ts`,
-  `bridgeSession.ts`, `server.ts` and `tabsChannel.ts` are Electron-free;
+  `bridgeSession.ts`, `server.ts`, `tabsChannel.ts` and `guestChords.ts` are
+  Electron-free;
   `guests.ts` is the Electron side (the `GuestPort`), written against
   Electron's types with its runtime pieces injected; `start.ts` starts it from
   `index.ts`.
@@ -446,6 +459,30 @@ the pane with Retry, whose `reload` gesture only clears the server's error;
 under the kill switch the pane says "In-app browser is disabled
 (OPENADE_REMOTE_DEBUG=0)" and still lets a person browse; the web renderer
 labels its frame stream "Headless browser (web mode)".
+
+**The pane's chrome** (`apps/web/src/components/panes/browser/`,
+`in-app-toolbar.tsx`). In-app, the pane is a tab strip (`tab-strip.tsx`: stock
+Buttons per tab — the stock tabs cannot hold a close button inside a trigger —
+with the page's http(s) favicon, a spinner while it loads, and New tab), the
+address bar (`address-bar.tsx`: back and forward disabled at the ends of the
+history, reload that becomes stop while the page loads, a zoom badge when not
+at 100%) and a "more" menu (`more-menu.tsx`: zoom in, out and reset through
+the webview's zoom level, stepped through Chromium's presets in `zoom.ts`;
+DevTools, which opens in its own window beside the bridge's debugger; open in
+the system browser; copy the address). Everything moves the selected webview
+directly (`tab-actions.ts`) and reports a history move as the matching
+`browser.humanInput` gesture — `stop` included — so the epoch bumps and the
+server never runs agent-browser for a person. `address.ts` decides what a
+typed address loads: http(s) and `about:blank` as typed, a bare local host
+with `http://`, any other bare host with `https://`, and everything else —
+`file:`, `javascript:`, `data:`, words — becomes a DuckDuckGo search, never a
+navigation. The pane's keys (`browser.focusAddress`, `browser.reload`,
+`browser.back`, `browser.forward`, bound `when: browserPaneFocus`) answer in
+the toolbar, which publishes that flag while focus is in it; pressed inside
+the page they come back from the shell (`openade:browser-command`, see
+`apps/desktop/src/main/ipc.ts`) to the host's `use-guest-keys.ts`, which moves
+the tab the key came from and hands `browser.focusAddress` to the command
+registry. The host re-sends the chords whenever the table changes.
 There is no `unread` flag on the wire: whether this window has looked at a
 thread is not the server's business, and a thread with no stamp is deliberately
 not unread.
@@ -1909,7 +1946,9 @@ OpenAde window is not open"). The preload serves the requests through
 window cannot open browser tabs" while no tab host has registered. The tab
 host is the renderer's browser host ([apps/web](#appsweb)), so an agent's
 `tab new`, a popup, and the first call on a thread with no tab yet each open
-a pane tab — hidden unless that thread's pane is on screen. A popup's request
+a pane tab — hidden unless that thread's pane is on screen. `createTarget`
+honours CDP's `background` flag: the agent's tab is selected in the pane, as
+a browser would show it, unless it asked for the background. A popup's request
 names the tab that opened it (`opener`), so the pane places it beside its
 opener. Every webview guest gets a
 `setWindowOpenHandler` at creation that always denies the native window and

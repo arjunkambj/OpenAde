@@ -6,9 +6,10 @@
  *   (`@/components/browser-host`), and the selected one is laid over the
  *   slot — so closing the pane, switching dock tab or thread, or visiting
  *   /settings hides a tab without destroying it, and the agent keeps driving
- *   it. The toolbar moves that webview itself; the server only hears about
- *   it, which is what bumps the human-control epoch. The host forwards the
- *   guests' own gestures and each tab's location.
+ *   it. The toolbar (`./in-app-toolbar`: tab strip, address bar, zoom,
+ *   DevTools and the pane's keys) moves that webview itself; the server only
+ *   hears about it, which is what bumps the human-control epoch. The host
+ *   forwards the guests' own gestures and each tab's location.
  * - `owned-chromium` (the web renderer, no desktop): the pane renders the
  *   JPEG frame stream and forwards gestures and toolbar actions; the server
  *   replays them into its own headless Chromium.
@@ -40,25 +41,16 @@ import {
 import { AsyncResult } from "effect/unstable/reactivity";
 
 import { BrowserSlot } from "@/components/browser-host/browser-slot";
-import { getTabView } from "@/components/browser-host/tab-views";
 import { FOCUS_SURFACE } from "@/lib/keybinding-context";
 import { getAppAtoms } from "@/state/app-runtime";
-import {
-  nextTabIdentity,
-  openTab,
-  selectedTab,
-  useSetBrowserTabs,
-  useThreadTabs,
-} from "@/state/browser-tabs";
+import { selectedTab, useThreadTabs } from "@/state/browser-tabs";
 import { AddressBar } from "./address-bar";
 import { FrameSurface } from "./frame-surface";
+import { InAppToolbar } from "./in-app-toolbar";
 import { isAgentBrowserMissing } from "./install";
 import { InstallPrompt } from "./install-prompt";
 import { BROWSER_DISABLED_LABEL, browserModeLabel, frameFallback } from "./status";
 import { AlertTriangle, Globe, InfoSquare, Refresh } from "@honeyicons/react";
-
-/** What the pane itself will load into a webview: the web, nothing else. */
-const WEB_URL = /^https?:\/\//i;
 
 export interface BrowserPaneProps {
   readonly threadId: ThreadId;
@@ -142,9 +134,7 @@ export function BrowserPane({ threadId }: BrowserPaneProps) {
   const state = AsyncResult.isSuccess(stateResult) ? stateResult.value : null;
   const sendInput = useAtomSet(atoms.sendBrowserInput, { mode: "promiseExit" });
   const hostsTabs = window.openade?.browserPane?.serveTabs !== undefined;
-  const threadTabs = useThreadTabs(threadId);
-  const setTabs = useSetBrowserTabs();
-  const tab = selectedTab(threadTabs);
+  const tab = selectedTab(useThreadTabs(threadId));
 
   const dispatch = React.useCallback(
     (input: BrowserHumanInput) => {
@@ -166,54 +156,17 @@ export function BrowserPane({ threadId }: BrowserPaneProps) {
     [dispatch],
   );
 
-  // In-app, the toolbar moves the selected tab's webview directly — or, with
-  // no tab yet, opens one on the address typed — and the server only hears
-  // about it.
-  const onToolbar = React.useCallback(
-    (input: BrowserHumanInput) => {
-      if (inApp) {
-        const view = tab === null ? null : getTabView(tab.tabId);
-        if (input.kind === "navigate") {
-          if (!WEB_URL.test(input.url)) return;
-          if (view !== null) {
-            // Every webview method throws until the guest's first `dom-ready`.
-            void Promise.resolve()
-              .then(() => view.loadURL(input.url))
-              .catch(() => undefined);
-          } else if (tab === null) {
-            setTabs((current) =>
-              openTab(current, threadId, {
-                ...nextTabIdentity(),
-                url: input.url,
-                openedBy: "human",
-                background: false,
-              }),
-            );
-          }
-        } else if (input.kind === "history" && view !== null) {
-          try {
-            if (input.direction === "back") view.goBack();
-            else if (input.direction === "forward") view.goForward();
-            else view.reload();
-          } catch {
-            // Not ready yet: there is no history to move through.
-          }
-        }
-      }
-      dispatch(input);
-    },
-    [inApp, tab, setTabs, threadId, dispatch],
-  );
-
-  const tabUrl = tab === null || !WEB_URL.test(tab.url) ? "" : tab.url;
-
   const modeLabel = state === null ? null : browserModeLabel(state.mode);
 
   return (
     // Focus anywhere in the pane — the address bar, its buttons — reads as
     // `browserFocus`, so the app's Mod+L and Mod+[ / Mod+] leave it alone.
     <div data-context={FOCUS_SURFACE.browser} className="flex h-full min-h-0 flex-col">
-      <AddressBar state={state} url={inApp ? tabUrl : undefined} onAction={onToolbar} />
+      {inApp ? (
+        <InAppToolbar threadId={threadId} state={state} dispatch={dispatch} />
+      ) : (
+        <AddressBar state={state} onAction={dispatch} />
+      )}
       {state?.mode === "owned-chromium" && modeLabel !== null ? (
         <p className="px-3 pb-1.5 type-micro text-muted-foreground">{modeLabel}</p>
       ) : null}

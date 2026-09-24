@@ -1802,6 +1802,35 @@ A session is lazy: `browser.subscribe` creates the state ref but not the
 browser. The driver opens on the first agent call (in owned mode, also on the
 first toolbar navigation), so opening the pane never starts one.
 
+### Tabs and the toolbar
+
+In-app the pane has a tab strip above the address bar: one entry per tab of
+the thread with its favicon (http(s) only) or a spinner while it loads, a close
+button each, and New tab, which opens `about:blank` and focuses the address.
+A page's popup — a `target=_blank` link or `window.open` — becomes a tab
+placed right after the tab that opened it, and the tab the agent opens with
+`browser_tabs new` is selected, as a browser would show it (unless the CDP
+request asked for the background); `browser_tabs switch` brings its tab to
+the front. Selecting a tab here moves the pane, not the agent, which stays
+pinned to the tab it drives.
+
+Back and forward are disabled at the ends of the history, and reload turns
+into stop while the page loads. What is typed in the address field loads only
+as http(s) or `about:blank`: `localhost:3000` becomes `http://localhost:3000`,
+`example.com` becomes `https://example.com`, and anything else — `file:`,
+`javascript:`, `data:`, a phrase — is searched for
+(`apps/web/src/components/panes/browser/address.ts`). The "more" menu zooms
+the page in, out and back to 100% (the toolbar shows the percentage while it
+is not 100%), opens DevTools for the tab in its own window, opens the page in
+the system browser, and copies its address.
+
+Four keys work while focus is in the pane: `browser.focusAddress`,
+`browser.reload`, `browser.back` and `browser.forward` (see the keybinding
+table). With focus in the page itself the key never reaches the window, so the
+shell matches it in the guest, swallows it and relays the command, and the
+tab it came from moves. That also means `Cmd+R` in a page reloads the page:
+the default menu's window reload never fires from inside a pane tab.
+
 ### Tools
 
 The agent reaches the browser through MCP. `apps/server/src/mcp/McpGateway.ts`
@@ -1837,7 +1866,8 @@ relay reports a guest's `before-input-event`, which input synthesized over CDP
 never fires, so a person clicking while `browser_click` runs interrupts it.
 
 In-app, the toolbar moves the pane's webview itself (`loadURL`, back, forward,
-reload, http(s) only) and the server only hears about it; the server never runs
+reload, stop; http(s) and `about:blank` only) and the server only hears about
+it; the server never runs
 agent-browser for the human, since a CDP reload of a webview reloads the whole
 window. In owned mode the toolbar goes through the server, which has the only
 handle on that browser.
@@ -2181,6 +2211,9 @@ fields entirely.
 | Git      | `git.commit`                                          | `Mod+Alt+C`                   |                                                                                        |
 | Git      | `git.push`                                            | `Mod+Alt+P`                   |                                                                                        |
 | Git      | `git.branchPicker`                                    | `Mod+Shift+G`                 |                                                                                        |
+| View     | `browser.focusUrl`                                    | `Mod+L`                       | `browserFocus`                                                                         |
+| View     | `browser.reload`                                      | `Mod+R`                       | `browserFocus`                                                                         |
+| View     | `browser.back` / `browser.forward`                    | `Mod+[` / `Mod+]`             | `browserFocus`                                                                         |
 | Cards    | `approval.allowOnce` / `allowSession` / `allowAlways` | `1` / `2` / `3`               | `approvalPending && !inputFocus && !dialogOpen`                                        |
 | Cards    | `approval.deny`                                       | `D`, `Escape`                 | the same                                                                               |
 | Cards    | `plan.accept` / `acceptAndRun` / `revise`             | `1` / `2` / `3`               | `planPending && !inputFocus && !dialogOpen`                                            |
@@ -2219,10 +2252,6 @@ these rows. They exist so the collision test can treat each one as a binding.
 
 | command            | shortcut          | when           | for                                   |
 | ------------------ | ----------------- | -------------- | ------------------------------------- |
-| `browser.focusUrl` | `Mod+L`           | `browserFocus` | Focus the browser pane's address bar  |
-| `browser.reload`   | `Mod+R`           | `browserFocus` | Reload the page instead of the window |
-| `browser.back`     | `Mod+[`           | `browserFocus` | Go back in the browser pane           |
-| `browser.forward`  | `Mod+]`           | `browserFocus` | Go forward in the browser pane        |
 | `composer.steer`   | `Mod+Shift+Enter` |                | Steer the running turn with the draft |
 
 Two further rules reserve keys without a row:
@@ -2232,12 +2261,12 @@ Two further rules reserve keys without a row:
 - `@`, `#`, `$` and `/` are characters that the composer's triggers read, so
   they are never bindings.
 
-Features that are still being built need to know two things:
-
-- A focused `<webview>` never delivers key presses to the host window, so the
-  browser pane must route them through the `before-input-event` relay in
-  `apps/desktop/src/main/ipc.ts`.
-- `browser.reload` must stop the default menu's reload from also firing.
+The four `browser.*` bindings answer only while focus is in the browser pane
+(`browserFocus`). A focused `<webview>` never delivers key presses to the host
+window, so inside a pane page the desktop shell matches the same chords
+(`guestChordsFor`) and relays the command, and a relayed `browser.reload` keeps
+the default menu's reload from also firing (see
+[the browser pane](#10-the-browser-pane)).
 
 `packages/client-runtime/src/default-keymap.test.ts` locks the table. It fails
 the build, on either platform, in these cases:

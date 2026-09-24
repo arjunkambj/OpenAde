@@ -35,6 +35,10 @@ export interface BrowserTab {
   readonly loading: boolean;
   readonly canGoBack: boolean;
   readonly canGoForward: boolean;
+  /** The page's icon, http(s) only; null until the page names one. */
+  readonly favicon: string | null;
+  /** The webview's zoom level (factor 1.2^level); 0 is 100%. */
+  readonly zoomLevel: number;
   readonly openedBy: TabOpener;
 }
 
@@ -102,6 +106,8 @@ export const openTab = (
     loading: true,
     canGoBack: false,
     canGoForward: false,
+    favicon: null,
+    zoomLevel: 0,
     openedBy: open.openedBy,
   };
   const openerIndex =
@@ -143,7 +149,10 @@ export const selectTab = (
 };
 
 export type TabPatch = Partial<
-  Pick<BrowserTab, "wcId" | "url" | "title" | "loading" | "canGoBack" | "canGoForward">
+  Pick<
+    BrowserTab,
+    "wcId" | "url" | "title" | "loading" | "canGoBack" | "canGoForward" | "favicon" | "zoomLevel"
+  >
 >;
 
 /** What the tab's webview reported: its guest id, its page, its history. */
@@ -182,6 +191,30 @@ export const findByWcId = (
 
 export const selectedTab = (thread: ThreadTabs | undefined): BrowserTab | null =>
   thread?.tabs.find((tab) => tab.tabId === thread.selected) ?? null;
+
+/**
+ * What the tab strip calls a tab: "New tab" for a blank one, else its
+ * title, else its url without the scheme.
+ */
+export const tabLabel = (tab: Pick<BrowserTab, "title" | "url">): string => {
+  // A blank page reports its url as its title.
+  if (tab.url === "" || tab.url === "about:blank") return "New tab";
+  const title = tab.title.trim();
+  if (title !== "") return title;
+  return tab.url.replace(/^https?:\/\//i, "").replace(/\/$/, "");
+};
+
+/**
+ * The icon a page's `page-favicon-updated` names: the first http(s) one. The
+ * window loads it as an image, so nothing but a web url gets through.
+ */
+export const faviconOf = (favicons: unknown): string | null => {
+  if (!Array.isArray(favicons)) return null;
+  const first = favicons.find(
+    (entry): entry is string => typeof entry === "string" && /^https?:\/\//i.test(entry),
+  );
+  return first === undefined || first.length > 2048 ? null : first;
+};
 
 /**
  * Every tab of every thread, oldest first. The host renders them in this
