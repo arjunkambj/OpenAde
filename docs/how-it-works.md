@@ -1639,9 +1639,11 @@ running on the server in the thread's project folder, shown in xterm.
 
 ### Opening one
 
-`Cmd+J`, the header's terminal button ("Toggle terminal") and the palette's
-"Toggle terminal" all fire the same command, `terminal.toggle`. It is answered
-by `ThreadTerminal` (`apps/web/src/components/terminal/terminal-drawer.tsx`),
+`Cmd+J`, the palette's "Toggle terminal" and the "Terminal" button on the strip
+the closed drawer collapses to, at the bottom of the thread column
+(`terminal-bar.tsx`), all fire the same command, `terminal.toggle`; the open
+drawer's own "Hide terminal" button closes it. The command is answered by
+`ThreadTerminal` (`apps/web/src/components/terminal/terminal-drawer.tsx`),
 which is always mounted with the thread view, so the button and the chord take
 one path — the one that also moves focus into the terminal it opens. Whether a
 thread's drawer is open, and how tall the drawer is, is presentation state in

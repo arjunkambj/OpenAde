@@ -2,8 +2,9 @@
  * The thread's terminal drawer, at the bottom of the thread column.
  *
  * `ThreadTerminal` is always mounted with the thread view: it answers
- * `terminal.toggle` and renders the drawer only while this thread's drawer is
- * open (`@/state/terminal-ui`). The drawer holds a tab strip over a lazily
+ * `terminal.toggle` and renders the drawer while this thread's drawer is open
+ * (`@/state/terminal-ui`), and the strip with its show button
+ * (`./terminal-bar`) while it is not. The drawer holds a tab strip over a lazily
  * loaded xterm (`./terminal-view`) for the tab in front, a fresh one per tab,
  * and a toolbar that acts on that xterm — "Add selection to chat" quotes its
  * selection into the thread's composer draft, and Find (`./terminal-find`)
@@ -30,6 +31,7 @@ import { AddSelectionButton } from "@/components/terminal/add-selection-button";
 import { DrawerMessage, IconButton, TerminalTabButton } from "@/components/terminal/drawer-parts";
 import { nextTitle, useDrawerState } from "@/components/terminal/drawer-state";
 import { useTerminalAtoms } from "@/components/terminal/terminal-atoms";
+import { TerminalBar } from "@/components/terminal/terminal-bar";
 import { TerminalFind } from "@/components/terminal/terminal-find";
 import type { TerminalHandle } from "@/components/terminal/terminal-handle";
 import { useDrawerBound } from "@/components/terminal/use-drawer-bound";
@@ -310,7 +312,7 @@ function TerminalDrawer({
 
 /**
  * Answers `terminal.toggle` for the thread on screen and shows its drawer
- * while open. Mount it keyed by threadId, so each thread starts with its own
+ * while open, the collapsed strip while not. Mount it keyed by threadId, so each thread starts with its own
  * drawer rather than inheriting the last one's xterm. `onShowBrowser` puts the
  * dock on its Browser tab, for a link the terminal opens there.
  */
@@ -336,7 +338,7 @@ export function ThreadTerminal({
   });
 
   if (!open) {
-    return null;
+    return <TerminalBar />;
   }
   return (
     <TerminalDrawer
