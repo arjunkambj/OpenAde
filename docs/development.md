@@ -17,9 +17,7 @@ repository root. For what the pieces are, read
 | Command Code CLI | whatever you have installed | `packages/connector-cmd/src/binary.ts` |
 | git              | any                         | checkpoints shell out to it            |
 
-pnpm comes from the `packageManager` field, so `corepack enable` is enough; CI
-does exactly that and pins only the Node major (`node-version: "22"` in
-`.github/workflows/ci.yml`).
+pnpm comes from the `packageManager` field, so `corepack enable` is enough.
 
 The app drives the Command Code CLI, so a working `cmd` is a prerequisite for
 anything past the first screen. `resolveBinary` in
