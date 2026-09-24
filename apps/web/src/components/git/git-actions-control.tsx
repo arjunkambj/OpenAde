@@ -98,7 +98,7 @@ const ACTION_ICON: Record<GitAction, typeof Git> = {
   "commit-push-pr": GitPullRequest,
 };
 
-/** Which dialog is up. `key` remounts it per opening so its draft is seeded once. */
+/** Which dialog is up. `key` remounts it per opening, so each opening starts from a fresh draft. */
 type OpenDialog =
   | { readonly kind: "commit"; readonly action: GitAction; readonly key: number }
   | { readonly kind: "pull-request"; readonly action: GitAction; readonly key: number };
@@ -281,7 +281,7 @@ export function GitActionsControl({ snapshot }: { snapshot: ThreadDetailSnapshot
               ? null
               : stepsLabel(planWithoutCommit(dialog.action, ready.status, ready.branches))
           }
-          initialMessage={commitMessageDraft(
+          draftMessage={commitMessageDraft(
             snapshot.title,
             files.map((file) => file.path),
           )}

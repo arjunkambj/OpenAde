@@ -2,9 +2,13 @@
  * The commit dialog the git actions control opens before any action that
  * commits: the message, and the files to include.
  *
- * The message opens as `commitMessageDraft` — the thread's title and the
- * changed paths — and is the user's to edit; nothing here writes one for
- * them. Every file `git.status` reports is listed, untracked ones included,
+ * The message opens as `draftMessage` — `commitMessageDraft`, the thread's
+ * title and the changed paths — and is the user's to edit; nothing here
+ * writes one for them. Until the user types, it follows the draft: the
+ * control refetches the status as the dialog opens, and the message must list
+ * the same files as the checkboxes once that answer lands, not the ones cached
+ * before it. The first keystroke makes it the user's, and nothing replaces it
+ * after that. Every file `git.status` reports is listed, untracked ones included,
  * all checked. `paths` is sent only when something was unchecked; with
  * everything checked the server stages everything (`git add -A`), which also
  * takes a file that appeared after the dialog opened. The confirm button is
@@ -17,9 +21,8 @@
  * with an empty `paths`. That keeps a pull request reachable when the only
  * change left is a file the user does not want committed.
  *
- * The control mounts a fresh dialog (a new `key`) for each opening, so the
- * draft is seeded once and the user's edits are never overwritten while it
- * is open.
+ * The control mounts a fresh dialog (a new `key`) for each opening, so each
+ * opening starts from the draft again.
  *
  * A long list of changes must not push the title and the buttons off-screen:
  * the message box and the file list each scroll past a fixed height, and the
@@ -54,7 +57,7 @@ export function CommitDialog({
   onOpenChange,
   actionLabel,
   withoutCommitLabel,
-  initialMessage,
+  draftMessage,
   branch,
   files,
   onSubmit,
@@ -64,12 +67,14 @@ export function CommitDialog({
   readonly actionLabel: string;
   /** The button's label with every file unchecked; `null` when nothing would be left to run. */
   readonly withoutCommitLabel: string | null;
-  readonly initialMessage: string;
+  /** The suggested message; shown until the user edits it. */
+  readonly draftMessage: string;
   readonly branch: string | null;
   readonly files: ReadonlyArray<GitFileChange>;
   readonly onSubmit: (choice: CommitChoice) => void;
 }) {
-  const [message, setMessage] = React.useState(initialMessage);
+  const [edited, setEdited] = React.useState<string | null>(null);
+  const message = edited ?? draftMessage;
   const [excluded, setExcluded] = React.useState<ReadonlySet<string>>(() => new Set());
 
   const included = files.filter((file) => !excluded.has(file.path));
@@ -126,7 +131,7 @@ export function CommitDialog({
               autoFocus
               spellCheck
               className="max-h-48 overflow-y-auto"
-              onChange={(event) => setMessage(event.target.value)}
+              onChange={(event) => setEdited(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
                   event.preventDefault();

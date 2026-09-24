@@ -1335,7 +1335,9 @@ branch.
 Any action that commits opens the commit dialog first. Its message starts as
 the thread's title — `Update N files` while the title is still `New thread` —
 then a blank line and `Changed files:` with one `- path` line each; nothing
-writes the message for the user. Every path `git.status` reports is listed
+writes the message for the user. Opening the dialog refetches the status, and
+until the user types the message follows it, so it lists the same files as the
+checkboxes rather than the ones read before the dialog opened. Every path `git.status` reports is listed
 with a checkbox, untracked files included and all checked, so a file the user
 does not want (a harness's own untracked config, say) can be left out. `paths`
 is sent only when something is unchecked. With every file unchecked there is
