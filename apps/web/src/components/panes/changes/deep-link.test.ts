@@ -7,7 +7,13 @@ import { describe, expect, it } from "vitest";
 import { makeCheckpointId, makeTurnId } from "@OpenAde/contracts/ids";
 import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
 
-import { changesLink, LATEST_TURN, linkedTurnChoice, parseChangesLink } from "./deep-link";
+import {
+  changesLink,
+  LATEST_TURN,
+  linkedFileIndex,
+  linkedTurnChoice,
+  parseChangesLink,
+} from "./deep-link";
 
 const checkpoint = (ref: string): CheckpointSummary => ({
   checkpointId: makeCheckpointId(),
@@ -43,5 +49,20 @@ describe("changes deep links", () => {
     expect(linkedTurnChoice(checkpoints, "refs/9")).toBeNull();
     expect(linkedTurnChoice(checkpoints, LATEST_TURN)).toBeNull();
     expect(linkedTurnChoice([], "refs/1")).toBeNull();
+  });
+
+  it("finds a linked file by its git path, or by the absolute path an agent wrote to", () => {
+    const paths = ["a.ts", "src/a.ts", "src/b.ts"];
+    expect(linkedFileIndex(paths, "src/b.ts")).toBe(2);
+    // Agents record absolute paths; git names them from the repository root.
+    expect(linkedFileIndex(paths, "/home/me/repo/src/b.ts")).toBe(2);
+    // The longest git path the link ends with wins.
+    expect(linkedFileIndex(paths, "/home/me/repo/src/a.ts")).toBe(1);
+    expect(linkedFileIndex(paths, "/home/me/repo/a.ts")).toBe(0);
+    expect(linkedFileIndex(paths, "C:\\repo\\src\\a.ts")).toBe(1);
+    // Only whole segments count, and a file the comparison lacks is not found.
+    expect(linkedFileIndex(paths, "/home/me/repo/xsrc/b.ts")).toBe(-1);
+    expect(linkedFileIndex(paths, "/home/me/repo/src/c.ts")).toBe(-1);
+    expect(linkedFileIndex([], "src/a.ts")).toBe(-1);
   });
 });

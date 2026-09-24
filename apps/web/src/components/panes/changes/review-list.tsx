@@ -9,7 +9,8 @@
  * The list answers `changes.nextFile` and `changes.previousFile` while it is
  * on screen: each opens the file it lands on and scrolls that file's header to
  * the top (`stepFile` picks which). A file a link asks for (`reveal`) is
- * opened and scrolled to the same way, once, as soon as the files are in.
+ * opened and scrolled to the same way, once, as soon as the files are in —
+ * found by `linkedFileIndex`, since the timeline's path is often absolute.
  */
 
 import type { GitDiffFile } from "@OpenAde/contracts/rpc";
@@ -20,6 +21,7 @@ import * as React from "react";
 import { useKeybindingCommand } from "@/lib/shortcuts";
 import { useChangesReview, type DiffStyle } from "@/state/ui";
 
+import { linkedFileIndex } from "./deep-link";
 import { FileSection, LineCounts } from "./file-section";
 import {
   everyFileOpen,
@@ -165,7 +167,10 @@ export function ReviewList({
       return;
     }
     onRevealed();
-    const index = files.findIndex((file) => file.path === reveal);
+    const index = linkedFileIndex(
+      files.map((file) => file.path),
+      reveal,
+    );
     const file = files[index];
     if (file === undefined) {
       return;
