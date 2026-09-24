@@ -542,7 +542,7 @@ The turn carries the picks from `@` and `$` as typed `references`
 (`TurnReference`: `{ kind: "skill" | "plugin", name }`), sent on
 `thread.turn.start` only when there are some, and kept on the queued message,
 the turn request and the `user_message` row. The sent message's bubble
-(`UserMessageRow` in `timeline/message-rows.tsx`) draws the same chips above
+(`UserMessageRow` in `timeline/user-message-row.tsx`) draws the same chips above
 its text; a row without any renders as text alone.
 Neither the renderer nor the server writes a reference into the prompt: the
 connector does, in the words its harness understands ([The spawn](#the-spawn)).
