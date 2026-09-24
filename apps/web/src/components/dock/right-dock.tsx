@@ -30,6 +30,10 @@
  * resize edge is the one part that stays behind — there is nothing to resize
  * when the panel is already full width.
  *
+ * The resize edge is a focusable `separator` whose value is the width: drag
+ * it, or focus it and use Left/Right (Shift for bigger steps, `./dock-resize`);
+ * a double-click puts the default width back.
+ *
  * Each tab has a key (`dock.changes`, `browserPane.toggle`, `dock.files`) and
  * the dock one (`dock.toggle`); `ThreadView` answers them, and the tab and
  * close tooltips show the chords. Opening Files from its key focuses the
@@ -54,27 +58,51 @@ import { FilesPane } from "@/components/panes/files/files-pane";
 import type { Presence } from "@/lib/use-presence";
 import { cn } from "@/lib/utils";
 import { useConnectionState } from "@/state/hooks";
-import { DOCK_WIDTH_MAX_FRACTION, THREAD_COLUMN_MIN, useDockWidth } from "@/state/ui";
+import {
+  DOCK_WIDTH_MAX_FRACTION,
+  THREAD_COLUMN_MIN,
+  dockWidthBounds,
+  useDockWidth,
+} from "@/state/ui";
 
 import { DockLauncher } from "./dock-launcher";
+import { dockWidthForKey } from "./dock-resize";
 import { DockTabStrip, dockPanelId, dockTabId } from "./dock-tab-strip";
 import { DOCK_HOME, isDockTab, type DockPane, type DockTab } from "./dock-toggle";
 
-/** Drag the left edge to resize; the width atom persists every frame. */
+/**
+ * The resize edge: drag it, or focus it and use the arrow keys, and
+ * double-click it for the default width. The width atom persists every change.
+ */
 function useDockResize() {
-  const [width, setWidth] = useDockWidth();
+  const [width, setWidth, resetWidth] = useDockWidth();
+  const edge = React.useRef<HTMLDivElement>(null);
+  // The width of the row the dock sits in, for the separator's bounds.
+  const [available, setAvailable] = React.useState<number | null>(null);
+  React.useEffect(() => {
+    const row = edge.current?.parentElement?.parentElement;
+    if (row === null || row === undefined) {
+      return;
+    }
+    const observer = new ResizeObserver(() => setAvailable(row.getBoundingClientRect().width));
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, []);
+  const bounds = available === null ? null : dockWidthBounds(available);
+  // What is on screen: the CSS bound may be holding the stored width back on
+  // a window narrower than the one it was set in.
+  const shown = bounds === null ? width : Math.min(width, bounds.max);
+
   const onPointerDown = React.useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       event.preventDefault();
       const startX = event.clientX;
       const dock = event.currentTarget.parentElement;
-      // Start from what is on screen: the CSS bound may be holding the stored
-      // width back on a window narrower than the one it was dragged in.
       const startWidth = dock?.getBoundingClientRect().width ?? width;
-      const available = dock?.parentElement?.getBoundingClientRect().width ?? window.innerWidth;
+      const row = dock?.parentElement?.getBoundingClientRect().width ?? window.innerWidth;
       const onMove = (move: PointerEvent) => {
         // The dock sits on the right: dragging left widens it.
-        setWidth(startWidth + (startX - move.clientX), available);
+        setWidth(startWidth + (startX - move.clientX), row);
       };
       const onUp = () => {
         window.removeEventListener("pointermove", onMove);
@@ -85,7 +113,19 @@ function useDockResize() {
     },
     [width, setWidth],
   );
-  return { width, onPointerDown };
+
+  const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (available === null || bounds === null) {
+      return;
+    }
+    const next = dockWidthForKey(event.key, event.shiftKey, shown, bounds);
+    if (next !== null) {
+      event.preventDefault();
+      setWidth(next, available);
+    }
+  };
+
+  return { width, shown, bounds, edge, onPointerDown, onKeyDown, onDoubleClick: resetWidth };
 }
 
 export function RightDock({
@@ -104,7 +144,7 @@ export function RightDock({
   focusFilesSearch?: boolean;
   onFilesSearchFocused?: () => void;
 }) {
-  const { width, onPointerDown } = useDockResize();
+  const resize = useDockResize();
   const connection = useConnectionState();
   const baseId = React.useId();
   const onPick = React.useCallback((tab: DockTab) => onPaneChange(tab), [onPaneChange]);
@@ -127,16 +167,23 @@ export function RightDock({
       )}
       style={
         {
-          "--dock-width": `min(${width}px, ${DOCK_WIDTH_MAX_FRACTION * 100}%, calc(100% - ${THREAD_COLUMN_MIN}px))`,
+          "--dock-width": `min(${resize.width}px, ${DOCK_WIDTH_MAX_FRACTION * 100}%, calc(100% - ${THREAD_COLUMN_MIN}px))`,
         } as React.CSSProperties
       }
     >
       <div
+        ref={resize.edge}
         role="separator"
+        tabIndex={0}
         aria-orientation="vertical"
         aria-label="Resize dock"
-        onPointerDown={onPointerDown}
-        className="absolute inset-y-0 -left-1 z-10 hidden w-2 cursor-col-resize @min-[640px]/thread:block"
+        aria-valuenow={Math.round(resize.shown)}
+        aria-valuemin={resize.bounds?.min}
+        aria-valuemax={resize.bounds?.max}
+        onPointerDown={resize.onPointerDown}
+        onKeyDown={resize.onKeyDown}
+        onDoubleClick={resize.onDoubleClick}
+        className="absolute inset-y-0 -left-1 z-10 hidden w-2 cursor-col-resize outline-none focus-visible:bg-ring/50 @min-[640px]/thread:block"
       />
       <div
         className={cn(

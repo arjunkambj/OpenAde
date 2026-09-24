@@ -112,22 +112,41 @@ const dockWidthAtom = rememberedAtom<number>(
   readStoredWidth(DOCK_WIDTH_KEY, DOCK_WIDTH_DEFAULT, DOCK_WIDTH_MIN, DOCK_WIDTH_MAX_FALLBACK),
 );
 
+/**
+ * The widths the dock may take beside `available` px: its floor, and the
+ * lesser of its share of the row and what leaves the thread column its room.
+ * The floor wins when a narrow window inverts the two, as `clampWidth` does.
+ */
+export const dockWidthBounds = (available: number): { min: number; max: number } => ({
+  min: DOCK_WIDTH_MIN,
+  max: Math.max(
+    DOCK_WIDTH_MIN,
+    Math.round(Math.min(available * DOCK_WIDTH_MAX_FRACTION, available - THREAD_COLUMN_MIN)),
+  ),
+});
+
+/**
+ * `[width, setWidth, resetWidth]`: `setWidth` clamps to `dockWidthBounds` for
+ * the `available` width it is given, and `resetWidth` puts back the default —
+ * the resize edge's double-click.
+ */
 export const useDockWidth = () => {
   const width = useAtomValue(dockWidthAtom);
   const setWidth = useAtomSet(dockWidthAtom);
   const setPersistedWidth = React.useCallback(
     (next: number, available: number) => {
-      const clamped = clampWidth(
-        next,
-        DOCK_WIDTH_MIN,
-        Math.min(available * DOCK_WIDTH_MAX_FRACTION, available - THREAD_COLUMN_MIN),
-      );
+      const bounds = dockWidthBounds(available);
+      const clamped = clampWidth(next, bounds.min, bounds.max);
       writeStoredWidth(DOCK_WIDTH_KEY, clamped);
       setWidth(clamped);
     },
     [setWidth],
   );
-  return [width, setPersistedWidth] as const;
+  const resetWidth = React.useCallback(() => {
+    writeStoredWidth(DOCK_WIDTH_KEY, DOCK_WIDTH_DEFAULT);
+    setWidth(DOCK_WIDTH_DEFAULT);
+  }, [setWidth]);
+  return [width, setPersistedWidth, resetWidth] as const;
 };
 
 const SIDEBAR_WIDTH_KEY = "openade:sidebar-width";

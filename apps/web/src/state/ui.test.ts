@@ -6,6 +6,7 @@ import {
   emptyComposerDraft,
   parseChangesScope,
   parseCollapsedProjects,
+  dockWidthBounds,
   parseDiffStyle,
   parsePullRequestLinks,
   parseWorkspaceModes,
@@ -16,6 +17,17 @@ import {
   withWorkspaceMode,
   type ComposerDraft,
 } from "./ui";
+
+describe("dockWidthBounds", () => {
+  it("caps the dock at its share of the row and the thread column's room", () => {
+    expect(dockWidthBounds(2000)).toEqual({ min: 280, max: 1600 });
+    expect(dockWidthBounds(1000)).toEqual({ min: 280, max: 640 });
+  });
+
+  it("keeps the floor when the row is too narrow for both", () => {
+    expect(dockWidthBounds(500)).toEqual({ min: 280, max: 280 });
+  });
+});
 
 describe("withDockMemory", () => {
   const thread = "0199c0de-0002-7000-8000-000000000001";
