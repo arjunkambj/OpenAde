@@ -150,7 +150,7 @@ export const draftIssues = (draft: Draft, platform: ModKey): ReadonlyArray<Bindi
   }
   return draft.map((row, index) => ({
     conflicts: conflicts[index]!,
-    reserved: reservedChordReason(row.shortcut, platform),
+    reserved: reservedChordReason(row.shortcut, platform, row.when),
     invalidShortcut: parseShortcut(row.shortcut) === null,
     invalidWhen: parseWhen(row.when ?? "") === null,
   }));

@@ -2440,7 +2440,9 @@ independent flag, which can only report more conflicts, never fewer.
 operating system, the text system or the Electron default menu already owns —
 quit, close, hide, reload, devtools, zoom, the editing and text-navigation
 chords, and on macOS the Cocoa `Ctrl+letter` editing keys — and
-`reservedChordReason` looks one up.
+`reservedChordReason` looks one up. Given a row's clause, it lets through the
+one chord the app takes over on purpose: `Mod+R` under `browserFocus` reloads
+the pane's page, not the window.
 
 The context for each press is built by `apps/web/src/lib/keybinding-context.ts`:
 `focusSnapshot` reads whether the focused element is a text field, its closest

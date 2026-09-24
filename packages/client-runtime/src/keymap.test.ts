@@ -203,6 +203,8 @@ describe("reserved chords", () => {
 
   it("returns null for a free or unparseable chord", () => {
     expect(reservedChordReason("Mod+K", "meta")).toBeNull();
+    expect(reservedChordReason("Mod+R", "meta", "browserFocus")).toBeNull();
+    expect(reservedChordReason("Mod+R", "meta", "threadOpen")).toMatch(/reload/i);
     expect(reservedChordReason("Mod+", "meta")).toBeNull();
   });
 

@@ -382,13 +382,38 @@ export const SYSTEM_RESERVED_CHORDS: Readonly<Record<ModKey, ReadonlyArray<Reser
   ctrl: [...SHARED_RESERVED, ...OTHER_RESERVED],
 };
 
-/** Why `shortcut` is reserved on `platform`, or null when it is free. */
-export const reservedChordReason = (shortcut: string, platform: ModKey): string | null => {
+/**
+ * Shell chords the app takes over in one context, where it answers the key
+ * before the shell can: `Mod+R` in the browser pane reloads the page, not the
+ * window. In the window the listener's `preventDefault` keeps the key from the
+ * default menu; inside a page the desktop shell swallows it
+ * (`apps/desktop/src/main/browser/guestChords.ts`).
+ */
+const TAKEN_OVER_CHORDS: ReadonlyArray<{ readonly shortcut: string; readonly when: string }> = [
+  { shortcut: "Mod+R", when: "browserFocus" },
+];
+
+/**
+ * Why `shortcut` is reserved on `platform`, or null when it is free — or when
+ * `when` is the context in which the app takes that chord over.
+ */
+export const reservedChordReason = (
+  shortcut: string,
+  platform: ModKey,
+  when?: string,
+): string | null => {
   const parsed = parseShortcut(shortcut);
   if (parsed === null) {
     return null;
   }
   const id = chordId(physicalChord(parsed, platform));
+  const takenOver = TAKEN_OVER_CHORDS.some((entry) => {
+    const chord = parseShortcut(entry.shortcut);
+    return entry.when === when && chord !== null && chordId(physicalChord(chord, platform)) === id;
+  });
+  if (takenOver) {
+    return null;
+  }
   const match = SYSTEM_RESERVED_CHORDS[platform].find((entry) => {
     const reserved = parseShortcut(entry.shortcut);
     return reserved !== null && chordId(physicalChord(reserved, platform)) === id;

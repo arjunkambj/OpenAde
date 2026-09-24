@@ -116,7 +116,7 @@ describe("surfaceOf", () => {
     expect(surfaceOf(null)).toBeUndefined();
   });
 
-  it("keeps the app's Mod+L, Mod+[ and Mod+] out of the browser pane's address bar", () => {
+  it("gives Mod+L, Mod+[ and Mod+] to the browser pane inside it and to the app elsewhere", () => {
     const pane = element({ "data-context": FOCUS_SURFACE.browser });
     const addressBar = element({}, pane);
     const inPane = keybindingContext(
@@ -133,12 +133,14 @@ describe("surfaceOf", () => {
       altKey: false,
       shiftKey: false,
     });
-    for (const [key, code, command] of [
-      ["l", "KeyL", "composer.focus"],
-      ["[", "BracketLeft", "nav.back"],
-      ["]", "BracketRight", "nav.forward"],
+    for (const [key, code, command, paneCommand] of [
+      ["l", "KeyL", "composer.focus", "browser.focusUrl"],
+      ["[", "BracketLeft", "nav.back", "browser.back"],
+      ["]", "BracketRight", "nav.forward", "browser.forward"],
     ] as const) {
-      expect(resolveKeybinding(DEFAULT_KEYBINDINGS, press(key, code), inPane, "meta")).toBeNull();
+      expect(
+        resolveKeybinding(DEFAULT_KEYBINDINGS, press(key, code), inPane, "meta")?.command,
+      ).toBe(paneCommand);
       expect(
         resolveKeybinding(DEFAULT_KEYBINDINGS, press(key, code), elsewhere, "meta")?.command,
       ).toBe(command);
