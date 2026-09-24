@@ -12,6 +12,10 @@
  *
  * A turn fold changes which rows the list holds, so the projection depends on
  * the open folds (`useOpenTurnFolds`) as well as on the snapshot.
+ *
+ * `useSendAnchor` decides who owns the scroll: it follows the end, holds a
+ * just-sent message near the top while its reply streams in, or leaves the
+ * reader alone once they scroll (`send-anchor.ts`).
  */
 
 import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
@@ -24,6 +28,7 @@ import { ALL_FOLDS_OPEN, buildTimeline } from "@/components/timeline/fold";
 import { JumpToLatest } from "@/components/timeline/jump-to-latest";
 import { TimelineThreadProvider } from "@/components/timeline/thread-context";
 import { TimelineRowView } from "@/components/timeline/timeline-item";
+import { useSendAnchor } from "@/components/timeline/use-send-anchor";
 import { useTimelineThreadValue } from "@/components/timeline/use-timeline-thread";
 import { useKeybindingCommand } from "@/lib/shortcuts";
 import { turnInFlight } from "@/lib/turn";
@@ -52,11 +57,14 @@ export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
     disclosureIds(buildTimeline(snapshot.items, { ...options, isFoldOpen: ALL_FOLDS_OPEN }));
 
   const thread = useTimelineThreadValue(snapshot);
+  const anchor = useSendAnchor({
+    listRef,
+    rows: projection.rows,
+    threadId: snapshot.threadId,
+    turnActive: options.turnActive,
+  });
   const setDisclosures = useSetRowDisclosures();
-  useKeybindingCommand(
-    "timeline.jumpToLatest",
-    () => void listRef.current?.scrollToEnd({ animated: true }),
-  );
+  useKeybindingCommand("timeline.jumpToLatest", anchor.jumpToLatest);
   useKeybindingCommand("timeline.collapseAll", () => setDisclosures(everyDisclosure(), false));
   useKeybindingCommand("timeline.expandAll", () => setDisclosures(everyDisclosure(), true));
 
@@ -80,7 +88,8 @@ export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
           drawDistance={500}
           recycleItems
           initialScrollAtEnd
-          maintainScrollAtEnd
+          maintainScrollAtEnd={anchor.maintainScrollAtEnd}
+          anchoredEndSpace={anchor.anchoredEndSpace}
           extraData={projection.childrenByParent}
           className="min-h-0 flex-1"
           // The row gap has to be a value, not a class: the virtualizer measures
@@ -93,7 +102,7 @@ export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
           contentContainerClassName="mx-auto flex w-full max-w-[700px] flex-col px-6"
           contentContainerStyle={{ gap: 16, paddingTop: 24, paddingBottom: 24 }}
         />
-        <JumpToLatest listRef={listRef} />
+        <JumpToLatest listRef={listRef} hidden={anchor.placing} onJump={anchor.jumpToLatest} />
       </div>
     </TimelineThreadProvider>
   );

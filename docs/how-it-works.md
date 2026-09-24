@@ -936,6 +936,31 @@ per `ItemKind`. The list opens at its end and follows new rows while it sits
 there; scrolled more than half a screen away, it stops following and shows a
 round "Jump to latest" button at the bottom that scrolls back down.
 
+Who owns the scroll is a small state machine (`send-anchor.ts`, fed by
+`use-send-anchor.ts`) with three modes. **Follow** is the behaviour above.
+**Anchored** starts on a send: a user message that appears after the list
+mounted, while a turn is requested or running — so a queued message whose turn
+starts later counts, and the history a thread opens with never does. The list
+stops following, and LegendList's `anchoredEndSpace` reserves trailing space
+under the message so it can reach the top. Once the list reports that reserve
+measured, the message is eased to 16px below the viewport top (placed at once
+under reduced motion), then held: rows above it settle from estimated to
+measured heights for a few hundred milliseconds after a send, so the hold puts
+it back without animation on every frame the geometry moves, until it has been
+still for 450 ms. The reply streams in below it. When the turn settles and its
+fold closes, the message is held again rather than jumping. **Free** starts
+when the reader scrolls while anchored — a wheel, a touch drag, a scrolling key
+in the list, a press on its scrollbar, or a text selection inside it — and
+nothing moves the list until it is back at its end, which resumes following, or
+the reader jumps to the latest row. The last sent message keeps its reserve in
+every mode; it shrinks by itself as the reply grows past a screen, so it never
+has to be dropped under a reader.
+
+While a sent message is on its way to the top the list is away from its end on
+purpose, so the jump button stays hidden then. `timeline.jumpToLatest` and the
+button both resume following; the scroll to the end is instant under reduced
+motion.
+
 ### Closing the turn
 
 `run_end` produces `turn.completed` with a `stopReason` of `end_turn`,

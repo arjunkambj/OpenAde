@@ -1,9 +1,12 @@
 /**
  * The round "jump to latest" button over the bottom of the timeline. It shows
- * only while the list sits away from its end — where `maintainScrollAtEnd`
- * stops following new rows — and scrolls back down when pressed.
- * `timeline.jumpToLatest` does the same from the keyboard; the timeline
- * answers it, and the tooltip shows its chord.
+ * only while the list sits away from its end — where it stops following new
+ * rows — and scrolls back down when pressed. `timeline.jumpToLatest` does the
+ * same from the keyboard; the timeline answers it, and the tooltip shows its
+ * chord.
+ *
+ * While a just-sent message is carried to the top the list is away from its
+ * end on purpose, so the button stays hidden then.
  */
 
 import { Button } from "@OpenAde/ui/components/button";
@@ -14,14 +17,23 @@ import * as React from "react";
 import { CommandKbd } from "@/lib/shortcuts";
 import { ArrowDown } from "@honeyicons/react";
 
-export function JumpToLatest({ listRef }: { listRef: React.RefObject<LegendListRef | null> }) {
+export function JumpToLatest({
+  listRef,
+  hidden,
+  onJump,
+}: {
+  listRef: React.RefObject<LegendListRef | null>;
+  /** The list is away from its end on purpose, carrying a sent message to the top. */
+  hidden: boolean;
+  onJump: () => void;
+}) {
   // Starts hidden: the list opens at its end, and its own flag reads false until
   // the first layout, which would flash the button on every mount.
   const [nearEnd, setNearEnd] = React.useState(true);
 
   React.useEffect(() => listRef.current?.getState().listen("isNearEnd", setNearEnd), [listRef]);
 
-  if (nearEnd) {
+  if (nearEnd || hidden) {
     return null;
   }
   return (
@@ -36,7 +48,7 @@ export function JumpToLatest({ listRef }: { listRef: React.RefObject<LegendListR
               shape="pill"
               aria-label="Jump to latest"
               className="pointer-events-auto"
-              onClick={() => void listRef.current?.scrollToEnd({ animated: true })}
+              onClick={onJump}
             />
           }
         >
