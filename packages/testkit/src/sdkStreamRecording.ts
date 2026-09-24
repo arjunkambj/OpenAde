@@ -241,6 +241,30 @@ const operatorEntries = (configDir: string): Map<string, string> => {
   return new Map([...names].sort().map((name, index) => [name, `user-skill-${index + 1}`]));
 };
 
+/**
+ * The handshake keys whose lists are drawn from the operator's installation —
+ * their own skills and commands, and the plugins they installed — rather than
+ * from the harness alone. A stand-in per name is not enough: a plugin's entry
+ * is named by whoever wrote it, so the whole list is replaced.
+ */
+const OPERATOR_LIST_KEY = /^(skills|slash_commands|commands)$/;
+
+/** What an operator-sourced list becomes: one neutral entry of the same shape. */
+export const SCRUBBED_ENTRY = "scrubbed-entry";
+
+const scrubbedList = (list: ReadonlyArray<unknown>): ReadonlyArray<unknown> => {
+  const first = list[0];
+  if (first === undefined) return [];
+  if (first === null || typeof first !== "object") return [SCRUBBED_ENTRY];
+  return [
+    {
+      name: SCRUBBED_ENTRY,
+      description: `${SCRUBBED_ENTRY} (recording)`,
+      ...("argumentHint" in first ? { argumentHint: "" } : {}),
+    },
+  ];
+};
+
 interface ScrubContext {
   readonly home: string;
   /** The scratch root the throwaway repos live under; null when there is none. */
@@ -257,9 +281,11 @@ interface ScrubContext {
  * becomes `<SCRATCH>` and the home directory `<HOME>` (longest spelling first,
  * so a scratch root under home stays a scratch root), the username becomes
  * `user`, and credentials become `<REDACTED>` — under a credential's key
- * whatever their shape, anywhere when they are token-shaped. An operator entry
- * is replaced where the handshake lists it: a list item that is its name, and
- * an object whose `name` it is, whose `description` goes with it.
+ * whatever their shape, anywhere when they are token-shaped. The handshake's
+ * `skills`, `slash_commands` and `commands` lists become one scrubbed entry
+ * each. Elsewhere an operator entry is replaced where it is listed: a list
+ * item that is its name, and an object whose `name` it is, whose `description`
+ * goes with it.
  */
 const makeScrubber = (context: ScrubContext): ((value: unknown) => unknown) => {
   const paths = [
@@ -301,7 +327,11 @@ const makeScrubber = (context: ScrubContext): ((value: unknown) => unknown) => {
       return Object.fromEntries(
         Object.entries(value).map(([key, entry]) => [
           text(key),
-          typeof entry === "string" && SECRET_KEY.test(key) ? "<REDACTED>" : scrub(entry),
+          typeof entry === "string" && SECRET_KEY.test(key)
+            ? "<REDACTED>"
+            : Array.isArray(entry) && OPERATOR_LIST_KEY.test(key)
+              ? scrubbedList(entry)
+              : scrub(entry),
         ]),
       );
     }

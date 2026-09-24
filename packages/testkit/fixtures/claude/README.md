@@ -17,7 +17,9 @@ the testkit's stdio tee sat where the connector's binary path points, so each
 `invocation-<n>.ndjson` is what the real SDK and the real CLI said to each
 other, line by line, and the manifest lists every launch with its argv and exit.
 The scrubber replaced the account, the home directory, the scratch root, the MCP
-bearer and the operator's own skills, commands and agents.
+bearer and the operator's own agents, and it replaced the handshake's `skills`,
+`slash_commands` and `commands` lists, which come from the operator's own
+installation, with one `scrubbed-entry` each.
 
 ## Scenarios
 

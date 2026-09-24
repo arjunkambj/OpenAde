@@ -15,6 +15,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { readManifest, type RecordedFrame } from "./recording";
 import {
   finalizeSdkStreamRecording,
+  SCRUBBED_ENTRY,
   loadSdkStreamRecording,
   makeTeeLauncher,
 } from "./sdkStreamRecording";
@@ -214,7 +215,7 @@ describe("finalizeSdkStreamRecording", () => {
     expect(readManifest("sample", "scrubbed", fixtures).transport).toBe("sdk-stream");
   });
 
-  it("replaces the operator's own skills, commands and agents where the handshake lists them", async () => {
+  it("replaces the handshake's skill and command lists whole, and the operator's own agents by name", async () => {
     const rawDir = NodePath.join(ROOT, "raw-entries");
     const launcher = makeTeeLauncher({ realBinary: COUNTERPART, rawDir });
     const configDir = NodePath.join(ROOT, "config-dir");
@@ -231,6 +232,7 @@ describe("finalizeSdkStreamRecording", () => {
         { name: "compact", description: "Compact the conversation" },
       ],
       skills: ["private-notes", "compact"],
+      slash_commands: ["private-notes", "plugin-named-by-its-author", "compact"],
       agents: ["reviewer", "Explore"],
     });
     await run.awaitLine(typed("echo"));
@@ -255,13 +257,12 @@ describe("finalizeSdkStreamRecording", () => {
     const echoed = stream!.frames.find((frame) => typed("echo")(frame.data))!.data;
     expect(JSON.stringify(echoed)).not.toContain("private");
     expect(JSON.stringify(echoed)).not.toContain("reviewer");
+    expect(JSON.stringify(echoed)).not.toContain("plugin-named-by-its-author");
     expect(echoed).toMatchObject({
       message: {
-        commands: [
-          { name: "user-skill-1", description: "user-skill-1 (user)" },
-          { name: "compact", description: "Compact the conversation" },
-        ],
-        skills: ["user-skill-1", "compact"],
+        commands: [{ name: SCRUBBED_ENTRY, description: `${SCRUBBED_ENTRY} (recording)` }],
+        skills: [SCRUBBED_ENTRY],
+        slash_commands: [SCRUBBED_ENTRY],
         agents: ["user-skill-2", "Explore"],
       },
     });
