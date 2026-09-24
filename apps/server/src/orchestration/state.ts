@@ -18,6 +18,7 @@ import type {
   OrchestrationEvent,
   ProjectSummary,
   QueuedMessage,
+  ThreadActivity,
   ThreadDetailSnapshot,
   ThreadSession,
   ThreadSettings,
@@ -28,6 +29,7 @@ import type {
   ContextWindowUsage,
 } from "@OpenAde/contracts/orchestration";
 import type { ProjectId, RequestId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
+import type { ItemKind } from "@OpenAde/contracts/enums";
 import type { ApprovalRequest, ItemSnapshot, UserQuestion } from "@OpenAde/contracts/runtime";
 import { approvalSubject, planSubject, questionSubject } from "@OpenAde/shared/decisionSubject";
 
@@ -648,9 +650,49 @@ const awaitingOf = (doc: ThreadDoc): DecisionKind | undefined =>
         ? "plan"
         : undefined;
 
+/** The rows that are the agent acting rather than the model writing. */
+const WORKING_KINDS: ReadonlySet<ItemKind> = new Set<ItemKind>([
+  "command_execution",
+  "file_change",
+  "tool_call",
+  "mcp_tool_call",
+  "web_search",
+  "task",
+  "todo",
+  "skill",
+]);
+
+/**
+ * What a running turn is doing: `working` while one of its tool rows is
+ * still in progress, `thinking` otherwise. Nothing for a thread that is not
+ * running.
+ */
+const activityOf = (doc: ThreadDoc): ThreadActivity | undefined => {
+  if (doc.status !== "running") {
+    return undefined;
+  }
+  const turnId = doc.currentTurn?.turnId;
+  // The turn's rows are the newest ones, so walk back only as far as they go:
+  // this runs for every event, and a long thread has thousands of rows.
+  for (let index = doc.items.length - 1; index >= 0; index--) {
+    const item = doc.items[index];
+    if (item === undefined) {
+      continue;
+    }
+    if (turnId !== undefined && item.turnId !== undefined && item.turnId !== turnId) {
+      break;
+    }
+    if (item.status === "in_progress" && WORKING_KINDS.has(item.kind)) {
+      return "working";
+    }
+  }
+  return "thinking";
+};
+
 /** The `ThreadSummary` the sidebar lists. */
 export const threadSummaryOf = (doc: ThreadDoc): ThreadSummary => {
   const awaiting = awaitingOf(doc);
+  const activity = activityOf(doc);
   return {
     threadId: doc.threadId,
     projectId: doc.projectId,
@@ -660,6 +702,7 @@ export const threadSummaryOf = (doc: ThreadDoc): ThreadSummary => {
     ...(doc.preview === undefined ? {} : { preview: doc.preview }),
     awaitingInput: awaiting !== undefined,
     ...(awaiting === undefined ? {} : { awaiting }),
+    ...(activity === undefined ? {} : { activity }),
     ...worktreeField(doc),
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,

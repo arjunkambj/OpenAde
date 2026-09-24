@@ -47,6 +47,7 @@ import {
   QueuedMessage,
   ThreadSession,
   ThreadSettings,
+  ThreadActivity,
   ThreadSettingsPatch,
   ThreadStatus,
   TurnUsage,
@@ -68,6 +69,7 @@ export {
   Mention,
   PlanResponseAction,
   QueuedMessage,
+  ThreadActivity,
   ThreadSession,
   ThreadSettings,
   ThreadSettingsPatch,
@@ -636,6 +638,12 @@ export const ThreadSummary = Schema.Struct({
    * optional so a summary written before this field existed still decodes.
    */
   awaiting: Schema.optional(DecisionKind),
+  /**
+   * What the turn is doing while the thread is `running`, so the sidebar can
+   * tell thinking from working. Absent otherwise, and optional so a summary
+   * written before this field existed still decodes.
+   */
+  activity: Schema.optional(ThreadActivity),
   /** The thread's own worktree; absent for a local thread. */
   worktree: Schema.optional(ThreadWorktree),
   createdAt: IsoDateTime,

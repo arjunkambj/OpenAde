@@ -723,6 +723,41 @@ describe("what a thread is waiting on", () => {
   });
 });
 
+describe("what a running turn is doing", () => {
+  it("is thinking until a tool row is in flight, working while one is", () => {
+    const turnId = makeTurnId();
+    const reasoning = makeItemId();
+    const command = makeItemId();
+    const upsert = (
+      itemId: typeof command,
+      kind: "reasoning" | "command_execution",
+      done: boolean,
+    ) =>
+      event("thread.item.upserted", {
+        turnId,
+        item: { itemId, kind, status: done ? "completed" : "in_progress" },
+      });
+    const events = [
+      created(),
+      turnRequested(turnId),
+      upsert(reasoning, "reasoning", false),
+      upsert(reasoning, "reasoning", true),
+      upsert(command, "command_execution", false),
+      upsert(command, "command_execution", true),
+      event("thread.turn.completed", { turnId, stopReason: "end_turn" }),
+    ];
+    const activityAfter = (count: number) =>
+      threadSummaryOf(foldThread(events.slice(0, count))!).activity;
+
+    expect(activityAfter(1)).toBeUndefined();
+    expect(activityAfter(2)).toBe("thinking");
+    expect(activityAfter(3)).toBe("thinking");
+    expect(activityAfter(5)).toBe("working");
+    expect(activityAfter(6)).toBe("thinking");
+    expect(activityAfter(7)).toBeUndefined();
+  });
+});
+
 describe("the thread's worktree", () => {
   const worktree = { path: "/wt/demo/fix", branch: "openade/fix", baseBranch: "main" };
 

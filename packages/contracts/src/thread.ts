@@ -135,6 +135,14 @@ export const ThreadStatus = Schema.Literals([
 ]);
 export type ThreadStatus = typeof ThreadStatus.Type;
 
+/**
+ * What a `running` thread is doing right now: `working` while a tool call,
+ * a command or a file change is in flight, `thinking` otherwise — the model
+ * reasoning or writing between them.
+ */
+export const ThreadActivity = Schema.Literals(["thinking", "working"]);
+export type ThreadActivity = typeof ThreadActivity.Type;
+
 /** What the user chose on a proposed plan. */
 export const PlanResponseAction = Schema.Literals(["accept", "accept-auto", "revise"]);
 export type PlanResponseAction = typeof PlanResponseAction.Type;
