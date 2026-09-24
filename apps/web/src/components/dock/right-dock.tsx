@@ -14,14 +14,13 @@
  * The dock starts closed, and opening it without naming a tab (`dock.toggle`,
  * the header's dock button) goes back to the last tab this thread used this
  * session, else to the launcher (`./dock-launcher`): one row per tab with its
- * live status, so opening the dock never drops the user into a tab they did
- * not ask for. In the launcher the strip shows no tab selected.
+ * key, so opening the dock never drops the user into a tab they did not ask
+ * for. The launcher reads nothing, so an open dock loads nothing until a tab
+ * is picked; while it shows, the top row holds no tabs.
  *
- * The strip is a `tablist`: each tab controls the panel below it, Left and
- * Right move along the strip (and open the tab they land on), and the Changes
- * tab carries a count of the workspace's uncommitted files — the same
- * `git.status` read the header's git actions use — hidden when there are
- * none.
+ * Once a tab is open the strip is a `tablist` of icons: each tab controls the
+ * panel below it, and Left and Right move along the strip (and open the tab
+ * they land on).
  *
  * With less than 640px beside the sidebar, the dock overlays the thread
  * column: two columns in that width leave neither readable, and simply
@@ -147,7 +146,7 @@ export function RightDock({
   /** Focus the Files search as the Files tab mounts — set by its key. */
   focusFilesSearch?: boolean;
   onFilesSearchFocused?: () => void;
-  /** Focus the launcher's first enabled row — set when the user opens the dock onto it. */
+  /** Focus the launcher's first row — set when the user opens the dock onto it. */
   focusLauncher?: boolean;
   onLauncherFocused?: () => void;
 }) {
@@ -200,7 +199,7 @@ export function RightDock({
           phase !== "shown" && "min-w-70",
         )}
       >
-        <DockTabStrip baseId={baseId} pane={pane} snapshot={snapshot} onTabChange={onPaneChange} />
+        <DockTabStrip baseId={baseId} pane={pane} onTabChange={onPaneChange} />
         <div
           id={dockPanelId(baseId)}
           role={isDockTab(pane) ? "tabpanel" : undefined}
@@ -209,7 +208,6 @@ export function RightDock({
         >
           {pane === DOCK_HOME ? (
             <DockLauncher
-              snapshot={snapshot}
               onPick={onPick}
               focusFirst={focusLauncher}
               onFocused={onLauncherFocused}

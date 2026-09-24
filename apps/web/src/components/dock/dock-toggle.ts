@@ -4,8 +4,8 @@
  *
  * The dock is either closed (`?pane=` absent), open on one of its tabs
  * (`changes | browser | files`), or open with no tab chosen yet: the
- * launcher, `?pane=home`, a short list of the three tabs with a live line of
- * status each. `DockPane` is that open state; `DockTab` is only the tabs.
+ * launcher, `?pane=home`, a short list of the three tabs and their keys.
+ * `DockPane` is that open state; `DockTab` is only the tabs.
  *
  * The dock starts closed. Nothing about it survives a relaunch: a thread
  * reached with no `?pane=` (a sidebar link, a fresh start) opens with the
