@@ -5,7 +5,7 @@ import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
 import { describe, expect, it } from "vitest";
 
 import { disclosureIds } from "./disclosure";
-import { buildTimeline } from "./fold";
+import { ALL_FOLDS_OPEN, buildTimeline } from "./fold";
 
 let sequence = 0;
 let millis = 1_700_000_000_000;
@@ -52,20 +52,44 @@ describe("disclosureIds", () => {
     ]);
   });
 
-  it("lists a settled turn's work group, the rows folded in it and its summary", () => {
+  it("lists a settled turn's fold, the work groups inside it, their rows and the card", () => {
     const user = item("user_message");
     const tool = item("tool_call");
     const command = item("command_execution");
+    const narration = item("assistant_message");
+    const change = item("file_change", { fileChange: { path: "a.ts", kind: "edit", diff: "+a" } });
     const reply = item("assistant_message");
-    const projection = buildTimeline([user, tool, command, reply], { turnActive: false });
-    const group = projection.rows.find((row) => row.kind === "work-group");
-    const summary = projection.rows.find((row) => row.kind === "turn-summary");
+    const items = [user, tool, command, narration, change, reply];
+
+    // closed, the fold hides its groups from the projection on screen…
+    const closed = buildTimeline(items, { turnActive: false });
+    expect(closed.rows.some((row) => row.kind === "work-group")).toBe(false);
+
+    // …so expand-all walks the projection with every fold open
+    const projection = buildTimeline(items, { turnActive: false, isFoldOpen: ALL_FOLDS_OPEN });
+    const groups = projection.rows.filter((row) => row.kind === "work-group");
     expect(disclosureIds(projection)).toEqual([
-      group?.id,
+      `turn-fold:${user.itemId}`,
+      groups[0]?.id,
       tool.itemId,
       command.itemId,
-      summary?.id,
+      groups[1]?.id,
+      change.itemId,
+      `turn-summary:${user.itemId}`,
     ]);
+  });
+
+  it("lists the folds of every settled turn", () => {
+    const first = item("user_message");
+    const second = item("user_message");
+    const projection = buildTimeline(
+      [first, item("reasoning"), item("assistant_message"), second, item("tool_call")],
+      { turnActive: false, isFoldOpen: ALL_FOLDS_OPEN },
+    );
+    const ids = disclosureIds(projection);
+    expect(ids).toContain(`turn-fold:${first.itemId}`);
+    expect(ids).toContain(`turn-fold:${second.itemId}`);
+    expect(ids.filter((id) => id.startsWith("work-group:"))).toHaveLength(2);
   });
 
   it("walks into a task's children at any depth", () => {

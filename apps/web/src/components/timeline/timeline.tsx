@@ -6,7 +6,12 @@
  * The timeline answers its own keys while it is on screen:
  * `timeline.jumpToLatest` scrolls to the end the way the jump button does, and
  * `timeline.collapseAll` / `expandAll` write a disclosure override for every
- * row that folds (`disclosureIds`), nested and grouped rows included.
+ * row that folds (`disclosureIds`), nested and grouped rows included. The ids
+ * come from the projection with every turn fold open, so the rows a closed
+ * fold hides are opened or closed along with it.
+ *
+ * A turn fold changes which rows the list holds, so the projection depends on
+ * the open folds (`useOpenTurnFolds`) as well as on the snapshot.
  */
 
 import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
@@ -15,28 +20,36 @@ import { LegendList, type LegendListRef } from "@legendapp/list/react";
 import * as React from "react";
 
 import { disclosureIds } from "@/components/timeline/disclosure";
-import { buildTimeline } from "@/components/timeline/fold";
+import { ALL_FOLDS_OPEN, buildTimeline } from "@/components/timeline/fold";
 import { JumpToLatest } from "@/components/timeline/jump-to-latest";
 import { TimelineThreadProvider } from "@/components/timeline/thread-context";
 import { TimelineRowView } from "@/components/timeline/timeline-item";
 import { useTimelineThreadValue } from "@/components/timeline/use-timeline-thread";
 import { useKeybindingCommand } from "@/lib/shortcuts";
 import { turnInFlight } from "@/lib/turn";
+import { useOpenTurnFolds } from "@/state/turn-folds";
 import { useSetRowDisclosures } from "@/state/ui";
 
 export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
   const listRef = React.useRef<LegendListRef>(null);
-  const projection = React.useMemo(
-    () =>
-      buildTimeline(snapshot.items, {
-        turnActive: turnInFlight(snapshot),
-        turnStartedAt:
-          snapshot.currentTurnId === null ? undefined : uuidV7Millis(snapshot.currentTurnId),
-        decisions: snapshot.decisions,
-        checkpoints: snapshot.checkpoints,
-      }),
+  const openFolds = useOpenTurnFolds();
+  const options = React.useMemo(
+    () => ({
+      turnActive: turnInFlight(snapshot),
+      turnStartedAt:
+        snapshot.currentTurnId === null ? undefined : uuidV7Millis(snapshot.currentTurnId),
+      decisions: snapshot.decisions,
+      checkpoints: snapshot.checkpoints,
+    }),
     [snapshot],
   );
+  const projection = React.useMemo(
+    () =>
+      buildTimeline(snapshot.items, { ...options, isFoldOpen: (rowId) => openFolds.has(rowId) }),
+    [snapshot.items, options, openFolds],
+  );
+  const everyDisclosure = () =>
+    disclosureIds(buildTimeline(snapshot.items, { ...options, isFoldOpen: ALL_FOLDS_OPEN }));
 
   const thread = useTimelineThreadValue(snapshot);
   const setDisclosures = useSetRowDisclosures();
@@ -44,10 +57,8 @@ export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
     "timeline.jumpToLatest",
     () => void listRef.current?.scrollToEnd({ animated: true }),
   );
-  useKeybindingCommand("timeline.collapseAll", () =>
-    setDisclosures(disclosureIds(projection), false),
-  );
-  useKeybindingCommand("timeline.expandAll", () => setDisclosures(disclosureIds(projection), true));
+  useKeybindingCommand("timeline.collapseAll", () => setDisclosures(everyDisclosure(), false));
+  useKeybindingCommand("timeline.expandAll", () => setDisclosures(everyDisclosure(), true));
 
   const renderItem = React.useCallback(
     ({ item }: { item: (typeof projection.rows)[number] }) => (

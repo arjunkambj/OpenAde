@@ -5,39 +5,15 @@ import {
   formatElapsed,
   formatFullDate,
   relativeTime,
-  turnSummaryLabel,
   turnSummaryLead,
 } from "./format";
 
-describe("turnSummaryLabel", () => {
+describe("turnSummaryLead", () => {
   const files = (count: number) => Array.from({ length: count }, (_, index) => index);
 
-  it("reports time, files and line counts with a real minus sign", () => {
-    expect(turnSummaryLabel({ durationMs: 12_000, files: files(3), added: 20, removed: 4 })).toBe(
-      "Worked for 12s · 3 files +20 −4",
-    );
-    expect(turnSummaryLabel({ durationMs: 12_000, files: files(1), added: 0, removed: 4 })).toBe(
-      "Worked for 12s · 1 file −4",
-    );
-  });
-
-  it("says only how long it worked when no file changed", () => {
-    expect(turnSummaryLabel({ durationMs: 12_000, files: [], added: 0, removed: 0 })).toBe(
-      "Worked for 12s",
-    );
-  });
-
-  it("drops an unknown or zero duration", () => {
-    expect(turnSummaryLabel({ durationMs: undefined, files: files(2), added: 1, removed: 0 })).toBe(
-      "Worked · 2 files +1",
-    );
-    expect(turnSummaryLabel({ durationMs: 0, files: [], added: 0, removed: 0 })).toBe("Worked");
-  });
-
-  it("keeps the counts out of the lead the row colours itself", () => {
-    expect(turnSummaryLead({ durationMs: 12_000, files: files(3) })).toBe(
-      "Worked for 12s · 3 files",
-    );
+  it("counts the files the turn changed", () => {
+    expect(turnSummaryLead({ files: files(3) })).toBe("Changed 3 files");
+    expect(turnSummaryLead({ files: files(1) })).toBe("Changed 1 file");
   });
 });
 

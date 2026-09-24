@@ -744,32 +744,56 @@ The client fold (`packages/client-runtime/src/clientState.ts`) applies the
 stream to a `ThreadDetailView`. `apps/web/src/components/timeline/fold.ts`
 turns the flat item list into rows:
 
-- a `user_message` opens a segment; the segment still open (the last one, while
-  a turn runs) renders its work rows inline;
-- a settled segment folds each maximal run of work kinds — `reasoning`,
-  `command_execution`, `file_change`, `tool_call`, `mcp_tool_call`,
-  `web_search`, `task`, `skill` — into one `work-group` row, a disclosure
-  that says what the run did: "Ran 2 commands, edited 1 file"
-  (`timeline/work-summary.ts`), or "Thought for 2s" when the run is only
-  reasoning, with "1 failed" beside it when a step failed. Each item counts
-  as one kind of action, sorted by its kind and, for a tool call, by the
-  words in its name and the keys of its input — never by which harness sent
-  it. Files count once per path, and past three kinds of action the rest
-  read "and N more";
-- a settled segment that a `user_message` opened and that did any work ends
-  with one `turn-summary` row, "Worked for 12s · 3 files +20 −4" (just "Worked
-  for 12s" when no file changed). Its time runs from the user message to the
-  turn's last item, task children included, and its file list — one line per
-  distinct path, diff line counts summed across the turn — opens from the row,
-  with a link to that turn in the Changes pane, and each path opens that file
-  there. It lists paths and counts only, never a diff; the live segment gets
-  none;
-- the last `assistant_message` of each settled turn is its final answer and
-  carries a `turnEnd` with the turn's id and duration, for the footer under
-  it. A message steered into a running turn opens a segment of its own but
-  shares the turn's id, so only the last segment of that turn has an end, and
-  its duration runs from the turn's first segment. The live turn has none
-  (the work-group and turn-summary builders live in `timeline/fold-rows.ts`);
+- the items are grouped into turns first (`timeline/turns.ts`): a
+  `user_message` opens one, unless it carries the id of the turn already
+  open — a message steered into a running turn stays inside that turn instead
+  of splitting it in two. Rows without a turn id fall back to position: they
+  belong to the turn the last user message opened. Rows before the first user
+  message form a leading turn of their own;
+- the live turn (the last one, while a turn runs) renders every row inline,
+  as it arrives, then the `working` row;
+- a settled turn shows its user message, then one `turn-fold` row standing
+  for its work: "Worked for 2m 3s · Ran 3 commands, edited 2 files, read 4
+  files", with "1 failed" beside it in the destructive colour when something
+  failed. The fold hides the work kinds (`reasoning`, `command_execution`,
+  `file_change`, `tool_call`, `mcp_tool_call`, `web_search`, `task`, `skill`)
+  and the interim narration — every `assistant_message` but the last. What a
+  reader needs without opening it stays in view under the fold row, in order:
+  todos, plans, errors, compactions, steered messages and answered-decision
+  records. Then comes the final answer (the turn's last `assistant_message`)
+  and, when the turn changed files, the `turn-summary` row. A turn with no
+  answer (interrupted, failed) folds all of its work and keeps its errors in
+  view. The time runs from the user message to the turn's last item, task
+  children included;
+- opening the fold puts the hidden rows back into the list right under it, in
+  their original order, as rows of their own: each maximal run of work kinds
+  is one `work-group` disclosure, and the narration between runs is a message
+  row again. The fold is not a body inside one row, because one tall row
+  would defeat the virtualizer and mount every hidden diff at once. The open
+  folds are part of the row disclosure map (`turn-fold:<user message id>`);
+  the timeline reads only that slice of it (`state/turn-folds.ts`), so a fold
+  opening rebuilds the projection and any other row toggling does not;
+- labels say what the work did (`timeline/work-summary.ts`). Each item is
+  sorted into one kind of action — commands, file edits, creations and
+  deletions (one per distinct path, a file created then edited counting as
+  created), reads, searches, folder listings, web searches and fetches, the
+  in-app browser, other servers' tools, tasks, skills, anything else as
+  "used N tools". A tool call is sorted by the words in its name (`read`,
+  `grep`, `list`, …) and then by the keys of its input (`file_path`,
+  `pattern`, `url`, `command`), never by which harness sent it. The clauses
+  come in that fixed order, the first capitalised, joined with commas; past
+  three the rest fold into "and N more". A work group reads the same way
+  ("Ran 2 commands, edited 1 file"), or "Thought for 2s" when it holds only
+  reasoning;
+- a settled turn that changed files ends with one `turn-summary` row,
+  "Changed 3 files +20 −4", after its final answer. Its file list — one line
+  per distinct path, diff line counts summed across the turn — opens from the
+  row, with a link to that turn in the Changes pane, and each path opens that
+  file there. It lists paths and counts only, never a diff. A turn that changed no files has no summary, and the live turn and
+  the leading turn have none;
+- the final answer of each settled turn carries a `turnEnd` with the turn's id
+  and duration, for the footer under it. The live turn has none (the
+  work-group, fold and summary builders live in `timeline/fold-rows.ts`);
 - durations come out of the UUIDv7 ids, which carry their creation millisecond
   in the leading 48 bits; a zero duration is left out of a label rather than
   shown as "0ms";
@@ -789,10 +813,10 @@ turns the flat item list into rows:
   "Answered · <question>", "Not answered · …" for a card the runtime released,
   "Plan accepted", "Plan accepted with auto-edits", "Revision requested" —
   placed right after the row holding its `afterItemId`
-  (after the task, for a task child's item). In a settled segment the record
-  is not folded: it ends the work run, so the work group splits around it. A
-  record whose anchor is missing or unknown goes at the end, before the
-  working row.
+  (after the task, for a task child's item). A record is never folded: it
+  stays in view when its anchor is inside a closed turn fold, and in an open
+  one it ends the work run, so the work group splits around it. A record
+  whose anchor is missing or unknown goes at the end, before the working row.
 
 Assistant messages and plan bodies render as markdown
 (`apps/web/src/components/timeline/markdown.tsx`). A fenced block is told
@@ -856,9 +880,9 @@ list has measured.
 
 The final answer of a settled turn has a footer too, left-aligned under it
 and revealed the same way: Copy (the markdown source), the time the answer
-began, and how long the turn took, first item to last, as the turn summary
-counts it ("2m 3s"). Interim narration and the running turn's messages have
-none. No model is named: the thread records which model runs now, not which
+began, and how long the turn took, first item to last, as the turn's fold
+row counts it ("2m 3s"). Interim narration and the running turn's messages
+have none. No model is named: the thread records which model runs now, not which
 one ran a past turn.
 
 The timeline hands its rows one context (`timeline/thread-context.tsx`,
@@ -2485,9 +2509,11 @@ each clamped to 11–20px, and reset puts both back on 14px. They write the
 settings document through the same `useFontSizes` hook as the Appearance
 steppers, so the steppers follow. `timeline.collapseAll` and `expandAll` set
 every disclosure in the open thread: tool, reasoning, file-change, task and
-plan rows, work groups and the rows folded in them, task children, turn
-summaries and answered-decision records (`disclosureIds` in
-`components/timeline/disclosure.ts`).
+plan rows, turn folds, work groups and the rows folded in them, task
+children, turn summaries and answered-decision records (`disclosureIds`
+in `components/timeline/disclosure.ts`). The ids come from the timeline built
+with every turn fold open, so expanding all opens each settled turn's fold
+and the work groups inside it in one go, and collapsing all closes them.
 
 The git keys belong to the thread header. `git.commit` is the Commit button
 and `git.push` is Commit & push, which pushes straight away when there is

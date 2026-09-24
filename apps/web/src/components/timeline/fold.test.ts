@@ -7,8 +7,10 @@ import { describe, expect, it } from "vitest";
 import { uuidV7Millis } from "@OpenAde/shared/ids";
 
 import {
+  ALL_FOLDS_OPEN,
   buildTimeline,
   type TimelineDecisionRow,
+  type TimelineTurnFoldRow,
   type TimelineTurnSummaryRow,
   type TimelineWorkGroupRow,
   type TimelineWorkingRow,
@@ -40,6 +42,21 @@ const summaries = (rows: ReturnType<typeof buildTimeline>["rows"]) =>
 const edit = (path: string, diff: string, over: Partial<ItemSnapshot> = {}): ItemSnapshot =>
   item("file_change", { fileChange: { path, kind: "edit", diff }, ...over });
 
+const folds = (rows: ReturnType<typeof buildTimeline>["rows"]) =>
+  rows.filter((row): row is TimelineTurnFoldRow => row.kind === "turn-fold");
+
+/** Row kinds, item rows by their item kind and decisions by their id. */
+const labels = (rows: ReturnType<typeof buildTimeline>["rows"]) =>
+  rows.map((row) =>
+    row.kind === "item"
+      ? row.item.kind
+      : row.kind === "decision"
+        ? `decision:${row.decision.id}`
+        : row.kind,
+  );
+
+const open = { isFoldOpen: ALL_FOLDS_OPEN } as const;
+
 describe("buildTimeline", () => {
   it("passes a lone message exchange through untouched", () => {
     const items = [
@@ -50,18 +67,29 @@ describe("buildTimeline", () => {
     expect(rows.map((row) => row.kind)).toEqual(["item", "item"]);
   });
 
-  it("folds a settled turn's tool run into one work group", () => {
+  it("folds a settled turn's work into one row before its answer", () => {
+    const user = item("user_message");
     const items = [
-      item("user_message"),
+      user,
       item("reasoning"),
       item("tool_call"),
       item("command_execution"),
       item("assistant_message"),
     ];
-    const { rows } = buildTimeline(items, { turnActive: false });
-    expect(rows.map((row) => row.kind)).toEqual(["item", "work-group", "item", "turn-summary"]);
-    const group = workGroups(rows)[0];
-    expect(group.items).toHaveLength(3);
+    const closed = buildTimeline(items, { turnActive: false }).rows;
+    expect(labels(closed)).toEqual(["user_message", "turn-fold", "assistant_message"]);
+    const [fold] = folds(closed);
+    expect(fold.id).toBe(`turn-fold:${user.itemId}`);
+    expect(fold.sentence).toBe("Ran 1 command, used 1 tool");
+
+    const opened = buildTimeline(items, { turnActive: false, ...open }).rows;
+    expect(labels(opened)).toEqual([
+      "user_message",
+      "turn-fold",
+      "work-group",
+      "assistant_message",
+    ]);
+    expect(workGroups(opened)[0].items).toHaveLength(3);
   });
 
   it("keeps the live segment unfolded and appends a working row", () => {
@@ -73,18 +101,17 @@ describe("buildTimeline", () => {
       item("tool_call"),
     ];
     const { rows } = buildTimeline(items, { turnActive: true });
-    expect(rows.map((row) => row.kind)).toEqual([
-      "item",
-      "work-group",
-      "item",
-      "turn-summary",
-      "item",
-      "item",
+    expect(labels(rows)).toEqual([
+      "user_message",
+      "turn-fold",
+      "assistant_message",
+      "user_message",
+      "tool_call",
       "working",
     ]);
   });
 
-  it("splits a settled run around a non-foldable row", () => {
+  it("splits an open fold's work around a row it keeps", () => {
     const items = [
       item("user_message"),
       item("tool_call"),
@@ -92,17 +119,23 @@ describe("buildTimeline", () => {
       item("tool_call"),
       item("assistant_message"),
     ];
-    const { rows } = buildTimeline(items, { turnActive: false });
-    expect(rows.map((row) => row.kind)).toEqual([
-      "item",
-      "work-group",
-      "item",
-      "work-group",
-      "item",
-      "turn-summary",
+    const closed = buildTimeline(items, { turnActive: false }).rows;
+    expect(labels(closed)).toEqual([
+      "user_message",
+      "turn-fold",
+      "context_compaction",
+      "assistant_message",
     ]);
-    const groups = workGroups(rows);
-    expect(groups.map((group) => group.items.length)).toEqual([1, 1]);
+    const opened = buildTimeline(items, { turnActive: false, ...open }).rows;
+    expect(labels(opened)).toEqual([
+      "user_message",
+      "turn-fold",
+      "work-group",
+      "context_compaction",
+      "work-group",
+      "assistant_message",
+    ]);
+    expect(workGroups(opened).map((group) => group.items.length)).toEqual([1, 1]);
   });
 
   it("nests task children under the parent and keeps orphans at top level", () => {
@@ -120,21 +153,22 @@ describe("buildTimeline", () => {
 
   it("derives the group's duration from the UUIDv7 item ids", () => {
     const items = [item("user_message"), item("tool_call"), item("tool_call")];
-    const group = workGroups(buildTimeline(items, { turnActive: false }).rows)[0];
+    const group = workGroups(buildTimeline(items, { turnActive: false, ...open }).rows)[0];
     expect(group.durationMs).toBe(1_000);
   });
 
-  it("reports failures in the folded group", () => {
+  it("reports failures in the folded group and on the fold row", () => {
     const items = [
       item("user_message"),
       item("command_execution", { status: "failed" }),
       item("tool_call"),
     ];
-    const group = workGroups(buildTimeline(items, { turnActive: false }).rows)[0];
-    expect(group.failedCount).toBe(1);
+    const { rows } = buildTimeline(items, { turnActive: false, ...open });
+    expect(workGroups(rows)[0].failedCount).toBe(1);
+    expect(folds(rows)[0].failedCount).toBe(1);
   });
 
-  it("folds items that precede the first user message", () => {
+  it("folds items that precede the first user message into work groups only", () => {
     const items = [item("reasoning"), item("tool_call"), item("assistant_message")];
     const { rows } = buildTimeline(items, { turnActive: false });
     expect(rows.map((row) => row.kind)).toEqual(["work-group", "item"]);
@@ -142,25 +176,35 @@ describe("buildTimeline", () => {
 });
 
 describe("buildTimeline turn summaries", () => {
-  it("ends a settled turn with one summary of its time, files and line counts", () => {
-    const user = item("user_message");
+  it("ends a settled turn with one card of its files and line counts", () => {
+    const turnId = makeTurnId();
+    const user = item("user_message", { turnId });
     const items = [
       user,
-      item("tool_call"),
-      edit("src/a.ts", "@@ -1,2 +1,3 @@\n-old\n+new\n+more"),
-      item("file_change", { fileChange: { path: "src/b.ts", kind: "create", diff: "+x" } }),
-      item("assistant_message"),
+      item("tool_call", { turnId }),
+      edit("src/a.ts", "@@ -1,2 +1,3 @@\n-old\n+new\n+more", { turnId }),
+      item("file_change", {
+        turnId,
+        fileChange: { path: "src/b.ts", kind: "create", diff: "+x" },
+      }),
+      item("assistant_message", { turnId }),
     ];
     const { rows } = buildTimeline(items, { turnActive: false });
-    expect(rows[rows.length - 1].kind).toBe("turn-summary");
+    expect(labels(rows)).toEqual([
+      "user_message",
+      "turn-fold",
+      "assistant_message",
+      "turn-summary",
+    ]);
     const [summary] = summaries(rows);
     expect(summaries(rows)).toHaveLength(1);
     expect(summary.id).toBe(`turn-summary:${user.itemId}`);
-    expect(summary.durationMs).toBe(4_000);
+    expect(summary.turnId).toBe(turnId);
     expect(summary.files.map((file) => file.path)).toEqual(["src/a.ts", "src/b.ts"]);
     expect(summary.added).toBe(3);
     expect(summary.removed).toBe(1);
-    expect(summary.failedCount).toBe(0);
+    // the time is the fold row's to say
+    expect(folds(rows)[0].durationMs).toBe(4_000);
   });
 
   it("merges repeated paths into one entry", () => {
@@ -170,9 +214,11 @@ describe("buildTimeline turn summaries", () => {
       edit("src/a.ts", "+two\n-one"),
       edit("src/a.ts", "+three", { status: "failed" }),
     ];
-    const [summary] = summaries(buildTimeline(items, { turnActive: false }).rows);
+    const { rows } = buildTimeline(items, { turnActive: false });
+    const [summary] = summaries(rows);
     expect(summary.files).toEqual([{ path: "src/a.ts", kind: "create", added: 3, removed: 1 }]);
-    expect(summary.failedCount).toBe(1);
+    expect(folds(rows)[0].sentence).toBe("Created 1 file");
+    expect(folds(rows)[0].failedCount).toBe(1);
   });
 
   it("counts file changes and time nested under a task", () => {
@@ -180,29 +226,27 @@ describe("buildTimeline turn summaries", () => {
     const task = item("task");
     const inner = item("task", { parentItemId: task.itemId });
     const change = edit("src/deep.ts", "+a\n+b", { parentItemId: inner.itemId });
-    const [summary] = summaries(
-      buildTimeline([user, task, inner, change], { turnActive: false }).rows,
-    );
-    expect(summary.files).toEqual([{ path: "src/deep.ts", kind: "edit", added: 2, removed: 0 }]);
+    const { rows } = buildTimeline([user, task, inner, change], { turnActive: false });
+    expect(summaries(rows)[0].files).toEqual([
+      { path: "src/deep.ts", kind: "edit", added: 2, removed: 0 },
+    ]);
     // the nested change is the turn's last item
-    expect(summary.durationMs).toBe(3_000);
+    expect(folds(rows)[0].durationMs).toBe(3_000);
   });
 
-  it("reports no files when the turn changed none", () => {
-    const items = [item("user_message"), item("command_execution")];
-    const [summary] = summaries(buildTimeline(items, { turnActive: false }).rows);
-    expect(summary.files).toEqual([]);
-    expect(summary.added + summary.removed).toBe(0);
+  it("adds no card when the turn changed no files", () => {
+    const items = [item("user_message"), item("command_execution"), item("assistant_message")];
+    expect(summaries(buildTimeline(items, { turnActive: false }).rows)).toEqual([]);
   });
 
   it("leaves out turns without work, the live turn and a leading segment", () => {
     const plain = [item("user_message"), item("assistant_message")];
     expect(summaries(buildTimeline(plain, { turnActive: false }).rows)).toEqual([]);
 
-    const live = [item("user_message"), item("tool_call")];
+    const live = [item("user_message"), edit("a.ts", "+a")];
     expect(summaries(buildTimeline(live, { turnActive: true }).rows)).toEqual([]);
 
-    const leading = [item("tool_call"), item("assistant_message")];
+    const leading = [edit("a.ts", "+a"), item("assistant_message")];
     expect(summaries(buildTimeline(leading, { turnActive: false }).rows)).toEqual([]);
   });
 
@@ -235,8 +279,8 @@ describe("buildTimeline turn summaries", () => {
       kind: "tool_call",
       status: "completed",
     };
-    const [summary] = summaries(buildTimeline([user, sameMs], { turnActive: false }).rows);
-    expect(summary.durationMs).toBeUndefined();
+    const [fold] = folds(buildTimeline([user, sameMs], { turnActive: false }).rows);
+    expect(fold.durationMs).toBeUndefined();
   });
 });
 
@@ -284,15 +328,6 @@ describe("buildTimeline decisions", () => {
     ...over,
   });
 
-  const labels = (rows: ReturnType<typeof buildTimeline>["rows"]) =>
-    rows.map((row) =>
-      row.kind === "item"
-        ? row.item.kind
-        : row.kind === "decision"
-          ? `decision:${row.decision.id}`
-          : row.kind,
-    );
-
   it("places a record right after the row holding its anchor", () => {
     const user = item("user_message");
     const reply = item("assistant_message");
@@ -312,7 +347,7 @@ describe("buildTimeline decisions", () => {
     expect(row.decision.outcome).toBe("allow-once");
   });
 
-  it("splits a settled work run into two groups around the record", () => {
+  it("splits an open fold's work run into two groups around the record", () => {
     const first = item("tool_call");
     const items = [
       item("user_message"),
@@ -322,38 +357,47 @@ describe("buildTimeline decisions", () => {
       item("tool_call"),
       item("assistant_message"),
     ];
-    const { rows } = buildTimeline(items, {
-      turnActive: false,
-      decisions: [decision({ afterItemId: first.itemId })],
-    });
+    const options = { turnActive: false, decisions: [decision({ afterItemId: first.itemId })] };
+    const { rows } = buildTimeline(items, { ...options, ...open });
     expect(labels(rows)).toEqual([
       "user_message",
+      "turn-fold",
       "work-group",
       "decision:req-1",
       "work-group",
       "assistant_message",
-      "turn-summary",
     ]);
     expect(workGroups(rows).map((group) => group.items.length)).toEqual([2, 2]);
-    // the record splits the groups but not the turn: one summary still covers it
-    expect(summaries(rows)).toHaveLength(1);
+    // the record splits the groups but not the turn: one fold still covers it
+    expect(folds(rows)).toHaveLength(1);
+    // closed, the record stays in view where its anchor was
+    expect(labels(buildTimeline(items, options).rows)).toEqual([
+      "user_message",
+      "turn-fold",
+      "decision:req-1",
+      "assistant_message",
+    ]);
   });
 
   it("anchors a task child's record after the task", () => {
     const task = item("task");
     const child = item("tool_call", { parentItemId: task.itemId });
-    const { rows } = buildTimeline([item("user_message"), task, child, item("tool_call")], {
-      turnActive: false,
-      decisions: [decision({ afterItemId: child.itemId })],
-    });
+    const items = [item("user_message"), task, child, item("tool_call")];
+    const options = { turnActive: false, decisions: [decision({ afterItemId: child.itemId })] };
+    const { rows } = buildTimeline(items, { ...options, ...open });
     expect(labels(rows)).toEqual([
       "user_message",
+      "turn-fold",
       "work-group",
       "decision:req-1",
       "work-group",
-      "turn-summary",
     ]);
     expect(workGroups(rows)[0].items.map((i) => i.itemId)).toEqual([task.itemId]);
+    expect(labels(buildTimeline(items, options).rows)).toEqual([
+      "user_message",
+      "turn-fold",
+      "decision:req-1",
+    ]);
   });
 
   it("puts a record with an unknown or missing anchor at the end, before the working row", () => {
@@ -448,7 +492,7 @@ describe("buildTimeline turn ends", () => {
     expect(ends(rows).map((end) => end.id)).toEqual([answerA.itemId]);
   });
 
-  it("ends a steered turn at its last segment, timed from its first", () => {
+  it("ends a steered turn at its last answer, timed from its first message", () => {
     const user = item("user_message", { turnId: turnA });
     const before = item("assistant_message", { turnId: turnA });
     const steer = item("user_message", { turnId: turnA });
@@ -461,7 +505,7 @@ describe("buildTimeline turn ends", () => {
         durationMs: uuidV7Millis(answer.itemId)! - uuidV7Millis(user.itemId)!,
       },
     ]);
-    // Steered into the running turn: the earlier segment is not the end either.
+    // Steered into the running turn: the answer before the steer is not the end either.
     expect(ends(buildTimeline([user, before, steer], { turnActive: true }).rows)).toEqual([]);
   });
 
@@ -486,5 +530,184 @@ describe("buildTimeline turn ends", () => {
       turnActive: false,
     });
     expect(ends(rows)).toEqual([]);
+  });
+});
+
+describe("buildTimeline turn folds", () => {
+  const turnId = makeTurnId();
+  const decision: ResolvedDecision = {
+    kind: "plan",
+    id: "plan-1",
+    outcome: "accept",
+    resolvedAt: "2026-01-01T00:00:00.000Z",
+  };
+
+  /** A settled turn with every kind of row a turn holds, in the order a harness writes them. */
+  const settledTurn = () => {
+    const user = item("user_message", { turnId });
+    const reasoning = item("reasoning", { turnId });
+    const narration = item("assistant_message", { turnId, text: "Reading first." });
+    const read = item("tool_call", {
+      turnId,
+      tool: { name: "read_file", input: { file_path: "src/a.ts" } },
+    });
+    const todo = item("todo", { turnId });
+    const plan = item("plan", { turnId });
+    const change = edit("src/a.ts", "+a", { turnId });
+    const failed = item("command_execution", { turnId, status: "failed" });
+    const error = item("error", { turnId, status: "failed" });
+    const rerun = item("command_execution", { turnId });
+    const answer = item("assistant_message", { turnId, text: "Done." });
+    return {
+      user,
+      answer,
+      items: [user, reasoning, narration, read, todo, plan, change, failed, error, rerun, answer],
+      decisions: [{ ...decision, afterItemId: plan.itemId }],
+    };
+  };
+
+  it("folds a settled turn into one row, keeps what matters in view, answer then card last", () => {
+    const turn = settledTurn();
+    const { rows } = buildTimeline(turn.items, {
+      turnActive: false,
+      decisions: turn.decisions,
+    });
+    expect(labels(rows)).toEqual([
+      "user_message",
+      "turn-fold",
+      "todo",
+      "plan",
+      "decision:plan-1",
+      "error",
+      "assistant_message",
+      "turn-summary",
+    ]);
+    const [fold] = folds(rows);
+    expect(fold.sentence).toBe("Ran 2 commands, edited 1 file, read 1 file");
+    expect(fold.failedCount).toBe(1);
+    expect(fold.durationMs).toBe(
+      uuidV7Millis(turn.answer.itemId)! - uuidV7Millis(turn.user.itemId)!,
+    );
+    const answer = rows.find((row) => row.id === turn.answer.itemId);
+    expect(answer?.kind === "item" && answer.turnEnd?.turnId).toBe(turnId);
+  });
+
+  it("puts the hidden rows back in their order when the fold opens", () => {
+    const turn = settledTurn();
+    const fold = `turn-fold:${turn.user.itemId}`;
+    const { rows } = buildTimeline(turn.items, {
+      turnActive: false,
+      decisions: turn.decisions,
+      isFoldOpen: (rowId) => rowId === fold,
+    });
+    expect(labels(rows)).toEqual([
+      "user_message",
+      "turn-fold",
+      "work-group",
+      "assistant_message",
+      "work-group",
+      "todo",
+      "plan",
+      "decision:plan-1",
+      "work-group",
+      "error",
+      "work-group",
+      "assistant_message",
+      "turn-summary",
+    ]);
+    // every item is on screen once, in the order it was written
+    const shown = rows.flatMap((row) =>
+      row.kind === "item" ? [row.item] : row.kind === "work-group" ? row.items : [],
+    );
+    expect(shown.map((i) => i.itemId)).toEqual(turn.items.map((i) => i.itemId));
+    // another turn's fold being open changes nothing here
+    const other = buildTimeline(turn.items, {
+      turnActive: false,
+      decisions: turn.decisions,
+      isFoldOpen: (rowId) => rowId !== fold && rowId.startsWith("turn-fold:"),
+    });
+    expect(labels(other.rows)).toContain("todo");
+    expect(workGroups(other.rows)).toEqual([]);
+  });
+
+  it("leaves the live turn as it is: every row inline, then the working row", () => {
+    const turn = settledTurn();
+    const { rows } = buildTimeline(turn.items, {
+      turnActive: true,
+      decisions: turn.decisions,
+    });
+    expect(folds(rows)).toEqual([]);
+    expect(summaries(rows)).toEqual([]);
+    expect(labels(rows)).toEqual([
+      ...turn.items.slice(0, 6).map((i) => i.kind),
+      "decision:plan-1",
+      ...turn.items.slice(6).map((i) => i.kind),
+      "working",
+    ]);
+  });
+
+  it("keeps a steered message inside its turn: one fold, one card", () => {
+    const user = item("user_message", { turnId });
+    const steer = item("user_message", { turnId });
+    const items = [
+      user,
+      item("tool_call", { turnId }),
+      steer,
+      edit("src/a.ts", "+a", { turnId }),
+      item("assistant_message", { turnId }),
+    ];
+    const { rows } = buildTimeline(items, { turnActive: false });
+    expect(labels(rows)).toEqual([
+      "user_message",
+      "turn-fold",
+      "user_message",
+      "assistant_message",
+      "turn-summary",
+    ]);
+    expect(rows[2].id).toBe(steer.itemId);
+    expect(folds(rows)[0].id).toBe(`turn-fold:${user.itemId}`);
+
+    // without turn ids the second message opens a turn of its own, by position
+    const untagged = [
+      item("user_message"),
+      item("tool_call"),
+      item("user_message"),
+      item("tool_call"),
+      item("assistant_message"),
+    ];
+    expect(folds(buildTimeline(untagged, { turnActive: false }).rows)).toHaveLength(2);
+  });
+
+  it("folds everything of a turn with no answer and keeps its error in view", () => {
+    const items = [
+      item("user_message"),
+      item("reasoning"),
+      item("command_execution", { status: "failed" }),
+      item("error", { status: "failed" }),
+      item("tool_call"),
+    ];
+    const { rows } = buildTimeline(items, { turnActive: false });
+    expect(labels(rows)).toEqual(["user_message", "turn-fold", "error"]);
+    expect(folds(rows)[0].failedCount).toBe(1);
+    expect(rows.some((row) => row.kind === "item" && row.turnEnd !== undefined)).toBe(false);
+  });
+
+  it("gives a leading run without a user message work groups and no fold", () => {
+    const items = [
+      item("reasoning"),
+      item("tool_call"),
+      item("assistant_message"),
+      item("user_message"),
+      item("tool_call"),
+      item("assistant_message"),
+    ];
+    const { rows } = buildTimeline(items, { turnActive: false });
+    expect(labels(rows)).toEqual([
+      "work-group",
+      "assistant_message",
+      "user_message",
+      "turn-fold",
+      "assistant_message",
+    ]);
   });
 });

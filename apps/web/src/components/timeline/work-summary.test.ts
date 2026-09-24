@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   countFailed,
+  turnFoldLabel,
   withFailures,
   workClauses,
   workGroupLabel,
@@ -138,5 +139,14 @@ describe("workGroupLabel", () => {
     expect(workGroupLabel([item("reasoning")], 2_000)).toBe("Thought for 2s");
     expect(workGroupLabel([item("reasoning")], 0)).toBe("Thought");
     expect(workGroupLabel([item("reasoning")], undefined)).toBe("Thought");
+  });
+});
+
+describe("turnFoldLabel", () => {
+  it("leads with how long the turn worked, then what it did", () => {
+    expect(turnFoldLabel(123_000, "Ran 3 commands")).toBe("Worked for 2m 3s · Ran 3 commands");
+    expect(turnFoldLabel(4_000, undefined)).toBe("Worked for 4s");
+    expect(turnFoldLabel(undefined, "Ran 1 command")).toBe("Worked · Ran 1 command");
+    expect(turnFoldLabel(0, undefined)).toBe("Worked");
   });
 });

@@ -9,6 +9,10 @@
  * the trigger, which is a button. Such a row passes `triggerLabel`: the
  * trigger then holds the icon alone, named by that label, and stretches under
  * the whole line, so a click anywhere but the chip still toggles the row.
+ *
+ * A row that opens other rows rather than a body of its own (a settled turn's
+ * fold, whose rows the list renders below it) passes `opensRows`: it toggles
+ * like any other, with no panel.
  */
 
 import type { ReactNode } from "react";
@@ -44,6 +48,7 @@ export function DisclosureRow({
   status,
   defaultOpen = false,
   triggerLabel,
+  opensRows = false,
   children,
 }: {
   rowId: string;
@@ -54,10 +59,13 @@ export function DisclosureRow({
   defaultOpen?: boolean;
   /** The trigger's name when `label` holds its own controls (see above). */
   triggerLabel?: string;
+  /** The toggle opens rows rendered outside this one, so it has no body. */
+  opensRows?: boolean;
   children?: ReactNode;
 }) {
   const [open, setOpen] = useRowDisclosure(rowId, defaultOpen);
-  const expandable = children !== undefined && children !== null;
+  const hasBody = children !== undefined && children !== null;
+  const expandable = hasBody || opensRows;
 
   if (!expandable) {
     return (
@@ -88,11 +96,11 @@ export function DisclosureRow({
       />
     </span>
   );
-  const content = (
+  const content = hasBody ? (
     <CollapsibleContent keepMounted variant="indented" className="ml-1.5">
       {children}
     </CollapsibleContent>
-  );
+  ) : null;
 
   if (triggerLabel !== undefined) {
     // The label's controls are positioned, so they paint above the trigger's

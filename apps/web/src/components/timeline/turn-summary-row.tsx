@@ -1,12 +1,13 @@
 /**
- * `turn-summary` — the closing line of a settled turn that did work: "Worked
- * for 12s · 3 files +20 −4". When files changed, the row opens onto one line
- * per path with its counts; it lists paths only and never renders a diff, so a
- * long history of turns costs no highlighting work. The diffs themselves live
- * in the work group above and in the Changes pane, which the body links to:
- * "Open in Changes" shows this very turn — the checkpoint it left, or the
- * latest turn when it left none — and each path opens that file in it, scrolled
- * into view (`changesLink`).
+ * `turn-summary` — the closing line of a settled turn that changed files:
+ * "Changed 3 files +20 −4". How long the turn took is the fold row's to say,
+ * above the answer. The row opens onto one line per path with its counts; it
+ * lists paths only and never renders a diff, so a long history of turns costs
+ * no highlighting work. The diffs themselves live in the turn's work groups
+ * and in the Changes pane, which the body links to: "Open in Changes" shows
+ * this very turn — the checkpoint it left, or the latest turn when it left
+ * none — and each path opens that file in it, scrolled into view
+ * (`changesLink`).
  */
 
 import { Button } from "@OpenAde/ui/components/button";
@@ -17,7 +18,7 @@ import { FileChangeKindBadge } from "@/components/timeline/file-change-badge";
 import type { TimelineTurnSummaryRow, TurnSummaryFile } from "@/components/timeline/fold";
 import { DisclosureRow } from "@/components/timeline/row-shell";
 import { useTimelineThreadId } from "@/components/timeline/thread-context";
-import { turnSummaryLabel, turnSummaryLead } from "@/lib/format";
+import { turnSummaryLead } from "@/lib/format";
 import { GitDiff, Stopwatch } from "@honeyicons/react";
 
 function DiffCounts({ added, removed }: { added: number; removed: number }) {
@@ -103,29 +104,20 @@ export function TurnSummaryRow({ summary }: { summary: TimelineTurnSummaryRow })
       rowId={summary.id}
       icon={Stopwatch}
       label={
-        <span title={turnSummaryLabel(summary)}>
+        <span>
           {turnSummaryLead(summary)}
           <DiffCounts added={summary.added} removed={summary.removed} />
         </span>
       }
-      meta={
-        summary.failedCount > 0 ? (
-          <span className="ml-1 shrink-0 type-micro text-destructive">
-            {summary.failedCount} failed
-          </span>
-        ) : null
-      }
     >
-      {summary.files.length > 0 ? (
-        <div className="flex flex-col gap-1">
-          <ul className="flex flex-col">
-            {summary.files.map((file) => (
-              <SummaryFile key={file.path} file={file} onOpen={open} />
-            ))}
-          </ul>
-          {open === null ? null : <OpenChanges onOpen={() => open()} />}
-        </div>
-      ) : undefined}
+      <div className="flex flex-col gap-1">
+        <ul className="flex flex-col">
+          {summary.files.map((file) => (
+            <SummaryFile key={file.path} file={file} onOpen={open} />
+          ))}
+        </ul>
+        {open === null ? null : <OpenChanges onOpen={() => open()} />}
+      </div>
     </DisclosureRow>
   );
 }

@@ -6,10 +6,15 @@
  *
  * - item rows of the kinds that render a `DisclosureRow` (or, for a plan, its
  *   own collapsible), keyed by `itemId`;
- * - `work-group`, `turn-summary` and `decision` rows, keyed by their row id;
+ * - `turn-fold`, `work-group`, `turn-summary` and `decision` rows, keyed by
+ *   their row id;
  * - the items folded inside a work group and the children nested under a task
  *   (`childrenByParent`, at any depth), since those rows render the same
  *   disclosures inside their parent.
+ *
+ * A closed turn fold leaves its rows out of the projection, so the caller
+ * hands this the projection built with every fold open (`ALL_FOLDS_OPEN`):
+ * expanding all then opens the folds and the work groups inside them at once.
  *
  * Messages, todos, skills, errors and the working row have nothing to fold.
  */
@@ -60,6 +65,7 @@ export const disclosureIds = (projection: TimelineProjection): ReadonlyArray<str
         add(row.id);
         row.items.forEach(visit);
         break;
+      case "turn-fold":
       case "turn-summary":
       case "decision":
         add(row.id);

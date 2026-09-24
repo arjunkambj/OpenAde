@@ -247,3 +247,15 @@ export const workGroupLabel = (
     ? `Thought for ${formatDurationMs(durationMs)}`
     : "Thought";
 };
+
+/** A settled turn's fold row: "Worked for 2m 3s", then what it did when it did anything. */
+export const turnFoldLabel = (
+  durationMs: number | undefined,
+  sentence: string | undefined,
+): string => {
+  const lead =
+    durationMs !== undefined && durationMs > 0
+      ? `Worked for ${formatDurationMs(durationMs)}`
+      : "Worked";
+  return sentence === undefined ? lead : `${lead} · ${sentence}`;
+};

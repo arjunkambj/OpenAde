@@ -1,7 +1,7 @@
 /**
- * `formatDurationMs(4_250)` → `"4.3s"`. A reasoning group's "Thought for", the
- * turn summary and the final answer's footer use this: sub-second precision
- * matters, minute-plus durations read as `1m 5s`.
+ * `formatDurationMs(4_250)` → `"4.3s"`. The turn fold's "Worked for", a
+ * reasoning group's "Thought for" and the final answer's footer use this:
+ * sub-second precision matters, minute-plus durations read as `1m 5s`.
  */
 export const formatDurationMs = (ms: number): string => {
   if (ms < 1_000) {
@@ -15,46 +15,16 @@ export const formatDurationMs = (ms: number): string => {
   return `${minutes}m ${seconds}s`;
 };
 
-/** A duration worth printing: zero reads as a broken clock, so it counts as none. */
-const measured = (ms: number | undefined): string | undefined =>
-  ms !== undefined && ms > 0 ? formatDurationMs(ms) : undefined;
-
 const plural = (count: number, one: string, many: string): string =>
   `${count} ${count === 1 ? one : many}`;
 
 /**
- * The turn summary up to its diff counts: "Worked for 12s · 3 files", "Worked
- * for 12s" when no file changed, "Worked" when the ids carry no timing. The
- * row renders the counts itself so it can colour them.
+ * The turn summary card's title up to its diff counts: "Changed 3 files". The
+ * card renders the counts itself so it can colour them. How long the turn
+ * took is the fold row's to say, above the answer.
  */
-export const turnSummaryLead = (summary: {
-  readonly durationMs: number | undefined;
-  readonly files: ReadonlyArray<unknown>;
-}): string => {
-  const duration = measured(summary.durationMs);
-  const lead = duration === undefined ? "Worked" : `Worked for ${duration}`;
-  return summary.files.length === 0
-    ? lead
-    : `${lead} · ${plural(summary.files.length, "file", "files")}`;
-};
-
-/** "+20 −4", with a real minus sign; a zero side is left out. */
-const diffCountLabel = (counts: { readonly added: number; readonly removed: number }): string =>
-  [counts.added > 0 ? `+${counts.added}` : "", counts.removed > 0 ? `−${counts.removed}` : ""]
-    .filter((part) => part !== "")
-    .join(" ");
-
-/** The whole turn summary as one string: "Worked for 12s · 3 files +20 −4". */
-export const turnSummaryLabel = (summary: {
-  readonly durationMs: number | undefined;
-  readonly files: ReadonlyArray<unknown>;
-  readonly added: number;
-  readonly removed: number;
-}): string => {
-  const counts = diffCountLabel(summary);
-  const lead = turnSummaryLead(summary);
-  return counts === "" ? lead : `${lead} ${counts}`;
-};
+export const turnSummaryLead = (summary: { readonly files: ReadonlyArray<unknown> }): string =>
+  `Changed ${plural(summary.files.length, "file", "files")}`;
 
 const pad2 = (value: number): string => value.toString().padStart(2, "0");
 

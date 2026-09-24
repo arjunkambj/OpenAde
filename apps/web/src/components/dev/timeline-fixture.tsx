@@ -32,6 +32,8 @@
  *
  * A file chip's request opens the real Files pane beside the timeline, over
  * the fixture's `files.read`, the way the thread view opens its dock on Files.
+ * The page publishes `threadOpen` as the thread view does, so the timeline's
+ * own keys — jump to latest, collapse all, expand all — work here too.
  *  - The theme toggle exercises both token sets.
  */
 
@@ -62,7 +64,7 @@ import { ClientRuntimeProvider, useClientRuntime } from "@/lib/client-runtime";
 import { makeFixtureClient, type FixtureClient } from "@/lib/fixture-client";
 import { cloneDecisions, cloneItems } from "@/lib/fixture-clone";
 import { turnOrder } from "@/components/timeline/turn-checkpoints";
-import { KeybindingsProvider } from "@/lib/shortcuts";
+import { KeybindingsProvider, useKeybindingFlag } from "@/lib/shortcuts";
 import { type FileRevealTarget, useFileRevealRequests } from "@/state/file-reveal";
 import { Close } from "@honeyicons/react";
 
@@ -132,6 +134,9 @@ function TimelineFixturePage({ client }: { readonly client: FixtureClient }) {
     };
   }, [client]);
   const running = snapshot !== null && snapshot.currentTurnId !== null;
+  // The timeline's keys (jump to latest, collapse and expand all) answer while
+  // a thread is open; this page stands in for the thread view that says so.
+  useKeybindingFlag("threadOpen", true);
 
   const [filesOpen, setFilesOpen] = React.useState(false);
   const revealFile = useRevealFile(client.threadId);

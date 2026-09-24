@@ -561,7 +561,9 @@ into it: the contracts' every-kind snapshot, or `buildRichTimelineSnapshot`
 turns and one running turn whose ids are minted on a moving clock, so
 durations and checkpoints read as they would on a real thread. From there the
 page can start, stream into, settle and send turns, repeat the thread ×10 or
-×50, and narrow the column. The fixture's checkpoints behave like the
+×50, and narrow the column; it publishes `threadOpen` as the thread view
+does, so the timeline's collapse-all and expand-all keys answer there. The
+fixture's checkpoints behave like the
 server's without git: a settled turn records one, `checkpoints.list` answers
 the document's list, and an accepted restore settles a moment later; the page
 header names the last command it dispatched and its receipt.

@@ -9,7 +9,7 @@
  * - Copy copies the text exactly as typed, markdown and all — for an answer,
  *   its markdown source.
  * - The turn's duration is the fold's (`TurnEnd`): its first item to its
- *   last, the span the turn summary reports. No model is named: the thread's
+ *   last, the span the turn's fold row reports. No model is named: the thread's
  *   settings say which model runs now, not which one ran that turn.
  * - Restore to here puts the workspace back to how it was before the message
  *   was sent (`RestoreBeforeTurn`): the checkpoint of the turn before this

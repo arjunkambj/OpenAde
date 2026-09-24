@@ -28,7 +28,7 @@ export const rememberedAtom = <A>(initial: A): Atom.Writable<A> =>
   Atom.keepAlive(Atom.make<A>(initial));
 
 /** Per-row disclosure overrides: `itemId -> open`. Absent = the row's default. */
-const rowDisclosureAtom = Atom.make<Readonly<Record<string, boolean>>>({});
+export const rowDisclosureAtom = Atom.make<Readonly<Record<string, boolean>>>({});
 
 /**
  * `[open, setOpen]` for one disclosure, where `defaultOpen` covers rows that
