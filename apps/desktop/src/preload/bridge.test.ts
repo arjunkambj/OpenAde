@@ -14,6 +14,7 @@ import { POINTER_CHANNEL } from "../main/browser/agentPointer";
 import { CHORDS_CHANNEL, COMMAND_CHANNEL } from "../main/browser/guestChords";
 import {
   CAPTURE_CHANNEL,
+  CLEAR_ALL_CHANNEL,
   CLEAR_THREAD_CHANNEL,
   NO_TAB_HOST,
   TAB_ANSWER_CHANNEL,
@@ -273,5 +274,13 @@ describe("makeOpenAdeBridge", () => {
     const pane = makeOpenAdeBridge(fake.ipc).browserPane;
     await expect(pane.capture(12)).resolves.toBe(png);
     expect(fake.invokes).toEqual([{ channel: CAPTURE_CHANNEL, args: [12] }]);
+  });
+
+  it("asks main to clear every thread's browsing data", async () => {
+    const fake = fakeIpc();
+    fake.answer(CLEAR_ALL_CHANNEL, 3);
+    const pane = makeOpenAdeBridge(fake.ipc).browserPane;
+    await expect(pane.clearAll()).resolves.toBe(3);
+    expect(fake.invokes).toEqual([{ channel: CLEAR_ALL_CHANNEL, args: [] }]);
   });
 });

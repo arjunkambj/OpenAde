@@ -18,7 +18,7 @@
  * channel, asks for a deleted thread's partition to be cleared
  * (`./browser/clearThread.ts`), and asks for a PNG of a pane tab.
  */
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 import { app, BrowserWindow, dialog, ipcMain, session, shell, webContents } from "electron";
@@ -26,7 +26,7 @@ import type { WebContents } from "electron";
 
 import type { ServerSupervisor } from "../backend/ServerSupervisor";
 
-import { makeClearThread } from "./browser/clearThread";
+import { makeClearAll, makeClearThread } from "./browser/clearThread";
 import {
   CHORDS_CHANNEL,
   COMMAND_CHANNEL,
@@ -39,6 +39,7 @@ import { makeGuestInputRelay } from "./browser/guestInput";
 import { popupUrl, type GuestRegistry } from "./browser/guests";
 import {
   CAPTURE_CHANNEL,
+  CLEAR_ALL_CHANNEL,
   CLEAR_THREAD_CHANNEL,
   TAB_ANSWER_CHANNEL,
   type TabsChannel,
@@ -81,13 +82,22 @@ export function registerIpc(supervisor: ServerSupervisor, pane: PaneGuests) {
     pane.tabs.answer(event.sender.id, payload);
   });
   // Electron keeps `persist:<name>` under `<sessionData>/Partitions/<name>`.
-  const clearThread = makeClearThread({
-    partitionExists: (threadId) =>
-      existsSync(join(app.getPath("sessionData"), "Partitions", `thread-${threadId}`)),
-    fromPartition: (partition) => session.fromPartition(partition),
-  });
+  const partitions = () => join(app.getPath("sessionData"), "Partitions");
+  const partitionOptions = {
+    partitionExists: (threadId: string) => existsSync(join(partitions(), `thread-${threadId}`)),
+    fromPartition: (partition: string) => session.fromPartition(partition),
+  };
+  const clearThread = makeClearThread(partitionOptions);
   ipcMain.handle(CLEAR_THREAD_CHANNEL, async (_event, threadId: unknown) => {
     await clearThread(threadId);
+  });
+  const clearAll = makeClearAll({
+    ...partitionOptions,
+    listPartitions: () => (existsSync(partitions()) ? readdirSync(partitions()) : []),
+  });
+  ipcMain.handle(CLEAR_ALL_CHANNEL, async (event) => {
+    if (event.sender.getType() !== "window") throw new Error("not a window");
+    return clearAll();
   });
   // Only the window may ask, and only for a pane guest: never the window itself.
   ipcMain.handle(CAPTURE_CHANNEL, async (event, wcId: unknown) => {

@@ -18,6 +18,7 @@ import {
 } from "../main/browser/guestChords";
 import {
   CAPTURE_CHANNEL,
+  CLEAR_ALL_CHANNEL,
   CLEAR_THREAD_CHANNEL,
   NO_TAB_HOST,
   TAB_ANSWER_CHANNEL,
@@ -164,6 +165,8 @@ export const makeOpenAdeBridge = (ipc: PreloadIpc) => {
       clearThread: async (threadId: string): Promise<void> => {
         await ipc.invoke(CLEAR_THREAD_CHANNEL, threadId);
       },
+      /** Wipes every thread's browsing data; resolves how many were cleared. */
+      clearAll: (): Promise<number> => ipc.invoke(CLEAR_ALL_CHANNEL) as Promise<number>,
       setChords: async (chords: ReadonlyArray<GuestChord>): Promise<void> => {
         await ipc.invoke(CHORDS_CHANNEL, chords);
       },

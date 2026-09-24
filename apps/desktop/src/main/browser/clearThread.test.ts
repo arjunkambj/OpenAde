@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { makeClearThread } from "./clearThread";
+import { makeClearAll, makeClearThread, threadsOnDisk } from "./clearThread";
 
 const fakePartitions = (onDisk: ReadonlyArray<string>) => {
   const opened: Array<string> = [];
@@ -59,5 +59,31 @@ describe("makeClearThread", () => {
     const partitions = fakePartitions([]);
     await expect(partitions.clear(THREAD)).resolves.toBe(false);
     expect(partitions.opened).toEqual([]);
+  });
+});
+
+describe("makeClearAll", () => {
+  const OTHER = "019a1b2c-3d4e-7f00-8a9b-0c1d2e3f4a5c";
+
+  it("clears every thread partition on disk and nothing else", async () => {
+    const cleared: Array<string> = [];
+    const clearAll = makeClearAll({
+      listPartitions: () => [`thread-${THREAD}`, `thread-${OTHER}`, "Default", "thread-../x"],
+      partitionExists: () => true,
+      fromPartition: (partition) => ({
+        clearStorageData: async () => {
+          cleared.push(partition);
+        },
+        clearCache: async () => undefined,
+      }),
+    });
+    await expect(clearAll()).resolves.toBe(2);
+    expect(cleared).toEqual([`persist:thread-${THREAD}`, `persist:thread-${OTHER}`]);
+  });
+
+  it("reads only thread directories with a thread id", () => {
+    expect(threadsOnDisk([`thread-${THREAD}`, "thread-", "thread-../x", "other"])).toEqual([
+      THREAD,
+    ]);
   });
 });

@@ -9,6 +9,10 @@
  * not a pane's. A thread that never had a partition on disk is left alone
  * rather than created just to be cleared.
  *
+ * `makeClearAll` is the Browser settings page's "Clear browsing data": every
+ * thread partition on disk, by the directory names Electron gave them, each
+ * cleared the same way.
+ *
  * Electron-free: `../ipc.ts` passes in how to find and open the partition.
  */
 import { BRIDGE_THREAD_ID } from "@OpenAde/shared/browserBridge";
@@ -38,4 +42,24 @@ export const makeClearThread =
     await session.clearStorageData();
     await session.clearCache();
     return true;
+  };
+
+/** The thread ids whose partition directories are listed, and nothing else. */
+export const threadsOnDisk = (names: ReadonlyArray<string>): ReadonlyArray<string> =>
+  names.flatMap((name) => {
+    if (!name.startsWith("thread-")) return [];
+    const threadId = name.slice("thread-".length);
+    return BRIDGE_THREAD_ID.test(threadId) ? [threadId] : [];
+  });
+
+/** Resolves how many thread partitions were cleared. */
+export const makeClearAll =
+  (options: ClearThreadOptions & { readonly listPartitions: () => ReadonlyArray<string> }) =>
+  async (): Promise<number> => {
+    const clear = makeClearThread(options);
+    let cleared = 0;
+    for (const threadId of threadsOnDisk(options.listPartitions())) {
+      if (await clear(threadId)) cleared += 1;
+    }
+    return cleared;
   };

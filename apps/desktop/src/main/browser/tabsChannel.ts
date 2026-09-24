@@ -29,6 +29,8 @@ export const CLEAR_THREAD_CHANNEL = "openade:browser-clear-thread";
  * id — the pane's "screenshot to chat". Only a pane guest is captured.
  */
 export const CAPTURE_CHANNEL = "openade:browser-capture";
+/** The window asks main to clear every thread's partition (Browser settings). */
+export const CLEAR_ALL_CHANNEL = "openade:browser-clear-all";
 
 /** What a window with no tab host answers; the preload sends it on the renderer's behalf. */
 export const NO_TAB_HOST = "the OpenAde window cannot open browser tabs";
