@@ -14,6 +14,7 @@ import {
   OPEN_LINES_LIMIT,
   patchHash,
   startsOpen,
+  stepFile,
   viewedCount,
   withOpen,
   withViewed,
@@ -98,5 +99,35 @@ describe("changes review", () => {
       { path: "c.ts", hash: "h4" },
     ];
     expect(viewedCount(review, files)).toBe(1);
+  });
+
+  describe("next and previous file", () => {
+    // Five 100px files, the view 250px tall.
+    const at = (scrolled: number) => [0, 100, 200, 300, 400].map((top) => top - scrolled);
+
+    it("starts from the top: next opens the first file, previous has nowhere to go", () => {
+      expect(stepFile(at(0), 250, -1, 1)).toBe(0);
+      expect(stepFile(at(0), 250, -1, -1)).toBeNull();
+    });
+
+    it("steps from the file it last moved to while that file is on screen", () => {
+      expect(stepFile(at(100), 250, 1, 1)).toBe(2);
+      expect(stepFile(at(100), 250, 1, -1)).toBe(0);
+      // Scrolled to the bottom, the last files cannot reach the top edge, and
+      // the keys still walk through them one by one.
+      expect(stepFile(at(250), 250, 3, 1)).toBe(4);
+      expect(stepFile(at(250), 250, 4, 1)).toBeNull();
+    });
+
+    it("goes by what shows once the user has scrolled the cursor away", () => {
+      // Reading the middle of file 2, with file 0 the cursor.
+      expect(stepFile(at(250), 250, 0, 1)).toBe(3);
+      // Previous goes back to the start of the file being read first.
+      expect(stepFile(at(250), 250, 0, -1)).toBe(2);
+    });
+
+    it("has nothing to step through in an empty list", () => {
+      expect(stepFile([], 250, -1, 1)).toBeNull();
+    });
   });
 });

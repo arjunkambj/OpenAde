@@ -95,6 +95,12 @@ describe("DEFAULT_KEYBINDINGS", () => {
       expect(row("dock.files")).toBe("Mod+P|threadOpen");
       expect(row("font.increase")).toBe("Mod+Alt+=|");
       expect(row("timeline.jumpToLatest")).toBe("Mod+Shift+J|threadOpen");
+      expect(row("changes.nextFile")).toBe(
+        "Alt+ArrowDown|changesOpen && !inputFocus && !dialogOpen",
+      );
+      expect(row("changes.previousFile")).toBe(
+        "Alt+ArrowUp|changesOpen && !inputFocus && !dialogOpen",
+      );
       expect(row("terminal.toggle")).toBe("Mod+J|");
       expect(row("git.commit")).toBe("Mod+Alt+C|");
       expect(row("git.push")).toBe("Mod+Alt+P|");

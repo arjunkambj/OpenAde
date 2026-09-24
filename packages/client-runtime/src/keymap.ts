@@ -8,6 +8,7 @@
  * is `./keybindings`; this module builds on it.
  */
 
+import { CHANGES_PANE_KEYS } from "@OpenAde/contracts/keybindings";
 import type { Keybinding } from "@OpenAde/contracts/settings";
 
 import {
@@ -53,6 +54,7 @@ export const KEYBINDING_CONTEXT_KEYS: ReadonlyArray<KeybindingContextKey> = [
   { name: "isMac", description: "The app is running on macOS.", kind: "builtin" },
   { name: "threadOpen", description: "A thread is on screen.", kind: "published" },
   { name: "dockOpen", description: "The right dock is open.", kind: "published" },
+  { name: "changesOpen", description: "The dock is showing the Changes pane.", kind: "published" },
   {
     name: "turnRunning",
     description: "The open thread has a turn running.",
@@ -383,14 +385,20 @@ export const SYSTEM_RESERVED_CHORDS: Readonly<Record<ModKey, ReadonlyArray<Reser
 };
 
 /**
- * Shell chords the app takes over in one context, where it answers the key
- * before the shell can: `Mod+R` in the browser pane reloads the page, not the
- * window. In the window the listener's `preventDefault` keeps the key from the
- * default menu; inside a page the desktop shell swallows it
+ * Chords the app takes over in one context, where it answers the key before
+ * the shell or the text system can: `Mod+R` in the browser pane reloads the
+ * page, not the window. In the window the listener's `preventDefault` keeps the
+ * key from the default menu; inside a page the desktop shell swallows it
  * (`apps/desktop/src/main/browser/guestChords.ts`).
+ *
+ * `Alt+ArrowUp`/`Down` move the caret by paragraph, which only means anything
+ * in a text field; the Changes pane steps through its files with them under a
+ * clause that rules text fields and menus out (`CHANGES_PANE_KEYS`).
  */
 const TAKEN_OVER_CHORDS: ReadonlyArray<{ readonly shortcut: string; readonly when: string }> = [
   { shortcut: "Mod+R", when: "browserFocus" },
+  { shortcut: "Alt+ArrowDown", when: CHANGES_PANE_KEYS },
+  { shortcut: "Alt+ArrowUp", when: CHANGES_PANE_KEYS },
 ];
 
 /**

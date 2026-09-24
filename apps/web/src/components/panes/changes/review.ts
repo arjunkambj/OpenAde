@@ -101,3 +101,35 @@ export const viewedCount = (
   review: ChangesReview,
   files: ReadonlyArray<{ readonly path: string; readonly hash: string }>,
 ): number => files.filter((file) => isViewed(review, file.path, file.hash)).length;
+
+/** How far off the top edge a header may sit and still count as parked there, in px. */
+const EDGE = 2;
+
+/**
+ * The file `changes.nextFile` (`direction` 1) or `previousFile` (-1) moves to,
+ * as an index, or `null` past either end.
+ *
+ * `tops` is each file's top edge against the list's visible top, in px, and
+ * `viewHeight` how much of the list shows. `cursor` is the file the keys last
+ * moved to (or the one last clicked), `-1` for none. While that file's header
+ * is still on screen the keys step from it — at the end of the list the last
+ * files cannot scroll to the top, and stepping by position there would never
+ * get past the first of them. Once the user has scrolled it away, the keys go
+ * by what shows: the next header at or below the top edge, or the last one
+ * above it, which is the start of the file being read.
+ */
+export const stepFile = (
+  tops: ReadonlyArray<number>,
+  viewHeight: number,
+  cursor: number,
+  direction: 1 | -1,
+): number | null => {
+  const cursorTop = cursor < 0 ? undefined : tops[cursor];
+  const parked = cursorTop !== undefined && cursorTop >= -EDGE && cursorTop < viewHeight;
+  const target = parked
+    ? cursor + direction
+    : direction === 1
+      ? tops.findIndex((top) => top >= -EDGE)
+      : tops.findLastIndex((top) => top < -EDGE);
+  return target >= 0 && target < tops.length ? target : null;
+};

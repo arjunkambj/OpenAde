@@ -12,43 +12,22 @@
  * `InlineDiff`, so highlighting stays on the shared worker pool and the dock
  * never blocks the main thread.
  *
- * One line above the files sums the comparison up — how many files, how many
- * lines, how many the user has viewed — with the toggle that opens or closes
- * them all at once.
+ * Once the diff answers, `ReviewList` renders the files with the thread's
+ * review over them.
  */
 
 import { useAtomValue } from "@effect/atom-react";
 import { isRepoless, type GitDiffRange, type GitQuery } from "@OpenAde/client-runtime/gitAtoms";
-import type { GitDiff, GitDiffFile, GitStatus } from "@OpenAde/contracts/rpc";
+import type { GitDiff, GitStatus } from "@OpenAde/contracts/rpc";
 import { Button } from "@OpenAde/ui/components/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import { AsyncResult } from "effect/unstable/reactivity";
-import * as React from "react";
 
 import { PaneMessage } from "@/components/panes/files/pane-message";
-import { useChangesReview, type DiffStyle } from "@/state/ui";
+import type { DiffStyle } from "@/state/ui";
 
-import { FileSection, LineCounts } from "./file-section";
 import { useGitAtoms } from "./git-atoms";
-import {
-  everyFileOpen,
-  isOpen,
-  isViewed,
-  patchHash,
-  startsOpen,
-  viewedCount,
-  withOpen,
-  withViewed,
-} from "./review";
-import {
-  AlertTriangle,
-  GitDiff as GitDiffIcon,
-  Repeat,
-  Spinner,
-  UnfoldLess,
-  UnfoldMore,
-  WifiOff,
-} from "@honeyicons/react";
+import { ReviewList } from "./review-list";
+import { AlertTriangle, GitDiff as GitDiffIcon, Repeat, Spinner, WifiOff } from "@honeyicons/react";
 
 /**
  * What the pane renders from one git atom.
@@ -122,118 +101,6 @@ export function ChangesList({
     return <PaneMessage icon={GitDiffIcon} text="No changes in this comparison." />;
   }
   return <ReviewList threadId={threadId} files={diff.value.files} diffStyle={diffStyle} />;
-}
-
-/**
- * The line over the files: `3 files · +20 −4 · 1 viewed`, and the toggle that
- * opens every file or closes them all.
- */
-function ReviewSummary({
-  files,
-  viewed,
-  allOpen,
-  onAllOpenChange,
-}: {
-  files: ReadonlyArray<GitDiffFile>;
-  viewed: number;
-  allOpen: boolean;
-  onAllOpenChange: (open: boolean) => void;
-}) {
-  let additions = 0;
-  let deletions = 0;
-  for (const file of files) {
-    additions += file.additions;
-    deletions += file.deletions;
-  }
-  const label = allOpen ? "Collapse all files" : "Expand all files";
-  return (
-    <div className="flex h-7 shrink-0 items-center gap-1.5 border-t border-border pr-2 pl-3 type-micro text-muted-foreground">
-      <span className="shrink-0">
-        {files.length} {files.length === 1 ? "file" : "files"}
-      </span>
-      {additions > 0 || deletions > 0 ? (
-        <>
-          <span aria-hidden>·</span>
-          <LineCounts additions={additions} deletions={deletions} />
-        </>
-      ) : null}
-      <span aria-hidden>·</span>
-      <span className="shrink-0">{viewed} viewed</span>
-      <div className="flex-1" />
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              aria-label={label}
-              disabled={!allOpen && files.every((file) => file.diff === "")}
-              onClick={() => onAllOpenChange(!allOpen)}
-            />
-          }
-        >
-          {allOpen ? <UnfoldLess variant="bold" /> : <UnfoldMore variant="bold" />}
-        </TooltipTrigger>
-        <TooltipContent>{label}</TooltipContent>
-      </Tooltip>
-    </div>
-  );
-}
-
-/**
- * A comparison's files once its diff has answered, with the thread's review
- * over them. The summary stays put and the files scroll under it.
- */
-function ReviewList({
-  threadId,
-  files,
-  diffStyle,
-}: {
-  threadId: string;
-  files: ReadonlyArray<GitDiffFile>;
-  diffStyle: DiffStyle;
-}) {
-  const [review, updateReview] = useChangesReview(threadId);
-  const byDefault = startsOpen(files);
-  // Hashed once per answer from git, not per render: a patch can be megabytes.
-  const hashed = React.useMemo(
-    () => files.map((file) => ({ file, path: file.path, hash: patchHash(file.diff) })),
-    [files],
-  );
-  const setOpen = (paths: ReadonlyArray<string>, open: boolean) =>
-    updateReview((current) => withOpen(current, paths, open));
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <ReviewSummary
-        files={files}
-        viewed={viewedCount(review, hashed)}
-        allOpen={everyFileOpen(review, files, byDefault)}
-        onAllOpenChange={(open) =>
-          setOpen(
-            files.filter((file) => file.diff !== "").map((file) => file.path),
-            open,
-          )
-        }
-      />
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto border-t border-border">
-        {hashed.map(({ file, hash }) => (
-          <FileSection
-            key={file.path}
-            threadId={threadId}
-            file={file}
-            open={isOpen(review, file.path, byDefault)}
-            onOpenChange={(open) => setOpen([file.path], open)}
-            viewed={isViewed(review, file.path, hash)}
-            onViewedChange={(viewed) =>
-              updateReview((current) => withViewed(current, file.path, viewed ? hash : null))
-            }
-            diffStyle={diffStyle}
-          />
-        ))}
-      </div>
-    </div>
-  );
 }
 
 export function NotARepository() {

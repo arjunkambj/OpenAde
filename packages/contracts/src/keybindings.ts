@@ -55,6 +55,16 @@ const THREAD = "threadOpen";
 const OUTSIDE_BROWSER = "!browserFocus";
 
 /**
+ * The Changes pane's file keys: live only while the pane is the dock's tab,
+ * and never in a text field or under a menu — `Alt+ArrowUp`/`Down` move the
+ * caret there, and a menu owns its arrows. Outside both, the chord means
+ * nothing to the system, which is why the reserved-chord check lets the pane
+ * take it over under exactly this clause (`TAKEN_OVER_CHORDS` in
+ * `@OpenAde/client-runtime/keymap`).
+ */
+export const CHANGES_PANE_KEYS = "changesOpen && !inputFocus && !dialogOpen";
+
+/**
  * The server-owned defaults. The keybindings page shows these as the baseline a
  * user's overrides are diffed against, so the list is the contract, not a
  * renderer constant. A row added here reaches every install, because the
@@ -120,6 +130,9 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<Keybinding> = [
   { command: "timeline.jumpToLatest", shortcut: "Mod+Shift+J", when: THREAD },
   { command: "timeline.collapseAll", shortcut: "Mod+Alt+[", when: THREAD },
   { command: "timeline.expandAll", shortcut: "Mod+Alt+]", when: THREAD },
+  // Changes
+  { command: "changes.nextFile", shortcut: "Alt+ArrowDown", when: CHANGES_PANE_KEYS },
+  { command: "changes.previousFile", shortcut: "Alt+ArrowUp", when: CHANGES_PANE_KEYS },
   // Git, answered by the thread header while a thread is open
   { command: "git.commit", shortcut: "Mod+Alt+C" },
   { command: "git.push", shortcut: "Mod+Alt+P" },

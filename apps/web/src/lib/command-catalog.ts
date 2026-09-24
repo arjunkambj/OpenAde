@@ -180,6 +180,10 @@ export const COMMAND_CATALOG: ReadonlyArray<CatalogCommand> = [
   command("Timeline", "timeline.collapseAll", "Collapse all tool calls", UnfoldLess),
   command("Timeline", "timeline.expandAll", "Expand all tool calls", UnfoldMore),
 
+  // Changes — answered while the Changes pane lists files.
+  command("View", "changes.nextFile", "Next changed file", ArrowDown),
+  command("View", "changes.previousFile", "Previous changed file", ArrowUp),
+
   // Git
   command("Git", "git.commit", "Commit", GitCommit),
   command("Git", "git.push", "Commit & push", CloudUpload, {

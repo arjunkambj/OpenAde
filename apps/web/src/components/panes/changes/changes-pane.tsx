@@ -30,6 +30,7 @@ import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
 import type { GitStatus } from "@OpenAde/contracts/rpc";
 
 import { PaneMessage } from "@/components/panes/files/pane-message";
+import { useKeybindingFlag } from "@/lib/shortcuts";
 import { turnInFlight } from "@/lib/turn";
 import { useConnectionState } from "@/state/hooks";
 import { useChangesScope, useDiffStyle } from "@/state/ui";
@@ -58,6 +59,9 @@ export function ChangesPane({ snapshot }: { snapshot: ThreadDetailView }) {
   const checkpoints = snapshot.checkpoints;
   const [changesScope, setChangesScope] = useChangesScope();
   const [diffStyle, setDiffStyle] = useDiffStyle();
+  // Mounted only while the dock shows this tab, so the file keys
+  // (`changes.nextFile` / `previousFile`) are live exactly as long.
+  useKeybindingFlag("changesOpen", true);
 
   // `null` follows the latest turn, so a finished turn takes the pane with it.
   const [turnChoice, setTurnChoice] = React.useState<string | null>(null);

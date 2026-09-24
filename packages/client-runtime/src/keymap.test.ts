@@ -205,6 +205,12 @@ describe("reserved chords", () => {
     expect(reservedChordReason("Mod+K", "meta")).toBeNull();
     expect(reservedChordReason("Mod+R", "meta", "browserFocus")).toBeNull();
     expect(reservedChordReason("Mod+R", "meta", "threadOpen")).toMatch(/reload/i);
+    // The Changes pane's file keys, only under the clause that keeps them out
+    // of text fields; anywhere else the chord still moves the caret.
+    const changes = "changesOpen && !inputFocus && !dialogOpen";
+    expect(reservedChordReason("Alt+ArrowDown", "meta", changes)).toBeNull();
+    expect(reservedChordReason("Alt+ArrowUp", "ctrl", changes)).toBeNull();
+    expect(reservedChordReason("Alt+ArrowDown", "meta", "changesOpen")).toMatch(/word/i);
     expect(reservedChordReason("Mod+", "meta")).toBeNull();
   });
 

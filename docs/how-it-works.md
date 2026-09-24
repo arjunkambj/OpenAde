@@ -2417,7 +2417,7 @@ The context keys a clause may name are listed, with what each means and who
 sets it, in `KEYBINDING_CONTEXT_KEYS` (`packages/client-runtime/src/keymap.ts`).
 The listener computes `inputFocus`, `composerFocus`, `terminalFocus`,
 `browserFocus`, `dialogOpen` and `isMac` from the keypress; components publish
-`threadOpen`, `dockOpen`, `turnRunning` (`threadRunning` is an alias),
+`threadOpen`, `dockOpen`, `changesOpen`, `turnRunning` (`threadRunning` is an alias),
 `approvalPending`, `questionPending` and `planPending`. `CONTEXT_AXIOMS`
 records what always holds between them: `composerFocus` and `terminalFocus`
 each imply `inputFocus`; focus is in at most one of the composer, the terminal
@@ -2441,8 +2441,10 @@ operating system, the text system or the Electron default menu already owns —
 quit, close, hide, reload, devtools, zoom, the editing and text-navigation
 chords, and on macOS the Cocoa `Ctrl+letter` editing keys — and
 `reservedChordReason` looks one up. Given a row's clause, it lets through the
-one chord the app takes over on purpose: `Mod+R` under `browserFocus` reloads
-the pane's page, not the window.
+chords the app takes over on purpose: `Mod+R` under `browserFocus` reloads
+the pane's page, not the window, and `Alt+ArrowUp`/`Down` — caret moves that
+mean nothing outside a text field — step through the Changes pane's files
+under `changesOpen && !inputFocus && !dialogOpen` (`CHANGES_PANE_KEYS`).
 
 The context for each press is built by `apps/web/src/lib/keybinding-context.ts`:
 `focusSnapshot` reads whether the focused element is a text field, its closest
@@ -2460,6 +2462,7 @@ built-in key. Who publishes the rest:
 | key                                                 | published by                                    |
 | --------------------------------------------------- | ----------------------------------------------- |
 | `threadOpen`, `dockOpen`                            | `ThreadView`, while mounted / while the dock is |
+| `changesOpen`                                       | `ChangesPane`, while the dock shows it          |
 | `turnRunning`                                       | `Composer`                                      |
 | `approvalPending`, `questionPending`, `planPending` | `PendingCard`, for exactly the card it shows    |
 
