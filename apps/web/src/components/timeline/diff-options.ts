@@ -9,7 +9,7 @@ import type { FileDiffOptions, FileOptions } from "@pierre/diffs/react";
 
 import type { DiffStyle } from "@/state/ui";
 
-import { HIGHLIGHT_MAX_CHARS } from "./code-fence";
+import { HIGHLIGHT_MAX_LINES } from "./code-fence";
 
 export const DIFF_THEMES = { light: "pierre-light", dark: "pierre-dark" } as const;
 
@@ -27,7 +27,9 @@ export const inlineDiffOptions = (
 /**
  * A markdown code block's options: the diff themes, no header or gutter (the
  * block draws its own header), wrapping when the reader asked for it, and a
- * tokenize cap matching the one past which the block renders plain anyway.
+ * tokenize cap matching the line count past which the block renders plain
+ * anyway. The library reads `tokenizeMaxLength` as a number of lines, not of
+ * characters; the character cap is `highlightable`'s alone.
  */
 export const codeFileOptions = (
   themeType: "light" | "dark",
@@ -38,5 +40,5 @@ export const codeFileOptions = (
   disableFileHeader: true,
   disableLineNumbers: true,
   overflow: wrap ? "wrap" : "scroll",
-  tokenizeMaxLength: HIGHLIGHT_MAX_CHARS,
+  tokenizeMaxLength: HIGHLIGHT_MAX_LINES,
 });

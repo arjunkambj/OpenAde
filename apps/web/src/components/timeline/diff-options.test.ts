@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { HIGHLIGHT_MAX_CHARS } from "./code-fence";
+import { HIGHLIGHT_MAX_LINES } from "./code-fence";
 import { codeFileOptions, inlineDiffOptions } from "./diff-options";
 
 describe("inlineDiffOptions", () => {
@@ -23,7 +23,8 @@ describe("codeFileOptions", () => {
     expect(options.themeType).toBe("dark");
     expect(options.disableFileHeader).toBe(true);
     expect(options.disableLineNumbers).toBe(true);
-    expect(options.tokenizeMaxLength).toBe(HIGHLIGHT_MAX_CHARS);
+    // A line count to the library, so it caps where the block's own line cap does.
+    expect(options.tokenizeMaxLength).toBe(HIGHLIGHT_MAX_LINES);
   });
 
   it("wraps only when asked", () => {
