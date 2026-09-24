@@ -1376,8 +1376,9 @@ checkout first. `git.worktree.remove` takes a path only when it is a
 registered worktree of the project's repository and not its own checkout,
 compared by real path; refuses with `conflict` while a thread that is not
 deleted (archived ones included) still works there; and runs `git worktree
-remove`. git refuses a tree with modified or untracked files, which is
-answered as the work removal would lose; `force` removes it anyway. The branch
+remove`. git refuses a tree with modified or untracked files, and that
+refusal is answered as `conflict`, saying the removal would lose that work;
+`force` removes it anyway. The branch
 is never deleted, so committed work survives, and `git worktree prune`
 follows.
 

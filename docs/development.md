@@ -276,6 +276,18 @@ derive their lists from the schemas, so adding a variant without a fixture
 fails, and a fixture nothing round-trips fails too. The renderer's own tests
 read the same files (`apps/web/src/lib/turn.test.ts`).
 
+**Git is real, and so is its remote.** The git tests
+(`apps/server/src/git/*.test.ts`) run the real `git` binary in `mkdtemp`
+directories resolved through `realpath` — macOS's temp directory is a
+symlink, and `git worktree list` prints resolved paths. Each repository sets
+`user.name` and `user.email` locally, because CI has no global identity, and
+push tests push to a local bare repository standing in for the remote. The
+setup-script tests prove their process group is killed with a pid file, not
+with a sleep. `gh` is an ordinary tool behind the injectable `GhRunner`
+(`apps/server/src/git/GitHubCli.ts`): the tests swap in a fake whose output
+copies the real CLI's wording, including the not-installed and
+not-authenticated paths, and no test ever opens a real pull request.
+
 **Connectors run a shared suite.** `runConnectorConformance`
 (`packages/connector-sdk/src/conformance.ts`) drives a real definition through
 `createInstance`/`startSession`/`send`/`close` and holds it to the five promises
