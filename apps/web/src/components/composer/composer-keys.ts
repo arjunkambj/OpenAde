@@ -40,3 +40,24 @@ export const composerEnter = (input: ComposerEnterInput): ComposerEnter => {
   }
   return "send";
 };
+
+/**
+ * Where a key moves an open menu's highlight: Down and Tab to the next row,
+ * Up and Shift+Tab to the previous one, wrapping at both ends. `null` for any
+ * other key, which the menu leaves alone.
+ */
+export const menuMove = (
+  key: string,
+  shiftKey: boolean,
+  index: number,
+  count: number,
+): number | null => {
+  const size = Math.max(1, count);
+  if (key === "ArrowDown" || (key === "Tab" && !shiftKey)) {
+    return (index + 1) % size;
+  }
+  if (key === "ArrowUp" || (key === "Tab" && shiftKey)) {
+    return (index - 1 + size) % size;
+  }
+  return null;
+};

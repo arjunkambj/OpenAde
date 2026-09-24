@@ -30,6 +30,11 @@ export interface ComposerTriggerState {
   readonly close: () => void;
   /** Re-detect from the textarea's current value and caret. */
   readonly refresh: () => void;
+  /**
+   * After a pick has rewritten the text: on the next frame, focus the
+   * textarea, put the caret at `caret` and re-detect from there.
+   */
+  readonly placeCaret: (caret: number) => void;
 }
 
 export function useComposerTrigger(
@@ -67,5 +72,28 @@ export function useComposerTrigger(
     }
   }, [open, textarea]);
 
-  return { trigger, activeIndex, slashLevel, setActiveIndex, setLevel, open, close, refresh };
+  const placeCaret = React.useCallback(
+    (caret: number) =>
+      requestAnimationFrame(() => {
+        const el = textarea.current;
+        if (el !== null) {
+          el.focus();
+          el.setSelectionRange(caret, caret);
+        }
+        refresh();
+      }),
+    [refresh, textarea],
+  );
+
+  return {
+    trigger,
+    activeIndex,
+    slashLevel,
+    setActiveIndex,
+    setLevel,
+    open,
+    close,
+    refresh,
+    placeCaret,
+  };
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { composerEnter, type ComposerEnterInput } from "./composer-keys";
+import { composerEnter, menuMove, type ComposerEnterInput } from "./composer-keys";
 
 const input = (patch: Partial<ComposerEnterInput> = {}): ComposerEnterInput => ({
   triggerOpen: false,
@@ -43,5 +43,29 @@ describe("composerEnter", () => {
     expect(composerEnter(input({ triggerOpen: true, menuItemCount: 2, shiftKey: true }))).toBe(
       "pick",
     );
+  });
+});
+
+describe("menuMove", () => {
+  it("moves down on ArrowDown and Tab, wrapping to the first row", () => {
+    expect(menuMove("ArrowDown", false, 0, 3)).toBe(1);
+    expect(menuMove("Tab", false, 1, 3)).toBe(2);
+    expect(menuMove("ArrowDown", false, 2, 3)).toBe(0);
+  });
+
+  it("moves up on ArrowUp and Shift+Tab, wrapping to the last row", () => {
+    expect(menuMove("ArrowUp", false, 2, 3)).toBe(1);
+    expect(menuMove("Tab", true, 1, 3)).toBe(0);
+    expect(menuMove("ArrowUp", false, 0, 3)).toBe(2);
+  });
+
+  it("stays on row 0 in an empty menu", () => {
+    expect(menuMove("ArrowDown", false, 0, 0)).toBe(0);
+    expect(menuMove("ArrowUp", false, 0, 0)).toBe(0);
+  });
+
+  it("leaves every other key alone", () => {
+    expect(menuMove("Enter", false, 1, 3)).toBeNull();
+    expect(menuMove("a", false, 1, 3)).toBeNull();
   });
 });

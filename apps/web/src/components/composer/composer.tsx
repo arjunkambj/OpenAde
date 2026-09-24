@@ -1,7 +1,6 @@
 /**
- * The composer. Textarea with `#` file mentions (live `files.search`, wired in
- * `use-file-mentions`), `@` plugins and skills and `$` skills (reference
- * chips, wired in `use-reference-mentions`), a `/` command popover, file
+ * The composer. Textarea with `#` file mentions and `@` / `$` plugin and skill
+ * references (chips, wired in `use-mention-menus`), a `/` command popover, file
  * attach, the queued-message strip, and the interaction-card slot — one card
  * at a time, above the input.
  *
@@ -30,17 +29,15 @@ import { HeaderControls } from "@/components/header-controls";
 import { useProjects } from "@/state/hooks";
 import { ComposerSurface, composerInputClassName } from "@/components/composer/composer-surface";
 import { ComposerChips } from "@/components/composer/composer-chips";
-import { composerEnter } from "@/components/composer/composer-keys";
+import { composerEnter, menuMove } from "@/components/composer/composer-keys";
 import { ComposerToolbar } from "@/components/composer/composer-toolbar";
 import { canSteer, sendMode } from "@/components/composer/send-mode";
 import { PendingCard } from "@/components/composer/pending-card";
 import { QueueStrip } from "@/components/composer/queue-strip";
 import { SlashMenu, slashMenuItems, type SlashMenuItem } from "@/components/composer/slash-menu";
-import { TriggerMenu } from "@/components/composer/trigger-menu";
 import { useAttachments } from "@/components/composer/use-attachments";
 import { useComposerTrigger } from "@/components/composer/use-composer-trigger";
-import { useFileMentions } from "@/components/composer/use-file-mentions";
-import { useReferenceMentions } from "@/components/composer/use-reference-mentions";
+import { useMentionMenus } from "@/components/composer/use-mention-menus";
 import { useInterrupt } from "@/components/composer/use-interrupt";
 import { useSendDraft } from "@/components/composer/use-send-draft";
 import { useClientRuntime } from "@/lib/client-runtime";
@@ -105,6 +102,7 @@ export function Composer({
     open: openTrigger,
     close: closeMenu,
     refresh: refreshTrigger,
+    placeCaret,
   } = useComposerTrigger(textareaRef);
 
   // `turnInFlight`, not `currentTurnId`: after a turn completes with messages
@@ -140,41 +138,23 @@ export function Composer({
 
   const setTextAndCaret = (nextText: string, caret: number) => {
     setText(nextText);
-    requestAnimationFrame(() => {
-      const el = textareaRef.current;
-      if (el !== null) {
-        el.focus();
-        el.setSelectionRange(caret, caret);
-      }
-      refreshTrigger();
-    });
+    placeCaret(caret);
   };
 
-  const fileMentions = useFileMentions({
+  const mentionMenus = useMentionMenus({
+    instanceId,
     projectId,
     threadId,
     trigger,
+    activeIndex,
+    setActiveIndex,
     text,
     setText,
     setMentions,
-    setTextAndCaret,
-  });
-  const referenceMentions = useReferenceMentions({
-    instanceId,
-    projectId,
-    trigger,
-    text,
-    setText,
     setReferences,
     setTextAndCaret,
   });
-  const referenceOpen = trigger?.kind === "mention" || trigger?.kind === "skill";
-  const menuItemCount =
-    trigger?.kind === "file"
-      ? fileMentions.items.length
-      : referenceOpen
-        ? referenceMentions.items.length
-        : slashItems.length;
+  const menuItemCount = mentionMenus.open ? mentionMenus.itemCount : slashItems.length;
 
   const applySlash = (item: SlashMenuItem) => {
     switch (item.action.type) {
@@ -231,8 +211,7 @@ export function Composer({
   const onChangeText = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     const next = event.target.value;
     setText(next);
-    fileMentions.retain(next);
-    referenceMentions.retain(next);
+    mentionMenus.retain(next);
     const caret = event.target.selectionStart ?? next.length;
     openTrigger(detectComposerTrigger(next, caret));
   };
@@ -257,10 +236,8 @@ export function Composer({
         return;
       }
       const index = Math.min(activeIndex, Math.max(0, menuItemCount - 1));
-      if (trigger?.kind === "file") {
-        fileMentions.pickAt(index);
-      } else if (referenceOpen) {
-        referenceMentions.pickAt(index);
+      if (mentionMenus.open) {
+        mentionMenus.pickAt(index);
       } else {
         const item = slashItems[index];
         if (item !== undefined) {
@@ -270,14 +247,10 @@ export function Composer({
       return;
     }
     if (trigger !== null) {
-      if (event.key === "ArrowDown" || (event.key === "Tab" && !event.shiftKey)) {
+      const moved = menuMove(event.key, event.shiftKey, activeIndex, menuItemCount);
+      if (moved !== null) {
         event.preventDefault();
-        setActiveIndex((index) => (index + 1) % Math.max(1, menuItemCount));
-        return;
-      }
-      if (event.key === "ArrowUp" || (event.key === "Tab" && event.shiftKey)) {
-        event.preventDefault();
-        setActiveIndex((index) => (index - 1 + menuItemCount) % Math.max(1, menuItemCount));
+        setActiveIndex(moved);
         return;
       }
       if (event.key === "Escape") {
@@ -316,41 +289,23 @@ export function Composer({
         {...attachments.dropHandlers}
         aria-label="Message composer"
       >
-        {trigger !== null ? (
-          trigger.kind === "file" ? (
-            <TriggerMenu
-              items={fileMentions.items}
-              activeIndex={activeIndex}
-              onSelect={fileMentions.pick}
-              onHover={setActiveIndex}
-              emptyLabel={fileMentions.emptyLabel}
-              label="File mentions"
-            />
-          ) : referenceOpen ? (
-            <TriggerMenu
-              items={referenceMentions.items}
-              activeIndex={activeIndex}
-              onSelect={referenceMentions.pick}
-              onHover={setActiveIndex}
-              emptyLabel={referenceMentions.emptyLabel}
-              label={referenceMentions.label}
-            />
-          ) : (
-            <SlashMenu
-              items={slashItems}
-              activeIndex={activeIndex}
-              onSelect={applySlash}
-              onHover={setActiveIndex}
-              level={slashLevel}
-            />
-          )
-        ) : null}
+        {trigger?.kind === "slash" ? (
+          <SlashMenu
+            items={slashItems}
+            activeIndex={activeIndex}
+            onSelect={applySlash}
+            onHover={setActiveIndex}
+            level={slashLevel}
+          />
+        ) : (
+          mentionMenus.menu
+        )}
         <ComposerChips
           mentions={mentions}
           references={references}
           files={attachments.files}
-          onRemoveMention={fileMentions.remove}
-          onRemoveReference={referenceMentions.remove}
+          onRemoveMention={mentionMenus.removeMention}
+          onRemoveReference={mentionMenus.removeReference}
           onRemoveFile={attachments.removeAt}
         />
         <textarea
