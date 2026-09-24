@@ -1774,8 +1774,15 @@ A shell ends on `terminal.close` — closing a tab, and closing the last tab
 hides the drawer — on `thread.deleted` and `thread.archived`, which the service
 watches on the engine's event stream the way the browser pane's teardown does,
 and when the server shuts down. Killing is bounded: SIGHUP, what a closing
-terminal sends, then after one second SIGKILL to the shell's process group and
-to the pty, and at most two seconds more waiting for the exit.
+terminal sends, then after one second SIGKILL to the shell, to every process
+under it and to every process group they are in, and at most two seconds more
+waiting for the exit (the `ps` read below is bounded at two seconds too). The shell has job control on, so each job runs in a group
+of its own and SIGKILL to the shell's group alone would miss it; the processes
+under the shell come from one `ps -A -o pid=,ppid=,pgid=` read while the shell
+is still alive (`apps/server/src/terminal/reap.ts`), since once it dies its jobs
+are re-parented to init and nothing ties them to it. A shell that obeys SIGHUP
+passes it on to its jobs itself; a job started with `nohup` keeps running, as
+it would after closing any terminal.
 
 ### Keys, links, find and quoting
 
@@ -2130,8 +2137,9 @@ deliberately stopped. A connector whose event stream outlives its close gets
 
 `TerminalService`'s finalizer ends every open terminal, all at once: it refuses
 new opens from then on, and kills each shell the way closing its tab does —
-SIGHUP, then SIGKILL to the process group after a second, each wait bounded —
-so no shell outlives the server and a wedged pty cannot hold the shutdown up.
+SIGHUP, then SIGKILL to the shell and everything under it after a second, each
+wait bounded — so no shell or job started from one outlives the server and a
+wedged pty cannot hold the shutdown up.
 
 ---
 

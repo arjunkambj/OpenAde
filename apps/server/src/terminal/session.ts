@@ -23,10 +23,11 @@ import * as PubSub from "effect/PubSub";
 import { makeBatcher } from "./batcher";
 import type { PtyExit, PtySpawnFailed, PtyUnavailable, SpawnPtyOptions } from "./pty";
 import { spawnPty } from "./pty";
+import { killTree } from "./reap";
 import { makeScrollback } from "./scrollback";
 import type { ShellCommand } from "./shell";
 
-/** How long a shell has to go after SIGHUP before its whole process group is killed. */
+/** How long a shell has to go after SIGHUP before it and every job it started are SIGKILLed. */
 const KILL_GRACE = Duration.seconds(1);
 
 /**
@@ -73,9 +74,10 @@ export interface TerminalSession {
   readonly exited: Effect.Effect<PtyExit>;
   /**
    * Ends the shell: SIGHUP, what a closing terminal sends, then after a short
-   * grace SIGKILL to the shell's whole process group — the shell leads its own
-   * session, so that group is every job it started. Resolves once the exit has
-   * arrived, or once the settle bound has passed.
+   * grace SIGKILL to the shell, to every process under it and to every group
+   * they are in — with job control on, each job is a group of its own (see
+   * `reap.ts`). Resolves once the exit has arrived, or once the settle bound
+   * has passed.
    */
   readonly kill: Effect.Effect<void>;
 }
@@ -135,21 +137,12 @@ export const makeSession = (
       Deferred.doneUnsafe(exitDeferred, Effect.succeed(result));
     });
 
-    const killGroup = () => {
-      if (platform === "win32") return;
-      try {
-        process.kill(-pty.pid, "SIGKILL");
-      } catch {
-        // The group is already gone, or never formed.
-      }
-    };
-
     const kill: Effect.Effect<void> = Effect.gen(function* () {
       if (exit !== null) return;
       pty.kill();
       const graceful = yield* Deferred.await(exitDeferred).pipe(Effect.timeoutOption(KILL_GRACE));
       if (Option.isSome(graceful)) return;
-      killGroup();
+      if (platform !== "win32") yield* killTree(pty.pid, () => exit === null);
       pty.kill("SIGKILL");
       yield* Deferred.await(exitDeferred).pipe(Effect.timeoutOption(KILL_SETTLE));
     });
