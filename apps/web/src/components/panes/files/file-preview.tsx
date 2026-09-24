@@ -33,6 +33,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 
+import { scrollWithin } from "@/lib/scroll-within";
 import { cn } from "@/lib/utils";
 
 import { useFileAtoms } from "./file-atoms";
@@ -75,12 +76,17 @@ function LineTable({
     },
     [keep],
   );
+  // Only the table's own box scrolls (`scrollWithin`): a chip that opened the
+  // dock reveals while the dock still animates open and clips its content.
   React.useEffect(() => {
     if (!reveal) return;
-    if (marked.current === null) {
-      box.current?.scrollTo({ top: 0 });
-    } else {
-      marked.current.scrollIntoView({ block: "center" });
+    const scroller = box.current;
+    if (scroller !== null) {
+      if (marked.current === null) {
+        scroller.scrollTop = 0;
+      } else {
+        scrollWithin(scroller, marked.current, "center");
+      }
     }
     onRevealed();
   }, [reveal, markedLine, onRevealed]);

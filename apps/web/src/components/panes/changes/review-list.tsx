@@ -18,6 +18,7 @@ import { Button } from "@OpenAde/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import * as React from "react";
 
+import { scrollWithin } from "@/lib/scroll-within";
 import { useKeybindingCommand } from "@/lib/shortcuts";
 import { useChangesReview, type DiffStyle } from "@/state/ui";
 
@@ -92,19 +93,6 @@ function ReviewSummary({
   );
 }
 
-/**
- * Scrolls the list so `section`'s header sits at its top. Only the list's own
- * scroller moves: `scrollIntoView` would also scroll every clipping ancestor,
- * and the dock is one while it animates open — a link that opens it would
- * shift it sideways.
- */
-const scrollToSection = (scroller: HTMLElement, section: Element | undefined) => {
-  if (section !== undefined) {
-    scroller.scrollTop +=
-      section.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
-  }
-};
-
 export function ReviewList({
   threadId,
   files,
@@ -153,7 +141,8 @@ export function ReviewList({
     if (file.diff !== "") {
       setOpen([file.path], true);
     }
-    scrollToSection(scroller, sections[target]);
+    // Only the list moves, never the dock around it (`scrollWithin`).
+    scrollWithin(scroller, sections[target]);
   };
   useKeybindingCommand("changes.nextFile", () => step(1));
   useKeybindingCommand("changes.previousFile", () => step(-1));
@@ -179,7 +168,7 @@ export function ReviewList({
     }
     const scroller = scrollerRef.current;
     if (scroller !== null) {
-      scrollToSection(scroller, scroller.children[index]);
+      scrollWithin(scroller, scroller.children[index]);
     }
   }, [reveal, onRevealed, files, updateReview]);
 
