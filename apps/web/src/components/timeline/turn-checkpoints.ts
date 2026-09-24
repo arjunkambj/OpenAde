@@ -4,9 +4,13 @@
  * The server captures a checkpoint when a turn completes, so turn T's
  * checkpoint is the workspace *after* T. The workspace as it was before a
  * message was sent is therefore the checkpoint of the turn before that
- * message's turn: the latest one whose turn precedes it. The thread's first
- * turn has nothing before it, and a workspace that is not a git repository
- * has no checkpoints at all; both leave the message without a restore.
+ * message's turn — unless a restore came between the two. A restore moves the
+ * worktree back to an older checkpoint without recording one of its own, so
+ * the thread's restore history (`CheckpointRestore`, stamped with the latest
+ * turn when it went through) says where the next turn really started. The
+ * thread's first turn has nothing before it, and a workspace that is not a
+ * git repository has no checkpoints at all; both leave the message without a
+ * restore.
  *
  * Turn order comes from the items themselves, first seen first: every
  * `user_message` carries its `turnId` (a message steered into a running turn
@@ -14,7 +18,7 @@
  */
 
 import type { TurnId } from "@OpenAde/contracts/ids";
-import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
+import type { CheckpointRestore, CheckpointSummary } from "@OpenAde/contracts/orchestration";
 import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
 
 /** Every turn id the items name, in the order each first appears. */
@@ -30,47 +34,66 @@ export const turnOrder = (items: ReadonlyArray<ItemSnapshot>): ReadonlyArray<Tur
   return order;
 };
 
+/** Where restoring to before a turn goes, and whether that undoes more. */
+export interface RestorePoint {
+  readonly checkpoint: CheckpointSummary;
+  /**
+   * The turn right before has no checkpoint of its own (pruned, or its capture
+   * failed), so this is an earlier state and also undoes that turn. The
+   * dialog says so rather than promise the exact state.
+   */
+  readonly skipsTurns: boolean;
+}
+
 /**
- * The checkpoint that holds the workspace as it was before `turnId` ran: the
- * last checkpoint of a turn that precedes it in `order`. A turn whose own
- * checkpoint is missing (pruned, or its capture failed) is skipped for an
- * earlier one, which also undoes that turn — `skipsTurns` says so. `null` for
- * the first turn, a turn the order does not know, and a thread with none.
+ * The checkpoint that holds the workspace as it was before `turnId` ran.
+ * Walking back from the turn before it: a restore that went through after
+ * that turn is where the next one started, and otherwise that turn's own
+ * checkpoint is. A turn with neither is skipped for the state before it,
+ * which also undoes that turn (`skipsTurns`). A restore whose checkpoint is
+ * gone ends the walk with nothing: falling back past it would bring back the
+ * turns the reader rolled back. `null` for the first turn, a turn the order
+ * does not know, and a thread with no checkpoint to go to. `checkpoints` are
+ * the ones still in the repository; `restores` are oldest first.
  */
-export const checkpointBefore = (
+export const restorePointBefore = (
   turnId: TurnId | undefined,
   order: ReadonlyArray<TurnId>,
   checkpoints: ReadonlyArray<CheckpointSummary>,
-): CheckpointSummary | null => {
+  restores: ReadonlyArray<CheckpointRestore> = [],
+): RestorePoint | null => {
   const position = turnId === undefined ? -1 : order.indexOf(turnId);
   if (position <= 0) {
     return null;
   }
-  let best: CheckpointSummary | null = null;
-  let bestRank = -1;
-  for (const checkpoint of checkpoints) {
-    const rank = order.indexOf(checkpoint.turnId);
-    // `>=` so a later entry for the same turn wins, as the list is in order.
-    if (rank !== -1 && rank < position && rank >= bestRank) {
-      best = checkpoint;
-      bestRank = rank;
+  // The last restore after each turn, and each turn's last checkpoint: the
+  // lists are in order, so a later entry wins.
+  const restoredAfter = new Map<TurnId, CheckpointRestore>();
+  for (const restore of restores) {
+    if (restore.afterTurnId !== null) {
+      restoredAfter.set(restore.afterTurnId, restore);
     }
   }
-  return best;
-};
-
-/**
- * Whether restoring `checkpoint` for a message in `turnId` also undoes turns
- * between the two — the turn right before the message has no checkpoint of
- * its own. The dialog says so rather than promise the exact state.
- */
-export const skipsTurns = (
-  turnId: TurnId | undefined,
-  order: ReadonlyArray<TurnId>,
-  checkpoint: CheckpointSummary,
-): boolean => {
-  const position = turnId === undefined ? -1 : order.indexOf(turnId);
-  return position > 0 && order[position - 1] !== checkpoint.turnId;
+  const own = new Map<TurnId, CheckpointSummary>();
+  const available = new Map<string, CheckpointSummary>();
+  for (const checkpoint of checkpoints) {
+    own.set(checkpoint.turnId, checkpoint);
+    available.set(checkpoint.checkpointId, checkpoint);
+  }
+  for (let before = position - 1; before >= 0; before -= 1) {
+    const turn = order[before]!;
+    const skipsTurns = before < position - 1;
+    const restore = restoredAfter.get(turn);
+    if (restore !== undefined) {
+      const checkpoint = available.get(restore.checkpoint.checkpointId);
+      return checkpoint === undefined ? null : { checkpoint, skipsTurns };
+    }
+    const checkpoint = own.get(turn);
+    if (checkpoint !== undefined) {
+      return { checkpoint, skipsTurns };
+    }
+  }
+  return null;
 };
 
 /**

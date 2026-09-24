@@ -1,8 +1,9 @@
 /**
  * A button that restores the workspace to how it was before a turn ran —
  * "Restore to here" under a user message, "Undo" on a turn's summary card.
- * Both go back to the same place: the checkpoint of the turn before
- * (`checkpointBefore`), through the app's one restore dialog, the Changes
+ * Both go back to the same place: the checkpoint the turn started from — the
+ * turn before's, or the one a restore between them went back to
+ * (`restorePointBefore`) — through the app's one restore dialog, the Changes
  * pane's (`panes/changes/restore-dialog.tsx`).
  *
  * There is nothing to restore before the thread's first turn or in a
@@ -25,7 +26,7 @@ import * as React from "react";
 
 import { RestoreCheckpointDialog } from "@/components/panes/changes/restore-dialog";
 import { useTimelineThread } from "@/components/timeline/thread-context";
-import { checkpointBefore, skipsTurns } from "@/components/timeline/turn-checkpoints";
+import { restorePointBefore } from "@/components/timeline/turn-checkpoints";
 
 export interface RestoreButtonProps {
   readonly disabled: boolean;
@@ -61,8 +62,8 @@ export function RestoreBeforeTurn({
   if (thread === null) {
     return null;
   }
-  const checkpoint = checkpointBefore(turnId, thread.turnOrder, thread.checkpoints);
-  if (checkpoint === null) {
+  const point = restorePointBefore(turnId, thread.turnOrder, thread.checkpoints, thread.restores);
+  if (point === null) {
     return null;
   }
   const blocked = thread.restoreBlockedReason;
@@ -89,10 +90,10 @@ export function RestoreBeforeTurn({
         open={open}
         onOpenChange={setOpen}
         threadId={thread.threadId}
-        checkpoint={checkpoint}
+        checkpoint={point.checkpoint}
         title={title}
         description={description}
-        note={skipsTurns(turnId, thread.turnOrder, checkpoint) ? skippedNote : undefined}
+        note={point.skipsTurns ? skippedNote : undefined}
         blockedReason={blocked}
       />
     </>

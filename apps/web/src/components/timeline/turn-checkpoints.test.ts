@@ -1,13 +1,12 @@
 import { makeCheckpointId, makeItemId, makeTurnId, type TurnId } from "@OpenAde/contracts/ids";
-import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
+import type { CheckpointRestore, CheckpointSummary } from "@OpenAde/contracts/orchestration";
 import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
 import { describe, expect, it } from "vitest";
 
 import {
   availableCheckpoints,
-  checkpointBefore,
   restoreBlockedReason,
-  skipsTurns,
+  restorePointBefore,
   turnEndTimes,
   turnOrder,
   workspaceSettled,
@@ -47,28 +46,78 @@ describe("turnOrder", () => {
   });
 });
 
-describe("checkpointBefore", () => {
+describe("restorePointBefore", () => {
   const order = [t1, t2, t3, t4];
   const [c1, c2, c3] = [checkpointOf(t1), checkpointOf(t2), checkpointOf(t3)];
+  /** The checkpoint it goes back to, or null. */
+  const before = (
+    turnId: TurnId | undefined,
+    checkpoints: ReadonlyArray<CheckpointSummary>,
+    restores: ReadonlyArray<CheckpointRestore> = [],
+    turns: ReadonlyArray<TurnId> = order,
+  ) => restorePointBefore(turnId, turns, checkpoints, restores)?.checkpoint ?? null;
 
   it("has nothing before the first turn", () => {
-    expect(checkpointBefore(t1, order, [c1, c2, c3])).toBeNull();
+    expect(before(t1, [c1, c2, c3])).toBeNull();
   });
 
   it("takes the previous turn's checkpoint, the workspace after it", () => {
-    expect(checkpointBefore(t2, order, [c1, c2, c3])).toBe(c1);
-    expect(checkpointBefore(t3, order, [c1, c2, c3])).toBe(c2);
-    expect(checkpointBefore(t4, order, [c1, c2, c3])).toBe(c3);
+    expect(before(t2, [c1, c2, c3])).toBe(c1);
+    expect(before(t3, [c1, c2, c3])).toBe(c2);
+    expect(before(t4, [c1, c2, c3])).toBe(c3);
+    expect(restorePointBefore(t3, order, [c1, c2, c3])?.skipsTurns).toBe(false);
   });
 
   it("never takes the message's own turn or a later one", () => {
-    expect(checkpointBefore(t2, order, [c2, c3])).toBeNull();
+    expect(before(t2, [c2, c3])).toBeNull();
   });
 
   it("falls back to an earlier checkpoint when the one right before is missing", () => {
-    expect(checkpointBefore(t3, order, [c1, c3])).toBe(c1);
-    expect(skipsTurns(t3, order, c1)).toBe(true);
-    expect(skipsTurns(t3, order, c2)).toBe(false);
+    expect(restorePointBefore(t3, order, [c1, c3])).toEqual({ checkpoint: c1, skipsTurns: true });
+  });
+
+  it("starts a turn after a restore from the restored checkpoint", () => {
+    // Turn 1 edits A (c1), turn 2 edits B (c2), the reader restores to c1,
+    // turn 3 edits C (c3): before turn 3 the workspace held A alone, not A+B.
+    const restores = [{ checkpoint: c1, afterTurnId: t2 }];
+    expect(restorePointBefore(t3, order, [c1, c2, c3], restores)).toEqual({
+      checkpoint: c1,
+      skipsTurns: false,
+    });
+    // Turn 2 ran before the restore, and turn 4 after turn 3's own checkpoint.
+    expect(before(t2, [c1, c2, c3], restores)).toBe(c1);
+    expect(before(t4, [c1, c2, c3], restores)).toBe(c3);
+  });
+
+  it("takes the last of several restores between the same two turns", () => {
+    const restores = [
+      { checkpoint: c1, afterTurnId: t3 },
+      { checkpoint: c2, afterTurnId: t3 },
+    ];
+    expect(before(t4, [c1, c2, c3], restores)).toBe(c2);
+  });
+
+  it("falls back past a turn without a checkpoint to a restore before it", () => {
+    // Restored to c1 after turn 2; turn 3's capture failed.
+    const restores = [{ checkpoint: c1, afterTurnId: t2 }];
+    expect(restorePointBefore(t4, order, [c1, c2], restores)).toEqual({
+      checkpoint: c1,
+      skipsTurns: true,
+    });
+  });
+
+  it("offers nothing when the checkpoint a restore went back to is gone", () => {
+    // Falling back to turn 2's checkpoint would bring back what was rolled back.
+    const restores = [{ checkpoint: c1, afterTurnId: t2 }];
+    expect(before(t3, [c2, c3], restores)).toBeNull();
+  });
+
+  it("ignores a restore after a turn the items do not name, or before any turn", () => {
+    const restores = [
+      { checkpoint: c1, afterTurnId: makeTurnId() },
+      { checkpoint: c1, afterTurnId: null },
+    ];
+    expect(before(t3, [c1, c2, c3], restores)).toBe(c2);
   });
 
   it("gives a steered message the same answer as the message that opened its turn", () => {
@@ -79,18 +128,18 @@ describe("checkpointBefore", () => {
       item(t2, "user_message"),
     ];
     const steeredOrder = turnOrder(items);
-    expect(checkpointBefore(items[3]?.turnId, steeredOrder, [c1])).toBe(c1);
-    expect(checkpointBefore(items[1]?.turnId, steeredOrder, [c1])).toBe(c1);
+    expect(before(items[3]?.turnId, [c1], [], steeredOrder)).toBe(c1);
+    expect(before(items[1]?.turnId, [c1], [], steeredOrder)).toBe(c1);
   });
 
   it("has none for a message outside a turn, an unknown turn, or a thread without checkpoints", () => {
-    expect(checkpointBefore(undefined, order, [c1])).toBeNull();
-    expect(checkpointBefore(makeTurnId(), order, [c1])).toBeNull();
-    expect(checkpointBefore(t3, order, [])).toBeNull();
+    expect(before(undefined, [c1])).toBeNull();
+    expect(before(makeTurnId(), [c1])).toBeNull();
+    expect(before(t3, [])).toBeNull();
   });
 
   it("ignores a checkpoint whose turn the items do not name", () => {
-    expect(checkpointBefore(t2, order, [checkpointOf(makeTurnId())])).toBeNull();
+    expect(before(t2, [checkpointOf(makeTurnId())])).toBeNull();
   });
 });
 

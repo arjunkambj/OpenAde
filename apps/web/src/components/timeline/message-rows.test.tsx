@@ -124,6 +124,7 @@ describe("the user message footer", () => {
     threadId: makeThreadId(),
     projectId: makeProjectId(),
     checkpoints: [checkpoint],
+    restores: [],
     restoreBlockedReason: null,
     turnOrder: [t1, t2],
     workspaceRevision: "0",

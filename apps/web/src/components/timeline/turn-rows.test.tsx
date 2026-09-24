@@ -44,6 +44,7 @@ const thread = (fields: Partial<TimelineThread> = {}): TimelineThread => ({
       createdAt: "2026-01-01T00:00:00.000Z",
     },
   ],
+  restores: [],
   restoreBlockedReason: null,
   turnOrder: [t1, t2],
   workspaceRevision: "0",

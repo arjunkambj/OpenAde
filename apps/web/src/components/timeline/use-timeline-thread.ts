@@ -11,6 +11,8 @@
  *   project, the checkpoint list among them: the worktree moved, and a
  *   restore that failed on a pruned ref has just shown the list is stale.
  *   The Changes pane follows along the same way it follows its own restores.
+ * - The restores are the snapshot's own: the server records each one after
+ *   the latest turn, and the client's fold does the same between snapshots.
  * - The turn order is recomputed on every item change but only replaced when
  *   a turn is added, so a streamed delta does not rerender every row.
  * - The workspace revision counts the turns and restores that settled while
@@ -22,7 +24,7 @@
 
 import { RegistryContext, useAtomValue } from "@effect/atom-react";
 import type { TurnId } from "@OpenAde/contracts/ids";
-import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
+import type { CheckpointRestore, ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
 import { AsyncResult } from "effect/unstable/reactivity";
 import * as React from "react";
 
@@ -36,6 +38,9 @@ import {
 } from "@/components/timeline/turn-checkpoints";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { turnInFlight } from "@/lib/turn";
+
+// One empty list, so a thread with no restores keeps the context value stable.
+const NO_RESTORES: ReadonlyArray<CheckpointRestore> = [];
 
 export const useTimelineThreadValue = (snapshot: ThreadDetailSnapshot): TimelineThread => {
   const { threadId, projectId, items } = snapshot;
@@ -54,6 +59,7 @@ export const useTimelineThreadValue = (snapshot: ThreadDetailSnapshot): Timeline
       ? listedResult.value.value
       : null;
   const checkpoints = React.useMemo(() => availableCheckpoints(fold, listed), [fold, listed]);
+  const restores = snapshot.restores ?? NO_RESTORES;
 
   const restoring = (snapshot.restoring ?? null) !== null;
   const wasRestoring = React.useRef(restoring);
@@ -89,10 +95,11 @@ export const useTimelineThreadValue = (snapshot: ThreadDetailSnapshot): Timeline
       threadId,
       projectId,
       checkpoints,
+      restores,
       restoreBlockedReason: blocked,
       turnOrder: order,
       workspaceRevision,
     }),
-    [threadId, projectId, checkpoints, blocked, order, workspaceRevision],
+    [threadId, projectId, checkpoints, restores, blocked, order, workspaceRevision],
   );
 };

@@ -2,7 +2,8 @@
  * Which thread the rows on screen belong to, its project, and what a row
  * needs to offer a restore: the pair a row needs to read the thread's
  * workspace (`files.stat` for file chips), the checkpoints still in the
- * repository, the order of the thread's turns, and why a restore cannot
+ * repository, the restores that went through, the order of the thread's
+ * turns, and why a restore cannot
  * start right now (`use-timeline-thread.ts` derives all of it from the
  * snapshot).
  *
@@ -18,7 +19,7 @@
  */
 
 import type { ProjectId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
-import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
+import type { CheckpointRestore, CheckpointSummary } from "@OpenAde/contracts/orchestration";
 import * as React from "react";
 
 export interface TimelineThread {
@@ -26,6 +27,8 @@ export interface TimelineThread {
   readonly projectId: ProjectId;
   /** The fold's checkpoints that `checkpoints.list` still has. */
   readonly checkpoints: ReadonlyArray<CheckpointSummary>;
+  /** The restores that went through, oldest first: where a turn after one started. */
+  readonly restores: ReadonlyArray<CheckpointRestore>;
   /** Why no restore can start now (offline, restoring, a turn running), else `null`. */
   readonly restoreBlockedReason: string | null;
   /** The thread's turn ids, first seen first (`turn-checkpoints.ts`). */

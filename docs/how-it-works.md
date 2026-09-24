@@ -1677,8 +1677,12 @@ also undoes every turn after it. Both are `timeline/restore-before-turn.tsx`,
 so they appear, hide and disable by the same rules.
 
 A checkpoint is the workspace _after_ its turn, so that is the checkpoint of
-the turn before the message's turn (`checkpointBefore` in
-`timeline/turn-checkpoints.ts`). Turns are ordered by where their items first
+the turn before the message's turn (`restorePointBefore` in
+`timeline/turn-checkpoints.ts`) — unless a restore went through between the
+two, when it is the checkpoint that restore went back to (the last one, when
+there were several). Otherwise the two buttons would bring back the turns the
+reader had rolled back: turn 1 edits A, turn 2 edits B, a restore goes back to
+turn 1, and turn 3 then started from A alone, not from turn 2's A and B. Turns are ordered by where their items first
 appear, and a message steered into a running turn carries that turn's id, so
 it restores to the same point as the message that opened the turn: before the
 turn began, which also undoes what the turn changed before the steer arrived.
@@ -1687,8 +1691,10 @@ The fold marks such a row `steered`, and its button's tooltip and dialog say
 workspace as it was when the message was sent. There is nothing before the thread's first turn, and a
 workspace that is not a git repository records no checkpoints, so neither
 shows the button. When the turn right before has no checkpoint of its own
-(pruned, or its capture failed), the button falls back to an earlier one, and
-the dialog says that it undoes that turn too.
+(pruned, or its capture failed) and no restore followed it, the button falls
+back to the state before that turn, and the dialog says that it undoes that
+turn too. When the checkpoint a restore went back to is gone, the button is
+left out rather than fall back past the restore.
 
 The checkpoints come from the fold, intersected with `checkpoints.list`
 (`availableCheckpoints`). The timeline reads the list through
