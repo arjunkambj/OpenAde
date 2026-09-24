@@ -55,21 +55,18 @@ const selectTriggerVariants = cva(
   },
 );
 
+// Every boxed trigger is 28px, the height of the default and `sm` button
+// beside it, so the trigger takes no `size`.
 function SelectTrigger({
   className,
-  size = "default",
   variant = "default",
   tone = "default",
   children,
   ...props
-}: SelectPrimitive.Trigger.Props &
-  VariantProps<typeof selectTriggerVariants> & {
-    size?: "sm" | "default";
-  }) {
+}: SelectPrimitive.Trigger.Props & VariantProps<typeof selectTriggerVariants>) {
   return (
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
-      data-size={size}
       className={cn(selectTriggerVariants({ variant, tone, className }))}
       {...props}
     >

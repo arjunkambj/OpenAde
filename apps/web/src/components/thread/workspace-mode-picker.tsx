@@ -107,7 +107,6 @@ function BaseBranchPicker({
       <SelectTrigger
         aria-label="Base branch"
         title="The branch the new worktree is cut from"
-        size="sm"
         variant="composer"
         className="min-w-0"
       >
@@ -159,7 +158,7 @@ export function WorkspaceModePicker({
         label: MODE_LABELS[mode],
       }))}
     >
-      <SelectTrigger aria-label="Workspace" size="sm" variant="composer" className="min-w-0">
+      <SelectTrigger aria-label="Workspace" variant="composer" className="min-w-0">
         <span className="flex min-w-0 items-center gap-1">
           <Glyph variant="bold" className="size-3.5 shrink-0 text-foreground/85" />
           <SelectValue />

@@ -85,7 +85,6 @@ export function HeaderSelect({
       <SelectTrigger
         aria-label={label}
         title={nextTurn ? NEXT_TURN_HINT : label}
-        size="sm"
         variant="composer"
       >
         <span className="flex items-center gap-1">

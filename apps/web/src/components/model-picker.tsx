@@ -106,7 +106,7 @@ export function ModelPicker({
       }}
       items={items.map((item) => ({ value: item.value, label: item.label }))}
     >
-      <SelectTrigger aria-label="Model" title={title} size="sm" variant="composer">
+      <SelectTrigger aria-label="Model" title={title} variant="composer">
         <span className="flex min-w-0 items-center gap-1">
           <Brain variant="bold" className="size-3.5 shrink-0 text-foreground/85" />
           <SelectValue className="max-w-52" />

@@ -35,6 +35,8 @@ const buttonVariants = cva(
         default: "",
         pill: "rounded-full",
       },
+      // `default` and `sm` share the 28px height: `sm` is the same box with
+      // smaller text and icons. `icon` and `icon-sm` are the same 28px square.
       size: {
         default:
           "h-7 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",

@@ -89,7 +89,7 @@ export function CustomizeLayout() {
                 setProjectId(next === USER_SCOPE ? null : (next as ProjectId))
               }
             >
-              <SelectTrigger size="sm" className="w-48">
+              <SelectTrigger className="w-48">
                 <SelectValue>{(value) => scopeLabel(value, projects)}</SelectValue>
               </SelectTrigger>
               <SelectContent>

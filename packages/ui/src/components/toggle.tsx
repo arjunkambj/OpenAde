@@ -12,6 +12,8 @@ const toggleVariants = cva(
         default: "bg-transparent",
         outline: "bg-input/50 hover:bg-muted",
       },
+      // `default` and `sm` share the 28px height, like Button's; `sm` has
+      // smaller text and icons.
       size: {
         default:
           "h-7 min-w-7 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",

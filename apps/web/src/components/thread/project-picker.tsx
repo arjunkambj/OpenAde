@@ -39,7 +39,7 @@ export function ProjectPicker({
       }}
       items={projects.map((project) => ({ value: project.projectId, label: project.name }))}
     >
-      <SelectTrigger aria-label="Project" size="sm" variant="composer" className="min-w-0">
+      <SelectTrigger aria-label="Project" variant="composer" className="min-w-0">
         <span className="flex min-w-0 items-center gap-1">
           <Folder variant="bold" className="size-3.5 shrink-0 text-foreground/85" />
           <SelectValue />

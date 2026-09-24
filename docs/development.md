@@ -274,7 +274,9 @@ smaller than its horizontal, so buttons, inputs, chips and badges, menu items,
 list and sidebar rows, tabs, toasts and small cards spell `px-3 py-1.5`, never
 `p-2` or `px-2 py-2`. Rows and controls are 28px (`h-7`) at most: the default
 and `sm` button, toggle, input, input group and select trigger, and the sidebar
-menu row, are all 28px, with `xs` (24px) and `mini` (20px) below them. Heights
+menu row, are all 28px, with `xs` (24px) and `mini` (20px) below them. `sm`
+keeps the height and only sets smaller text and icons, `icon` and `icon-sm` are
+the same 28px square, and a select trigger takes no `size` at all. Heights
 and padding are spacing steps and `--spacing` scales with each region's font
 size (`packages/ui/src/styles/globals.css`), so the boxes grow with the text
 setting; no second size scale is needed.

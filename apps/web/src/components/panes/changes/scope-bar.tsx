@@ -82,7 +82,7 @@ export function ScopeBar({
         items={[UNCOMMITTED, BRANCH, ...turns]}
       >
         {/* Filled and weighted like the active dock tab above it. */}
-        <SelectTrigger size="sm" variant="secondary" className="shrink-0" aria-label="Compare">
+        <SelectTrigger variant="secondary" className="shrink-0" aria-label="Compare">
           <SelectValue />
         </SelectTrigger>
         <SelectContent align="start" alignItemWithTrigger={false}>
