@@ -1824,7 +1824,9 @@ composer draft (`appendQuotedBlock` in `apps/web/src/lib/quote-selection.ts`):
 the padding xterm adds to each selected line and any blank lines around the
 text are trimmed, each line gets `> `, and a blank line separates the block
 from text already in the draft and from what the user types next. It writes
-the per-thread draft the composer renders from, and nothing else.
+the per-thread draft the composer renders from, then moves focus to the
+composer's input with the caret after the quote, so the user can type the
+question straight away.
 
 ---
 
