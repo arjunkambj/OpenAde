@@ -81,6 +81,11 @@ export interface TimelineItemRow {
   readonly item: ItemSnapshot;
   /** Set on the last `assistant_message` of each settled turn only. */
   readonly turnEnd?: TurnEnd;
+  /**
+   * Set on a `user_message` steered into a turn already running: it shares
+   * that turn's id, so restoring to before it undoes the whole turn.
+   */
+  readonly steered?: true;
 }
 
 /** The one-line record of an answered approval, question or plan. */
@@ -216,11 +221,12 @@ export const buildTimeline = (
     flush();
   };
 
-  const plainRow = (item: ItemSnapshot): TimelineItemRow => ({
-    kind: "item",
-    id: item.itemId,
-    item,
-  });
+  const turns = groupTurns(roots);
+  const openers = new Set(turns.map((turn) => turn.opener?.itemId));
+  const plainRow = (item: ItemSnapshot): TimelineItemRow =>
+    item.kind === "user_message" && !openers.has(item.itemId)
+      ? { kind: "item", id: item.itemId, item, steered: true }
+      : { kind: "item", id: item.itemId, item };
 
   const checkpointRefByTurn = new Map<string, string>(
     (options.checkpoints ?? []).map((checkpoint) => [checkpoint.turnId, checkpoint.ref]),
@@ -264,7 +270,6 @@ export const buildTimeline = (
     }
   };
 
-  const turns = groupTurns(roots);
   turns.forEach((turn, index) => {
     if (options.turnActive && index === turns.length - 1) {
       for (const item of turn.items) {

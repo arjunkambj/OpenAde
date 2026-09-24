@@ -38,15 +38,18 @@ export const TimelineItemView = memo(function TimelineItemView({
   item,
   childrenByParent,
   turnEnd,
+  steered = false,
 }: {
   item: ItemSnapshot;
   childrenByParent: ReadonlyMap<string, ReadonlyArray<ItemSnapshot>>;
   /** Only on the final answer of a settled turn. */
   turnEnd?: TurnEnd | undefined;
+  /** A user message steered into a running turn (`TimelineItemRow.steered`). */
+  steered?: boolean;
 }) {
   switch (item.kind) {
     case "user_message":
-      return <UserMessageRow item={item} />;
+      return <UserMessageRow item={item} steered={steered} />;
     case "assistant_message":
       return <AssistantMessageRow item={item} turnEnd={turnEnd} />;
     case "reasoning":
@@ -94,7 +97,12 @@ export function TimelineRowView({
 }) {
   if (row.kind === "item") {
     return (
-      <TimelineItemView item={row.item} childrenByParent={childrenByParent} turnEnd={row.turnEnd} />
+      <TimelineItemView
+        item={row.item}
+        childrenByParent={childrenByParent}
+        turnEnd={row.turnEnd}
+        steered={row.steered === true}
+      />
     );
   }
   if (row.kind === "work-group") {

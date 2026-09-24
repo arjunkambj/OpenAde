@@ -127,11 +127,11 @@ describe("the user message footer", () => {
   });
   // Inside a timeline the bubble's markdown reads the file atoms, so a client
   // runtime has to be in context; the fixture's answers without a server.
-  const inThread = (value: TimelineThread, fields: Partial<ItemSnapshot>) =>
+  const inThread = (value: TimelineThread, fields: Partial<ItemSnapshot>, steered = false) =>
     renderToStaticMarkup(
       <ClientRuntimeProvider layer={makeFixtureClient().layer}>
         <TimelineThreadProvider value={value}>
-          <UserMessageRow item={row(fields)} />
+          <UserMessageRow item={row(fields)} steered={steered} />
         </TimelineThreadProvider>
       </ClientRuntimeProvider>,
     );
@@ -157,6 +157,14 @@ describe("the user message footer", () => {
     const markup = footer(inThread(thread(), { turnId: t2 }));
     expect(markup).toContain(restoreLabel);
     expect(markup).not.toMatch(/<button[^>]*disabled=""[^>]*Restore the workspace/);
+  });
+
+  it("names the turn a steered message joined as what its restore goes back before", () => {
+    const markup = footer(inThread(thread(), { turnId: t2 }, true));
+    expect(markup).not.toContain(restoreLabel);
+    expect(markup).toContain(
+      'aria-label="Restore the workspace to before the turn this message joined"',
+    );
   });
 
   it("hides the restore on the first turn and when no checkpoint precedes it", () => {

@@ -698,6 +698,11 @@ describe("buildTimeline turn folds", () => {
     ]);
     expect(rows[2].id).toBe(steer.itemId);
     expect(folds(rows)[0].id).toBe(`turn-fold:${user.itemId}`);
+    // only the steered message is marked, live and settled
+    const steered = (built: ReturnType<typeof buildTimeline>) =>
+      built.rows.filter((row) => row.kind === "item" && row.steered === true).map((row) => row.id);
+    expect(steered(buildTimeline(items, { turnActive: false }))).toEqual([steer.itemId]);
+    expect(steered(buildTimeline(items, { turnActive: true }))).toEqual([steer.itemId]);
 
     // without turn ids the second message opens a turn of its own, by position
     const untagged = [

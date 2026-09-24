@@ -14,7 +14,9 @@
  *   settings say which model runs now, not which one ran that turn.
  * - Restore to here puts the workspace back to how it was before the message
  *   was sent (`RestoreBeforeTurn`): the checkpoint of the turn before this
- *   message's turn, through the restore dialog. It is left out where there is
+ *   message's turn, through the restore dialog. A message steered into a
+ *   running turn has no checkpoint of its own to go back to, only the one
+ *   before that turn began, and its tooltip and dialog say so. It is left out where there is
  *   nothing to restore, and disabled, saying why, while no restore can start.
  *
  * The row reveals the footer on hover and while focus is inside it, and a
@@ -55,21 +57,55 @@ function SentAt({ ms }: { readonly ms: number }) {
   );
 }
 
-function RestoreToHere({ item }: { readonly item: ItemSnapshot }) {
+const RESTORE_TAIL =
+  "Every tracked file returns to that checkpoint and files created since are removed. Uncommitted work that is not in a checkpoint is lost. The conversation stays as it is.";
+
+/**
+ * A message that opened its turn restores to just before it was sent. One
+ * steered into a turn already running shares that turn's checkpoint, the one
+ * from before the turn began, so its copy says what else that undoes.
+ */
+const RESTORE_COPY = {
+  opener: {
+    tooltip: "Restore to here",
+    title: "Restore to before this message?",
+    description: `The workspace goes back to how it was before this message was sent. ${RESTORE_TAIL}`,
+    label: "Restore the workspace to before this message",
+    skippedNote:
+      "The turn right before this message has no checkpoint, so this goes back to an earlier one and undoes that turn's changes too.",
+  },
+  steered: {
+    tooltip: "Restore to before this turn",
+    title: "Restore to before this turn?",
+    description: `This message joined a turn that was already running, so the workspace goes back to how it was before that turn began: what the turn changed before this message arrived is undone too. ${RESTORE_TAIL}`,
+    label: "Restore the workspace to before the turn this message joined",
+    skippedNote:
+      "The turn before the one this message joined has no checkpoint, so this goes back to an earlier one and undoes that turn's changes too.",
+  },
+} as const;
+
+function RestoreToHere({
+  item,
+  steered,
+}: {
+  readonly item: ItemSnapshot;
+  readonly steered: boolean;
+}) {
+  const copy = RESTORE_COPY[steered ? "steered" : "opener"];
   return (
     <RestoreBeforeTurn
       turnId={item.turnId}
-      tooltip="Restore to here"
-      title="Restore to before this message?"
-      description="The workspace goes back to how it was before this message was sent: every tracked file returns to that checkpoint and files created since are removed. Uncommitted work that is not in a checkpoint is lost. The conversation stays as it is."
-      skippedNote="The turn right before this message has no checkpoint, so this goes back to an earlier one and undoes that turn's changes too."
+      tooltip={copy.tooltip}
+      title={copy.title}
+      description={copy.description}
+      skippedNote={copy.skippedNote}
       renderButton={(props) => (
         <Button
           type="button"
           variant="ghost"
           tone="muted"
           size="icon-xs"
-          aria-label="Restore the workspace to before this message"
+          aria-label={copy.label}
           {...props}
         >
           <Undo variant="bold" />
@@ -98,7 +134,12 @@ const REVEAL =
   "flex items-center gap-0.5 opacity-0 transition-opacity duration-150 ease-out group-hover/message:opacity-100 group-focus-within/message:opacity-100 pointer-coarse:opacity-100 has-data-popup-open:opacity-100 motion-reduce:transition-none";
 
 type MessageFooterProps =
-  | { readonly item: ItemSnapshot; readonly variant?: "user" }
+  | {
+      readonly item: ItemSnapshot;
+      readonly variant?: "user";
+      /** Steered into a running turn: Restore goes back to before that turn. */
+      readonly steered?: boolean;
+    }
   | {
       readonly item: ItemSnapshot;
       readonly variant: "agent";
@@ -129,7 +170,7 @@ export function MessageFooter(props: MessageFooterProps) {
     <div data-slot="message-footer" className={cn(REVEAL, "justify-end")}>
       {sentAt === undefined ? null : <SentAt ms={sentAt} />}
       <CopyButton text={item.text ?? ""} label="Copy message" tone="muted" />
-      <RestoreToHere item={item} />
+      <RestoreToHere item={item} steered={props.steered === true} />
     </div>
   );
 }

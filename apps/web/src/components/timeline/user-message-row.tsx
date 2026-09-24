@@ -16,7 +16,8 @@
  * tool calls, not about what the user wrote.
  *
  * Under the bubble sits the message's footer (`message-footer.tsx`): the time
- * it was sent, Copy, and Restore to here, revealed on hover and focus.
+ * it was sent, Copy, and Restore to here, revealed on hover and focus. For a
+ * message steered into a running turn, Restore goes back to before that turn.
  */
 
 import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
@@ -91,7 +92,14 @@ function UserMessageText({ item }: { readonly item: ItemSnapshot }) {
   );
 }
 
-export function UserMessageRow({ item }: { item: ItemSnapshot }) {
+export function UserMessageRow({
+  item,
+  steered = false,
+}: {
+  item: ItemSnapshot;
+  /** Sent into a turn already running, which its restore goes back before. */
+  steered?: boolean;
+}) {
   // LegendList wraps every row in its own container, so `self-end` on the
   // bubble cannot reach the list's flex column; the row right-aligns itself.
   return (
@@ -104,7 +112,7 @@ export function UserMessageRow({ item }: { item: ItemSnapshot }) {
         <References item={item} />
         <UserMessageText item={item} />
       </div>
-      <MessageFooter key={item.itemId} item={item} />
+      <MessageFooter key={item.itemId} item={item} steered={steered} />
     </div>
   );
 }

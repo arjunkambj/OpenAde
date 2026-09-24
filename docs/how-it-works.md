@@ -1621,9 +1621,12 @@ so they appear, hide and disable by the same rules.
 A checkpoint is the workspace _after_ its turn, so that is the checkpoint of
 the turn before the message's turn (`checkpointBefore` in
 `timeline/turn-checkpoints.ts`). Turns are ordered by where their items first
-appear, and a message steered into a running turn
-carries that turn's id, so it restores to the same point as the message that
-opened the turn. There is nothing before the thread's first turn, and a
+appear, and a message steered into a running turn carries that turn's id, so
+it restores to the same point as the message that opened the turn: before the
+turn began, which also undoes what the turn changed before the steer arrived.
+The fold marks such a row `steered`, and its button's tooltip and dialog say
+"Restore to before this turn" and what else it undoes rather than promise the
+workspace as it was when the message was sent. There is nothing before the thread's first turn, and a
 workspace that is not a git repository records no checkpoints, so neither
 shows the button. When the turn right before has no checkpoint of its own
 (pruned, or its capture failed), the button falls back to an earlier one, and
