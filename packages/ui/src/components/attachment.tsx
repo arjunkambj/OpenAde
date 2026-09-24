@@ -6,15 +6,18 @@ import { cn } from "@OpenAde/ui/lib/utils";
 
 import { Button } from "@OpenAde/ui/components/button";
 
-// padding-ok: with media, an attachment frames its thumbnail evenly at every size
+// With media, an attachment frames its thumbnail evenly at every size, so
+// each size's media padding is marked below.
 const attachmentVariants = cva(
   "group/attachment relative flex w-fit max-w-full min-w-0 shrink-0 flex-wrap rounded-xl bg-card text-card-foreground transition-colors focus-within:ring-1 focus-within:ring-ring/50 has-[>a,>button]:hover:bg-muted/50 data-[state=error]:bg-destructive/10",
   {
     variants: {
       size: {
-        default:
+        default: // padding-ok: frames a thumbnail evenly
           "gap-2 text-sm has-data-[slot=attachment-content]:px-2.5 has-data-[slot=attachment-content]:py-2 has-data-[slot=attachment-media]:p-2",
+        // padding-ok: frames a thumbnail evenly
         sm: "gap-2.5 text-xs has-data-[slot=attachment-content]:px-2 has-data-[slot=attachment-content]:py-1.5 has-data-[slot=attachment-media]:p-1.5",
+        // padding-ok: frames a thumbnail evenly
         xs: "gap-1.5 rounded-lg text-xs has-data-[slot=attachment-content]:px-1.5 has-data-[slot=attachment-content]:py-1 has-data-[slot=attachment-media]:p-1",
       },
       orientation: {

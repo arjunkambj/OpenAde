@@ -395,6 +395,36 @@ describe("equalPaddingLeaks", () => {
       [],
     );
     expect(leaksIn('// padding-ok: menu panel\n\nconst a = "p-1";\n')).toEqual([3]);
+    expect(
+      leaksIn('<div>\n  {/* padding-ok: menu list */}\n  <div className="p-1" />\n</div>\n'),
+    ).toEqual([]);
+  });
+
+  it("takes only a comment that gives a reason", () => {
+    expect(leaksIn('// padding-ok\nconst a = "p-2";\n')).toEqual([2]);
+    expect(leaksIn('// padding-ok:\nconst a = "p-2";\n')).toEqual([2]);
+    expect(leaksIn('const note = "padding-ok: menu";\nconst a = "p-2";\n')).toEqual([2]);
+    expect(leaksIn('<p>padding-ok: menu</p>\nconst a = "p-2";\n')).toEqual([2]);
+  });
+
+  it("exempts a cva() value beside it, and only the base from the call's line", () => {
+    const source = [
+      "// padding-ok: base panel",
+      "const a = cva(",
+      '  "p-1",',
+      "  {",
+      "    variants: {",
+      "      size: {",
+      '        default: "p-2", // padding-ok: frames a thumbnail',
+      '        sm: "px-3 py-1",',
+      '        lg: "px-4 py-4",',
+      "      },",
+      "    },",
+      "  },",
+      ");",
+      "",
+    ].join("\n");
+    expect(leaksIn(source)).toEqual([9]);
   });
 
   it("ignores class names quoted in comments", () => {

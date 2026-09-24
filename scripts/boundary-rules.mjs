@@ -481,19 +481,23 @@ const SHAPE_UTILITY = /^(?:size-.+|aspect-square|([hw])-(\d+(?:\.\d+)?|px|\[[^\]
 /** Calls whose string arguments add up to one class list. */
 const CLASS_CALL = /(?<![\w$.])(cn|cva|clsx|cx|twMerge)\(/g;
 
-/** Marks a container (a menu, dialog, panel, list) whose even inset is intended. */
-const PADDING_ALLOW = "padding-ok";
+/**
+ * Marks a container (a menu, dialog, panel, list) whose even inset is
+ * intended: a line or block comment that opens with `padding-ok: <why>`.
+ * The reason is required, and the words in a string or JSX text do not count.
+ */
+const PADDING_ALLOW = /^(?:\/\/|\/\*)\s*padding-ok:\s*[^\s*]/;
+
+/** A block or line comment. A `//` right after `:` or a quote is a URL, not a comment. */
+const COMMENT = /\/\*[\s\S]*?\*\/|(?<![:"'`\w])\/\/[^\n]*/g;
 
 /**
  * `text` with its comments blanked to spaces, newlines kept so line numbers
  * hold. A class name quoted in a comment is not a class list, and a stray
- * backtick in one must not pair with a later string. A `//` right after `:`
- * or a quote is a URL, not a comment.
+ * backtick in one must not pair with a later string.
  */
 const withoutComments = (text) =>
-  text.replace(/\/\*[\s\S]*?\*\/|(?<![:"'`\w])\/\/[^\n]*/g, (comment) =>
-    comment.replace(/[^\n]/g, " "),
-  );
+  text.replace(COMMENT, (comment) => comment.replace(/[^\n]/g, " "));
 
 /**
  * A class token split into its variant (`""` for none, `hover`, `sm`,
@@ -638,30 +642,41 @@ const classTokens = (literal) => literal.classes.split(/\s+/);
  * a class list (see `equalPadding` for the cascade, variants and exemptions),
  * and so is the sum of the literals one `cn()`/`clsx()` call merges and each
  * `cva()` value on top of its base, so `cn("px-2", "py-2")` fails too. A
- * `padding-ok` comment on the reported line, the line above it or the line
- * that opens the call exempts a container (a menu, dialog or panel) whose
- * even inset is intended; say why in the comment.
+ * `// padding-ok: <why>` comment (`PADDING_ALLOW`) exempts a container (a
+ * menu, dialog or panel) whose even inset is intended. It sits on the
+ * reported line or the line above it; for a `cn()`/`clsx()` merge, which is
+ * one element, the line that opens the call counts too. A `cva()` holds
+ * several elements' values, so its opening line exempts only the base, and a
+ * variant value is exempted beside that value.
  */
 export const equalPaddingLeaks = (relativePath, text) => {
   if (!PADDING_FILE.test(relativePath)) {
     return [];
   }
   const source = withoutComments(text);
-  const lines = text.split("\n");
   const literals = [...source.matchAll(STRING_LITERAL)].map((match) => ({
     start: match.index,
     end: match.index + match[0].length,
     classes: match[0].slice(1, -1),
   }));
+  const allowLines = new Set();
+  for (const comment of text.matchAll(COMMENT)) {
+    if (PADDING_ALLOW.test(comment[0])) {
+      const first = lineOf(text, comment.index);
+      const last = lineOf(text, comment.index + comment[0].length - 1);
+      for (let line = first; line <= last; line += 1) {
+        allowLines.add(line);
+      }
+    }
+  }
   const allowed = (...lineNumbers) =>
     lineNumbers.some(
-      (line) =>
-        lines[line - 1]?.includes(PADDING_ALLOW) || lines[line - 2]?.includes(PADDING_ALLOW),
+      (line) => line !== undefined && (allowLines.has(line) || allowLines.has(line - 1)),
     );
   const leaks = new Map();
   const judge = (tokens, line, callLine) => {
     const equal = equalPadding(tokens);
-    if (equal === undefined || leaks.has(line) || allowed(line, callLine ?? line)) {
+    if (equal === undefined || leaks.has(line) || allowed(line, callLine)) {
       return;
     }
     const state = equal.variant === "" ? "" : ` under ${equal.variant}:`;
@@ -671,7 +686,7 @@ export const equalPaddingLeaks = (relativePath, text) => {
         : `taller than wide padding${state} (x ${equal.value}, y ${equal.taller})`;
     leaks.set(line, {
       line,
-      message: `${found}; give the element less vertical padding than horizontal, e.g. px-3 py-1.5, or mark a container with a "${PADDING_ALLOW}" comment`,
+      message: `${found}; give the element less vertical padding than horizontal, e.g. px-3 py-1.5, or mark a container with a "// padding-ok: <why>" comment`,
     });
   };
   const calls = [...source.matchAll(CLASS_CALL)].map((match) => {
@@ -691,10 +706,11 @@ export const equalPaddingLeaks = (relativePath, text) => {
     // A square or round box can be spelled in another argument of the same
     // merge; a cva value only shares its box with the base, checked below.
     const siblings = call === undefined || call.name === "cva" ? [] : call.literals;
+    const callAllows = call !== undefined && (call.name !== "cva" || call.literals[0] === literal);
     judge(
       [...shapedBy(siblings), ...classTokens(literal)],
       lineOf(text, literal.start),
-      call?.line,
+      callAllows ? call.line : undefined,
     );
   }
   for (const call of calls) {
@@ -714,7 +730,7 @@ export const equalPaddingLeaks = (relativePath, text) => {
         continue;
       }
       for (const value of values) {
-        judge([...classTokens(base), ...classTokens(value)], lineOf(text, value.start), call.line);
+        judge([...classTokens(base), ...classTokens(value)], lineOf(text, value.start));
       }
     } else {
       judge(call.literals.flatMap(classTokens), lineOf(text, last.start), call.line);

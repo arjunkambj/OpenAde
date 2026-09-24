@@ -300,9 +300,12 @@ round or not; `rounded-full` alone draws a pill, a chip or badge the rule
 covers, so it earns no exemption. A
 container whose even inset is genuinely right — a menu or dialog panel, a
 sheet, a card band, a thumbnail frame — carries a `// padding-ok: <why>`
-comment on the reported line, the line above it, or the line that opens its
-`cn()`/`cva()` call. Everything else gets a smaller vertical step than its
-horizontal one.
+comment (or `{/* padding-ok: <why> */}` in JSX) on the reported line or the
+line above it. The reason is required, and the words in a string or JSX text
+do not count. The line that opens a `cn()` or `clsx()` merge counts too, since
+the merge is one element; a `cva()` holds several, so its opening line exempts
+only the base and each variant value that needs it is marked beside it.
+Everything else gets a smaller vertical step than its horizontal one.
 
 ### File sizes
 
