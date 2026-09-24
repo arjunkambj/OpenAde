@@ -1597,9 +1597,11 @@ refetches when `currentTurnId` falls back to null. A refresh — those two and
 the refresh button — rereads every git read of the project, the same
 per-project revision a branch switch bumps, so the header follows along.
 
-`checkpoints.list` intersects the timeline's own fold of
-`thread.checkpoint.created` with the refs that still exist in the repository,
-so the pane never offers a restore that can only fail.
+The pane's turn selector lists the checkpoints the thread's fold of
+`thread.checkpoint.created` holds. That fold still names a ref removed outside
+the app — a prune, a re-clone — so `checkpoints.list` answers the refs that
+are actually in the thread's root, and the timeline intersects the two before
+it offers a restore (below).
 
 ### Restoring from the timeline
 

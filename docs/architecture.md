@@ -567,6 +567,16 @@ fixture's checkpoints behave like the
 server's without git: a settled turn records one, `checkpoints.list` answers
 the document's list, and an accepted restore settles a moment later; the page
 header names the last command it dispatched and its receipt.
+The conversation scenario covers every row the timeline draws: short and long
+user messages with attachments and skill and plugin references, markdown with
+code blocks in several languages and named files, file path links inside and
+outside the workspace, reasoning, commands that pass and fail, edits, a
+nested task, todos, a plan with its decision, answered approvals and
+questions, a steered message, an error, a compaction, an unknown kind and a
+running turn. `apps/web/src/lib/fixture-files.ts` is its workspace:
+`files.stat` and `files.read` answer from that listing with the server's
+containment rules, and a file chip opens the real Files pane beside the
+timeline.
 
 Syntax highlighting has one engine. `DiffWorkerPoolProvider`
 (`apps/web/src/components/timeline/diff-pool.tsx`), mounted in
@@ -577,6 +587,24 @@ blocks (`CodeBlock`, through the library's `File`) highlight through that
 pool, with options from `diff-options.ts`. A code block rendered without a
 pool, as in tests, falls back to a plain `pre` rather than load Shiki on the
 main thread.
+
+The timeline (`apps/web/src/components/timeline/`, behaviour in
+[how-it-works §4, "Rows on screen"](how-it-works.md#rows-on-screen)) keeps
+its rules in pure modules with unit tests and its rows in thin components:
+
+| Concern               | Pure logic                                                                                | Components                                                                                          |
+| --------------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Rows from items       | `turns.ts` (turns by `turnId`, task nesting, decision anchors), `fold.ts`, `fold-rows.ts` | `timeline.tsx` (LegendList), `timeline-item.tsx` (one component per kind)                           |
+| Labels and folds      | `work-summary.ts` (sentence labels), `disclosure.ts` (expand/collapse-all ids)            | `turn-fold-row.tsx`, `work-group-row.tsx`, `turn-summary-row.tsx`, `row-shell.tsx`                  |
+| Markdown and code     | `markdown-blocks.ts`, `code-fence.ts`, `remark-user-text.ts`, `user-message-collapse.ts`  | `markdown.tsx`, `code-block.tsx`, `user-message-row.tsx`, `message-rows.tsx`, `attachments.tsx`     |
+| File chips            | `path-links.ts`, `tool-target.ts`                                                         | `path-chips.tsx`, `use-path-chips.ts`, `markdown-paths.tsx`, `file-chip.tsx`, `file-change-row.tsx` |
+| Footers and restore   | `turn-checkpoints.ts`                                                                     | `message-footer.tsx`, `restore-before-turn.tsx`, `restore-checkpoint-dialog.tsx`                    |
+| Scroll and navigation | `send-anchor.ts`, `turn-rail.ts`                                                          | `use-send-anchor.ts`, `jump-to-latest.tsx`, `turn-rail-view.tsx`                                    |
+| Context for every row | —                                                                                         | `thread-context.tsx`, filled by `use-timeline-thread.ts`                                            |
+
+Row state that must outlive a recycled container — disclosures, turn folds,
+"Show more" — lives in the row disclosure map (`state/ui.ts`,
+`state/turn-folds.ts`), and stateful subtrees are keyed by item id.
 
 Public seam: none; it is a leaf. May import `ui`, `contracts`,
 `client-runtime`, `shared`. Must never name a connector.
@@ -648,8 +676,9 @@ group. `OpenAdeRpcError` lives in `rpcError.ts` so `git` can name it without an
 import cycle, and `rpc` re-exports it. `browser.ts` holds the browser pane's
 payloads (`BrowserState`, `BrowserHumanInput`, `DevServer`,
 `BrowserToolStatus`), and `files.ts` the workspace file reads' payloads
-(`FileSearchResult`, `FileContent`); `rpc` re-exports them too, so they are
-read from `@OpenAde/contracts/rpc`.
+(`FileSearchResult`, `FileContent`, and `FileStat` with the
+`FILES_STAT_MAX_PATHS` cap of 100 that `files.stat` takes in one call); `rpc`
+re-exports them too, so they are read from `@OpenAde/contracts/rpc`.
 `thread.ts` holds the value objects of a thread and is reached through
 `orchestration`, which re-exports it, rather than as a module of its own.
 `decisions` holds the record a thread keeps of each settled approval, question
