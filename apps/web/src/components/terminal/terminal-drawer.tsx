@@ -39,7 +39,7 @@ import {
   TerminalTabStrip,
 } from "@/components/terminal/drawer-parts";
 import { nextTitle, useDrawerState } from "@/components/terminal/drawer-state";
-import { useTerminalAtoms } from "@/components/terminal/terminal-atoms";
+import { useOpenTerminal, useTerminalAtoms } from "@/components/terminal/terminal-atoms";
 import { TerminalBar } from "@/components/terminal/terminal-bar";
 import { TerminalFind } from "@/components/terminal/terminal-find";
 import type { TerminalHandle } from "@/components/terminal/terminal-handle";
@@ -113,7 +113,7 @@ function TerminalDrawer({
   const atoms = useTerminalAtoms();
   const connected = useConnectionState().status === "connected";
   const list = useAtomValue(atoms.terminalListAtom(threadId));
-  const openTerminal = useAtomSet(atoms.openTerminal, { mode: "promiseExit" });
+  const openTerminal = useOpenTerminal();
   const [state, dispatch] = useDrawerState(threadId);
   const drawerRef = React.useRef<HTMLDivElement>(null);
   const { shown, onPointerDown } = useDrawerResize(drawerRef);
