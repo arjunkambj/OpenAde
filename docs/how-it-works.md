@@ -755,8 +755,9 @@ turns the flat item list into rows:
   for 12s" when no file changed). Its time runs from the user message to the
   turn's last item, task children included, and its file list — one line per
   distinct path, diff line counts summed across the turn — opens from the row,
-  with a link to the Changes pane. It lists paths and counts only, never a
-  diff; the live segment gets none;
+  with a link to that turn in the Changes pane, and each path opens that file
+  there. It lists paths and counts only, never a diff; the live segment gets
+  none;
 - durations come out of the UUIDv7 ids, which carry their creation millisecond
   in the leading 48 bits; a zero duration is left out of a label rather than
   shown as "0ms";
@@ -1360,6 +1361,31 @@ carries the path, the `+`/`-` counts and the per-file patch. `git.status` is
 read alongside for the branch line and to tell "not a git repository"
 (`isRepository: false`) from "nothing changed". Every call names the thread,
 so a worktree thread's pane shows its worktree.
+
+The list reads as an overview first (`changes-list.tsx`, `review-list.tsx`,
+rules in `review.ts`): one compact row per file — its kind, directory and
+name, `+`/`−` counts — and every patch closed until it is opened. The one
+exception is a comparison of a single file of at most 400 changed lines, which
+opens on its own; anything more would hand the two-worker highlight pool every
+patch at once. A summary line under the toolbar reads "N files · +x −y · k
+viewed" beside an Expand all / Collapse all toggle. What is open, and what is
+marked viewed, is the thread's own and kept per path in memory
+(`useChangesReview` in `state/ui.ts`), not per comparison, so a new turn does
+not open everything again. The checkbox on a row marks the file viewed and
+closes it; the mark is stored against a cheap hash of the patch it was made
+on, so a file the agent edits again reads as unviewed with nothing to reset.
+Each row's "…" menu copies the path or appends a reference to it to the
+thread's composer draft; nothing in the pane reverts a file. While the pane is
+shown it publishes `changesOpen`, and `Alt+ArrowDown` / `Alt+ArrowUp`
+(`changes.nextFile` / `previousFile`) open the next or previous file and
+scroll its header to the top.
+
+A turn summary in the timeline links into the pane (`deep-link.ts`): the fold
+names the checkpoint each turn left, "Open in Changes" navigates to
+`?pane=changes&turn=<checkpoint ref>` and each listed path adds
+`&file=<path>`. The pane picks that turn — the latest when the turn left no
+checkpoint or the ref is gone — opens the file and scrolls it into view once,
+then clears both params so a reload does not scroll again.
 
 A Split toggle beside the select lays each patch out side by side
 (`InlineDiff`'s `diffStyle`, passed to `@pierre/diffs`); it defaults to

@@ -400,7 +400,9 @@ instance; `apps/web/src/lib/client-runtime.tsx` publishes it to React
 Presentation state that never reaches the server lives in
 `apps/web/src/state/ui.ts` and the browser's own storage — row disclosure, dock
 width, the per-thread dock tab, each thread's last pull request link, the
-Changes pane's scope and diff style, and the "last seen" stamp behind the unread dot
+Changes pane's scope and diff style and, in memory only, each thread's review
+there (which files are open and which are marked viewed), and the "last seen"
+stamp behind the unread dot
 — and in `apps/web/src/state/terminal-ui.ts`, which threads have their
 terminal drawer open and how tall it is. The terminals themselves are the
 server's: the drawer's tabs are a fold of `terminal.list`
