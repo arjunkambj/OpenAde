@@ -3,15 +3,15 @@
  *
  * - `browser_open → browser_snapshot → browser_click` walks a fake page and
  *   the subscribe stream tracks the url.
- * - A human gesture during an in-flight `browser_eval` resolves the call as
- *   `interrupted` — the epoch flip the MCP layer maps to
- *   `interrupted_by_human`.
- * - A pointer gesture during an in-flight `browser_click` is the agent's own
- *   echo (the call `expects` pointer input) and does NOT interrupt, and a
- *   `browser_type` survives one echoed keystroke per character of its text.
- * - A `tab_gone` the cdp driver could not rebind drops the dead driver and
- *   retries the call on a fresh one instead of erroring for the rest of the
- *   thread.
+ * - Any human gesture during an in-flight call resolves it as `interrupted` —
+ *   the epoch flip the MCP layer maps to `interrupted_by_human`. That includes
+ *   a click during `browser_click`: CDP input is never relayed back, so there
+ *   is no "the agent's own echo" to allow for.
+ * - `disabled` answers every call with the kill-switch message and opens
+ *   nothing.
+ * - In-app, a `tab_gone` reaches the agent and the next call runs on the same
+ *   in-app driver — never a fallback to owned Chromium — and the human's
+ *   toolbar never opens a driver or runs agent-browser.
  * - A thread.delete dispatched through the engine reaches the teardown
  *   reactor and closes the driver.
  * - `teardown` stops the session and is idempotent.
@@ -27,7 +27,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
-import * as HttpServer from "effect/unstable/http/HttpServer";
 
 import { makeCommandId, makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
 
@@ -37,10 +36,11 @@ import { ReadModelStore } from "../persistence/ReadModels";
 import { testLayer as sqliteTestLayer } from "../persistence/Sqlite";
 import { PermissionService } from "../permissions/PermissionService";
 import { BrowserService } from "../rpc/services";
-import { AgentBrowserError } from "./agentBrowser";
-import { makeFakeDriver, type FakePage } from "./driver";
+import { AgentBrowserError, BROWSER_DISABLED_MESSAGE } from "./agentBrowser";
 import { makeService, type OpenDriverOptions } from "./BrowserService";
 import type { BrowserDriver } from "./driver";
+import { makeFakeDriver, type FakePage } from "./fakeDriver";
+import { TAB_GONE_MESSAGE } from "./inAppDriver";
 
 const threadId = makeThreadId();
 const NOW = "2026-01-02T03:04:05.000Z";
@@ -62,19 +62,14 @@ const permissionsStub = Layer.succeed(
   }),
 );
 
-const httpStub = Layer.succeed(
-  HttpServer.HttpServer,
-  HttpServer.make({
-    serve: () => Effect.void,
-    address: { _tag: "TcpAddress", hostname: "127.0.0.1", port: 0 },
-  }),
-);
-
 type OpenDriver = (
   options: OpenDriverOptions,
 ) => Effect.Effect<BrowserDriver, { readonly message: string }, Scope.Scope>;
 
-const buildStack = (openDriver: OpenDriver) =>
+const buildStack = (
+  openDriver: OpenDriver,
+  mode: "in-app" | "owned-chromium" | "disabled" = "owned-chromium",
+) =>
   Effect.gen(function* () {
     const sqliteContext = yield* Layer.build(sqliteTestLayer());
     const sqlite = Layer.succeedContext(sqliteContext);
@@ -83,10 +78,9 @@ const buildStack = (openDriver: OpenDriver) =>
       Layer.mergeAll(EventStore.layer, ReadModelStore.layer).pipe(Layer.provide(sqlite)),
     );
     const engine = OrchestrationEngine.layer.pipe(Layer.provide(persistence));
-    const browser = Layer.effect(
-      BrowserService,
-      makeService({ cdpAvailable: false, openDriver }),
-    ).pipe(Layer.provide(Layer.mergeAll(engine, permissionsStub, httpStub)));
+    const browser = Layer.effect(BrowserService, makeService({ mode, openDriver })).pipe(
+      Layer.provide(Layer.mergeAll(engine, permissionsStub)),
+    );
     const context = yield* Layer.build(Layer.mergeAll(engine, browser));
     return {
       browser: Context.get(context, BrowserService),
@@ -154,7 +148,7 @@ describe("BrowserService", () => {
           .pipe(Effect.forkChild);
         yield* Deferred.await(started);
 
-        // eval expects no pointer input — this click is the human.
+        // Somebody clicks the page while the agent's eval runs.
         yield* browser.humanInput(threadId, { kind: "click", x: 3, y: 4 });
         yield* Deferred.succeed(release, undefined);
 
@@ -164,96 +158,66 @@ describe("BrowserService", () => {
     ),
   );
 
-  it.live("the agent's own input echo does not interrupt its call", () =>
+  it.live("a human click during browser_click interrupts it", () =>
     Effect.scoped(
       Effect.gen(function* () {
+        // The relay only ever reports a person: input the agent synthesizes
+        // over CDP fires no before-input-event. So even a pointer gesture in
+        // the middle of the agent's own click is the human taking over.
         const started = yield* Deferred.make<void>();
         const release = yield* Deferred.make<void>();
-        const { browser } = yield* buildStack(() =>
-          Effect.succeed(
-            makeFakeDriver(fakePage(), {
-              onExec: (argv) =>
-                argv[0] === "click"
-                  ? Effect.andThen(Deferred.succeed(started, undefined), Deferred.await(release))
-                  : Effect.void,
-            }),
-          ),
+        const { browser } = yield* buildStack(
+          () =>
+            Effect.succeed(
+              makeFakeDriver(fakePage(), {
+                mode: "in-app",
+                onExec: (argv) =>
+                  argv[0] === "click"
+                    ? Effect.andThen(Deferred.succeed(started, undefined), Deferred.await(release))
+                    : Effect.void,
+              }),
+            ),
+          "in-app",
         );
 
         const call = yield* browser
           .callTool(threadId, "browser_click", { selector: "@e1" })
           .pipe(Effect.forkChild);
         yield* Deferred.await(started);
-
-        // browser_click expects pointer — this gesture is its own echo.
         yield* browser.humanInput(threadId, { kind: "click", x: 3, y: 4 });
         yield* Deferred.succeed(release, undefined);
 
         const outcome = yield* Fiber.join(call);
-        expect(outcome.kind).toBe("ok");
+        expect(outcome).toEqual({ kind: "interrupted", status: "interrupted_by_human" });
       }),
     ),
   );
 
-  it.live("a second gesture of the expected class is the human, not the echo", () =>
+  it.live("a passive location sync is not the human", () =>
     Effect.scoped(
       Effect.gen(function* () {
         const started = yield* Deferred.make<void>();
         const release = yield* Deferred.make<void>();
-        const { browser } = yield* buildStack(() =>
-          Effect.succeed(
-            makeFakeDriver(fakePage(), {
-              onExec: (argv) =>
-                argv[0] === "click"
-                  ? Effect.andThen(Deferred.succeed(started, undefined), Deferred.await(release))
-                  : Effect.void,
-            }),
-          ),
+        const { browser } = yield* buildStack(
+          () =>
+            Effect.succeed(
+              makeFakeDriver(fakePage(), {
+                mode: "in-app",
+                onExec: (argv) =>
+                  argv[0] === "open"
+                    ? Effect.andThen(Deferred.succeed(started, undefined), Deferred.await(release))
+                    : Effect.void,
+              }),
+            ),
+          "in-app",
         );
 
         const call = yield* browser
-          .callTool(threadId, "browser_click", { selector: "@e1" })
+          .callTool(threadId, "browser_open", { url: "https://example.com/" })
           .pipe(Effect.forkChild);
         yield* Deferred.await(started);
-
-        // The first click is the call's own echo; the expectation is spent.
-        yield* browser.humanInput(threadId, { kind: "click", x: 3, y: 4 });
-        // The second is somebody clicking the page while the agent works.
-        yield* browser.humanInput(threadId, { kind: "click", x: 5, y: 6 });
-        yield* Deferred.succeed(release, undefined);
-
-        const outcome = yield* Fiber.join(call);
-        expect(outcome.kind).toBe("interrupted");
-      }),
-    ),
-  );
-
-  it.live("typing echoes one key per character and still settles as ok", () =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        const started = yield* Deferred.make<void>();
-        const release = yield* Deferred.make<void>();
-        const { browser } = yield* buildStack(() =>
-          Effect.succeed(
-            makeFakeDriver(fakePage(), {
-              onExec: (argv) =>
-                argv[0] === "keyboard"
-                  ? Effect.andThen(Deferred.succeed(started, undefined), Deferred.await(release))
-                  : Effect.void,
-            }),
-          ),
-        );
-
-        const text = "hello";
-        const call = yield* browser
-          .callTool(threadId, "browser_type", { text })
-          .pipe(Effect.forkChild);
-        yield* Deferred.await(started);
-
-        // The desktop relay reports every synthesized keystroke back to us.
-        for (const key of text) {
-          yield* browser.humanInput(threadId, { kind: "key", key });
-        }
+        // The pane reports where the agent's navigation landed.
+        yield* browser.humanInput(threadId, { kind: "location", url: "https://example.com/" });
         yield* Deferred.succeed(release, undefined);
 
         const outcome = yield* Fiber.join(call);
@@ -307,106 +271,206 @@ describe("BrowserService", () => {
     ),
   );
 
-  it.live("in cdp-attach mode the pane's webview is the only tab there is", () =>
+  it.live("disabled answers every call and opens nothing", () =>
     Effect.scoped(
       Effect.gen(function* () {
-        // The CDP port the session attaches to is the app's *own* remote
-        // debugging port: one of the `page` targets on it is the OpenAde
-        // window. The driver refuses to bind anything but the pane's webview
-        // for that reason, and `browser_tabs` used to walk straight around it —
-        // `list` named the app's window and `switch` rebound the session to it,
-        // which put snapshot, click and eval inside our own UI.
-        const argvs: Array<ReadonlyArray<string>> = [];
-        const page: FakePage = {
-          ...fakePage(),
-          tabs: [
-            { targetId: "t-webview", type: "webview", url: "https://example.com/" },
-            { targetId: "t-app", type: "page", url: "openade://app/t/thread" },
-          ],
-        };
-        const { browser } = yield* buildStack(() =>
-          Effect.succeed(
-            makeFakeDriver(page, {
-              mode: "cdp-attach",
-              onExec: (argv) =>
-                Effect.sync(() => {
-                  argvs.push(argv);
-                }),
+        let opened = 0;
+        const { browser } = yield* buildStack(
+          () =>
+            Effect.sync(() => {
+              opened += 1;
+              return makeFakeDriver(fakePage());
             }),
-          ),
+          "disabled",
         );
 
-        const listed = yield* browser.callTool(threadId, "browser_tabs", { action: "list" });
-        expect(listed.kind).toBe("ok");
-        expect(listed.kind === "ok" ? listed.data.tabs : null).toEqual([
-          { targetId: "t-webview", type: "webview", url: "https://example.com/" },
-        ]);
+        const before = yield* currentState(browser, threadId);
+        expect(before?.mode).toBe("disabled");
+        expect(before?.message).toBe(BROWSER_DISABLED_MESSAGE);
 
-        for (const args of [
-          { action: "switch", tab: "t-app" },
-          { action: "close", tab: "t-app" },
-          { action: "new", url: "https://example.com/" },
-        ]) {
-          const refused = yield* browser.callTool(threadId, "browser_tabs", args);
-          expect(refused.kind).toBe("error");
-          expect(refused.kind === "error" ? refused.message : "").toContain(
-            "tab management is unavailable",
-          );
+        for (const [name, args] of [
+          ["browser_open", { url: "https://example.com/" }],
+          ["browser_snapshot", {}],
+          ["browser_click", { selector: "@e1" }],
+          ["browser_eval", { js: "1" }],
+          ["browser_tabs", { action: "list" }],
+        ] as const) {
+          const outcome = yield* browser.callTool(threadId, name, args);
+          expect(outcome).toEqual({ kind: "error", message: BROWSER_DISABLED_MESSAGE });
         }
-        // Not merely filtered on the way back: the command never ran.
-        expect(argvs.filter((argv) => argv[0] === "tab")).toEqual([["tab", "list"]]);
+        // Nor does the toolbar start anything.
+        yield* browser.humanInput(threadId, { kind: "navigate", url: "https://example.com/" });
+        yield* browser.humanInput(threadId, { kind: "history", direction: "reload" });
+        expect(opened).toBe(0);
       }),
     ),
   );
 
-  it.live("owned chromium is ours alone, so tab management still works there", () =>
+  it.live("a closed tab reaches the agent, and the next call stays in-app", () =>
     Effect.scoped(
       Effect.gen(function* () {
-        const argvs: Array<ReadonlyArray<string>> = [];
-        const { browser } = yield* buildStack(() =>
-          Effect.succeed(
-            makeFakeDriver(fakePage(), {
-              onExec: (argv) =>
-                Effect.sync(() => {
-                  argvs.push(argv);
-                }),
+        let opened = 0;
+        let execs = 0;
+        const { browser } = yield* buildStack(
+          () =>
+            Effect.sync(() => {
+              opened += 1;
+              return makeFakeDriver(fakePage(), {
+                mode: "in-app",
+                onExec: () => {
+                  execs += 1;
+                  // The in-app driver's own `tab_gone`, as it hands it over.
+                  return execs === 1
+                    ? new AgentBrowserError({
+                        command: "tab_gone",
+                        message: TAB_GONE_MESSAGE,
+                        code: "tab_gone",
+                        data: null,
+                      })
+                    : Effect.void;
+                },
+              });
             }),
-          ),
+          "in-app",
         );
-        const switched = yield* browser.callTool(threadId, "browser_tabs", {
-          action: "switch",
-          tab: "t2",
-        });
-        expect(switched.kind).toBe("ok");
-        expect(argvs).toContainEqual(["tab", "t2"]);
+
+        const first = yield* browser.callTool(threadId, "browser_snapshot", {});
+        expect(first).toEqual({ kind: "error", message: TAB_GONE_MESSAGE });
+
+        const second = yield* browser.callTool(threadId, "browser_snapshot", {});
+        expect(second.kind).toBe("ok");
+        // The same driver: nothing was released, reopened or swapped for
+        // owned Chromium.
+        expect(opened).toBe(1);
+        const state = yield* currentState(browser, threadId);
+        expect(state?.mode).toBe("in-app");
+        expect(state?.status).toBe("ready");
       }),
     ),
   );
 
-  it.live("the toolbar drives the attached webview in cdp-attach mode", () =>
+  it.live("a failed in-app attach is an error, never a headless browser", () =>
     Effect.scoped(
       Effect.gen(function* () {
-        const argvs: Array<ReadonlyArray<string>> = [];
-        const { browser } = yield* buildStack(() =>
-          Effect.succeed(
-            makeFakeDriver(fakePage(), {
-              mode: "cdp-attach",
-              onExec: (argv) =>
-                Effect.sync(() => {
-                  argvs.push(argv);
-                }),
+        let opened = 0;
+        const { browser } = yield* buildStack(
+          () =>
+            Effect.suspend(() => {
+              opened += 1;
+              return Effect.fail({ message: "the OpenAde window is not open" });
             }),
-          ),
+          "in-app",
         );
-
-        // One agent call opens the driver; the toolbar then takes over.
+        const outcome = yield* browser.callTool(threadId, "browser_snapshot", {});
+        expect(outcome).toEqual({ kind: "error", message: "the OpenAde window is not open" });
+        const state = yield* currentState(browser, threadId);
+        expect(state?.status).toBe("error");
+        expect(state?.mode).toBe("in-app");
+        // The pane's retry is the agent's next call, which tries the attach again.
         yield* browser.callTool(threadId, "browser_snapshot", {});
+        expect(opened).toBe(2);
+      }),
+    ),
+  );
+
+  it.live("in-app, the toolbar never opens a driver or runs agent-browser", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        let opened = 0;
+        const argvs: Array<ReadonlyArray<string>> = [];
+        const { browser } = yield* buildStack(
+          () =>
+            Effect.sync(() => {
+              opened += 1;
+              return makeFakeDriver(fakePage(), {
+                mode: "in-app",
+                onExec: (argv) =>
+                  Effect.sync(() => {
+                    argvs.push(argv);
+                  }),
+              });
+            }),
+          "in-app",
+        );
+
+        // Before any agent call: nothing starts.
+        yield* browser.humanInput(threadId, { kind: "navigate", url: "https://example.com/a" });
+        yield* browser.humanInput(threadId, { kind: "history", direction: "reload" });
+        expect(opened).toBe(0);
+        // The navigation is mirrored for the address bar all the same.
+        expect((yield* currentState(browser, threadId))?.url).toBe("https://example.com/a");
+
+        // With a driver open, the toolbar still does not go through it: a CDP
+        // `reload` from here would reload the whole OpenAde window.
+        yield* browser.callTool(threadId, "browser_snapshot", {});
+        const ran = argvs.length;
+        yield* browser.humanInput(threadId, { kind: "navigate", url: "https://example.com/b" });
+        yield* browser.humanInput(threadId, { kind: "history", direction: "back" });
+        yield* browser.humanInput(threadId, { kind: "history", direction: "reload" });
+        yield* browser.humanInput(threadId, { kind: "click", x: 1, y: 2 });
+        expect(argvs.length).toBe(ran);
+        expect(opened).toBe(1);
+      }),
+    ),
+  );
+
+  it.live("browser_tabs manages the thread's tabs in-app", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        // The bridge only ever shows agent-browser this thread's webviews, so
+        // there is no app window among the tabs to keep the agent away from.
+        const argvs: Array<ReadonlyArray<string>> = [];
+        const { browser } = yield* buildStack(
+          () =>
+            Effect.succeed(
+              makeFakeDriver(fakePage(), {
+                mode: "in-app",
+                onExec: (argv) =>
+                  Effect.sync(() => {
+                    argvs.push(argv);
+                  }),
+              }),
+            ),
+          "in-app",
+        );
+        for (const args of [
+          { action: "list" },
+          { action: "new", url: "https://example.com/" },
+          { action: "switch", tab: "t2" },
+          { action: "close", tab: "t2" },
+        ]) {
+          const outcome = yield* browser.callTool(threadId, "browser_tabs", args);
+          expect(outcome.kind).toBe("ok");
+        }
+        expect(argvs).toContainEqual(["tab", "list"]);
+        expect(argvs).toContainEqual(["tab", "new", "https://example.com/"]);
+        expect(argvs).toContainEqual(["tab", "t2"]);
+        expect(argvs).toContainEqual(["tab", "close", "t2"]);
+      }),
+    ),
+  );
+
+  it.live("owned Chromium's toolbar drives the page through the server", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const argvs: Array<ReadonlyArray<string>> = [];
+        const { browser } = yield* buildStack(() =>
+          Effect.succeed(
+            makeFakeDriver(fakePage(), {
+              onExec: (argv) =>
+                Effect.sync(() => {
+                  argvs.push(argv);
+                }),
+            }),
+          ),
+        );
+
+        // A navigate is enough to start the owned browser.
         yield* browser.humanInput(threadId, { kind: "navigate", url: "https://example.com/a" });
         yield* browser.humanInput(threadId, { kind: "navigate", url: "https://example.com/b" });
         yield* browser.humanInput(threadId, { kind: "history", direction: "back" });
         yield* browser.humanInput(threadId, { kind: "history", direction: "reload" });
 
-        // The commands reached the bound guest instead of being swallowed.
         expect(argvs).toContainEqual(["open", "https://example.com/a"]);
         expect(argvs).toContainEqual(["open", "https://example.com/b"]);
         expect(argvs).toContainEqual(["back"]);
@@ -418,46 +482,6 @@ describe("BrowserService", () => {
         expect(state?.url).toBe("https://example.com/a");
       }),
     ),
-  );
-
-  it.live("a lost webview guest falls back instead of bricking the thread", () =>
-    Effect.gen(function* () {
-      let opened = 0;
-      const { browser } = yield* buildStack(() =>
-        Effect.sync(() => {
-          opened += 1;
-          const gone = opened === 1;
-          return makeFakeDriver(fakePage(), {
-            mode: gone ? "cdp-attach" : "owned-chromium",
-            onExec: () =>
-              gone
-                ? new AgentBrowserError({
-                    command: "rebind",
-                    message: "the browser pane's webview is gone",
-                    code: "tab_gone",
-                    data: null,
-                  })
-                : Effect.void,
-          });
-        }),
-      );
-
-      const first = yield* browser.callTool(threadId, "browser_open", {
-        url: "https://example.com",
-      });
-      // The dead attachment was dropped and the call retried on a fresh
-      // driver — which, with no pane to attach to, is owned Chromium.
-      expect(first.kind).toBe("ok");
-      expect(opened).toBe(2);
-
-      const state = yield* currentState(browser, threadId);
-      expect(state?.mode).toBe("owned-chromium");
-
-      // And the session keeps working from there.
-      const second = yield* browser.callTool(threadId, "browser_snapshot", {});
-      expect(second.kind).toBe("ok");
-      expect(opened).toBe(2);
-    }).pipe(Effect.scoped),
   );
 
   it.live("the driver's scope outlives the call that opened it", () =>

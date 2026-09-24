@@ -55,27 +55,13 @@ const offlineConnectionLayer = Layer.unwrap(
 );
 
 let appAtoms: AppAtoms | null = null;
-let resolvedConnection: ResolvedConnection | null = null;
 
 /**
  * Every reconnect attempt goes back to the channel instead of reusing the
  * credentials boot resolved: a supervisor-restarted server has a new port and
  * a new token, and the frozen pair would loop against a dead port forever.
- *
- * Whatever it finds also becomes the app's idea of the current connection, so
- * `getHttpBase` — the browser pane's attach marker — follows the server across
- * a restart instead of pointing at the port the window opened on.
  */
-const reresolve = Effect.promise(() =>
-  resolveConnection()
-    .then((next) => {
-      if (next !== null) {
-        resolvedConnection = next;
-      }
-      return next;
-    })
-    .catch(() => null),
-);
+const reresolve = Effect.promise(() => resolveConnection().catch(() => null));
 
 /**
  * Is there a desktop supervisor behind this window? If so, "nothing resolved"
@@ -94,7 +80,6 @@ const hasDesktopSupervisor = (): boolean =>
   (window.openade?.onServerState !== undefined || window.openade?.getServerState !== undefined);
 
 export const installAppAtoms = (resolved: ResolvedConnection | null): AppAtoms => {
-  resolvedConnection = resolved;
   appAtoms ??= makeRuntime(
     resolved !== null
       ? makeConnection({ ...resolved, resolve: reresolve })
@@ -103,21 +88,6 @@ export const installAppAtoms = (resolved: ResolvedConnection | null): AppAtoms =
         : offlineConnectionLayer,
   );
   return appAtoms;
-};
-
-/**
- * The server's http(s) origin, derived from the socket url. Loopback routes
- * that are not RPC live on it — the browser pane's attach marker, which the
- * desktop `<webview>` loads so the CDP driver can recognise that guest.
- *
- * `null` when no connection resolved: a relative marker url would resolve
- * against the renderer's own origin and load the app's SPA into the guest,
- * so callers must skip the webview rather than build one out of "".
- */
-export const getHttpBase = (): string | null => {
-  const url = resolvedConnection?.url;
-  if (url === undefined || url === "") return null;
-  return (url.startsWith("ws") ? `http${url.slice(2)}` : url).replace(/\/ws\/?$/, "");
 };
 
 export const getAppAtoms = (): AppAtoms => {

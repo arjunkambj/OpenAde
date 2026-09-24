@@ -264,10 +264,15 @@ export const GitDiff = Schema.Struct({
 export type GitDiff = typeof GitDiff.Type;
 
 /**
- * What the browser pane shows. `cdp-attach` drives the webview already embedded
- * in the dock, so there is no frame to ship; `owned-chromium` runs its own
- * browser and streams JPEG frames, which is why `frame` is nullable rather than
- * two separate state shapes.
+ * What the browser pane shows. `in-app` (the desktop) drives the thread's own
+ * pane webviews, so there is no frame to ship; `owned-chromium` (no desktop)
+ * runs its own headless browser and streams JPEG frames, which is why `frame`
+ * is nullable rather than two separate state shapes; `disabled` is a desktop
+ * started with `OPENADE_REMOTE_DEBUG=0`, which has no browser at all.
+ *
+ * `BrowserState` is wire-only — the server publishes it on `browser.subscribe`
+ * and never writes it to the event log — so changing `mode` needs no decoding
+ * default for old rows.
  */
 export const BrowserFrame = Schema.Struct({
   mediaType: NonEmptyString,
@@ -281,7 +286,7 @@ export type BrowserFrame = typeof BrowserFrame.Type;
 export const BrowserState = Schema.Struct({
   threadId: ThreadId,
   status: Schema.Literals(["stopped", "starting", "ready", "error"]),
-  mode: Schema.Literals(["cdp-attach", "owned-chromium"]),
+  mode: Schema.Literals(["in-app", "owned-chromium", "disabled"]),
   url: Schema.NullOr(NonEmptyString),
   title: Schema.NullOr(Schema.String),
   frame: Schema.NullOr(BrowserFrame),

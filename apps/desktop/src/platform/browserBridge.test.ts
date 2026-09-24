@@ -31,10 +31,8 @@ describe("resolveBrowserBridge", () => {
     for (const flag of ["1", "true", "9222", ""]) {
       expect(resolveBrowserBridge({ OPENADE_REMOTE_DEBUG: flag })).toEqual({ kind: "enabled" });
     }
-    // The old opt-ins no longer mean anything.
-    expect(resolveBrowserBridge({ OPENADE_CDP_PORT: "4444", OPENADE_BROWSER_PANE: "1" })).toEqual({
-      kind: "enabled",
-    });
+    // The old opt-in no longer means anything.
+    expect(resolveBrowserBridge({ OPENADE_BROWSER_PANE: "1" })).toEqual({ kind: "enabled" });
   });
 });
 

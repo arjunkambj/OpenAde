@@ -214,7 +214,7 @@ export const boot = (options: BootOptions) =>
     // Browser sessions + the MCP gateway. `browser` is shared by the RPC
     // handlers and the gateway (the layer graph memoizes it, so both see the
     // one session registry); HttpServer flows in from the outermost provide for
-    // the attach-marker and endpoint URLs.
+    // the gateway's endpoint URL.
     const permissions = PermissionService.layer.pipe(Layer.provide(sqlite));
     const browser = browserServiceLayer.pipe(
       Layer.provide(Layer.mergeAll(engine, permissions, AgentBrowser.layer)),

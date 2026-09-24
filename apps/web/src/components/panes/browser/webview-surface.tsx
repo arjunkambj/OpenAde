@@ -1,13 +1,16 @@
 /**
- * Mode A surface: the Electron `<webview>` that IS the page. It runs in the
- * thread's `persist:thread-*` partition and loads the server's attach-marker
- * URL so the CDP driver can identify it; from then on the agent navigates the
- * guest directly and the human sees everything live.
+ * The in-app surface: the Electron `<webview>` that IS the page. It runs in
+ * the thread's `persist:thread-*` partition and starts on `about:blank`; the
+ * shell's browser bridge exposes it to the agent's CDP session as one of the
+ * thread's tabs, and the human sees everything the agent does live.
  *
  * Navigation and title changes are reported upward as passive `location`
  * inputs — they synchronize our state but do NOT claim human control (the
  * human's real gestures arrive through `window.openade.browserPane.onInput`,
  * from the shell's per-guest input relay).
+ *
+ * The toolbar moves this webview itself through `viewRef`: in-app, the server
+ * never navigates the pane for the human.
  *
  * `allowpopups` lets `window.open` reach the shell's window-open handler,
  * which never opens a native window: it asks for a pane tab instead.
@@ -22,31 +25,35 @@ import * as React from "react";
 /**
  * The Electron webview tag, narrowed to what the pane touches. React's own
  * types declare `<webview>` against `HTMLWebViewElement`; the Electron-only
- * attributes (`partition`, `src` pointing at the loopback marker) go through
- * a spread so they don't fight that declaration.
+ * attributes (`partition`, `allowpopups`) go through a spread so they don't
+ * fight that declaration.
  */
-interface WebviewElement extends HTMLElement {
+export interface WebviewElement extends HTMLElement {
   getURL(): string;
   getTitle(): string;
+  loadURL(url: string): Promise<void>;
+  goBack(): void;
+  goForward(): void;
+  reload(): void;
 }
+
+const BLANK = "about:blank";
 
 export interface WebviewSurfaceProps {
   readonly threadId: string;
-  /** The server's attach-marker URL — how the CDP driver finds this guest. */
-  readonly attachUrl: string;
+  /** The live element, for the toolbar's navigation. */
+  readonly viewRef: React.RefObject<WebviewElement | null>;
   /** Passive navigation sync → `{kind: "location"}` input. */
   readonly onLocation: (url: string, title?: string) => void;
 }
 
-export function WebviewSurface({ threadId, attachUrl, onLocation }: WebviewSurfaceProps) {
-  const ref = React.useRef<WebviewElement | null>(null);
-
+export function WebviewSurface({ threadId, viewRef, onLocation }: WebviewSurfaceProps) {
   React.useEffect(() => {
-    const view = ref.current;
+    const view = viewRef.current;
     if (view === null) return;
     const report = () => {
       const url = view.getURL();
-      if (url !== "" && url !== attachUrl) {
+      if (url !== "" && url !== BLANK) {
         onLocation(url, view.getTitle());
       }
     };
@@ -58,15 +65,15 @@ export function WebviewSurface({ threadId, attachUrl, onLocation }: WebviewSurfa
       view.removeEventListener("did-navigate-in-page", report);
       view.removeEventListener("page-title-updated", report);
     };
-  }, [attachUrl, onLocation]);
+  }, [viewRef, onLocation]);
 
   // Electron reads `allowpopups` by presence, so it goes through as a plain
   // attribute rather than React's typed boolean.
   const webviewProps: Readonly<Record<string, string>> = {
-    src: attachUrl,
+    src: BLANK,
     partition: `persist:thread-${threadId}`,
     allowpopups: "",
     className: "block min-h-0 flex-1",
   };
-  return <webview ref={ref} {...webviewProps} />;
+  return <webview ref={viewRef} {...webviewProps} />;
 }

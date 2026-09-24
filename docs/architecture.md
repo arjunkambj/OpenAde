@@ -261,7 +261,7 @@ The renderer. TanStack Router routes under `apps/web/src/routes`, state through
 | `_home/t/$threadId`               | the thread view; `?pane=` carries the dock tab                                           |
 | `_home/customize/{skills,mcp}`    | what extends the agent, one tab per kind, one section per instance                       |
 | `settings`, seven pages           | general, models, connectors, keybindings, permissions, git & worktrees, archived threads |
-| `browser.$threadId`               | the marker page the browser pane's `<webview>` guest loads                               |
+| `browser.$threadId`               | the browser pane on its own, against a real `browser.subscribe`                          |
 | `dev/{timeline,composer,changes}` | fixture pages, DEV only                                                                  |
 
 The shell is a left sidebar (projects → threads), the thread column (the
@@ -1582,11 +1582,6 @@ the bearer is even looked at. `Origin: null` is explicitly _not_ treated as "no
 origin": an opaque origin is what a sandboxed iframe, a `data:` document and a
 `file:` page send.
 
-The marker page `GET /browser/attach/:threadId` rides along on the same router
-and is neither authenticated nor origin-checked: it is a static page that names
-the thread a webview belongs to, reads nothing and returns nothing that is not
-already in its own URL.
-
 ## The hook bridge
 
 A harness gates its tool calls one of two ways, and OpenAde supports both:
@@ -1669,17 +1664,18 @@ the client's version when it is one the gateway speaks (`2025-06-18`,
 `browser_click`, `browser_fill`, `browser_type`, `browser_press`,
 `browser_scroll`, `browser_wait`, `browser_get`, `browser_screenshot`,
 `browser_eval`, `browser_tabs`. Each entry carries its JSON Schema,
-annotations, the agent-browser argv the call maps to, whether the call can move
-the page, and an input budget — how many pointer/key/wheel gestures the call is
-expected to synthesize itself.
+annotations, the agent-browser argv the call maps to, and whether the call can
+move the page.
 
 `tools/call` goes through `BrowserService.callTool`, which owns the serialized
-per-thread queue and the human-control epoch. Human input bumps the epoch,
-except for input classes an in-flight call is expected to produce (a
-`browser_click` produces one pointer event; a `browser_type` produces one key
-event per character). A call that settles under a different epoch than it
-started returns `interrupted_by_human`, which the agent reads in the tool
-result. Results are capped at 64 KiB counted in bytes, cut on a byte boundary.
+per-thread queue and the human-control epoch. Every human gesture bumps the
+epoch — a click, a key, a scroll, a toolbar navigation — and a call that
+settles under a different epoch than it started returns
+`interrupted_by_human`, which the agent reads in the tool result. Nothing the
+agent does counts: the shell relays a guest's `before-input-event`, and input
+synthesized over CDP never fires one, so a person clicking while
+`browser_click` runs interrupts it. Results are capped at 64 KiB counted in
+bytes, cut on a byte boundary.
 
 Timeline rows for `mcp__openade__browser_*` come from the harness transcript
 through the connector's translator, not from the gateway — emitting items there
@@ -1690,21 +1686,51 @@ its own MCP server: wrapping is what gives a session per thread, a pinned
 target, the interrupt rule and teardown on thread close. Every call is one
 `--json` invocation whose envelope is `{ success, data, error }`.
 
-Two modes (`apps/server/src/browser/driver.ts`), opened lazily on first use so
-opening the pane never launches Chrome:
+The server runs in one of three modes for its whole life, fixed at startup by
+what the shell handed over (`apps/server/src/browser/agentBrowser.ts`), and
+the driver behind the seam in `driver.ts` is opened lazily, on the thread's
+first agent call:
 
-- **cdp-attach** — the driver binds the pane's own webview guest through
-  agent-browser's CDP mode and pins the tab, so a destroyed pane reports
-  `tab_gone` rather than silently driving another target. Human input lands in
-  the guest directly. The driver still enters this mode only when
-  `OPENADE_CDP_PORT` is set, and the desktop no longer sets it: Chromium's
-  remote-debugging port is gone, and the in-app webviews are reachable only
-  through the browser bridge below, which the server is told about but does not
-  dial yet. So today every thread runs owned-chromium.
-- **owned-chromium** — agent-browser runs its own headless Chrome and the
-  driver streams JPEG frames over the session's WebSocket and forwards human
-  input into it. Every gesture on that pane is human by construction — the
-  agent cannot click an `<img>` — so each one bumps the epoch.
+- **in-app** — the desktop. The shell gave the server a browser bridge (below),
+  and `inAppDriver.ts` drives the thread's own pane webviews through it. There
+  is no other browser on the desktop: if the attach fails — the window is
+  closed, the pane cannot open a tab — the call fails with the reason and the
+  pane shows it, and the next call tries again.
+- **disabled** — the desktop under `OPENADE_REMOTE_DEBUG=0`. Every call answers
+  "the in-app browser is disabled (OPENADE_REMOTE_DEBUG=0)" and nothing is
+  started.
+- **owned-chromium** — no desktop: the web renderer, or the server run on its
+  own. `ownedDriver.ts` has agent-browser run its own headless Chrome, streams
+  JPEG frames over the session's WebSocket and forwards the pane's gestures and
+  toolbar into it.
+
+In-app, the server reads the bridge's origin and launch key once and deletes
+both from its own `process.env`, so nothing it spawns later — a harness, a
+terminal — inherits the key. Each agent-browser child gets the thread's URL as
+`AGENT_BROWSER_CDP` in its environment, never in argv. The child's environment
+is an allowlist, and the operator's own `AGENT_BROWSER_*` and `CHROME_*` are
+not on it: `AGENT_BROWSER_CDP`, `AGENT_BROWSER_AUTO_CONNECT` and
+`AGENT_BROWSER_ALLOW_FILE_ACCESS` would each redirect or loosen the child.
+
+The in-app attach is `tab list` (connecting; on a thread with no webview,
+agent-browser's own `Target.createTarget(about:blank)` on connect is what
+creates the thread's first pane tab), `--pin-tab tab <targetId>` of the first
+listed tab, then `stream disable`, which closes the daemon's unauthenticated
+loopback frame stream. A pinned session fails with `tab_gone` when its tab is
+destroyed instead of quietly driving another; the driver hands the agent "the
+browser tab you were driving was closed in the pane; the next call uses the
+pane's current tab", drops the binding, and attaches again on the next call —
+the failed call is not retried behind the agent's back. The agent's own
+`tab new` / `tab <id>` move the pin (and the driver follows), and closing its
+own bound tab makes the next call attach again. After an idle gap as long as
+the daemon's own reap timeout the driver pins again before the next command,
+because the pin is daemon state. `close` is agent-browser's `close`, which in
+CDP mode sends no CDP, so the pane's tabs survive it. The human's toolbar never
+goes through the server in this mode: the pane moves its webview itself, and
+`humanInput` only bumps the epoch and mirrors a navigation's url — a CDP
+`Page.reload` from the server would reload the whole window. Every sequence is
+recorded against the real bridge (`packages/testkit/fixtures/agent-browser/cli-*`)
+and the driver's tests replay the envelopes.
 
 A missing `agent-browser` binary is not fatal: the service reports no binary,
 every call fails with `AgentBrowserUnavailable`, and the pane renders an install
@@ -1738,8 +1764,8 @@ the server with `OPENADE_SERVER_BROWSER_BRIDGE` (the bridge's `ws://` origin,
 or `disabled`) and `OPENADE_SERVER_BROWSER_BRIDGE_KEY` (the launch key). The
 `OPENADE_SERVER_` prefix matters: the harness spawn passes `OPENADE_*`
 through and drops only that prefix, so neither reaches an agent. Anything the
-shell itself inherited under those names, and the retired `OPENADE_CDP_PORT`,
-is dropped. agent-browser is to receive a thread's URL only as
+shell itself inherited under those names is dropped. The server reads both once and deletes them from its own
+environment; agent-browser receives a thread's URL only as
 `AGENT_BROWSER_CDP` in its environment, never in argv, where any local
 process could read it from the process table.
 
@@ -1792,8 +1818,9 @@ window, a window that closes, or no answer in time is a clear CDP error ("the
 OpenAde window is not open"). The preload serves the requests through
 `window.openade.browserPane.serveTabs`, and answers at once with "the OpenAde
 window cannot open browser tabs" while no tab host has registered — which is
-the case today, so an agent's `tab new` and every popup fail with that error
-while the pane's existing webview stays drivable. Every webview guest gets a
+the case today, so an agent's `tab new`, every popup, and the first call on a
+thread whose pane has no webview yet fail with that error, while a webview the
+open pane already shows stays drivable. Every webview guest gets a
 `setWindowOpenHandler` at creation that always denies the native window and
 routes an http(s) popup to a new pane tab of the same thread; the popup loses
 `window.opener`, since it is a fresh guest rather than a child window.
@@ -1804,7 +1831,9 @@ attaches no debugger, and spawns the server with
 reported the same way. Any other value of the variable is ignored — the old
 `=1` / `=<port>` forms, which opened a DevTools port for attaching by hand,
 are gone, because that port exposes the app window. `desktop.json`'s
-`browserPane` key, `OPENADE_BROWSER_PANE` and `OPENADE_CDP_PORT` are ignored.
+`browserPane` key and `OPENADE_BROWSER_PANE` are ignored. Under the kill
+switch the server has no browser at all — it never falls back to a headless
+one.
 
 **Evidence.** The design came out of a spike against agent-browser 0.38.1 and
 Electron 44.3.0, and the recordings under
@@ -1822,7 +1851,12 @@ host window's focused input untouched and its focus restored, reloaded a tab
 without reloading the window, and saw a removed tab disappear and its
 remounted successor appear with a new target id; a cross-thread capability
 and a request with an `Origin` were refused; and under the kill switch no
-bridge listened and no guest had a debugger attached.
+bridge listened and no guest had a debugger attached. The server's own
+sequences were recorded the same way (the `cli-*` scenarios): a fresh daemon
+does open its frame stream, `stream disable` closes it and it stays closed
+across a daemon restart, a pinned session whose tab the pane removed fails
+`tab_gone` (in the error text — `data` is `{targetId, lastUrl}` with no
+`code`), and after `close` both of the pane's tabs were still listed.
 
 **Residual risk.** The endpoint is on loopback, so it is protected by a
 256-bit capability rather than by the OS. The launch key sits in the server's

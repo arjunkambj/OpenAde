@@ -14,7 +14,6 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
-import * as HttpServer from "effect/unstable/http/HttpServer";
 
 import { makeThreadId } from "@OpenAde/contracts/ids";
 
@@ -26,7 +25,7 @@ import { PermissionService } from "../permissions/PermissionService";
 import { BrowserService } from "../rpc/services";
 import { AgentBrowser } from "./agentBrowser";
 import { makeService } from "./BrowserService";
-import { openAgentBrowserDriver } from "./driver";
+import { openOwnedDriver } from "./ownedDriver";
 
 const LIVE = process.env.OPENADE_LIVE_BROWSER === "1";
 const threadId = makeThreadId();
@@ -37,14 +36,6 @@ const permissionsStub = Layer.succeed(
     decide: () => Effect.succeed("allow" as const),
     rules: () => Effect.succeed([]),
     addRule: () => Effect.void,
-  }),
-);
-
-const httpStub = Layer.succeed(
-  HttpServer.HttpServer,
-  HttpServer.make({
-    serve: () => Effect.void,
-    address: { _tag: "TcpAddress", hostname: "127.0.0.1", port: 0 },
   }),
 );
 
@@ -60,11 +51,14 @@ const buildStack = () =>
     const browser = Layer.effect(
       BrowserService,
       makeService({
-        cdpAvailable: false,
-        openDriver: (options) =>
-          openAgentBrowserDriver(options).pipe(Effect.provide(AgentBrowser.layer)),
+        mode: "owned-chromium",
+        openDriver: ({ threadId: id, events }) =>
+          Effect.gen(function* () {
+            const agentBrowser = yield* AgentBrowser;
+            return yield* openOwnedDriver(agentBrowser.session(id), events);
+          }).pipe(Effect.provide(AgentBrowser.layer)),
       }),
-    ).pipe(Layer.provide(Layer.mergeAll(engine, permissionsStub, httpStub, AgentBrowser.layer)));
+    ).pipe(Layer.provide(Layer.mergeAll(engine, permissionsStub)));
     const context = yield* Layer.build(Layer.mergeAll(engine, browser));
     return { browser: Context.get(context, BrowserService) };
   });

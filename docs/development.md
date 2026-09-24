@@ -145,8 +145,12 @@ meaning ask the OS), `OPENADE_DEV=1` (same as `--dev`).
 The desktop shell reads one: `OPENADE_REMOTE_DEBUG=0` (or `false`) turns the
 in-app browser off — no browser bridge, no debugger on the pane webviews, and
 the server is spawned with `OPENADE_SERVER_BROWSER_BRIDGE=disabled`. Any other
-value is ignored, as are the retired `OPENADE_BROWSER_PANE` and
-`OPENADE_CDP_PORT`. The shell never opens Chromium's remote-debugging port,
+value is ignored, as is the retired `OPENADE_BROWSER_PANE`. With it set the
+browser tools answer that the in-app browser is disabled; the desktop never
+falls back to a headless browser. A server started on its own
+(`pnpm -F server dev`, no shell) runs agent-browser's own headless Chrome. The
+agent-browser child never inherits your own `AGENT_BROWSER_*` or `CHROME_*`
+variables. The shell never opens Chromium's remote-debugging port,
 and strips `--remote-debugging-port` and its relatives from its own command
 line, so launching Electron with them does nothing. To look at a pane guest
 over CDP by hand, mint the thread's bridge URL

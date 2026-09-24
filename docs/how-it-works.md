@@ -75,9 +75,10 @@ arrives (`serverArgs.ts` documents the failure in full).
 `apps/desktop/src/backend/serverEnv.ts` builds the environment: the shell's own,
 plus `OPENADE_DEV`, `OPENADE_SERVER_BROWSER_BRIDGE` (the bridge's `ws://`
 origin, or `disabled`) and `OPENADE_SERVER_BROWSER_BRIDGE_KEY` (the launch key
-the server mints thread URLs from). An inherited `OPENADE_CDP_PORT` or bridge
-variable is dropped. The `OPENADE_SERVER_` prefix keeps both out of the
-harness, whose spawn drops exactly that prefix.
+the server mints thread URLs from). An inherited bridge variable is dropped.
+The `OPENADE_SERVER_` prefix keeps both out of the harness, whose spawn drops
+exactly that prefix, and the server deletes both from its own environment as
+soon as it has read them.
 
 The child is spawned with `stdio: ["ignore", "inherit", "inherit", "pipe"]`.
 Stdout and stderr are the server's log; **fd 3 carries the handshake**.
@@ -1710,21 +1711,24 @@ went away.
 The dock's Browser tab gives the agent a real browser and lets a person take it
 over mid-call.
 
-### Two modes
+### Three modes
 
-`apps/server/src/browser/driver.ts` picks one per session:
+The server runs in one mode for its whole life, chosen at startup from what
+the desktop shell handed over (`apps/server/src/browser/agentBrowser.ts`):
 
-- **`cdp-attach`** — the driver lists CDP targets through
-  `agent-browser --cdp <port> tab --json` and pins the pane's `<webview>`
-  guest, identified by the marker page it loads (`GET /browser/attach/:threadId`).
-  There is no frame to ship: the webview is already showing the page, and
-  human input lands in the guest directly. The driver takes this mode only
-  when `OPENADE_CDP_PORT` is set, which the desktop no longer does, so it is
-  not reached today.
-- **`owned-chromium`** — `agent-browser` runs its own headless Chrome, the
-  driver connects its `stream` WebSocket, and the pane renders the JPEG frames
-  that come back and forwards gestures into it. Every thread runs this mode
-  for now.
+- **`in-app`** — the desktop. agent-browser drives the thread's own pane
+  webviews through the shell's browser bridge (`inAppDriver.ts`). There is no
+  frame to ship: the webview is already showing the page, and human input
+  lands in the guest directly. The first call attaches: `tab list`, which on a
+  thread with no webview makes agent-browser ask the bridge for one, then
+  `--pin-tab tab <first tab>` and `stream disable`. If that fails, the call
+  fails with the reason and the pane shows it; there is no headless fallback.
+- **`disabled`** — the desktop under `OPENADE_REMOTE_DEBUG=0`: every call
+  answers "the in-app browser is disabled (OPENADE_REMOTE_DEBUG=0)".
+- **`owned-chromium`** — the web renderer, with no desktop behind it:
+  agent-browser runs its own headless Chrome (`ownedDriver.ts`), the driver
+  connects its `stream` WebSocket, and the pane renders the JPEG frames that
+  come back and forwards gestures and toolbar actions into it.
 
 The desktop side of the in-app browser is the bridge
 (`apps/desktop/src/main/browser/`, see
@@ -1737,20 +1741,26 @@ registry recognises its thread by its `persist:thread-<id>` session and
 attaches its debugger, its `window.open` handler turns popups into requests
 for a pane tab (which the window cannot serve yet, so they are dropped with a
 logged error), and its input relay tags every gesture with the thread and the
-guest's `webContents` id.
+guest's `webContents` id. The pane's webview starts on `about:blank`.
 
 `apps/server/src/browser/agentBrowser.ts` finds the CLI (`OPENADE_AGENT_BROWSER`,
 then `agent-browser` on `PATH`) and runs every call as argv-form `execFile`,
 never a shell. A missing binary is not fatal: the service reports `binary:
 null`, every call fails with `AgentBrowserUnavailable`, and the pane renders an
 install prompt keyed off the exact message constant. The daemon session is
-named `ade-<threadId>` and carries a 300 s idle timeout — for a CDP attachment
-that timeout is the only thing that reaps it, because closing that session would
-destroy a tab the desktop owns.
+named `ade-<threadId>` and carries a 300 s idle timeout as a net behind
+`close`, which in-app mode can call freely: it sends no CDP, so the pane's
+tabs survive it. The child's environment is an allowlist that keeps the
+operator's own `AGENT_BROWSER_*` and `CHROME_*` out; the thread's bridge URL
+reaches it as `AGENT_BROWSER_CDP`, never in argv.
+
+A pinned session whose tab the pane closed fails `tab_gone`; the agent reads
+"the browser tab you were driving was closed in the pane; the next call uses
+the pane's current tab", and its next call attaches to the pane's current tab.
 
 A session is lazy: `browser.subscribe` creates the state ref but not the
-browser. The driver opens on the first tool call or human navigation, so opening
-the pane never launches Chrome.
+browser. The driver opens on the first agent call (in owned mode, also on the
+first toolbar navigation), so opening the pane never starts one.
 
 ### Tools
 
@@ -1774,17 +1784,21 @@ twice.
 
 ### Human control
 
-Each session carries an **epoch** that human input bumps. A prepared call
-declares how many gestures of each class (`pointer`, `key`, `wheel`) it can
-synthesize itself — a `browser_click` produces one pointer event, a
-`browser_type` one key event per character — and input within that budget is the
-agent's own echo. Anything beyond it is a person taking over: the epoch moves,
-and a call that settles under a different epoch than it started returns
-`interrupted_by_human`, which the harness sees in the tool result.
+Each session carries an **epoch** that every human gesture bumps — a click,
+a key, a scroll, a toolbar action — and a call that settles under a different
+epoch than it started returns `interrupted_by_human`, which the harness sees in
+the tool result. There is no allowance for the agent's own input: the shell's
+relay reports a guest's `before-input-event`, which input synthesized over CDP
+never fires, so a person clicking while `browser_click` runs interrupts it.
 
-Toolbar back/forward/reload and an address-bar navigation are human gestures.
-Observed navigation is reported as a passive `location` input, which never marks
-human control — otherwise the agent's own navigations would look like a
+In-app, the toolbar moves the pane's webview itself (`loadURL`, back, forward,
+reload, http(s) only) and the server only hears about it; the server never runs
+agent-browser for the human, since a CDP reload of a webview reloads the whole
+window. In owned mode the toolbar goes through the server, which has the only
+handle on that browser.
+
+Observed navigation is reported as a passive `location` input, which never
+marks human control — otherwise the agent's own navigations would look like a
 takeover.
 
 Teardown runs off `thread.deleted` / `thread.archived`, because the engine is

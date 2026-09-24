@@ -276,7 +276,7 @@ export class BrowserService extends Context.Service<
         Stream.make({
           threadId,
           status: "stopped" as const,
-          mode: "cdp-attach" as const,
+          mode: "disabled" as const,
           url: null,
           title: null,
           frame: null,

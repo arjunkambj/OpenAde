@@ -3,22 +3,37 @@
  * session registry, the serialized per-thread command queue, the
  * human-control epoch and the teardown reactor.
  *
- * A session is a lazy record: `browser.subscribe` creates the state ref but
- * not the browser. The driver (see `./driver`) is opened on the first tool
- * call or human navigation, so opening the pane never launches Chrome.
+ * The service runs in one mode for its whole life, fixed by what the desktop
+ * shell handed over (see `./agentBrowser`):
  *
- * The interrupt rule: every session carries an epoch that human
- * input bumps — except input classes an in-flight `browser_*` call is
- * expected to synthesize itself (a `browser_click` produces pointer events
- * over CDP). A call that settles under a different epoch than it started
- * returns `interrupted_by_human`; the harness sees that string in the tool
- * result.
+ * - `in-app` — the agent drives the thread's own pane webviews through the
+ *   shell's browser bridge (`./inAppDriver`). The pane moves its webview
+ *   itself; the server never navigates it for the human.
+ * - `owned-chromium` — no desktop: agent-browser's own headless Chrome, with
+ *   the pane showing its frame stream and the toolbar driving it through
+ *   the server (`./ownedDriver`).
+ * - `disabled` — the shell ran with `OPENADE_REMOTE_DEBUG=0`: every call
+ *   answers that, and nothing is opened.
+ *
+ * There is no fallback between them. A desktop attach that fails is an error
+ * the agent and the pane both see.
+ *
+ * A session is a lazy record: `browser.subscribe` creates the state ref but
+ * not the browser. The driver is opened on the first agent call (or, in
+ * owned mode, the first toolbar navigation), so opening the pane never starts
+ * a browser.
+ *
+ * The interrupt rule: every session carries an epoch that every human gesture
+ * bumps. A call that settles under a different epoch than it started returns
+ * `interrupted_by_human`; the harness sees that string in the tool result.
+ * Input the agent synthesizes over CDP is never relayed back as a gesture, so
+ * nothing the agent does can count as the human.
  *
  * Teardown runs on `thread.deleted`/`thread.archived` — the only writer of
  * durable thread state is the engine, so this service listens for its events
- * rather than being called by the session manager. Closing the owned
- * Chromium (or releasing the CDP attachment) plus publishing a final
- * `stopped` state is all it does; token revocation is the MCP gateway's job.
+ * rather than being called by the session manager. Closing the driver plus
+ * publishing a final `stopped` state is all it does; token revocation is the
+ * MCP gateway's job.
  */
 
 import { readFile, unlink } from "node:fs/promises";
@@ -34,7 +49,6 @@ import * as Scope from "effect/Scope";
 import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
-import * as HttpServer from "effect/unstable/http/HttpServer";
 
 import type { ThreadId } from "@OpenAde/contracts/ids";
 import { makeRequestId } from "@OpenAde/contracts/ids";
@@ -43,27 +57,20 @@ import type { BrowserFrame, BrowserHumanInput, BrowserState } from "@OpenAde/con
 import { OrchestrationEngine } from "../orchestration/Engine";
 import { PermissionService } from "../permissions/PermissionService";
 import { BrowserService } from "../rpc/services";
-import { AgentBrowser } from "./agentBrowser";
-import { openAgentBrowserDriver, type BrowserDriver, type DriverEvents } from "./driver";
-import {
-  findBrowserTool,
-  type BrowserCallOutcome,
-  type InputBudget,
-  type InputClass,
-  type PreparedCall,
-} from "./tools";
+import { AgentBrowser, BROWSER_DISABLED_MESSAGE } from "./agentBrowser";
+import type { BrowserDriver, DriverEvents } from "./driver";
+import { openInAppDriver } from "./inAppDriver";
+import { openOwnedDriver } from "./ownedDriver";
+import { findBrowserTool, type BrowserCallOutcome, type PreparedCall } from "./tools";
 
 const STOPPED_STATUS = "stopped" as const;
+
+type BrowserMode = BrowserState["mode"];
 
 interface Session {
   readonly threadId: ThreadId;
   readonly state: SubscriptionRef.SubscriptionRef<BrowserState>;
   readonly epoch: Ref.Ref<number>;
-  /** What the in-flight tool may still echo back of its own input, or none. */
-  readonly inFlight: Ref.Ref<{
-    readonly tool: string;
-    readonly expects: InputBudget;
-  } | null>;
   readonly queue: Semaphore.Semaphore;
   /** The open driver plus the scope its stream/fibers live under. */
   readonly driver: Ref.Ref<{
@@ -72,118 +79,50 @@ interface Session {
   } | null>;
 }
 
-/**
- * The daemon's "the tab I was bound to no longer exists". The cdp driver
- * retries a rebind before it surfaces this, so seeing it here means the pane's
- * webview is really gone.
- */
-const isTabGone = (error: { readonly message: string; readonly code?: string | null }): boolean =>
-  error.code === "tab_gone";
+/** Gestures that are a person at the page: all of them but passive `location`. */
+const isGesture = (input: BrowserHumanInput): boolean => input.kind !== "location";
 
-/**
- * What `browser_tabs` may do while the pane owns the browser.
- *
- * In cdp-attach mode the session is bound to a CDP endpoint that is the
- * Electron app's *own* remote-debugging port, and `pickWebviewTarget` refuses
- * to bind anything but the pane's webview guest for exactly that reason: one of
- * the `page` targets on that port is the OpenAde window itself. `browser_tabs`
- * went around the guard — `list` enumerated every target on the port, including
- * `openade://app/...`, and `switch` took an arbitrary `targetId`, which rebound
- * the session to the app's own renderer. From there `browser_snapshot` read the
- * UI, `browser_click` could press Allow on a pending approval card, and
- * `browser_eval` reached `window.openade.getConnection()`.
- *
- * So: in that mode the pane's webview is the only tab there is. `list` is
- * filtered down to it, and the three tab-management actions are refused.
- */
-const TAB_MANAGEMENT_UNAVAILABLE = "tab management is unavailable while the pane owns the browser";
-
-const isTabList = (argv: ReadonlyArray<string>): boolean => argv[0] === "tab" && argv[1] === "list";
-
-/** The result of `tab list`, with everything that is not a webview removed. */
-const webviewTabsOnly = (data: Record<string, unknown>): Record<string, unknown> => {
-  const tabs = data.tabs;
-  if (!Array.isArray(tabs)) {
-    return data;
-  }
-  return {
-    ...data,
-    tabs: tabs.filter(
-      (tab) =>
-        typeof tab === "object" &&
-        tab !== null &&
-        (tab as Record<string, unknown>).type === "webview",
-    ),
-  };
-};
-
-/** Which input epoch-class a human gesture belongs to. */
-const inputClassOf = (input: BrowserHumanInput): InputClass | null => {
-  switch (input.kind) {
-    case "click":
-      return "pointer";
-    case "key":
-    case "text":
-      return "key";
-    case "scroll":
-      return "wheel";
-    default:
-      return null;
-  }
-};
-
-const defaultMode = (cdpConfigured: boolean): BrowserState["mode"] =>
-  cdpConfigured ? "cdp-attach" : "owned-chromium";
-
-const initialState = (threadId: ThreadId, mode: BrowserState["mode"]): BrowserState => ({
+const initialState = (threadId: ThreadId, mode: BrowserMode): BrowserState => ({
   threadId,
   status: STOPPED_STATUS,
   mode,
   url: null,
   title: null,
   frame: null,
+  ...(mode === "disabled" ? { message: BROWSER_DISABLED_MESSAGE } : {}),
 });
 
 /** What the driver seam needs at open time (one per thread). */
 export interface OpenDriverOptions {
   readonly threadId: ThreadId;
-  readonly attachMarker: string;
   readonly events: DriverEvents;
 }
 
 /**
  * The service body, with the driver opener injected so tests can run the
- * whole queue/epoch/teardown path against `fakeBrowserDriver` without
- * touching a real `agent-browser` binary. `cdpAvailable` only seeds the
- * initial `BrowserState.mode` — the driver reports the real mode on open.
+ * whole queue/epoch/teardown path against `makeFakeDriver` without touching a
+ * real `agent-browser` binary. `mode` is the server's one mode; in `disabled`
+ * the opener is never called.
  */
 export const makeService = (injected: {
-  readonly cdpAvailable: boolean;
+  readonly mode: BrowserMode;
   readonly openDriver: (
     options: OpenDriverOptions,
   ) => Effect.Effect<BrowserDriver, { readonly message: string }, Scope.Scope>;
 }): Effect.Effect<
   BrowserService["Service"],
   never,
-  OrchestrationEngine | PermissionService | HttpServer.HttpServer | Scope.Scope
+  OrchestrationEngine | PermissionService | Scope.Scope
 > =>
   Effect.gen(function* () {
     const engine = yield* OrchestrationEngine;
     const permissions = yield* PermissionService;
-    const httpServer = yield* HttpServer.HttpServer;
     const serviceScope = yield* Effect.scope;
+    const mode = injected.mode;
 
     const sessions = yield* Ref.make(new Map<ThreadId, Session>());
     // Serializes session-record creation across threads of the map.
     const registryLock = yield* Semaphore.make(1);
-
-    const attachMarkerFor = (threadId: ThreadId): string => {
-      const address = httpServer.address;
-      if (typeof address === "object" && address !== null && "port" in address) {
-        return `http://127.0.0.1:${address.port}/browser/attach/${threadId}`;
-      }
-      return "";
-    };
 
     const getSession = (threadId: ThreadId): Effect.Effect<Session> =>
       registryLock.withPermits(1)(
@@ -192,14 +131,8 @@ export const makeService = (injected: {
           if (existing !== undefined) return existing;
           const session: Session = {
             threadId,
-            state: yield* SubscriptionRef.make(
-              initialState(threadId, defaultMode(injected.cdpAvailable)),
-            ),
+            state: yield* SubscriptionRef.make(initialState(threadId, mode)),
             epoch: yield* Ref.make(0),
-            inFlight: yield* Ref.make<{
-              readonly tool: string;
-              readonly expects: InputBudget;
-            } | null>(null),
             queue: yield* Semaphore.make(1),
             driver: yield* Ref.make<{
               readonly driver: BrowserDriver;
@@ -241,11 +174,7 @@ export const makeService = (injected: {
         // closes this scope, when the session is really done with the driver.
         const scope = yield* Scope.make();
         const opened = yield* Scope.provide(scope)(
-          injected.openDriver({
-            threadId: session.threadId,
-            attachMarker: attachMarkerFor(session.threadId),
-            events: eventsFor(session),
-          }),
+          injected.openDriver({ threadId: session.threadId, events: eventsFor(session) }),
         ).pipe(
           Effect.catch((error) =>
             Effect.gen(function* () {
@@ -267,7 +196,6 @@ export const makeService = (injected: {
         yield* SubscriptionRef.update(session.state, (state) => ({
           ...state,
           status: "ready" as const,
-          mode: opened.mode,
         }));
         return opened;
       });
@@ -295,7 +223,7 @@ export const makeService = (injected: {
       );
 
     /**
-     * A human address-bar navigation: mirror the url immediately so the
+     * An owned-mode address-bar navigation: mirror the url immediately so the
      * toolbar stops fighting the field, then move the page and re-read where
      * it actually landed.
      */
@@ -359,7 +287,6 @@ export const makeService = (injected: {
         Effect.acquireUseRelease(
           Effect.gen(function* () {
             const epoch = yield* Ref.get(session.epoch);
-            yield* Ref.set(session.inFlight, { tool: call.name, expects: call.expects });
             yield* SubscriptionRef.update(session.state, (state) => ({
               ...state,
               activeTool: call.name,
@@ -373,48 +300,21 @@ export const makeService = (injected: {
                 Effect.catch((outcome) => Effect.succeed({ ok: false as const, outcome })),
               );
               if (!ensured.ok) return ensured.outcome;
-              let driver = ensured.driver;
-              if (
-                call.name === "browser_tabs" &&
-                driver.mode === "cdp-attach" &&
-                !isTabList(call.argv)
-              ) {
-                return {
-                  kind: "error",
-                  message: TAB_MANAGEMENT_UNAVAILABLE,
-                } satisfies BrowserCallOutcome;
-              }
+              const driver = ensured.driver;
               const argv = call.screenshot
                 ? call.argv.map((part) => (part === "{shot}" ? screenshotPath() : part))
                 : call.argv;
-              let executed = yield* execOnce(driver, argv);
-              if (!executed.ok && isTabGone(executed.error)) {
-                // The pane's webview is gone for good — the cdp driver already
-                // tried to rebind. Drop the dead driver so the next open can
-                // fall back to owned Chromium, and give this call that chance
-                // rather than erroring every call until the thread is deleted.
-                yield* releaseDriver(session);
-                const reopened = yield* ensureDriver(session).pipe(
-                  Effect.map((next) => ({ ok: true as const, driver: next })),
-                  Effect.catch((outcome) => Effect.succeed({ ok: false as const, outcome })),
-                );
-                if (!reopened.ok) return reopened.outcome;
-                driver = reopened.driver;
-                executed = yield* execOnce(driver, argv);
-              }
+              // A `tab_gone` comes back as an error like any other: the in-app
+              // driver has already dropped the dead binding, so the agent's
+              // next call attaches to the pane's current tab.
+              const executed = yield* execOnce(driver, argv);
               if (!executed.ok) {
                 return {
                   kind: "error",
                   message: executed.error.message,
                 } satisfies BrowserCallOutcome;
               }
-              // The app's own window is one of the `page` targets on this port.
-              // Naming it to the agent is already a disclosure, and the id it
-              // hands back is what a `switch` would have taken.
-              const data =
-                driver.mode === "cdp-attach" && isTabList(call.argv)
-                  ? webviewTabsOnly(executed.data)
-                  : executed.data;
+              const data = executed.data;
 
               if (call.mutating) yield* refreshLocation(session, driver);
 
@@ -435,11 +335,7 @@ export const makeService = (injected: {
               }
               return { kind: "ok", data, ...(image === undefined ? {} : { image }) } as const;
             }),
-          () =>
-            Effect.andThen(
-              Ref.set(session.inFlight, null),
-              SubscriptionRef.update(session.state, (state) => ({ ...state, activeTool: null })),
-            ),
+          () => SubscriptionRef.update(session.state, (state) => ({ ...state, activeTool: null })),
         ),
       );
 
@@ -459,6 +355,9 @@ export const makeService = (injected: {
         const prepared = spec.prepare(args);
         if (!prepared.ok) {
           return { kind: "error", message: prepared.error } satisfies BrowserCallOutcome;
+        }
+        if (mode === "disabled") {
+          return { kind: "error", message: BROWSER_DISABLED_MESSAGE } satisfies BrowserCallOutcome;
         }
         if (name === "browser_eval") {
           const denied = yield* gateEval(threadId, args);
@@ -481,25 +380,22 @@ export const makeService = (injected: {
           return;
         }
 
-        // Human control: bump the epoch unless an in-flight call expected to
-        // synthesize this input itself. The expectation is a per-class budget
-        // sized by the call — one pointer event for a `browser_click`, one
-        // key event per character for a `browser_type`. Gestures beyond the
-        // budget are the human taking over, and do interrupt.
-        const inputClass = inputClassOf(input);
-        const expected = yield* Ref.modify(session.inFlight, (current) => {
-          const remaining =
-            current === null || inputClass === null ? 0 : (current.expects.get(inputClass) ?? 0);
-          if (current === null || inputClass === null || remaining <= 0) {
-            return [false, current] as const;
-          }
-          const next = new Map(current.expects);
-          if (remaining === 1) next.delete(inputClass);
-          else next.set(inputClass, remaining - 1);
-          return [true, { ...current, expects: next }] as const;
-        });
-        if (!expected) {
+        // Human control: any gesture bumps the epoch, so an agent call in
+        // flight settles as `interrupted_by_human`.
+        if (isGesture(input)) {
           yield* Ref.update(session.epoch, (epoch) => epoch + 1);
+        }
+
+        if (mode !== "owned-chromium") {
+          // In-app, the pane moves its own webview — the gesture already
+          // happened in the guest, and the toolbar navigates it directly. All
+          // the server does is mirror a navigation's url. It never runs
+          // agent-browser for the human: `reload` over CDP reloads the whole
+          // OpenAde window, not the tab.
+          if (input.kind === "navigate") {
+            yield* SubscriptionRef.update(session.state, (state) => ({ ...state, url: input.url }));
+          }
+          return;
         }
 
         const current = yield* Ref.get(session.driver);
@@ -525,10 +421,8 @@ export const makeService = (injected: {
         }
         const driver = current.driver;
 
-        // The toolbar drives the page in both modes. In cdp-attach the driver
-        // is bound to the pane's own guest target, so `open`/`back`/`forward`/
-        // `reload` move exactly the webview the human is looking at — the pane
-        // itself has no navigation path of its own.
+        // Owned Chromium has no page of its own in the pane — only frames — so
+        // the toolbar and the gestures on the frame surface go through here.
         switch (input.kind) {
           case "click":
           case "key":
@@ -564,7 +458,7 @@ export const makeService = (injected: {
         if (session === undefined) return;
         yield* releaseDriver(session);
         yield* SubscriptionRef.set(session.state, {
-          ...initialState(session.threadId, defaultMode(injected.cdpAvailable)),
+          ...initialState(session.threadId, mode),
           status: STOPPED_STATUS,
         });
         yield* Ref.update(sessions, (map) => {
@@ -610,15 +504,19 @@ export const makeService = (injected: {
 export const layer: Layer.Layer<
   BrowserService,
   never,
-  OrchestrationEngine | PermissionService | AgentBrowser | HttpServer.HttpServer
+  OrchestrationEngine | PermissionService | AgentBrowser
 > = Layer.effect(
   BrowserService,
   Effect.gen(function* () {
     const agentBrowser = yield* AgentBrowser;
     return yield* makeService({
-      cdpAvailable: agentBrowser.cdpPort !== null,
-      openDriver: (options) =>
-        openAgentBrowserDriver(options).pipe(Effect.provideService(AgentBrowser, agentBrowser)),
+      mode: agentBrowser.mode,
+      openDriver: ({ threadId, events }) => {
+        const session = agentBrowser.session(threadId);
+        return agentBrowser.mode === "in-app"
+          ? openInAppDriver(session)
+          : openOwnedDriver(session, events);
+      },
     });
   }),
 );

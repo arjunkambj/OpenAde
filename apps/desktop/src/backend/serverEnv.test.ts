@@ -30,14 +30,12 @@ describe("serverEnv", () => {
     expect(env["OPENADE_DEV"]).toBe("1");
   });
 
-  it("never passes the retired CDP port or an inherited bridge on", () => {
+  it("never passes an inherited bridge on", () => {
     const inherited = {
-      OPENADE_CDP_PORT: "9222",
       OPENADE_SERVER_BROWSER_BRIDGE: "ws://127.0.0.1:1",
       OPENADE_SERVER_BROWSER_BRIDGE_KEY: "stale",
     };
     const off = serverEnv(inherited, { packaged: true, bridge: { kind: "disabled" } });
-    expect(off).not.toHaveProperty("OPENADE_CDP_PORT");
     expect(off["OPENADE_SERVER_BROWSER_BRIDGE"]).toBe("disabled");
     expect(off).not.toHaveProperty("OPENADE_SERVER_BROWSER_BRIDGE_KEY");
 
@@ -45,7 +43,6 @@ describe("serverEnv", () => {
       packaged: true,
       bridge: { kind: "enabled", origin: "ws://127.0.0.1:2", launchKey: KEY },
     });
-    expect(on).not.toHaveProperty("OPENADE_CDP_PORT");
     expect(on["OPENADE_SERVER_BROWSER_BRIDGE_KEY"]).toBe(KEY);
   });
 });

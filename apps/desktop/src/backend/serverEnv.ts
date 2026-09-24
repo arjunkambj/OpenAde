@@ -6,8 +6,7 @@
  * per-launch key, or `disabled`. The bridge variables carry the
  * `OPENADE_SERVER_` prefix because the harness spawn passes `OPENADE_*`
  * through and drops only that prefix. Whatever the shell itself inherited
- * under those names, or the retired `OPENADE_CDP_PORT`, never reaches the
- * server.
+ * under those names never reaches the server.
  *
  * Electron-free, so the env is unit-tested; `./serverDeps` feeds it the real
  * `process.env`.
@@ -19,7 +18,7 @@ export type BridgeForServer =
   | { readonly kind: "enabled"; readonly origin: string; readonly launchKey: string }
   | { readonly kind: "disabled" };
 
-const RETIRED = new Set(["OPENADE_CDP_PORT", BRIDGE_ENV, BRIDGE_KEY_ENV]);
+const INHERITED_BRIDGE = new Set([BRIDGE_ENV, BRIDGE_KEY_ENV]);
 
 export const serverEnv = (
   base: NodeJS.ProcessEnv,
@@ -27,7 +26,7 @@ export const serverEnv = (
 ): NodeJS.ProcessEnv => {
   const env: NodeJS.ProcessEnv = {};
   for (const [name, value] of Object.entries(base)) {
-    if (!RETIRED.has(name)) env[name] = value;
+    if (!INHERITED_BRIDGE.has(name)) env[name] = value;
   }
   env["ELECTRON_RUN_AS_NODE"] = "1";
   env["OPENADE_DEV"] = options.packaged ? "" : "1";

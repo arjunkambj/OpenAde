@@ -24,7 +24,8 @@ import * as HttpServer from "effect/unstable/http/HttpServer";
 import { makeThreadId } from "@OpenAde/contracts/ids";
 import { makeRegistry } from "@OpenAde/connector-sdk/registry";
 
-import { makeFakeDriver, type BrowserDriver, type FakePage } from "../browser/driver";
+import type { BrowserDriver } from "../browser/driver";
+import { makeFakeDriver, type FakePage } from "../browser/fakeDriver";
 import { makeService, type OpenDriverOptions } from "../browser/BrowserService";
 import { OrchestrationEngine } from "../orchestration/Engine";
 import { ConnectorSelection, SessionManager } from "../orchestration/SessionManager";
@@ -78,8 +79,8 @@ const buildStack = (
 
     const browser = Layer.effect(
       BrowserService,
-      makeService({ cdpAvailable: false, openDriver }),
-    ).pipe(Layer.provide(Layer.mergeAll(engine, permissionsStub, httpLayer)));
+      makeService({ mode: "owned-chromium", openDriver }),
+    ).pipe(Layer.provide(Layer.mergeAll(engine, permissionsStub)));
 
     const gateway = McpGateway.layer.pipe(
       Layer.provide(Layer.mergeAll(browser, engine, manager, httpLayer)),

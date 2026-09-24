@@ -1,13 +1,17 @@
 /**
  * The thread's browser pane — the dock's Browser tab.
  *
- * - Mode A (`cdp-attach`, desktop): a real `<webview>` shows the live page;
- *   the server attaches to it over CDP. Human gestures inside the guest come
- *   back through `window.openade.browserPane.onInput` and are forwarded as
+ * - `in-app` (desktop): a real `<webview>` shows the live page, and the
+ *   agent drives that same webview through the shell's browser bridge. Human
+ *   gestures inside the guest come back through
+ *   `window.openade.browserPane.onInput` and are forwarded as
  *   `browser.humanInput` — which is what interrupts an in-flight agent call.
- * - Mode B (`owned-chromium`, browser/dev or CDP-less desktop): the pane
- *   renders the JPEG frame stream and forwards gestures the same way; the
- *   server replays them into its own Chromium.
+ *   The toolbar moves the webview itself; the server only hears about it.
+ * - `owned-chromium` (the web renderer, no desktop): the pane renders the
+ *   JPEG frame stream and forwards gestures and toolbar actions; the server
+ *   replays them into its own headless Chromium.
+ * - `disabled` (desktop with `OPENADE_REMOTE_DEBUG=0`): no browser; the pane
+ *   says so.
  *
  * Toolbar actions are human gestures (`history`, `navigate`); observed
  * navigation in the guest is synced as passive `location` so the agent's own
@@ -26,13 +30,16 @@ import * as Schema from "effect/Schema";
 import { AsyncResult } from "effect/unstable/reactivity";
 
 import { FOCUS_SURFACE } from "@/lib/keybinding-context";
-import { getAppAtoms, getHttpBase } from "@/state/app-runtime";
+import { getAppAtoms } from "@/state/app-runtime";
 import { AddressBar } from "./address-bar";
 import { FrameSurface } from "./frame-surface";
 import { isAgentBrowserMissing } from "./install";
 import { InstallPrompt } from "./install-prompt";
 import { frameFallback } from "./status";
-import { WebviewSurface } from "./webview-surface";
+import { WebviewSurface, type WebviewElement } from "./webview-surface";
+
+/** What the pane itself will load into its webview: the web, nothing else. */
+const WEB_URL = /^https?:\/\//i;
 
 export interface BrowserPaneProps {
   readonly threadId: ThreadId;
@@ -78,25 +85,38 @@ export function BrowserPane({ threadId }: BrowserPaneProps) {
   const missing =
     state !== null && state.status === "error" && isAgentBrowserMissing(state.message);
 
-  // Mode A renders the webview even before the driver attaches — the guest
-  // shows the attach marker, then whatever the agent navigates to. Owned
-  // Chromium falls back to the frame stream.
-  //
-  // Without a resolved connection there is no marker url to load: a relative
-  // one would pull the app's own SPA into the guest and break the driver's
-  // target matching, so we wait for the socket instead.
-  const httpBase = getHttpBase();
+  // In-app renders the webview even before the agent's first call — it sits
+  // on about:blank until someone navigates it. Owned Chromium falls back to
+  // the frame stream.
   const useWebview =
-    !missing &&
-    bridge !== undefined &&
-    httpBase !== null &&
-    (state === null || state.mode !== "owned-chromium");
+    !missing && bridge !== undefined && (state === null || state.mode === "in-app");
+  const viewRef = React.useRef<WebviewElement | null>(null);
+
+  // In-app, the toolbar moves the webview directly; the server only hears
+  // about it, which is what bumps the human-control epoch.
+  const onToolbar = React.useCallback(
+    (input: BrowserHumanInput) => {
+      const view = viewRef.current;
+      if (useWebview && view !== null) {
+        if (input.kind === "navigate") {
+          if (!WEB_URL.test(input.url)) return;
+          void view.loadURL(input.url).catch(() => undefined);
+        } else if (input.kind === "history") {
+          if (input.direction === "back") view.goBack();
+          else if (input.direction === "forward") view.goForward();
+          else view.reload();
+        }
+      }
+      dispatch(input);
+    },
+    [useWebview, dispatch],
+  );
 
   return (
     // Focus anywhere in the pane — the address bar, its buttons — reads as
     // `browserFocus`, so the app's Mod+L and Mod+[ / Mod+] leave it alone.
     <div data-context={FOCUS_SURFACE.browser} className="flex h-full min-h-0 flex-col">
-      <AddressBar state={state} onAction={dispatch} />
+      <AddressBar state={state} onAction={onToolbar} />
       {missing ? (
         <InstallPrompt onRetry={() => dispatch({ kind: "history", direction: "reload" })} />
       ) : useWebview ? (
@@ -109,7 +129,7 @@ export function BrowserPane({ threadId }: BrowserPaneProps) {
         <WebviewSurface
           key={threadId}
           threadId={threadId}
-          attachUrl={`${httpBase}/browser/attach/${threadId}`}
+          viewRef={viewRef}
           onLocation={onLocation}
         />
       ) : state !== null && state.status !== "stopped" ? (
