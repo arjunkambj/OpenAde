@@ -306,7 +306,7 @@ function TerminalDrawer({
           <TerminalFind handle={handle} onClose={closeFind} />
         </div>
       ) : null}
-      <div className="min-h-0 flex-1 px-2 pb-1">{body}</div>
+      <div className="min-h-0 flex-1 overflow-hidden px-2 pb-1">{body}</div>
     </div>
   );
 }
