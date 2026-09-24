@@ -8,14 +8,7 @@ import { describe, expect, it } from "vitest";
 import { makeCheckpointId, makeProjectId, makeThreadId, makeTurnId } from "@OpenAde/contracts/ids";
 import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
 
-import {
-  branchBaseFor,
-  checkpointLabel,
-  diffRangeFor,
-  pickTurn,
-  rangeKeyOf,
-  turnRange,
-} from "./selection";
+import { branchBaseFor, checkpointLabel, diffRangeFor, pickTurn, turnRange } from "./selection";
 
 const checkpoint = (ref: string, createdAt = "2026-01-01T09:30:00.000Z"): CheckpointSummary => ({
   checkpointId: makeCheckpointId(),
@@ -67,17 +60,6 @@ describe("changes pane selection", () => {
     expect(branchBaseFor(undefined, null)).toBeNull();
     // A recorded base does not wait for the list.
     expect(branchBaseFor("main", undefined)).toBe("main");
-  });
-
-  it("keys each comparison apart, so a file's disclosure is per comparison", () => {
-    const scope = { projectId: makeProjectId() };
-    const keys = [
-      rangeKeyOf(scope),
-      rangeKeyOf({ ...scope, from: "refs/a" }),
-      rangeKeyOf({ ...scope, from: "refs/a", to: "refs/b" }),
-      rangeKeyOf({ ...scope, mergeBase: "main" }),
-    ];
-    expect(new Set(keys).size).toBe(keys.length);
   });
 
   it("shows the picked turn while it exists, else the latest", () => {

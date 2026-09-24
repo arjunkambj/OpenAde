@@ -2,10 +2,15 @@
  * The Changes pane's file list for one comparison.
  *
  * The diff is the file list, because `GitDiff.files` already carries the path,
- * the `+`/`-` counts and the per-file patch. The files stack, each open under
- * its own sticky header, so the pane reads top to bottom like one review. Each
- * patch renders through `InlineDiff`, so highlighting stays on the shared
- * worker pool and the dock never blocks the main thread.
+ * the `+`/`-` counts and the per-file patch. It reads as an overview first:
+ * one compact row per file — its kind, directory and name, and counts — with
+ * every patch closed until the user opens it (`startsOpen` in `./review` has
+ * the one exception). An open file's patch scrolls under its sticky header, so
+ * the pane still reads top to bottom like one review. Which files are open is
+ * the thread's own and kept per path (`useChangesReview`), so a new turn or
+ * another comparison does not open them all again. Each patch renders through
+ * `InlineDiff`, so highlighting stays on the shared worker pool and the dock
+ * never blocks the main thread.
  */
 
 import { useAtomValue } from "@effect/atom-react";
@@ -17,10 +22,10 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { PaneMessage } from "@/components/panes/files/pane-message";
 import { InlineDiff } from "@/components/timeline/diff-pool";
 import { cn } from "@/lib/utils";
-import { useRowDisclosure, type DiffStyle } from "@/state/ui";
+import { useChangesReview, type DiffStyle } from "@/state/ui";
 
 import { useGitAtoms } from "./git-atoms";
-import { rangeKeyOf } from "./selection";
+import { isOpen, startsOpen, withOpen } from "./review";
 import {
   type HoneyIcon,
   AlertTriangle,
@@ -60,14 +65,6 @@ const KIND_ICON: Record<GitDiffFile["kind"], HoneyIcon> = {
   delete: FileRemove,
 };
 
-/**
- * Past either limit the files start closed: every open file hands its patch to
- * the two-worker highlight pool at once, and a working-tree diff against HEAD
- * can be hundreds of files and megabytes of patch text.
- */
-const OPEN_FILES_LIMIT = 30;
-const OPEN_LINES_LIMIT = 400;
-
 /** `+12 −3`, each side only when it is not zero. */
 function LineCounts({ additions, deletions }: { additions: number; deletions: number }) {
   if (additions === 0 && deletions === 0) {
@@ -100,16 +97,15 @@ function FilePath({ path }: { path: string }) {
  */
 function FileSection({
   file,
-  rangeKey,
+  open,
+  onOpenChange,
   diffStyle,
-  defaultOpen,
 }: {
   file: GitDiffFile;
-  rangeKey: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   diffStyle: DiffStyle;
-  defaultOpen: boolean;
 }) {
-  const [open, setOpen] = useRowDisclosure(`changes-${rangeKey}-${file.path}`, defaultOpen);
   const Glyph = KIND_ICON[file.kind];
   const expandable = file.diff !== "";
   return (
@@ -118,7 +114,7 @@ function FileSection({
         type="button"
         disabled={!expandable}
         aria-expanded={expandable ? open : undefined}
-        onClick={() => setOpen(!open)}
+        onClick={() => onOpenChange(!open)}
         className="sticky top-0 z-10 flex w-full items-center gap-2 border-b border-border bg-sidebar px-3 py-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring enabled:cursor-pointer enabled:hover:bg-hover"
       >
         <ChevronRight
@@ -151,12 +147,14 @@ function FileSection({
 
 /** The files of one comparison, read from its own `git.diff` atom. */
 export function ChangesList({
+  threadId,
   range,
   status,
   connected,
   diffStyle,
   onRetry,
 }: {
+  threadId: string;
   range: GitDiffRange;
   status: PaneQuery<GitStatus> | null;
   connected: boolean;
@@ -165,7 +163,6 @@ export function ChangesList({
 }) {
   const { gitDiffAtom } = useGitAtoms();
   const diff = queryValue<GitDiff>(useAtomValue(gitDiffAtom(range)));
-  const rangeKey = rangeKeyOf(range);
 
   const retry = (
     <Button type="button" variant="ghost" size="sm" onClick={onRetry}>
@@ -199,17 +196,30 @@ export function ChangesList({
   if (diff.value.files.length === 0) {
     return <PaneMessage icon={GitDiffIcon} text="No changes in this comparison." />;
   }
-  const files = diff.value.files;
-  const fewFiles = files.length <= OPEN_FILES_LIMIT;
+  return <ReviewList threadId={threadId} files={diff.value.files} diffStyle={diffStyle} />;
+}
+
+/** A comparison's files once its diff has answered, with the thread's review over them. */
+function ReviewList({
+  threadId,
+  files,
+  diffStyle,
+}: {
+  threadId: string;
+  files: ReadonlyArray<GitDiffFile>;
+  diffStyle: DiffStyle;
+}) {
+  const [review, updateReview] = useChangesReview(threadId);
+  const byDefault = startsOpen(files);
   return (
     <div className="flex flex-col border-t border-border">
       {files.map((file) => (
         <FileSection
           key={file.path}
           file={file}
-          rangeKey={rangeKey}
+          open={isOpen(review, file.path, byDefault)}
+          onOpenChange={(open) => updateReview((current) => withOpen(current, [file.path], open))}
           diffStyle={diffStyle}
-          defaultOpen={fewFiles && file.additions + file.deletions <= OPEN_LINES_LIMIT}
         />
       ))}
     </div>

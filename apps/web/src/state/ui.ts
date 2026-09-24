@@ -709,3 +709,47 @@ export const useChangesScope = () => useRememberedChoice(changesScopeAtom, CHANG
 
 /** `[style, setStyle]` for the Changes pane's diffs; timeline rows stay unified. */
 export const useDiffStyle = () => useRememberedChoice(diffStyleAtom, DIFF_STYLE_KEY);
+
+/**
+ * Where one thread's review of its changes stands, per file path: which files
+ * the user opened or closed in the Changes pane, and which they marked viewed.
+ *
+ * Keyed by path, not by comparison, so the choice follows the file: a new turn
+ * or another pick in the Compare menu does not throw every file open again,
+ * and a file whose patch moved keeps the state it was left in. `viewed` holds
+ * the patch hash each mark was made against rather than a flag — a patch that
+ * changes since reads as not viewed, with nothing to reset. A path absent from
+ * `open` takes the list's default (`startsOpen` in the pane).
+ */
+export interface ChangesReview {
+  readonly open: Readonly<Record<string, boolean>>;
+  readonly viewed: Readonly<Record<string, string>>;
+}
+
+export const emptyChangesReview: ChangesReview = { open: {}, viewed: {} };
+
+// In memory only, like the composer draft: a review is a working session, not
+// layout. `keepAlive`, because the pane that reads it unmounts every time the
+// dock closes or switches tab, and the review has to outlive that.
+const changesReviewAtom = Atom.keepAlive(Atom.make<Readonly<Record<string, ChangesReview>>>({}));
+
+/** `[review, update]` for one thread; `update` maps the thread's review to its next one. */
+export const useChangesReview = (threadId: string) => {
+  const review = useAtomValue(
+    changesReviewAtom,
+    React.useCallback(
+      (reviews: Readonly<Record<string, ChangesReview>>) => reviews[threadId] ?? emptyChangesReview,
+      [threadId],
+    ),
+  );
+  const setReviews = useAtomSet(changesReviewAtom);
+  const update = React.useCallback(
+    (change: (current: ChangesReview) => ChangesReview) =>
+      setReviews((reviews) => ({
+        ...reviews,
+        [threadId]: change(reviews[threadId] ?? emptyChangesReview),
+      })),
+    [setReviews, threadId],
+  );
+  return [review, update] as const;
+};

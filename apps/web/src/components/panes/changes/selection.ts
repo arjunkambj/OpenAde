@@ -105,12 +105,3 @@ export const branchBaseFor = (
   worktreeBase: string | undefined,
   defaultBranch: string | null | undefined,
 ): string | null | undefined => worktreeBase ?? defaultBranch;
-
-/**
- * A stable key for one comparison, for the file rows' disclosure ids: the same
- * file in another comparison is a different patch, so it opens on its own.
- */
-export const rangeKeyOf = (range: GitDiffRange): string =>
-  range.mergeBase === undefined
-    ? `${range.from ?? "HEAD"}:${range.to ?? "worktree"}`
-    : `${range.mergeBase}...`;

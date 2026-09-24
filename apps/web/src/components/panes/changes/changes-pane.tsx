@@ -139,6 +139,7 @@ export function ChangesPane({ snapshot }: { snapshot: ThreadDetailView }) {
   const body =
     range !== null ? (
       <ChangesList
+        threadId={snapshot.threadId}
         range={range}
         status={status}
         connected={connected}
