@@ -1,0 +1,187 @@
+{
+  "scenario": "skill",
+  "description": "a skill reference the way the connector writes one: the user's text with its $greeting token, then the line prepareTurn adds for the skill — does the model activate that skill?",
+  "cli": "/opt/homebrew/bin/cmd",
+  "cliVersion": "1.65.0",
+  "recordedOn": "2026-09-24",
+  "model": "meta/muse-spark-1.3-contributor",
+  "modelRequested": null,
+  "real": true,
+  "turns": [
+    {
+      "index": 0,
+      "prompt": "Greet me with $greeting.\n\nUse the \"greeting\" skill.",
+      "connectorArgs": [
+        "-p",
+        "Greet me with $greeting.\n\nUse the \"greeting\" skill.",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--yolo",
+        "--max-turns",
+        "3",
+        "--tools-enable",
+        "ask_user_question"
+      ],
+      "argv": [
+        "-p",
+        "Greet me with $greeting.\n\nUse the \"greeting\" skill.",
+        "--output-format",
+        "json",
+        "--verbose",
+        "-t",
+        "--skip-onboarding",
+        "--no-auto-update",
+        "--yolo",
+        "--max-turns",
+        "3",
+        "--tools-enable",
+        "ask_user_question"
+      ],
+      "envKeys": [
+        "HOME",
+        "OPENADE_RECORD_HOOK_LOG",
+        "OPENADE_RECORD_HOOK_POLICY",
+        "OPENADE_THREAD_ID",
+        "PATH",
+        "SHELL",
+        "SSH_AUTH_SOCK",
+        "TMPDIR",
+        "USER"
+      ],
+      "sessionId": "e9c5dfaf-8310-4f46-9a4d-f4cbeea038c3",
+      "exitCode": 0,
+      "signal": null,
+      "interrupted": false,
+      "durationMs": 8363,
+      "stdoutChunks": [
+        {
+          "at": 740,
+          "chars": 97
+        },
+        {
+          "at": 821,
+          "chars": 62
+        },
+        {
+          "at": 922,
+          "chars": 50
+        },
+        {
+          "at": 922,
+          "chars": 98
+        },
+        {
+          "at": 1133,
+          "chars": 93
+        },
+        {
+          "at": 4928,
+          "chars": 180
+        },
+        {
+          "at": 5199,
+          "chars": 408
+        },
+        {
+          "at": 5200,
+          "chars": 157
+        },
+        {
+          "at": 5409,
+          "chars": 149
+        },
+        {
+          "at": 5413,
+          "chars": 457
+        },
+        {
+          "at": 5413,
+          "chars": 172
+        },
+        {
+          "at": 5417,
+          "chars": 62
+        },
+        {
+          "at": 5419,
+          "chars": 50
+        },
+        {
+          "at": 5419,
+          "chars": 98
+        },
+        {
+          "at": 5420,
+          "chars": 93
+        },
+        {
+          "at": 8294,
+          "chars": 87
+        },
+        {
+          "at": 8294,
+          "chars": 118
+        },
+        {
+          "at": 8349,
+          "chars": 340
+        },
+        {
+          "at": 8349,
+          "chars": 173
+        },
+        {
+          "at": 8352,
+          "chars": 1999
+        },
+        {
+          "at": 8352,
+          "chars": 269
+        }
+      ],
+      "transcriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg-czzrjh0000gn-t-openade-rec-skill-69de5d2a-repo/e9c5dfaf-8310-4f46-9a4d-f4cbeea038c3.jsonl",
+      "guessedTranscriptPath": "<HOME>/.commandcode/projects/private-var-folders-fk-g7j37kcj0kd6sdfwg_czzrjh0000gn-t-openade-rec-skill-69de5d2a-repo/e9c5dfaf-8310-4f46-9a4d-f4cbeea038c3.jsonl",
+      "transcriptDirMatchesConnectorSlug": false,
+      "projectDirListing": [
+        "e9c5dfaf-8310-4f46-9a4d-f4cbeea038c3.checkpoints.jsonl",
+        "e9c5dfaf-8310-4f46-9a4d-f4cbeea038c3.jsonl",
+        "e9c5dfaf-8310-4f46-9a4d-f4cbeea038c3.meta.json"
+      ],
+      "transcriptGrowth": [
+        {
+          "at": 5419,
+          "bytes": 1650,
+          "lines": 4
+        },
+        {
+          "at": 8363,
+          "bytes": 2130,
+          "lines": 5
+        }
+      ],
+      "transcriptBytes": 2130,
+      "checkpointGrowth": [
+        {
+          "at": 751,
+          "bytes": 214,
+          "lines": 1
+        }
+      ],
+      "transcriptMeta": "{\n  \"entrypoint\": \"print\",\n  \"traceIds\": [\n    \"3e94df5ad4daec226f50a70a8f0a0c69\",\n    \"4ca6505b0465ccca1223d4b54bad80bb\"\n  ]\n}",
+      "hookCount": 1,
+      "plans": [],
+      "touchedFiles": [],
+      "files": {
+        "stdout": "stdout.ndjson",
+        "stderr": "stderr.txt",
+        "transcript": "transcript.jsonl",
+        "checkpoints": "checkpoints.jsonl",
+        "hooks": "hooks.json"
+      }
+    }
+  ]
+}

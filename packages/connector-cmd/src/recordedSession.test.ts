@@ -70,7 +70,11 @@ const services = (): Effect.Effect<ConnectorServices> =>
   );
 
 /** Opens a session whose binary replays `scenario`. */
-const openSession = (scenario: string, b: Box, options: { readonly plan?: boolean } = {}) =>
+const openSession = (
+  scenario: string,
+  b: Box,
+  options: { readonly plan?: boolean; readonly argvLog?: string } = {},
+) =>
   Effect.gen(function* () {
     const handle = yield* makeCmdSession({
       instanceId: makeConnectorInstanceId(),
@@ -81,6 +85,7 @@ const openSession = (scenario: string, b: Box, options: { readonly plan?: boolea
         HOME: b.home,
         OPENADE_REPLAY_DIR: NodePath.join(RECORDINGS, scenario),
         OPENADE_REPLAY_STATE: NodePath.join(b.home, ".replay-turn"),
+        ...(options.argvLog === undefined ? {} : { OPENADE_REPLAY_ARGV_LOG: options.argvLog }),
       },
       home: b.home,
       services: yield* services(),
@@ -218,6 +223,59 @@ describe("a recorded plan turn", () => {
         expect(proposed?.type === "turn.plan.proposed" && proposed.payload.planMarkdown).toContain(
           "subtract function",
         );
+
+        yield* handle.close();
+      }),
+    ),
+  );
+});
+
+describe("a recorded skill reference", () => {
+  /**
+   * `skill/` was recorded with the prompt `prepareTurn` writes for this very
+   * input: the user's text with its draft token, then the line naming the
+   * skill. So the argv the session hands the CLI has to carry that prompt
+   * byte for byte, and what came back — the model calling `activate_skill`
+   * for the skill, then following it — has to land as a `skill` row.
+   */
+  it.live("sends the recorded prompt and shows the skill the model activated", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const b = yield* box();
+        const recorded = manifestOf("skill").turns[0]!;
+        const argvLog = NodePath.join(b.home, "argv.ndjson");
+        const { handle, collector } = yield* openSession("skill", b, { argvLog });
+
+        yield* handle.send({
+          text: "Greet me with $greeting.",
+          attachments: [],
+          mentions: [],
+          references: [{ kind: "skill", name: "greeting" }],
+        });
+        yield* collector.awaitItem((event) => event.type === "turn.completed");
+        const events = yield* collector.collected;
+
+        const turns = NodeFS.readFileSync(argvLog, "utf8")
+          .split("\n")
+          .filter((line) => line.length > 0)
+          .map((line) => (JSON.parse(line) as { argv: ReadonlyArray<string> }).argv)
+          .filter((argv) => argv[0] === "-p");
+        expect(turns).toHaveLength(1);
+        expect(turns[0]![1]).toBe(recorded.prompt);
+
+        const skill = itemsOf(events).filter((item) => item.kind === "skill");
+        expect(skill.at(0)?.tool).toMatchObject({
+          name: "activate_skill",
+          input: { name: "greeting" },
+        });
+        expect(skill.at(-1)?.status).toBe("completed");
+        const said = itemsOf(events).filter((item) => item.kind === "assistant_message");
+        expect(said.at(-1)?.text).toBe("hello from the greeting skill");
+        // A skill reference is not the kind that is left out with a warning.
+        const warnings = events.flatMap((event) =>
+          event.type === "session.warning" ? [event.payload.message] : [],
+        );
+        expect(warnings.filter((message) => message.includes("left out"))).toEqual([]);
 
         yield* handle.close();
       }),

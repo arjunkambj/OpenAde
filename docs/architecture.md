@@ -1093,16 +1093,18 @@ logger that annotates lines with the thread they came from, and a clock.
 take a `TurnInput`: text, attachments, mentions and the optional skill and
 plugin `references`. How a reference reaches the harness is the connector's
 choice, since each harness has its own syntax for invoking a skill or a
-plugin. `send` fails with `TurnInProgress` when a turn is running and
-`capabilities.steering` is false; the caller's recourse is to queue, which is
-what `thread.turn.start { queued: true }` is for. `steer` is present only when
+plugin. Command Code's connector writes a skill as a sentence naming it and
+leaves a plugin out with a `session.warning`
+([command-code-connector.md](command-code-connector.md#the-prompt)). `send`
+fails with `TurnInProgress` when a turn is running and `capabilities.steering`
+is false; the caller's recourse is to queue, which is what
+`thread.turn.start { queued: true }` is for. `steer` is present only when
 `capabilities.steering` is true: it delivers a message into the running turn
 with no new turn boundary, and the connector keeps that turn open until the
 harness has answered the steered message too, so the turn still completes
 exactly once. It fails with `NotSteerable` when there is no turn to take the
-message. `close` is
-not best-effort: it resolves only once the connector has proved the process tree
-it started is gone.
+message. `close` is not best-effort: it resolves only once the connector has
+proved the process tree it started is gone.
 
 **The bounded queue.** `makeBoundedEventQueue` is a dropping queue of 2048
 slots, of which the last 64 are reserved for terminal events —

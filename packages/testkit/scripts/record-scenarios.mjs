@@ -321,6 +321,34 @@ export const SCENARIOS = {
     ],
   },
 
+  skill: {
+    description:
+      "a skill reference the way the connector writes one: the user's text with its $greeting token, then the line prepareTurn adds for the skill — does the model activate that skill?",
+    // A project skill, found where `skills.ts` looks for one. Its body asks
+    // for a reply no model gives unprompted, so the answer shows it was read.
+    seed: {
+      ".commandcode/skills/greeting/SKILL.md": [
+        "---",
+        "name: greeting",
+        "description: How to greet the user.",
+        "---",
+        "",
+        "Reply with exactly: hello from the greeting skill",
+        "",
+      ].join("\n"),
+    },
+    turns: [
+      {
+        // Exactly what `prepareTurn` builds for the text `Greet me with
+        // $greeting.` and one skill reference `greeting`; `turnArgs.test.ts`
+        // holds the two together.
+        prompt: 'Greet me with $greeting.\n\nUse the "greeting" skill.',
+        maxTurns: 3,
+        hookPolicy: { default: "allow" },
+      },
+    ],
+  },
+
   subagent: {
     description:
       "a delegated subagent call — does PreToolUse fire for the subagent's own tool calls? (5.7 q7, the half the mcp recording leaves open)",

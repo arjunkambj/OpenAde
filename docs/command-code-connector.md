@@ -298,10 +298,29 @@ it, and demands the same list.
 ### The prompt
 
 One string, assembled by `prepareTurn`: the user's text, then one `@name` line
-per mention, then one line per attachment, joined by blank lines. Empty parts
-are dropped. A mention is a workspace-relative path and nothing else
-(`Mention` in `packages/contracts/src/orchestration.ts`) — the connector writes
-it as `@path` text and the harness resolves the path itself.
+per mention, then one line per skill reference, then one line per attachment,
+joined by blank lines. Empty parts are dropped. A mention is a
+workspace-relative path and nothing else (`Mention` in
+`packages/contracts/src/orchestration.ts`) — the connector writes it as `@path`
+text and the harness resolves the path itself.
+
+A skill reference (`TurnReference` in `packages/contracts/src/runtime.ts`, kind
+`skill`) becomes one sentence, `Use the "<name>" skill.`, with the name
+JSON-quoted; a skill referenced twice is named once. The user's text still
+carries the composer's `$name` token, which means nothing to the harness; the
+sentence is what the model acts on. `fixtures/cmd/skill/` was recorded with
+exactly the prompt `prepareTurn` builds for `Greet me with $greeting.` and one
+reference to a project skill `greeting`: the model's first act was
+`activate_skill {name: "greeting"}` (a `skill` row), and it then answered as the
+skill's body told it to. `turnArgs.test.ts` fails if `prepareTurn` stops
+building that prompt, and `recordedSession.test.ts` replays the recording
+through a session sent that reference.
+
+A plugin reference is never written into the prompt. Command Code has no
+plugins, so the connector implements no plugins extension and the composer
+never offers one for its threads; a plugin reference that arrives anyway is
+left out and reported as a `session.warning` naming it. A turn with no
+references builds the same prompt it did before references existed.
 
 ### Environment
 

@@ -624,7 +624,7 @@ const writeRecording = (name, scenario, turns, context) => {
     description: scenario.description,
     cli: context.binary.display,
     cliVersion: context.cliVersion,
-    recordedOn: "2026-09-18",
+    recordedOn: new Date().toISOString().slice(0, 10),
     model: observedModel ?? context.model ?? "the CLI's configured default",
     modelRequested: context.model ?? null,
     real: true,

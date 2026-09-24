@@ -460,6 +460,8 @@ drops the chip. The turn carries them as typed `references`
 sent message's bubble (`UserMessageRow` in `timeline/message-rows.tsx`) draws
 the same chips above its text, from the `user_message` row's `references`; a
 row without any renders as text alone.
+Neither the renderer nor the server writes a reference into the prompt: the
+connector does, in the words its harness understands ([The spawn](#the-spawn)).
 
 The model picker, on the start screen and in the thread header, has one
 section per enabled connector instance (`modelCatalogAtom`), headed by the
@@ -566,7 +568,11 @@ that tool, and without the flag the model asks its question as prose no card
 ever renders.
 
 The prompt is the user's text, then `@mention` lines, then one
-`Attachment (<mime>): <absolute path>` line per staged file.
+`Use the "<name>" skill.` line per skill reference, then one
+`Attachment (<mime>): <absolute path>` line per staged file. A plugin reference
+is left out, with a `session.warning` saying so, because Command Code has no
+plugins. The skill line is the one `fixtures/cmd/skill/` was recorded with; see
+[command-code-connector.md](command-code-connector.md#the-prompt).
 
 The environment is built by `envAllowlist` in three passes: the inherited
 variables an allowlist names, then the operator's `extraEnv` from the connectors

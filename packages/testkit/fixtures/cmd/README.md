@@ -4,19 +4,20 @@
 Nothing in it is hand-written, reconstructed or synthesized. If the CLI changes,
 these are re-recorded — they are never edited by hand to make a test pass.
 
-|             |                                                         |
-| ----------- | ------------------------------------------------------- |
-| CLI         | `/opt/homebrew/bin/cmd` (the operator's global install) |
-| Version     | **1.55.1**, and **1.56.0** for the two newest           |
-| Recorded on | **2026-09-18**                                          |
-| Model       | `meta/muse-spark-1.3-contributor` (the account default) |
-| Recorded by | `packages/testkit/scripts/record-cmd.mjs`               |
+|             |                                                                      |
+| ----------- | -------------------------------------------------------------------- |
+| CLI         | `/opt/homebrew/bin/cmd` (the operator's global install)              |
+| Version     | **1.55.1**; **1.56.0** for the six after it; **1.65.0** for `skill/` |
+| Recorded on | **2026-09-18**, and **2026-09-24** for `skill/`                      |
+| Model       | `meta/muse-spark-1.3-contributor` (the account default)              |
+| Recorded by | `packages/testkit/scripts/record-cmd.mjs`                            |
 
-Each `manifest.json` carries the model its own frames name and the CLI version
-it ran on, so a recording made on a different model or a later release says so
-rather than inheriting this table. The connector runs whatever `cmd` the user
-has installed, so the recordings are not pinned to one release either — the
-tests only insist that none predates `OLDEST_TESTED_VERSION`.
+Each `manifest.json` carries the model its own frames name, the CLI version it
+ran on and the day it was recorded, so a recording made on a different model or
+a later release says so rather than inheriting this table. The connector runs
+whatever `cmd` the user has installed, so the recordings are not pinned to one
+release either — the tests only insist that none predates
+`OLDEST_TESTED_VERSION`.
 
 Each run was spawned with the argv and environment
 `packages/connector-cmd/src/spawn.ts` builds, in a throwaway git repo, with the
@@ -84,6 +85,7 @@ Multi-turn scenarios prefix each file with `turn1.` / `turn2.`.
 | `image/`            | an image attachment staged the way the connector stages one                                  |
 | `mcp/`              | an `mcp__<server>__<tool>` call — PreToolUse fires for it                                    |
 | `subagent/`         | an `agent` delegation — one hook for the delegation, none for what the subagent then does    |
+| `skill/`            | a skill reference written the way `prepareTurn` writes it — `activate_skill` fires for it    |
 | `interrupt/`        | SIGINT mid-turn — exit 130, no `run_end`, no `result`                                        |
 | `resume/`           | a second turn resuming the first session id                                                  |
 | `shell-twice/`      | the same shell call twice in one session — what "allow always" has to answer                 |

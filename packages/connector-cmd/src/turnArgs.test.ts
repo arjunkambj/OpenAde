@@ -4,11 +4,13 @@
  */
 
 import * as NodeFS from "node:fs";
+import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import * as NodeURL from "node:url";
 import { describe, expect, it } from "@effect/vitest";
 import { makeThreadId } from "@OpenAde/contracts/ids";
 import type { ThreadSettings } from "@OpenAde/contracts/orchestration";
+import type { TurnInput } from "@OpenAde/connector-sdk/definition";
 
 import { cmdEffort, prepareTurn } from "./turnArgs";
 
@@ -96,5 +98,118 @@ describe("prepareTurn", () => {
         "--no-auto-update",
       ]);
     }
+  });
+});
+
+/** The prompt `prepareTurn` builds for one turn: argv's second element. */
+const promptOf = async (
+  turn: TurnInput,
+  attachmentsDir = NodePath.join(NodeFS.realpathSync(NodePath.resolve("/tmp")), "openade-none"),
+) => {
+  const prepared = await prepareTurn({
+    turn,
+    settings: settings("default"),
+    attachmentsDir,
+    threadId: makeThreadId(),
+    resumeSessionId: null,
+  });
+  expect(prepared.args[0]).toBe("-p");
+  return { prompt: prepared.args[1], warnings: prepared.warnings, args: prepared.args };
+};
+
+describe("skill and plugin references in the prompt", () => {
+  it("writes the text, then mentions, then skills, then attachments", async () => {
+    const attachmentsDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "openade-refs-"));
+    const threadId = makeThreadId();
+    const staged = NodePath.join(attachmentsDir, threadId, "abc-shot.png");
+    NodeFS.mkdirSync(NodePath.dirname(staged), { recursive: true });
+    NodeFS.writeFileSync(staged, "PNG");
+    const prepared = await prepareTurn({
+      turn: {
+        text: "Tidy #src/app.ts with $lint and $commit",
+        attachments: [{ path: staged, mime: "image/png", name: "shot.png" }],
+        mentions: ["src/app.ts"],
+        references: [
+          { kind: "skill", name: "lint" },
+          { kind: "skill", name: "commit" },
+        ],
+      },
+      settings: settings("default"),
+      attachmentsDir,
+      threadId,
+      resumeSessionId: null,
+    });
+    expect(prepared.args[1]).toBe(
+      [
+        "Tidy #src/app.ts with $lint and $commit",
+        "@src/app.ts",
+        'Use the "lint" skill.',
+        'Use the "commit" skill.',
+        `Attachment (image/png): ${staged}`,
+      ].join("\n\n"),
+    );
+    expect(prepared.warnings).toEqual([]);
+  });
+
+  it("names a repeated skill once and quotes a name that needs it", async () => {
+    const { prompt } = await promptOf({
+      text: "go",
+      attachments: [],
+      mentions: [],
+      references: [
+        { kind: "skill", name: "deploy" },
+        { kind: "skill", name: "deploy" },
+        { kind: "skill", name: 'say "hi"' },
+      ],
+    });
+    expect(prompt).toBe(
+      ["go", 'Use the "deploy" skill.', 'Use the "say \\"hi\\"" skill.'].join("\n\n"),
+    );
+  });
+
+  it("leaves a turn without references exactly as it was", async () => {
+    const turn = { text: "hi", attachments: [], mentions: ["a.ts"] } as const;
+    const absent = await promptOf(turn);
+    const empty = await promptOf({ ...turn, references: [] });
+    expect(absent.prompt).toBe("hi\n\n@a.ts");
+    expect(empty.args).toEqual(absent.args);
+    expect(absent.warnings).toEqual([]);
+  });
+
+  it("leaves a plugin out of the prompt and says so", async () => {
+    const withPlugin = await promptOf({
+      text: "Ship it with @release-notes",
+      attachments: [],
+      mentions: [],
+      references: [
+        { kind: "plugin", name: "release-notes" },
+        { kind: "skill", name: "commit" },
+      ],
+    });
+    expect(withPlugin.prompt).toBe(
+      ["Ship it with @release-notes", 'Use the "commit" skill.'].join("\n\n"),
+    );
+    expect(withPlugin.warnings).toEqual([
+      'the plugin "release-notes" was left out of the prompt: Command Code has no plugins to reference',
+    ]);
+  });
+
+  /**
+   * `fixtures/cmd/skill/` was recorded with the prompt this input builds, and
+   * the model called `activate_skill` for `greeting` off the back of it. If
+   * the line changes, this fails until the recording is made again.
+   */
+  it("builds the prompt the skill recording was made with", async () => {
+    const recorded = JSON.parse(
+      NodeFS.readFileSync(NodePath.join(RECORDINGS, "skill", "manifest.json"), "utf8"),
+    ) as { turns: ReadonlyArray<{ prompt: string; connectorArgs: ReadonlyArray<string> }> };
+    const { prompt } = await promptOf({
+      text: "Greet me with $greeting.",
+      attachments: [],
+      mentions: [],
+      references: [{ kind: "skill", name: "greeting" }],
+    });
+    expect(prompt).toBe(recorded.turns[0]!.prompt);
+    expect(prompt).toBe(recorded.turns[0]!.connectorArgs[1]);
   });
 });
