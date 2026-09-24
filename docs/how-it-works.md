@@ -1476,7 +1476,9 @@ worktree at `<path>`**, saying the branch is kept with its commits.
 
 The second confirmation is mounted above the routes
 (`WorktreeForceRemovalHost` in `__root.tsx`), because the sidebar row that
-started the delete is gone once its thread is. The conflict is also the
+started the delete is gone once its thread is. **Remove anyway** taken on
+several toasts queues their confirmations, shown one after another in the order
+they were asked, so none is dropped unanswered. The conflict is also the
 expected answer to a race: the session closes asynchronously after
 `thread.delete`, and a harness can still hold an untracked config file in the
 worktree for a moment, so **Remove anyway** is the way through that too.

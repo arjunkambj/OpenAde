@@ -56,6 +56,30 @@ export type DeleteThreadOutcome =
   | "worktree-kept"
   | "worktree-failed";
 
+/** A forced removal waiting on the user's second confirmation. */
+export interface ForceRemovalRequest {
+  readonly worktree: ThreadWorktree;
+  /** Called once: true when the user confirmed that the uncommitted work will be lost. */
+  readonly answer: (confirmed: boolean) => void;
+}
+
+/**
+ * The confirmations waiting to be shown, first asked first. "Remove anyway"
+ * can be taken on two refusal toasts before the first confirmation is
+ * answered; the second waits its turn rather than replacing the first, whose
+ * toast is gone and which nothing else would ever answer.
+ */
+export const enqueueForceRemoval = (
+  queue: ReadonlyArray<ForceRemovalRequest>,
+  request: ForceRemovalRequest,
+): ReadonlyArray<ForceRemovalRequest> => (queue.includes(request) ? queue : [...queue, request]);
+
+/** The queue once `request` has been answered. */
+export const dequeueForceRemoval = (
+  queue: ReadonlyArray<ForceRemovalRequest>,
+  request: ForceRemovalRequest,
+): ReadonlyArray<ForceRemovalRequest> => queue.filter((entry) => entry !== request);
+
 export const worktreeRemovedMessage = (worktree: ThreadWorktree): string =>
   `Worktree removed — branch ${worktree.branch} kept`;
 

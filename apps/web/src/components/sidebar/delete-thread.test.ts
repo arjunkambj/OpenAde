@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   deleteThread,
+  dequeueForceRemoval,
+  enqueueForceRemoval,
   worktreeRemovalOf,
   worktreeRemovedMessage,
   type DeleteThreadSteps,
@@ -162,5 +164,33 @@ describe("worktreeRemovedMessage", () => {
     expect(worktreeRemovedMessage(WORKTREE)).toBe(
       "Worktree removed — branch openade/fix-login kept",
     );
+  });
+});
+
+describe("the forced removal queue", () => {
+  it("keeps a first request that a second one arrives behind, and shows them in order", () => {
+    const answers: Array<string> = [];
+    const first = {
+      worktree: WORKTREE,
+      answer: (confirmed: boolean) => answers.push(`first ${confirmed}`),
+    };
+    const second = {
+      worktree: { ...WORKTREE, path: "/home/me/.openade/worktrees/app/other" },
+      answer: (confirmed: boolean) => answers.push(`second ${confirmed}`),
+    };
+
+    let queue = enqueueForceRemoval(enqueueForceRemoval([], first), second);
+    // The same request asked twice is still one confirmation.
+    queue = enqueueForceRemoval(queue, first);
+    expect(queue).toEqual([first, second]);
+
+    // The host answers the head, then drops it; the second takes its place.
+    queue[0]!.answer(true);
+    queue = dequeueForceRemoval(queue, first);
+    expect(queue).toEqual([second]);
+    queue[0]!.answer(false);
+    queue = dequeueForceRemoval(queue, second);
+    expect(queue).toEqual([]);
+    expect(answers).toEqual(["first true", "second false"]);
   });
 });

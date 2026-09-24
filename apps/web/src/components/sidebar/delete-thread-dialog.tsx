@@ -28,7 +28,8 @@ import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { THREAD_DELETE_DESCRIPTION } from "@/components/sidebar/thread-actions";
-import { forceRemovalRequestAtom } from "@/components/sidebar/use-delete-thread";
+import { dequeueForceRemoval } from "@/components/sidebar/delete-thread";
+import { forceRemovalRequestsAtom } from "@/components/sidebar/use-delete-thread";
 
 export function DeleteThreadDialog({
   thread,
@@ -101,9 +102,12 @@ export function DeleteThreadDialog({
 /**
  * The forced removal's confirmation, mounted once above the routes: the row
  * that started the delete is gone by the time the user picks "Remove anyway".
+ * Requests are answered in the order they were made; each gets a dialog of its
+ * own (keyed by its worktree), so the next one opens as the last one closes.
  */
 export function WorktreeForceRemovalHost() {
-  const [request, setRequest] = useAtom(forceRemovalRequestAtom);
+  const [queue, setQueue] = useAtom(forceRemovalRequestsAtom);
+  const request = queue[0] ?? null;
   // The copy outlives the request by the dialog's closing animation.
   const shown = React.useRef(request);
   if (request !== null) {
@@ -113,12 +117,13 @@ export function WorktreeForceRemovalHost() {
 
   return (
     <ConfirmDialog
+      key={worktree?.path}
       open={request !== null}
       onOpenChange={(next) => {
         if (next || request === null) {
           return;
         }
-        setRequest(null);
+        setQueue((current) => dequeueForceRemoval(current, request));
         // ConfirmDialog closes before it confirms, in the same handler. The
         // answer is first-wins, so a cancel is answered after that handler
         // has run and a confirm's `true` has already landed.
