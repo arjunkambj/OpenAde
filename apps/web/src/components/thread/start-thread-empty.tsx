@@ -23,7 +23,7 @@ export function StartThreadEmpty({
   return (
     <>
       <StartThreadHeader controls={null} />
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-10">
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-10 py-6">
         <div className="flex w-full max-w-[684px] flex-col items-center gap-5 text-center">
           <div className="flex flex-col gap-1.5">
             <h1 className="text-base font-medium text-foreground">
