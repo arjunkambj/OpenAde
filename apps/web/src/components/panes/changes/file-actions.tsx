@@ -18,6 +18,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/
 import { toast } from "sonner";
 
 import { appendToDraft } from "@/components/panes/browser/page-to-chat";
+import { copyPath } from "@/lib/copy-path";
 import { useKeybindingDispatch } from "@/lib/shortcuts";
 import { useComposerDraft } from "@/state/ui";
 
@@ -46,12 +47,6 @@ function AddToChatItem({ threadId, path }: { threadId: string; path: string }) {
 }
 
 export function FileActions({ threadId, path }: { threadId: string; path: string }) {
-  const copy = () => {
-    void navigator.clipboard.writeText(path).then(
-      () => toast.success("Copied the path"),
-      () => toast.error("Could not copy the path"),
-    );
-  };
   return (
     <DropdownMenu>
       <Tooltip>
@@ -67,7 +62,7 @@ export function FileActions({ threadId, path }: { threadId: string; path: string
         <TooltipContent>More</TooltipContent>
       </Tooltip>
       <DropdownMenuContent align="end" className="w-44">
-        <DropdownMenuItem onClick={copy}>
+        <DropdownMenuItem onClick={() => void copyPath(path)}>
           <Copy variant="bold" />
           Copy path
         </DropdownMenuItem>

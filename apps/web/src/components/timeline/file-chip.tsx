@@ -28,13 +28,10 @@ import {
   positionLabel,
 } from "@/components/timeline/path-links";
 import { useTimelineThreadId } from "@/components/timeline/thread-context";
+import { copyPath } from "@/lib/copy-path";
 import { cn } from "@/lib/utils";
 import { useRequestFileReveal } from "@/state/file-reveal";
 import { Clipboard, Copy, File as FileIcon, FileCode, FolderOpen } from "@honeyicons/react";
-
-const copy = (text: string) => {
-  void navigator.clipboard?.writeText(text).catch(() => undefined);
-};
 
 export function FileChip({
   file,
@@ -107,11 +104,11 @@ export function FileChip({
           <FolderOpen variant="bold" />
           Open
         </ContextMenuItem>
-        <ContextMenuItem onClick={() => copy(file.relativePath)}>
+        <ContextMenuItem onClick={() => void copyPath(file.relativePath)}>
           <Copy variant="bold" />
           Copy relative path
         </ContextMenuItem>
-        <ContextMenuItem onClick={() => copy(file.absolutePath)}>
+        <ContextMenuItem onClick={() => void copyPath(file.absolutePath)}>
           <Clipboard variant="bold" />
           Copy full path
         </ContextMenuItem>
