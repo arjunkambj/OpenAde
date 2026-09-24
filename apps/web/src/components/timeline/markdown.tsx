@@ -9,6 +9,19 @@ import remarkGfm from "remark-gfm";
 
 import { cn } from "@/lib/utils";
 
+interface HastLike {
+  readonly type: string;
+  readonly value?: string;
+  readonly children?: ReadonlyArray<HastLike>;
+}
+
+const hastText = (node: HastLike): string =>
+  node.type === "text" ? (node.value ?? "") : (node.children ?? []).map(hastText).join("");
+
+/** A fence's text without the newline mdast-util-to-hast appends to it. */
+const blockText = (node: HastLike | undefined): string =>
+  node === undefined ? "" : hastText(node).replace(/\n$/, "");
+
 const components: React.ComponentProps<typeof ReactMarkdown>["components"] = {
   p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
   h1: ({ children }) => <h1 className="mb-3 text-base font-semibold">{children}</h1>,
@@ -43,22 +56,16 @@ const components: React.ComponentProps<typeof ReactMarkdown>["components"] = {
     <th className="border-b border-border px-2 py-1 font-medium">{children}</th>
   ),
   td: ({ children }) => <td className="border-b border-border px-2 py-1">{children}</td>,
-  pre: ({ children }) => (
-    <pre className="mb-3 overflow-x-auto rounded-lg bg-muted p-3 font-mono text-xs last:mb-0">
-      {children}
+  // react-markdown passes no `inline` flag, and a fence without a language has
+  // no class either, so a block is told apart here: `pre` renders its `code`
+  // child's text itself, and the `code` override only ever sees inline code.
+  pre: ({ node }) => (
+    <pre className="mb-3 overflow-x-auto rounded-lg bg-muted px-3 py-2 font-mono text-xs last:mb-0">
+      <code>{blockText(node)}</code>
     </pre>
   ),
-  code: ({ children, className }) => (
-    // A language class means a fenced block inside `pre`; no class means inline.
-    <code
-      className={cn(
-        "font-mono text-xs",
-        className === undefined && "rounded-sm bg-hover px-1 py-0.5",
-        className,
-      )}
-    >
-      {children}
-    </code>
+  code: ({ children }) => (
+    <code className="rounded-sm bg-hover px-1 py-0.5 font-mono text-xs">{children}</code>
   ),
 };
 
