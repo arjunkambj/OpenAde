@@ -19,6 +19,7 @@ import { buildTimeline } from "@/components/timeline/fold";
 import { JumpToLatest } from "@/components/timeline/jump-to-latest";
 import { TimelineThreadProvider } from "@/components/timeline/thread-context";
 import { TimelineRowView } from "@/components/timeline/timeline-item";
+import { useTimelineThreadValue } from "@/components/timeline/use-timeline-thread";
 import { useKeybindingCommand } from "@/lib/shortcuts";
 import { turnInFlight } from "@/lib/turn";
 import { useSetRowDisclosures } from "@/state/ui";
@@ -37,6 +38,7 @@ export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
     [snapshot],
   );
 
+  const thread = useTimelineThreadValue(snapshot);
   const setDisclosures = useSetRowDisclosures();
   useKeybindingCommand(
     "timeline.jumpToLatest",
@@ -55,7 +57,7 @@ export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
   );
 
   return (
-    <TimelineThreadProvider threadId={snapshot.threadId} projectId={snapshot.projectId}>
+    <TimelineThreadProvider value={thread}>
       <div className="relative flex min-h-0 flex-1 flex-col">
         <LegendList
           ref={listRef}
