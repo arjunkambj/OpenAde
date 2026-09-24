@@ -47,4 +47,30 @@ describe("userMessageOverflows", () => {
     expect(crlf.length).toBeGreaterThan(USER_MESSAGE_MAX_CHARS);
     expect(userMessageOverflows(crlf)).toBe(false);
   });
+
+  it("does not clamp a pasted log of a few long lines, which scrolls sideways", () => {
+    const trace = Array.from({ length: 7 }, (_, index) =>
+      `    at handler${index} (/srv/app/node_modules/framework/dist/router/layer.js:95:5)`.padEnd(
+        88,
+        " ",
+      ),
+    ).join("\n");
+    const message = `Why does this fail?\n\n\`\`\`\n${trace}\n\`\`\``;
+    expect(message.length).toBeGreaterThan(USER_MESSAGE_MAX_CHARS);
+    expect(userMessageOverflows(message)).toBe(false);
+    // An unclosed fence runs to the end the same way.
+    expect(userMessageOverflows(`~~~\n${trace}`)).toBe(false);
+  });
+
+  it("clamps fenced code once its lines are taller than the clamp", () => {
+    expect(userMessageOverflows(`\`\`\`\n${lines(8)}\n\`\`\``)).toBe(false);
+    expect(userMessageOverflows(`\`\`\`ts\n${lines(12)}\n\`\`\``)).toBe(true);
+    // Text around the block adds its own lines.
+    expect(userMessageOverflows(`${lines(4)}\n\`\`\`\n${lines(6)}\n\`\`\``)).toBe(true);
+  });
+
+  it("still counts the characters of text outside a fence", () => {
+    const prose = "a".repeat(USER_MESSAGE_MAX_CHARS + 1);
+    expect(userMessageOverflows(`${prose}\n\`\`\`\nx\n\`\`\``)).toBe(true);
+  });
 });

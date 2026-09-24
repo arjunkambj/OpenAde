@@ -888,7 +888,9 @@ bubble.
 A user message over 10 lines with text or 600 characters
 (`timeline/user-message-collapse.ts`, a CRLF counting as one; blank lines
 render as shorter paragraph gaps, or as nothing at either end, so they do not
-count, and a message that fits is never clamped) is clamped to
+count, and a message that fits is never clamped; fenced code scrolls sideways
+rather than wrap, so its characters do not count and its lines count at the
+smaller height a code line takes, plus two for the block's header) is clamped to
 ten lines that fade out at the bottom, with a "Show more"/"Show less" button
 under it. The clamp clips rather than hides its overflow, so nothing can
 scroll the text inside it, and keyboard focus moving onto a link or button
