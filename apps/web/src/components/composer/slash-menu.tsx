@@ -23,7 +23,7 @@ import {
 } from "@/components/composer/trigger-menu";
 import { orderEfforts } from "@/lib/efforts";
 import { RUNTIME_MODE_LABELS, runtimeModeOptions } from "@/lib/runtime-modes";
-import { Brain, Close, Lightning, ListChecks, Lock, Play, Sparkles } from "@honeyicons/react";
+import { Brain, Eraser, Lightning, ListChecks, Lock, Play, Sparkles } from "@honeyicons/react";
 
 export type SlashLevel = "root" | "model" | "effort" | "mode";
 
@@ -149,7 +149,7 @@ export const slashMenuItems = (input: {
       id: "builtin:clear-draft",
       label: "/clear-draft",
       description: "Empty the message you are writing",
-      icon: Close,
+      icon: Eraser,
       action: { type: "clear-draft" },
     },
   ];
