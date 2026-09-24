@@ -2395,8 +2395,10 @@ a local thread — no worktree, so it works in the folder those shells run in �
 the client calls `terminal.adopt` right after `thread.create` and before it
 opens the thread, and the service hands every terminal the project owns,
 running or exited, to the thread: same ids, same scrollback, the summary now
-naming the thread. `adoptionCheckOf` refuses a thread in its own worktree, one
-of another project, and an archived or missing one, and the move is refused
+naming the thread. `adoptionCheckOf` refuses a missing or removed project, a
+thread in its own worktree, one of another project, an archived or missing
+one, and one that has already started — a turn running or queued, or
+anything in its timeline — and the move is refused
 whole if it would take the thread past `TERMINALS_PER_OWNER`. It takes both
 owners' locks, in one fixed order, then moves every session in one
 synchronous step, so no reader finds a terminal under both owners or under

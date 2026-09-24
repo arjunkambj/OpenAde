@@ -16,10 +16,12 @@
  * still sees why a process died. Nothing is persisted: a server restart ends
  * every terminal.
  *
- * A project's terminals can change owner once: `terminal.adopt` hands them
- * all to a thread the New task page has just started in the project's own
- * folder (a local thread; `adoptionCheckOf` refuses any other), so a shell
- * started before the first message carries on in the thread. The move takes
+ * A project's terminals can change owner: `terminal.adopt` hands them all to
+ * a local thread of the project that has not started yet — no turn run,
+ * running or queued, and nothing in its timeline — which is what the New task
+ * page has just created when it calls it (`adoptionCheckOf` refuses any
+ * other), so a shell started before the first message carries on in the
+ * thread. The move takes
  * both owners' locks, in one fixed order, and then happens in one synchronous
  * step, so no reader ever finds a terminal under both owners or under
  * neither. The session itself does not change — its shell, scrollback and
@@ -187,8 +189,10 @@ export const workspaceOf =
  * (`not-found` once it is missing or removed, as `projectWorkspace` answers),
  * and the thread exists, is not archived, belongs to that project and has no
  * worktree of its own — so it works in the folder the project's shells run
- * in. A thread in its own worktree, or one of another project, is refused,
- * and the shells stay the project's.
+ * in — and has not started: no turn running or queued, and nothing in its
+ * timeline. The New task page adopts before it sends the first message, so a
+ * thread past that point was not just created there. Anything else is
+ * refused, and the shells stay the project's.
  */
 export const adoptionCheckOf =
   (engine: OrchestrationEngine["Service"]) =>
@@ -211,6 +215,11 @@ export const adoptionCheckOf =
       if (worktreeOf(doc) !== null) {
         return yield* invalid(
           "the thread works in its own worktree; the project's terminals stay in its folder",
+        );
+      }
+      if (doc.currentTurn !== null || doc.queue.length > 0 || doc.items.length > 0) {
+        return yield* invalid(
+          "the thread has already started; a project's terminals go only to a thread before its first turn",
         );
       }
     }).pipe(

@@ -712,11 +712,14 @@ const TerminalSubscribeRpc = Rpc.make(RPC_METHODS.terminalSubscribe, {
 /**
  * Hands every terminal a project owns — running or exited, scrollback and ids
  * intact — to a thread just started from the New task page, and answers with
- * them as the thread's. The thread must be the project's and local (no
- * worktree), so it works in the folder those shells run in; anything else is
- * refused and the shells stay the project's. Nothing to hand over answers an
- * empty list. The client calls it right after `thread.create`, before it
- * opens the thread, so the thread's drawer finds them on its first listing.
+ * them as the thread's. The server enforces what "just started" means: the
+ * project exists, and the thread is live (not archived or deleted), the
+ * project's, local (no worktree, so it works in the folder those shells run
+ * in) and not yet started (no turn running or queued, nothing in its
+ * timeline). Anything else is refused and the shells stay the project's.
+ * Nothing to hand over answers an empty list. The client calls it right after
+ * `thread.create` and before the first message, so the thread's drawer finds
+ * them on its first listing.
  */
 const TerminalAdoptRpc = Rpc.make(RPC_METHODS.terminalAdopt, {
   payload: Schema.Struct({ projectId: ProjectId, threadId: ThreadId }),

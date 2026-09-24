@@ -713,6 +713,33 @@ describe.skipIf(process.platform === "win32")(
       ),
     );
 
+    it.live("refuses a thread that has already started a turn", () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const { terminals, project, openInProject, thread, projectId, engine } =
+            yield* handOverStack;
+          const terminalId = yield* openInProject();
+          const threadId = yield* thread;
+          const receipt = yield* engine
+            .dispatch({
+              commandId: makeCommandId(),
+              createdAt: NOW,
+              type: "thread.turn.start",
+              threadId,
+              text: "go",
+              attachments: [],
+              mentions: [],
+              queued: false,
+            })
+            .pipe(Effect.orDie);
+          expect(receipt.status).toBe("accepted");
+          expect(yield* failureCode(terminals.adopt(projectId, threadId))).toBe("invalid");
+          expect(idsOf(yield* terminals.list(project))).toEqual([terminalId]);
+          expect(yield* terminals.list({ threadId })).toEqual([]);
+        }),
+      ),
+    );
+
     it.live("answers nothing when the project has no terminals", () =>
       Effect.scoped(
         Effect.gen(function* () {
