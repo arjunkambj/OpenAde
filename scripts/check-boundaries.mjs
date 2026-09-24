@@ -48,6 +48,7 @@ import {
   allowedImportsFor,
   boldIconLeaks,
   connectorLeaks,
+  equalPaddingLeaks,
   importSpecifiers,
   lineOf,
   referenceNameApplies,
@@ -320,6 +321,12 @@ for (const file of [...walkSourceFiles("apps"), ...walkSourceFiles("packages")])
   if (NodePath.extname(file) === ".tsx") {
     reportAll(file, boldIconLeaks(file, readText(file)));
   }
+}
+
+// --------------------------------------------------------- padding asymmetry
+
+for (const file of [...walkSourceFiles("apps"), ...walkSourceFiles("packages")]) {
+  reportAll(file, equalPaddingLeaks(file, readText(file)));
 }
 
 // ------------------------------------------------------------------ verdict

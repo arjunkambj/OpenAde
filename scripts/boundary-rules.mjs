@@ -431,3 +431,260 @@ export const boldIconLeaks = (relativePath, text) => {
   }
   return leaks;
 };
+
+// -------------------------------------------------------- padding asymmetry
+
+/**
+ * Where the padding rule reads: the renderer, the design system and the site,
+ * in `.ts` and `.tsx` source (class lists also live in plain `.ts` helpers).
+ */
+const PADDING_FILE = /^(?:apps\/(?:web|site)|packages\/ui)\/.+\.tsx?$/;
+
+/** A string literal in any quote style; class lists live in these. */
+const STRING_LITERAL = /"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g;
+
+/**
+ * A padding utility, once its variants and `!` are gone: all sides (`p`), an
+ * axis (`px`, `py`) or one side (`ps`, `pe`, `pl`, `pr`, `pt`, `pb`), on the
+ * spacing scale, `px`, an arbitrary `[value]` or a `(--variable)`.
+ */
+const PADDING_UTILITY = /^(p|px|py|ps|pe|pl|pr|pt|pb)-(\d+(?:\.\d+)?|px|\[[^\]]+\]|\([^)]+\))$/;
+
+/** Which box sides each padding utility sets. `ps`/`pe` are `pl`/`pr` in LTR. */
+const PADDING_SIDES = {
+  p: ["left", "right", "top", "bottom"],
+  px: ["left", "right"],
+  py: ["top", "bottom"],
+  ps: ["left"],
+  pl: ["left"],
+  pe: ["right"],
+  pr: ["right"],
+  pt: ["top"],
+  pb: ["bottom"],
+};
+
+/** A square or round element, where padding does not shape the box. */
+const SHAPE_UTILITY = /^(?:size-.+|rounded-full|aspect-square)$/;
+
+/** Calls whose string arguments add up to one class list. */
+const CLASS_CALL = /(?<![\w$.])(cn|cva|clsx|cx|twMerge)\(/g;
+
+/** Marks a container (a menu, dialog, panel, list) whose even inset is intended. */
+const PADDING_ALLOW = "padding-ok";
+
+/**
+ * `text` with its comments blanked to spaces, newlines kept so line numbers
+ * hold. A class name quoted in a comment is not a class list, and a stray
+ * backtick in one must not pair with a later string. A `//` right after `:`
+ * or a quote is a URL, not a comment.
+ */
+const withoutComments = (text) =>
+  text.replace(/\/\*[\s\S]*?\*\/|(?<![:"'`\w])\/\/[^\n]*/g, (comment) =>
+    comment.replace(/[^\n]/g, " "),
+  );
+
+/**
+ * A class token split into its variant (`""` for none, `hover`, `sm`,
+ * `group-data-[collapsible=icon]`) and its utility without `!`. The split is
+ * at the last `:` outside brackets, so `[&>svg]:p-1` keeps its selector.
+ */
+const splitToken = (token) => {
+  let depth = 0;
+  let split = -1;
+  for (let index = 0; index < token.length; index += 1) {
+    const char = token[index];
+    if (char === "[" || char === "(") {
+      depth += 1;
+    } else if (char === "]" || char === ")") {
+      depth -= 1;
+    } else if (char === ":" && depth === 0) {
+      split = index;
+    }
+  }
+  return {
+    variant: split === -1 ? "" : token.slice(0, split),
+    utility: token.slice(split + 1).replace(/^!|!$/g, ""),
+  };
+};
+
+/** A padding value as a number of spacing steps, or the raw text when arbitrary. */
+const paddingSize = (value) => {
+  if (value === "px") {
+    return 0.25;
+  }
+  return /^\d/.test(value) ? Number(value) : value;
+};
+
+/**
+ * The value an element's horizontal and vertical padding share, if they come
+ * out equal; `undefined` otherwise.
+ *
+ * `tokens` is one class list in cascade order. Unprefixed utilities set the
+ * resting box; each variant (`hover:`, `sm:`, `data-*:`) is judged on the
+ * resting box with its own padding on top, so `px-2 py-1 sm:py-2` fails
+ * under `sm`. The narrowest horizontal side is compared with the tallest
+ * vertical one, so `py-2 pr-2 pl-2.5` fails while `px-3 pt-5 pb-2` (a
+ * section gap on top) passes. A box with a `size-*`, `rounded-full` or
+ * `aspect-square` in the same state is square or round and passes, and so
+ * does zero padding.
+ */
+export const equalPadding = (tokens) => {
+  const states = new Map([["", { padding: [], shaped: false }]]);
+  for (const token of tokens) {
+    if (token === "") {
+      continue;
+    }
+    const { variant, utility } = splitToken(token);
+    const state = states.get(variant) ?? { padding: [], shaped: false };
+    states.set(variant, state);
+    const padding = PADDING_UTILITY.exec(utility);
+    if (padding !== null) {
+      state.padding.push([padding[1], padding[2]]);
+    } else if (SHAPE_UTILITY.test(utility)) {
+      state.shaped = true;
+    }
+  }
+  const resting = states.get("");
+  for (const [variant, state] of states) {
+    if (resting.shaped || state.shaped || (variant !== "" && state.padding.length === 0)) {
+      continue;
+    }
+    const sides = {};
+    for (const [utility, value] of variant === ""
+      ? resting.padding
+      : [...resting.padding, ...state.padding]) {
+      for (const side of PADDING_SIDES[utility]) {
+        sides[side] = paddingSize(value);
+      }
+    }
+    const horizontal = [sides.left, sides.right].filter((size) => size !== undefined);
+    const vertical = [sides.top, sides.bottom].filter((size) => size !== undefined);
+    if (horizontal.length === 0 || vertical.length === 0) {
+      continue;
+    }
+    const numeric = [...horizontal, ...vertical].every((size) => typeof size === "number");
+    const narrowest = numeric
+      ? Math.min(...horizontal)
+      : horizontal.find((size) => vertical.includes(size));
+    const tallest = numeric ? Math.max(...vertical) : narrowest;
+    if (narrowest !== undefined && narrowest === tallest && narrowest !== 0) {
+      return { variant, value: String(narrowest) };
+    }
+  }
+  return undefined;
+};
+
+/** The index just past the `)` that closes the call opened at `open`, skipping strings. */
+const callEnd = (text, open, literals) => {
+  let depth = 0;
+  let literal = literals.findIndex((candidate) => candidate.start >= open);
+  for (let index = open; index < text.length; index += 1) {
+    if (literal !== -1 && literal < literals.length && index === literals[literal].start) {
+      index = literals[literal].end - 1;
+      literal += 1;
+      continue;
+    }
+    const char = text[index];
+    if (char === "(") {
+      depth += 1;
+    } else if (char === ")") {
+      depth -= 1;
+      if (depth === 0) {
+        return index + 1;
+      }
+    }
+  }
+  return text.length;
+};
+
+const classTokens = (literal) => literal.classes.split(/\s+/);
+
+/**
+ * Class lists whose horizontal and vertical padding come out equal.
+ *
+ * Elements read as balanced when their vertical padding is smaller than the
+ * horizontal, so buttons, inputs, rows, chips, toasts and small cards spell
+ * `px-3 py-1.5`, never `p-2` or `px-2 py-2`. Every string literal is read as
+ * a class list (see `equalPadding` for the cascade, variants and exemptions),
+ * and so is the sum of the literals one `cn()`/`clsx()` call merges and each
+ * `cva()` value on top of its base, so `cn("px-2", "py-2")` fails too. A
+ * `padding-ok` comment on the reported line, the line above it or the line
+ * that opens the call exempts a container (a menu, dialog or panel) whose
+ * even inset is intended; say why in the comment.
+ */
+export const equalPaddingLeaks = (relativePath, text) => {
+  if (!PADDING_FILE.test(relativePath)) {
+    return [];
+  }
+  const source = withoutComments(text);
+  const lines = text.split("\n");
+  const literals = [...source.matchAll(STRING_LITERAL)].map((match) => ({
+    start: match.index,
+    end: match.index + match[0].length,
+    classes: match[0].slice(1, -1),
+  }));
+  const allowed = (...lineNumbers) =>
+    lineNumbers.some(
+      (line) =>
+        lines[line - 1]?.includes(PADDING_ALLOW) || lines[line - 2]?.includes(PADDING_ALLOW),
+    );
+  const leaks = new Map();
+  const judge = (tokens, line, callLine) => {
+    const equal = equalPadding(tokens);
+    if (equal === undefined || leaks.has(line) || allowed(line, callLine ?? line)) {
+      return;
+    }
+    const state = equal.variant === "" ? "" : ` under ${equal.variant}:`;
+    leaks.set(line, {
+      line,
+      message: `equal padding${state} (x and y both ${equal.value}); give the element less vertical padding, e.g. px-3 py-1.5, or mark a container with a "${PADDING_ALLOW}" comment`,
+    });
+  };
+  const calls = [...source.matchAll(CLASS_CALL)].map((match) => {
+    const open = match.index + match[0].length - 1;
+    const end = callEnd(source, open, literals);
+    return {
+      name: match[1],
+      line: lineOf(text, match.index),
+      literals: literals.filter((literal) => literal.start > open && literal.end <= end),
+      open,
+    };
+  });
+  const shapedBy = (group) =>
+    group.flatMap(classTokens).filter((token) => SHAPE_UTILITY.test(splitToken(token).utility));
+  for (const literal of literals) {
+    const call = calls.findLast((candidate) => candidate.literals.includes(literal));
+    // A square or round box can be spelled in another argument of the same
+    // merge; a cva value only shares its box with the base, checked below.
+    const siblings = call === undefined || call.name === "cva" ? [] : call.literals;
+    judge(
+      [...shapedBy(siblings), ...classTokens(literal)],
+      lineOf(text, literal.start),
+      call?.line,
+    );
+  }
+  for (const call of calls) {
+    if (call.literals.length < 2) {
+      continue;
+    }
+    const last = call.literals.findLast((literal) =>
+      classTokens(literal).some((token) => PADDING_UTILITY.test(splitToken(token).utility)),
+    );
+    if (last === undefined) {
+      continue;
+    }
+    if (call.name === "cva") {
+      // The base is the first argument; every other literal is a variant value on top of it.
+      const [base, ...values] = call.literals;
+      if (source.slice(call.open + 1, base.start).trim() !== "") {
+        continue;
+      }
+      for (const value of values) {
+        judge([...classTokens(base), ...classTokens(value)], lineOf(text, value.start), call.line);
+      }
+    } else {
+      judge(call.literals.flatMap(classTokens), lineOf(text, last.start), call.line);
+    }
+  }
+  return [...leaks.values()].sort((a, b) => a.line - b.line);
+};

@@ -4,6 +4,7 @@ import {
   allowedImportsFor,
   boldIconLeaks,
   connectorLeaks,
+  equalPaddingLeaks,
   honeyiconNames,
   KIND_LITERAL_EXEMPT,
   REFERENCE_NAMES,
@@ -257,5 +258,129 @@ describe("boldIconLeaks", () => {
     expect(boldIconLeaks("packages/ui/src/components/sonner.tsx", source)).toHaveLength(1);
     expect(boldIconLeaks("apps/web/src/lib/a.ts", source)).toEqual([]);
     expect(boldIconLeaks("scripts/a.tsx", source)).toEqual([]);
+  });
+});
+
+describe("equalPaddingLeaks", () => {
+  const file = "packages/ui/src/components/a.tsx";
+  const leaksIn = (source) => lines(equalPaddingLeaks(file, source));
+
+  it("fails a class list whose x and y padding come out equal, and says what to do", () => {
+    const leaks = equalPaddingLeaks(file, 'const a = "flex p-2";\nconst b = "px-3 py-3";\n');
+    expect(lines(leaks)).toEqual([1, 2]);
+    expect(leaks[0].message).toContain("px-3 py-1.5");
+    expect(leaksIn('const a = "px-3 py-1.5";\nconst b = "px-2.5 py-2";\n')).toEqual([]);
+  });
+
+  it("reads every padding form: p, px/py, logical and physical sides, px, arbitrary values", () => {
+    expect(leaksIn('const a = "ps-2 pe-2 pt-2 pb-2";\n')).toEqual([1]);
+    expect(leaksIn('const a = "pl-2 pr-2 py-2";\n')).toEqual([1]);
+    expect(leaksIn('const a = "px-2 pb-2";\n')).toEqual([1]);
+    expect(leaksIn('const a = "px-px py-px";\n')).toEqual([1]);
+    expect(leaksIn('const a = "p-[3px]";\n')).toEqual([1]);
+    expect(leaksIn('const a = "p-(--inset)";\n')).toEqual([1]);
+    expect(leaksIn('const a = "px-[4px] py-[2px]";\n')).toEqual([]);
+  });
+
+  it("compares the narrowest horizontal side with the tallest vertical one", () => {
+    // A trailing button's side matches the vertical inset: still even.
+    expect(leaksIn('const a = "py-1 pr-1 pl-3";\n')).toEqual([1]);
+    expect(leaksIn('const a = "py-2 pr-2 pl-2.5";\n')).toEqual([1]);
+    expect(leaksIn('const a = "py-0.5 pr-1.5 pl-3";\n')).toEqual([]);
+    // A section gap on top is not an even inset.
+    expect(leaksIn('const a = "px-2 pt-5 pb-1";\n')).toEqual([]);
+  });
+
+  it("follows the cascade inside one list", () => {
+    expect(leaksIn('const a = "p-1 px-2";\n')).toEqual([]);
+    expect(leaksIn('const a = "px-2 p-1";\n')).toEqual([1]);
+    expect(leaksIn('const a = "p-2 py-1";\n')).toEqual([]);
+    expect(leaksIn('const a = "p-0";\n')).toEqual([]);
+    expect(leaksIn('const a = "px-0 py-0";\n')).toEqual([]);
+    expect(leaksIn('const a = "p-2!";\n')).toEqual([1]);
+    expect(leaksIn('const a = "!p-2";\n')).toEqual([1]);
+    expect(leaksIn('const a = "px-2";\nconst b = "py-2";\n')).toEqual([]);
+  });
+
+  it("judges each variant on the resting box, and names it", () => {
+    expect(leaksIn('const a = "px-2 py-1 hover:px-3";\n')).toEqual([]);
+    const leaks = equalPaddingLeaks(file, 'const a = "px-2 py-1 sm:py-2";\n');
+    expect(lines(leaks)).toEqual([1]);
+    expect(leaks[0].message).toContain("under sm:");
+    expect(leaksIn('const a = "px-3 py-1.5 has-data-[slot=kbd]:pr-1.5";\n')).toEqual([1]);
+    expect(leaksIn('const a = "gap-1 [&>svg]:size-4 data-[open]:p-1";\n')).toEqual([1]);
+    expect(leaksIn('const a = "hover:bg-muted md:px-4";\n')).toEqual([]);
+  });
+
+  it("passes square and round elements, in the state that makes them so", () => {
+    expect(leaksIn('const a = "size-8 p-2";\n')).toEqual([]);
+    expect(leaksIn('const a = "size-8! p-2";\n')).toEqual([]);
+    expect(leaksIn('const a = "rounded-full p-1";\n')).toEqual([]);
+    expect(leaksIn('const a = "aspect-square p-1.5";\n')).toEqual([]);
+    expect(
+      leaksIn(
+        'const a = "px-2 py-1 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2!";\n',
+      ),
+    ).toEqual([]);
+    // A size on a child selector does not make the element itself square.
+    expect(leaksIn('const a = "p-2 [&_svg]:size-4";\n')).toEqual([1]);
+    expect(leaksIn('const a = "rounded-lg p-2";\n')).toEqual([1]);
+  });
+
+  it("adds up the arguments of cn() and clsx(), and a square in one passes the rest", () => {
+    expect(leaksIn('const a = cn("flex px-2", open && "py-2");\n')).toEqual([1]);
+    expect(leaksIn('const a = cn(\n  "flex px-2",\n  "py-2",\n  className,\n);\n')).toEqual([3]);
+    expect(leaksIn('const a = clsx("px-2", "py-1");\n')).toEqual([]);
+    expect(leaksIn('const a = cn("size-7", "p-1");\n')).toEqual([]);
+    expect(leaksIn('<div className={cn("p-1.5", className)} />\n')).toEqual([1]);
+  });
+
+  it("reads each cva() value on top of its base", () => {
+    const source = [
+      "const button = cva(",
+      '  "inline-flex py-1.5",',
+      "  {",
+      "    variants: {",
+      "      size: {",
+      '        default: "h-7 px-2.5",',
+      '        sm: "h-6 px-1.5",',
+      '        icon: "size-7",',
+      "      },",
+      "    },",
+      "  },",
+      ");",
+      "",
+    ].join("\n");
+    expect(leaksIn(source)).toEqual([7]);
+    expect(leaksIn('const a = cva("", { variants: { size: { sm: "p-2" } } });\n')).toEqual([1]);
+  });
+
+  it("reads template literals and JSX attributes", () => {
+    expect(leaksIn("const a = `${base} p-2`;\n")).toEqual([1]);
+    expect(leaksIn('<pre className="rounded-lg bg-muted p-3 font-mono" />\n')).toEqual([1]);
+    expect(leaksIn("<div className='px-4 py-4' />\n")).toEqual([1]);
+  });
+
+  it("passes a container marked padding-ok on its line, the line above or the call's line", () => {
+    expect(leaksIn('// padding-ok: menu panel\nconst a = "p-1";\n')).toEqual([]);
+    expect(leaksIn('const a = "p-1"; // padding-ok: menu panel\n')).toEqual([]);
+    expect(leaksIn('// padding-ok: menu panel\nconst a = cn(\n  "flex",\n  "p-1",\n);\n')).toEqual(
+      [],
+    );
+    expect(leaksIn('// padding-ok: menu panel\n\nconst a = "p-1";\n')).toEqual([3]);
+  });
+
+  it("ignores class names quoted in comments", () => {
+    expect(leaksIn('// was `p-2`, now "px-2 py-1"\nconst a = "px-2 py-1";\n')).toEqual([]);
+    expect(leaksIn('/* a stray ` */\nconst a = "p-2";\n')).toEqual([2]);
+    expect(leaksIn('const url = "https://example.com"; const a = "p-2";\n')).toEqual([1]);
+  });
+
+  it("reads .ts and .tsx in the renderer, the design system and the site", () => {
+    expect(equalPaddingLeaks("apps/server/src/a.tsx", 'const a = "p-2";\n')).toEqual([]);
+    expect(equalPaddingLeaks("packages/contracts/src/a.ts", 'const a = "p-2";\n')).toEqual([]);
+    expect(lines(equalPaddingLeaks("apps/web/src/a.tsx", 'const a = "p-2";\n'))).toEqual([1]);
+    expect(lines(equalPaddingLeaks("apps/web/src/lib/a.ts", 'const a = "p-2";\n'))).toEqual([1]);
+    expect(lines(equalPaddingLeaks("apps/site/src/a.tsx", 'const a = "p-2";\n'))).toEqual([1]);
   });
 });
