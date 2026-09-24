@@ -32,8 +32,14 @@
  *   but they never move the session's context, cost or rewind point: those
  *   are the main conversation's. The user message a subagent is handed is the
  *   call's own prompt, already on the task's row, and adds nothing;
+ * - `system/status: compacting` and `system/compact_boundary` → one
+ *   `context_compaction` row, opened and settled, and the context left after
+ *   it (`compaction.ts`);
  * - a `system/status` that only reports the CLI's permission mode → nothing;
- *   the session reads the mode off it (`isModeReport`);
+ *   the session reads the mode off it (`isModeReport`). A status of `null`
+ *   after `compacting` is the CLI going back to work: nothing more when the
+ *   boundary settled the compaction, its row failed when the CLI says the
+ *   compaction failed;
  * - `command_lifecycle` and `system/status: requesting` → nothing, on purpose.
  *   The first is the CLI's receipt for each user message the session wrote
  *   (queued, started, cancelled); the session already knows its turn from
@@ -60,6 +66,7 @@ import {
   type Json,
   type PendingRuntimeEvent,
 } from "./pending";
+import { makeCompaction } from "./compaction";
 import { resultEvents, type TurnContext } from "./result";
 import { makeSubagents } from "./subagents";
 import { makeTextRows } from "./textRows";
@@ -137,6 +144,7 @@ export const makeTranslator = (options: {
   const rows = makeTextRows();
   const tools = makeToolRows();
   const subagents = makeSubagents();
+  const compaction = makeCompaction();
   /** The message each stream is in the middle of: the main loop's, and each subagent's. */
   const streamMessages = new Map<string, string>();
   /** Every row a subagent opened → the task row it is nested under. */
@@ -398,9 +406,17 @@ export const makeTranslator = (options: {
     const subtype = asString(message.subtype) ?? "";
     if (subtype === "init") return init(message);
     if (TASK_MESSAGES.has(subtype)) return taskMessage(message);
+    if (subtype === "compact_boundary") {
+      const { events, contextUsed: used } = compaction.boundary(message, contextLimit);
+      if (used !== undefined) contextUsed = used;
+      return events;
+    }
     if (subtype === "status") {
-      if (REQUEST_STATUSES.has(asString(message.status) ?? "")) return [];
+      const status = message.status;
+      if (status === "compacting") return compaction.compacting();
+      if (REQUEST_STATUSES.has(asString(status) ?? "")) return [];
       if (isModeReport(message)) return [];
+      if (status === null) return compaction.statusCleared(message);
     }
     return [unmapped(message)];
   };
@@ -430,7 +446,12 @@ export const makeTranslator = (options: {
         });
         if (total !== null) totalCost = total;
         errorReported = false;
-        return [...orphans(), ...tools.abandonOpen(TURN_ENDED_UNDER_TOOL), ...events];
+        return [
+          ...orphans(),
+          ...compaction.abandon(),
+          ...tools.abandonOpen(TURN_ENDED_UNDER_TOOL),
+          ...events,
+        ];
       }
       default:
         return [unmapped(message)];
