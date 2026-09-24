@@ -19,6 +19,7 @@ import type {
 import type {
   BrowserHumanInput,
   BrowserState,
+  BrowserToolStatus,
   DevServer,
   FileContent,
   FileSearchResult,
@@ -251,7 +252,8 @@ export class GitService extends Context.Service<
  * The browser pane's session service. `subscribe`/`humanInput` are the wire
  * surface; `callTool` is the MCP layer's entry into the same per-thread
  * serialized queue (tool failures and human interruption come back inside the
- * outcome); `teardown` is the thread-close hook.
+ * outcome); `teardown` is the thread-close hook; `status` is what the
+ * Browser settings page shows — the mode and agent-browser's version.
  */
 export class BrowserService extends Context.Service<
   BrowserService,
@@ -268,6 +270,7 @@ export class BrowserService extends Context.Service<
       args: unknown,
     ) => Effect.Effect<BrowserCallOutcome>;
     readonly teardown: (threadId: ThreadId) => Effect.Effect<void>;
+    readonly status: BrowserToolStatus;
   }
 >()("server/rpc/BrowserService") {
   static readonly empty = Layer.succeed(
@@ -285,6 +288,7 @@ export class BrowserService extends Context.Service<
       humanInput: () => Effect.void,
       callTool: () => Effect.succeed({ kind: "error", message: "browser service unavailable" }),
       teardown: () => Effect.void,
+      status: { mode: "disabled", installed: false, version: null },
     }),
   );
 }

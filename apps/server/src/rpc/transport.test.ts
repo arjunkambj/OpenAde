@@ -361,6 +361,7 @@ describe("transport", () => {
             humanInput: () => Effect.fail(new Error("cdp connect refused")),
             callTool: () => Effect.succeed({ kind: "error", message: "cdp connect refused" }),
             teardown: () => Effect.void,
+            status: { mode: "in-app", installed: true, version: "agent-browser 0.38.1" },
           }),
         );
         const { url } = yield* testStack(failingBrowser);

@@ -355,6 +355,18 @@ export const DevServer = Schema.Struct({
 });
 export type DevServer = typeof DevServer.Type;
 
+/**
+ * What the server's browser tool is, for the Browser settings page: the one
+ * mode it runs in for its life, and whether the `agent-browser` CLI answered
+ * `--version` at startup (with what it printed).
+ */
+export const BrowserToolStatus = Schema.Struct({
+  mode: Schema.Literals(["in-app", "owned-chromium", "disabled"]),
+  installed: Schema.Boolean,
+  version: Schema.NullOr(NonEmptyString),
+});
+export type BrowserToolStatus = typeof BrowserToolStatus.Type;
+
 /** The most servers one `browser.discoverServers` answer carries. */
 export const DEV_SERVER_LIMIT = 16;
 
@@ -383,6 +395,7 @@ export const RPC_METHODS = {
   browserSubscribe: "browser.subscribe",
   browserHumanInput: "browser.humanInput",
   browserDiscoverServers: "browser.discoverServers",
+  browserStatus: "browser.status",
   settingsGet: "settings.get",
   settingsUpdate: "settings.update",
   settingsSubscribe: "settings.subscribe",
@@ -613,6 +626,13 @@ const BrowserDiscoverServersRpc = Rpc.make(RPC_METHODS.browserDiscoverServers, {
   error: OpenAdeRpcError,
 });
 
+/** The browser tool's mode and agent-browser's install state, fixed at server start. */
+const BrowserStatusRpc = Rpc.make(RPC_METHODS.browserStatus, {
+  payload: empty,
+  success: BrowserToolStatus,
+  error: OpenAdeRpcError,
+});
+
 const SettingsGetRpc = Rpc.make(RPC_METHODS.settingsGet, {
   payload: empty,
   success: Settings,
@@ -812,6 +832,7 @@ export const OpenAdeRpcGroup = RpcGroup.make(
   BrowserSubscribeRpc,
   BrowserHumanInputRpc,
   BrowserDiscoverServersRpc,
+  BrowserStatusRpc,
   SettingsGetRpc,
   SettingsUpdateRpc,
   SettingsSubscribeRpc,

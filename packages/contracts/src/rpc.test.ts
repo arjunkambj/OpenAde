@@ -4,6 +4,7 @@ import * as Schema from "effect/Schema";
 import * as RpcSchema from "effect/unstable/rpc/RpcSchema";
 
 import {
+  BrowserToolStatus,
   DEV_SERVER_LIMIT,
   DevServer,
   FS_BROWSE_ENTRY_LIMIT,
@@ -117,6 +118,22 @@ describe("browser.discoverServers", () => {
     expect(decode({ ...server, processName: "" })._tag).toBe("Failure");
     expect(decode({ ...server, url: "" })._tag).toBe("Failure");
     expect(Number.isInteger(DEV_SERVER_LIMIT) && DEV_SERVER_LIMIT > 0).toBe(true);
+  });
+});
+
+describe("browser.status", () => {
+  const rpc = OpenAdeRpcGroup.requests.get(RPC_METHODS.browserStatus);
+  const decode = Schema.decodeUnknownExit(BrowserToolStatus);
+
+  it("is a plain request answering the mode and agent-browser's version", () => {
+    expect(rpc).toBeDefined();
+    expect(RpcSchema.isStreamSchema(rpc!.successSchema)).toBe(false);
+    expect(decode({ mode: "in-app", installed: true, version: "agent-browser 0.38.1" })._tag).toBe(
+      "Success",
+    );
+    expect(decode({ mode: "disabled", installed: false, version: null })._tag).toBe("Success");
+    expect(decode({ mode: "headless", installed: false, version: null })._tag).toBe("Failure");
+    expect(decode({ mode: "in-app", installed: true, version: "" })._tag).toBe("Failure");
   });
 });
 

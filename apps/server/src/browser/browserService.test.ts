@@ -76,6 +76,7 @@ const buildStack = (
   openDriver: OpenDriver,
   mode: "in-app" | "owned-chromium" | "disabled" = "owned-chromium",
   reap?: Effect.Effect<void>,
+  cli?: { readonly installed: boolean; readonly version: string | null },
 ) =>
   Effect.gen(function* () {
     const sqliteContext = yield* Layer.build(sqliteTestLayer());
@@ -87,7 +88,12 @@ const buildStack = (
     const engine = OrchestrationEngine.layer.pipe(Layer.provide(persistence));
     const browser = Layer.effect(
       BrowserService,
-      makeService({ mode, openDriver, ...(reap === undefined ? {} : { reap }) }),
+      makeService({
+        mode,
+        openDriver,
+        ...(reap === undefined ? {} : { reap }),
+        ...(cli === undefined ? {} : { cli }),
+      }),
     ).pipe(Layer.provide(Layer.mergeAll(engine, permissionsStub)));
     const context = yield* Layer.build(Layer.mergeAll(engine, browser));
     return {
@@ -275,6 +281,37 @@ describe("BrowserService", () => {
         });
         expect(opened.kind).toBe("ok");
         expect(argvs).toContainEqual(["open", "https://example.com/docs"]);
+      }),
+    ),
+  );
+
+  it.live("reports its mode and agent-browser's install state for settings", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const never = () => Effect.die("no driver");
+        const installed = yield* buildStack(never, "in-app", undefined, {
+          installed: true,
+          version: "agent-browser 0.38.1",
+        });
+        expect(installed.browser.status).toEqual({
+          mode: "in-app",
+          installed: true,
+          version: "agent-browser 0.38.1",
+        });
+        const missing = yield* buildStack(never, "owned-chromium", undefined, {
+          installed: false,
+          version: null,
+        });
+        expect(missing.browser.status).toEqual({
+          mode: "owned-chromium",
+          installed: false,
+          version: null,
+        });
+        const blank = yield* buildStack(never, "disabled", undefined, {
+          installed: true,
+          version: "",
+        });
+        expect(blank.browser.status.version).toBe(null);
       }),
     ),
   );

@@ -1,6 +1,7 @@
 /**
  * The browser pane's half of the client runtime beyond its state stream: the
- * local dev servers the thread's project is running.
+ * local dev servers the thread's project is running, and the browser tool's
+ * status for the Browser settings page.
  *
  * `devServersAtom(threadId)` is `browser.discoverServers`, fetched when
  * something mounts it — the address bar's suggestions opening, the empty pane
@@ -12,11 +13,16 @@
  * pane cannot make is not something to show a person an error for, and the
  * stream has to survive to refetch after the next reconnect. Offline, the
  * atom keeps its initial empty list.
+ *
+ * `browserStatusAtom` is `browser.status`, asked on mount and on every
+ * reconnect (a restarted server may have found agent-browser since); `null`
+ * until the server answers, and kept at the last answer when a call fails.
  */
 
 import type { ThreadId } from "@OpenAde/contracts/ids";
-import type { DevServer } from "@OpenAde/contracts/rpc";
+import type { BrowserToolStatus, DevServer } from "@OpenAde/contracts/rpc";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
 import * as Atom from "effect/unstable/reactivity/Atom";
@@ -50,7 +56,21 @@ export const makeBrowserAtoms = (runtime: Atom.AtomRuntime<Connection | Connecti
     ),
   );
 
-  return { devServersAtom };
+  const browserStatusAtom = runtime.atom(
+    connectedEpochs.pipe(
+      Stream.mapEffect(() =>
+        Effect.gen(function* () {
+          const client = yield* (yield* Connection).client;
+          return yield* client["browser.status"]({});
+        }).pipe(Effect.option),
+      ),
+      Stream.filter(Option.isSome),
+      Stream.map((answer) => answer.value),
+    ),
+    { initialValue: null as BrowserToolStatus | null },
+  );
+
+  return { devServersAtom, browserStatusAtom };
 };
 
 export type BrowserAtoms = ReturnType<typeof makeBrowserAtoms>;

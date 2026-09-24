@@ -118,3 +118,34 @@ describe("devServersAtom", () => {
     ),
   );
 });
+
+describe("browserStatusAtom", () => {
+  it.live("answers the server's browser status", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const status = { mode: "in-app", installed: true, version: "agent-browser 0.38.1" };
+        const client = new Proxy({} as OpenAdeRpcClient, {
+          get: (_target, key) =>
+            key === "browser.status"
+              ? () => Effect.succeed(status)
+              : () => Effect.die(`unimplemented rpc ${String(key)}`),
+        });
+        const { registry, browserStatusAtom } = yield* runtimeWith(client);
+        const answered = yield* Effect.promise(
+          () =>
+            new Promise((resolve) => {
+              const check = (result: AsyncResult.AsyncResult<unknown, unknown>) => {
+                if (AsyncResult.isSuccess(result) && result.value !== null) {
+                  unmount();
+                  resolve(result.value);
+                }
+              };
+              const unmount = registry.subscribe(browserStatusAtom, check);
+              check(registry.get(browserStatusAtom));
+            }),
+        );
+        expect(answered).toEqual(status);
+      }),
+    ),
+  );
+});

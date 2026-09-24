@@ -125,6 +125,7 @@ export const handlersLayer = OpenAdeRpcGroup.toLayer(
       "browser.humanInput": ({ threadId, input }) =>
         browser.humanInput(threadId, input).pipe(Effect.mapError(toRpcError), Effect.as({})),
       "browser.discoverServers": ({ threadId }) => devServers.discover(threadId),
+      "browser.status": () => Effect.succeed(browser.status),
 
       "settings.get": () => settings.get,
       "settings.update": ({ patch }) => settings.update(patch).pipe(Effect.mapError(toRpcError)),

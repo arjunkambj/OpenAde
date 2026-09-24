@@ -134,6 +134,8 @@ export const makeService = (injected: {
   ) => Effect.Effect<BrowserDriver, { readonly message: string }, Scope.Scope>;
   /** Closes what an earlier run left behind; the first driver waits for it. */
   readonly reap?: Effect.Effect<void>;
+  /** Whether `agent-browser --version` answered at startup, and what it printed. */
+  readonly cli?: { readonly installed: boolean; readonly version: string | null };
 }): Effect.Effect<
   BrowserService["Service"],
   never,
@@ -592,6 +594,11 @@ export const makeService = (injected: {
       humanInput,
       callTool,
       teardown,
+      status: {
+        mode,
+        installed: injected.cli?.installed ?? false,
+        version: injected.cli?.version || null,
+      },
     });
   });
 
@@ -615,6 +622,7 @@ export const layer: Layer.Layer<
         return opened.pipe(Effect.tapError(() => session.shutdown));
       },
       reap: agentBrowser.reap,
+      cli: { installed: agentBrowser.binary !== null, version: agentBrowser.version },
     });
   }),
 );
