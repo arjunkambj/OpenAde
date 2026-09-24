@@ -456,6 +456,17 @@ export const makeService = (injected: {
           if (input.kind === "navigate") {
             yield* SubscriptionRef.update(session.state, (state) => ({ ...state, url: input.url }));
           }
+          // The pane's Retry on a failed attach. In-app an error always means
+          // no driver (a failed open, or a timeout that released it), so this
+          // only clears the pane's alert; the agent's next call attaches
+          // afresh. It never starts agent-browser for the human.
+          if (mode === "in-app" && input.kind === "history" && input.direction === "reload") {
+            yield* SubscriptionRef.update(session.state, (state) =>
+              state.status === "error"
+                ? { ...state, status: STOPPED_STATUS, message: undefined }
+                : state,
+            );
+          }
           return;
         }
 

@@ -1762,7 +1762,10 @@ tabs down when it is archived — and when it is deleted, also clears its
 then `agent-browser` on `PATH`) and runs every call as argv-form `execFile`,
 never a shell. A missing binary is not fatal: the service reports `binary:
 null`, every call fails with `AgentBrowserUnavailable`, and the pane renders an
-install prompt keyed off the exact message constant. The daemon session is
+install prompt keyed off the message's opening clause
+(`AGENT_BROWSER_MISSING_MESSAGE`). The sentence and the prompt name only what
+the mode needs: in-app, `npm install -g agent-browser`; owned Chromium also
+`agent-browser install`, which downloads the Chrome it drives. The daemon session is
 named `ade-<12 hex of the thread id>` — hashed so the daemon's socket path fits
 the 103-byte Unix socket limit — and carries a 300 s idle timeout as a net
 behind `close`, which in-app mode can call freely: it sends no CDP, so the
@@ -1819,6 +1822,12 @@ reload, http(s) only) and the server only hears about it; the server never runs
 agent-browser for the human, since a CDP reload of a webview reloads the whole
 window. In owned mode the toolbar goes through the server, which has the only
 handle on that browser.
+
+A failed attach leaves the thread's state at `error`; the agent got the same
+message as its tool result. The pane's Retry is a `reload` gesture: in-app it
+only clears the error — the agent's next call attaches afresh, and nothing
+starts agent-browser for the human — while in owned mode, with no browser
+open, it starts one.
 
 Observed navigation is reported as a passive `location` input, which never
 marks human control — otherwise the agent's own navigations would look like a

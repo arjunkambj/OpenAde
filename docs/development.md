@@ -37,7 +37,10 @@ for auth, account and version, and `cmd --list-models` for the model picker
 
 The browser pane needs `agent-browser` on `PATH`, or `OPENADE_AGENT_BROWSER`
 pointing at it (`apps/server/src/browser/agentBrowser.ts`). Without it the pane
-renders an install prompt instead of failing the app.
+renders an install prompt instead of failing the app. The desktop drives the
+pane's own webviews, so `npm install -g agent-browser` is all it needs; the web
+renderer on its own (owned Chromium) also needs `agent-browser install` for the
+Chrome it downloads.
 
 ## Install
 

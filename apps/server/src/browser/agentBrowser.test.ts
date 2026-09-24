@@ -21,6 +21,7 @@ import { readManifest } from "@OpenAde/testkit/recording";
 
 import {
   AGENT_BROWSER_MISSING_MESSAGE,
+  agentBrowserMissingMessage,
   AgentBrowser,
   BROWSER_DISABLED_MESSAGE,
   browserEnv,
@@ -55,11 +56,31 @@ const capture = (envelope: unknown = { success: true, data: {}, error: null }) =
 describe("agentBrowser", () => {
   it("tells the user exactly what to run when the binary is missing", () => {
     // The pane keys its install prompt off this opening clause and prints the
-    // same two commands.
-    expect(AGENT_BROWSER_MISSING_MESSAGE.startsWith("agent-browser is not installed")).toBe(true);
-    expect(AGENT_BROWSER_MISSING_MESSAGE).toContain("npm install -g agent-browser");
-    expect(AGENT_BROWSER_MISSING_MESSAGE).toContain("agent-browser install");
+    // same commands. In-app drives the pane's webviews: no Chrome download.
+    const inApp = agentBrowserMissingMessage("in-app");
+    const owned = agentBrowserMissingMessage("owned-chromium");
+    for (const message of [inApp, owned]) {
+      expect(message.startsWith(AGENT_BROWSER_MISSING_MESSAGE)).toBe(true);
+      expect(message).toContain("npm install -g agent-browser");
+    }
+    expect(inApp).not.toContain("agent-browser install");
+    expect(owned).toContain("`agent-browser install`");
   });
+
+  it.effect("fails every call with the mode's install sentence when the binary is missing", () =>
+    Effect.gen(function* () {
+      const inApp = makeAgentBrowser({
+        binary: null,
+        version: null,
+        bridge: { base: BASE, key: KEY },
+      });
+      const failed = yield* Effect.flip(inApp.session("t-1").exec(["get", "title"]));
+      expect(failed.message).toBe(agentBrowserMissingMessage("in-app"));
+      const owned = makeAgentBrowser({ binary: null, version: null, bridge: null });
+      const ownedFailed = yield* Effect.flip(owned.session("t-1").exec(["get", "title"]));
+      expect(ownedFailed.message).toBe(agentBrowserMissingMessage("owned-chromium"));
+    }),
+  );
 
   it("names a thread's daemon session", () => {
     // Hashed, so the daemon's socket path fits the 103-byte limit whatever

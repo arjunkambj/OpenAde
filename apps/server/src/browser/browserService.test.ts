@@ -374,7 +374,13 @@ describe("BrowserService", () => {
         const state = yield* currentState(browser, threadId);
         expect(state?.status).toBe("error");
         expect(state?.mode).toBe("in-app");
-        // The pane's retry is the agent's next call, which tries the attach again.
+        // The pane's Retry clears the alert and opens nothing; the agent's
+        // next call tries the attach again.
+        yield* browser.humanInput(threadId, { kind: "history", direction: "reload" });
+        const retried = yield* currentState(browser, threadId);
+        expect(retried?.status).toBe("stopped");
+        expect(retried?.message).toBeUndefined();
+        expect(opened).toBe(1);
         yield* browser.callTool(threadId, "browser_snapshot", {});
         expect(opened).toBe(2);
       }),

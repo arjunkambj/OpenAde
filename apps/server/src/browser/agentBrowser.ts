@@ -55,14 +55,23 @@ import {
 import { configDir } from "@OpenAde/shared/paths";
 
 /**
- * What the pane reads when the binary is missing. The renderer keys its
- * install prompt off this exact opening clause (see
+ * The opening clause of what the pane reads when the binary is missing. The
+ * renderer keys its install prompt off it (see
  * `apps/web/src/components/panes/browser/install.ts`), so it is one constant
  * here rather than a sentence written twice.
  */
-export const AGENT_BROWSER_MISSING_MESSAGE =
-  "agent-browser is not installed. Install it with `npm install -g agent-browser`, " +
-  "then run `agent-browser install`.";
+export const AGENT_BROWSER_MISSING_MESSAGE = "agent-browser is not installed";
+
+/**
+ * The whole sentence, naming only what the mode needs: in-app drives the
+ * pane's own webviews, so the CLI is enough; owned Chromium also needs the
+ * Chrome that `agent-browser install` downloads.
+ */
+export const agentBrowserMissingMessage = (mode: BrowserState["mode"]): string =>
+  mode === "owned-chromium"
+    ? `${AGENT_BROWSER_MISSING_MESSAGE}. Install it with \`npm install -g agent-browser\`, ` +
+      "then run `agent-browser install` to download the browser it drives."
+    : `${AGENT_BROWSER_MISSING_MESSAGE}. Install it with \`npm install -g agent-browser\`.`;
 
 /** What every browser tool answers while the shell has the bridge switched off. */
 export const BROWSER_DISABLED_MESSAGE = "the in-app browser is disabled (OPENADE_REMOTE_DEBUG=0)";
@@ -547,6 +556,7 @@ export const makeAgentBrowser = (options: {
   const home = env.HOME ?? homedir();
   const kill: DaemonKiller =
     options.kill ?? ((session) => killDaemonAt(daemonPidPath(home, namespace, session)));
+  const missingMessage = agentBrowserMissingMessage(modeFor(bridge));
 
   /** One run of the binary in our namespace, with `cdp` as its bridge URL. */
   const invoke = (
@@ -560,7 +570,7 @@ export const makeAgentBrowser = (options: {
     Effect.suspend((): Effect.Effect<Record<string, unknown>, ExecError> => {
       const binary = options.binary;
       if (binary === null) {
-        return Effect.fail(new AgentBrowserUnavailable({ message: AGENT_BROWSER_MISSING_MESSAGE }));
+        return Effect.fail(new AgentBrowserUnavailable({ message: missingMessage }));
       }
       const command = `agent-browser ${argv.join(" ")}`;
       const extra: Record<string, string> =
