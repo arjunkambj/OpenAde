@@ -760,11 +760,13 @@ turns the flat item list into rows:
   and the interim narration — every `assistant_message` but the last. What a
   reader needs without opening it stays in view under the fold row, in order:
   todos, plans, errors, compactions, steered messages and answered-decision
-  records. Then comes the final answer (the turn's last `assistant_message`)
-  and, when the turn changed files, the `turn-summary` card. A turn with no
-  answer (interrupted, failed) folds all of its work and keeps its errors in
-  view. The time runs from the user message to the turn's last item, task
-  children included;
+  records. Then comes the final answer (the turn's last `assistant_message`,
+  as long as no work follows it) and, when the turn changed files, the
+  `turn-summary` card. A turn that ended in work (interrupted, failed) has no
+  answer: its narration folds with its work, so a mid-turn "Now let me run the
+  tests" never stands in for an answer above the commands that came after it,
+  and its errors stay in view. The time runs from the user message to the
+  turn's last item, task children included;
 - opening the fold puts the hidden rows back into the list right under it, in
   their original order, as rows of their own: each maximal run of work kinds
   is one `work-group` disclosure, and the narration between runs is a message

@@ -15,8 +15,10 @@
  *   it stays visible under it in order — todos, plans, errors, compactions,
  *   steered messages, answered decisions — then the final answer (its last
  *   `assistant_message`, which carries `turnEnd` for its footer) and, when
- *   the turn changed files, the `turn-summary` card. A turn with no answer
- *   (interrupted, failed) folds everything and keeps its errors in view.
+ *   the turn changed files, the `turn-summary` card. The answer is the last
+ *   message only when no work follows it: a turn that ended in work
+ *   (interrupted, failed) has no answer, folds all of its narration with the
+ *   work, and keeps its errors in view.
  * - Opening the fold (`isFoldOpen`) puts the hidden rows back as top-level
  *   rows in their original order, each run of work kinds as a `work-group`,
  *   rather than as one body inside the fold row: a single tall row would
@@ -128,6 +130,18 @@ export interface BuildTimelineOptions {
 /** Every fold open: the projection `timeline.expandAll` walks for its ids. */
 export const ALL_FOLDS_OPEN = (): boolean => true;
 
+/**
+ * A settled turn's final answer: its last `assistant_message`, when no work
+ * follows it. A turn that ended in work — interrupted, failed, or cut off
+ * mid-step — has none, and its last narration folds with the rest: shown
+ * above a fold standing for the commands that ran after it, it would read as
+ * the answer and tell the story out of order.
+ */
+const finalAnswer = (items: ReadonlyArray<ItemSnapshot>): ItemSnapshot | undefined => {
+  const lastWork = items.findLastIndex((item) => FOLDABLE_KINDS.has(item.kind));
+  return items.slice(lastWork + 1).findLast((item) => item.kind === "assistant_message");
+};
+
 /** The start of the running turn: the given time, else the last user message's id. */
 const workingStartedAt = (
   roots: ReadonlyArray<ItemSnapshot>,
@@ -206,7 +220,7 @@ export const buildTimeline = (
   );
 
   const pushSettledTurn = (turn: Turn, opener: ItemSnapshot) => {
-    const answer = turn.items.findLast((item) => item.kind === "assistant_message");
+    const answer = finalAnswer(turn.items);
     const all = withChildren(turn.items, childrenByParent);
     const durationMs = spanMs(all);
     const itemRow = (item: ItemSnapshot): TimelineItemRow =>

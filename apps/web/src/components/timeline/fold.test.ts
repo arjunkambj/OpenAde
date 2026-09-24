@@ -692,6 +692,57 @@ describe("buildTimeline turn folds", () => {
     expect(rows.some((row) => row.kind === "item" && row.turnEnd !== undefined)).toBe(false);
   });
 
+  it("folds the narration of a turn that ended in work rather than calling it the answer", () => {
+    const narration = item("assistant_message", { text: "Now let me run the tests." });
+    const items = [
+      item("user_message"),
+      narration,
+      item("command_execution"),
+      item("command_execution", { status: "failed" }),
+    ];
+    const { rows } = buildTimeline(items, { turnActive: false });
+    expect(labels(rows)).toEqual(["user_message", "turn-fold"]);
+    expect(folds(rows)[0].failedCount).toBe(1);
+    expect(rows.some((row) => row.kind === "item" && row.turnEnd !== undefined)).toBe(false);
+
+    // opened, the narration is back in its place, before the commands
+    const opened = buildTimeline(items, { turnActive: false, ...open }).rows;
+    expect(labels(opened)).toEqual([
+      "user_message",
+      "turn-fold",
+      "assistant_message",
+      "work-group",
+    ]);
+    expect(opened.some((row) => row.kind === "item" && row.turnEnd !== undefined)).toBe(false);
+  });
+
+  it("folds an interrupted turn's narration and keeps its error in view", () => {
+    const items = [
+      item("user_message"),
+      item("assistant_message", { text: "I'll look at the config." }),
+      item("tool_call"),
+      item("error", { status: "failed", text: "Interrupted" }),
+    ];
+    const { rows } = buildTimeline(items, { turnActive: false });
+    expect(labels(rows)).toEqual(["user_message", "turn-fold", "error"]);
+    expect(rows.some((row) => row.kind === "item" && row.turnEnd !== undefined)).toBe(false);
+  });
+
+  it("keeps a last message as the answer when only records and errors follow it", () => {
+    const answer = item("assistant_message");
+    const items = [item("user_message"), item("tool_call"), answer, item("todo"), item("error")];
+    const { rows } = buildTimeline(items, { turnActive: false });
+    expect(labels(rows)).toEqual([
+      "user_message",
+      "turn-fold",
+      "assistant_message",
+      "todo",
+      "error",
+    ]);
+    const answerRow = rows.find((row) => row.id === answer.itemId);
+    expect(answerRow?.kind === "item" && answerRow.turnEnd !== undefined).toBe(true);
+  });
+
   it("gives a leading run without a user message work groups and no fold", () => {
     const items = [
       item("reasoning"),
