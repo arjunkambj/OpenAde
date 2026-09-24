@@ -32,6 +32,7 @@ import { nextTitle, useDrawerState } from "@/components/terminal/drawer-state";
 import { useTerminalAtoms } from "@/components/terminal/terminal-atoms";
 import { TerminalFind } from "@/components/terminal/terminal-find";
 import type { TerminalHandle } from "@/components/terminal/terminal-handle";
+import { useDrawerBound } from "@/components/terminal/use-drawer-bound";
 import { useOpenInBrowserPane } from "@/components/terminal/use-open-link";
 import { describeExitError } from "@/lib/app-runtime";
 import { SHORTCUT_COMMANDS, ShortcutKbd, useKeybindingCommand } from "@/lib/shortcuts";
@@ -46,19 +47,23 @@ import { Add, ChevronDown, Search, Spinner } from "@honeyicons/react";
 
 const TerminalView = React.lazy(() => import("@/components/terminal/terminal-view"));
 
-/** Drag the top edge to resize; the height atom persists every frame. */
-function useDrawerResize() {
+/**
+ * Drag the top edge to resize; the height atom persists every frame. The
+ * height shown is also held to `bound`, so a window or composer that grows
+ * after the drag still leaves the conversation its room.
+ */
+function useDrawerResize(drawerRef: React.RefObject<HTMLDivElement | null>) {
   const [height, setHeight] = useDrawerHeight();
+  const bound = useDrawerBound(drawerRef);
   const onPointerDown = React.useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       event.preventDefault();
       const startY = event.clientY;
-      const drawer = event.currentTarget.parentElement;
-      const startHeight = drawer?.getBoundingClientRect().height ?? height;
-      const column = drawer?.parentElement?.getBoundingClientRect().height ?? window.innerHeight;
+      const startHeight = drawerRef.current?.getBoundingClientRect().height ?? height;
+      const max = bound ?? window.innerHeight * DRAWER_HEIGHT_MAX_FRACTION;
       const onMove = (move: PointerEvent) => {
         // The drawer sits at the bottom: dragging up makes it taller.
-        setHeight(startHeight + (startY - move.clientY), column);
+        setHeight(startHeight + (startY - move.clientY), max);
       };
       const onUp = () => {
         window.removeEventListener("pointermove", onMove);
@@ -67,9 +72,13 @@ function useDrawerResize() {
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
     },
-    [height, setHeight],
+    [bound, drawerRef, height, setHeight],
   );
-  return { height, onPointerDown };
+  const shown =
+    bound === null
+      ? `min(${height}px, ${DRAWER_HEIGHT_MAX_FRACTION * 100}%)`
+      : `${Math.min(height, bound)}px`;
+  return { shown, onPointerDown };
 }
 
 function TerminalDrawer({
@@ -90,7 +99,8 @@ function TerminalDrawer({
   const list = useAtomValue(atoms.terminalListAtom(threadId));
   const openTerminal = useAtomSet(atoms.openTerminal, { mode: "promiseExit" });
   const [state, dispatch] = useDrawerState(threadId);
-  const { height, onPointerDown } = useDrawerResize();
+  const drawerRef = React.useRef<HTMLDivElement>(null);
+  const { shown, onPointerDown } = useDrawerResize(drawerRef);
 
   const [opening, setOpening] = React.useState(false);
   const [openError, setOpenError] = React.useState<string | null>(null);
@@ -221,16 +231,18 @@ function TerminalDrawer({
 
   return (
     <div
+      ref={drawerRef}
       data-context="terminal"
       aria-label="Terminal"
       role="region"
       // Not `shrink-0`: the header and composer above cannot shrink, so on a
-      // short window the drawer gives up height, down to its minimum, rather
-      // than push its own bottom rows — the prompt — out of the column.
+      // window too short even for the bound's floor the drawer gives up
+      // height, down to its minimum, rather than push its own bottom rows —
+      // the prompt — out of the column.
       className="relative flex h-(--terminal-height) min-h-(--terminal-min-height) flex-col border-t border-border bg-background"
       style={
         {
-          "--terminal-height": `min(${height}px, ${DRAWER_HEIGHT_MAX_FRACTION * 100}%)`,
+          "--terminal-height": shown,
           "--terminal-min-height": `${DRAWER_HEIGHT_MIN}px`,
         } as React.CSSProperties
       }

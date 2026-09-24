@@ -109,18 +109,32 @@ const HEIGHT_DEFAULT = 280;
 export const DRAWER_HEIGHT_MIN = 120;
 /** The drawer may take this share of the thread column, and no more. */
 export const DRAWER_HEIGHT_MAX_FRACTION = 0.7;
-/** Stands in for the column's height before one has been measured. */
-const COLUMN_HEIGHT_FALLBACK = 2000;
+/** The conversation above the drawer keeps at least this much of the column. */
+export const TIMELINE_HEIGHT_MIN = 120;
+/** Stands in for the drawer's bound before the column has been measured. */
+const HEIGHT_MAX_FALLBACK = 1400;
 
 /**
- * Clamp to `[DRAWER_HEIGHT_MIN, column × DRAWER_HEIGHT_MAX_FRACTION]`, with the
- * minimum winning when a short window inverts the two.
+ * The tallest the drawer may be in a column `columnHeight` tall whose rows
+ * that never shrink — the header, the composer — take `fixedHeight`: its share
+ * of the column, and never so much that the conversation drops below
+ * `TIMELINE_HEIGHT_MIN`, the way the dock always leaves the thread column its
+ * `THREAD_COLUMN_MIN`.
  */
-export const clampDrawerHeight = (height: number, columnHeight: number): number =>
-  Math.max(
-    DRAWER_HEIGHT_MIN,
-    Math.min(Math.round(columnHeight * DRAWER_HEIGHT_MAX_FRACTION), Math.round(height)),
+export const drawerHeightMax = (columnHeight: number, fixedHeight: number): number =>
+  Math.round(
+    Math.min(
+      columnHeight * DRAWER_HEIGHT_MAX_FRACTION,
+      columnHeight - fixedHeight - TIMELINE_HEIGHT_MIN,
+    ),
   );
+
+/**
+ * Clamp to `[DRAWER_HEIGHT_MIN, max]`, with the minimum winning when a short
+ * window inverts the two.
+ */
+export const clampDrawerHeight = (height: number, max: number): number =>
+  Math.max(DRAWER_HEIGHT_MIN, Math.min(Math.round(max), Math.round(height)));
 
 /** Absent or unparseable storage means the default height. */
 export const parseDrawerHeight = (raw: string | null | undefined): number => {
@@ -128,9 +142,7 @@ export const parseDrawerHeight = (raw: string | null | undefined): number => {
     return HEIGHT_DEFAULT;
   }
   const parsed = Number.parseInt(raw, 10);
-  return Number.isFinite(parsed)
-    ? clampDrawerHeight(parsed, COLUMN_HEIGHT_FALLBACK)
-    : HEIGHT_DEFAULT;
+  return Number.isFinite(parsed) ? clampDrawerHeight(parsed, HEIGHT_MAX_FALLBACK) : HEIGHT_DEFAULT;
 };
 
 const readDrawerHeight = (): number => {
@@ -152,8 +164,8 @@ export const useDrawerHeight = () => {
   const height = useAtomValue(drawerHeightAtom);
   const setHeight = useAtomSet(drawerHeightAtom);
   const setPersistedHeight = React.useCallback(
-    (next: number, columnHeight: number) => {
-      const clamped = clampDrawerHeight(next, columnHeight);
+    (next: number, max: number) => {
+      const clamped = clampDrawerHeight(next, max);
       try {
         globalThis.localStorage?.setItem(HEIGHT_KEY, String(clamped));
       } catch {

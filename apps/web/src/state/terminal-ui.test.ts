@@ -3,11 +3,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   clampDrawerHeight,
+  drawerHeightMax,
   DRAWER_HEIGHT_MIN,
   drawerHeightAtom,
   openByThreadAtom,
   parseDrawerHeight,
   parseOpenByThread,
+  TIMELINE_HEIGHT_MIN,
   withDrawerOpen,
 } from "./terminal-ui";
 
@@ -55,25 +57,39 @@ describe("withDrawerOpen", () => {
   });
 });
 
-describe("clampDrawerHeight", () => {
-  it("keeps a height inside the bounds", () => {
-    expect(clampDrawerHeight(300, 1000)).toBe(300);
+describe("drawerHeightMax", () => {
+  it("is the drawer's share of a tall column", () => {
+    expect(drawerHeightMax(1000, 100)).toBe(700);
   });
 
-  it("caps at 70% of the thread column", () => {
-    expect(clampDrawerHeight(900, 1000)).toBe(700);
+  it("leaves the conversation its floor once the fixed rows take the rest", () => {
+    // A 700px column with a 44px header and a 246px composer: at 70% the
+    // conversation would get nothing at all.
+    const max = drawerHeightMax(700, 44 + 246);
+    expect(max).toBe(700 - 44 - 246 - TIMELINE_HEIGHT_MIN);
+    expect(700 - 44 - 246 - max).toBe(TIMELINE_HEIGHT_MIN);
+  });
+});
+
+describe("clampDrawerHeight", () => {
+  it("keeps a height inside the bounds", () => {
+    expect(clampDrawerHeight(300, 700)).toBe(300);
+  });
+
+  it("caps at the bound", () => {
+    expect(clampDrawerHeight(900, 700)).toBe(700);
   });
 
   it("never goes below the minimum", () => {
-    expect(clampDrawerHeight(40, 1000)).toBe(DRAWER_HEIGHT_MIN);
+    expect(clampDrawerHeight(40, 700)).toBe(DRAWER_HEIGHT_MIN);
   });
 
-  it("lets the minimum win in a column too short for both", () => {
-    expect(clampDrawerHeight(300, 100)).toBe(DRAWER_HEIGHT_MIN);
+  it("lets the minimum win when a short column's bound is below it", () => {
+    expect(clampDrawerHeight(300, drawerHeightMax(400, 290))).toBe(DRAWER_HEIGHT_MIN);
   });
 
   it("rounds a drag's fractional pixels", () => {
-    expect(clampDrawerHeight(250.6, 1000)).toBe(251);
+    expect(clampDrawerHeight(250.6, 700)).toBe(251);
   });
 });
 
