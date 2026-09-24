@@ -27,6 +27,19 @@ export interface TriggerMenuItem {
   readonly group?: string;
 }
 
+/**
+ * Scroll the `index`th row of `list` into view. Up/Down move the highlight
+ * while focus stays in the textarea, so nothing else would scroll the box, and
+ * Enter would pick a row the user cannot see. Headings are not rows, so rows
+ * are counted by role, as the active index counts them.
+ */
+export const revealActiveOption = (
+  list: Pick<ParentNode, "querySelectorAll"> | null,
+  index: number,
+): void => {
+  list?.querySelectorAll('[role="option"]')[index]?.scrollIntoView({ block: "nearest" });
+};
+
 /** A menu row matches when the query is blank or any of `text` contains it. */
 export const matchesQuery = (query: string, ...text: ReadonlyArray<string>): boolean => {
   const needle = query.trim().toLowerCase();
@@ -51,13 +64,16 @@ export function TriggerMenu<T extends TriggerMenuItem>({
   /** Accessible name, e.g. "File mentions". */
   readonly label: string;
 }) {
+  const listRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => revealActiveOption(listRef.current, activeIndex), [activeIndex, items]);
+
   return (
     <div
       className="absolute inset-x-0 bottom-full z-40 mb-2 overflow-hidden rounded-xl bg-popover shadow-lg"
       role="listbox"
       aria-label={label}
     >
-      <div className="max-h-64 overflow-y-auto p-1">
+      <div ref={listRef} className="max-h-64 overflow-y-auto p-1">
         {items.map((item, index) => (
           <React.Fragment key={item.id}>
             {item.group === undefined || item.group === items[index - 1]?.group ? null : (

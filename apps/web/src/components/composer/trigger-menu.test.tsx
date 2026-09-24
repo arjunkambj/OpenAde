@@ -1,7 +1,11 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { TriggerMenu, type TriggerMenuItem } from "@/components/composer/trigger-menu";
+import {
+  revealActiveOption,
+  TriggerMenu,
+  type TriggerMenuItem,
+} from "@/components/composer/trigger-menu";
 
 const LONG =
   "Plan and run a database schema migration end to end: read the current schema, write the forward and backward migration files, run them against a scratch copy, and report anything that would lock a large table.";
@@ -46,5 +50,37 @@ describe("TriggerMenu rows", () => {
     const markup = menu([{ id: "file:a", label: "a.ts" }]);
     expect(markup).not.toContain("title=");
     expect(markup.match(/<span/g)).toHaveLength(1);
+  });
+});
+
+describe("revealActiveOption", () => {
+  const rows = () => {
+    const scrolled: Array<number> = [];
+    const options = Array.from({ length: 12 }, (_, index) => ({
+      scrollIntoView: (options?: ScrollIntoViewOptions) => {
+        expect(options).toEqual({ block: "nearest" });
+        scrolled.push(index);
+      },
+    }));
+    const list = {
+      querySelectorAll: (selector: string) => {
+        expect(selector).toBe('[role="option"]');
+        return options as unknown as NodeListOf<Element>;
+      },
+    } as Pick<ParentNode, "querySelectorAll">;
+    return { list, scrolled };
+  };
+
+  it("scrolls the highlighted row, counted among rows alone, into view", () => {
+    const { list, scrolled } = rows();
+    revealActiveOption(list, 11);
+    expect(scrolled).toEqual([11]);
+  });
+
+  it("does nothing without a list or a row at that index", () => {
+    const { list, scrolled } = rows();
+    revealActiveOption(list, 12);
+    revealActiveOption(null, 0);
+    expect(scrolled).toEqual([]);
   });
 });
