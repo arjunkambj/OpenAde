@@ -50,7 +50,7 @@ export function SettingsSidebar() {
       </SidebarHeader>
       <SidebarContent gap="none">
         <SidebarGroup padding="section">
-          <SidebarGroupLabel className="h-8">Settings</SidebarGroupLabel>
+          <SidebarGroupLabel>Settings</SidebarGroupLabel>
           <SidebarGroupContent className="mt-1">
             <SidebarMenu>
               {ITEMS.map((item) => (

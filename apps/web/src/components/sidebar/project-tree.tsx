@@ -190,7 +190,7 @@ export function ProjectTree() {
           ))}
           {orphanThreads.length > 0 ? (
             <div className="grid gap-0.5">
-              <div className="flex h-8 items-center gap-2.5 rounded-xl px-2 text-sm text-sidebar-foreground">
+              <div className="flex h-7 items-center gap-2.5 rounded-xl px-2 text-sm text-sidebar-foreground">
                 <Folder variant="bold" className="size-4 shrink-0" />
                 <span className="min-w-0 truncate">Other threads</span>
               </div>
@@ -255,7 +255,7 @@ function ProjectSection({
 
   return (
     <div className="grid gap-0.5">
-      <div className="group/project flex h-8 items-center gap-1 rounded-xl text-sm text-sidebar-foreground">
+      <div className="group/project flex h-7 items-center gap-1 rounded-xl text-sm text-sidebar-foreground">
         <button
           type="button"
           aria-expanded={!collapsed}
