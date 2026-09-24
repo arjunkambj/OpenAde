@@ -42,7 +42,7 @@ export interface AddressBarProps {
   /** The selected tab's history, in-app; absent, every button is live. */
   readonly nav?: TabNavigation | undefined;
   readonly onAction: (input: BrowserHumanInput) => void;
-  /** The address field, for `browser.focusAddress`. */
+  /** The address field, for `browser.focusUrl`. */
   readonly inputRef?: React.RefObject<HTMLInputElement | null>;
   /** The dev servers and history the field suggests; absent, it suggests nothing. */
   readonly suggest?: SuggestionSource | undefined;

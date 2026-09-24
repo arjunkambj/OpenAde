@@ -1825,7 +1825,7 @@ the page in, out and back to 100% (the toolbar shows the percentage while it
 is not 100%), opens DevTools for the tab in its own window, opens the page in
 the system browser, and copies its address.
 
-Four keys work while focus is in the pane: `browser.focusAddress`,
+Four keys work while focus is in the pane: `browser.focusUrl`,
 `browser.reload`, `browser.back` and `browser.forward` (see the keybinding
 table). With focus in the page itself the key never reaches the window, so the
 shell matches it in the guest, swallows it and relays the command, and the
@@ -2321,9 +2321,9 @@ control is disabled, and none is answered outside a repository.
 still being built, so that nothing ships on them first. Nothing dispatches
 these rows. They exist so the collision test can treat each one as a binding.
 
-| command            | shortcut          | when           | for                                   |
-| ------------------ | ----------------- | -------------- | ------------------------------------- |
-| `composer.steer`   | `Mod+Shift+Enter` |                | Steer the running turn with the draft |
+| command          | shortcut          | when | for                                   |
+| ---------------- | ----------------- | ---- | ------------------------------------- |
+| `composer.steer` | `Mod+Shift+Enter` |      | Steer the running turn with the draft |
 
 Two further rules reserve keys without a row:
 

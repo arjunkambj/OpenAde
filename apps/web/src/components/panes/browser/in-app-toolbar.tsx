@@ -3,10 +3,10 @@
  * the element picker and screenshot (`./page-actions`) and the "more" menu, all acting on the thread's tabs — the webviews the
  * browser host renders — directly (`./tab-actions`).
  *
- * It also owns the pane's keys. `browser.focusAddress`, `browser.reload`,
+ * It also owns the pane's keys. `browser.focusUrl`, `browser.reload`,
  * `browser.back` and `browser.forward` answer here, bound with
- * `when: browserPaneFocus`, which this publishes while focus is in the
- * toolbar. A key pressed inside the page never reaches the window; the shell
+ * `when: browserFocus`, which holds while focus is anywhere in the pane (its
+ * root carries `data-context="browser"`). A key pressed inside the page never reaches the window; the shell
  * matches those for it and the browser host runs them
  * (`@/components/browser-host/use-guest-keys`).
  */
@@ -17,7 +17,7 @@ import { Button } from "@OpenAde/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 
 import { getTabView } from "@/components/browser-host/tab-views";
-import { useKeybindingCommand, useKeybindingFlag } from "@/lib/shortcuts";
+import { useKeybindingCommand } from "@/lib/shortcuts";
 import {
   closeTab,
   nextTabIdentity,
@@ -36,7 +36,6 @@ import { TabStrip } from "./tab-strip";
 import type { SuggestionSource } from "./use-suggestions";
 import {
   BROWSER_COMMANDS,
-  BROWSER_PANE_FOCUS,
   historyInput,
   loadInTab,
   moveTab,
@@ -62,8 +61,6 @@ export function InAppToolbar({ threadId, state, dispatch, suggest }: InAppToolba
   const setTabs = useSetBrowserTabs();
   const tab = selectedTab(threadTabs);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
-  const [focused, setFocused] = React.useState(false);
-  useKeybindingFlag(BROWSER_PANE_FOCUS, focused);
 
   // Looked up when used: the host registers a new tab's webview after this renders.
   const currentView = () => (tab === null ? null : getTabView(tab.tabId));
@@ -121,7 +118,7 @@ export function InAppToolbar({ threadId, state, dispatch, suggest }: InAppToolba
     setTabs((current) => patchTab(current, threadId, tab.tabId, { zoomLevel: level }));
   };
 
-  useKeybindingCommand(BROWSER_COMMANDS.focusAddress, focusAddress);
+  useKeybindingCommand(BROWSER_COMMANDS.focusUrl, focusAddress);
   useKeybindingCommand(BROWSER_COMMANDS.reload, () => move("reload"));
   useKeybindingCommand(BROWSER_COMMANDS.back, () => move("back"));
   useKeybindingCommand(BROWSER_COMMANDS.forward, () => move("forward"));
@@ -129,12 +126,7 @@ export function InAppToolbar({ threadId, state, dispatch, suggest }: InAppToolba
   const level = tab?.zoomLevel ?? 0;
 
   return (
-    <div
-      onFocus={() => setFocused(true)}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false);
-      }}
-    >
+    <div>
       {threadTabs.tabs.length === 0 ? null : (
         <TabStrip
           tabs={threadTabs}

@@ -60,7 +60,14 @@ describe("guestChordsFor", () => {
       { command: "browser.forward", shortcut: "Alt+ArrowRight" },
     ];
     expect(guestChordsFor(table, "meta")).toEqual([
-      { command: "browser.forward", key: "arrowright", meta: false, control: false, alt: true, shift: false },
+      {
+        command: "browser.forward",
+        key: "arrowright",
+        meta: false,
+        control: false,
+        alt: true,
+        shift: false,
+      },
     ]);
   });
 });

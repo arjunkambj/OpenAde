@@ -14,7 +14,7 @@ const chord = (command: string, key: string, extra: Partial<GuestChord> = {}): G
 
 /** The defaults as a macOS renderer resolves them. */
 const MAC: ReadonlyArray<GuestChord> = [
-  chord("browser.focusAddress", "l"),
+  chord("browser.focusUrl", "l"),
   chord("browser.reload", "r"),
   chord("browser.back", "["),
   chord("browser.forward", "]"),
@@ -42,7 +42,7 @@ describe("decideChord", () => {
     });
     expect(decideChord(MAC, keyDown("L", { meta: true }), "darwin")).toEqual({
       kind: "handled",
-      command: "browser.focusAddress",
+      command: "browser.focusUrl",
     });
   });
 

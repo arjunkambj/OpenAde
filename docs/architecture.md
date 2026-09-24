@@ -277,14 +277,14 @@ only; must never import the server, the connector packages or the renderer.
 The renderer. TanStack Router routes under `apps/web/src/routes`, state through
 `@effect/atom-react`, components under `apps/web/src/components`.
 
-| Route                             | What it is                                                                               |
-| --------------------------------- | ---------------------------------------------------------------------------------------- |
-| `_home/index`                     | start a thread, pick a project                                                           |
-| `_home/t/$threadId`               | the thread view; `?pane=` carries the dock tab                                           |
-| `_home/customize/{skills,mcp}`    | what extends the agent, one tab per kind, one section per instance                       |
-| `settings`, seven pages           | general, models, connectors, keybindings, permissions, git & worktrees, archived threads |
-| `browser.$threadId`               | the browser pane on its own, against a real `browser.subscribe`                          |
-| `dev/{timeline,composer,changes}` | fixture pages, DEV only                                                                  |
+| Route                             | What it is                                                                                        |
+| --------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `_home/index`                     | start a thread, pick a project                                                                    |
+| `_home/t/$threadId`               | the thread view; `?pane=` carries the dock tab                                                    |
+| `_home/customize/{skills,mcp}`    | what extends the agent, one tab per kind, one section per instance                                |
+| `settings`, eight pages           | general, models, connectors, keybindings, permissions, git & worktrees, browser, archived threads |
+| `browser.$threadId`               | the browser pane on its own, against a real `browser.subscribe`                                   |
+| `dev/{timeline,composer,changes}` | fixture pages, DEV only                                                                           |
 
 The shell is a left sidebar (projects → threads), the thread column (the
 timeline, then the composer with any open approval, question or plan card
@@ -480,12 +480,12 @@ server never runs agent-browser for a person. `address.ts` decides what a
 typed address loads: http(s) and `about:blank` as typed, a bare local host
 with `http://`, any other bare host with `https://`, and everything else —
 `file:`, `javascript:`, `data:`, words — becomes a DuckDuckGo search, never a
-navigation. The pane's keys (`browser.focusAddress`, `browser.reload`,
-`browser.back`, `browser.forward`, bound `when: browserPaneFocus`) answer in
-the toolbar, which publishes that flag while focus is in it; pressed inside
+navigation. The pane's keys (`browser.focusUrl`, `browser.reload`,
+`browser.back`, `browser.forward`, bound `when: browserFocus`) answer in
+the toolbar, since the pane's root carries `data-context="browser"`; pressed inside
 the page they come back from the shell (`openade:browser-command`, see
 `apps/desktop/src/main/ipc.ts`) to the host's `use-guest-keys.ts`, which moves
-the tab the key came from and hands `browser.focusAddress` to the command
+the tab the key came from and hands `browser.focusUrl` to the command
 registry. The host re-sends the chords whenever the table changes.
 
 **The page in the conversation.** Beside the address bar

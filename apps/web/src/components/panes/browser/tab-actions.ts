@@ -55,11 +55,8 @@ export const COMMAND_DIRECTIONS: Readonly<Record<string, HistoryDirection>> = {
 
 /** The pane's keybinding commands. */
 export const BROWSER_COMMANDS = {
-  focusAddress: "browser.focusAddress",
+  focusUrl: "browser.focusUrl",
   reload: "browser.reload",
   back: "browser.back",
   forward: "browser.forward",
 } as const;
-
-/** The `when` flag the pane publishes while focus is in it. */
-export const BROWSER_PANE_FOCUS = "browserPaneFocus";

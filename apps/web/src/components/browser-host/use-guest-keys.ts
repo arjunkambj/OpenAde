@@ -12,7 +12,7 @@
  *
  * Here a relayed history command moves the tab it came from — whether or not
  * its pane is on screen — and tells the server, as the toolbar does; the rest
- * (`browser.focusAddress`) goes to whichever surface answers it.
+ * (`browser.focusUrl`) goes to whichever surface answers it.
  */
 import * as React from "react";
 

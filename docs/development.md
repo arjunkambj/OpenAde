@@ -992,10 +992,6 @@ a thread`. Scopes name the area, not the workspace path.
   other file, so `pnpm fmt` rewraps them and `pnpm fmt:check` fails on a
   document that was not rewrapped. Describe the software, not the history of
   building it.
-- **A new default keybinding goes in two places.** Add it to
-  `DEFAULT_KEYBINDINGS` and, as a new group, to `ADDED_DEFAULT_KEYBINDINGS`
-  (`packages/contracts/src/settings.ts`). A stored table is authoritative, so
-  without the group anyone who has saved their keybindings never gets it.
 - **Never `--no-verify`.** `pnpm check` is the gate; if it is red the change is
   not finished.
 
