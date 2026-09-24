@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
-import { makeTerminalId, makeThreadId } from "./ids";
+import { makeProjectId, makeTerminalId, makeThreadId } from "./ids";
 import { OpenAdeRpcGroup, RPC_METHODS } from "./rpc";
 import {
   TERMINAL_BATCH_CHARS,
@@ -13,6 +13,9 @@ import {
   TERMINAL_WRITE_MAX_CHARS,
   TERMINALS_PER_THREAD,
   TerminalSize,
+  decodeTerminalOwnerKey,
+  terminalOwnerKey,
+  terminalOwnerOf,
 } from "./terminal";
 
 describe("TerminalSize", () => {
@@ -54,6 +57,70 @@ describe("terminal.write", () => {
         decode({ ...ids, data: "x".repeat(TERMINAL_WRITE_MAX_CHARS + 1) }),
       );
       expect(tooLong._tag).toBe("Failure");
+    }),
+  );
+});
+
+describe("the terminal owner", () => {
+  const payloadOf = (method: string) => {
+    const rpc = OpenAdeRpcGroup.requests.get(method);
+    expect(rpc).toBeDefined();
+    return Schema.decodeUnknownExit(rpc!.payloadSchema as Schema.Codec<unknown>);
+  };
+
+  it.effect("is a thread or a project on every call, and never neither", () =>
+    Effect.gen(function* () {
+      const terminalId = makeTerminalId();
+      const size = { cols: 80, rows: 24 };
+      const calls = [
+        [RPC_METHODS.terminalOpen, { terminalId, ...size }],
+        [RPC_METHODS.terminalWrite, { terminalId, data: "ls\n" }],
+        [RPC_METHODS.terminalResize, { terminalId, ...size }],
+        [RPC_METHODS.terminalClose, { terminalId }],
+        [RPC_METHODS.terminalSubscribe, { terminalId }],
+        [RPC_METHODS.terminalList, {}],
+      ] as const;
+      for (const [method, rest] of calls) {
+        const decode = payloadOf(method);
+        const byThread = yield* Effect.sync(() => decode({ threadId: makeThreadId(), ...rest }));
+        const byProject = yield* Effect.sync(() => decode({ projectId: makeProjectId(), ...rest }));
+        const byNobody = yield* Effect.sync(() => decode(rest));
+        expect([byThread._tag, byProject._tag, byNobody._tag], method).toEqual([
+          "Success",
+          "Success",
+          "Failure",
+        ]);
+      }
+    }),
+  );
+
+  it.effect("keys a thread by its bare id and a project apart from it, both ways", () =>
+    Effect.gen(function* () {
+      const threadId = makeThreadId();
+      const projectId = makeProjectId();
+      const keys = yield* Effect.succeed({
+        thread: terminalOwnerKey({ threadId }),
+        project: terminalOwnerKey({ projectId }),
+      });
+      expect(keys.thread).toBe(threadId);
+      expect(keys.project).toBe(`project:${projectId}`);
+      expect(decodeTerminalOwnerKey(keys.thread)).toEqual({ threadId });
+      expect(decodeTerminalOwnerKey(keys.project)).toEqual({ projectId });
+    }),
+  );
+
+  it.effect("is read off a payload without the rest of it", () =>
+    Effect.gen(function* () {
+      const threadId = makeThreadId();
+      const projectId = makeProjectId();
+      const terminalId = makeTerminalId();
+      const byThread = { threadId, terminalId, cols: 80, rows: 24 };
+      const byProject = { projectId, terminalId, data: "ls\n" };
+      const owners = yield* Effect.sync(() => [
+        terminalOwnerOf(byThread),
+        terminalOwnerOf(byProject),
+      ]);
+      expect(owners).toEqual([{ threadId }, { projectId }]);
     }),
   );
 });

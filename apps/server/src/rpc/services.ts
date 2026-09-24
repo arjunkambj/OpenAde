@@ -43,7 +43,11 @@ import { migrateLegacyKeybindingTable } from "@OpenAde/contracts/keybindings";
 import { defaultSettings, Settings } from "@OpenAde/contracts/settings";
 import type { SettingsPatch } from "@OpenAde/contracts/settings";
 import type { ConnectorInstanceId, ProjectId, TerminalId, ThreadId } from "@OpenAde/contracts/ids";
-import type { TerminalStreamItem, TerminalSummary } from "@OpenAde/contracts/terminal";
+import type {
+  TerminalOwner,
+  TerminalStreamItem,
+  TerminalSummary,
+} from "@OpenAde/contracts/terminal";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -321,42 +325,44 @@ export class DevServerDiscovery extends Context.Service<
 // ── Terminal ───────────────────────────────────────────────────
 
 /**
- * The integrated terminal's per-thread shells. Every call names the thread as
+ * The integrated terminal's shells, each owned by a thread or — before any
+ * thread exists — a project (`TerminalOwner`). Every call names the owner as
  * well as the terminal, and an implementation answers `not-found` for a
- * terminal that belongs to a different thread. `subscribe` is the wire's output
+ * terminal that belongs to a different owner. `subscribe` is the wire's output
  * stream (a snapshot with the scrollback, then live output); `teardownThread`
  * is the thread-close hook that kills every shell the thread still holds.
  */
 export class TerminalService extends Context.Service<
   TerminalService,
   {
-    readonly open: (input: {
-      readonly threadId: ThreadId;
-      readonly terminalId: TerminalId;
-      readonly cols: number;
-      readonly rows: number;
-      readonly title?: string | undefined;
-    }) => Effect.Effect<TerminalSummary, OpenAdeRpcError>;
+    readonly open: (
+      input: TerminalOwner & {
+        readonly terminalId: TerminalId;
+        readonly cols: number;
+        readonly rows: number;
+        readonly title?: string | undefined;
+      },
+    ) => Effect.Effect<TerminalSummary, OpenAdeRpcError>;
     readonly write: (
-      threadId: ThreadId,
+      owner: TerminalOwner,
       terminalId: TerminalId,
       data: string,
     ) => Effect.Effect<void, OpenAdeRpcError>;
     readonly resize: (
-      threadId: ThreadId,
+      owner: TerminalOwner,
       terminalId: TerminalId,
       cols: number,
       rows: number,
     ) => Effect.Effect<void, OpenAdeRpcError>;
     readonly close: (
-      threadId: ThreadId,
+      owner: TerminalOwner,
       terminalId: TerminalId,
     ) => Effect.Effect<void, OpenAdeRpcError>;
     readonly list: (
-      threadId: ThreadId,
+      owner: TerminalOwner,
     ) => Effect.Effect<ReadonlyArray<TerminalSummary>, OpenAdeRpcError>;
     readonly subscribe: (
-      threadId: ThreadId,
+      owner: TerminalOwner,
       terminalId: TerminalId,
     ) => Stream.Stream<TerminalStreamItem, OpenAdeRpcError>;
     readonly teardownThread: (threadId: ThreadId) => Effect.Effect<void>;

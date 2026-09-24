@@ -311,8 +311,9 @@ from anything the client said about them.
 
 The integrated terminal keeps the rule rather than bending it: the shell runs
 on the server, the renderer sends it keys and receives text, and the directory
-it starts in is the server's to decide from the thread (`workspaceOf` in
-`apps/server/src/terminal/TerminalService.ts`) — `terminal.open` takes no path.
+it starts in is the server's to decide from the thread or project that owns it
+(`workspaceOf` in `apps/server/src/terminal/TerminalService.ts`) —
+`terminal.open` takes no path.
 
 **To honour it:** new filesystem capability goes in `apps/server`, behind an RPC
 with a narrow surface, and gets asked "what does this give a remote client?"

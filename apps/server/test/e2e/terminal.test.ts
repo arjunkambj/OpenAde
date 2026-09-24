@@ -3,11 +3,12 @@
  *
  * A booted server, a client on its WebSocket, and a thread on the harness's
  * temp workspace; then every terminal call a drawer makes, in the order it
- * makes them. The shell is found the way the product finds it, from `$SHELL`,
- * and started as a login shell; the scenario points `$SHELL` at `/bin/sh` and
- * `HOME` at its temp dir for its duration, so the operator's own shell and rc
- * files cannot change what the terminal prints. The one assertion on output
- * is a value the shell computed.
+ * makes them — and again for a terminal the project owns, the one the New task
+ * page opens before any thread exists. The shell is found the way the product
+ * finds it, from `$SHELL`, and started as a login shell; the scenario points
+ * `$SHELL` at `/bin/sh` and `HOME` at its temp dir for its duration, so the
+ * operator's own shell and rc files cannot change what the terminal prints.
+ * The one assertion on output is a value the shell computed.
  *
  * No agent harness is involved, so there is no recording to replay and nothing
  * the live driver would add: the scenario runs once, outside `forEachDriver`,
@@ -107,6 +108,48 @@ describe.skipIf(process.platform === "win32")("terminal over the wire", () => {
         yield* output.awaitItem(({ item }) => item.kind === "exited").pipe(Effect.orDie);
         yield* output.awaitDone;
         expect(yield* rpc["terminal.list"]({ threadId }).pipe(Effect.orDie)).toEqual([]);
+      }),
+    ),
+  );
+
+  // The New task page's terminal: owned by the project, since no thread exists yet.
+  it.live("opens a project's shell, apart from its thread's terminals", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const home = yield* makeHome("terminal-project");
+        yield* seedSettings(home, []);
+        yield* scopedEnv("SHELL", "/bin/sh");
+        yield* scopedEnv("HOME", home.root);
+        const server = yield* bootServer(home);
+        const client = yield* connect(Effect.succeed(staticCredentials(server)));
+        const { projectId, threadId } = yield* openThread(client, home);
+        const rpc = yield* client.rpc;
+        const terminalId = makeTerminalId();
+
+        const opened = yield* rpc["terminal.open"]({
+          projectId,
+          terminalId,
+          cols: 80,
+          rows: 24,
+        }).pipe(Effect.orDie);
+        expect(opened).toMatchObject({ terminalId, projectId, status: "running" });
+
+        const output = yield* makeStreamCollector(
+          transcript(rpc["terminal.subscribe"]({ projectId, terminalId })),
+        );
+        yield* rpc["terminal.write"]({ projectId, terminalId, data: "echo $((6*7))\n" }).pipe(
+          Effect.orDie,
+        );
+        yield* output.awaitItem(({ text }) => /(^|\n)42\r?\n/.test(text)).pipe(Effect.orDie);
+
+        const byProject = yield* rpc["terminal.list"]({ projectId }).pipe(Effect.orDie);
+        expect(byProject.map((summary) => summary.terminalId)).toEqual([terminalId]);
+        expect(yield* rpc["terminal.list"]({ threadId }).pipe(Effect.orDie)).toEqual([]);
+
+        yield* rpc["terminal.close"]({ projectId, terminalId }).pipe(Effect.orDie);
+        yield* output.awaitItem(({ item }) => item.kind === "exited").pipe(Effect.orDie);
+        yield* output.awaitDone;
+        expect(yield* rpc["terminal.list"]({ projectId }).pipe(Effect.orDie)).toEqual([]);
       }),
     ),
   );

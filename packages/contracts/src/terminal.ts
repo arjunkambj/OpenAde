@@ -1,10 +1,16 @@
 /**
  * The integrated terminal on the wire.
  *
- * A terminal is a shell the server runs in a pseudo-terminal for one thread,
- * with the thread's workspace as its working directory. The client mints the
+ * A terminal is a shell the server runs in a pseudo-terminal for one owner,
+ * with the owner's workspace as its working directory. The owner is a thread —
+ * its workspace is its worktree when it has one, its project's folder
+ * otherwise — or, before any thread exists (the New task page), a project,
+ * whose workspace is its folder (`TerminalOwner`). The client mints the
  * `TerminalId`, so `terminal.open` is idempotent and a client that comes back
  * to a thread reattaches to the same shell by id.
+ *
+ * A thread terminal's payloads and summary carry `threadId`, as they always
+ * have; a project terminal's carry `projectId` in its place.
  *
  * Output is text, not bytes: the server decodes the pty's output as UTF-8 and
  * every length and offset here counts UTF-16 chars, the unit both ends' strings
@@ -14,7 +20,7 @@
 import * as Schema from "effect/Schema";
 
 import { IsoDateTime, NonEmptyString, NonNegativeInt } from "./base";
-import { TerminalId, ThreadId } from "./ids";
+import { ProjectId, TerminalId, ThreadId } from "./ids";
 
 // ── Limits both ends share ─────────────────────────────────────
 
@@ -35,11 +41,59 @@ export const TERMINAL_BATCH_CHARS = 64 * 1024;
 export const TERMINAL_STREAM_BUDGET_BYTES = 4 * 1024 * 1024;
 export const TERMINAL_STREAM_BUDGET_ITEMS = 4096;
 
-/** Open terminals one thread may hold, so a runaway client cannot fork shells without end. */
+/**
+ * Open terminals one owner — a thread, or a project — may hold, so a runaway
+ * client cannot fork shells without end.
+ */
 export const TERMINALS_PER_THREAD = 8;
 
 /** The most chars one `terminal.write` may carry: a large paste fits, an unbounded frame does not. */
 export const TERMINAL_WRITE_MAX_CHARS = 1024 * 1024;
+
+// ── Owner ──────────────────────────────────────────────────────
+
+/**
+ * Who a terminal belongs to: a thread, or a project with no thread yet. The
+ * two are kept apart on purpose — a draft's thread id is never a project
+ * terminal's owner, because the thread it becomes may run in a new worktree.
+ */
+export const TerminalOwner = Schema.Union([
+  Schema.Struct({ threadId: ThreadId }),
+  Schema.Struct({ projectId: ProjectId }),
+]);
+export type TerminalOwner = typeof TerminalOwner.Type;
+
+/**
+ * `fields` owned by a thread or by a project: the shape of every terminal
+ * payload. A thread's variant comes first, so a payload that names both — no
+ * client sends one — is read as the thread's.
+ */
+export const terminalOwned = <const Fields extends Schema.Struct.Fields>(fields: Fields) =>
+  Schema.Union([
+    Schema.Struct({ threadId: ThreadId, ...fields }),
+    Schema.Struct({ projectId: ProjectId, ...fields }),
+  ]);
+
+/** The owner a payload or summary names, and nothing else of it. */
+export const terminalOwnerOf = (
+  value: { readonly threadId: ThreadId } | { readonly projectId: ProjectId },
+): TerminalOwner =>
+  "threadId" in value ? { threadId: value.threadId } : { projectId: value.projectId };
+
+const PROJECT_KEY_PREFIX = "project:";
+
+/**
+ * An owner as one string, for maps and atom families: a thread is its bare id
+ * — the key the client's per-thread state has always used — and a project is
+ * `project:<id>`. Ids are UUIDs, so the two can never meet.
+ */
+export const terminalOwnerKey = (owner: TerminalOwner): string =>
+  "threadId" in owner ? owner.threadId : `${PROJECT_KEY_PREFIX}${owner.projectId}`;
+
+export const decodeTerminalOwnerKey = (key: string): TerminalOwner =>
+  key.startsWith(PROJECT_KEY_PREFIX)
+    ? { projectId: key.slice(PROJECT_KEY_PREFIX.length) as ProjectId }
+    : { threadId: key as ThreadId };
 
 // ── Shapes ─────────────────────────────────────────────────────
 
@@ -50,14 +104,7 @@ export const TerminalSize = Schema.Struct({
 });
 export type TerminalSize = typeof TerminalSize.Type;
 
-/**
- * One terminal as the server knows it. An `exited` terminal stays listed, with
- * its output, until the client closes it, so the last thing a command printed
- * is still readable after the shell has gone.
- */
-export const TerminalSummary = Schema.Struct({
-  terminalId: TerminalId,
-  threadId: ThreadId,
+const terminalSummaryFields = {
   title: NonEmptyString,
   cwd: NonEmptyString,
   pid: NonNegativeInt,
@@ -65,7 +112,18 @@ export const TerminalSummary = Schema.Struct({
   status: Schema.Literals(["running", "exited"]),
   exitCode: Schema.NullOr(Schema.Int),
   createdAt: IsoDateTime,
-});
+};
+
+/**
+ * One terminal as the server knows it, with its owner's id beside its own. An
+ * `exited` terminal stays listed, with its output, until the client closes it,
+ * so the last thing a command printed is still readable after the shell has
+ * gone.
+ */
+export const TerminalSummary = Schema.Union([
+  Schema.Struct({ terminalId: TerminalId, threadId: ThreadId, ...terminalSummaryFields }),
+  Schema.Struct({ terminalId: TerminalId, projectId: ProjectId, ...terminalSummaryFields }),
+]);
 export type TerminalSummary = typeof TerminalSummary.Type;
 
 /**

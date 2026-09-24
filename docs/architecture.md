@@ -96,10 +96,13 @@ invocation per call against a named session
 persists between invocations.
 
 **Server → shell.** One login shell per open terminal, started in a
-pseudo-terminal by `@lydell/node-pty` (`apps/server/src/terminal/pty.ts`) with
-the thread's project folder as its working directory. A shell lives until its
-terminal is closed, its thread is deleted or archived, or the server shuts
-down; switching threads or reloading the renderer leaves it running.
+pseudo-terminal by `@lydell/node-pty` (`apps/server/src/terminal/pty.ts`). A
+terminal belongs to a thread, and starts in the thread's workspace (its
+worktree, else its project's folder), or — on the New task page, before any
+thread exists — to a project, and starts in the project's folder. A shell lives
+until its terminal is closed, its thread is deleted or archived (its project
+removed, for a project's own), or the server shuts down; switching threads or
+reloading the renderer leaves it running.
 
 ## Workspaces
 

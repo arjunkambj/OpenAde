@@ -236,6 +236,8 @@ const singles: ReadonlyArray<{ readonly path: string; readonly schema: FixtureSc
   { path: "rpc/mcp-server-config.json", schema: McpServerConfig },
   { path: "rpc/skill-summary.json", schema: SkillSummary },
   { path: "rpc/terminal-summary.json", schema: TerminalSummary },
+  // A terminal on the New task page: owned by a project, with no thread yet.
+  { path: "rpc/terminal-summary.project.json", schema: TerminalSummary },
   { path: "rpc/plugin-summary.json", schema: PluginSummary },
 ];
 

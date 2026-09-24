@@ -12,8 +12,12 @@
  * then `exited` is published — so every subscriber sees the last output before
  * the exit, and a snapshot taken after the status flipped holds all of it.
  */
-import type { TerminalId, ThreadId } from "@OpenAde/contracts/ids";
-import type { TerminalStreamItem, TerminalSummary } from "@OpenAde/contracts/terminal";
+import type { TerminalId } from "@OpenAde/contracts/ids";
+import type {
+  TerminalOwner,
+  TerminalStreamItem,
+  TerminalSummary,
+} from "@OpenAde/contracts/terminal";
 import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -37,7 +41,8 @@ const KILL_GRACE = Duration.seconds(1);
 const KILL_SETTLE = Duration.seconds(2);
 
 export interface SessionOptions {
-  readonly threadId: ThreadId;
+  /** The thread or project the terminal belongs to; its summary names it. */
+  readonly owner: TerminalOwner;
   readonly terminalId: TerminalId;
   readonly title: string;
   readonly cwd: string;
@@ -102,7 +107,7 @@ export const makeSession = (
     const scrollback = makeScrollback();
     let summary: TerminalSummary = {
       terminalId: options.terminalId,
-      threadId: options.threadId,
+      ...options.owner,
       title: options.title,
       cwd: options.cwd,
       pid: pty.pid,
