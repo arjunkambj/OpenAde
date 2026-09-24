@@ -8,7 +8,12 @@
  *
  * The dock keys — `dock.toggle`, `dock.changes`, `dock.files` and
  * `browserPane.toggle` — are answered here, through `DockShortcuts`, because
- * they need the thread's dock. The rest of the thread-scoped bindings —
+ * they need the thread's dock. The dock starts closed: `?pane=` says what it
+ * shows (a tab, or `home` for its launcher), and the only thing that opens it
+ * unasked is coming back, in the same session, to a thread whose dock was
+ * left open (`useDockMemory`, in memory, so a relaunch finds every dock
+ * shut). The toggle reopens the last tab this thread used this session, else
+ * the launcher (`@/components/dock/dock-toggle`). The rest of the thread-scoped bindings —
  * `thread.interrupt`, `composer.queue` and the `turnRunning` flag — belong to
  * the composer, which owns the Stop button and the error line those bindings
  * report through. The layout keeps the bindings that work with no thread open.
@@ -37,8 +42,15 @@ import type * as OpenAdeRpcError from "@OpenAde/contracts/rpc";
 import type * as RpcClientError from "effect/unstable/rpc/RpcClientError";
 
 import { Composer } from "@/components/composer/composer";
-import { dockToggleTarget } from "@/components/dock/dock-toggle";
-import { isDockTab, RightDock, type DockTab } from "@/components/dock/right-dock";
+import {
+  dockArrivalTarget,
+  dockToggleTarget,
+  noteDockShown,
+  rememberDockMove,
+  type DockPane,
+  type DockTab,
+} from "@/components/dock/dock-toggle";
+import { RightDock } from "@/components/dock/right-dock";
 import { ThreadTerminal } from "@/components/terminal/terminal-drawer";
 import { useAgentBrowser } from "@/components/thread/agent-browser-indicator";
 import { ThreadHarnessBanner } from "@/components/thread/harness-health-banner";
@@ -50,7 +62,7 @@ import { useKeybindingFlag } from "@/lib/shortcuts";
 import { usePresence } from "@/lib/use-presence";
 import { useConnectionState, useProjects, useThreadDetail } from "@/state/hooks";
 import { useBrowserRevealRequests } from "@/state/browser-activity";
-import { useDockTabMemory } from "@/state/ui";
+import { useDockMemory } from "@/state/ui";
 import { AlertTriangle, Spinner, WifiOff } from "@honeyicons/react";
 
 type ThreadDetailResult = AsyncResult.AsyncResult<
@@ -138,19 +150,19 @@ export function ThreadView({
   dockTab,
 }: {
   threadId: ThreadId;
-  dockTab: DockTab | undefined;
+  dockTab: DockPane | undefined;
 }) {
   const result = useThreadDetail(threadId);
   const connection = useConnectionState();
   const navigate = useNavigate();
 
-  const [dockTabs, rememberDockTab] = useDockTabMemory();
+  const [dockMemory, updateDockMemory] = useDockMemory(threadId);
 
   // Set by the Files key, read once by the Files pane as it mounts; any other
   // move of the dock clears it, so a later click on the tab does not focus.
   const [focusFilesSearch, setFocusFilesSearch] = React.useState(false);
   const navigateDock = React.useCallback(
-    (tab: DockTab | null) =>
+    (tab: DockPane | null) =>
       void navigate({
         to: "/t/$threadId",
         params: { threadId },
@@ -169,47 +181,37 @@ export function ThreadView({
 
   /** Every dock move the user makes: remembered for the thread, and noted. */
   const setDockTab = React.useCallback(
-    (tab: DockTab | null) => {
+    (tab: DockPane | null) => {
       setFocusFilesSearch(false);
       noteUserDock(dockTab, tab ?? undefined);
-      rememberDockTab(threadId, tab);
+      updateDockMemory((memory) => rememberDockMove(memory, tab));
       navigateDock(tab);
     },
-    [dockTab, noteUserDock, rememberDockTab, navigateDock, threadId],
+    [dockTab, noteUserDock, updateDockMemory, navigateDock],
   );
 
   const showBrowser = React.useCallback(() => setDockTab("browser"), [setDockTab]);
   // `openInThreadBrowser` asks for the pane from outside the thread view.
   useBrowserRevealRequests(threadId, showBrowser);
 
-  // Arriving with no `?pane=` — a sidebar link, a relaunch — restores the tab
-  // this thread was last left on. Closing the dock forgets it, so this cannot
-  // re-open what the user just closed.
-  const remembered = dockTabs[threadId];
+  // Arriving with no `?pane=` — a sidebar link — reopens what this thread's
+  // dock was left on earlier in the session, and nothing otherwise: the memory
+  // is not persisted, so after a relaunch every dock starts closed. Closing
+  // the dock forgets it, so this cannot re-open what the user just closed.
+  const arrival = dockArrivalTarget(dockMemory);
   React.useEffect(() => {
-    if (dockTab === undefined && isDockTab(remembered)) {
-      void navigate({
-        to: "/t/$threadId",
-        params: { threadId },
-        search: { pane: remembered },
-        replace: true,
-      });
+    if (dockTab === undefined && arrival !== undefined) {
+      navigateDock(arrival);
     }
-  }, [dockTab, navigate, remembered, threadId]);
+  }, [dockTab, navigateDock, arrival]);
 
-  // The tab the dock was last closed on, for the toggle to reopen. The
-  // per-thread memory above forgets a closed dock on purpose, so this is kept
-  // apart from it, and only for the thread it was seen on.
-  const lastDockTab = React.useRef<{ threadId: ThreadId; tab: DockTab } | null>(null);
+  // Whatever put a tab on screen — the user, a link to a turn's changes, the
+  // browser opening itself for the agent — makes it the one the toggle goes
+  // back to. Only the user's own moves are reopened on arrival.
   React.useEffect(() => {
-    if (dockTab !== undefined) {
-      lastDockTab.current = { threadId, tab: dockTab };
-    }
-  }, [dockTab, threadId]);
-  const toggleDock = () => {
-    const last = lastDockTab.current;
-    setDockTab(dockToggleTarget(dockTab, last?.threadId === threadId ? last.tab : undefined));
-  };
+    updateDockMemory((memory) => noteDockShown(memory, dockTab));
+  }, [dockTab, updateDockMemory]);
+  const toggleDock = () => setDockTab(dockToggleTarget(dockTab, dockMemory?.lastTab));
   const showDockTab = (tab: DockTab | null, focus = false) => {
     setDockTab(tab);
     setFocusFilesSearch(focus && tab === "files");
@@ -286,9 +288,9 @@ export function ThreadView({
       </section>
       {dockPhase !== null && shownDockTab !== undefined && snapshot !== null ? (
         <RightDock
-          tab={shownDockTab}
+          pane={shownDockTab}
           phase={dockPhase}
-          onTabChange={setDockTab}
+          onPaneChange={setDockTab}
           snapshot={snapshot}
           focusFilesSearch={focusFilesSearch}
           onFilesSearchFocused={onFilesSearchFocused}

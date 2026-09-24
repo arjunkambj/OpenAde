@@ -26,7 +26,7 @@ import { Button } from "@OpenAde/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import type { ThreadDetailSnapshot, ThreadStatus } from "@OpenAde/contracts/orchestration";
 
-import type { DockTab } from "@/components/dock/right-dock";
+import type { DockPane } from "@/components/dock/dock-toggle";
 import { BranchPicker } from "@/components/git/branch-picker";
 import { GitActionsControl } from "@/components/git/git-actions-control";
 import { AgentBrowserIndicator } from "@/components/thread/agent-browser-indicator";
@@ -67,7 +67,8 @@ export function ThreadHeader({
   onShowBrowser,
 }: {
   snapshot: ThreadDetailSnapshot;
-  dockTab: DockTab | undefined;
+  /** What the dock shows — a tab or its launcher — or `undefined` when closed. */
+  dockTab: DockPane | undefined;
   onDockToggle: () => void;
   /** Set while the agent uses the browser and its pane is not on screen. */
   onShowBrowser: (() => void) | null;

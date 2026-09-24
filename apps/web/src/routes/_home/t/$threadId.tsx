@@ -2,7 +2,7 @@ import { createFileRoute, notFound } from "@tanstack/react-router";
 
 import { decodeThreadId } from "@OpenAde/contracts/ids";
 
-import { isDockTab, type DockTab } from "@/components/dock/right-dock";
+import { isDockPane, type DockPane } from "@/components/dock/dock-toggle";
 import { ThreadView } from "@/components/thread/thread-view";
 
 export const Route = createFileRoute("/_home/t/$threadId")({
@@ -18,9 +18,10 @@ export const Route = createFileRoute("/_home/t/$threadId")({
     },
   },
   // `pane` is optional on purpose: links that never mention the dock keep
-  // working, and `?pane=` is only present while the dock is open.
-  validateSearch: (search): { pane?: DockTab } => ({
-    pane: isDockTab(search.pane) ? search.pane : undefined,
+  // working, and `?pane=` is only present while the dock is open — on a tab,
+  // or `home` for its launcher. Anything else reads as a closed dock.
+  validateSearch: (search): { pane?: DockPane } => ({
+    pane: isDockPane(search.pane) ? search.pane : undefined,
   }),
   component: ThreadPage,
 });

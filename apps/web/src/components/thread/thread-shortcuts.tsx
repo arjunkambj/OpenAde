@@ -13,8 +13,11 @@
  *
  * `DockShortcuts` holds the right dock's keys for the same view:
  * `dock.toggle`, `dock.changes`, `dock.files` and `browserPane.toggle`, with
- * the targets from `@/components/dock/dock-toggle`. Opening Files from its key
- * also asks the Files pane to focus its search.
+ * the targets from `@/components/dock/dock-toggle`: the toggle opens on the
+ * thread's last tab this session, else the launcher, and each tab's key goes
+ * straight to its tab — from the launcher too — or closes the dock when it is
+ * already there. Opening Files from its key also asks the Files pane to focus
+ * its search.
  */
 
 import * as React from "react";
@@ -22,8 +25,7 @@ import * as React from "react";
 import type { ThreadId } from "@OpenAde/contracts/ids";
 import type { ThreadStatus } from "@OpenAde/contracts/orchestration";
 
-import { dockTabTarget } from "@/components/dock/dock-toggle";
-import type { DockTab } from "@/components/dock/right-dock";
+import { dockTabTarget, type DockPane, type DockTab } from "@/components/dock/dock-toggle";
 import { DeleteThreadDialog } from "@/components/sidebar/delete-thread-dialog";
 import { threadCommandBase, useThreadCommand } from "@/components/sidebar/thread-actions";
 import { RenameThreadDialog } from "@/components/sidebar/thread-menu";
@@ -94,8 +96,8 @@ export function DockShortcuts({
   onToggle,
   onShow,
 }: {
-  readonly dockTab: DockTab | undefined;
-  /** Open on the last tab, or close — the header button's own action. */
+  readonly dockTab: DockPane | undefined;
+  /** Open on the last tab (else the launcher), or close — the header button's own action. */
   readonly onToggle: () => void;
   /** Move the dock to a tab (null closes it); `focus` asks that tab to take focus. */
   readonly onShow: (tab: DockTab | null, focus?: boolean) => void;

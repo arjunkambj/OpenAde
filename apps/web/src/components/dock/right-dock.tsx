@@ -1,12 +1,21 @@
 /**
- * The right dock: a resizable panel with `changes | browser | files` tabs.
+ * The right dock: a resizable panel with `changes | browser | files` tabs,
+ * and a launcher for when it is open with no tab chosen.
  *
  * The dock is a shell — the tab strip, the drag-to-resize edge and the panel
- * chrome live here; what each tab renders is its own concern. The active tab
+ * chrome live here; what each tab renders is its own concern. What it shows
  * is not component state: it travels in the thread route's `?pane=` search
- * param so a thread reload lands on the same tab ("pane state in atoms and
- * search params"). Width persists through `dockWidthAtom` (localStorage) —
- * that is presentation, not durable state.
+ * param — a tab, or `home` for the launcher — so a thread reload lands on the
+ * same view ("pane state in atoms and search params"). The rules for where
+ * the keys and buttons take it, and what it remembers per thread, are the
+ * pure half in `./dock-toggle`. Width persists through `dockWidthAtom`
+ * (localStorage) — that is presentation, not durable state.
+ *
+ * The dock starts closed, and opening it without naming a tab (`dock.toggle`,
+ * the header's dock button) goes back to the last tab this thread used this
+ * session, else to the launcher (`./dock-launcher`): one row per tab with its
+ * live status, so opening the dock never drops the user into a tab they did
+ * not ask for. In the launcher the strip shows no tab selected.
  *
  * With less than 640px beside the sidebar, the dock overlays the thread
  * column: two columns in that width leave neither readable, and simply
@@ -18,7 +27,10 @@
  * Each tab has a key (`dock.changes`, `browserPane.toggle`, `dock.files`) and
  * the dock one (`dock.toggle`); `ThreadView` answers them, and the tab and
  * close tooltips show the chords. Opening Files from its key focuses the
- * Files search (`focusFilesSearch`).
+ * Files search (`focusFilesSearch`). The Files tab keeps its search, open
+ * file and scroll per thread (`@/components/panes/files/files-view`), so it
+ * is unmounted like the others when another tab shows and still comes back
+ * as it was left.
  *
  * Opening, the dock grows in from the right edge, and closing it shrinks back
  * (`@/lib/use-presence`, which keeps it mounted until it is gone); overlaid on
@@ -35,24 +47,16 @@ import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
 import { BrowserPane } from "@/components/panes/browser/browser-pane";
 import { ChangesPane } from "@/components/panes/changes/changes-pane";
 import { FilesPane } from "@/components/panes/files/files-pane";
-import { CommandKbd } from "@/lib/shortcuts";
 import type { Presence } from "@/lib/use-presence";
+import { CommandKbd } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import { useConnectionState } from "@/state/hooks";
+import { Close as CloseIcon } from "@honeyicons/react";
 import { DOCK_WIDTH_MAX_FRACTION, THREAD_COLUMN_MIN, useDockWidth } from "@/state/ui";
-import { type HoneyIcon, Close as CloseIcon, Folder, GitDiff, Globe } from "@honeyicons/react";
 
-const DOCK_TABS = ["changes", "browser", "files"] as const;
-export type DockTab = (typeof DOCK_TABS)[number];
-
-export const isDockTab = (value: unknown): value is DockTab =>
-  typeof value === "string" && (DOCK_TABS as ReadonlyArray<string>).includes(value);
-
-const TAB_META: Record<DockTab, { icon: HoneyIcon; label: string; command: string }> = {
-  changes: { icon: GitDiff, label: "Changes", command: "dock.changes" },
-  browser: { icon: Globe, label: "Browser", command: "browserPane.toggle" },
-  files: { icon: Folder, label: "Files", command: "dock.files" },
-};
+import { DockLauncher } from "./dock-launcher";
+import { DOCK_TAB_META } from "./dock-tab-meta";
+import { DOCK_HOME, dockTabs, type DockPane, type DockTab } from "./dock-toggle";
 
 /** Drag the left edge to resize; the width atom persists every frame. */
 function useDockResize() {
@@ -91,7 +95,7 @@ function DockTabButton({
   active: boolean;
   onSelect: (tab: DockTab) => void;
 }) {
-  const meta = TAB_META[tab];
+  const meta = DOCK_TAB_META[tab];
   return (
     <Tooltip>
       <TooltipTrigger
@@ -121,16 +125,16 @@ function DockTabButton({
 }
 
 export function RightDock({
-  tab,
+  pane,
   phase,
-  onTabChange,
+  onPaneChange,
   snapshot,
   focusFilesSearch = false,
   onFilesSearchFocused,
 }: {
-  tab: DockTab;
+  pane: DockPane;
   phase: Presence;
-  onTabChange: (tab: DockTab | null) => void;
+  onPaneChange: (pane: DockPane | null) => void;
   snapshot: ThreadDetailSnapshot;
   /** Focus the Files search as the Files tab mounts — set by its key. */
   focusFilesSearch?: boolean;
@@ -138,6 +142,7 @@ export function RightDock({
 }) {
   const { width, onPointerDown } = useDockResize();
   const connection = useConnectionState();
+  const onPick = React.useCallback((tab: DockTab) => onPaneChange(tab), [onPaneChange]);
 
   return (
     <aside
@@ -177,12 +182,12 @@ export function RightDock({
         )}
       >
         <div className="flex h-11 shrink-0 items-center gap-0.5 px-2">
-          {DOCK_TABS.map((dockTab) => (
+          {dockTabs.map((dockTab) => (
             <DockTabButton
               key={dockTab}
               tab={dockTab}
-              active={dockTab === tab}
-              onSelect={onTabChange}
+              active={dockTab === pane}
+              onSelect={onPick}
             />
           ))}
           <Tooltip>
@@ -194,7 +199,7 @@ export function RightDock({
                   size="icon-sm"
                   aria-label="Close dock"
                   className="ml-auto"
-                  onClick={() => onTabChange(null)}
+                  onClick={() => onPaneChange(null)}
                 />
               }
             >
@@ -207,17 +212,21 @@ export function RightDock({
           </Tooltip>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {tab === "changes" ? <ChangesPane snapshot={snapshot} /> : null}
+          {pane === DOCK_HOME ? <DockLauncher snapshot={snapshot} onPick={onPick} /> : null}
+          {pane === "changes" ? <ChangesPane snapshot={snapshot} /> : null}
           {/*
             Unmounting the pane is safe: its tabs are webviews the browser
             host keeps above the routes, and the pane only marks where the
             selected one goes.
           */}
-          {tab === "browser" ? (
+          {pane === "browser" ? (
             <BrowserPane threadId={snapshot.threadId} projectId={snapshot.projectId} />
           ) : null}
-          {tab === "files" ? (
+          {pane === "files" ? (
             <FilesPane
+              // Per thread: the pane saves its scroll for the thread it was
+              // mounted for as it unmounts.
+              key={snapshot.threadId}
               projectId={snapshot.projectId}
               threadId={snapshot.threadId}
               connected={connection.status === "connected"}

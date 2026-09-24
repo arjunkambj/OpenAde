@@ -3,16 +3,19 @@
  *
  * Row disclosure lives in a single override map keyed by itemId so expanding a
  * tool row survives virtualization (the row unmounts, the state does not).
- * Sidebar and dock widths, the per-thread dock tab, the start screen's
- * per-project workspace mode, each thread's last pull request link and the
- * Changes pane's scope and diff style persist through localStorage — durable
- * layout and conveniences, nothing more.
+ * Sidebar and dock widths, the start screen's per-project workspace mode,
+ * each thread's last pull request link and the Changes pane's scope and diff
+ * style persist through localStorage — durable layout and conveniences,
+ * nothing more. The dock's per-thread memory does not: it lasts the session,
+ * so a relaunch starts with every dock closed.
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import type { TurnReference } from "@OpenAde/contracts/runtime";
 import * as Atom from "effect/unstable/reactivity/Atom";
 import * as React from "react";
+
+import type { DockMemory } from "@/components/dock/dock-toggle";
 
 /**
  * An atom for a choice persisted in localStorage, read once when this module
@@ -176,7 +179,7 @@ export const useResetLayoutWidths = () => {
  * away. A long message, or a pasted screenshot, with no warning and nothing
  * sent or saved.
  *
- * Keyed by threadId, the way `useDockTabMemory` and `useRowDisclosure` are, and
+ * Keyed by threadId, the way `useDockMemory` and `useRowDisclosure` are, and
  * in memory only: a `File` cannot be serialized, and a draft is not something
  * to resurrect across a relaunch without the attachments it named.
  */
@@ -276,72 +279,64 @@ export const useComposerDraft = (threadId: string): ComposerDraftHandle => {
   };
 };
 
-const DOCK_TAB_KEY = "openade:dock-tab-by-thread";
+/**
+ * Where an earlier build kept each thread's dock tab, so every thread came back
+ * with its dock open after a relaunch. The dock now starts closed and its
+ * memory lasts one session; the stale map is dropped once, as this loads.
+ */
+const LEGACY_DOCK_TAB_KEY = "openade:dock-tab-by-thread";
+
+try {
+  globalThis.localStorage?.removeItem(LEGACY_DOCK_TAB_KEY);
+} catch {
+  // Blocked storage has nothing to clear.
+}
+
+/** A thread's dock memory with `memory` replaced; an empty one drops its key. */
+export const withDockMemory = (
+  memories: Readonly<Record<string, DockMemory>>,
+  threadId: string,
+  memory: DockMemory | undefined,
+): Readonly<Record<string, DockMemory>> => {
+  if (memory === memories[threadId]) {
+    return memories;
+  }
+  if (memory === undefined || (memory.shown === undefined && memory.lastTab === undefined)) {
+    if (!(threadId in memories)) {
+      return memories;
+    }
+    const next = { ...memories };
+    delete next[threadId];
+    return next;
+  }
+  return { ...memories, [threadId]: memory };
+};
+
+// In memory only, and `keepAlive` so switching threads (which unmounts the
+// only reader) does not throw the map away: the dock is meant to come back as
+// each thread left it for the rest of the session, and closed after a
+// relaunch.
+const dockMemoryAtom = Atom.keepAlive(Atom.make<Readonly<Record<string, DockMemory>>>({}));
 
 /**
- * Which dock tab each thread was last left on. The tab has to survive a
- * reload, and `?pane=` alone cannot do it,
- * because the sidebar links carry no search param and a relaunch starts from
- * the bare route.
- *
- * Values are kept as plain strings: the tab union belongs to the dock, and
- * importing it here would make `state/ui` depend on the component that depends
- * on it. The caller narrows what it reads back.
+ * One thread's dock memory (`DockMemory`, from the dock's pure half) and an
+ * updater that runs one of that module's steps against it.
  */
-/** Absent, unparseable or foreign-shaped storage all mean "no memory yet". */
-export const parseDockTabs = (raw: string | null | undefined): Readonly<Record<string, string>> => {
-  if (raw === null || raw === undefined) {
-    return {};
-  }
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-      return {};
-    }
-    return Object.fromEntries(
-      Object.entries(parsed as Record<string, unknown>).filter(
-        (entry): entry is [string, string] => typeof entry[1] === "string",
-      ),
-    );
-  } catch {
-    return {};
-  }
-};
-
-const readDockTabs = (): Readonly<Record<string, string>> => {
-  try {
-    return parseDockTabs(globalThis.localStorage?.getItem(DOCK_TAB_KEY));
-  } catch {
-    // Reading localStorage itself throws when site data is blocked.
-    return {};
-  }
-};
-
-const dockTabByThreadAtom = Atom.make<Readonly<Record<string, string>>>(readDockTabs());
-
-export const useDockTabMemory = () => {
-  const tabs = useAtomValue(dockTabByThreadAtom);
-  const setTabs = useAtomSet(dockTabByThreadAtom);
-  const remember = React.useCallback(
-    (threadId: string, tab: string | null) => {
-      setTabs((current) => {
-        const next = { ...current };
-        if (tab === null) {
-          delete next[threadId];
-        } else {
-          next[threadId] = tab;
-        }
-        try {
-          globalThis.localStorage?.setItem(DOCK_TAB_KEY, JSON.stringify(next));
-        } catch {
-          // localStorage can throw (private mode, quota); the atom still updates.
-        }
-        return next;
-      });
-    },
-    [setTabs],
+export const useDockMemory = (threadId: string) => {
+  const memory = useAtomValue(
+    dockMemoryAtom,
+    React.useCallback(
+      (memories: Readonly<Record<string, DockMemory>>) => memories[threadId],
+      [threadId],
+    ),
   );
-  return [tabs, remember] as const;
+  const setMemories = useAtomSet(dockMemoryAtom);
+  const update = React.useCallback(
+    (step: (current: DockMemory | undefined) => DockMemory | undefined) =>
+      setMemories((memories) => withDockMemory(memories, threadId, step(memories[threadId]))),
+    [setMemories, threadId],
+  );
+  return [memory, update] as const;
 };
 
 const LAST_PROJECT_KEY = "openade:last-project";

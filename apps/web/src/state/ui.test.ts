@@ -7,36 +7,34 @@ import {
   parseChangesScope,
   parseCollapsedProjects,
   parseDiffStyle,
-  parseDockTabs,
   parsePullRequestLinks,
   parseWorkspaceModes,
   rememberedAtom,
   withComposerDraft,
+  withDockMemory,
   withPullRequestLink,
   withWorkspaceMode,
   type ComposerDraft,
 } from "./ui";
 
-describe("parseDockTabs", () => {
-  it("reads a thread-to-tab map back", () => {
-    expect(parseDockTabs('{"0199c0de-0002-7000-8000-000000000001":"browser"}')).toEqual({
-      "0199c0de-0002-7000-8000-000000000001": "browser",
-    });
+describe("withDockMemory", () => {
+  const thread = "0199c0de-0002-7000-8000-000000000001";
+
+  it("stores a thread's memory", () => {
+    expect(withDockMemory({}, thread, { shown: "home" })).toEqual({ [thread]: { shown: "home" } });
   });
 
-  it("is empty when nothing was ever stored", () => {
-    expect(parseDockTabs(null)).toEqual({});
-    expect(parseDockTabs(undefined)).toEqual({});
+  it("drops a thread whose memory is empty", () => {
+    const memories = { [thread]: { shown: "files" as const } };
+    expect(withDockMemory(memories, thread, {})).toEqual({});
+    expect(withDockMemory(memories, thread, undefined)).toEqual({});
   });
 
-  it("survives storage written by something else", () => {
-    expect(parseDockTabs("not json")).toEqual({});
-    expect(parseDockTabs('["browser"]')).toEqual({});
-    expect(parseDockTabs("null")).toEqual({});
-  });
-
-  it("drops entries that are not tab names", () => {
-    expect(parseDockTabs('{"a":"changes","b":7,"c":null}')).toEqual({ a: "changes" });
+  it("returns the same map when nothing changed", () => {
+    const memory = { lastTab: "browser" as const };
+    const memories = { [thread]: memory };
+    expect(withDockMemory(memories, thread, memory)).toBe(memories);
+    expect(withDockMemory({}, thread, undefined)).toEqual({});
   });
 });
 
