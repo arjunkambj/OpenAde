@@ -257,6 +257,32 @@ describe("git.commit", () => {
     ),
   );
 
+  it.live("commits a chosen staged rename whole: the new path and the old one's deletion", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = makeRepo();
+        write(root, "other.txt", "other\n");
+        git(root, "add", "other.txt");
+        git(root, "commit", "-qm", "add other");
+        // The agent moved a file; status shows it as one `a.txt → b.txt` row.
+        git(root, "mv", "a.txt", "b.txt");
+        write(root, "other.txt", "edited\n");
+        const { projectId, git: service } = yield* stack(root);
+
+        // `other.txt` is left unchecked, so only the rename's row is sent.
+        yield* service.commit({ projectId }, { message: "Rename a", paths: ["b.txt"] });
+        expect(git(root, "show", "--name-status", "--format=", "-M", "HEAD").trim()).toBe(
+          "R100\ta.txt\tb.txt",
+        );
+        expect(git(root, "ls-tree", "--name-only", "HEAD").trim().split("\n")).toEqual([
+          "b.txt",
+          "other.txt",
+        ]);
+        expect(git(root, "status", "--porcelain").trim()).toBe("M other.txt");
+      }),
+    ),
+  );
+
   it.live("answers conflict when there is nothing to commit", () =>
     Effect.scoped(
       Effect.gen(function* () {

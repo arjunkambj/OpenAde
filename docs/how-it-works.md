@@ -1289,7 +1289,9 @@ for its hidden refs only) and never `--no-verify`, so the user's identity,
 signing config and hooks apply. Without `paths` a commit stages everything
 (`git add -A`). With `paths` the index is reset first and only those paths are
 staged (`--literal-pathspecs`), so a file staged earlier in a terminal but left
-unchecked does not ride along; it stays in the working tree, unstaged. Nothing
+unchecked does not ride along; it stays in the working tree, unstaged. A staged
+rename is one row named by its new path, and picking it stages its old path
+too, so the commit records the rename rather than a copy. Nothing
 staged is `conflict` "Nothing to commit.", a hook's refusal is `conflict` with
 the hook's own output, and a commit is refused like a switch while a turn runs
 in that root.

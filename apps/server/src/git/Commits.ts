@@ -34,6 +34,46 @@ const currentBranch = (cwd: string) =>
 // ── Commit ─────────────────────────────────────────────────────
 
 /**
+ * The staged renames, as `new path → old path`. `-z` keeps odd names intact:
+ * each rename is `R<score>` NUL `old` NUL `new` NUL, every other change one
+ * status and one path.
+ */
+const stagedRenames = (cwd: string) =>
+  run(cwd, ["diff", "--cached", "--name-status", "-z", "--find-renames"]).pipe(
+    Effect.map((result) => {
+      const renames = new Map<string, string>();
+      const fields = result.stdout.split("\0");
+      for (let index = 0; index < fields.length;) {
+        const kind = fields[index] ?? "";
+        if (kind.startsWith("R") || kind.startsWith("C")) {
+          const from = fields[index + 1];
+          const to = fields[index + 2];
+          // A copy keeps its source, so only a rename's source goes with it.
+          if (kind.startsWith("R") && from !== undefined && to !== undefined) {
+            renames.set(to, from);
+          }
+          index += 3;
+        } else {
+          index += 2;
+        }
+      }
+      return renames;
+    }),
+  );
+
+/** `paths`, plus the old path of every staged rename among them. */
+const withRenameSources = (cwd: string, paths: ReadonlyArray<string>) =>
+  stagedRenames(cwd).pipe(
+    Effect.map((renames) => {
+      const sources = paths.flatMap((path) => {
+        const from = renames.get(path);
+        return from === undefined || paths.includes(from) ? [] : [from];
+      });
+      return [...paths, ...sources];
+    }),
+  );
+
+/**
  * Stages what the commit should contain.
  *
  * Without `paths`, everything: `git add -A`, the "commit all my changes" the
@@ -46,6 +86,12 @@ const currentBranch = (cwd: string) =>
  * surprise — a commit that silently carries more than the user picked cannot
  * be taken back once it is pushed. `--literal-pathspecs` makes every path
  * exactly that path, never a glob or a `:(magic)` pathspec.
+ *
+ * A staged rename is one change in `git status` — one row, one checkbox, named
+ * by its new path — but two paths to `git add`. The reset splits it into a
+ * deletion and an untracked file, so a picked rename's old path is staged
+ * with it (`withRenameSources`); otherwise the commit would add a copy and
+ * leave the deletion behind.
  */
 const stage = (cwd: string, paths: ReadonlyArray<string> | undefined) =>
   Effect.gen(function* () {
@@ -56,8 +102,9 @@ const stage = (cwd: string, paths: ReadonlyArray<string> | undefined) =>
     if (paths.length === 0) {
       return yield* Effect.fail(invalid("Choose at least one file to commit."));
     }
+    const picked = yield* withRenameSources(cwd, paths);
     yield* run(cwd, ["reset", "-q"]);
-    const added = yield* run(cwd, ["--literal-pathspecs", "add", "-A", "--", ...paths], {
+    const added = yield* run(cwd, ["--literal-pathspecs", "add", "-A", "--", ...picked], {
       allowNonZeroExit: true,
     });
     if (added.exitCode !== 0) {
