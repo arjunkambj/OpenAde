@@ -976,7 +976,9 @@ fold closes, the message is held again rather than jumping. **Free** starts
 when the reader scrolls while anchored — a wheel, a touch drag, a scrolling key
 in the list, a press on its scrollbar, or a text selection inside it — and
 nothing moves the list until it is back at its end, which resumes following, or
-the reader jumps to the latest row. The last sent message keeps its reserve in
+the reader jumps to the latest row. That scroll stops a running hold on the
+spot, in the event itself rather than on the next render, so the hold never
+reads the reader's first wheel tick as the list moving and puts it back. The last sent message keeps its reserve in
 every mode; it shrinks by itself as the reply grows past a screen, so it never
 has to be dropped under a reader.
 

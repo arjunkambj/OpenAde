@@ -13,6 +13,10 @@
  * The reader takes the scroll back with any wheel, touch drag, scrolling key
  * in the list, press on its scrollbar, or text selection inside it. The
  * list's own scrolls are not events here, so the hold never releases itself.
+ * The intent stops the hold on the spot, before the dispatch: a wheel's
+ * render is not urgent, and a frame of the hold between the reader's scroll
+ * and that render would read the scroll as the list moving and put the
+ * message back, undoing the reader's first tick.
  */
 
 import type { LegendListRef } from "@legendapp/list/react";
@@ -74,7 +78,7 @@ const scrollsList = (event: KeyboardEvent, node: HTMLElement): boolean => {
  * approach aimed at a clamped end would fall short — then eases there unless
  * the reader asked for reduced motion, then holds.
  */
-function placeAnchor({
+export function placeAnchor({
   list,
   rowId,
   indexOf,
@@ -192,6 +196,8 @@ export function useSendAnchor({
 }): SendAnchor {
   const [state, dispatch] = React.useReducer(reduce, INITIAL_SEND_ANCHOR);
   const props = sendAnchorProps(state);
+  // Cancels the placement running now, if any; called before a release is dispatched.
+  const stopHold = React.useRef<() => void>(() => {});
 
   // Rows seen so far; null until the first projection of this thread.
   const seen = React.useRef<{ threadId: string; ids: ReadonlySet<string> } | null>(null);
@@ -218,7 +224,10 @@ export function useSendAnchor({
       return;
     }
     const node = list.getScrollableNode();
-    const intent = () => dispatch({ type: "userScrollIntent" });
+    const intent = () => {
+      stopHold.current();
+      dispatch({ type: "userScrollIntent" });
+    };
     const onKeyDown = (event: KeyboardEvent) => {
       if (scrollsList(event, node)) {
         intent();
@@ -279,13 +288,20 @@ export function useSendAnchor({
     if (anchorRowId === null || list === null) {
       return;
     }
-    return placeAnchor({
+    const cancel = placeAnchor({
       list,
       rowId: anchorRowId,
       indexOf: (rowId) => rowsRef.current.findIndex((row) => row.id === rowId),
       reserved: reserved.current,
       onPlaced: () => setPlaced(placement),
     });
+    stopHold.current = cancel;
+    return () => {
+      cancel();
+      if (stopHold.current === cancel) {
+        stopHold.current = () => {};
+      }
+    };
   }, [listRef, anchorRowId, placement]);
 
   const reserveIndex =
@@ -294,7 +310,10 @@ export function useSendAnchor({
     dispatch({ type: "jumpToLatest" });
     void listRef.current?.scrollToEnd({ animated: !prefersReducedMotion() });
   }, [listRef]);
-  const release = React.useCallback(() => dispatch({ type: "userScrollIntent" }), []);
+  const release = React.useCallback(() => {
+    stopHold.current();
+    dispatch({ type: "userScrollIntent" });
+  }, []);
 
   return {
     maintainScrollAtEnd: props.maintainScrollAtEnd,
