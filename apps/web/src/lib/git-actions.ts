@@ -21,7 +21,7 @@ import type {
   GitPullRequestResult,
   GitPushResult,
 } from "@OpenAde/contracts/git";
-import type { GitStatus } from "@OpenAde/contracts/rpc";
+import type { GitFileChange, GitStatus } from "@OpenAde/contracts/rpc";
 
 export type GitAction = "commit" | "commit-push" | "commit-push-pr";
 
@@ -271,6 +271,31 @@ export const commitMessageDraft = (title: string, paths: ReadonlyArray<string>):
       ? `Update ${paths.length} ${paths.length === 1 ? "file" : "files"}`
       : trimmed;
   return [subject, "", "Changed files:", ...paths.map((path) => `- ${path}`)].join("\n");
+};
+
+/**
+ * What the commit dialog would commit: the files still checked, the message —
+ * the user's once they have typed, else the draft for exactly those files, so
+ * an unchecked file is neither counted nor listed — and the `paths` to send,
+ * absent when every file is checked (the server then stages everything).
+ */
+export const commitSelection = (
+  title: string,
+  files: ReadonlyArray<GitFileChange>,
+  excluded: ReadonlySet<string>,
+  edited: string | null,
+): {
+  readonly included: ReadonlyArray<GitFileChange>;
+  readonly message: string;
+  readonly paths?: ReadonlyArray<string>;
+} => {
+  const included = files.filter((file) => !excluded.has(file.path));
+  const paths = included.map((file) => file.path);
+  return {
+    included,
+    message: edited ?? commitMessageDraft(title, paths),
+    ...(included.length === files.length ? {} : { paths }),
+  };
 };
 
 /** A pull request made in the same run as its commit reuses the commit message. */

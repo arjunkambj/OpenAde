@@ -42,7 +42,6 @@ import { useGitAtoms } from "@/components/panes/changes/git-atoms";
 import { openExternal } from "@/lib/desktop";
 import {
   availableActions,
-  commitMessageDraft,
   GIT_ACTION_LABEL,
   GIT_ACTIONS,
   planGitAction,
@@ -281,10 +280,7 @@ export function GitActionsControl({ snapshot }: { snapshot: ThreadDetailSnapshot
               ? null
               : stepsLabel(planWithoutCommit(dialog.action, ready.status, ready.branches))
           }
-          draftMessage={commitMessageDraft(
-            snapshot.title,
-            files.map((file) => file.path),
-          )}
+          threadTitle={snapshot.title}
           branch={branch}
           files={files}
           onSubmit={(choice) => commitChosen(dialog.action, choice)}

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   availableActions,
   commitMessageDraft,
+  commitSelection,
   planGitAction,
   planWithoutCommit,
   pullRequestFromMessage,
@@ -329,6 +330,35 @@ describe("commitMessageDraft", () => {
     expect(commitMessageDraft(" Fix the login redirect ", ["src/login.ts"])).toBe(
       "Fix the login redirect\n\nChanged files:\n- src/login.ts",
     );
+  });
+});
+
+describe("commitSelection", () => {
+  const files = [
+    { path: "src/login.ts", status: "modified", staged: false },
+    { path: "notes.txt", status: "untracked", staged: false },
+    { path: "README.md", status: "modified", staged: false },
+  ] as const;
+
+  it("sends no paths and drafts every file while all are checked", () => {
+    const all = commitSelection("New thread", files, new Set(), null);
+    expect(all.paths).toBeUndefined();
+    expect(all.message).toBe(
+      "Update 3 files\n\nChanged files:\n- src/login.ts\n- notes.txt\n- README.md",
+    );
+  });
+
+  it("drafts only the files still checked once one is unchecked", () => {
+    const some = commitSelection("New thread", files, new Set(["notes.txt"]), null);
+    expect(some.paths).toEqual(["src/login.ts", "README.md"]);
+    expect(some.message).toBe("Update 2 files\n\nChanged files:\n- src/login.ts\n- README.md");
+    expect(some.message).not.toContain("notes.txt");
+  });
+
+  it("keeps the user's own message whatever is checked", () => {
+    const typed = commitSelection("New thread", files, new Set(["notes.txt"]), "Fix login");
+    expect(typed.message).toBe("Fix login");
+    expect(typed.included.map((file) => file.path)).toEqual(["src/login.ts", "README.md"]);
   });
 });
 

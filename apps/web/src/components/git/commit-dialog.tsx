@@ -2,12 +2,12 @@
  * The commit dialog the git actions control opens before any action that
  * commits: the message, and the files to include.
  *
- * The message opens as `draftMessage` — `commitMessageDraft`, the thread's
- * title and the changed paths — and is the user's to edit; nothing here
- * writes one for them. Until the user types, it follows the draft: the
- * control refetches the status as the dialog opens, and the message must list
- * the same files as the checkboxes once that answer lands, not the ones cached
- * before it. The first keystroke makes it the user's, and nothing replaces it
+ * The message opens as `commitMessageDraft` — the thread's title and the
+ * checked paths — and is the user's to edit; nothing here writes one for
+ * them. Until the user types, it follows the draft: the control refetches the
+ * status as the dialog opens, and the message must list the same files as the
+ * checkboxes — once that answer lands, and as files are unchecked — not the
+ * ones cached before it or left out since (`commitSelection`). The first keystroke makes it the user's, and nothing replaces it
  * after that. Every file `git.status` reports is listed, untracked ones included,
  * all checked. `paths` is sent only when something was unchecked; with
  * everything checked the server stages everything (`git add -A`), which also
@@ -44,6 +44,7 @@ import { Label } from "@OpenAde/ui/components/label";
 import { Textarea } from "@OpenAde/ui/components/textarea";
 import type { GitFileChange } from "@OpenAde/contracts/rpc";
 
+import { commitSelection } from "@/lib/git-actions";
 import { CommitFileList } from "./commit-file-list";
 
 export interface CommitChoice {
@@ -57,7 +58,7 @@ export function CommitDialog({
   onOpenChange,
   actionLabel,
   withoutCommitLabel,
-  draftMessage,
+  threadTitle,
   branch,
   files,
   onSubmit,
@@ -67,17 +68,16 @@ export function CommitDialog({
   readonly actionLabel: string;
   /** The button's label with every file unchecked; `null` when nothing would be left to run. */
   readonly withoutCommitLabel: string | null;
-  /** The suggested message; shown until the user edits it. */
-  readonly draftMessage: string;
+  /** The thread's title, the subject of the suggested message. */
+  readonly threadTitle: string;
   readonly branch: string | null;
   readonly files: ReadonlyArray<GitFileChange>;
   readonly onSubmit: (choice: CommitChoice) => void;
 }) {
   const [edited, setEdited] = React.useState<string | null>(null);
-  const message = edited ?? draftMessage;
   const [excluded, setExcluded] = React.useState<ReadonlySet<string>>(() => new Set());
 
-  const included = files.filter((file) => !excluded.has(file.path));
+  const { included, message, paths } = commitSelection(threadTitle, files, excluded, edited);
   const committing = included.length > 0;
   const submitLabel = committing ? actionLabel : withoutCommitLabel;
   const canSubmit = message.trim() !== "" && submitLabel !== null;
@@ -98,10 +98,7 @@ export function CommitDialog({
       return;
     }
     onOpenChange(false);
-    onSubmit({
-      message: message.trim(),
-      ...(included.length === files.length ? {} : { paths: included.map((file) => file.path) }),
-    });
+    onSubmit({ message: message.trim(), ...(paths === undefined ? {} : { paths }) });
   };
 
   return (
