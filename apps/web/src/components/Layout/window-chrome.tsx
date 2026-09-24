@@ -1,4 +1,4 @@
-import { useCanGoBack, useRouter } from "@tanstack/react-router";
+import { useCanGoBack, useMatchRoute, useRouter } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 import { Button } from "@OpenAde/ui/components/button";
@@ -140,10 +140,24 @@ export function SidebarWindowChrome() {
   );
 }
 
-export function InsetWindowChrome() {
+/** Whether the inset carries the chrome: the sidebar is hidden or off-canvas. */
+function useInsetChrome(): boolean {
   const { state, isMobile } = useSidebar();
+  return isMobile || state !== "expanded";
+}
 
-  if (!isMobile && state === "expanded") {
+/**
+ * The chrome row above the inset, while the sidebar that normally holds it
+ * is hidden. A thread draws the same controls at the start of its own header
+ * (`ThreadHeaderChrome`), so the thread keeps one top row instead of two.
+ */
+export function InsetWindowChrome() {
+  const { isMobile } = useSidebar();
+  const inset = useInsetChrome();
+  const matchRoute = useMatchRoute();
+  const onThread = Boolean(matchRoute({ to: "/t/$threadId", fuzzy: true }));
+
+  if (!inset || onThread) {
     return null;
   }
 
@@ -156,6 +170,35 @@ export function InsetWindowChrome() {
     </header>
   );
 }
+
+/**
+ * The chrome's controls at the start of the thread header, while the sidebar
+ * is hidden: the traffic-lights gap, the sidebar toggle, search and history.
+ * `null` while the sidebar shows them itself. The header it sits in is the
+ * window's drag region then, so the controls opt out of it.
+ */
+export function ThreadHeaderChrome() {
+  if (!useInsetChrome()) {
+    return null;
+  }
+  return (
+    <div className="flex shrink-0 items-center gap-0.5">
+      <TrafficLightsGap className="-ml-2" />
+      <NoDrag>
+        <ChromeSidebarTrigger />
+      </NoDrag>
+      <div className="flex items-center gap-0.5 [html[data-fullscreen]_&]:hidden">
+        <NoDrag>
+          <SearchTrigger />
+        </NoDrag>
+        <ChromeHistoryButtons />
+      </div>
+    </div>
+  );
+}
+
+/** Whether the thread header carries the chrome, and so the window's drag region. */
+export const useThreadHeaderChrome = useInsetChrome;
 
 /** Settings' sidebar cannot collapse, so its chrome drops the toggle. */
 export function SettingsWindowChrome() {

@@ -1,7 +1,7 @@
 /**
  * The thread's slim header: a breadcrumb of its project and title, the
  * branch picker, the git actions, the agent-browser indicator, its status
- * and the dock toggle.
+ * and the terminal and dock toggles.
  *
  * The branch picker (`components/git/branch-picker.tsx`) sits beside the
  * title: the branch the thread's workspace is on, switchable for a local
@@ -20,6 +20,11 @@
  * no more than the branch, since a name cut to its first letter says
  * nothing. Below `@lg` the header (a container, `header`) has the Commit
  * button drop its label for its icon and tooltip.
+ *
+ * While the sidebar is hidden, the header also leads with the window chrome
+ * — the sidebar toggle, search and history (`ThreadHeaderChrome`) — rather
+ * than the layout stacking a chrome row above it, and it becomes the window's
+ * drag region, with its controls opted out.
  */
 
 import { Button } from "@OpenAde/ui/components/button";
@@ -29,11 +34,14 @@ import type { ThreadDetailSnapshot, ThreadStatus } from "@OpenAde/contracts/orch
 import type { DockPane } from "@/components/dock/dock-toggle";
 import { BranchPicker } from "@/components/git/branch-picker";
 import { GitActionsControl } from "@/components/git/git-actions-control";
+import { ThreadHeaderChrome, useThreadHeaderChrome } from "@/components/Layout/window-chrome";
 import { AgentBrowserIndicator } from "@/components/thread/agent-browser-indicator";
-import { CommandKbd } from "@/lib/shortcuts";
+import { TERMINAL_TOGGLE_COMMAND } from "@/lib/keybindings";
+import { CommandKbd, useKeybindingDispatch } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import { useProjects } from "@/state/hooks";
-import { Folder, SidebarRight, Spinner } from "@honeyicons/react";
+import { useTerminalOpen } from "@/state/terminal-ui";
+import { Folder, LayoutAlignBottom, LayoutAlignRight, Spinner } from "@honeyicons/react";
 
 const STATUS_LABEL: Record<ThreadStatus, string> = {
   idle: "Idle",
@@ -74,12 +82,23 @@ export function ThreadHeader({
   onShowBrowser: (() => void) | null;
 }) {
   const project = useProjects().find((candidate) => candidate.projectId === snapshot.projectId);
+  const chrome = useThreadHeaderChrome();
+  // Fires the command rather than flipping the state, so the click also moves
+  // focus into the terminal it opens, as the chord does.
+  const fire = useKeybindingDispatch();
+  const [terminalOpen] = useTerminalOpen(snapshot.threadId);
 
   return (
-    <header className="@container/header flex min-h-11 shrink-0 items-center gap-2 px-6 py-1.5">
+    <header
+      className={cn(
+        "@container/header flex min-h-11 shrink-0 items-center gap-2 px-6 py-1.5",
+        chrome && "app-region-drag min-h-(--chrome-height) pl-2",
+      )}
+    >
+      <ThreadHeaderChrome />
       {/* The breadcrumb reads as one phrase, so it sits tighter than the
           controls around it. */}
-      <div className="flex min-w-0 items-center gap-1">
+      <div className={cn("flex min-w-0 items-center gap-1", chrome && "app-region-no-drag")}>
         {project === undefined ? null : (
           <>
             <span className="flex min-w-0 max-w-40 items-center gap-1.5 text-sm text-muted-foreground">
@@ -97,36 +116,58 @@ export function ThreadHeader({
         <BranchPicker snapshot={snapshot} />
       </div>
       <div className="flex-1" />
-      {onShowBrowser === null ? null : <AgentBrowserIndicator onShow={onShowBrowser} />}
-      <GitActionsControl snapshot={snapshot} />
-      {/* Idle is the resting state, not news: the pill shows only while
+      <div className={cn("flex shrink-0 items-center gap-2", chrome && "app-region-no-drag")}>
+        {onShowBrowser === null ? null : <AgentBrowserIndicator onShow={onShowBrowser} />}
+        <GitActionsControl snapshot={snapshot} />
+        {/* Idle is the resting state, not news: the pill shows only while
           something is happening or wrong. */}
-      {snapshot.status === "idle" ? null : <StatusPill status={snapshot.status} />}
-      <span className="inline-flex shrink-0">
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={dockTab === undefined ? "Open dock" : "Close dock"}
-                aria-pressed={dockTab !== undefined}
-                onClick={onDockToggle}
+        {snapshot.status === "idle" ? null : <StatusPill status={snapshot.status} />}
+        <span className="inline-flex shrink-0">
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={terminalOpen ? "Hide terminal" : "Show terminal"}
+                  aria-pressed={terminalOpen}
+                  onClick={() => fire(TERMINAL_TOGGLE_COMMAND)}
+                />
+              }
+            >
+              <LayoutAlignBottom variant="bold" className={cn(terminalOpen && "text-foreground")} />
+            </TooltipTrigger>
+            <TooltipContent>
+              {terminalOpen ? "Hide terminal" : "Show terminal"}
+              <CommandKbd command={TERMINAL_TOGGLE_COMMAND} />
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={dockTab === undefined ? "Open dock" : "Close dock"}
+                  aria-pressed={dockTab !== undefined}
+                  onClick={onDockToggle}
+                />
+              }
+            >
+              <LayoutAlignRight
+                variant="bold"
+                className={cn(dockTab !== undefined && "text-foreground")}
               />
-            }
-          >
-            <SidebarRight
-              variant="bold"
-              className={cn(dockTab !== undefined && "text-foreground")}
-            />
-          </TooltipTrigger>
-          <TooltipContent>
-            {dockTab === undefined ? "Open dock" : "Close dock"}
-            <CommandKbd command="dock.toggle" />
-          </TooltipContent>
-        </Tooltip>
-      </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              {dockTab === undefined ? "Open dock" : "Close dock"}
+              <CommandKbd command="dock.toggle" />
+            </TooltipContent>
+          </Tooltip>
+        </span>
+      </div>
     </header>
   );
 }
