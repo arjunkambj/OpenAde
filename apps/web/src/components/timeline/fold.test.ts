@@ -492,6 +492,38 @@ describe("buildTimeline turn ends", () => {
     expect(ends(rows).map((end) => end.id)).toEqual([answerA.itemId]);
   });
 
+  it("runs a turn's time on to when it ended, when that is known", () => {
+    const user = item("user_message", { turnId: turnA });
+    const tool = item("tool_call", { turnId: turnA });
+    const answer = item("assistant_message", { turnId: turnA });
+    const startedMs = uuidV7Millis(user.itemId)!;
+    // The answer began 2s in and streamed for 5s more before the turn completed.
+    const endedAt = new Map([[turnA, uuidV7Millis(answer.itemId)! + 5_000]]);
+    const { rows } = buildTimeline([user, tool, answer], {
+      turnActive: false,
+      turnEndedAt: endedAt,
+    });
+    expect(ends(rows)[0]?.durationMs).toBe(7_000);
+    expect(folds(rows)[0].durationMs).toBe(7_000);
+    expect(uuidV7Millis(answer.itemId)! - startedMs).toBe(2_000);
+
+    // A plain question and answer has a duration too, the answer's streaming time.
+    const q = item("user_message", { turnId: turnB });
+    const a = item("assistant_message", { turnId: turnB });
+    const plain = buildTimeline([q, a], {
+      turnActive: false,
+      turnEndedAt: new Map([[turnB, uuidV7Millis(a.itemId)! + 3_000]]),
+    });
+    expect(ends(plain.rows)[0]?.durationMs).toBe(4_000);
+
+    // An end recorded before the last item cannot shorten the span.
+    const early = buildTimeline([user, tool, answer], {
+      turnActive: false,
+      turnEndedAt: new Map([[turnA, startedMs]]),
+    });
+    expect(ends(early.rows)[0]?.durationMs).toBe(2_000);
+  });
+
   it("ends a steered turn at its last answer, timed from its first message", () => {
     const user = item("user_message", { turnId: turnA });
     const before = item("assistant_message", { turnId: turnA });

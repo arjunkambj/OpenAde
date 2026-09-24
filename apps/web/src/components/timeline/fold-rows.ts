@@ -6,7 +6,8 @@
  * final answer's footer both report.
  *
  * Durations come out of the UUIDv7 ids, which carry their creation
- * millisecond in the leading 48 bits.
+ * millisecond in the leading 48 bits. A settled turn's span ends at its
+ * checkpoint when it has one, taken as the turn completed.
  */
 
 import type { ItemKind } from "@OpenAde/contracts/enums";
@@ -34,7 +35,7 @@ export interface TimelineWorkGroupRow {
 export interface TimelineTurnFoldRow {
   readonly kind: "turn-fold";
   readonly id: string;
-  /** The whole turn, first item to last, task children included. */
+  /** The whole turn, first item to its end (`spanMs`), task children included. */
   readonly durationMs: number | undefined;
   /** What the hidden work did (`workSentence`); undefined when it holds no action. */
   readonly sentence: string | undefined;
@@ -116,10 +117,18 @@ export const withChildren = (
   return all;
 };
 
-/** Earliest item to latest; undefined when the ids carry no time or no span. */
-export const spanMs = (items: ReadonlyArray<ItemSnapshot>): number | undefined => {
+/**
+ * Earliest item to latest, or to `endMs` when that is later; undefined when
+ * the ids carry no time or no span. An item's id records when it started, so
+ * the last item's own time leaves out how long it ran — the answer streaming,
+ * the last command — and a known end (`turnEndTimes`) closes that gap.
+ */
+export const spanMs = (
+  items: ReadonlyArray<ItemSnapshot>,
+  endMs?: number | undefined,
+): number | undefined => {
   let firstMs: number | undefined;
-  let lastMs: number | undefined;
+  let lastMs: number | undefined = endMs;
   for (const item of items) {
     const ms = uuidV7Millis(item.itemId);
     if (ms !== undefined) {

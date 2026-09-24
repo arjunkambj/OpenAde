@@ -38,7 +38,9 @@
  * the end.
  *
  * Durations come out of the UUIDv7 ids, which carry their creation
- * millisecond in the leading 48 bits (`fold-rows.ts`).
+ * millisecond in the leading 48 bits (`fold-rows.ts`). An id marks when its
+ * item started, so a settled turn's time runs on to when the turn ended where
+ * that is known (`turnEndedAt`), rather than stopping as its answer began.
  */
 
 import type { ResolvedDecision } from "@OpenAde/contracts/decisions";
@@ -69,7 +71,7 @@ export type {
 /** Marks the final answer of a settled turn, for the footer under it. */
 export interface TurnEnd {
   readonly turnId: TurnId | undefined;
-  /** The turn's first item to its last, task children included. */
+  /** The turn's first item to its end, task children included (`spanMs`). */
   readonly durationMs: number | undefined;
 }
 
@@ -123,6 +125,11 @@ export interface BuildTimelineOptions {
   readonly checkpoints?:
     | ReadonlyArray<{ readonly turnId: string; readonly ref: string }>
     | undefined;
+  /**
+   * When each settled turn ended, epoch ms (`turnEndTimes`: its checkpoint's
+   * capture). Without an entry a turn's time ends at its last item's start.
+   */
+  readonly turnEndedAt?: ReadonlyMap<TurnId, number> | undefined;
   /** Whether the `turn-fold` row with this id is open; every fold is closed without it. */
   readonly isFoldOpen?: ((rowId: string) => boolean) | undefined;
 }
@@ -222,7 +229,8 @@ export const buildTimeline = (
   const pushSettledTurn = (turn: Turn, opener: ItemSnapshot) => {
     const answer = finalAnswer(turn.items);
     const all = withChildren(turn.items, childrenByParent);
-    const durationMs = spanMs(all);
+    const endedAt = turn.turnId === undefined ? undefined : options.turnEndedAt?.get(turn.turnId);
+    const durationMs = spanMs(all, endedAt);
     const itemRow = (item: ItemSnapshot): TimelineItemRow =>
       item === answer
         ? { ...plainRow(item), turnEnd: { turnId: item.turnId ?? turn.turnId, durationMs } }

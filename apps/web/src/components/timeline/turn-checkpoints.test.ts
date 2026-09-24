@@ -8,6 +8,7 @@ import {
   checkpointBefore,
   restoreBlockedReason,
   skipsTurns,
+  turnEndTimes,
   turnOrder,
 } from "@/components/timeline/turn-checkpoints";
 
@@ -131,5 +132,27 @@ describe("restoreBlockedReason", () => {
     expect(restoreBlockedReason({ ...idle, turnRunning: true })).toBe(
       "A turn is running — stop it before restoring.",
     );
+  });
+});
+
+describe("turnEndTimes", () => {
+  const at = (turnId: TurnId, createdAt: string): CheckpointSummary => ({
+    ...checkpointOf(turnId),
+    createdAt,
+  });
+
+  it("reads each turn's end off its checkpoint, the first when it has several", () => {
+    const ends = turnEndTimes([
+      at(t1, "2026-01-01T00:00:05.000Z"),
+      at(t2, "2026-01-01T00:01:00.000Z"),
+      at(t1, "2026-01-01T00:02:00.000Z"),
+    ]);
+    expect(ends.get(t1)).toBe(Date.parse("2026-01-01T00:00:05.000Z"));
+    expect(ends.get(t2)).toBe(Date.parse("2026-01-01T00:01:00.000Z"));
+    expect(ends.has(t3)).toBe(false);
+  });
+
+  it("skips a time it cannot read", () => {
+    expect(turnEndTimes([at(t1, "not a date")]).size).toBe(0);
   });
 });

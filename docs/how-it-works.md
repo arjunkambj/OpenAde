@@ -765,8 +765,12 @@ turns the flat item list into rows:
   `turn-summary` card. A turn that ended in work (interrupted, failed) has no
   answer: its narration folds with its work, so a mid-turn "Now let me run the
   tests" never stands in for an answer above the commands that came after it,
-  and its errors stay in view. The time runs from the user message to the
-  turn's last item, task children included;
+  and its errors stay in view. The time runs from the user message to when
+  the turn ended: its checkpoint's capture time, which the server records as
+  the turn completes (`turnEndTimes` in `timeline/turn-checkpoints.ts`). An
+  item's id marks when it started, so without a checkpoint (a workspace
+  without git) the time ends where the turn's last item began, task children
+  included;
 - opening the fold puts the hidden rows back into the list right under it, in
   their original order, as rows of their own: each maximal run of work kinds
   is one `work-group` disclosure, and the narration between runs is a message
@@ -800,7 +804,8 @@ turns the flat item list into rows:
   and duration, for the footer under it. The live turn has none (the
   work-group, fold and summary builders live in `timeline/fold-rows.ts`);
 - durations come out of the UUIDv7 ids, which carry their creation millisecond
-  in the leading 48 bits; a zero duration is left out of a label rather than
+  in the leading 48 bits, and a settled turn's runs on to its checkpoint; a
+  zero duration is left out of a label rather than
   shown as "0ms";
 - tool rows follow the tool's name with a short target — the first of
   `file_path`, `path`, `filePath`, `command`, `pattern`, `url` or `query` in
@@ -885,8 +890,8 @@ list has measured.
 
 The final answer of a settled turn has a footer too, left-aligned under it
 and revealed the same way: Copy (the markdown source), the time the answer
-began, and how long the turn took, first item to last, as the turn's fold
-row counts it ("2m 3s"). Interim narration and the running turn's messages
+began, and how long the turn took, from its message to its checkpoint, as
+the turn's fold row counts it ("2m 3s"). Interim narration and the running turn's messages
 have none. No model is named: the thread records which model runs now, not which
 one ran a past turn.
 

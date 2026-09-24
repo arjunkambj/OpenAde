@@ -112,3 +112,24 @@ export const restoreBlockedReason = (state: {
       : state.turnRunning
         ? "A turn is running — stop it before restoring."
         : null;
+
+/**
+ * When each turn ended, epoch ms, as far as the checkpoints tell: the server
+ * captures a turn's checkpoint as the turn completes, so its `createdAt` is
+ * the nearest record of the end a thread keeps. A turn with several takes the
+ * first. Every checkpoint the fold recorded counts, a pruned one too — this
+ * is a time, not something to restore.
+ */
+export const turnEndTimes = (
+  checkpoints: ReadonlyArray<CheckpointSummary>,
+): ReadonlyMap<TurnId, number> => {
+  const ends = new Map<TurnId, number>();
+  for (const checkpoint of checkpoints) {
+    const ms = Date.parse(checkpoint.createdAt);
+    const seen = ends.get(checkpoint.turnId);
+    if (Number.isFinite(ms) && (seen === undefined || ms < seen)) {
+      ends.set(checkpoint.turnId, ms);
+    }
+  }
+  return ends;
+};

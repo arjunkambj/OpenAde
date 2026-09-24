@@ -30,6 +30,7 @@ import { ALL_FOLDS_OPEN, buildTimeline } from "@/components/timeline/fold";
 import { JumpToLatest } from "@/components/timeline/jump-to-latest";
 import { TimelineThreadProvider } from "@/components/timeline/thread-context";
 import { TimelineRowView } from "@/components/timeline/timeline-item";
+import { turnEndTimes } from "@/components/timeline/turn-checkpoints";
 import { TurnRail, useTurnNavigation } from "@/components/timeline/turn-rail-view";
 import { useSendAnchor } from "@/components/timeline/use-send-anchor";
 import { useTimelineThreadValue } from "@/components/timeline/use-timeline-thread";
@@ -41,6 +42,10 @@ import { useSetRowDisclosures } from "@/state/ui";
 export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
   const listRef = React.useRef<LegendListRef>(null);
   const openFolds = useOpenTurnFolds();
+  const turnEndedAt = React.useMemo(
+    () => turnEndTimes(snapshot.checkpoints),
+    [snapshot.checkpoints],
+  );
   const options = React.useMemo(
     () => ({
       turnActive: turnInFlight(snapshot),
@@ -48,8 +53,9 @@ export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
         snapshot.currentTurnId === null ? undefined : uuidV7Millis(snapshot.currentTurnId),
       decisions: snapshot.decisions,
       checkpoints: snapshot.checkpoints,
+      turnEndedAt,
     }),
-    [snapshot],
+    [snapshot, turnEndedAt],
   );
   const projection = React.useMemo(
     () =>
