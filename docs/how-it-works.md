@@ -1341,7 +1341,12 @@ action that cannot run says why — in the button's tooltip, or under its menu
 item: no changes and nothing to push, a turn running (the whole control is
 disabled while this thread's turn runs), not a repository, a detached HEAD, no
 remote, the branch behind its upstream, or a pull request from the default
-branch.
+branch. Files also change outside a turn, in an editor or a terminal, so the
+control rereads every git read of the project when the user comes back to the
+window — focus, or the page turning visible, counted once when both fire
+(`useWindowReturn` in `apps/web/src/lib/window-return.ts`) — and the status when
+its menu opens. A Commit disabled as "no changes" would otherwise stay so with
+no click of its own to refresh it.
 
 Any action that commits opens the commit dialog first. Its message starts as
 the thread's title — `Update N files` while the title is still `New thread` —

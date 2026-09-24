@@ -15,12 +15,16 @@
  * The whole control is disabled while this thread's turn runs, and each
  * action that cannot run says why — in the button's tooltip, or under the
  * menu item. The status is refetched when a turn finishes, because the agent
- * changes files; when it cannot be read (offline, or a client that serves no
- * git) the control is disabled with the reason instead of failing the header.
- * Outside a repository it renders nothing.
+ * changes files, and when the user comes back to the window or opens the
+ * menu, because an editor or a terminal changes them too — without that, a
+ * Commit disabled as "No changes to commit" would stay so after an outside
+ * edit, with no click of its own to refresh it. When the status cannot be
+ * read (offline, or a client that serves no git) the control is disabled
+ * with the reason instead of failing the header. Outside a repository it
+ * renders nothing.
  */
 
-import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
+import { RegistryContext, useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import { AsyncResult } from "effect/unstable/reactivity";
 import * as React from "react";
 
@@ -54,6 +58,7 @@ import {
   type GitAction,
 } from "@/lib/git-actions";
 import { turnInFlight } from "@/lib/turn";
+import { useWindowReturn } from "@/lib/window-return";
 import { useConnectionState } from "@/state/hooks";
 import {
   ChevronDown,
@@ -103,7 +108,8 @@ type OpenDialog =
   | { readonly kind: "pull-request"; readonly action: GitAction; readonly key: number };
 
 export function GitActionsControl({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
-  const { gitStatusAtom, gitBranchesAtom } = useGitAtoms();
+  const { gitStatusAtom, gitBranchesAtom, refreshProject } = useGitAtoms();
+  const registry = React.useContext(RegistryContext);
   const connected = useConnectionState().status === "connected";
   const scope = { projectId: snapshot.projectId, threadId: snapshot.threadId };
   const statusAtom = gitStatusAtom(scope);
@@ -126,6 +132,7 @@ export function GitActionsControl({ snapshot }: { snapshot: ThreadDetailSnapshot
       refreshStatus();
     }
   }, [currentTurnId, refreshStatus]);
+  useWindowReturn(() => refreshProject(registry, snapshot.projectId));
 
   if (
     (status._tag === "ok" && status.value.isRepository === false) ||
@@ -218,7 +225,11 @@ export function GitActionsControl({ snapshot }: { snapshot: ThreadDetailSnapshot
         </TooltipTrigger>
         <TooltipContent>{commitReason ?? "Commit the changes in this workspace"}</TooltipContent>
       </Tooltip>
-      <DropdownMenu>
+      <DropdownMenu
+        onOpenChange={(open) => {
+          if (open) refreshStatus();
+        }}
+      >
         <Tooltip>
           <TooltipTrigger render={<span className="inline-flex" />}>
             <DropdownMenuTrigger
