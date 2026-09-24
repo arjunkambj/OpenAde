@@ -18,7 +18,9 @@
  * - `live` (`OPENADE_LIVE_CLAUDE=1`) lets the connector discover the
  *   operator's own `claude`, exactly as the shipped product does, and spends
  *   their subscription. `OPENADE_LIVE_CLAUDE_CONFIG_DIR` points the instance
- *   at a separate account (the connector's `configDir`).
+ *   at a separate account (the connector's `configDir`), and
+ *   `OPENADE_LIVE_CLAUDE_DEBUG=1` lowers the server's log level to debug, so
+ *   the connector's own log lines are printed too.
  * - `record` (`OPENADE_RECORD_CLAUDE=1`) is `live` through the testkit's stdio
  *   tee, and finalises what the tee saw into the scenario's fixture directory
  *   once the scenario's scope has closed and every process has exited. It is
@@ -59,6 +61,7 @@ import {
 import { describe, it } from "@effect/vitest";
 import { vi } from "vitest";
 import * as Effect from "effect/Effect";
+import * as References from "effect/References";
 import type * as Scope from "effect/Scope";
 
 import type { BootedServer } from "../../src/boot";
@@ -93,6 +96,7 @@ const RECORD = process.env.OPENADE_RECORD_CLAUDE === "1";
 const LIVE = process.env.OPENADE_LIVE_CLAUDE === "1";
 const LIVE_CONFIG_DIR = process.env.OPENADE_LIVE_CLAUDE_CONFIG_DIR;
 const APPROVED_MODEL = process.env.OPENADE_CLAUDE_APPROVED_MODEL;
+const DEBUG = process.env.OPENADE_LIVE_CLAUDE_DEBUG === "1";
 
 /** Where a recording's homes and raw captures go, per the recording rules. */
 const RECORD_ROOT = "/tmp/openade-h1";
@@ -343,10 +347,13 @@ const runScenario = (
     // `finish` only once the scope has closed: then every process the
     // scenario started has exited, and the tee has written every frame and
     // every exit.
-    yield* scenario.pipe(
+    const run = scenario.pipe(
       Effect.andThen(Effect.sync(prepared.finish)),
       Effect.ensuring(Effect.sync(prepared.cleanup)),
     );
+    yield* DEBUG && driver !== "replay"
+      ? Effect.provideService(run, References.MinimumLogLevel, "Debug")
+      : run;
   });
 
 /** Which drivers a run of the suite uses: a recording replaces the others. */

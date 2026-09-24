@@ -1,7 +1,8 @@
 /**
  * What the connector's tests lend a session in place of the server: a
  * permission ladder that answers one fixed verdict (or the test's own), an MCP endpoint nothing
- * listens on, a throwaway attachments directory, and a silent logger.
+ * listens on, a throwaway attachments directory, and a silent logger (or the
+ * test's own, for a live run's debug output).
  *
  * The MCP URL points at the discard port on loopback, so the CLI's connection
  * attempt is refused at once and the session's own traffic is all that runs.
@@ -27,6 +28,8 @@ export const testServices = (
     readonly decision?: PermissionDecision;
     /** A ladder of the test's own, in place of the one fixed verdict. */
     readonly decide?: ConnectorPermissions["decide"];
+    /** A logger of the test's own, in place of the silent one. */
+    readonly logger?: ConnectorServices["logger"];
   } = {},
 ): Effect.Effect<ConnectorServices> =>
   Effect.clockWith((clock) =>
@@ -37,7 +40,7 @@ export const testServices = (
         decide: options.decide ?? (() => Effect.succeed(options.decision ?? "prompt")),
       },
       attachmentsDir: NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "claude-attachments-")),
-      logger: { log: () => Effect.void },
+      logger: options.logger ?? { log: () => Effect.void },
       clock,
     })),
   );
