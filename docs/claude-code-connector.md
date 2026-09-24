@@ -666,6 +666,10 @@ When a steered message is still waiting, the session passes the SDK's
 `cancelQueued` option (the CLI's `interrupt_cancel_queued_v1` capability), so
 the CLI drops that message rather than running it once the turn stops. The
 option is read by SDK 0.3.280's runtime but missing from its declarations.
+When the turn was already held at a `result` for that message, no `result`
+follows its cancellation, so the session ends the held turn on the message's
+end-state receipt instead (`interrupted`); the same goes for any steered
+message the turn is held for that ends without being `started`.
 `interrupt` is the recording that will show what the next turn finds.
 
 ## Capabilities

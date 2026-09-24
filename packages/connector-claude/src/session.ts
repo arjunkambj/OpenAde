@@ -33,7 +33,9 @@
  * as a turn of its own right after; `steering.ts` reads which from the CLI's
  * receipts, and the session holds OpenAde's turn open across the CLI's
  * `result`s until every steered message has been taken up. Its usage is the
- * sum of those results. Stop ends the whole turn, steered messages included.
+ * sum of those results. Stop ends the whole turn, steered messages included;
+ * a held turn whose steered messages all end without a turn of the CLI's
+ * ends there, since no `result` will come for it.
  * A CLI that has not shown it sends those receipts is not steered: the steer
  * is refused for the caller to queue, and once its init shows it sends none
  * the session announces `steering: false`.
@@ -91,7 +93,7 @@ import {
 } from "./queryOptions";
 import type { ClaudeSessionRef } from "./sessionRef";
 import { makeProcessGroup } from "./spawn";
-import { addUsage, makeSteerLedger } from "./steering";
+import { addUsage, makeSteerLedger, type SteerReceipt } from "./steering";
 import { makeToolGate } from "./toolGate";
 import { asRecord, type PendingRuntimeEvent } from "./translate/pending";
 import { isModeReport, makeTranslator } from "./translate/translator";
@@ -127,7 +129,14 @@ interface ActiveTurn {
   readonly sightingsAtStart: number;
   /** The usage of the CLI's results this turn has already spanned (`steering.ts`). */
   readonly usage: TurnUsage | null;
+  /**
+   * The completion a `result` would have closed the turn with, while the turn
+   * is held for a steered message that no CLI turn has started yet.
+   */
+  readonly held: TurnCompleted | null;
 }
+
+type TurnCompleted = Extract<PendingRuntimeEvent, { type: "turn.completed" }>;
 
 /**
  * The SDK's `interrupt`, with the option its runtime reads (0.3.280) but its
@@ -313,6 +322,42 @@ export const makeClaudeSession = (
         yield* emit({ type: "session.warning", payload: { message } });
       });
 
+    /**
+     * A receipt for a steered message, while the turn is held for it. Started:
+     * a turn of the CLI's runs for it, and that turn's `result` decides.
+     * Dropped with nothing else awaited: no `result` will come, so the turn
+     * ends with the completion it was held from — `interrupted` when Stop
+     * cancelled the message.
+     */
+    const settleHeld = (receipt: SteerReceipt): Effect.Effect<void> =>
+      Effect.gen(function* () {
+        if (receipt === "started") {
+          yield* Ref.update(turnRef, (now) =>
+            now === null || now.held === null ? now : { ...now, held: null },
+          );
+          return;
+        }
+        const ended = yield* Ref.modify(turnRef, (now): [ActiveTurn | null, ActiveTurn | null] =>
+          now !== null && now.held !== null && !ledger.awaiting() ? [now, null] : [null, now],
+        );
+        if (ended === null || ended.held === null) return;
+        yield* services.logger.log(
+          "debug",
+          "claude held turn ended: its steered message ended unrun",
+          {
+            turnId: ended.turnId,
+          },
+        );
+        const { payload } = ended.held;
+        ledger.clear();
+        yield* checkGated(ended);
+        yield* emit({
+          ...ended.held,
+          payload: ended.interrupted ? { ...payload, stopReason: "interrupted" } : payload,
+        });
+        yield* announce;
+      });
+
     const handle = (message: unknown): Effect.Effect<void> =>
       Effect.gen(function* () {
         if (yield* Ref.get(closedRef)) return;
@@ -320,7 +365,8 @@ export const makeClaudeSession = (
         if (record.type === "system" && record.subtype === "status" && isModeReport(record)) {
           cliMode = record.permissionMode as PermissionMode;
         }
-        ledger.observe(record);
+        const receipt = ledger.observe(record);
+        if (receipt !== null) yield* settleHeld(receipt);
         const turn = yield* Ref.get(turnRef);
         let completed = false;
         for (const event of translator.translate(message, turn)) {
@@ -334,7 +380,9 @@ export const makeClaudeSession = (
             // Decided and cleared in one step, so a steer either lands before
             // (and holds the turn) or finds no turn and is queued instead.
             const ends = yield* Ref.modify(turnRef, (now): [boolean, ActiveTurn | null] =>
-              now !== null && !now.interrupted && ledger.awaiting() ? [false, now] : [true, null],
+              now !== null && !now.interrupted && ledger.awaiting()
+                ? [false, { ...now, held: event }]
+                : [true, null],
             );
             if (!ends) {
               yield* services.logger.log("debug", "claude turn held open for a steered message", {
@@ -449,6 +497,7 @@ export const makeClaudeSession = (
           ranAtStart: translator.toolCallsRan(),
           sightingsAtStart: toolGate.sightings(),
           usage: null,
+          held: null,
         });
         yield* emit({ type: "turn.started", payload: { turnId } });
         const staged = yield* Effect.promise(() =>

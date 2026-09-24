@@ -106,6 +106,42 @@ describe("makeSteerLedger", () => {
     expect(holdsAtResults(false)).toEqual([false, false]);
   });
 
+  /** What the ledger said of watched messages, watching `uuid` from frame `from` on. */
+  const receiptsFor = (uuid: string, from: number) => {
+    const ledger = makeSteerLedger();
+    const said: Array<string> = [];
+    for (const [index, frame] of frames.entries()) {
+      if (index === from) ledger.watch(uuid);
+      if (frame.dir === "to-harness") continue;
+      const receipt = ledger.observe(frame.data);
+      if (receipt !== null) said.push(receipt);
+    }
+    return { said, ledger };
+  };
+
+  it("says a watched message reached a turn once it is started", () => {
+    const steered = positions((data) => data.type === "user")[1]!;
+    const { said, ledger } = receiptsFor(String(asRecord(frames[steered]!.data).uuid), steered);
+    expect(said).toEqual(["started"]);
+    expect(ledger.awaiting()).toBe(false);
+  });
+
+  it("says a watched message that ends without being started was dropped", () => {
+    // The first message, watched only once its own start is past: its next
+    // receipt is the end state the CLI gave it, `cancelled`, with no `started`
+    // after the watch — what Stop's cancelQueued leaves of a queued message.
+    const first = asRecord(frames[positions((data) => data.type === "user")[0]!]!.data).uuid;
+    const startedAt = positions(
+      (data) =>
+        data.type === "command_lifecycle" &&
+        data.command_uuid === first &&
+        data.state === "started",
+    )[0]!;
+    const { said, ledger } = receiptsFor(String(first), startedAt + 1);
+    expect(said).toEqual(["dropped"]);
+    expect(ledger.awaiting()).toBe(false);
+  });
+
   it("knows nothing of receipts before the CLI has said anything", () => {
     expect(makeSteerLedger().receipts()).toBeUndefined();
   });

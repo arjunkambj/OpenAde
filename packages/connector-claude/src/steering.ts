@@ -23,6 +23,12 @@
  * turns and OpenAde's goes on to the next. `fixtures/claude/signed-out-steer/`
  * is the run-next path recorded.
  *
+ * A held turn can also end with no `result` at all: a steered message that
+ * reaches an end state without ever being `started` — cancelled by Stop's
+ * `cancelQueued` in the moment between two of the CLI's turns — starts no
+ * turn of the CLI's, so no `result` will close OpenAde's. `observe` says so
+ * (`dropped`), and the session ends the held turn there.
+ *
  * The receipts are the CLI's `msg_lifecycle_v1` capability, which its
  * `system/init` lists. Without them a steered message that runs next would
  * run as a turn nobody opened, and its `result` would close the one after it;
@@ -37,12 +43,23 @@ import { asRecord, asString } from "./translate/pending";
 
 /** The lifecycle state that says a command has not reached a turn yet. */
 const QUEUED = "queued";
+/** The lifecycle state that says a command reached a turn, folded or fresh. */
+const STARTED = "started";
 /** The `system/init` capability that says the CLI sends the receipts. */
 const LIFECYCLE_CAPABILITY = "msg_lifecycle_v1";
 
+/**
+ * What a receipt did to a watched message: it reached a turn, or it ended
+ * without ever reaching one.
+ */
+export type SteerReceipt = "started" | "dropped";
+
 export interface SteerLedger {
-  /** Reads one SDK message; only `system/init` and `command_lifecycle` count. */
-  readonly observe: (message: unknown) => void;
+  /**
+   * Reads one SDK message; only `system/init` and `command_lifecycle` count.
+   * Says what became of a watched message when the message was its receipt.
+   */
+  readonly observe: (message: unknown) => SteerReceipt | null;
   /** A steered message the running turn has to answer before it ends. */
   readonly watch: (uuid: string) => void;
   /** True while a steered message has neither reached a turn nor ended. */
@@ -65,12 +82,13 @@ export const makeSteerLedger = (): SteerLedger => {
       if (record.type === "system" && record.subtype === "init" && receipts !== true) {
         receipts =
           Array.isArray(record.capabilities) && record.capabilities.includes(LIFECYCLE_CAPABILITY);
-        return;
+        return null;
       }
-      if (record.type !== "command_lifecycle") return;
+      if (record.type !== "command_lifecycle") return null;
       receipts = true;
       const uuid = asString(record.command_uuid);
-      if (uuid !== undefined && record.state !== QUEUED) pending.delete(uuid);
+      if (uuid === undefined || record.state === QUEUED || !pending.delete(uuid)) return null;
+      return record.state === STARTED ? "started" : "dropped";
     },
     watch: (uuid) => {
       pending.add(uuid);
