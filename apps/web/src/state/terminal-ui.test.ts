@@ -1,8 +1,11 @@
+import { AtomRegistry } from "effect/unstable/reactivity";
 import { describe, expect, it } from "vitest";
 
 import {
   clampDrawerHeight,
   DRAWER_HEIGHT_MIN,
+  drawerHeightAtom,
+  openByThreadAtom,
   parseDrawerHeight,
   parseOpenByThread,
   withDrawerOpen,
@@ -88,5 +91,34 @@ describe("parseDrawerHeight", () => {
 
   it("raises a stored height below the minimum", () => {
     expect(parseDrawerHeight("10")).toBe(DRAWER_HEIGHT_MIN);
+  });
+});
+
+describe("terminal layout atoms", () => {
+  // Remove idle nodes at once, so a missing `keepAlive` shows up here.
+  const makeRegistry = () =>
+    AtomRegistry.make({
+      scheduleTask: (task) => {
+        task();
+        return () => {};
+      },
+    });
+
+  it("keep a thread's open drawer after the last subscriber unmounts", () => {
+    const registry = makeRegistry();
+    const unmount = registry.mount(openByThreadAtom);
+    registry.set(openByThreadAtom, { two: true });
+    unmount();
+    registry.mount(openByThreadAtom);
+    expect(registry.get(openByThreadAtom)).toEqual({ two: true });
+  });
+
+  it("keep a dragged height after the drawer closes", () => {
+    const registry = makeRegistry();
+    const unmount = registry.mount(drawerHeightAtom);
+    registry.set(drawerHeightAtom, 450);
+    unmount();
+    registry.mount(drawerHeightAtom);
+    expect(registry.get(drawerHeightAtom)).toBe(450);
   });
 });

@@ -66,7 +66,14 @@ const readOpenByThread = (): Readonly<Record<string, true>> => {
   }
 };
 
-const openByThreadAtom = Atom.make<Readonly<Record<string, true>>>(readOpenByThread());
+// `keepAlive`, for the reason `composerDraftAtom` in `@/state/ui` gives: the
+// only subscribers are the terminal and toggle of the thread on screen, and
+// both unmount while the next thread loads. A disposed node would come back
+// with the map read at module load, hiding a drawer opened since, and the next
+// toggle would write that stale map over every other thread's stored flag.
+export const openByThreadAtom = Atom.keepAlive(
+  Atom.make<Readonly<Record<string, true>>>(readOpenByThread()),
+);
 
 /** `[open, setOpen]` for one thread's terminal drawer. */
 export const useTerminalOpen = (threadId: string) => {
@@ -134,8 +141,12 @@ const readDrawerHeight = (): number => {
   }
 };
 
-/** Drawer height in px; mirrored to localStorage on every write. */
-const drawerHeightAtom = Atom.make<number>(readDrawerHeight());
+/**
+ * Drawer height in px; mirrored to localStorage on every write. `keepAlive`
+ * like the open map: its only subscriber is the open drawer, so closing it
+ * would otherwise bring back the height read at module load.
+ */
+export const drawerHeightAtom = Atom.keepAlive(Atom.make<number>(readDrawerHeight()));
 
 export const useDrawerHeight = () => {
   const height = useAtomValue(drawerHeightAtom);
