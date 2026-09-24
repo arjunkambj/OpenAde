@@ -14,6 +14,9 @@
  * `user-message:<itemId>`, so it survives the row scrolling out of view and the
  * list recycling it. Collapse-all and expand-all leave it alone: they are about
  * tool calls, not about what the user wrote.
+ *
+ * Under the bubble sits the message's footer (`message-footer.tsx`): the time
+ * it was sent, Copy, and Restore to here, revealed on hover and focus.
  */
 
 import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
@@ -21,6 +24,7 @@ import { Button } from "@OpenAde/ui/components/button";
 
 import { Attachments } from "@/components/timeline/attachments";
 import { MarkdownBody } from "@/components/timeline/markdown";
+import { MessageFooter } from "@/components/timeline/message-footer";
 import { userMessageOverflows } from "@/components/timeline/user-message-collapse";
 import { cn } from "@/lib/utils";
 import { useRowDisclosure } from "@/state/ui";
@@ -91,7 +95,7 @@ export function UserMessageRow({ item }: { item: ItemSnapshot }) {
   // LegendList wraps every row in its own container, so `self-end` on the
   // bubble cannot reach the list's flex column; the row right-aligns itself.
   return (
-    <div className="flex justify-end">
+    <div className="group/message flex flex-col items-end gap-1">
       <div
         aria-label="User message"
         className="max-w-[min(400px,85%)] min-w-0 rounded-xl rounded-tr-sm bg-hover px-4 py-2 text-sm leading-normal text-foreground"
@@ -100,6 +104,7 @@ export function UserMessageRow({ item }: { item: ItemSnapshot }) {
         <References item={item} />
         <UserMessageText item={item} />
       </div>
+      <MessageFooter key={item.itemId} item={item} />
     </div>
   );
 }

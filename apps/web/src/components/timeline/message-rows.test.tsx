@@ -1,9 +1,20 @@
 import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
-import { makeItemId } from "@OpenAde/contracts/ids";
+import {
+  makeCheckpointId,
+  makeItemId,
+  makeProjectId,
+  makeThreadId,
+  makeTurnId,
+} from "@OpenAde/contracts/ids";
+import { uuidV7Millis } from "@OpenAde/shared/ids";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { UserMessageRow } from "@/components/timeline/message-rows";
+import { type TimelineThread, TimelineThreadProvider } from "@/components/timeline/thread-context";
+import { ClientRuntimeProvider } from "@/lib/client-runtime";
+import { makeFixtureClient } from "@/lib/fixture-client";
+import { formatClock } from "@/lib/format";
 
 const row = (fields: Partial<ItemSnapshot>): ItemSnapshot => ({
   itemId: makeItemId(),
@@ -16,27 +27,33 @@ const row = (fields: Partial<ItemSnapshot>): ItemSnapshot => ({
 const render = (fields: Partial<ItemSnapshot>) =>
   renderToStaticMarkup(<UserMessageRow item={row(fields)} />);
 
+/** The bubble alone, without the footer under it. */
+const bubble = (markup: string) =>
+  markup.slice(0, markup.indexOf('<div data-slot="message-footer"'));
+
 describe("UserMessageRow", () => {
   it("renders a row without references as its text alone", () => {
     const itemId = makeItemId();
-    const markup = render({ itemId });
+    const markup = bubble(render({ itemId }));
     // The bubble holds one markdown body with one paragraph, and nothing else.
     expect(markup).toMatch(
-      /aria-label="User message"[^>]*><div [^>]*><div class="[^"]*"><p [^>]*>Add a health check endpoint\.<\/p><\/div><\/div><\/div><\/div>$/,
+      /aria-label="User message"[^>]*><div [^>]*><div class="[^"]*"><p [^>]*>Add a health check endpoint\.<\/p><\/div><\/div><\/div>$/,
     );
     expect(markup).not.toContain("<svg");
     expect(markup).not.toContain("Show more");
     // An empty list is the same as none: no chip row is drawn for it.
-    expect(render({ itemId, references: [] })).toBe(markup);
+    expect(bubble(render({ itemId, references: [] }))).toBe(markup);
   });
 
   it("draws one chip per skill and plugin above the text", () => {
-    const markup = render({
-      references: [
-        { kind: "skill", name: "health-checks" },
-        { kind: "plugin", name: "formatter" },
-      ],
-    });
+    const markup = bubble(
+      render({
+        references: [
+          { kind: "skill", name: "health-checks" },
+          { kind: "plugin", name: "formatter" },
+        ],
+      }),
+    );
     expect(markup).toContain('aria-label="References"');
     expect(markup.match(/role="listitem"/g)).toHaveLength(2);
     expect(markup).toContain('title="Skill health-checks"');
@@ -89,5 +106,68 @@ describe("UserMessageRow", () => {
     });
     expect(markup).toContain("Show more");
     expect(markup.indexOf("health-checks")).toBeLessThan(markup.indexOf("xxxx"));
+  });
+});
+
+describe("the user message footer", () => {
+  const [t1, t2] = [makeTurnId(), makeTurnId()];
+  const checkpoint = {
+    checkpointId: makeCheckpointId(),
+    turnId: t1,
+    ref: `refs/openade/checkpoints/t/${t1}`,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  };
+  const thread = (fields: Partial<TimelineThread> = {}): TimelineThread => ({
+    threadId: makeThreadId(),
+    projectId: makeProjectId(),
+    checkpoints: [checkpoint],
+    restoreBlockedReason: null,
+    turnOrder: [t1, t2],
+    ...fields,
+  });
+  // Inside a timeline the bubble's markdown reads the file atoms, so a client
+  // runtime has to be in context; the fixture's answers without a server.
+  const inThread = (value: TimelineThread, fields: Partial<ItemSnapshot>) =>
+    renderToStaticMarkup(
+      <ClientRuntimeProvider layer={makeFixtureClient().layer}>
+        <TimelineThreadProvider value={value}>
+          <UserMessageRow item={row(fields)} />
+        </TimelineThreadProvider>
+      </ClientRuntimeProvider>,
+    );
+  const footer = (markup: string) => markup.slice(markup.indexOf('data-slot="message-footer"'));
+  const restoreLabel = 'aria-label="Restore the workspace to before this message"';
+
+  it("shows the time the id records and a copy button, revealed on hover, focus and touch", () => {
+    const itemId = makeItemId();
+    const markup = footer(render({ itemId }));
+    expect(markup).toContain(`>${formatClock(uuidV7Millis(itemId) ?? 0)}</time>`);
+    expect(markup).toContain('aria-label="Copy message"');
+    expect(markup).toContain("opacity-0");
+    expect(markup).toContain("group-hover/message:opacity-100");
+    expect(markup).toContain("group-focus-within/message:opacity-100");
+    expect(markup).toContain("pointer-coarse:opacity-100");
+  });
+
+  it("has no restore outside a timeline", () => {
+    expect(render({ turnId: t2 })).not.toContain(restoreLabel);
+  });
+
+  it("offers a restore to the checkpoint before the message's turn", () => {
+    const markup = footer(inThread(thread(), { turnId: t2 }));
+    expect(markup).toContain(restoreLabel);
+    expect(markup).not.toMatch(/<button[^>]*disabled=""[^>]*Restore the workspace/);
+  });
+
+  it("hides the restore on the first turn and when no checkpoint precedes it", () => {
+    expect(inThread(thread(), { turnId: t1 })).not.toContain(restoreLabel);
+    expect(inThread(thread({ checkpoints: [] }), { turnId: t2 })).not.toContain(restoreLabel);
+  });
+
+  it("disables the restore while one cannot start", () => {
+    const markup = footer(
+      inThread(thread({ restoreBlockedReason: "A turn is running" }), { turnId: t2 }),
+    );
+    expect(markup).toMatch(/<button[^>]*disabled=""[^>]*Restore the workspace/);
   });
 });

@@ -136,3 +136,21 @@ export const relativeTime = (nowMs: number, iso: string): string => {
   const date = new Date(then);
   return `${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
 };
+
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/**
+ * A message's time of day in local time, 24-hour and zero-padded: "14:05",
+ * "09:30". Built by hand rather than through `Intl` so it reads the same in
+ * every locale and in tests.
+ */
+export const formatClock = (ms: number): string => {
+  const date = new Date(ms);
+  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+};
+
+/** The same moment in full, for the clock's tooltip: "Thursday, 24 Sep 2026, 14:05". */
+export const formatFullDate = (ms: number): string => {
+  const date = new Date(ms);
+  return `${WEEKDAYS[date.getDay()]}, ${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}, ${formatClock(ms)}`;
+};

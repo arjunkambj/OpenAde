@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  formatClock,
   formatElapsed,
+  formatFullDate,
   relativeTime,
   turnSummaryLabel,
   turnSummaryLead,
@@ -131,5 +133,23 @@ describe("relativeTime", () => {
   it("reads a time in the future as now and garbage as nothing", () => {
     expect(relativeTime(now, ago(-5 * MIN))).toBe("now");
     expect(relativeTime(now, "not a date")).toBe("");
+  });
+});
+
+describe("formatClock and formatFullDate", () => {
+  // Built from local fields, so the assertions hold in any time zone.
+  const at = (hours: number, minutes: number) =>
+    new Date(2026, 8, 24, hours, minutes, 42).getTime();
+
+  it("reads the local time of day, 24-hour and zero-padded", () => {
+    expect(formatClock(at(14, 5))).toBe("14:05");
+    expect(formatClock(at(9, 30))).toBe("09:30");
+    expect(formatClock(at(0, 0))).toBe("00:00");
+    expect(formatClock(at(23, 59))).toBe("23:59");
+  });
+
+  it("spells the day out for the tooltip", () => {
+    expect(formatFullDate(at(14, 5))).toBe("Thursday, 24 Sep 2026, 14:05");
+    expect(formatFullDate(new Date(2025, 0, 5, 8, 7).getTime())).toBe("Sunday, 5 Jan 2025, 08:07");
   });
 });

@@ -819,6 +819,23 @@ Attachment thumbnails (`timeline/attachments.tsx`) are buttons: each opens
 the full image in a dialog titled with the file name, which Esc closes,
 returning focus to the thumbnail.
 
+Under the bubble, right-aligned, is the message's footer
+(`timeline/message-footer.tsx`): the time it was sent, read from the item's
+UUIDv7 id ("14:05", the full date in the tooltip), a Copy button that copies
+the text exactly as typed, and "Restore to here" (§8). The footer appears
+while the pointer is over the row or focus is inside it, and always on a
+coarse pointer such as touch, where there is no hover. Only its opacity
+changes; it always takes its height, so revealing it never reflows a row the
+list has measured.
+
+The timeline hands its rows one context (`timeline/thread-context.tsx`,
+filled by `use-timeline-thread.ts`): the thread and project a row reads the
+workspace through, the thread's turns in the order they first appear, the
+checkpoints still in the repository, and why no restore can start right now.
+It changes only when a turn is added, starts or ends, a checkpoint lands, a
+restore starts or settles, or the connection drops — never on a streamed
+delta.
+
 Files an agent names become file chips (`timeline/file-chip.tsx`): the file's
 icon, its name and the line, with the whole relative path in the tooltip. In
 an agent message (and a plan body) two things can name a file
@@ -1477,6 +1494,36 @@ per-project revision a branch switch bumps, so the header follows along.
 `checkpoints.list` intersects the timeline's own fold of
 `thread.checkpoint.created` with the refs that still exist in the repository,
 so the pane never offers a restore that can only fail.
+
+### Restoring from the timeline
+
+Each user message offers "Restore to here" in its footer: the workspace as it
+was before that message was sent. A checkpoint is the workspace _after_ its
+turn, so that is the checkpoint of the turn before the message's turn
+(`checkpointBefore` in `timeline/turn-checkpoints.ts`). Turns are ordered by
+where their items first appear, and a message steered into a running turn
+carries that turn's id, so it restores to the same point as the message that
+opened the turn. There is nothing before the thread's first turn, and a
+workspace that is not a git repository records no checkpoints, so neither
+shows the button. When the turn right before has no checkpoint of its own
+(pruned, or its capture failed), the button falls back to an earlier one, and
+the dialog says that it undoes that turn too.
+
+The checkpoints come from the fold, intersected with `checkpoints.list`
+(`availableCheckpoints`). The timeline reads the list through
+`checkpointsAtom`, keyed by the number of checkpoints the fold holds, so a
+turn's new checkpoint asks again rather than being hidden by a list read
+before it; while the list loads, or when it fails offline, the fold stands
+alone. A restore settling — restored or failed — rereads every git read of the
+project, the list among them, and the Changes pane with it.
+
+The button is disabled, with the reason in its tooltip, while the server is
+out of reach, while a restore is running, and while a turn is in flight
+(`turnInFlight`, since the server holds its turn from `turn.requested`). It
+opens `timeline/restore-checkpoint-dialog.tsx`, which confirms, dispatches
+`thread.checkpoint.restore` and reports a rejected receipt or an unreachable
+server inside the dialog, as the pane's does. The conversation is left as it
+is; only the files move.
 
 ### Branches
 
