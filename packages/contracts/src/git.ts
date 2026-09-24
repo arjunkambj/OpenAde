@@ -53,7 +53,8 @@ export type GitBranch = typeof GitBranch.Type;
 /**
  * Every branch of one workspace, local ones first. `current` is `null` on a
  * detached HEAD. `defaultBranch` is the branch new work is cut from: the
- * remote's HEAD when it is known, else a local `main` or `master`, else
+ * remote's HEAD when it is known — its local branch, or `<remote>/<name>`
+ * when there is no local one — else a local `main` or `master`, else
  * `init.defaultBranch` when that branch exists, else the current branch.
  * `isRepository: false` carries the meaning it does on `GitStatus`.
  */

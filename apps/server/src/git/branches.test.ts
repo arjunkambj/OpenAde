@@ -222,6 +222,29 @@ describe("the default branch", () => {
     ),
   );
 
+  it.live("is the remote-tracking name when no local branch has the remote HEAD's name", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const source = makeRepo("main");
+        git(source, "switch", "-q", "-c", "develop");
+        const bare = addBareRemote(source, "main");
+        git(source, "push", "-q", "origin", "main", "develop");
+        const clone = nodePath.join(tempDir("openade-branch-clone-"), "clone");
+        // Only develop is checked out locally; main exists only as origin/main.
+        execFileSync("git", ["clone", "-q", "-b", "develop", bare, clone]);
+        identify(clone);
+        const { projectId, git: service } = yield* stack(clone);
+
+        const list = yield* service.branches({ projectId });
+        expect(list.defaultBranch).toBe("origin/main");
+        const base = list.defaultBranch ?? "";
+        // It is a base the Changes pane can diff against.
+        const diff = yield* service.diff({ projectId }, { mergeBase: base });
+        expect(diff.files).toEqual([]);
+      }),
+    ),
+  );
+
   it.live("falls back to a local main or master", () =>
     Effect.scoped(
       Effect.gen(function* () {

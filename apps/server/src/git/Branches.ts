@@ -146,6 +146,12 @@ const remotesOf = (cwd: string) => run(cwd, ["remote"]).pipe(Effect.map((r) => l
  * The branch new work is cut from, in order: the remote's HEAD (`origin`, or
  * the first remote), a local `main` then `master`, `init.defaultBranch` when
  * that branch exists, and finally whatever is checked out.
+ *
+ * The remote's HEAD is named by its short name (`main`) only when a local
+ * branch of that name exists. A clone made with `-b develop`, or one whose
+ * local main was deleted, has only `origin/main`, and a bare `main` would be
+ * a base no worktree can be cut from and no merge base can be found for; the
+ * remote-tracking name works for both, and a pull request strips the remote.
  */
 const defaultBranch = (
   cwd: string,
@@ -162,7 +168,9 @@ const defaultBranch = (
       );
       const target = head.stdout.trim();
       if (head.exitCode === 0 && target.startsWith(`${remote}/`)) {
-        return target.slice(remote.length + 1);
+        const short = target.slice(remote.length + 1);
+        if (yield* refExists(cwd, `refs/heads/${short}`)) return short;
+        if (yield* refExists(cwd, `refs/remotes/${target}`)) return target;
       }
     }
     for (const candidate of ["main", "master"]) {

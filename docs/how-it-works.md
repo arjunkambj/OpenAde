@@ -1238,7 +1238,10 @@ diff does. The list reads `git for-each-ref` over `refs/heads` and
 list`, which marks a branch checked out in another worktree. The default
 branch is the remote's `HEAD` (`origin`, or the first remote), else a local
 `main` or `master`, else `init.defaultBranch` when that branch exists, else
-the current branch.
+the current branch. The remote's `HEAD` is named by its local branch when one
+exists (`main`) and by the remote-tracking one otherwise (`origin/main`, in a
+clone made with `-b develop`), so a worktree can always be cut from it and the
+Changes pane can always find its merge base.
 
 A branch is always cut with `--no-track`: one cut from `origin/main` would
 otherwise track it, and its first push would land on main. Names are refused
