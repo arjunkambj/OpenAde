@@ -88,7 +88,8 @@ describe("cheatsheetSections", () => {
     expect(ids("cmd+shift+b", "ctrl")).toEqual(["browserPane.toggle"]);
     expect(ids("ctrl+shift+b", "meta")).toEqual([]);
     expect(ids("meta+k")).toContain("commandPalette.toggle");
-    expect(ids("cmd shift b")).toEqual(["browserPane.toggle"]);
+    // "b" also matches the title "Switch branch" (git.branchPicker).
+    expect(ids("cmd shift b")).toContain("browserPane.toggle");
     expect(ids("shift+enter")).toEqual(expect.arrayContaining(["fixed:1"]));
     expect(ids("  ")).toHaveLength(
       rowsOf(cheatsheetSections(COMMAND_CATALOG, defaults, "", "meta")).length,

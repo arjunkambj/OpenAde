@@ -28,11 +28,14 @@ import {
   AppWindow,
   Brain,
   Check,
+  CloudUpload,
   ChevronsDown,
   Edit,
   Eraser,
   FileCode,
   FolderAdd,
+  GitBranch,
+  GitCommit,
   GitDiff,
   Keyboard,
   Lightning,
@@ -67,6 +70,7 @@ export const COMMAND_AREAS = [
   "Composer",
   "View",
   "Timeline",
+  "Git",
   "Cards",
 ] as const;
 
@@ -167,6 +171,13 @@ export const COMMAND_CATALOG: ReadonlyArray<CatalogCommand> = [
   command("Timeline", "timeline.jumpToLatest", "Jump to latest", ChevronsDown),
   command("Timeline", "timeline.collapseAll", "Collapse all tool calls", UnfoldLess),
   command("Timeline", "timeline.expandAll", "Expand all tool calls", UnfoldMore),
+
+  // Git
+  command("Git", "git.commit", "Commit", GitCommit),
+  command("Git", "git.push", "Commit & push", CloudUpload, {
+    description: "Pushes straight away when there is nothing to commit",
+  }),
+  command("Git", "git.branchPicker", "Switch branch", GitBranch),
 
   // Cards
   command("Cards", "approval.allowOnce", "Allow once", Check),

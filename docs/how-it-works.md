@@ -2066,6 +2066,9 @@ fields entirely.
 | View     | `font.increase` / `decrease` / `reset`                | `Mod+Alt+=` / `-` / `0`       |                                                                                        |
 | Timeline | `timeline.jumpToLatest`                               | `Mod+Shift+J`                 | `threadOpen`                                                                           |
 | Timeline | `timeline.collapseAll` / `expandAll`                  | `Mod+Alt+[` / `Mod+Alt+]`     | `threadOpen`                                                                           |
+| Git      | `git.commit`                                          | `Mod+Alt+C`                   |                                                                                        |
+| Git      | `git.push`                                            | `Mod+Alt+P`                   |                                                                                        |
+| Git      | `git.branchPicker`                                    | `Mod+Shift+G`                 |                                                                                        |
 | Cards    | `approval.allowOnce` / `allowSession` / `allowAlways` | `1` / `2` / `3`               | `approvalPending && !inputFocus && !dialogOpen`                                        |
 | Cards    | `approval.deny`                                       | `D`, `Escape`                 | the same                                                                               |
 | Cards    | `plan.accept` / `acceptAndRun` / `revise`             | `1` / `2` / `3`               | `planPending && !inputFocus && !dialogOpen`                                            |
@@ -2092,15 +2095,18 @@ plan rows, work groups and the rows folded in them, task children, turn
 summaries and answered-decision records (`disclosureIds` in
 `components/timeline/disclosure.ts`).
 
+The git keys belong to the thread header. `git.commit` is the Commit button
+and `git.push` is Commit & push, which pushes straight away when there is
+nothing to commit (`git-actions-control.tsx`); `git.branchPicker` opens the
+branch popover (`branch-picker.tsx`). Each does nothing from its key while its
+control is disabled, and none is answered outside a repository.
+
 `RESERVED_KEYBINDINGS`, in the same module, holds chords for features that are
 still being built, so that nothing ships on them first. Nothing dispatches
 these rows. They exist so the collision test can treat each one as a binding.
 
 | command            | shortcut          | when           | for                                   |
 | ------------------ | ----------------- | -------------- | ------------------------------------- |
-| `git.commit`       | `Mod+Alt+C`       |                | Commit the staged changes             |
-| `git.push`         | `Mod+Alt+P`       |                | Push the current branch               |
-| `git.branchPicker` | `Mod+Shift+G`     |                | Open the branch picker                |
 | `browser.focusUrl` | `Mod+L`           | `browserFocus` | Focus the browser pane's address bar  |
 | `browser.reload`   | `Mod+R`           | `browserFocus` | Reload the page instead of the window |
 | `browser.back`     | `Mod+[`           | `browserFocus` | Go back in the browser pane           |
@@ -2136,7 +2142,7 @@ the build, on either platform, in these cases:
 
 Every command has an entry in `COMMAND_CATALOG`
 (`apps/web/src/lib/command-catalog.ts`). The entry holds the command's title,
-its area (General, Threads, Composer, View, Timeline or Cards), an optional
+its area (General, Threads, Composer, View, Timeline, Git or Cards), an optional
 description and icon, and a `palette` flag. Commands with no default chord,
 such as `mcp.open`, have entries too. A test fails when a default command has
 no entry. Labels show a command's chord with `CommandKbd command="…"`, which

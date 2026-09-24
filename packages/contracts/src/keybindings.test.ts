@@ -95,6 +95,10 @@ describe("DEFAULT_KEYBINDINGS", () => {
       expect(row("dock.files")).toBe("Mod+P|threadOpen");
       expect(row("font.increase")).toBe("Mod+Alt+=|");
       expect(row("timeline.jumpToLatest")).toBe("Mod+Shift+J|threadOpen");
+      expect(row("terminal.toggle")).toBe("Mod+J|");
+      expect(row("git.commit")).toBe("Mod+Alt+C|");
+      expect(row("git.push")).toBe("Mod+Alt+P|");
+      expect(row("git.branchPicker")).toBe("Mod+Shift+G|");
       expect(THREAD_JUMP_COMMANDS).toHaveLength(9);
       for (const [index, command] of THREAD_JUMP_COMMANDS.entries()) {
         expect(row(command)).toBe(`Mod+${index + 1}|`);
@@ -106,8 +110,6 @@ describe("DEFAULT_KEYBINDINGS", () => {
     Effect.gen(function* () {
       const reserved = yield* Effect.succeed(RESERVED_KEYBINDINGS);
       const byCommand = new Map(reserved.map((row) => [row.command, row]));
-      expect(byCommand.get("terminal.toggle")?.shortcut).toBe("Mod+J");
-      expect(byCommand.get("git.commit")?.shortcut).toBe("Mod+Alt+C");
       expect(byCommand.get("browser.reload")).toMatchObject({
         shortcut: "Mod+R",
         when: "browserFocus",

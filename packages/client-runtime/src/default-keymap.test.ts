@@ -164,10 +164,12 @@ describe("the collision checks themselves", () => {
   it("catch a default that takes a reserved chord", () => {
     const table = [
       ...DEFAULT_KEYBINDINGS,
-      { command: "extra.thing", shortcut: "Mod+J" },
+      { command: "extra.thing", shortcut: "Mod+Shift+Enter" },
       ...RESERVED_KEYBINDINGS,
     ];
-    expect(describeConflicts(table, "meta")).toEqual(["extra.thing Mod+J ↔ terminal.toggle Mod+J"]);
+    expect(describeConflicts(table, "meta")).toEqual([
+      "extra.thing Mod+Shift+Enter ↔ composer.steer Mod+Shift+Enter",
+    ]);
   });
 
   it("count a terminal chord as live wherever an unscoped chord is", () => {

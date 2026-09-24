@@ -22,6 +22,10 @@
  * read (offline, or a client that serves no git) the control is disabled
  * with the reason instead of failing the header. Outside a repository it
  * renders nothing.
+ *
+ * It answers `git.commit` (Mod+Alt+C) as the Commit button and `git.push`
+ * (Mod+Alt+P) as Commit & push, which pushes straight away when there is
+ * nothing to commit; an action that cannot run does nothing from its key.
  */
 
 import { RegistryContext, useAtomRefresh, useAtomValue } from "@effect/atom-react";
@@ -44,6 +48,7 @@ import type { GitStatus } from "@OpenAde/contracts/rpc";
 
 import { useGitAtoms } from "@/components/panes/changes/git-atoms";
 import { openExternal } from "@/lib/desktop";
+import { useKeybindingCommand } from "@/lib/shortcuts";
 import {
   availableActions,
   GIT_ACTION_LABEL,
@@ -134,6 +139,13 @@ export function GitActionsControl({ snapshot }: { snapshot: ThreadDetailSnapshot
   }, [currentTurnId, refreshStatus]);
   useWindowReturn(() => refreshProject(registry, snapshot.projectId));
 
+  // `git.commit` and `git.push` do what the button and the menu's Commit &
+  // push do. The hooks run before the early return below; `start` is assigned
+  // further down in the same render, and stays unset outside a repository.
+  let start: ((action: GitAction) => void) | undefined;
+  useKeybindingCommand("git.commit", () => start?.("commit"));
+  useKeybindingCommand("git.push", () => start?.("commit-push"));
+
   if (
     (status._tag === "ok" && status.value.isRepository === false) ||
     (branches._tag === "ok" && !branches.value.isRepository)
@@ -178,7 +190,7 @@ export function GitActionsControl({ snapshot }: { snapshot: ThreadDetailSnapshot
     }
   };
 
-  const start = (action: GitAction) => {
+  start = (action: GitAction) => {
     if (ready === null || reasonFor(action) !== null) {
       return;
     }

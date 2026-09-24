@@ -18,6 +18,9 @@
  * list the same way the Changes pane refetches its diff. When the list cannot
  * be read — offline, or a client that does not serve git at all — the trigger
  * is disabled and its tooltip says why, rather than the header failing.
+ *
+ * `git.branchPicker` (Mod+Shift+G) opens the popover while the trigger is
+ * enabled.
  */
 
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
@@ -33,6 +36,7 @@ import type { GitBranchList } from "@OpenAde/contracts/git";
 import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
 
 import { useBranchWrites, useGitAtoms } from "@/components/panes/changes/git-atoms";
+import { useKeybindingCommand } from "@/lib/shortcuts";
 import { turnInFlight } from "@/lib/turn";
 import { useConnectionState } from "@/state/hooks";
 import { GitBranch, GitFork, Spinner } from "@honeyicons/react";
@@ -78,6 +82,15 @@ export function BranchPicker({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
 
   const [open, setOpen] = React.useState(false);
   const [pending, setPending] = React.useState(false);
+
+  // `git.branchPicker` opens the popover the trigger opens, only while the
+  // trigger itself could; `openable` is assigned below in the same render.
+  let openable = false;
+  useKeybindingCommand("git.branchPicker", () => {
+    if (openable) {
+      setOpen(true);
+    }
+  });
 
   // The agent may have switched branches itself; its turn is over when
   // `currentTurnId` falls back to null.
@@ -137,6 +150,7 @@ export function BranchPicker({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
         : worktree === undefined && turnInFlight(snapshot)
           ? RUNNING_REASON
           : null;
+  openable = disabledReason === null && !pending;
   // The trigger truncates a long branch, so the tooltip names it in full.
   const tooltip =
     disabledReason ??

@@ -120,6 +120,10 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<Keybinding> = [
   { command: "timeline.jumpToLatest", shortcut: "Mod+Shift+J", when: THREAD },
   { command: "timeline.collapseAll", shortcut: "Mod+Alt+[", when: THREAD },
   { command: "timeline.expandAll", shortcut: "Mod+Alt+]", when: THREAD },
+  // Git, answered by the thread header while a thread is open
+  { command: "git.commit", shortcut: "Mod+Alt+C" },
+  { command: "git.push", shortcut: "Mod+Alt+P" },
+  { command: "git.branchPicker", shortcut: "Mod+Shift+G" },
   // Cards
   { command: "approval.allowOnce", shortcut: "1", when: APPROVAL_CARD },
   { command: "approval.allowSession", shortcut: "2", when: APPROVAL_CARD },
@@ -154,9 +158,6 @@ export interface ReservedKeybinding extends Keybinding {
  * read, never bindings; the test refuses a plain chord on any of them.
  */
 export const RESERVED_KEYBINDINGS: ReadonlyArray<ReservedKeybinding> = [
-  { command: "git.commit", shortcut: "Mod+Alt+C", for: "Commit the staged changes" },
-  { command: "git.push", shortcut: "Mod+Alt+P", for: "Push the current branch" },
-  { command: "git.branchPicker", shortcut: "Mod+Shift+G", for: "Open the branch picker" },
   {
     command: "browser.focusUrl",
     shortcut: "Mod+L",
