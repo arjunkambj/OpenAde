@@ -37,6 +37,7 @@ import * as Stream from "effect/Stream";
 
 import { makeLiveBuffer, sizeOfJson } from "../orchestration/LiveBuffer";
 import { OrchestrationEngine } from "../orchestration/Engine";
+import { threadWorkspaceRoot } from "../orchestration/workspaceRoot";
 import { TerminalService } from "../rpc/services";
 import { spawnPty } from "./pty";
 import { makeSession, type TerminalSession } from "./session";
@@ -46,9 +47,8 @@ const DEFAULT_TITLE = "Terminal";
 
 export interface TerminalServiceOptions {
   /**
-   * The directory a thread's terminals start in. The one place a thread is
-   * mapped to a folder: a thread that gets a worktree of its own changes this
-   * function and nothing else.
+   * The directory a thread's terminals start in: the thread's workspace root,
+   * so a worktree thread's terminals start in its worktree.
    */
   readonly workspaceFor: (threadId: ThreadId) => Effect.Effect<string, OpenAdeRpcError>;
   /** The engine's event subscription, for the teardown reactor. */
@@ -62,8 +62,9 @@ export interface TerminalServiceOptions {
 }
 
 /**
- * A thread's project folder, as long as it still exists on disk — a shell
- * started in a deleted directory would only print errors.
+ * A thread's workspace root — its worktree when it has one, its project's
+ * folder otherwise — as long as it still exists on disk: a shell started in a
+ * deleted directory would only print errors.
  */
 export const workspaceOf =
   (engine: OrchestrationEngine["Service"]) =>
@@ -83,8 +84,9 @@ export const workspaceOf =
       if (project === null) {
         return yield* notFound(`project ${doc.projectId} does not exist`);
       }
+      const root = threadWorkspaceRoot(doc, project);
       const isDirectory = yield* Effect.promise(() =>
-        stat(project.workspaceRoot).then(
+        stat(root).then(
           (stats) => stats.isDirectory(),
           () => false,
         ),
@@ -92,10 +94,13 @@ export const workspaceOf =
       if (!isDirectory) {
         return yield* new OpenAdeRpcError({
           code: "invalid",
-          message: "the project folder no longer exists",
+          message:
+            root === project.workspaceRoot
+              ? "the project folder no longer exists"
+              : "the thread's worktree no longer exists",
         });
       }
-      return project.workspaceRoot;
+      return root;
     }).pipe(
       // The SQL detail stays in the server log; the client learns the lookup failed.
       Effect.catchTag("SqlError", (error) =>

@@ -101,8 +101,9 @@ interface Stack {
     scope: Scope.Scope,
     spawn?: typeof spawnPty,
   ) => Effect.Effect<TerminalService["Service"]>;
-  /** A thread on a project rooted at `workspace`. */
+  /** A thread on a project rooted at `workspace`, in `worktree` when given one. */
   readonly thread: Effect.Effect<ThreadId>;
+  readonly worktreeThread: (worktree: string) => Effect.Effect<ThreadId>;
 }
 
 const buildStack: Effect.Effect<Stack, never, Scope.Scope> = Effect.gen(function* () {
@@ -125,6 +126,22 @@ const buildStack: Effect.Effect<Stack, never, Scope.Scope> = Effect.gen(function
     name: "demo",
     workspaceRoot: workspace,
   });
+  const createThread = (worktree: string | undefined) =>
+    Effect.gen(function* () {
+      const threadId = makeThreadId();
+      yield* engine.dispatch({
+        commandId: makeCommandId(),
+        createdAt: NOW,
+        type: "thread.create",
+        threadId,
+        projectId,
+        settings: { model: "fake/model" },
+        ...(worktree === undefined
+          ? {}
+          : { worktree: { path: worktree, branch: "openade/fix", baseBranch: "main" } }),
+      });
+      return threadId;
+    }).pipe(Effect.orDie);
   return {
     engine,
     workspace,
@@ -137,18 +154,8 @@ const buildStack: Effect.Effect<Stack, never, Scope.Scope> = Effect.gen(function
         shell: { file: "/bin/sh", args: [] },
         env: { HOME: home, PATH: process.env.PATH ?? "/usr/bin:/bin", PS1: "$ " },
       }).pipe(Scope.provide(scope)),
-    thread: Effect.gen(function* () {
-      const threadId = makeThreadId();
-      yield* engine.dispatch({
-        commandId: makeCommandId(),
-        createdAt: NOW,
-        type: "thread.create",
-        threadId,
-        projectId,
-        settings: { model: "fake/model" },
-      });
-      return threadId;
-    }).pipe(Effect.orDie),
+    thread: createThread(undefined),
+    worktreeThread: (path: string) => createThread(path),
   };
 }).pipe(Effect.orDie);
 
@@ -445,6 +452,23 @@ describe("workspaceOf", () => {
         });
         yield* toggle("thread.unarchive");
         expect(yield* Effect.orDie(resolve(threadId))).toBe(stack.workspace);
+      }),
+    ),
+  );
+
+  it.live("starts a worktree thread in its worktree, and refuses it once that is gone", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const stack = yield* buildStack;
+        const resolve = workspaceOf(stack.engine);
+        const worktree = yield* tempDir("worktree");
+        const threadId = yield* stack.worktreeThread(worktree);
+        expect(yield* Effect.orDie(resolve(threadId))).toBe(worktree);
+        rmSync(worktree, { recursive: true, force: true });
+        expect(yield* Effect.flip(resolve(threadId))).toMatchObject({
+          code: "invalid",
+          message: "the thread's worktree no longer exists",
+        });
       }),
     ),
   );

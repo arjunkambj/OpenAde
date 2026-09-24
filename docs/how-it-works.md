@@ -1668,10 +1668,10 @@ number; past that the strip scrolls sideways, fades at an edge with more tabs
 beyond it, and turns a vertical mouse wheel into a sideways scroll.
 
 On the server, `TerminalService` (`apps/server/src/terminal/TerminalService.ts`)
-asks `workspaceOf` for the directory: the thread's project folder, refused as
-`not-found` for a deleted thread, and as `invalid` for an archived one or a
-folder that no longer exists on disk. It is the one place a thread is mapped to
-a folder. The shell comes from `resolveShell` in
+asks `workspaceOf` for the directory: the thread's workspace root from
+`threadWorkspaceRoot` — its worktree when it has one, its project's folder
+otherwise — refused as `not-found` for a deleted thread, and as `invalid` for
+an archived one or a folder that no longer exists on disk. The shell comes from `resolveShell` in
 `apps/server/src/terminal/shell.ts`: `$SHELL` when it is an absolute path,
 else `/bin/zsh` on macOS and bash (or `sh`) on Linux, with `-l` so it reads the
 user's profile — an app launched from the Finder has only launchd's bare
