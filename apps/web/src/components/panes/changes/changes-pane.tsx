@@ -10,11 +10,10 @@
  * and that is how "this is not a git repo" differs from "nothing changed". The
  * branch itself is the thread header's, so the pane does not repeat it.
  *
- * Restore lives behind `RestoreCheckpointDialog`, only while a turn is shown —
- * it puts the worktree back to how that turn left it — and is disabled while a
- * turn is running — the server rejects it
- * anyway, but a disabled button with a reason beats a rejection after the
- * fact.
+ * Restore lives behind `RestoreCheckpointButton` and its dialog, only while a
+ * turn is shown — it puts the worktree back to how that turn left it — and is
+ * disabled while a turn is running — the server rejects it anyway, but a
+ * disabled button with a reason beats a rejection after the fact.
  *
  * Refresh — the button, a landed restore and a finished turn
  * (`use-changes-refresh.ts`) — rereads every git read of the project, so the
@@ -45,7 +44,7 @@ import { BaseLine, RestoreProgress } from "./changes-header";
 import { ChangesList, NotARepository, queryValue } from "./changes-list";
 import { linkedTurnChoice } from "./deep-link";
 import { useGitAtoms } from "./git-atoms";
-import { RestoreCheckpointDialog } from "./restore-dialog";
+import { RestoreCheckpointButton } from "./restore-dialog";
 import { BRANCH, ScopeBar, UNCOMMITTED } from "./scope-bar";
 import {
   branchBaseFor,
@@ -211,7 +210,7 @@ export function ChangesPane({ snapshot }: { snapshot: ThreadDetailView }) {
         }
         restore={
           shownScope === "turn" ? (
-            <RestoreCheckpointDialog
+            <RestoreCheckpointButton
               threadId={snapshot.threadId}
               checkpoint={turn}
               label={turnLabel ?? "this turn"}

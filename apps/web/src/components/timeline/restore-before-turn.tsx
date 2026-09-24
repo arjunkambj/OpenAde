@@ -2,7 +2,8 @@
  * A button that restores the workspace to how it was before a turn ran —
  * "Restore to here" under a user message, "Undo" on a turn's summary card.
  * Both go back to the same place: the checkpoint of the turn before
- * (`checkpointBefore`), through the timeline's restore dialog.
+ * (`checkpointBefore`), through the app's one restore dialog, the Changes
+ * pane's (`panes/changes/restore-dialog.tsx`).
  *
  * There is nothing to restore before the thread's first turn or in a
  * workspace without git, so the button is left out there, as it is outside a
@@ -19,7 +20,7 @@ import type { TurnId } from "@OpenAde/contracts/ids";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import * as React from "react";
 
-import { RestoreCheckpointDialog } from "@/components/timeline/restore-checkpoint-dialog";
+import { RestoreCheckpointDialog } from "@/components/panes/changes/restore-dialog";
 import { useTimelineThread } from "@/components/timeline/thread-context";
 import { checkpointBefore, skipsTurns } from "@/components/timeline/turn-checkpoints";
 

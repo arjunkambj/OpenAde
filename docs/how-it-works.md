@@ -1658,9 +1658,11 @@ project, the list among them, and the Changes pane with it.
 The buttons are disabled, with the reason in the tooltip, while the server is
 out of reach, while a restore is running, and while a turn is in flight
 (`turnInFlight`, since the server holds its turn from `turn.requested`). Each
-opens `timeline/restore-checkpoint-dialog.tsx`, which confirms, dispatches
-`thread.checkpoint.restore` and reports a rejected receipt or an unreachable
-server inside the dialog, as the pane's does. The conversation is left as it
+opens the Changes pane's restore dialog (`panes/changes/restore-dialog.tsx`,
+the app's one restore confirmation) with its own title and wording; it
+confirms, dispatches `thread.checkpoint.restore` and reports a rejected
+receipt or an unreachable server inside the dialog. A turn that starts while
+it is open disables its Restore and says why. The conversation is left as it
 is; only the files move.
 
 ### Branches

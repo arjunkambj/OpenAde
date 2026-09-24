@@ -601,7 +601,7 @@ its rules in pure modules with unit tests and its rows in thin components:
 | Labels and folds      | `work-summary.ts` (sentence labels), `disclosure.ts` (expand/collapse-all ids)            | `turn-fold-row.tsx`, `work-group-row.tsx`, `turn-summary-row.tsx`, `row-shell.tsx`                  |
 | Markdown and code     | `markdown-blocks.ts`, `code-fence.ts`, `remark-user-text.ts`, `user-message-collapse.ts`  | `markdown.tsx`, `code-block.tsx`, `user-message-row.tsx`, `message-rows.tsx`, `attachments.tsx`     |
 | File chips            | `path-links.ts`, `tool-target.ts`                                                         | `path-chips.tsx`, `use-path-chips.ts`, `markdown-paths.tsx`, `file-chip.tsx`, `file-change-row.tsx` |
-| Footers and restore   | `turn-checkpoints.ts`                                                                     | `message-footer.tsx`, `restore-before-turn.tsx`, `restore-checkpoint-dialog.tsx`                    |
+| Footers and restore   | `turn-checkpoints.ts`                                                                     | `message-footer.tsx`, `restore-before-turn.tsx` (the Changes pane's `restore-dialog.tsx`)           |
 | Scroll and navigation | `send-anchor.ts`, `turn-rail.ts`                                                          | `use-send-anchor.ts`, `jump-to-latest.tsx`, `turn-rail-view.tsx`                                    |
 | Context for every row | —                                                                                         | `thread-context.tsx`, filled by `use-timeline-thread.ts`                                            |
 
