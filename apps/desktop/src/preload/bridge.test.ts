@@ -10,7 +10,12 @@
 
 import { describe, expect, it } from "vitest";
 
-import { NO_TAB_HOST, TAB_ANSWER_CHANNEL, TAB_REQUEST_CHANNEL } from "../main/browser/tabsChannel";
+import {
+  CLEAR_THREAD_CHANNEL,
+  NO_TAB_HOST,
+  TAB_ANSWER_CHANNEL,
+  TAB_REQUEST_CHANNEL,
+} from "../main/browser/tabsChannel";
 import { makeOpenAdeBridge, type PreloadIpc, type ServerState } from "./bridge";
 
 type Listener = (event: unknown, ...args: never) => void;
@@ -195,5 +200,36 @@ describe("makeOpenAdeBridge", () => {
       { channel: TAB_ANSWER_CHANNEL, args: [{ id: 3, ok: false, error: "no such tab" }] },
       { channel: TAB_ANSWER_CHANNEL, args: [{ id: 4, ok: false, error: NO_TAB_HOST }] },
     ]);
+  });
+
+  it("hands a popup's opener to the tab host and answers with the new tab", async () => {
+    const fake = fakeIpc();
+    const requests: Array<unknown> = [];
+    const stop = makeOpenAdeBridge(fake.ipc).browserPane.serveTabs(async (request) => {
+      requests.push(request);
+      return { wcId: 40 };
+    });
+    fake.push(TAB_REQUEST_CHANNEL, {
+      id: 9,
+      op: "create",
+      threadId: "t",
+      url: "https://popup.test/",
+      background: false,
+      opener: 12,
+    });
+    await fake.invoked(1);
+    stop();
+    expect(requests).toEqual([
+      { op: "create", threadId: "t", url: "https://popup.test/", background: false, opener: 12 },
+    ]);
+    expect(fake.invokes).toEqual([
+      { channel: TAB_ANSWER_CHANNEL, args: [{ id: 9, ok: true, wcId: 40 }] },
+    ]);
+  });
+
+  it("asks main to clear a deleted thread's browsing data on its own channel", async () => {
+    const fake = fakeIpc();
+    await makeOpenAdeBridge(fake.ipc).browserPane.clearThread("thread-1");
+    expect(fake.invokes).toEqual([{ channel: CLEAR_THREAD_CHANNEL, args: ["thread-1"] }]);
   });
 });

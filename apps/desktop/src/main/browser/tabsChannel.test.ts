@@ -91,6 +91,24 @@ describe("makeTabsChannel", () => {
     await expect(closing).rejects.toThrow("no such tab");
   });
 
+  it("names a popup's opener, and only a popup's", async () => {
+    const win = fakeWindow();
+    const channel = makeTabsChannel({ window: () => win.window });
+    void channel.create("t1", "https://popup.test/", false, 12).catch(() => undefined);
+    void channel.create("t1", "about:blank", true).catch(() => undefined);
+    const [popup, agent] = win.sent.map((entry) => entry.payload);
+    expect(popup).toEqual({
+      id: popup?.id,
+      op: "create",
+      threadId: "t1",
+      url: "https://popup.test/",
+      background: false,
+      opener: 12,
+    });
+    expect(agent).not.toHaveProperty("opener");
+    channel.abandon(win.window.id);
+  });
+
   it("refuses a create answer that names no tab", async () => {
     const win = fakeWindow();
     const channel = makeTabsChannel({ window: () => win.window });

@@ -18,6 +18,12 @@
 
 export const TAB_REQUEST_CHANNEL = "openade:browser-tab-request";
 export const TAB_ANSWER_CHANNEL = "openade:browser-tab-answer";
+/**
+ * The window asks main to wipe a deleted thread's partition (`./clearThread`).
+ * Declared here, beside the other pane channels, because the sandboxed
+ * preload imports this module and `./clearThread` pulls in `node:crypto`.
+ */
+export const CLEAR_THREAD_CHANNEL = "openade:browser-clear-thread";
 
 /** What a window with no tab host answers; the preload sends it on the renderer's behalf. */
 export const NO_TAB_HOST = "the OpenAde window cannot open browser tabs";
@@ -30,6 +36,8 @@ export type TabRequest =
       readonly url: string;
       /** Open behind the current tab rather than selecting it. */
       readonly background: boolean;
+      /** For a popup: the `webContents` id of the tab whose page opened it. */
+      readonly opener?: number;
     }
   | { readonly op: "close"; readonly wcId: number }
   | { readonly op: "select"; readonly wcId: number };
@@ -53,8 +61,13 @@ export interface TabsChannelOptions {
 }
 
 export interface TabsChannel {
-  /** Resolves the new guest's `webContents` id. */
-  readonly create: (threadId: string, url: string, background: boolean) => Promise<number>;
+  /** Resolves the new guest's `webContents` id; `opener` marks a popup. */
+  readonly create: (
+    threadId: string,
+    url: string,
+    background: boolean,
+    opener?: number,
+  ) => Promise<number>;
   readonly close: (wcId: number) => Promise<void>;
   readonly select: (wcId: number) => Promise<void>;
   /** An answer arrived from `senderId`'s window. */
@@ -110,8 +123,14 @@ export const makeTabsChannel = (options: TabsChannelOptions): TabsChannel => {
   };
 
   return {
-    create: async (threadId, url, background) => {
-      const answer = await request({ op: "create", threadId, url, background });
+    create: async (threadId, url, background, opener) => {
+      const answer = await request({
+        op: "create",
+        threadId,
+        url,
+        background,
+        ...(opener !== undefined && { opener }),
+      });
       if (answer.wcId === undefined) {
         throw new Error("the OpenAde window opened a tab but did not say which");
       }

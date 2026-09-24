@@ -10,6 +10,7 @@
  */
 
 import {
+  CLEAR_THREAD_CHANNEL,
   NO_TAB_HOST,
   TAB_ANSWER_CHANNEL,
   TAB_REQUEST_CHANNEL,
@@ -131,12 +132,16 @@ export const makeOpenAdeBridge = (ipc: PreloadIpc) => {
      * like `BrowserHumanInput`, tagged with its thread and tab — which the pane
      * forwards as `browser.humanInput` so the server can mark human control.
      * `serveTabs` makes the caller the window's tab host, which opens, closes
-     * and selects pane tabs when the agent or a popup asks.
+     * and selects pane tabs when the agent or a popup asks. `clearThread`
+     * wipes a deleted thread's browsing data; main validates the id.
      */
     browserPane: {
       onInput: (callback: (payload: BrowserPaneGuestInput) => void): (() => void) =>
         subscribe<BrowserPaneGuestInput>(ipc, "openade:browser-input", callback),
       serveTabs,
+      clearThread: async (threadId: string): Promise<void> => {
+        await ipc.invoke(CLEAR_THREAD_CHANNEL, threadId);
+      },
     },
   };
 };

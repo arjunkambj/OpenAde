@@ -35,6 +35,8 @@ export type BrowserPaneTabRequest =
       readonly threadId: string;
       readonly url: string;
       readonly background: boolean;
+      /** For a popup: the `webContents` id of the tab whose page opened it. */
+      readonly opener?: number;
     }
   | { readonly op: "close"; readonly wcId: number }
   | { readonly op: "select"; readonly wcId: number };
@@ -90,8 +92,9 @@ declare global {
       readonly openExternal?: (url: string) => Promise<void>;
       /**
        * Desktop-only browser-pane bridge: human input from the pane's
-       * webviews, and the tab host the shell asks to open, close and select
-       * pane tabs (resolving the new tab's `webContents` id for `create`).
+       * webviews, the tab host the shell asks to open, close and select
+       * pane tabs (resolving the new tab's `webContents` id for `create`),
+       * and `clearThread`, which wipes a deleted thread's browsing data.
        * Absent under a plain browser — the pane then renders the
        * owned-Chromium frame stream.
        */
@@ -100,6 +103,7 @@ declare global {
         readonly serveTabs?: (
           handler: (request: BrowserPaneTabRequest) => Promise<{ readonly wcId?: number }>,
         ) => () => void;
+        readonly clearThread?: (threadId: string) => Promise<void>;
       };
     };
   }

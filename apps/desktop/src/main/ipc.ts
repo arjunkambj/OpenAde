@@ -12,16 +12,21 @@
  * - the bridge registry (`./browser/guests.ts`), which attaches its debugger
  *   when the bridge is running.
  * The window answers tab requests (`./browser/tabsChannel.ts`) on its own
- * channel.
+ * channel, and asks for a deleted thread's partition to be cleared
+ * (`./browser/clearThread.ts`).
  */
-import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+
+import { app, BrowserWindow, dialog, ipcMain, session, shell } from "electron";
 import type { WebContents } from "electron";
 
 import type { ServerSupervisor } from "../backend/ServerSupervisor";
 
+import { makeClearThread } from "./browser/clearThread";
 import { makeGuestInputRelay } from "./browser/guestInput";
 import { popupUrl, type GuestRegistry } from "./browser/guests";
-import { TAB_ANSWER_CHANNEL, type TabsChannel } from "./browser/tabsChannel";
+import { CLEAR_THREAD_CHANNEL, TAB_ANSWER_CHANNEL, type TabsChannel } from "./browser/tabsChannel";
 import { registerServerStateBridge } from "./serverStateBridge";
 
 /** The browser pane's main-process side, built in `./index.ts`. */
@@ -59,6 +64,15 @@ export function registerIpc(supervisor: ServerSupervisor, pane: PaneGuests) {
   ipcMain.handle(TAB_ANSWER_CHANNEL, (event, payload: unknown) => {
     pane.tabs.answer(event.sender.id, payload);
   });
+  // Electron keeps `persist:<name>` under `<sessionData>/Partitions/<name>`.
+  const clearThread = makeClearThread({
+    partitionExists: (threadId) =>
+      existsSync(join(app.getPath("sessionData"), "Partitions", `thread-${threadId}`)),
+    fromPartition: (partition) => session.fromPartition(partition),
+  });
+  ipcMain.handle(CLEAR_THREAD_CHANNEL, async (_event, threadId: unknown) => {
+    await clearThread(threadId);
+  });
   app.on("browser-window-created", (_event, win) => {
     const id = win.webContents.id;
     win.webContents.once("destroyed", () => pane.tabs.abandon(id));
@@ -73,7 +87,7 @@ export function registerIpc(supervisor: ServerSupervisor, pane: PaneGuests) {
       const threadId = pane.guests.threadOf(wcId);
       const target = popupUrl(url);
       if (threadId !== null && target !== null) {
-        pane.tabs.create(threadId, target, false).catch((error: unknown) => {
+        pane.tabs.create(threadId, target, false, wcId).catch((error: unknown) => {
           console.warn(`[browser] popup dropped: ${String(error)}`);
         });
       }
