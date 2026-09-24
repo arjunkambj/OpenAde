@@ -15,6 +15,10 @@
  * rebinds the fixture session with it, as the server copies capabilities onto
  * `thread.session.bound`, so the composer's steer state can be seen; the page
  * refreshes `connectors.list`.
+ *
+ * The other RPC answers — files, models, skills, plugins, attachments,
+ * keybindings — live in `fixture-rpc.ts`; this module lends it the thread
+ * stream and the decider.
  */
 
 import { applyThreadStreamItem } from "@OpenAde/client-runtime/clientState";
@@ -23,7 +27,6 @@ import {
   Connection,
   ConnectionStateRef,
   type ConnectionState,
-  type OpenAdeRpcClient,
 } from "@OpenAde/client-runtime/connection";
 import type {
   Command,
@@ -42,18 +45,8 @@ import {
   makeTurnId,
 } from "@OpenAde/contracts/ids";
 import type { ConnectorInstanceId, ProjectId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
-import { OpenAdeRpcError, PROTOCOL_VERSION } from "@OpenAde/contracts/rpc";
-import type {
-  ConnectorDescriptor,
-  ConnectorSummary,
-  ModelOption,
-  PluginSummary,
-  SkillSummary,
-} from "@OpenAde/contracts/connectors";
-import type { FileSearchResult } from "@OpenAde/contracts/rpc";
+import type { ConnectorSummary } from "@OpenAde/contracts/connectors";
 import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
-import { defaultSettings } from "@OpenAde/contracts/settings";
-import type { Keybinding } from "@OpenAde/contracts/settings";
 import { uuidV7 } from "@OpenAde/shared/ids";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -61,102 +54,12 @@ import * as Queue from "effect/Queue";
 import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
 
+import { FIXTURE_NOW as NOW, makeFixtureRpc } from "@/lib/fixture-rpc";
+
 type EventPayload<T extends OrchestrationEventType> = Extract<
   OrchestrationEvent,
   { type: T }
 >["payload"];
-
-// ── Inline fixture data ────────────────────────────────────────
-
-const NOW = "2026-01-01T00:00:00.000Z";
-
-const FIXTURE_FILES: ReadonlyArray<FileSearchResult> = [
-  { path: "src/app.tsx", name: "app.tsx", isDirectory: false },
-  { path: "src/components/composer.tsx", name: "composer.tsx", isDirectory: false },
-  { path: "src/routes", name: "routes", isDirectory: true },
-  { path: "docs/architecture.md", name: "architecture.md", isDirectory: false },
-  { path: "packages/contracts/src/orchestration.ts", name: "orchestration.ts", isDirectory: false },
-  { path: "package.json", name: "package.json", isDirectory: false },
-];
-
-const FIXTURE_MODELS: ReadonlyArray<ModelOption> = [
-  {
-    id: "fixture/flagship",
-    label: "Flagship",
-    family: "fixture",
-    efforts: ["low", "medium", "high", "xhigh", "max"],
-    contextWindow: 200000,
-  },
-  {
-    id: "fixture/mid",
-    label: "Mid",
-    family: "fixture",
-    efforts: ["low", "medium", "high"],
-    contextWindow: 200000,
-  },
-  {
-    id: "fixture/small",
-    label: "Small",
-    family: "fixture",
-    efforts: ["low", "medium"],
-  },
-];
-
-const FIXTURE_SKILLS: ReadonlyArray<SkillSummary> = [
-  {
-    name: "commit",
-    path: "skills/commit.md",
-    description: "Write a commit message",
-    enabled: true,
-  },
-  {
-    name: "review",
-    path: "skills/review.md",
-    description: "Review the current diff",
-    enabled: true,
-  },
-  {
-    // A paragraph, like most real skill descriptions: the menus must still
-    // show the name beside it.
-    name: "migrate-database",
-    path: "skills/migrate-database.md",
-    description:
-      "Plan and run a database schema migration end to end: read the current schema, write the forward and backward migration files, run them against a scratch copy, compare row counts before and after, and report anything that would lock a large table for longer than a few seconds.",
-    enabled: true,
-  },
-  ...["changelog", "deps-audit", "docs-sync", "flaky-tests", "perf-profile", "release"].map(
-    (name): SkillSummary => ({
-      name,
-      path: `skills/${name}.md`,
-      description: `The ${name} skill`,
-      enabled: true,
-    }),
-  ),
-  {
-    name: "bench",
-    path: "skills/bench.md",
-    description: "Run the benchmark suite",
-    enabled: false,
-  },
-];
-
-/** The first fixture connector's plugins; the second carries no plugins extension. */
-const FIXTURE_PLUGINS: ReadonlyArray<PluginSummary> = [
-  {
-    name: "formatter",
-    description: "Format files after every edit",
-    source: "fixture-marketplace",
-    scope: "user",
-    enabled: true,
-  },
-  {
-    name: "release-notes",
-    description: "Draft release notes from merged changes",
-    source: "fixture-marketplace",
-    scope: "project",
-    enabled: true,
-  },
-];
 
 const baseDoc = (
   threadId: ThreadId,
@@ -244,13 +147,7 @@ export interface FixtureClient {
   onCommand: ((command: Command, receipt: CommandReceipt) => void) | undefined;
 }
 
-/** A 1x1 transparent PNG, for an attachment the fixture never really stored. */
-const FIXTURE_PIXEL =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
-
 export const makeFixtureClient = (): FixtureClient => {
-  /** What the page staged this session, keyed by the path it was given. */
-  const fixtureAttachments = new Map<string, string>();
   const threadId = makeThreadId();
   const projectId = makeProjectId();
   const connectorInstanceId = makeConnectorInstanceId();
@@ -260,8 +157,6 @@ export const makeFixtureClient = (): FixtureClient => {
   const queue = Effect.runSync(Queue.unbounded<ThreadStreamItem>());
   let doc = baseDoc(threadId, projectId, connectorInstanceId);
   let streamVersion = 0;
-  // The user's overrides, as the server stores them: none, so every default.
-  let keybindings: ReadonlyArray<Keybinding> = [];
   let steering = false;
   let handle: FixtureClient;
 
@@ -548,132 +443,33 @@ export const makeFixtureClient = (): FixtureClient => {
     extensions: { skills: false, plugins: false, mcpServers: false },
   });
 
-  /** What the fixture build "ships": the one connector kind above, with a form. */
-  const descriptor: ConnectorDescriptor = {
-    kind: "fixture",
-    metadata: { displayName: "Fixture connector", iconKey: "terminal", accent: "#6b7280" },
-    configFields: [
-      {
-        key: "binaryPath",
-        label: "Binary path",
-        description: "Path to the harness binary. Leave empty to use the discovered one.",
-        control: "path",
-        placeholder: "harness",
-        optional: true,
-      },
-    ],
+  /** The dispatch RPC: decide, emit, then report the receipt to the page's log. */
+  const dispatch = (command: Command): CommandReceipt => {
+    const outcome = decide(command);
+    outcome.events();
+    const receipt: CommandReceipt = {
+      commandId: command.commandId,
+      status: outcome.reason === undefined ? "accepted" : "rejected",
+      ...(outcome.reason === undefined ? {} : { reason: outcome.reason }),
+      lastSequence: doc.snapshotSequence,
+    };
+    handle.onCommand?.(command, receipt);
+    return receipt;
   };
 
-  const client = new Proxy({} as OpenAdeRpcClient, {
-    get: (_target, key) => {
-      switch (key) {
-        case "server.hello":
-          return () => Effect.succeed({ protocolVersion: PROTOCOL_VERSION, serverInstanceId });
-        case "threads.subscribe":
-          return () =>
-            Stream.suspend(() =>
-              Stream.concat(
-                Stream.succeed({ kind: "snapshot" as const, snapshot: doc }),
-                Stream.fromQueue(queue),
-              ),
-            );
-        case "threads.listSubscribe":
-          return () => Stream.never;
-        case "orchestration.dispatch":
-          return ({ command }: { command: Command }) =>
-            Effect.sync(() => {
-              const outcome = decide(command);
-              outcome.events();
-              const receipt: CommandReceipt = {
-                commandId: command.commandId,
-                status: outcome.reason === undefined ? "accepted" : "rejected",
-                ...(outcome.reason === undefined ? {} : { reason: outcome.reason }),
-                lastSequence: doc.snapshotSequence,
-              };
-              handle.onCommand?.(command, receipt);
-              return receipt;
-            });
-        case "files.search": {
-          return ({ query }: { query: string }) =>
-            Effect.succeed(
-              FIXTURE_FILES.filter(
-                (file) =>
-                  query.trim().length === 0 ||
-                  file.path.toLowerCase().includes(query.trim().toLowerCase()),
-              ).slice(0, 20),
-            );
-        }
-        // Attachments in the fixture never leave the browser: staging echoes a
-        // plausible reference, and reading one back answers the placeholder
-        // pixel, so the composer's upload path can be driven with no server.
-        case "attachments.stage":
-          return ({ threadId, name, base64 }: { threadId: string; name: string; base64: string }) =>
-            Effect.sync(() => {
-              const path = `/fixture/attachments/${threadId}/${name}`;
-              fixtureAttachments.set(path, base64);
-              return {
-                path,
-                name,
-                mime: "image/png",
-                size: Math.floor((base64.length * 3) / 4),
-                sha256: "0".repeat(64),
-              };
-            });
-        case "attachments.read":
-          return ({ path }: { path: string }) =>
-            Effect.sync(() => {
-              const base64 = fixtureAttachments.get(path) ?? FIXTURE_PIXEL;
-              return { mime: "image/png", size: Math.floor((base64.length * 3) / 4), base64 };
-            });
-        case "connectors.list":
-          return () => Effect.sync(() => [connector(), secondConnector()]);
-        case "connectors.models":
-          return ({ instanceId }: { instanceId: string }) =>
-            Effect.succeed(
-              instanceId === connectorInstanceId ? FIXTURE_MODELS : FIXTURE_MODELS.slice(1),
-            );
-        case "connectors.describe":
-          return () => Effect.succeed([descriptor]);
-        case "connectors.skills.list":
-          return () => Effect.succeed(FIXTURE_SKILLS.filter((skill) => skill.enabled));
-        case "connectors.plugins.list":
-          return ({ instanceId }: { instanceId: string }) =>
-            instanceId === connectorInstanceId
-              ? Effect.succeed(FIXTURE_PLUGINS)
-              : Effect.fail(
-                  new OpenAdeRpcError({
-                    code: "unavailable",
-                    message: `connector instance ${instanceId} does not manage plugins`,
-                  }),
-                );
-        case "keybindings.get":
-          return () => Effect.succeed(keybindings);
-        case "keybindings.update":
-          return ({ keybindings: next }: { keybindings: ReadonlyArray<Keybinding> }) =>
-            Effect.sync(() => {
-              keybindings = [...next];
-              return keybindings;
-            });
-        case "settings.get":
-          return () => Effect.succeed(defaultSettings());
-        case "settings.subscribe":
-          return () => Stream.succeed(defaultSettings());
-        case "projects.list":
-          return () =>
-            Effect.succeed([
-              {
-                projectId,
-                name: "fixture project",
-                workspaceRoot: "/fixture",
-                createdAt: NOW,
-                updatedAt: NOW,
-                threadCount: 1,
-              },
-            ]);
-        default:
-          return () => Effect.die(new Error(`fixture: unimplemented rpc ${String(key)}`));
-      }
-    },
+  const client = makeFixtureRpc({
+    serverInstanceId,
+    projectId,
+    connectorInstanceId,
+    subscribe: () =>
+      Stream.suspend(() =>
+        Stream.concat(
+          Stream.succeed({ kind: "snapshot" as const, snapshot: doc }),
+          Stream.fromQueue(queue),
+        ),
+      ),
+    dispatch,
+    connectors: () => [connector(), secondConnector()],
   });
 
   const state = Effect.runSync(
