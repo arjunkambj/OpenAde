@@ -185,12 +185,23 @@ const codeFallbackKey = (event: ShortcutEvent): string | undefined =>
   /^[a-z0-9]$/u.test(eventKey(event)) ? undefined : keyFromCode(event.code);
 
 /**
+ * The digit a number-row key is, whatever it types. On AZERTY the unshifted
+ * key at `Digit1` types `&` (and so does Mod with it, even on macOS), and
+ * Shift is what types `1`; a digit chord that trusted the reported character
+ * could never fire there. So a digit is always the physical number-row key.
+ */
+const digitRowKey = (event: ShortcutEvent): string | undefined =>
+  event.code === undefined ? undefined : /^Digit(\d)$/u.exec(event.code)?.[1];
+
+/**
  * Exact-modifier match. `mod` is the platform modifier — `metaKey` on macOS,
  * `ctrlKey` elsewhere — while `ctrl` always means the physical Control key.
  * Undeclared modifiers must not be held: `Mod+K` does not fire on
  * `Mod+Alt+K`, and `Escape` does not fire on `Shift+Escape`. A chord with Alt
  * or Shift also matches on the key `event.code` names, so `Mod+Shift+[`
- * matches a macOS press reporting `{` and `Mod+Alt+R` one reporting `®`.
+ * matches a macOS press reporting `{` and `Mod+Alt+R` one reporting `®`. A
+ * digit chord matches its number-row key on any layout, so `Mod+1` fires on
+ * AZERTY's Mod+`&`.
  */
 export const matchShortcut = (
   shortcut: ParsedShortcut,
@@ -199,7 +210,8 @@ export const matchShortcut = (
 ): boolean => {
   const keyMatches =
     eventKey(event) === shortcut.key ||
-    ((shortcut.alt || shortcut.shift) && codeFallbackKey(event) === shortcut.key);
+    ((shortcut.alt || shortcut.shift) && codeFallbackKey(event) === shortcut.key) ||
+    (/^\d$/u.test(shortcut.key) && digitRowKey(event) === shortcut.key);
   if (!keyMatches) {
     return false;
   }
@@ -286,7 +298,8 @@ const keyLabel = (key: string): string =>
  * editor's record field. Modifier-only presses return null so holding Mod
  * while deciding does not commit anything. With Alt held, or Shift on a key
  * that is not a letter or digit, the key `event.code` names is written, so the
- * recorder stores `Mod+Alt+R` rather than `Mod+Alt+®`. Off macOS a press with
+ * recorder stores `Mod+Alt+R` rather than `Mod+Alt+®`. A number-row key is
+ * always written as its digit, so AZERTY's Mod+`&` records `Mod+1`. Off macOS a press with
  * Super/Win (`metaKey`) held also returns null: the notation has no token for
  * that key there (`Mod` is Ctrl, `Ctrl` is Control), and writing it as `Ctrl`
  * would store a chord that fires on Ctrl and never on the press that made it.
@@ -296,7 +309,10 @@ export const formatEventAsShortcut = (event: ShortcutEvent, modKey: ModKey): str
   if (MODIFIER_KEYS.has(typed) || (modKey === "ctrl" && event.metaKey)) {
     return null;
   }
-  const key = (event.altKey || event.shiftKey ? codeFallbackKey(event) : undefined) ?? typed;
+  const key =
+    digitRowKey(event) ??
+    (event.altKey || event.shiftKey ? codeFallbackKey(event) : undefined) ??
+    typed;
   const parts: Array<string> = [];
   if (modKey === "meta" ? event.metaKey : event.ctrlKey) {
     parts.push("Mod");

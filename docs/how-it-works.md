@@ -2174,7 +2174,10 @@ The matcher is `packages/client-runtime/src/keybindings.ts`:
   chord with Alt or Shift also matches on the key `event.code` names (`KeyR` →
   `r`, `BracketLeft` → `[`), and the recorder writes that key, storing
   `Mod+Alt+R` rather than `Mod+Alt+®`. A reported letter or digit is trusted as
-  it is, so on AZERTY a chord on A does not fire on the key at `KeyQ`.
+  it is, so on AZERTY a chord on A does not fire on the key at `KeyQ`. A digit
+  chord also matches its number-row key (`Digit1` → `1`) whatever that key
+  types: on AZERTY the unshifted key types `&`, so `Mod+1` and the cards' `1`
+  fire there too, and the recorder writes `Mod+1` for that press.
 - **AltGr.** A press where AltGr is typing a character resolves to nothing
   (`isAltGraphTyping`): the event reports the AltGraph modifier, or, off macOS,
   Ctrl and Alt are held and the key typed a printable character that is not its

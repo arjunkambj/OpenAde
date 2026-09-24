@@ -241,6 +241,33 @@ describe("layout-safe matching", () => {
     ).toBe(false);
   });
 
+  it("matches a digit chord on its number-row key whatever the key types", () => {
+    // AZERTY: the unshifted key at Digit1 types `&`, with Mod held too, and
+    // Shift types `1` — so `Mod+1` and the cards' `1` could never fire.
+    expect(
+      matchShortcut(parseShortcut("Mod+1")!, press("&", { code: "Digit1", metaKey: true }), mac),
+    ).toBe(true);
+    expect(
+      matchShortcut(parseShortcut("Mod+1")!, press("&", { code: "Digit1", ctrlKey: true }), "ctrl"),
+    ).toBe(true);
+    expect(matchShortcut(parseShortcut("2")!, press("é", { code: "Digit2" }), mac)).toBe(true);
+    expect(matchShortcut(parseShortcut("2")!, press("é", { code: "Digit3" }), mac)).toBe(false);
+    // Modifiers still match exactly: Shift+Digit1 is not `1`.
+    expect(
+      matchShortcut(parseShortcut("1")!, press("1", { code: "Digit1", shiftKey: true }), mac),
+    ).toBe(false);
+    // The numpad reports its digit, and a chord stored as typed still matches.
+    expect(matchShortcut(parseShortcut("1")!, press("1", { code: "Numpad1" }), mac)).toBe(true);
+    expect(
+      matchShortcut(parseShortcut("Mod+&")!, press("&", { code: "Digit1", metaKey: true }), mac),
+    ).toBe(true);
+  });
+
+  it("records a number-row key as its digit", () => {
+    expect(formatEventAsShortcut(press("&", { code: "Digit1", metaKey: true }), mac)).toBe("Mod+1");
+    expect(formatEventAsShortcut(press("é", { code: "Digit2" }), mac)).toBe("2");
+  });
+
   it("records the physical key when a modifier changed the character", () => {
     expect(
       formatEventAsShortcut(

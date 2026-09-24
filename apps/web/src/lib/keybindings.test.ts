@@ -109,6 +109,16 @@ describe("the default table and the matcher agree", () => {
     expect(resolve(press("j", { metaKey: true }))).toBe("terminal.toggle");
   });
 
+  it("routes AZERTY number-row presses to the digit commands", () => {
+    // The unshifted key at Digit1 types `&`; the digit bindings must still fire.
+    const azerty = (key: string, code: string, modifiers: Parameters<typeof press>[1] = {}) => ({
+      ...press(key, modifiers),
+      code,
+    });
+    expect(resolve(azerty("&", "Digit1", { metaKey: true }))).toBe("thread.jump.1");
+    expect(resolve(azerty("&", "Digit1"), { approvalPending: true })).toBe("approval.allowOnce");
+  });
+
   it("does not fire a bare chord when an extra modifier is held", () => {
     expect(resolve(press("Escape", { shiftKey: true }), { turnRunning: true })).toBeNull();
   });
