@@ -21,7 +21,8 @@
  *
  * `$` has one too, because `$` is also money: it stays closed when the query
  * starts with a digit, so `$5` and `costs $20` never open. `$HOME` does open,
- * with query `HOME`; it lists no skills of that name, so Enter still sends.
+ * with query `HOME`; the menu matches skill names alone, so it lists none
+ * unless a skill is named for it, and Enter still sends.
  *
  * `/`, `@` and `$` open on an empty query and list everything.
  */

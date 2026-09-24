@@ -53,11 +53,16 @@ describe("referenceMenuItems for @", () => {
     expect(labels).not.toContain("parked");
   });
 
-  it("filters by name and description", () => {
+  it("filters by name, ignoring case", () => {
     expect(rows("mention", "form").map((item) => item.label)).toEqual(["formatter"]);
     expect(rows("mention", "HEALTH").map((item) => item.label)).toEqual(["health-checks"]);
-    expect(rows("mention", "release notes").map((item) => item.label)).toEqual(["release-notes"]);
     expect(rows("mention", "nothing like it")).toEqual([]);
+  });
+
+  it("does not match on a description", () => {
+    // "Drafts release notes" and "Run the service health checks".
+    expect(rows("mention", "drafts")).toEqual([]);
+    expect(rows("mention", "service")).toEqual([]);
   });
 
   it("lists skills alone when the harness reports no plugins", () => {
@@ -93,6 +98,20 @@ describe("referenceMenuItems for $", () => {
   it("filters by the query", () => {
     expect(rows("skill", "smoke").map((item) => item.label)).toEqual(["smoke-tests"]);
     expect(rows("skill", "formatter")).toEqual([]);
+  });
+
+  it("lists no row for a shell variable a description happens to mention", () => {
+    const withPath: ReadonlyArray<SkillSummary> = [
+      {
+        name: "resolver",
+        path: "/skills/resolver/SKILL.md",
+        description: "Resolve an import PATH or the HOME directory",
+        enabled: true,
+      },
+    ];
+    for (const query of ["HOME", "PATH"]) {
+      expect(referenceMenuItems({ kind: "skill", query, plugins, skills: withPath })).toEqual([]);
+    }
   });
 
   it("is empty when the harness reports no skills", () => {

@@ -8,6 +8,11 @@
  * skill, even when the skill was picked from the `@` menu. Chips are kept in
  * step with the text by whole-token match, so a plugin and a skill that share
  * a name must not share a token.
+ *
+ * Rows match the query on their name alone, never the description. `$` also
+ * opens on shell variables (`$HOME`, `$PATH`), and a menu with a row owns
+ * Enter, so a skill whose description merely mentions "path" would otherwise
+ * swallow the send.
  */
 
 import type { PluginSummary, SkillSummary } from "@OpenAde/contracts/connectors";
@@ -39,13 +44,11 @@ export const REFERENCE_MENU_LABELS: Readonly<
   skill: { empty: "No skills", label: "Skills" },
 };
 
-const listed = <Entry extends { readonly name: string; readonly description?: string }>(
-  entries: ReadonlyArray<Entry & { readonly enabled: boolean }>,
+const listed = <Entry extends { readonly name: string; readonly enabled: boolean }>(
+  entries: ReadonlyArray<Entry>,
   query: string,
 ): ReadonlyArray<Entry> =>
-  entries.filter(
-    (entry) => entry.enabled && matchesQuery(query, entry.name, entry.description ?? ""),
-  );
+  entries.filter((entry) => entry.enabled && matchesQuery(query, entry.name));
 
 const skillItems = (
   skills: ReadonlyArray<SkillSummary>,

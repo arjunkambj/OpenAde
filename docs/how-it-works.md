@@ -462,7 +462,9 @@ no plugins, so `@` then shows its skills; with neither, the menu says "No
 plugins or skills" (`$` says "No skills"). Both open on an empty query, like
 `/`, so `me@x.com` and `a$b` stay closed but a bare `@` lists everything. `$`
 also stays closed when its query starts with a digit, so `$5` and `costs $20`
-never open; `$HOME` does open and lists no skills, so Enter still sends.
+never open. `$HOME` does open, but both menus match the query against names
+alone, never descriptions, so it lists nothing unless a skill's name holds
+`home`, and Enter still sends.
 
 Every chip stands for exactly one token in the text: `#path` for a file,
 `@name` for a plugin and `$name` for a skill, even a skill picked from `@`, so
