@@ -34,6 +34,7 @@
     "react-dom": "catalog:",
     "react-markdown": "catalog:",
     "remark-gfm": "catalog:",
+    "shiki": "catalog:",
     "sonner": "catalog:",
     "tailwind-merge": "^3.6.0"
   },

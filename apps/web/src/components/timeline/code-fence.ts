@@ -6,7 +6,9 @@
  *
  * - `language` is an id the highlighter bundles, or `"text"` for anything it
  *   does not know, so an unknown fence never asks the worker pool for a
- *   grammar it cannot load;
+ *   grammar it cannot load. A word the table below does not name is looked up
+ *   in Shiki's own list of bundled languages and their aliases — the list the
+ *   pool resolves grammars from — so `r`, `perl` or `solidity` highlight too;
  * - `fileName` is set when the fence names a file: `title="x"` (or
  *   `filename=`/`file=`, either quote), a bare path-like word after the
  *   language (`ts src/app.ts`), `lang:path` (`ts:src/app.ts`), or a path as
@@ -19,6 +21,8 @@
  * since it already tracks every fence the way the parser does.
  */
 
+import { bundledLanguagesInfo } from "shiki";
+
 /** Blocks above either cap render as plain text: tokenizing them would stall a worker. */
 export const HIGHLIGHT_MAX_CHARS = 20_000;
 export const HIGHLIGHT_MAX_LINES = 1_000;
@@ -29,7 +33,11 @@ export interface CodeFenceInfo {
   readonly label: string;
 }
 
-/** Fence word → [highlighter language id, display name]. Keys are lower case. */
+/**
+ * Fence word → [highlighter language id, display name], for the languages an
+ * agent writes most, with the display names and aliases we prefer. Keys are
+ * lower case. Everything else Shiki bundles is found through `bundled`.
+ */
 const LANGUAGES: Readonly<Record<string, readonly [string, string]>> = (() => {
   const table: Record<string, readonly [string, string]> = {};
   const add = (id: string, label: string, aliases: ReadonlyArray<string>) => {
@@ -105,8 +113,24 @@ const NAMED_FILES: Readonly<Record<string, string>> = {
 
 const TEXT = LANGUAGES["text"]!;
 
+let bundled: ReadonlyMap<string, readonly [string, string]> | undefined;
+
+/** Every id and alias Shiki bundles, built on first use. */
+const bundledLanguage = (word: string): readonly [string, string] | undefined => {
+  if (bundled === undefined) {
+    const table = new Map<string, readonly [string, string]>();
+    for (const info of bundledLanguagesInfo) {
+      for (const alias of [info.id, ...(info.aliases ?? [])]) {
+        table.set(alias.toLowerCase(), [info.id, info.name]);
+      }
+    }
+    bundled = table;
+  }
+  return bundled.get(word);
+};
+
 const lookup = (word: string): readonly [string, string] | undefined =>
-  Object.prototype.hasOwnProperty.call(LANGUAGES, word) ? LANGUAGES[word] : undefined;
+  Object.prototype.hasOwnProperty.call(LANGUAGES, word) ? LANGUAGES[word] : bundledLanguage(word);
 
 /** A word that names a file: it has a directory, or a name and an extension. */
 const looksLikePath = (word: string): boolean =>

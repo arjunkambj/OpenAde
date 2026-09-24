@@ -38,6 +38,25 @@ describe("codeFenceInfo", () => {
     expect(codeFenceInfo(["language-TOML"], undefined).language).toBe("toml");
   });
 
+  it("highlights any language the highlighter bundles, by id or alias", () => {
+    expect(codeFenceInfo(["language-r"], undefined)).toEqual({ language: "r", label: "R" });
+    expect(codeFenceInfo(["language-perl"], undefined).language).toBe("perl");
+    expect(codeFenceInfo(["language-solidity"], undefined).language).toBe("solidity");
+    expect(codeFenceInfo(["language-fsharp"], undefined)).toEqual({
+      language: "fsharp",
+      label: "F#",
+    });
+    expect(codeFenceInfo(["language-objc"], undefined)).toEqual({
+      language: "objective-c",
+      label: "Objective-C",
+    });
+    expect(codeFenceInfo(["language-vim"], undefined).language).toBe("viml");
+    // a file's extension finds them too
+    expect(codeFenceInfo(undefined, "analysis/model.jl").language).toBe("julia");
+    // the table's own names still win
+    expect(codeFenceInfo(["language-sh"], undefined).label).toBe("Shell");
+  });
+
   it("keeps an unknown language's word as the label but highlights it as text", () => {
     expect(codeFenceInfo(["language-klingon"], undefined)).toEqual({
       language: "text",

@@ -45,6 +45,8 @@ catalog:
   # Renderer timeline and diff rendering.
   "@legendapp/list": ^3.3.11
   "@pierre/diffs": ^1.4.2
+  # The highlighter @pierre/diffs runs; the renderer reads its language list.
+  shiki: ^4.4.3
   react-markdown: ^10.1.0
   remark-gfm: ^4.0.1
   # Dead-export audit.

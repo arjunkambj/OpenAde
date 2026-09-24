@@ -839,6 +839,9 @@ The header also holds a wrap toggle and a Copy button that copies the source
 text. The code sits in a scroller capped at 24rem. It is highlighted
 by `File` from `@pierre/diffs` through the same worker pool and themes as the
 inline diffs, so Shiki tokenizes off the main thread and follows light/dark.
+A fence's word, or its file's extension, is looked up in a table of common
+languages with the names the header shows, then in Shiki's list of the
+languages it bundles and their aliases, so `r` or `solidity` highlight too.
 A block renders untokenized (language `text`) when its language is unknown,
 when it is over 20,000 characters or 1,000 lines (`code-fence.ts`), or while
 the message streams and its closing fence has not arrived yet — the block
