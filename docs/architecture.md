@@ -743,7 +743,10 @@ Everything a client needs that is not React.
   is authoritative.
 - `atoms.ts`, `gitAtoms.ts`, `fileAtoms.ts`, `fsAtoms.ts`, `browserAtoms.ts` — the
   atom factories. `browserAtoms.ts` holds `devServersAtom(threadId)`, which a
-  failed call leaves an empty list rather than an error.
+  failed call leaves an empty list rather than an error. `fileAtoms.ts` holds
+  `fileStatAtom`, keyed by the sorted, deduplicated set of paths so the same
+  candidates are one call and then a cached answer; a set larger than one
+  `files.stat` carries goes out as several calls.
 - `gitCommands.ts` — the worktree writes: create, the setup script (a stream
   atom whose value is the run so far, so the output shows as it arrives) and
   remove; and the header's commit, push and pull request. Built on
@@ -905,12 +908,23 @@ The thread's **workspace root** is its worktree's path when it has one and the
 project's `workspaceRoot` otherwise (`orchestration/workspaceRoot.ts`). The
 session starts there, the permission gate judges sensitive paths against it,
 checkpoints are captured and restored there, and `git.status`, `git.diff`,
-`files.search`, `files.read` and `checkpoints.list` read it when the call
-names the thread (`threadId` is optional on their payloads; without it they
+`files.search`, `files.read`, `files.stat` and `checkpoints.list` read it when
+the call names the thread (`threadId` is optional on their payloads; without it they
 read the project's root, and a thread of another project is ignored).
 Checkpoint prune is the one exception and stays on the project's root: the
 hidden refs are shared by every worktree of a repository, and a deleted
 thread's worktree may already be gone.
+
+`files.stat` (`apps/server/src/git/stat.ts`) answers which of a batch of paths
+exist in that root. A relative path resolves against the root; an absolute one
+counts only under the root as stored or under its canonical form, since a
+harness may report either. Every target is then resolved through its symlinks
+and has to land strictly inside the canonical root, the check `files.read`
+makes, so `..`, an absolute path elsewhere and a link out of the workspace are
+never reported, and neither is the root itself. A path that fails is left out
+of the answer rather than failing the call. Each answer carries the path as it
+was asked, the root-relative path (a link's own name when it went through an
+in-root symlink) and that path joined onto the root.
 
 A worktree comes from `git.worktree.create` (`apps/server/src/git/Worktrees.ts`)
 before the thread is created: a branch named from the settings document's
@@ -1720,6 +1734,7 @@ the client in the terminal `incompatible` state.
 | `connectors.describe`         | call   | Every connector the build ships: metadata and config form, configured or not        |
 | `files.search`                | call   | The composer's `#` file search; `threadId` searches the thread's root               |
 | `files.read`                  | call   | A window of one file, with a `truncated` flag                                       |
+| `files.stat`                  | call   | Which of up to 100 paths exist inside the root; the others are left out, not errors |
 | `fs.browse`                   | call   | Subfolders of one directory on the server's machine, for the folder picker          |
 | `attachments.stage`           | call   | Uploads one composer image; returns a reference, never echoes bytes                 |
 | `attachments.read`            | call   | Reads a staged image back for a thumbnail                                           |

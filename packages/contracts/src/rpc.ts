@@ -29,7 +29,7 @@ import {
   PluginSummary,
   SkillSummary,
 } from "./connectors";
-import { FileContent, FileSearchResult } from "./files";
+import { FILES_STAT_MAX_PATHS, FileContent, FileSearchResult, FileStat } from "./files";
 import {
   GIT_RPC_METHODS,
   GitBranchCheckoutRpc,
@@ -103,7 +103,7 @@ export const STREAM_BUDGET_BYTES = 8 * 1024 * 1024;
  */
 export const STREAM_COALESCE_MS = 50;
 
-export { FileContent, FileSearchResult } from "./files";
+export { FILES_STAT_MAX_PATHS, FileContent, FileSearchResult, FileStat } from "./files";
 
 /**
  * One subdirectory inside a browsed directory. Files are never listed: this
@@ -271,6 +271,7 @@ export const RPC_METHODS = {
   connectorsDescribe: "connectors.describe",
   filesSearch: "files.search",
   filesRead: "files.read",
+  filesStat: "files.stat",
   fsBrowse: "fs.browse",
   attachmentsStage: "attachments.stage",
   attachmentsRead: "attachments.read",
@@ -406,6 +407,23 @@ const FilesReadRpc = Rpc.make(RPC_METHODS.filesRead, {
     limit: Schema.optional(NonNegativeInt),
   }),
   success: FileContent,
+  error: OpenAdeRpcError,
+});
+
+/**
+ * Which of up to `FILES_STAT_MAX_PATHS` paths exist inside the workspace root.
+ * A relative path resolves against the root, an absolute one counts only when
+ * it lies inside it. A missing, escaping or unreadable path is left out of the
+ * answer rather than failing the call, so one bad candidate never costs the
+ * others theirs.
+ */
+const FilesStatRpc = Rpc.make(RPC_METHODS.filesStat, {
+  payload: Schema.Struct({
+    projectId: ProjectId,
+    threadId: Schema.optional(ThreadId),
+    paths: Schema.Array(NonEmptyString).check(Schema.isMaxLength(FILES_STAT_MAX_PATHS)),
+  }),
+  success: Schema.Array(FileStat),
   error: OpenAdeRpcError,
 });
 
@@ -699,6 +717,7 @@ export const OpenAdeRpcGroup = RpcGroup.make(
   ConnectorsDescribeRpc,
   FilesSearchRpc,
   FilesReadRpc,
+  FilesStatRpc,
   FsBrowseRpc,
   AttachmentsStageRpc,
   AttachmentsReadRpc,

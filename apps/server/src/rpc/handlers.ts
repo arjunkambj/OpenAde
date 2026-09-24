@@ -93,6 +93,7 @@ export const handlersLayer = OpenAdeRpcGroup.toLayer(
         files.search({ projectId, threadId }, query, limit),
       "files.read": ({ projectId, threadId, path, offset, limit }) =>
         files.read({ projectId, threadId }, path, offset, limit),
+      "files.stat": ({ projectId, threadId, paths }) => files.stat({ projectId, threadId }, paths),
 
       "fs.browse": ({ path, showHidden }) => directories.browse({ path, showHidden }),
 

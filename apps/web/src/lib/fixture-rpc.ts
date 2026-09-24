@@ -1,9 +1,10 @@
 /**
  * What the fixture client answers over RPC: a `Proxy` shaped like the real
- * `OpenAdeRpcClient` whose methods reply from inline data — the file search,
- * the model and skill menus, the plugins, the keybinding table, the staged
- * attachments. Anything a fixture page has not taught it dies loudly with the
- * method's name, so a new read shows up the first time a page touches it.
+ * `OpenAdeRpcClient` whose methods reply from inline data — the file search
+ * and existence check, the model and skill menus, the plugins, the keybinding
+ * table, the staged attachments. Anything a fixture page has not taught it
+ * dies loudly with the method's name, so a new read shows up the first time a
+ * page touches it.
  *
  * The thread itself is not in here. `fixture-client.ts` owns the document,
  * folds the events its decider emits, and hands this module the stream and the
@@ -27,6 +28,7 @@ import type { Keybinding } from "@OpenAde/contracts/settings";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
 
+import { FIXTURE_ROOT, fixtureStat } from "@/lib/fixture-files";
 import { FIXTURE_IMAGES } from "@/lib/fixture-images";
 
 // ── Inline fixture data ────────────────────────────────────────
@@ -187,6 +189,9 @@ export const makeFixtureRpc = (context: FixtureRpcContext): OpenAdeRpcClient => 
               ).slice(0, 20),
             );
         }
+        case "files.stat":
+          return ({ paths }: { paths: ReadonlyArray<string> }) =>
+            Effect.succeed(fixtureStat(paths));
         // Attachments in the fixture never leave the browser: staging echoes a
         // plausible reference, and reading one back answers what was staged,
         // the timeline fixture's own images, or the placeholder pixel, so the
@@ -251,7 +256,7 @@ export const makeFixtureRpc = (context: FixtureRpcContext): OpenAdeRpcClient => 
               {
                 projectId: context.projectId,
                 name: "fixture project",
-                workspaceRoot: "/fixture",
+                workspaceRoot: FIXTURE_ROOT,
                 createdAt: FIXTURE_NOW,
                 updatedAt: FIXTURE_NOW,
                 threadCount: 1,

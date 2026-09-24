@@ -23,6 +23,7 @@ import type {
   DevServer,
   FileContent,
   FileSearchResult,
+  FileStat,
   FsListing,
   GitDiff,
   GitStatus,
@@ -115,6 +116,11 @@ export class FileService extends Context.Service<
       offset?: number,
       limit?: number,
     ) => Effect.Effect<FileContent, OpenAdeRpcError>;
+    /** Which of `paths` exist inside the root; a path that does not is absent, not an error. */
+    readonly stat: (
+      scope: WorkspaceScope,
+      paths: ReadonlyArray<string>,
+    ) => Effect.Effect<ReadonlyArray<FileStat>, OpenAdeRpcError>;
   }
 >()("server/rpc/FileService") {
   static readonly empty = Layer.succeed(
@@ -122,6 +128,7 @@ export class FileService extends Context.Service<
     FileService.of({
       search: (_scope, _query, _limit) => Effect.succeed([]),
       read: (_scope, path) => Effect.succeed({ path, text: "", totalLines: 0, truncated: false }),
+      stat: (_scope, _paths) => Effect.succeed([]),
     }),
   );
 }

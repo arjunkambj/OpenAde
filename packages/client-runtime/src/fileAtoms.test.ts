@@ -1,14 +1,17 @@
 /**
- * File atoms over a stubbed RPC client. The four behaviours the files pane
- * depends on and cannot get from the server: both family keys round-trip, a
- * failed read becomes a value instead of killing the atom, a reconnect
- * refetches without anyone asking, and a paged window sends the offset and
- * limit it was asked for rather than the server's defaults.
+ * File atoms over a stubbed RPC client. The behaviours the files pane and the
+ * timeline depend on and cannot get from the server: every family key
+ * round-trips (the stat key normalized to its set of paths), a stat batch is
+ * one call per contract-sized run and is cached by that set, a failed read
+ * becomes a value instead of killing the atom, a reconnect refetches without
+ * anyone asking, and a paged window sends the offset and limit it was asked
+ * for rather than the server's defaults.
  */
 
 import { describe, expect, it } from "@effect/vitest";
 import { makeProjectId, makeThreadId } from "@OpenAde/contracts/ids";
-import type { FileContent, FileSearchResult } from "@OpenAde/contracts/rpc";
+import { FILES_STAT_MAX_PATHS } from "@OpenAde/contracts/rpc";
+import type { FileContent, FileSearchResult, FileStat } from "@OpenAde/contracts/rpc";
 import type * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -20,12 +23,15 @@ import type * as Atom from "effect/unstable/reactivity/Atom";
 import { makeRuntime } from "./atoms";
 import {
   decodeFileSearch,
+  decodeFileStat,
   decodeFileWindow,
   encodeFileSearch,
+  encodeFileStat,
   encodeFileWindow,
   makeFileAtoms,
   type FileQuery,
   type FileSearchKey,
+  type FileStatKey,
   type FileWindowKey,
 } from "./fileAtoms";
 import {
@@ -47,6 +53,7 @@ interface Calls {
     offset?: number;
     limit?: number;
   }>;
+  readonly stat: Array<{ projectId: string; threadId?: string; paths: ReadonlyArray<string> }>;
 }
 
 const hit = (path: string): FileSearchResult => ({
@@ -85,6 +92,21 @@ const fakeClient = (calls: Calls, failRead: Ref.Ref<boolean>): OpenAdeRpcClient 
               truncated: offset + limit < 5_000,
             };
             return content;
+          });
+      }
+      if (key === "files.stat") {
+        // Every path under `src/` exists; nothing else does.
+        return (payload: { projectId: string; paths: ReadonlyArray<string> }) =>
+          Effect.sync(() => {
+            calls.stat.push({ ...payload });
+            return payload.paths
+              .filter((path) => path.startsWith("src/"))
+              .map((path): FileStat => ({
+                path,
+                relativePath: path,
+                absolutePath: `/repo/${path}`,
+                isDirectory: false,
+              }));
           });
       }
       return () => Effect.die(`unimplemented rpc ${String(key)}`);
@@ -149,11 +171,100 @@ describe("file atoms", () => {
     expect(new Set(keys.map(encodeFileWindow)).size).toBe(keys.length);
   });
 
+  it("a stat batch keys on the set of paths, not their order or repeats", () => {
+    const projectId = makeProjectId();
+    const threadId = makeThreadId();
+    const key: FileStatKey = { projectId, paths: ["src/b.ts", "src/a.ts", "src/b.ts"] };
+    expect(encodeFileStat(key)).toBe(
+      encodeFileStat({ projectId, paths: ["src/a.ts", "src/b.ts"] }),
+    );
+    expect(decodeFileStat(encodeFileStat(key))).toEqual({
+      projectId,
+      paths: ["src/a.ts", "src/b.ts"],
+    });
+    const scoped: FileStatKey = { projectId, threadId, paths: ["src/a.ts"] };
+    expect(decodeFileStat(encodeFileStat(scoped))).toEqual(scoped);
+    // A thread, or one more path, is a different question.
+    const distinct = [
+      encodeFileStat({ projectId, paths: ["src/a.ts"] }),
+      encodeFileStat(scoped),
+      encodeFileStat({ projectId, paths: ["src/a.ts", "src/c.ts"] }),
+    ];
+    expect(new Set(distinct).size).toBe(distinct.length);
+  });
+
+  it.live("a stat batch is one call, and the same set asked again reads the cache", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const projectId = makeProjectId();
+        const threadId = makeThreadId();
+        const calls: Calls = { search: [], read: [], stat: [] };
+        const failing = yield* Ref.make(false);
+        const { registry, fileStatAtom } = yield* runtimeWith(
+          fakeClient(calls, failing),
+          CONNECTED,
+        );
+
+        const atom = fileStatAtom({ projectId, threadId, paths: ["src/b.ts", "README.md"] });
+        registry.mount(atom);
+        const found = yield* Effect.promise(() =>
+          awaitValue<FileQuery<ReadonlyArray<FileStat>>, Cause.NoSuchElementError>(
+            registry,
+            atom,
+            (query) => query._tag === "ok",
+          ),
+        );
+        expect(found._tag === "ok" && found.value.map((stat) => stat.path)).toEqual(["src/b.ts"]);
+        expect(fileStatAtom({ projectId, threadId, paths: ["README.md", "src/b.ts"] })).toBe(atom);
+        expect(calls.stat).toEqual([{ projectId, threadId, paths: ["README.md", "src/b.ts"] }]);
+      }),
+    ),
+  );
+
+  it.live("more candidates than one call carries go out in several calls", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const projectId = makeProjectId();
+        const calls: Calls = { search: [], read: [], stat: [] };
+        const failing = yield* Ref.make(false);
+        const { registry, fileStatAtom } = yield* runtimeWith(
+          fakeClient(calls, failing),
+          CONNECTED,
+        );
+
+        const paths = Array.from({ length: FILES_STAT_MAX_PATHS + 5 }, (_, i) => `src/${i}.ts`);
+        const atom = fileStatAtom({ projectId, paths });
+        registry.mount(atom);
+        const found = yield* Effect.promise(() =>
+          awaitValue<FileQuery<ReadonlyArray<FileStat>>, Cause.NoSuchElementError>(
+            registry,
+            atom,
+            (query) => query._tag === "ok",
+          ),
+        );
+        expect(found._tag === "ok" && found.value.length).toBe(paths.length);
+        expect(calls.stat.map((call) => call.paths.length)).toEqual([FILES_STAT_MAX_PATHS, 5]);
+
+        const empty = fileStatAtom({ projectId, paths: [] });
+        registry.mount(empty);
+        const none = yield* Effect.promise(() =>
+          awaitValue<FileQuery<ReadonlyArray<FileStat>>, Cause.NoSuchElementError>(
+            registry,
+            empty,
+            (query) => query._tag === "ok",
+          ),
+        );
+        expect(none).toEqual({ _tag: "ok", value: [] });
+        expect(calls.stat).toHaveLength(2);
+      }),
+    ),
+  );
+
   it.live("a failed read becomes a value and the atom survives it", () =>
     Effect.scoped(
       Effect.gen(function* () {
         const projectId = makeProjectId();
-        const calls: Calls = { search: [], read: [] };
+        const calls: Calls = { search: [], read: [], stat: [] };
         const failing = yield* Ref.make(true);
         const { registry, stateRef, fileContentAtom } = yield* runtimeWith(
           fakeClient(calls, failing),
@@ -195,7 +306,7 @@ describe("file atoms", () => {
     Effect.scoped(
       Effect.gen(function* () {
         const projectId = makeProjectId();
-        const calls: Calls = { search: [], read: [] };
+        const calls: Calls = { search: [], read: [], stat: [] };
         const failing = yield* Ref.make(false);
         const { registry, fileContentAtom } = yield* runtimeWith(
           fakeClient(calls, failing),
@@ -221,7 +332,7 @@ describe("file atoms", () => {
     Effect.scoped(
       Effect.gen(function* () {
         const projectId = makeProjectId();
-        const calls: Calls = { search: [], read: [] };
+        const calls: Calls = { search: [], read: [], stat: [] };
         const failing = yield* Ref.make(false);
         const { registry, fileSearchAtom } = yield* runtimeWith(
           fakeClient(calls, failing),
@@ -250,7 +361,7 @@ describe("file atoms", () => {
       Effect.gen(function* () {
         const projectId = makeProjectId();
         const threadId = makeThreadId();
-        const calls: Calls = { search: [], read: [] };
+        const calls: Calls = { search: [], read: [], stat: [] };
         const failing = yield* Ref.make(false);
         const { registry, fileSearchAtom, fileContentAtom } = yield* runtimeWith(
           fakeClient(calls, failing),

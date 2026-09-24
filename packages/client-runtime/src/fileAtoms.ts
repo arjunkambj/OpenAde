@@ -1,5 +1,6 @@
 /**
- * The file half of the client runtime: the atoms the dock's Files tab reads.
+ * The file half of the client runtime: the atoms the dock's Files tab reads,
+ * and the existence check the timeline's path links need.
  *
  * - `fileSearchAtom(query)` — `files.search` over the project's ignore-aware
  *   listing. The server already honours `.gitignore` (and falls back to a
@@ -8,6 +9,10 @@
  * - `fileContentAtom(window)` — one `files.read` window. `offset`/`limit` are
  *   the contract's paging interface, which is how the pane reaches line 20,000
  *   of a file the server would otherwise truncate at its byte cap.
+ * - `fileStatAtom(batch)` — `files.stat` over a set of candidate paths, to
+ *   learn which exist inside the workspace. The key is the sorted, deduplicated
+ *   set, so one message's candidates make one call whatever order they were
+ *   found in, and asking again for the same set reads the cached answer.
  *
  * The shapes mirror `gitAtoms` on purpose, for the same two reasons:
  *
@@ -25,7 +30,8 @@
  */
 
 import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
-import type { FileContent, FileSearchResult } from "@OpenAde/contracts/rpc";
+import { FILES_STAT_MAX_PATHS } from "@OpenAde/contracts/rpc";
+import type { FileContent, FileSearchResult, FileStat } from "@OpenAde/contracts/rpc";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
@@ -66,6 +72,13 @@ export interface FileWindowKey {
   readonly limit: number;
 }
 
+/** One `files.stat` batch: which of `paths` exist in the scope's root. */
+export interface FileStatKey {
+  readonly projectId: ProjectId;
+  readonly threadId?: ThreadId | undefined;
+  readonly paths: ReadonlyArray<string>;
+}
+
 /**
  * `Atom.family` keys have to be primitives, so each request shape becomes one
  * string. Both directions are a total round trip and a test pins that, because
@@ -101,6 +114,32 @@ export const decodeFileWindow = (encoded: string): FileWindowKey => {
     number,
   ];
   return { projectId, ...(threadId === null ? {} : { threadId }), path, offset, limit };
+};
+
+/**
+ * Unlike the other two keys this one normalizes: the paths are deduplicated
+ * and sorted, so the same set of candidates is the same atom however it was
+ * gathered. Decoding gives back that normalized set.
+ */
+export const encodeFileStat = (key: FileStatKey): string =>
+  JSON.stringify([key.projectId, key.threadId ?? null, [...new Set(key.paths)].sort()]);
+
+export const decodeFileStat = (encoded: string): FileStatKey => {
+  const [projectId, threadId, paths] = JSON.parse(encoded) as [
+    ProjectId,
+    ThreadId | null,
+    ReadonlyArray<string>,
+  ];
+  return { projectId, ...(threadId === null ? {} : { threadId }), paths };
+};
+
+/** `paths` in runs the contract accepts in one `files.stat` call. */
+const statBatches = (paths: ReadonlyArray<string>): ReadonlyArray<ReadonlyArray<string>> => {
+  const batches: Array<ReadonlyArray<string>> = [];
+  for (let start = 0; start < paths.length; start += FILES_STAT_MAX_PATHS) {
+    batches.push(paths.slice(start, start + FILES_STAT_MAX_PATHS));
+  }
+  return batches;
 };
 
 export const makeFileAtoms = (runtime: Atom.AtomRuntime<Connection | ConnectionStateRef>) => {
@@ -167,11 +206,38 @@ export const makeFileAtoms = (runtime: Atom.AtomRuntime<Connection | ConnectionS
     ),
   );
 
+  const fileStatByKeyAtom = Atom.family((encoded: string) =>
+    runtime.atom(
+      connectedEpochs.pipe(
+        Stream.mapEffect(() =>
+          Effect.gen(function* () {
+            const key = decodeFileStat(encoded);
+            const client = yield* (yield* Connection).client;
+            // More candidates than one call carries is several calls, in order;
+            // an empty set asks nothing.
+            const answers = yield* Effect.forEach(statBatches(key.paths), (paths) =>
+              client["files.stat"]({
+                projectId: key.projectId,
+                ...(key.threadId === undefined ? {} : { threadId: key.threadId }),
+                paths,
+              }),
+            );
+            return answers.flat();
+          }).pipe(
+            Effect.map(ok<ReadonlyArray<FileStat>>),
+            Effect.catch((error) => Effect.succeed(failed<ReadonlyArray<FileStat>>(error.message))),
+          ),
+        ),
+      ),
+    ),
+  );
+
   /** The pane's handles: one atom per request, shared across mounts. */
   const fileSearchAtom = (key: FileSearchKey) => fileSearchByKeyAtom(encodeFileSearch(key));
   const fileContentAtom = (key: FileWindowKey) => fileContentByKeyAtom(encodeFileWindow(key));
+  const fileStatAtom = (key: FileStatKey) => fileStatByKeyAtom(encodeFileStat(key));
 
-  return { fileSearchAtom, fileContentAtom };
+  return { fileSearchAtom, fileContentAtom, fileStatAtom };
 };
 
 export type FileAtoms = ReturnType<typeof makeFileAtoms>;

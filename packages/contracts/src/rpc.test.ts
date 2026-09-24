@@ -7,6 +7,7 @@ import {
   BrowserToolStatus,
   DEV_SERVER_LIMIT,
   DevServer,
+  FILES_STAT_MAX_PATHS,
   FS_BROWSE_ENTRY_LIMIT,
   FsBrowseFailure,
   OpenAdeRpcGroup,
@@ -134,6 +135,34 @@ describe("browser.status", () => {
     expect(decode({ mode: "disabled", installed: false, version: null })._tag).toBe("Success");
     expect(decode({ mode: "headless", installed: false, version: null })._tag).toBe("Failure");
     expect(decode({ mode: "in-app", installed: true, version: "" })._tag).toBe("Failure");
+  });
+});
+
+describe("files.stat", () => {
+  const rpc = OpenAdeRpcGroup.requests.get(RPC_METHODS.filesStat);
+  const projectId = "0190aaaa-0000-7000-8000-000000000001";
+
+  it("is a plain request that takes a bounded batch of non-empty paths", () => {
+    expect(rpc).toBeDefined();
+    expect(RpcSchema.isStreamSchema(rpc!.successSchema)).toBe(false);
+    const decode = Schema.decodeUnknownExit(rpc!.payloadSchema);
+    const full = Array.from({ length: FILES_STAT_MAX_PATHS }, (_, i) => `src/${i}.ts`);
+    expect(decode({ projectId, paths: [] })._tag).toBe("Success");
+    expect(decode({ projectId, paths: full })._tag).toBe("Success");
+    expect(decode({ projectId, paths: [...full, "one-more.ts"] })._tag).toBe("Failure");
+    expect(decode({ projectId, paths: [""] })._tag).toBe("Failure");
+  });
+
+  it("answers a list in which a path is only ever one that exists", () => {
+    const answer = Schema.decodeUnknownExit(rpc!.successSchema);
+    const stat = {
+      path: "./src/a.ts",
+      relativePath: "src/a.ts",
+      absolutePath: "/repo/src/a.ts",
+      isDirectory: false,
+    };
+    expect(answer([stat])._tag).toBe("Success");
+    expect(answer([{ ...stat, relativePath: "" }])._tag).toBe("Failure");
   });
 });
 

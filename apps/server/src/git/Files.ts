@@ -1,10 +1,11 @@
 /**
- * `files.search` and `files.read` behind the `Files` Tag. Search walks tracked plus
- * untracked-but-not-ignored paths via `git ls-files`, so .gitignore is honored
- * for free; a per-root cache keyed off `.git/index` mtime keeps repeat queries
- * warm (the composer hits this on every `#` keystroke).
+ * `files.search`, `files.read` and `files.stat` behind the `Files` Tag. Search
+ * walks tracked plus untracked-but-not-ignored paths via `git ls-files`, so
+ * .gitignore is honored for free; a per-root cache keyed off `.git/index` mtime
+ * keeps repeat queries warm (the composer hits this on every `#` keystroke).
+ * Stat checks a batch of paths for existence under the root (`stat.ts`).
  *
- * Both run in the thread's own root when the call names a thread (its
+ * All three run in the thread's own root when the call names a thread (its
  * worktree, when it has one), and in the project's root otherwise.
  *
  * A project need not be a git repository, so a
@@ -26,6 +27,7 @@ import { ReadModelStore } from "../persistence/ReadModels";
 import { FileService, type WorkspaceScope } from "../rpc/services";
 import { isRepository, run } from "./process";
 import { readFileWindow } from "./read";
+import { statWorkspacePaths } from "./stat";
 import { walkWorkspace } from "./walk";
 
 class FileServiceError extends Data.TaggedError("FileServiceError")<{
@@ -211,6 +213,14 @@ export const layer = Layer.effect(
             try: () => readFileWindow(realTarget, path, offset, limit),
             catch: () => new FileServiceError({ message: `cannot read ${path}` }),
           });
+        }).pipe(Effect.mapError(toRpcError)),
+
+      stat: (scope, paths) =>
+        Effect.gen(function* () {
+          const root = yield* workspaceRoot(scope);
+          if (root === null || paths.length === 0) return [];
+          // `statWorkspacePaths` settles every path on its own and never rejects.
+          return yield* Effect.promise(() => statWorkspacePaths(root, paths));
         }).pipe(Effect.mapError(toRpcError)),
     });
 
