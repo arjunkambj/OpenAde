@@ -15,7 +15,7 @@ import { rejectionMessage, triageAttachments } from "@/components/composer/attac
 import { getTabView } from "@/components/browser-host/tab-views";
 import type { BrowserTab } from "@/state/browser-tabs";
 import { useComposerDraft } from "@/state/ui";
-import { Camera, Target } from "@honeyicons/react";
+import { CursorClick, Scan } from "@honeyicons/react";
 
 import {
   appendToDraft,
@@ -104,7 +104,7 @@ export function PageActions({ threadId, tab }: PageActionsProps) {
             />
           }
         >
-          <Target variant="bold" />
+          <CursorClick variant="bold" />
         </TooltipTrigger>
         <TooltipContent>
           {picking ? "Click an element on the page, or press Escape" : "Pick an element for chat"}
@@ -124,7 +124,7 @@ export function PageActions({ threadId, tab }: PageActionsProps) {
               />
             }
           >
-            <Camera variant="bold" />
+            <Scan variant="bold" />
           </TooltipTrigger>
           <TooltipContent>Screenshot to chat</TooltipContent>
         </Tooltip>
