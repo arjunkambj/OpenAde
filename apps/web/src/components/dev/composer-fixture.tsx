@@ -7,8 +7,8 @@
  * `thread.message.queued`, and the command log shows every dispatch.
  *
  * Scenario buttons emit the events a connector/session would produce mid-turn.
- * The Steering toggle flips the connector's `steering` capability, so a
- * running turn shows the composer's steer state (Enter steers, the button and
+ * The Steering toggle flips the connector's `steering` capability and rebinds
+ * the session with it, so a running turn shows the composer's steer state (Enter steers, the button and
  * tooltip say so) instead of the queue.
  * Keyboard path: Enter sends, Cmd+Enter queues, 1/2/3 answer cards, 3 opens
  * the plan revision field, Escape interrupts a running turn. Every chord is

@@ -10,8 +10,10 @@
  * pushes it onto the stream, which is how the page's scenario buttons drive
  * states the server would normally produce (a mid-turn approval, a plan, a
  * question). `fixture.onCommand` is the page's dispatch log.
- * `fixture.setSteering` flips the connector's `steering` capability, so the
- * composer's steer state can be seen; the page refreshes `connectors.list`.
+ * `fixture.setSteering` flips the connector's `steering` capability and
+ * rebinds the fixture session with it, as the server copies capabilities onto
+ * `thread.session.bound`, so the composer's steer state can be seen; the page
+ * refreshes `connectors.list`.
  */
 
 import { applyThreadStreamItem } from "@OpenAde/client-runtime/clientState";
@@ -47,6 +49,7 @@ import type {
   SkillSummary,
 } from "@OpenAde/contracts/connectors";
 import type { FileSearchResult } from "@OpenAde/contracts/rpc";
+import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
 import { defaultSettings, DEFAULT_KEYBINDINGS } from "@OpenAde/contracts/settings";
 import type { Keybinding } from "@OpenAde/contracts/settings";
 import { uuidV7 } from "@OpenAde/shared/ids";
@@ -193,7 +196,10 @@ export interface FixtureClient {
   readonly doc: () => ThreadDetailSnapshot;
   /** Whether the fixture connector reports that it can steer a running turn. */
   readonly steering: () => boolean;
-  /** Flip the steering capability; `connectors.list` answers the new value. */
+  /**
+   * Flip the steering capability: `connectors.list` answers the new value and
+   * the session rebinds with it, since the composer steers by the session's.
+   */
   readonly setSteering: (on: boolean) => void;
   /** Restore the base document and resnapshot. */
   readonly reset: () => void;
@@ -440,30 +446,42 @@ export const makeFixtureClient = (): FixtureClient => {
     }
   };
 
+  /** What the fixture connector says it can do; `steering` follows the toggle. */
+  const capabilities = (): ConnectorCapabilities => ({
+    modelSwitch: "per-turn",
+    effortSwitch: "per-turn",
+    steering,
+    planMode: true,
+    subagents: true,
+    images: true,
+    resume: true,
+    fork: false,
+    interrupt: "turn",
+    rollback: false,
+    compaction: false,
+    questions: true,
+    runtimeModes: ["approval-required", "auto-accept-edits", "full-access"],
+    attachments: "files",
+  });
+
   const connector = (): ConnectorSummary => ({
     connectorInstanceId,
     kind: "fixture",
     displayName: "Fixture connector",
     enabled: true,
-    capabilities: {
-      modelSwitch: "per-turn",
-      effortSwitch: "per-turn",
-      steering,
-      planMode: true,
-      subagents: true,
-      images: true,
-      resume: true,
-      fork: false,
-      interrupt: "turn",
-      rollback: false,
-      compaction: false,
-      questions: true,
-      runtimeModes: ["approval-required", "auto-accept-edits", "full-access"],
-      attachments: "files",
-    },
+    capabilities: capabilities(),
     extensions: { skills: true, mcpServers: false },
     probe: { status: "ready", probedAt: NOW },
   });
+
+  /** Rebind the session with the connector's current capabilities. */
+  const bindSession = (): void =>
+    next("thread.session.bound", {
+      connectorInstanceId,
+      connectorKind: "fixture",
+      sessionRef: { ref: "fixture" },
+      capabilities: capabilities(),
+    });
 
   /**
    * A second instance of the same kind, so the model picker has two sections.
@@ -613,12 +631,14 @@ export const makeFixtureClient = (): FixtureClient => {
     steering: () => steering,
     setSteering: (on) => {
       steering = on;
+      bindSession();
     },
     reset: () => {
       doc = baseDoc(threadId, projectId, connectorInstanceId);
       streamVersion = 0;
       offer({ kind: "resnapshot-required", reason: "fixture reset" });
       offer({ kind: "snapshot", snapshot: doc });
+      bindSession();
     },
     onCommand: undefined,
   };
