@@ -1,0 +1,138 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  neighbourThread,
+  nthThread,
+  projectForNewThread,
+  sidebarThreadGroups,
+  sidebarThreadOrder,
+} from "./thread-order";
+
+const thread = (
+  threadId: string,
+  projectId: string,
+  status: "idle" | "running" | "archived" = "idle",
+) => ({ threadId, projectId, status });
+
+const projects = [{ projectId: "p1" }, { projectId: "p2" }];
+const none: ReadonlySet<string> = new Set();
+
+const ids = (list: ReadonlyArray<{ threadId: string }>) => list.map((t) => t.threadId);
+
+describe("sidebarThreadOrder", () => {
+  it("lists projects in order, each with its threads in list order", () => {
+    const threads = [
+      thread("b1", "p2"),
+      thread("a1", "p1"),
+      thread("b2", "p2"),
+      thread("a2", "p1"),
+    ];
+    expect(ids(sidebarThreadOrder(projects, threads, none, null))).toEqual([
+      "a1",
+      "a2",
+      "b1",
+      "b2",
+    ]);
+  });
+
+  it("puts threads whose project is gone last", () => {
+    const threads = [thread("x", "gone"), thread("a1", "p1"), thread("b1", "p2")];
+    expect(ids(sidebarThreadOrder(projects, threads, none, null))).toEqual(["a1", "b1", "x"]);
+    expect(ids(sidebarThreadGroups(projects, threads, none, null).orphans)).toEqual(["x"]);
+  });
+
+  it("skips a folded project's threads", () => {
+    const threads = [thread("a1", "p1"), thread("a2", "p1"), thread("b1", "p2")];
+    expect(ids(sidebarThreadOrder(projects, threads, new Set(["p1"]), null))).toEqual(["b1"]);
+  });
+
+  it("keeps the open thread under a folded project", () => {
+    const threads = [thread("a1", "p1"), thread("a2", "p1"), thread("b1", "p2")];
+    expect(ids(sidebarThreadOrder(projects, threads, new Set(["p1"]), "a2"))).toEqual(["a2", "b1"]);
+  });
+
+  it("leaves archived threads out, except the open one", () => {
+    const threads = [
+      thread("a1", "p1", "archived"),
+      thread("a2", "p1"),
+      thread("b1", "p2", "archived"),
+    ];
+    expect(ids(sidebarThreadOrder(projects, threads, none, null))).toEqual(["a2"]);
+    expect(ids(sidebarThreadOrder(projects, threads, none, "b1"))).toEqual(["a2", "b1"]);
+  });
+
+  it("does not fold orphans", () => {
+    const threads = [thread("x1", "gone"), thread("x2", "gone")];
+    expect(ids(sidebarThreadOrder(projects, threads, new Set(["gone"]), null))).toEqual([
+      "x1",
+      "x2",
+    ]);
+  });
+
+  it("groups by project for the tree", () => {
+    const threads = [thread("a1", "p1"), thread("b1", "p2"), thread("a2", "p1")];
+    const { byProject } = sidebarThreadGroups(projects, threads, none, null);
+    expect(ids(byProject.get("p1") ?? [])).toEqual(["a1", "a2"]);
+    expect(ids(byProject.get("p2") ?? [])).toEqual(["b1"]);
+  });
+});
+
+describe("nthThread", () => {
+  const order = [thread("a", "p1"), thread("b", "p1"), thread("c", "p2")];
+
+  it("is 1-based", () => {
+    expect(nthThread(order, 1)?.threadId).toBe("a");
+    expect(nthThread(order, 3)?.threadId).toBe("c");
+  });
+
+  it("is undefined out of range", () => {
+    expect(nthThread(order, 4)).toBeUndefined();
+    expect(nthThread(order, 9)).toBeUndefined();
+    expect(nthThread(order, 0)).toBeUndefined();
+    expect(nthThread([], 1)).toBeUndefined();
+  });
+});
+
+describe("neighbourThread", () => {
+  const order = [thread("a", "p1"), thread("b", "p1"), thread("c", "p2")];
+
+  it("steps down and up", () => {
+    expect(neighbourThread(order, "a", 1)?.threadId).toBe("b");
+    expect(neighbourThread(order, "c", -1)?.threadId).toBe("b");
+  });
+
+  it("wraps at both ends", () => {
+    expect(neighbourThread(order, "c", 1)?.threadId).toBe("a");
+    expect(neighbourThread(order, "a", -1)?.threadId).toBe("c");
+  });
+
+  it("starts at the first or last row with no open thread", () => {
+    expect(neighbourThread(order, null, 1)?.threadId).toBe("a");
+    expect(neighbourThread(order, null, -1)?.threadId).toBe("c");
+    expect(neighbourThread(order, "unlisted", 1)?.threadId).toBe("a");
+  });
+
+  it("stays on a lone thread and is undefined for none", () => {
+    expect(neighbourThread([thread("a", "p1")], "a", 1)?.threadId).toBe("a");
+    expect(neighbourThread([], null, 1)).toBeUndefined();
+  });
+});
+
+describe("projectForNewThread", () => {
+  const listed = [{ projectId: "p1" }, { projectId: "p2" }, { projectId: "p3" }];
+
+  it("prefers the open thread's project", () => {
+    expect(projectForNewThread(listed, "p3", "p2")?.projectId).toBe("p3");
+  });
+
+  it("falls back to the last project, then the first", () => {
+    expect(projectForNewThread(listed, undefined, "p2")?.projectId).toBe("p2");
+    expect(projectForNewThread(listed, "gone", "p2")?.projectId).toBe("p2");
+    expect(projectForNewThread(listed, undefined, "gone")?.projectId).toBe("p1");
+    expect(projectForNewThread(listed, undefined, null)?.projectId).toBe("p1");
+  });
+
+  it("is undefined with no projects", () => {
+    expect(projectForNewThread([], "p1", "p1")).toBeUndefined();
+  });
+});

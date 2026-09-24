@@ -118,7 +118,7 @@ export function ThreadRow({ thread, now }: { thread: ThreadSummary; now: number 
           portalled menu, so `focus-within` on this row is false the whole
           time it is. */}
       <span className="absolute top-0.5 right-0.5 flex transition-opacity duration-150 ease-out group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 has-data-popup-open:opacity-100 md:opacity-0">
-        <ThreadRowMenu thread={thread} />
+        <ThreadRowMenu thread={thread} active={active} />
       </span>
     </SidebarMenuItem>
   );

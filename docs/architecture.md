@@ -275,6 +275,23 @@ way to two actions: archive, and the overflow menu (rename, archive or
 unarchive, delete). An archived row, listed only while it is open, offers the
 menu alone.
 
+The sidebar's order is also a keyboard order. Projects come in their listed
+order, each with its threads in list order; a folded project contributes only
+the open thread, and threads whose project is gone come last
+(`apps/web/src/components/sidebar/thread-order.ts`, which the tree draws from
+too, so the two cannot drift). `Mod+1`…`Mod+9` open the Nth thread in that
+order, and `Mod+Shift+[` / `Mod+Shift+]` step to the previous or next one,
+wrapping at the ends. `Mod+Shift+N` starts a thread in the open thread's
+project, else the last project used, else the first. `Mod+[` and `Mod+]` walk
+the router's history, like the chrome's back and forward buttons. These live in
+`apps/web/src/components/Layout/app-shortcuts.tsx`, mounted once at the root so
+they work on every route. On an open thread, `Mod+Alt+R` renames it,
+`Mod+Shift+A` archives it (or unarchives it when it is archived) and
+`Mod+Alt+Backspace` opens the delete confirmation; a key alone never deletes.
+`apps/web/src/components/thread/thread-shortcuts.tsx` owns those, with the row
+menu's rename form, confirmation and dispatch. The open thread's row menu shows
+the same keys.
+
 The command palette (`Mod+K`, `apps/web/src/components/Layout/search-command.tsx`
 with its groups in `palette-groups.tsx` and `palette-commands.tsx`) lists these
 groups:

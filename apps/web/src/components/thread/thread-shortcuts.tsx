@@ -1,0 +1,83 @@
+/**
+ * The lifecycle keys for the open thread: `thread.rename`, `thread.archive`
+ * and `thread.delete`. Mounted by `ThreadView` once its snapshot is in, so they
+ * answer only while a thread is open (their `when` clause says `threadOpen`,
+ * which the view publishes).
+ *
+ * They do what the sidebar row's overflow menu does, through the same pieces:
+ * the same rename form, the same delete confirmation — with its offer to remove
+ * a worktree thread's worktree too — and the same dispatch and toasts from
+ * `@/components/sidebar/thread-actions` and `use-delete-thread`. Archive
+ * unarchives a thread that is already archived, as the menu offers. Delete
+ * only ever opens the confirmation — nothing is deleted from a key alone.
+ */
+
+import * as React from "react";
+
+import type { ThreadId } from "@OpenAde/contracts/ids";
+import type { ThreadStatus } from "@OpenAde/contracts/orchestration";
+
+import { DeleteThreadDialog } from "@/components/sidebar/delete-thread-dialog";
+import { threadCommandBase, useThreadCommand } from "@/components/sidebar/thread-actions";
+import { RenameThreadDialog } from "@/components/sidebar/thread-menu";
+import { useDeleteThread } from "@/components/sidebar/use-delete-thread";
+import { useKeybindingCommand } from "@/lib/shortcuts";
+import { useThreadList } from "@/state/hooks";
+
+type OpenDialog = "rename" | "delete" | null;
+
+export function ThreadShortcuts({
+  threadId,
+  title,
+  status,
+}: {
+  readonly threadId: ThreadId;
+  readonly title: string;
+  readonly status: ThreadStatus;
+}) {
+  const send = useThreadCommand();
+  const remove = useDeleteThread();
+  // The list row carries the worktree the delete dialog offers to remove.
+  const summary = useThreadList().find((thread) => thread.threadId === threadId) ?? null;
+  const [dialog, setDialog] = React.useState<OpenDialog>(null);
+  const base = () => threadCommandBase(threadId);
+  const gone = status === "deleted";
+
+  useKeybindingCommand("thread.rename", () => {
+    if (!gone) {
+      setDialog("rename");
+    }
+  });
+  useKeybindingCommand("thread.archive", () => {
+    if (gone) {
+      return;
+    }
+    void (status === "archived"
+      ? send({ ...base(), type: "thread.unarchive" }, "Thread was not unarchived", "Unarchived")
+      : send({ ...base(), type: "thread.archive" }, "Thread was not archived", "Archived"));
+  });
+  useKeybindingCommand("thread.delete", () => {
+    if (!gone && summary !== null) {
+      setDialog("delete");
+    }
+  });
+
+  return (
+    <>
+      <RenameThreadDialog
+        title={title}
+        open={dialog === "rename"}
+        onOpenChange={(next) => setDialog(next ? "rename" : null)}
+        onSubmit={(next) =>
+          void send({ ...base(), type: "thread.rename", title: next }, "Thread was not renamed")
+        }
+      />
+      <DeleteThreadDialog
+        thread={summary}
+        open={dialog === "delete"}
+        onOpenChange={(next) => setDialog(next ? "delete" : null)}
+        onConfirm={(target, removeWorktree) => void remove(target, removeWorktree)}
+      />
+    </>
+  );
+}

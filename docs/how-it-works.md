@@ -2036,13 +2036,13 @@ list it.
 | General  | `mcp.open`                                            | unbound                       |                                                                    |
 | General  | `project.add`                                         | `Mod+Shift+O`                 |                                                                    |
 | Threads  | `thread.new`                                          | `Mod+N`                       |                                                                    |
-| Threads  | `thread.newInProject` (inert)                         | `Mod+Shift+N`                 |                                                                    |
-| Threads  | `thread.jump.1` … `thread.jump.9` (inert)             | `Mod+1` … `Mod+9`             |                                                                    |
-| Threads  | `thread.previous` / `thread.next` (inert)             | `Mod+Shift+[` / `Mod+Shift+]` |                                                                    |
-| Threads  | `thread.rename` (inert)                               | `Mod+Alt+R`                   | `threadOpen`                                                       |
-| Threads  | `thread.archive` (inert)                              | `Mod+Shift+A`                 | `threadOpen`                                                       |
-| Threads  | `thread.delete` (inert)                               | `Mod+Alt+Backspace`           | `threadOpen`                                                       |
-| Threads  | `nav.back` / `nav.forward` (inert)                    | `Mod+[` / `Mod+]`             | `!browserFocus`                                                    |
+| Threads  | `thread.newInProject`                                 | `Mod+Shift+N`                 |                                                                    |
+| Threads  | `thread.jump.1` … `thread.jump.9`                     | `Mod+1` … `Mod+9`             |                                                                    |
+| Threads  | `thread.previous` / `thread.next`                     | `Mod+Shift+[` / `Mod+Shift+]` |                                                                    |
+| Threads  | `thread.rename`                                       | `Mod+Alt+R`                   | `threadOpen`                                                       |
+| Threads  | `thread.archive`                                      | `Mod+Shift+A`                 | `threadOpen`                                                       |
+| Threads  | `thread.delete`                                       | `Mod+Alt+Backspace`           | `threadOpen`                                                       |
+| Threads  | `nav.back` / `nav.forward`                            | `Mod+[` / `Mod+]`             | `!browserFocus`                                                    |
 | Composer | `composer.planMode.toggle`                            | `Shift+Tab`                   | `composerFocus`                                                    |
 | Composer | `composer.runtimeMode.cycle`                          | `Mod+Shift+L`                 |                                                                    |
 | Composer | `composer.modelPicker.open`                           | `Mod+Shift+M`                 |                                                                    |

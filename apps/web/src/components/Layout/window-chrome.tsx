@@ -57,7 +57,8 @@ function ChromeSidebarTrigger() {
  * permanently `disabled` — two greyed-out controls in the window chrome of
  * every build that could never do anything. Back knows whether there is
  * anywhere to go; forward cannot be asked, so it stays live and no-ops at the
- * end of the stack, the way a browser's does.
+ * end of the stack, the way a browser's does. `nav.back` / `nav.forward`
+ * (`@/components/Layout/app-shortcuts`) do the same from the keyboard.
  */
 function ChromeHistoryButtons() {
   const router = useRouter();
@@ -82,7 +83,10 @@ function ChromeHistoryButtons() {
           >
             <ChevronLeft variant="bold" className="scale-90" />
           </TooltipTrigger>
-          <TooltipContent>Back</TooltipContent>
+          <TooltipContent>
+            Back
+            <CommandKbd command="nav.back" />
+          </TooltipContent>
         </Tooltip>
       </NoDrag>
       <NoDrag>
@@ -101,7 +105,10 @@ function ChromeHistoryButtons() {
           >
             <ChevronRight variant="bold" className="scale-90" />
           </TooltipTrigger>
-          <TooltipContent>Forward</TooltipContent>
+          <TooltipContent>
+            Forward
+            <CommandKbd command="nav.forward" />
+          </TooltipContent>
         </Tooltip>
       </NoDrag>
     </>

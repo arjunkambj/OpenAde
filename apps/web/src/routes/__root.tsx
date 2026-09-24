@@ -7,6 +7,7 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import * as React from "react";
 
 import { ThemeProvider, useTheme } from "@/components/theme-provider";
+import { AppShortcuts } from "@/components/Layout/app-shortcuts";
 import { SearchProvider } from "@/components/Layout/search-command";
 import { WorktreeForceRemovalHost } from "@/components/sidebar/delete-thread-dialog";
 import { DiffWorkerPoolProvider } from "@/components/timeline/diff-pool";
@@ -121,6 +122,8 @@ function RootComponent() {
             <DropNavigationGuard />
             {/* The only keydown listener in the renderer — see @/lib/shortcuts. */}
             <KeybindingsProvider>
+              {/* Thread switching and history keys, on every route. */}
+              <AppShortcuts />
               {/*
                 Above the routes on purpose: the palette and the commands it
                 owns — open palette, new task, Settings, Skills — are

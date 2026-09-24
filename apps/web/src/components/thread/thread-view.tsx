@@ -12,9 +12,10 @@
  * and the error line those bindings report through. The layout keeps the
  * bindings that work with no thread open. The terminal drawer sits in the
  * thread column below the composer and answers `terminal.toggle` itself; the
- * links it opens land on this dock's Browser tab.
- * This view publishes `threadOpen` while it is mounted and `dockOpen` while
- * the right dock is.
+ * links it opens land on this dock's Browser tab. This view publishes
+ * `threadOpen` while it is mounted and `dockOpen` while the right dock is, and
+ * mounts `ThreadShortcuts` — rename, archive and delete for this thread — once
+ * the snapshot is in.
  */
 
 import { useNavigate } from "@tanstack/react-router";
@@ -40,6 +41,7 @@ import { ThreadTerminal } from "@/components/terminal/terminal-drawer";
 import { ThreadHarnessBanner } from "@/components/thread/harness-health-banner";
 import { ThreadHeader } from "@/components/thread/thread-header";
 import { ThreadGreeting } from "@/components/thread/thread-greeting";
+import { ThreadShortcuts } from "@/components/thread/thread-shortcuts";
 import { Timeline } from "@/components/timeline/timeline";
 import { useKeybindingCommand, useKeybindingFlag } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
@@ -202,6 +204,9 @@ export function ThreadView({
       {/* The thread column's floor (`THREAD_COLUMN_MIN`); the dock's width
           bound yields to it when there is room for a 280px dock beside it. */}
       <section className="flex min-h-0 min-w-0 flex-1 flex-col @min-[640px]/thread:min-w-90">
+        {snapshot !== null ? (
+          <ThreadShortcuts threadId={threadId} title={snapshot.title} status={snapshot.status} />
+        ) : null}
         {snapshot !== null ? (
           <ThreadHeader
             snapshot={snapshot}

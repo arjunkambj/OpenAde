@@ -390,6 +390,9 @@ const readCollapsedProjects = (): ReadonlySet<string> => {
  */
 const collapsedProjectsAtom = Atom.make<ReadonlySet<string>>(readCollapsedProjects());
 
+/** Every folded project, for the tree and the thread keys that walk its order. */
+export const useCollapsedProjects = (): ReadonlySet<string> => useAtomValue(collapsedProjectsAtom);
+
 /** `[collapsed, setCollapsed]` for one project's section in the sidebar. */
 export const useProjectCollapsed = (projectId: string) => {
   const collapsed = useAtomValue(

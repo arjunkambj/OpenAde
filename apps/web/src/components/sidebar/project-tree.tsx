@@ -1,6 +1,7 @@
 /**
  * The projects → threads tree: projects from `projectsAtom`, threads from
- * `threadListAtom(null)` grouped client-side by `projectId`. Each thread row
+ * `threadListAtom(null)` grouped client-side by `projectId` in
+ * `./thread-order`, the same order the thread keys walk. Each thread row
  * links to `/t/$threadId` with a status slot, the title and a relative time —
  * see `./thread-row`. Anything waiting on the user outranks a turn in flight
  * and gets the icon and label together — see `./thread-status`.
@@ -52,12 +53,12 @@ import type { ProjectSummary, ThreadSummary } from "@OpenAde/contracts/orchestra
 import { AddProjectDialog } from "@/components/sidebar/add-project-dialog";
 import { ProjectRowMenu } from "@/components/sidebar/project-menu";
 import { ThreadRow } from "@/components/sidebar/thread-row";
-import { sidebarThreads } from "@/components/sidebar/visible-threads";
+import { sidebarThreadGroups } from "@/components/sidebar/thread-order";
 import { useCreateThread } from "@/lib/use-create-thread";
 import { useNow } from "@/lib/use-now";
 import { cn } from "@/lib/utils";
 import { useConnectionState, useProjects, useThreadList } from "@/state/hooks";
-import { useProjectCollapsed } from "@/state/ui";
+import { useCollapsedProjects, useProjectCollapsed } from "@/state/ui";
 import { Add, ChevronRight, Folder, FolderAdd, FolderOpen } from "@honeyicons/react";
 
 function NewThreadButton({
@@ -105,18 +106,6 @@ interface ThreadCounts {
 
 const NO_THREADS: ThreadCounts = { threads: 0, worktrees: 0 };
 
-function groupByProject(
-  threads: ReadonlyArray<ThreadSummary>,
-): ReadonlyMap<ProjectId, ThreadSummary[]> {
-  const map = new Map<ProjectId, ThreadSummary[]>();
-  for (const thread of threads) {
-    const list = map.get(thread.projectId) ?? [];
-    list.push(thread);
-    map.set(thread.projectId, list);
-  }
-  return map;
-}
-
 export function ProjectTree() {
   const projects = useProjects();
   const threads = useThreadList();
@@ -124,9 +113,12 @@ export function ProjectTree() {
   const now = useNow(60_000);
   const openRoute = useMatchRoute()({ to: "/t/$threadId" });
   const openThreadId = openRoute === false ? null : openRoute.threadId;
-  const shown = React.useMemo(() => sidebarThreads(threads, openThreadId), [threads, openThreadId]);
-
-  const threadsByProject = React.useMemo(() => groupByProject(shown), [shown]);
+  const collapsed = useCollapsedProjects();
+  // The same grouping the thread keys walk — see `./thread-order`.
+  const { byProject: threadsByProject, orphans: orphanThreads } = React.useMemo(
+    () => sidebarThreadGroups(projects, threads, collapsed, openThreadId),
+    [projects, threads, collapsed, openThreadId],
+  );
   // Removing a project deletes its archived threads too, so the removal copy
   // counts every thread, not only the listed ones — and the worktrees among
   // them, which it leaves on disk.
@@ -141,13 +133,6 @@ export function ProjectTree() {
     }
     return counts;
   }, [threads]);
-
-  // Threads whose project is gone from the list still get a home.
-  const knownProjects = React.useMemo(
-    () => new Set(projects.map((project) => project.projectId)),
-    [projects],
-  );
-  const orphanThreads = shown.filter((thread) => !knownProjects.has(thread.projectId));
 
   return (
     <SidebarGroup padding="section" className="min-h-0 flex-1">
@@ -209,17 +194,12 @@ function ProjectSection({
   now,
 }: {
   project: ProjectSummary;
+  /** The listed threads, folding already applied: the open one only, when folded. */
   threads: ReadonlyArray<ThreadSummary>;
   counts: ThreadCounts;
   now: number;
 }) {
   const [collapsed, setCollapsed] = useProjectCollapsed(project.projectId);
-  const matchRoute = useMatchRoute();
-  const shown = collapsed
-    ? threads.filter((thread) =>
-        Boolean(matchRoute({ to: "/t/$threadId", params: { threadId: thread.threadId } })),
-      )
-    : threads;
 
   return (
     <React.Fragment>
@@ -262,9 +242,9 @@ function ProjectSection({
           <NewThreadButton projectId={project.projectId} onCreated={() => setCollapsed(false)} />
         </span>
       </div>
-      {shown.length > 0 ? (
+      {threads.length > 0 ? (
         <SidebarMenu>
-          {shown.map((thread) => (
+          {threads.map((thread) => (
             <ThreadRow key={thread.threadId} thread={thread} now={now} />
           ))}
         </SidebarMenu>

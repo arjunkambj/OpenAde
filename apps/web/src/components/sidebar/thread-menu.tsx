@@ -14,6 +14,10 @@
  * is not — the thread stays, and an archived row offers Unarchive in place of
  * Archive, as the Archived threads settings page does.
  *
+ * The open thread's menu names the keys that do the same from anywhere —
+ * `thread.rename`, `thread.archive` and `thread.delete` are answered by
+ * `@/components/thread/thread-shortcuts` while a thread is open.
+ *
  * Both dialogs are siblings of the menu, not children of it: two modal
  * surfaces each own a focus trap, and a menu that is closing while a dialog
  * opens inside it fights the dialog for focus.
@@ -35,6 +39,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@OpenAde/ui/components/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
@@ -45,33 +50,48 @@ import type { ThreadSummary } from "@OpenAde/contracts/orchestration";
 import { DeleteThreadDialog } from "@/components/sidebar/delete-thread-dialog";
 import { threadCommandBase, useThreadCommand } from "@/components/sidebar/thread-actions";
 import { useDeleteThread } from "@/components/sidebar/use-delete-thread";
+import { CommandKbd } from "@/lib/shortcuts";
 import { Archive as ArchiveIcon, ArchiveUp, Edit, MoreHorizontal, Trash } from "@honeyicons/react";
+
+/** A menu item's chord, with the user's overrides applied. */
+function ItemKeys({ command, shown }: { readonly command: string; readonly shown: boolean }) {
+  return shown ? (
+    <DropdownMenuShortcut>
+      <CommandKbd command={command} />
+    </DropdownMenuShortcut>
+  ) : null;
+}
 
 /** Which of the two dialogs this row currently has open. */
 type OpenDialog = "rename" | "delete" | null;
 
-function RenameThreadDialog({
-  thread,
+/**
+ * The rename form, for the row menu and for `thread.rename` on the open
+ * thread (`@/components/thread/thread-shortcuts`). It takes the current title
+ * only; the caller owns the dispatch.
+ */
+export function RenameThreadDialog({
+  title: current,
   open,
   onOpenChange,
   onSubmit,
 }: {
-  readonly thread: ThreadSummary;
+  readonly title: string;
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onSubmit: (title: string) => void;
 }) {
-  const [title, setTitle] = React.useState(thread.title);
+  const [title, setTitle] = React.useState(current);
   // Seeded per opening, not once: the thread may have been renamed by the
   // connector's own title inference since this row last mounted.
   React.useEffect(() => {
     if (open) {
-      setTitle(thread.title);
+      setTitle(current);
     }
-  }, [open, thread.title]);
+  }, [open, current]);
 
   const trimmed = title.trim();
-  const canSubmit = trimmed.length > 0 && trimmed !== thread.title;
+  const canSubmit = trimmed.length > 0 && trimmed !== current;
 
   const submit = () => {
     if (canSubmit) {
@@ -129,7 +149,17 @@ function RenameThreadDialog({
   );
 }
 
-export function ThreadRowMenu({ thread }: { readonly thread: ThreadSummary }) {
+/**
+ * `active` marks the open thread's row: the lifecycle keys act on the open
+ * thread, so only its menu names them.
+ */
+export function ThreadRowMenu({
+  thread,
+  active,
+}: {
+  readonly thread: ThreadSummary;
+  readonly active: boolean;
+}) {
   const send = useThreadCommand();
   const remove = useDeleteThread();
   const [dialog, setDialog] = React.useState<OpenDialog>(null);
@@ -158,10 +188,11 @@ export function ThreadRowMenu({ thread }: { readonly thread: ThreadSummary }) {
           </TooltipTrigger>
           <TooltipContent>More actions</TooltipContent>
         </Tooltip>
-        <DropdownMenuContent align="end" className="w-44">
+        <DropdownMenuContent align="end" className={active ? "w-52" : "w-44"}>
           <DropdownMenuItem onClick={() => setDialog("rename")}>
             <Edit variant="bold" />
             Rename
+            <ItemKeys command="thread.rename" shown={active} />
           </DropdownMenuItem>
           {thread.status === "archived" ? (
             <DropdownMenuItem
@@ -175,6 +206,7 @@ export function ThreadRowMenu({ thread }: { readonly thread: ThreadSummary }) {
             >
               <ArchiveUp variant="bold" />
               Unarchive
+              <ItemKeys command="thread.archive" shown={active} />
             </DropdownMenuItem>
           ) : (
             <DropdownMenuItem
@@ -188,18 +220,20 @@ export function ThreadRowMenu({ thread }: { readonly thread: ThreadSummary }) {
             >
               <ArchiveIcon variant="bold" />
               Archive
+              <ItemKeys command="thread.archive" shown={active} />
             </DropdownMenuItem>
           )}
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onClick={() => setDialog("delete")}>
             <Trash variant="bold" />
             Delete
+            <ItemKeys command="thread.delete" shown={active} />
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
       <RenameThreadDialog
-        thread={thread}
+        title={thread.title}
         open={dialog === "rename"}
         onOpenChange={(next) => setDialog(next ? "rename" : null)}
         onSubmit={(title) =>
