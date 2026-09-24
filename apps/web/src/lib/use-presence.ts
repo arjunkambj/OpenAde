@@ -16,7 +16,7 @@
 import * as React from "react";
 
 /** How long the panels take to open or close; `duration-200` in their classes. */
-export const PRESENCE_MS = 200;
+const PRESENCE_MS = 200;
 
 export type Presence = "entering" | "shown" | "leaving";
 
