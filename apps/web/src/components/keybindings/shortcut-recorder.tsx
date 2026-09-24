@@ -10,11 +10,12 @@
  */
 
 import { Button } from "@OpenAde/ui/components/button";
-import { Kbd, KbdGroup } from "@OpenAde/ui/components/kbd";
+import { Kbd } from "@OpenAde/ui/components/kbd";
 import { detectModKey, formatEventAsShortcut } from "@OpenAde/client-runtime/keybindings";
 import * as React from "react";
 
 import { keycapsFor } from "@/lib/keybindings";
+import { Keycaps } from "@/lib/shortcuts";
 
 export function ShortcutRecorder({
   value,
@@ -48,17 +49,7 @@ export function ShortcutRecorder({
   };
 
   const idle =
-    value === "" ? (
-      placeholder
-    ) : caps.length === 0 ? (
-      <Kbd>{value}</Kbd>
-    ) : (
-      <KbdGroup>
-        {caps.map((cap) => (
-          <Kbd key={cap}>{cap}</Kbd>
-        ))}
-      </KbdGroup>
-    );
+    value === "" ? placeholder : caps.length === 0 ? <Kbd>{value}</Kbd> : <Keycaps caps={caps} />;
 
   return (
     <Button

@@ -29,7 +29,7 @@
  */
 
 import { useAtomValue } from "@effect/atom-react";
-import { Kbd, KbdGroup } from "@OpenAde/ui/components/kbd";
+import { Kbd } from "@OpenAde/ui/components/kbd";
 import { useSidebar } from "@OpenAde/ui/components/sidebar";
 import {
   detectModKey,
@@ -258,14 +258,12 @@ export function useCommandKeycaps(
     .filter((caps) => caps.length > 0);
 }
 
-function Keycaps({ caps }: { readonly caps: ReadonlyArray<string> }) {
-  return (
-    <KbdGroup>
-      {caps.map((key) => (
-        <Kbd key={key}>{key}</Kbd>
-      ))}
-    </KbdGroup>
-  );
+/**
+ * One chord as one keycap: `⌘⌥R` on macOS, `Ctrl+Alt+R` elsewhere. A cap per
+ * key made a three-key chord three boxes, which reads as three shortcuts.
+ */
+export function Keycaps({ caps }: { readonly caps: ReadonlyArray<string> }) {
+  return <Kbd>{caps.join(detectModKey() === "meta" ? "" : "+")}</Kbd>;
 }
 
 /**

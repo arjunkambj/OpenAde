@@ -22,12 +22,11 @@ import {
 } from "@OpenAde/ui/components/dialog";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@OpenAde/ui/components/empty";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@OpenAde/ui/components/input-group";
-import { Kbd, KbdGroup } from "@OpenAde/ui/components/kbd";
 import { detectModKey } from "@OpenAde/client-runtime/keybindings";
 
 import { cheatsheetSections, type CheatsheetRow } from "@/lib/cheatsheet";
 import { COMMAND_CATALOG } from "@/lib/command-catalog";
-import { useKeybindingCommand, useKeybindings } from "@/lib/shortcuts";
+import { Keycaps, useKeybindingCommand, useKeybindings } from "@/lib/shortcuts";
 import { Search } from "@honeyicons/react";
 
 export function ShortcutsDialog() {
@@ -117,13 +116,7 @@ function SheetRow({ row }: { readonly row: CheatsheetRow }) {
         {row.chords.length === 0 ? (
           <span className="text-xs text-muted-foreground">unbound</span>
         ) : (
-          row.chords.map((chord) => (
-            <KbdGroup key={chord.shortcut}>
-              {chord.caps.map((cap) => (
-                <Kbd key={cap}>{cap}</Kbd>
-              ))}
-            </KbdGroup>
-          ))
+          row.chords.map((chord) => <Keycaps key={chord.shortcut} caps={chord.caps} />)
         )}
       </span>
     </li>
