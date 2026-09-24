@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { keybindingContext, type FocusSnapshot } from "./keybinding-context";
+import { DEFAULT_KEYBINDINGS } from "@OpenAde/contracts/keybindings";
+import { resolveKeybinding } from "@OpenAde/client-runtime/keybindings";
+
+import {
+  FOCUS_SURFACE,
+  keybindingContext,
+  surfaceOf,
+  type FocusSnapshot,
+} from "./keybinding-context";
 
 const snapshot = (patch: Partial<FocusSnapshot> = {}): FocusSnapshot => ({
   editable: false,
@@ -79,5 +87,61 @@ describe("keybindingContext", () => {
     const context = keybindingContext(snapshot(), flags.read, false);
     expect(context("threadRunning")).toBe(true);
     expect(flags.reads).toEqual(["turnRunning"]);
+  });
+});
+
+interface FakeElement {
+  readonly getAttribute: (name: string) => string | null;
+  readonly closest: (selector: string) => FakeElement | null;
+}
+
+/** A stand-in element: its own attributes, then its ancestors', for `closest`. */
+const element = (attributes: Readonly<Record<string, string>>, parent?: FakeElement) => {
+  const node: FakeElement = {
+    getAttribute: (name) => attributes[name] ?? null,
+    closest: (selector) =>
+      selector === "[data-context]" && "data-context" in attributes
+        ? node
+        : (parent?.closest(selector) ?? null),
+  };
+  return node;
+};
+
+describe("surfaceOf", () => {
+  it("reads the closest data-context above the focused element", () => {
+    const pane = element({ "data-context": FOCUS_SURFACE.browser });
+    const addressBar = element({ "aria-label": "Address" }, element({}, pane));
+    expect(surfaceOf(addressBar as unknown as EventTarget)).toBe("browser");
+    expect(surfaceOf(element({}) as unknown as EventTarget)).toBeUndefined();
+    expect(surfaceOf(null)).toBeUndefined();
+  });
+
+  it("keeps the app's Mod+L, Mod+[ and Mod+] out of the browser pane's address bar", () => {
+    const pane = element({ "data-context": FOCUS_SURFACE.browser });
+    const addressBar = element({}, pane);
+    const inPane = keybindingContext(
+      snapshot({ editable: true, surface: surfaceOf(addressBar as unknown as EventTarget) }),
+      () => undefined,
+      true,
+    );
+    const elsewhere = keybindingContext(snapshot({ editable: true }), () => undefined, true);
+    const press = (key: string, code: string) => ({
+      key,
+      code,
+      metaKey: true,
+      ctrlKey: false,
+      altKey: false,
+      shiftKey: false,
+    });
+    for (const [key, code, command] of [
+      ["l", "KeyL", "composer.focus"],
+      ["[", "BracketLeft", "nav.back"],
+      ["]", "BracketRight", "nav.forward"],
+    ] as const) {
+      expect(resolveKeybinding(DEFAULT_KEYBINDINGS, press(key, code), inPane, "meta")).toBeNull();
+      expect(
+        resolveKeybinding(DEFAULT_KEYBINDINGS, press(key, code), elsewhere, "meta")?.command,
+      ).toBe(command);
+    }
   });
 });

@@ -2216,8 +2216,12 @@ chords, and on macOS the Cocoa `Ctrl+letter` editing keys — and
 
 The context for each press is built by `apps/web/src/lib/keybinding-context.ts`:
 `focusSnapshot` reads whether the focused element is a text field, its closest
-`data-context` (`composer`, `terminal`, `browser`) and whether a dialog,
-alert, menu, menubar or listbox is on screen; `keybindingContext` answers the
+`data-context` (`FOCUS_SURFACE`: `composer`, `terminal`, `browser`) and
+whether a dialog, alert, menu, menubar or listbox is on screen. Both composers
+set `composer` on their textarea, and the browser pane sets `browser` on its
+root, so its address bar and toolbar read as `browserFocus` and keep `Mod+L`,
+`Mod+[` and `Mod+]` from the app; nothing sets `terminal` until the terminal
+lands. `keybindingContext` answers the
 built-in keys from that snapshot and the platform, and every other key from the
 registry under its canonical name, so an older stored clause naming
 `threadRunning` still reads `turnRunning`. A component cannot publish a

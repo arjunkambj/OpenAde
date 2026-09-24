@@ -25,6 +25,7 @@ import { BrowserHumanInput as BrowserHumanInputSchema } from "@OpenAde/contracts
 import * as Schema from "effect/Schema";
 import { AsyncResult } from "effect/unstable/reactivity";
 
+import { FOCUS_SURFACE } from "@/lib/keybinding-context";
 import { getAppAtoms, getHttpBase } from "@/state/app-runtime";
 import { AddressBar } from "./address-bar";
 import { FrameSurface } from "./frame-surface";
@@ -92,7 +93,9 @@ export function BrowserPane({ threadId }: BrowserPaneProps) {
     (state === null || state.mode !== "owned-chromium");
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    // Focus anywhere in the pane — the address bar, its buttons — reads as
+    // `browserFocus`, so the app's Mod+L and Mod+[ / Mod+] leave it alone.
+    <div data-context={FOCUS_SURFACE.browser} className="flex h-full min-h-0 flex-col">
       <AddressBar state={state} onAction={dispatch} />
       {missing ? (
         <InstallPrompt onRetry={() => dispatch({ kind: "history", direction: "reload" })} />

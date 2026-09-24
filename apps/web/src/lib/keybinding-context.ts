@@ -47,10 +47,29 @@ const isEditableTarget = (target: EventTarget | null): boolean =>
 const OVERLAY_SELECTOR =
   '[role="dialog"],[role="alertdialog"],[role="menu"],[role="menubar"],[role="listbox"]';
 
-const surfaceOf = (target: EventTarget | null): string | undefined =>
-  target instanceof HTMLElement
-    ? (target.closest("[data-context]")?.getAttribute("data-context") ?? undefined)
+/**
+ * The `data-context` a surface sets on its root so focus anywhere inside it
+ * reads as that surface's focus key: the composers set it on their textarea,
+ * the browser pane on the element holding its address bar and page.
+ */
+export const FOCUS_SURFACE = {
+  composer: "composer",
+  terminal: "terminal",
+  browser: "browser",
+} as const;
+
+/** The part of an element `surfaceOf` reads — structural, so a test needs no DOM. */
+interface SurfaceElement {
+  readonly closest: (selector: string) => { getAttribute(name: string): string | null } | null;
+}
+
+/** The focused element's closest `data-context`, if any. */
+export const surfaceOf = (target: EventTarget | null): string | undefined => {
+  const element = target as Partial<SurfaceElement> | null;
+  return typeof element?.closest === "function"
+    ? (element.closest("[data-context]")?.getAttribute("data-context") ?? undefined)
     : undefined;
+};
 
 /** Reads the page for one keypress. */
 export const focusSnapshot = (event: KeyboardEvent): FocusSnapshot => ({
@@ -77,9 +96,9 @@ export const keybindingContext = (
 ): WhenContext => {
   const builtin: ReadonlyMap<string, boolean> = new Map([
     ["inputFocus", snapshot.editable],
-    ["composerFocus", snapshot.surface === "composer"],
-    ["terminalFocus", snapshot.surface === "terminal"],
-    ["browserFocus", snapshot.surface === "browser"],
+    ["composerFocus", snapshot.surface === FOCUS_SURFACE.composer],
+    ["terminalFocus", snapshot.surface === FOCUS_SURFACE.terminal],
+    ["browserFocus", snapshot.surface === FOCUS_SURFACE.browser],
     ["dialogOpen", snapshot.overlayOpen],
     ["isMac", isMac],
   ]);
