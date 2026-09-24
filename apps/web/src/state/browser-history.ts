@@ -63,3 +63,16 @@ export const useRecordVisit = () => {
     [setHistory],
   );
 };
+
+/** Forgets every project's history — the Browser settings page's "Clear browsing data". */
+export const useClearBrowserHistory = () => {
+  const setHistory = useAtomSet(historyAtom);
+  return React.useCallback(() => {
+    try {
+      globalThis.localStorage?.removeItem(HISTORY_KEY);
+    } catch {
+      // Blocked storage; the atom still empties.
+    }
+    setHistory({});
+  }, [setHistory]);
+};

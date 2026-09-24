@@ -19,6 +19,7 @@ import {
   Brain,
   Connect,
   GitBranch,
+  Globe,
   Keyboard,
   Lock,
   SlidersHorizontal,
@@ -31,6 +32,7 @@ const ITEMS = [
   { to: "/settings/keybindings", label: "Keybindings", icon: Keyboard },
   { to: "/settings/permissions", label: "Permissions", icon: Lock },
   { to: "/settings/git", label: "Git & worktrees", icon: GitBranch },
+  { to: "/settings/browser", label: "Browser", icon: Globe },
   { to: "/settings/archived", label: "Archived threads", icon: Archive },
 ] as const;
 
