@@ -2,10 +2,12 @@
  * The xterm that shows the drawer's active terminal. Loaded lazily by the
  * drawer, so a thread view that never opens a terminal never pays for xterm.
  *
- * One xterm serves whichever tab is in front: switching tabs re-attaches it to
- * the other terminal, whose first stream item is a `snapshot` the xterm is
- * reset to. With no terminal yet (`terminalId` null) it only measures, so the
- * drawer can open the first shell at the size it will be shown at.
+ * Each view shows one terminal: the drawer mounts it keyed by terminalId, so
+ * switching tabs starts a fresh xterm, and nothing still queued in the old
+ * one's write queue can reach the new terminal's screen or, as answers to its
+ * queries, its shell. The first stream item is a `snapshot` the xterm is reset
+ * to. With no terminal yet (`terminalId` null) it only measures, so the drawer
+ * can open the first shell at the size it will be shown at.
  *
  * Unmounting disposes the xterm and ends the subscription; the shell keeps
  * running on the server, and the next mount reattaches from the snapshot.

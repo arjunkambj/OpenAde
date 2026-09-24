@@ -1758,8 +1758,10 @@ everything the shell printed meanwhile, up to the scrollback bound. A reload
 works the same way, from `terminal.list`. A server restart ends every shell:
 the listing comes back empty, the attach reports `gone`, and the tab drops.
 
-The drawer holds one xterm for whichever tab is in front; switching tabs
-reattaches it to the other terminal from that terminal's snapshot. An exited
+The drawer shows the tab in front in an xterm of its own; switching tabs
+disposes it and starts a fresh one from the other terminal's snapshot, so
+output still queued for the old xterm, and xterm's answers to queries in it,
+never reach the other terminal. An exited
 terminal stays listed, marked "exited", with its final output, until it is
 closed, so the last thing a command printed is still readable.
 

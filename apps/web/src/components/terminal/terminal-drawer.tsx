@@ -3,9 +3,9 @@
  *
  * `ThreadTerminal` is always mounted with the thread view: it answers
  * `terminal.toggle` and renders the drawer only while this thread's drawer is
- * open (`@/state/terminal-ui`). The drawer holds a tab strip over one lazily
- * loaded xterm (`./terminal-view`) that shows whichever tab is in front, and a
- * toolbar that acts on that xterm — "Add selection to chat" quotes its
+ * open (`@/state/terminal-ui`). The drawer holds a tab strip over a lazily
+ * loaded xterm (`./terminal-view`) for the tab in front, a fresh one per tab,
+ * and a toolbar that acts on that xterm — "Add selection to chat" quotes its
  * selection into the thread's composer draft, and Find (`./terminal-find`)
  * searches the xterm's output. A mod-clicked link opens in the
  * thread's browser pane (`./use-open-link`).
@@ -205,6 +205,7 @@ function TerminalDrawer({
         }
       >
         <TerminalView
+          key={state.activeId ?? "unattached"}
           threadId={threadId}
           terminalId={state.activeId}
           focusRequest={focusRequest + tabFocus}
