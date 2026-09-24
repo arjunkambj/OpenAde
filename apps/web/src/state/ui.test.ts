@@ -59,7 +59,31 @@ describe("withComposerDraft", () => {
 
   it("remembers mentions and staged files, not just text", () => {
     const drafts = withComposerDraft({}, "a", draft({ mentions: ["src/main.ts"], files: [file] }));
-    expect(drafts.a).toEqual({ text: "", mentions: ["src/main.ts"], files: [file] });
+    expect(drafts.a).toEqual({
+      text: "",
+      mentions: ["src/main.ts"],
+      references: [],
+      files: [file],
+    });
+  });
+
+  it("remembers picked skill and plugin references", () => {
+    const references = [
+      { kind: "skill", name: "health-checks" },
+      { kind: "plugin", name: "formatter" },
+    ] as const;
+    const drafts = withComposerDraft({}, "a", draft({ references }));
+    expect(drafts.a?.references).toEqual(references);
+  });
+
+  it("keeps a draft that holds only a reference, and drops it once that goes", () => {
+    const drafts = withComposerDraft(
+      {},
+      "a",
+      draft({ references: [{ kind: "skill", name: "health-checks" }] }),
+    );
+    expect(Object.keys(drafts)).toEqual(["a"]);
+    expect(withComposerDraft(drafts, "a", draft({ references: [] }))).toEqual({});
   });
 
   it("drops the key once a draft is empty again, so the map does not grow", () => {

@@ -398,7 +398,7 @@ rejected path in the field so it can be corrected.
 `apps/web/src/components/composer/` owns the draft. What Enter means is a pure
 function in `composer-keys.ts`:
 
-- a `/` or `#` menu that has rows → **pick** the highlighted one;
+- a `/`, `#`, `@` or `$` menu that has rows → **pick** the highlighted one;
 - an IME mid-composition, or Shift held → **insert** a newline;
 - otherwise → **send**.
 
@@ -441,7 +441,22 @@ open until whitespace, and needs a query that does not start with another `#`
 So a lone `#` then Enter sends, `# Heading` closes at the space, and `##`
 headings, `a#b` and `https://x.dev/#frag` never open it. `#12` does open and
 lists no files; a menu with no rows does not own Enter, so the message still
-sends. `@` opens no menu.
+sends.
+
+`@` lists the thread instance's enabled plugins under "Plugins", then its
+enabled skills under "Skills" (`pluginsAtom` and `skillsAtom`, wired in
+`use-reference-mentions.ts`; the rows come from `reference-menu.ts`). `$` lists
+the skills alone. Neither lists files. An instance without the plugins
+extension answers no plugins, so `@` then shows its skills; with neither the
+menu says so. Both open on an empty query, like `/`, and follow the same
+start-of-token rule, so `me@x.com` and `a$b` stay closed. `$` also stays closed
+when its query starts with a digit, so `$5` and `costs $20` never open; `$HOME`
+does open and lists no skills, so Enter still sends. Picking writes one token
+per reference and adds a chip: `@name ` for a plugin and `$name ` for a skill,
+even a skill picked from `@`, so a plugin and a skill of the same name never
+share a token. Removing the chip removes the token, and editing the token away
+drops the chip. The turn carries them as typed `references`
+(`{ kind: "skill" | "plugin", name }`), sent only when there are some.
 
 The model picker, on the start screen and in the thread header, has one
 section per enabled connector instance (`modelCatalogAtom`), headed by the

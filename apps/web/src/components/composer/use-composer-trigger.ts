@@ -1,7 +1,7 @@
 /**
- * The trigger popovers' own state (`/` commands, `#` files): which trigger is
- * open, which row the keyboard is on, and which level of the slash menu is
- * showing.
+ * The trigger popovers' own state (`/` commands, `#` files, `@` and `$`
+ * references): which trigger is open, which row the keyboard is on, and which
+ * level of the slash menu is showing.
  *
  * It lives here rather than in `composer.tsx` because it is a small state
  * machine with three invariants that are easy to break one at a time: opening a

@@ -20,6 +20,7 @@
 import { useAtomSet } from "@effect/atom-react";
 import { makeCommandId } from "@OpenAde/contracts/ids";
 import type { ThreadId } from "@OpenAde/contracts/ids";
+import type { TurnReference } from "@OpenAde/contracts/runtime";
 import * as React from "react";
 
 import type { SendMode } from "@/components/composer/send-mode";
@@ -32,6 +33,8 @@ export interface Draft {
   readonly text: string;
   readonly mentions: ReadonlyArray<string>;
   readonly mode: SendMode;
+  /** Skills and plugins picked from `@` and `$`; sent only when there are some. */
+  readonly references?: ReadonlyArray<TurnReference>;
 }
 
 export interface SendDraft {
@@ -72,6 +75,7 @@ export function useSendDraft(
           text: draft.text,
           attachments: staged.references,
           mentions: [...draft.mentions],
+          ...(draft.references?.length ? { references: [...draft.references] } : {}),
         };
         return dispatch(
           draft.mode === "steer"

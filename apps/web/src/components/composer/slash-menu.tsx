@@ -16,7 +16,11 @@ import type { Effort, InteractionMode, RuntimeMode } from "@OpenAde/contracts/en
 import type { ModelOption, SkillSummary } from "@OpenAde/contracts/connectors";
 import type { ConnectorCapabilities } from "@OpenAde/contracts/runtime";
 
-import { TriggerMenu, type TriggerMenuItem } from "@/components/composer/trigger-menu";
+import {
+  TriggerMenu,
+  matchesQuery as match,
+  type TriggerMenuItem,
+} from "@/components/composer/trigger-menu";
 import { orderEfforts } from "@/lib/efforts";
 import { RUNTIME_MODE_LABELS, runtimeModeOptions } from "@/lib/runtime-modes";
 import { Brain, Close, Lightning, ListChecks, Lock, Play, Sparkles } from "@honeyicons/react";
@@ -45,11 +49,6 @@ const RUNTIME_MODE_DESCRIPTIONS: Readonly<Record<RuntimeMode, string>> = {
   "approval-required": "Prompt for everything that mutates or reaches out",
   "auto-accept-edits": "Edits inside the project run free, shell and web still ask",
   "full-access": "Everything except sensitive paths and deny rules",
-};
-
-const match = (query: string, ...text: ReadonlyArray<string>) => {
-  const needle = query.trim().toLowerCase();
-  return needle.length === 0 || text.some((part) => part.toLowerCase().includes(needle));
 };
 
 /**

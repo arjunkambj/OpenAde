@@ -1,9 +1,15 @@
 import type { HoneyIcon } from "@honeyicons/react";
 /**
- * The floating list the `#` and `/` triggers open. It is a plain positioned
- * `listbox` — the composer owns the query and the active index, so both menus
- * share one keyboard contract: Up/Down move, Enter picks, Escape closes.
+ * The floating list the `#`, `@`, `$` and `/` triggers open. It is a plain
+ * positioned `listbox` — the composer owns the query and the active index, so
+ * every menu shares one keyboard contract: Up/Down move, Enter picks, Escape
+ * closes.
+ *
+ * Items may carry a `group`; a muted heading is drawn where the group changes.
+ * Headings are presentation only — the active index still counts rows alone.
  */
+
+import * as React from "react";
 
 import { cn } from "@OpenAde/ui/lib/utils";
 
@@ -12,7 +18,15 @@ export interface TriggerMenuItem {
   readonly label: string;
   readonly description?: string;
   readonly icon?: HoneyIcon;
+  /** Heading of the run of rows this one belongs to, e.g. "Skills". */
+  readonly group?: string;
 }
+
+/** A menu row matches when the query is blank or any of `text` contains it. */
+export const matchesQuery = (query: string, ...text: ReadonlyArray<string>): boolean => {
+  const needle = query.trim().toLowerCase();
+  return needle.length === 0 || text.some((part) => part.toLowerCase().includes(needle));
+};
 
 export function TriggerMenu<T extends TriggerMenuItem>({
   items,
@@ -40,32 +54,41 @@ export function TriggerMenu<T extends TriggerMenuItem>({
     >
       <div className="max-h-64 overflow-y-auto p-1">
         {items.map((item, index) => (
-          <button
-            key={item.id}
-            type="button"
-            role="option"
-            aria-selected={index === activeIndex}
-            className={cn(
-              "flex w-full min-w-0 items-center gap-2 rounded-xl px-2 py-1 text-left text-sm",
-              index === activeIndex && "bg-hover",
+          <React.Fragment key={item.id}>
+            {item.group === undefined || item.group === items[index - 1]?.group ? null : (
+              <div
+                role="presentation"
+                className="px-2 pt-2 pb-1 text-xs font-medium text-muted-foreground"
+              >
+                {item.group}
+              </div>
             )}
-            onMouseEnter={() => onHover(index)}
-            onMouseDown={(event) => {
-              // mousedown, not click: pick before the textarea blur swallows it.
-              event.preventDefault();
-              onSelect(item);
-            }}
-          >
-            {item.icon === undefined ? null : (
-              <item.icon variant="bold" className="size-4 shrink-0 text-muted-foreground" />
-            )}
-            <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            {item.description === undefined ? null : (
-              <span className="shrink-0 truncate text-xs text-muted-foreground">
-                {item.description}
-              </span>
-            )}
-          </button>
+            <button
+              type="button"
+              role="option"
+              aria-selected={index === activeIndex}
+              className={cn(
+                "flex w-full min-w-0 items-center gap-2 rounded-xl px-2 py-1 text-left text-sm",
+                index === activeIndex && "bg-hover",
+              )}
+              onMouseEnter={() => onHover(index)}
+              onMouseDown={(event) => {
+                // mousedown, not click: pick before the textarea blur swallows it.
+                event.preventDefault();
+                onSelect(item);
+              }}
+            >
+              {item.icon === undefined ? null : (
+                <item.icon variant="bold" className="size-4 shrink-0 text-muted-foreground" />
+              )}
+              <span className="min-w-0 flex-1 truncate">{item.label}</span>
+              {item.description === undefined ? null : (
+                <span className="shrink-0 truncate text-xs text-muted-foreground">
+                  {item.description}
+                </span>
+              )}
+            </button>
+          </React.Fragment>
         ))}
         {items.length === 0 ? (
           <div className="px-2 py-3 text-center text-xs text-muted-foreground">

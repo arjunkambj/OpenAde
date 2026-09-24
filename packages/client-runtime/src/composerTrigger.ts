@@ -1,13 +1,14 @@
 /**
- * Composer trigger detection: the `/` and `#` tokens that open the
- * slash-command and file-mention popovers. Pure text math, shared between the
+ * Composer trigger detection: the `/`, `#`, `@` and `$` tokens that open the
+ * slash-command, file-mention, plugin-and-skill and skill popovers. Pure text
+ * math, shared between the
  * textarea handler and the tests — the UI adapter only supplies `text` and the
  * caret offset.
  *
  * A trigger opens when the trigger char starts a token: at offset 0 or right
  * after whitespace, with no whitespace between it and the caret. Everything
  * after the trigger char up to the caret is the live `query`. That rule alone
- * keeps `a#b`, `foo/bar` and `https://x.dev/#frag` closed.
+ * keeps `a#b`, `foo/bar`, `me@x.com`, `a$b` and `https://x.dev/#frag` closed.
  *
  * A kind may add a rule about its query on top (`QUERY_RULES`). `#` has one,
  * because `#` is also markdown: it opens only once a query has started and
@@ -16,10 +17,19 @@
  * menu ever shows, and `##` / `### ` headings never open it. `#12` (an issue
  * number) does open, with query `12`; it lists no files, and a menu with no
  * rows does not own Enter (`composer-keys` in the web app), so it still sends.
+ *
+ * `$` has one too, because `$` is also money: it stays closed when the query
+ * starts with a digit, so `$5` and `costs $20` never open. `$HOME` does open,
+ * with query `HOME`; it lists no skills of that name, so Enter still sends.
+ *
+ * `/`, `@` and `$` open on an empty query and list everything.
  */
 
-/** Named for what each menu lists: `slash` commands, `file` mentions (`#`). */
-export type ComposerTriggerKind = "slash" | "file";
+/**
+ * Named for what each menu lists: `slash` commands, `file` mentions (`#`),
+ * plugins and skills to `mention` (`@`), and `skill`s alone (`$`).
+ */
+export type ComposerTriggerKind = "slash" | "file" | "mention" | "skill";
 
 export interface ComposerTrigger {
   readonly kind: ComposerTriggerKind;
@@ -32,11 +42,14 @@ export interface ComposerTrigger {
 const TRIGGER_CHARS: Readonly<Record<string, ComposerTriggerKind>> = {
   "/": "slash",
   "#": "file",
+  "@": "mention",
+  $: "skill",
 };
 
 /** Extra per-kind rules on the query; a kind without one opens on any query. */
 const QUERY_RULES: Readonly<Partial<Record<ComposerTriggerKind, (query: string) => boolean>>> = {
   file: (query) => query.length > 0 && !query.startsWith("#"),
+  skill: (query) => !/^\d/u.test(query),
 };
 
 /** How far back from the caret a trigger may start. */
@@ -89,22 +102,48 @@ export const replaceComposerTrigger = (
   return { text: next, cursor: trigger.from + replacement.length };
 };
 
-/** True only when `token` still exists as a whole whitespace-delimited token. */
-export const containsComposerToken = (text: string, token: string): boolean => {
+/** Offset of the first whole whitespace-delimited `token` in `text`, or -1. */
+const indexOfComposerToken = (text: string, token: string): number => {
   let from = 0;
-  while (from <= text.length - token.length) {
+  while (token.length > 0 && from <= text.length - token.length) {
     const index = text.indexOf(token, from);
     if (index < 0) {
-      return false;
+      return -1;
     }
     const before = index === 0 ? "" : (text[index - 1] ?? "");
     const after = text[index + token.length] ?? "";
     if ((index === 0 || /\s/u.test(before)) && (after.length === 0 || /\s/u.test(after))) {
-      return true;
+      return index;
     }
-    from = index + token.length;
+    from = index + 1;
   }
-  return false;
+  return -1;
+};
+
+/** True only when `token` still exists as a whole whitespace-delimited token. */
+export const containsComposerToken = (text: string, token: string): boolean =>
+  indexOfComposerToken(text, token) !== -1;
+
+/**
+ * `text` without the first whole-token occurrence of `token` — what a chip's
+ * remove button does to the draft. A longer token that merely starts with it
+ * (`#src/a.ts` for `#src/a`) is left alone. One space next to the token goes
+ * with it, the one after by preference, so `see #a now` becomes `see now`
+ * and not `see  now`. Text without the token comes back unchanged.
+ */
+export const removeComposerToken = (text: string, token: string): string => {
+  const index = indexOfComposerToken(text, token);
+  if (index === -1) {
+    return text;
+  }
+  const end = index + token.length;
+  if (text[end] === " ") {
+    return `${text.slice(0, index)}${text.slice(end + 1)}`;
+  }
+  if (index > 0 && text[index - 1] === " ") {
+    return `${text.slice(0, index - 1)}${text.slice(end)}`;
+  }
+  return `${text.slice(0, index)}${text.slice(end)}`;
 };
 
 /**

@@ -1064,10 +1064,11 @@ RPC error: the server (`settings/ConnectorExtensions.ts`) resolves the
 failure's code across, and answers `unavailable` for an instance that is not
 open or has no such extension. `ConnectorSummary.extensions` tells the renderer
 which instances have which, so it shows a Customize section only for those, and
-the composer's `/` menu asks the thread's own instance for its skills. The
-client runtime's `pluginsAtom` asks one instance for its plugins and reads an
-`unavailable` answer, like no instance at all, as an empty list, so an
-instance without plugins is not an error.
+the composer's `/`, `@` and `$` menus ask the thread's own instance for its
+skills, and `@` for its plugins too. The client runtime's `pluginsAtom` asks
+one instance for its plugins and reads an `unavailable` answer, like no
+instance at all, as an empty list, so an instance without plugins is not an
+error and `@` just lists its skills.
 
 Instances
 are per configuration, not per thread. The registry (`registry.ts`) routes by

@@ -13,6 +13,7 @@ import { useAtomValue } from "@effect/atom-react";
 import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
 import type { FileSearchResult } from "@OpenAde/contracts/rpc";
 import {
+  removeComposerToken,
   replaceComposerTrigger,
   retainComposerReferences,
   type ComposerTrigger,
@@ -42,6 +43,8 @@ export interface FileMentions {
   readonly items: ReadonlyArray<TriggerMenuItem>;
   readonly searching: boolean;
   readonly pick: (item: TriggerMenuItem) => void;
+  /** Pick the row at `index`, if there is one — Enter on the highlighted row. */
+  readonly pickAt: (index: number) => void;
   readonly remove: (path: string) => void;
   /** Drop mentions whose token the next text no longer holds. */
   readonly retain: (nextText: string) => void;
@@ -89,18 +92,20 @@ export function useFileMentions({
     setTextAndCaret(next.text, next.cursor);
   };
 
+  const pickAt = (index: number) => {
+    const item = items[index];
+    if (item !== undefined) {
+      pick(item);
+    }
+  };
+
   const remove = (path: string) => {
     setMentions((current) => current.filter((entry) => entry !== path));
-    // Remove the first occurrence of the mention's token from the draft.
-    const token = fileMentionToken(path);
-    const index = text.indexOf(token);
-    if (index !== -1) {
-      setText(`${text.slice(0, index)}${text.slice(index + token.length)}`.replace(/  +/g, " "));
-    }
+    setText(removeComposerToken(text, fileMentionToken(path)));
   };
 
   const retain = (nextText: string) =>
     setMentions((current) => retainComposerReferences(current, nextText, fileMentionToken));
 
-  return { items, searching, pick, remove, retain };
+  return { items, searching, pick, pickAt, remove, retain };
 }

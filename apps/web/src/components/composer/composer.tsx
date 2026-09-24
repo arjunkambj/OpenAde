@@ -1,7 +1,9 @@
 /**
  * The composer. Textarea with `#` file mentions (live `files.search`, wired in
- * `use-file-mentions`), a `/` command popover, file attach, the queued-message
- * strip, and the interaction-card slot — one card at a time, above the input.
+ * `use-file-mentions`), `@` plugins and skills and `$` skills (reference
+ * chips, wired in `use-reference-mentions`), a `/` command popover, file
+ * attach, the queued-message strip, and the interaction-card slot — one card
+ * at a time, above the input.
  *
  * Keys: Enter sends — while a turn runs it steers that turn when the harness
  * can take a message mid-turn and queues otherwise (`send-mode`) — unless an
@@ -38,6 +40,7 @@ import { TriggerMenu } from "@/components/composer/trigger-menu";
 import { useAttachments } from "@/components/composer/use-attachments";
 import { useComposerTrigger } from "@/components/composer/use-composer-trigger";
 import { useFileMentions } from "@/components/composer/use-file-mentions";
+import { useReferenceMentions } from "@/components/composer/use-reference-mentions";
 import { useInterrupt } from "@/components/composer/use-interrupt";
 import { useSendDraft } from "@/components/composer/use-send-draft";
 import { useClientRuntime } from "@/lib/client-runtime";
@@ -88,7 +91,8 @@ export function Composer({
   // composer unmounts on every thread switch (the next thread's detail atom
   // starts at `Initial`), and with it went the text, the mentions and any
   // pasted image — unsent, unsaved and unwarned. See `@/state/ui`.
-  const { text, mentions, files, setText, setMentions, setFiles } = useComposerDraft(threadId);
+  const { text, mentions, references, files, setText, setMentions, setReferences, setFiles } =
+    useComposerDraft(threadId);
   const [error, setError] = React.useState<string | null>(null);
   const attachments = useAttachments(threadId, files, setFiles, attachRefusal);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
@@ -112,10 +116,12 @@ export function Composer({
   const running = doc !== null && turnInFlight(doc);
   const steerable = canSteer(running, doc?.session?.capabilities);
   const { interrupting, interrupt } = useInterrupt(threadId, running, setError);
-  const { sending, send: sendDraft } = useSendDraft(threadId, attachments, setError, () => {
+  const clearTokens = () => {
     setText("");
     setMentions([]);
-  });
+    setReferences([]);
+  };
+  const { sending, send: sendDraft } = useSendDraft(threadId, attachments, setError, clearTokens);
 
   const slashItems = React.useMemo<ReadonlyArray<SlashMenuItem>>(() => {
     if (trigger?.kind !== "slash") {
@@ -153,7 +159,22 @@ export function Composer({
     setMentions,
     setTextAndCaret,
   });
-  const menuItemCount = trigger?.kind === "file" ? fileMentions.items.length : slashItems.length;
+  const referenceMentions = useReferenceMentions({
+    instanceId,
+    projectId,
+    trigger,
+    text,
+    setText,
+    setReferences,
+    setTextAndCaret,
+  });
+  const referenceOpen = trigger?.kind === "mention" || trigger?.kind === "skill";
+  const menuItemCount =
+    trigger?.kind === "file"
+      ? fileMentions.items.length
+      : referenceOpen
+        ? referenceMentions.items.length
+        : slashItems.length;
 
   const applySlash = (item: SlashMenuItem) => {
     switch (item.action.type) {
@@ -167,8 +188,7 @@ export function Composer({
         }
         return;
       case "clear-draft":
-        setText("");
-        setMentions([]);
+        clearTokens();
         attachments.clear();
         closeMenu();
         return;
@@ -196,7 +216,7 @@ export function Composer({
   const send = (queueChord: boolean) => {
     if (canSend) {
       const mode = sendMode({ running, steerable, queueChord });
-      sendDraft({ text: text.trim(), mentions, mode });
+      sendDraft({ text: text.trim(), mentions, references, mode });
     }
   };
 
@@ -212,6 +232,7 @@ export function Composer({
     const next = event.target.value;
     setText(next);
     fileMentions.retain(next);
+    referenceMentions.retain(next);
     const caret = event.target.selectionStart ?? next.length;
     openTrigger(detectComposerTrigger(next, caret));
   };
@@ -237,10 +258,9 @@ export function Composer({
       }
       const index = Math.min(activeIndex, Math.max(0, menuItemCount - 1));
       if (trigger?.kind === "file") {
-        const item = fileMentions.items[index];
-        if (item !== undefined) {
-          fileMentions.pick(item);
-        }
+        fileMentions.pickAt(index);
+      } else if (referenceOpen) {
+        referenceMentions.pickAt(index);
       } else {
         const item = slashItems[index];
         if (item !== undefined) {
@@ -307,6 +327,15 @@ export function Composer({
               loading={fileMentions.searching}
               label="File mentions"
             />
+          ) : referenceOpen ? (
+            <TriggerMenu
+              items={referenceMentions.items}
+              activeIndex={activeIndex}
+              onSelect={referenceMentions.pick}
+              onHover={setActiveIndex}
+              emptyLabel={referenceMentions.emptyLabel}
+              label={referenceMentions.label}
+            />
           ) : (
             <SlashMenu
               items={slashItems}
@@ -319,8 +348,10 @@ export function Composer({
         ) : null}
         <ComposerChips
           mentions={mentions}
+          references={references}
           files={attachments.files}
           onRemoveMention={fileMentions.remove}
+          onRemoveReference={referenceMentions.remove}
           onRemoveFile={attachments.removeAt}
         />
         <textarea

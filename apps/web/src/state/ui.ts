@@ -10,6 +10,7 @@
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
+import type { TurnReference } from "@OpenAde/contracts/runtime";
 import * as Atom from "effect/unstable/reactivity/Atom";
 import * as React from "react";
 
@@ -144,8 +145,9 @@ export const useResetLayoutWidths = () => {
 
 /**
  * What is typed into a thread's composer but not sent yet: the text, the `#`
- * file mentions it names (workspace-relative paths, sent as `mentions`), and
- * the files staged against it.
+ * file mentions it names (workspace-relative paths, sent as `mentions`), the
+ * skills and plugins picked from `@` and `$` (sent as `references`), and the
+ * files staged against it.
  *
  * It used to be plain component state. The thread route is not remounted on a
  * param change, but the composer is rendered only while a snapshot exists, and
@@ -161,13 +163,22 @@ export const useResetLayoutWidths = () => {
 export interface ComposerDraft {
   readonly text: string;
   readonly mentions: ReadonlyArray<string>;
+  readonly references: ReadonlyArray<TurnReference>;
   readonly files: ReadonlyArray<File>;
 }
 
-export const emptyComposerDraft: ComposerDraft = { text: "", mentions: [], files: [] };
+export const emptyComposerDraft: ComposerDraft = {
+  text: "",
+  mentions: [],
+  references: [],
+  files: [],
+};
 
 const isEmptyDraft = (draft: ComposerDraft): boolean =>
-  draft.text === "" && draft.mentions.length === 0 && draft.files.length === 0;
+  draft.text === "" &&
+  draft.mentions.length === 0 &&
+  draft.references.length === 0 &&
+  draft.files.length === 0;
 
 /**
  * The map with one thread's draft replaced. An emptied draft drops its key
@@ -198,6 +209,7 @@ const composerDraftAtom = Atom.keepAlive(Atom.make<Readonly<Record<string, Compo
 export interface ComposerDraftHandle extends ComposerDraft {
   readonly setText: React.Dispatch<React.SetStateAction<string>>;
   readonly setMentions: React.Dispatch<React.SetStateAction<ReadonlyArray<string>>>;
+  readonly setReferences: React.Dispatch<React.SetStateAction<ReadonlyArray<TurnReference>>>;
   readonly setFiles: React.Dispatch<React.SetStateAction<ReadonlyArray<File>>>;
 }
 
@@ -230,6 +242,11 @@ export const useComposerDraft = (threadId: string): ComposerDraftHandle => {
     setMentions: React.useCallback(
       (update) =>
         patch((current) => ({ ...current, mentions: applyUpdate(update, current.mentions) })),
+      [patch],
+    ),
+    setReferences: React.useCallback(
+      (update) =>
+        patch((current) => ({ ...current, references: applyUpdate(update, current.references) })),
       [patch],
     ),
     setFiles: React.useCallback(

@@ -315,6 +315,7 @@ export const makeFixtureClient = (): FixtureClient => {
                   text: command.text,
                   attachments: command.attachments,
                   mentions: command.mentions,
+                  ...(command.references === undefined ? {} : { references: command.references }),
                   queuedAt: new Date().toISOString(),
                 },
               }),
@@ -328,6 +329,7 @@ export const makeFixtureClient = (): FixtureClient => {
               text: command.text,
               attachments: command.attachments,
               mentions: command.mentions,
+              ...(command.references === undefined ? {} : { references: command.references }),
             });
             next("thread.turn.started", { turnId });
           },

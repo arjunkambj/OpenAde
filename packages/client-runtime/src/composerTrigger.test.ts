@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   containsComposerToken,
   detectComposerTrigger,
+  removeComposerToken,
   replaceComposerTrigger,
   retainComposerReferences,
 } from "./composerTrigger";
@@ -67,10 +68,48 @@ describe("detectComposerTrigger", () => {
     expect(at("#src now")).toBeNull();
   });
 
-  it("no longer opens on @", () => {
-    expect(at("@foo")).toBeNull();
-    expect(at("look at @sr")).toBeNull();
-    expect(at("@")).toBeNull();
+  it("opens a mention trigger on @ at the start or after whitespace", () => {
+    expect(at("@form")).toEqual({ kind: "mention", from: 0, to: 5, query: "form" });
+    expect(at("use @rel")).toEqual({ kind: "mention", from: 4, to: 8, query: "rel" });
+    expect(at("line\n@x")).toMatchObject({ kind: "mention", from: 5, query: "x" });
+  });
+
+  it("opens @ on an empty query, listing everything", () => {
+    expect(at("@")).toEqual({ kind: "mention", from: 0, to: 1, query: "" });
+    expect(at("ask @")).toMatchObject({ kind: "mention", query: "" });
+  });
+
+  it("does not open @ inside an address or mid-word", () => {
+    expect(at("me@x.com")).toBeNull();
+    expect(at("mail me@x")).toBeNull();
+    expect(at("a@")).toBeNull();
+  });
+
+  it("closes a mention trigger once a space follows it", () => {
+    expect(at("@formatter ")).toBeNull();
+  });
+
+  it("opens a skill trigger on $ at the start or after whitespace", () => {
+    expect(at("$deploy")).toEqual({ kind: "skill", from: 0, to: 7, query: "deploy" });
+    expect(at("run $he")).toEqual({ kind: "skill", from: 4, to: 7, query: "he" });
+    expect(at("$")).toEqual({ kind: "skill", from: 0, to: 1, query: "" });
+    expect(at("line\n$")).toMatchObject({ kind: "skill", query: "" });
+  });
+
+  it("does not open $ mid-word", () => {
+    expect(at("a$b")).toBeNull();
+    expect(at("a$")).toBeNull();
+  });
+
+  it("keeps $ closed on an amount of money", () => {
+    expect(at("$5")).toBeNull();
+    expect(at("costs $20")).toBeNull();
+    expect(at("costs $20.50")).toBeNull();
+    expect(at("$0")).toBeNull();
+  });
+
+  it("opens $ on a shell variable, which then lists no skills", () => {
+    expect(at("echo $HOME")).toMatchObject({ kind: "skill", query: "HOME" });
   });
 
   it("does not open inside an email or mid-token", () => {
@@ -98,6 +137,34 @@ describe("replaceComposerTrigger", () => {
     const next = replaceComposerTrigger(text, trigger, "#src/app.ts ");
     expect(next.text).toBe("see #src/app.ts  please");
     expect(next.cursor).toBe("see #src/app.ts ".length);
+  });
+});
+
+describe("removeComposerToken", () => {
+  it("removes the token and the space after it", () => {
+    expect(removeComposerToken("see #src/a.ts now", "#src/a.ts")).toBe("see now");
+    expect(removeComposerToken("$deploy go", "$deploy")).toBe("go");
+  });
+
+  it("takes the space before a token at the end of the text", () => {
+    expect(removeComposerToken("use @formatter", "@formatter")).toBe("use");
+    expect(removeComposerToken("@formatter", "@formatter")).toBe("");
+  });
+
+  it("removes only a whole-token occurrence", () => {
+    expect(removeComposerToken("#src/a.ts2 #src/a.ts", "#src/a.ts")).toBe("#src/a.ts2");
+    expect(removeComposerToken("x$deploy $deploy", "$deploy")).toBe("x$deploy");
+    expect(removeComposerToken("$deploy-all", "$deploy")).toBe("$deploy-all");
+  });
+
+  it("removes only the first occurrence", () => {
+    expect(removeComposerToken("$a and $a", "$a")).toBe("and $a");
+  });
+
+  it("returns the text unchanged when the token is gone", () => {
+    const text = "nothing here";
+    expect(removeComposerToken(text, "$a")).toBe(text);
+    expect(removeComposerToken(text, "")).toBe(text);
   });
 });
 
