@@ -10,9 +10,11 @@
  * share the rail's height: each is a 24px target until there are too many to
  * fit, then they shrink together.
  *
- * `useTurnNavigation` owns the scroll for the rail. A press hands the scroll
- * to the reader first (`release`), so a held send anchor lets go instead of
- * pulling the list back.
+ * `useTurnNavigation` owns the scroll for the rail and for the
+ * `timeline.previousMessage` / `nextMessage` keys, which work whether or not
+ * the rail is on screen. Either one hands the scroll to the reader first
+ * (`release`), so a held send anchor lets go instead of pulling the list
+ * back.
  */
 
 import { Button } from "@OpenAde/ui/components/button";
@@ -20,10 +22,18 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/
 import type { LegendListRef } from "@legendapp/list/react";
 import * as React from "react";
 
+import { useKeybindingCommand } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 
 import type { TimelineRow } from "./fold";
-import { activeRailItem, type RailItem, railItems, rowAtOffset } from "./turn-rail";
+import {
+  activeRailItem,
+  type RailDirection,
+  type RailItem,
+  railItems,
+  railTarget,
+  rowAtOffset,
+} from "./turn-rail";
 import { prefersReducedMotion } from "./use-send-anchor";
 
 /** Room left above a message the rail scrolls to, in px. Less than the row gap. */
@@ -107,7 +117,7 @@ interface TurnNavigation {
   readonly goTo: (item: RailItem) => void;
 }
 
-/** The rail's entries, and the scroll it uses. */
+/** The rail's entries, and the scroll both it and the message keys use. */
 export function useTurnNavigation({
   listRef,
   rows,
@@ -131,6 +141,19 @@ export function useTurnNavigation({
     },
     [listRef, release],
   );
+  const step = (direction: RailDirection) => {
+    const list = listRef.current;
+    if (list === null) {
+      return;
+    }
+    const rows = viewRows(list);
+    const target = railTarget(items, rows.first, direction, rows.endAtEnd);
+    if (target !== undefined) {
+      goTo(target);
+    }
+  };
+  useKeybindingCommand("timeline.previousMessage", () => step("previous"));
+  useKeybindingCommand("timeline.nextMessage", () => step("next"));
   return { items, goTo };
 }
 

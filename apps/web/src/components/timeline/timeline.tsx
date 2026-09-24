@@ -15,9 +15,9 @@
  *
  * `useSendAnchor` decides who owns the scroll: it follows the end, holds a
  * just-sent message near the top while its reply streams in, or leaves the
- * reader alone once they scroll (`send-anchor.ts`). The turn rail
- * (`turn-rail-view.tsx`) hands the scroll to the reader the same way before it
- * moves it.
+ * reader alone once they scroll (`send-anchor.ts`). The turn rail and the
+ * previous/next message keys (`turn-rail-view.tsx`) hand the scroll to the
+ * reader the same way before they move it.
  */
 
 import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";

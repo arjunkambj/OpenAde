@@ -29,7 +29,9 @@ import {
   Brain,
   Check,
   CloudUpload,
+  ChevronDown,
   ChevronsDown,
+  ChevronUp,
   Edit,
   Eraser,
   FileCode,
@@ -179,6 +181,12 @@ export const COMMAND_CATALOG: ReadonlyArray<CatalogCommand> = [
   command("Timeline", "timeline.jumpToLatest", "Jump to latest", ChevronsDown),
   command("Timeline", "timeline.collapseAll", "Collapse all tool calls", UnfoldLess),
   command("Timeline", "timeline.expandAll", "Expand all tool calls", UnfoldMore),
+  command("Timeline", "timeline.previousMessage", "Previous message", ChevronUp, {
+    description: "Scrolls to your previous message",
+  }),
+  command("Timeline", "timeline.nextMessage", "Next message", ChevronDown, {
+    description: "Scrolls to your next message",
+  }),
 
   // Changes — answered while the Changes pane lists files.
   command("View", "changes.nextFile", "Next changed file", ArrowDown),

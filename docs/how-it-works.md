@@ -973,9 +973,13 @@ this from the scroll offset and the list's row positions once a frame while the
 list scrolls or its rows settle. It is hidden with fewer than two messages, and
 when the timeline is narrower than 800px, measured by its own container query.
 Each tick is a 24px target until they no longer fit, then they shrink together
-to share the rail's height. Pressing a tick hands the scroll to the reader
-first, the same event a wheel sends, so a held send anchor lets go rather than
-pulling the list back. The scroll is instant under reduced motion.
+to share the rail's height. `timeline.previousMessage` and
+`timeline.nextMessage` (Alt+Shift+Up/Down, outside text fields) step between
+messages whether or not the rail is shown; "previous" first returns to the top
+of the message the reader is in when it has scrolled out above. The rail and
+the keys hand the scroll to the reader before they move it, the same event a
+wheel sends, so a held send anchor lets go rather than pulling the list back.
+The scroll is instant under reduced motion.
 
 ### Closing the turn
 
@@ -2531,6 +2535,7 @@ fields entirely.
 | View     | `font.increase` / `decrease` / `reset`                | `Mod+Alt+=` / `-` / `0`       |                                                                                        |
 | Timeline | `timeline.jumpToLatest`                               | `Mod+Shift+J`                 | `threadOpen`                                                                           |
 | Timeline | `timeline.collapseAll` / `expandAll`                  | `Mod+Alt+[` / `Mod+Alt+]`     | `threadOpen`                                                                           |
+| Timeline | `timeline.previousMessage` / `nextMessage`            | `Alt+Shift+ArrowUp` / `Down`  | `threadOpen && !inputFocus`                                                            |
 | Git      | `git.commit`                                          | `Mod+Alt+C`                   |                                                                                        |
 | Git      | `git.push`                                            | `Mod+Alt+P`                   |                                                                                        |
 | Git      | `git.branchPicker`                                    | `Mod+Shift+G`                 |                                                                                        |

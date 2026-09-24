@@ -95,6 +95,8 @@ describe("DEFAULT_KEYBINDINGS", () => {
       expect(row("dock.files")).toBe("Mod+P|threadOpen");
       expect(row("font.increase")).toBe("Mod+Alt+=|");
       expect(row("timeline.jumpToLatest")).toBe("Mod+Shift+J|threadOpen");
+      expect(row("timeline.previousMessage")).toBe("Alt+Shift+ArrowUp|threadOpen && !inputFocus");
+      expect(row("timeline.nextMessage")).toBe("Alt+Shift+ArrowDown|threadOpen && !inputFocus");
       expect(row("changes.nextFile")).toBe(
         "Alt+ArrowDown|changesOpen && !inputFocus && !dialogOpen",
       );

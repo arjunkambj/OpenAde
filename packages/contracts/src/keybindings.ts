@@ -53,6 +53,7 @@ export const THREAD_JUMP_COMMANDS: ReadonlyArray<string> = Array.from(
  */
 const THREAD = "threadOpen";
 const OUTSIDE_BROWSER = "!browserFocus";
+const TIMELINE_KEYS = "threadOpen && !inputFocus";
 
 /**
  * The Changes pane's file keys: live only while the pane is the dock's tab,
@@ -130,6 +131,9 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<Keybinding> = [
   { command: "timeline.jumpToLatest", shortcut: "Mod+Shift+J", when: THREAD },
   { command: "timeline.collapseAll", shortcut: "Mod+Alt+[", when: THREAD },
   { command: "timeline.expandAll", shortcut: "Mod+Alt+]", when: THREAD },
+  // Outside text fields, where Alt+Shift+Up/Down select to the paragraph edge.
+  { command: "timeline.previousMessage", shortcut: "Alt+Shift+ArrowUp", when: TIMELINE_KEYS },
+  { command: "timeline.nextMessage", shortcut: "Alt+Shift+ArrowDown", when: TIMELINE_KEYS },
   // Changes
   { command: "changes.nextFile", shortcut: "Alt+ArrowDown", when: CHANGES_PANE_KEYS },
   { command: "changes.previousFile", shortcut: "Alt+ArrowUp", when: CHANGES_PANE_KEYS },
