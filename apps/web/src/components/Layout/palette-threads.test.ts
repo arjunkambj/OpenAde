@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { paletteThreads } from "./palette-threads";
+import { paletteThreads, threadJumpCommand } from "./palette-threads";
 
 const thread = (threadId: string, status: "idle" | "waiting" | "archived") => ({
   threadId,
@@ -26,5 +26,19 @@ describe("paletteThreads", () => {
   it("keeps every thread", () => {
     expect(paletteThreads([])).toEqual([]);
     expect(paletteThreads([thread("x", "archived")])).toHaveLength(1);
+  });
+});
+
+describe("threadJumpCommand", () => {
+  const order = Array.from({ length: 11 }, (_, index) => ({ threadId: `t${index + 1}` }));
+
+  it("numbers a thread by its sidebar row", () => {
+    expect(threadJumpCommand(order, "t1")).toBe("thread.jump.1");
+    expect(threadJumpCommand(order, "t9")).toBe("thread.jump.9");
+  });
+
+  it("has nothing past the ninth row or off the sidebar", () => {
+    expect(threadJumpCommand(order, "t10")).toBeUndefined();
+    expect(threadJumpCommand(order, "archived")).toBeUndefined();
   });
 });

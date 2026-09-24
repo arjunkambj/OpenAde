@@ -14,8 +14,9 @@ import {
 } from "@OpenAde/ui/components/command";
 import type { ProjectId } from "@OpenAde/contracts/ids";
 
-import { paletteThreads } from "@/components/Layout/palette-threads";
+import { paletteThreads, threadJumpCommand } from "@/components/Layout/palette-threads";
 import { SETTINGS_PAGES } from "@/components/Layout/settings-sidebar";
+import { useThreadTargets } from "@/components/sidebar/use-thread-targets";
 import { CommandKbd } from "@/lib/shortcuts";
 import { useCreateThread } from "@/lib/use-create-thread";
 import { useProjects, useThreadList } from "@/state/hooks";
@@ -99,12 +100,14 @@ export function SettingsGroup({ onDone }: GroupProps) {
 
 /**
  * A "New thread in …" entry per project, each starting a thread through the
- * one create flow. The commands — add project, toggle sidebar and the rest —
- * are `PaletteCommands`.
+ * one create flow. The project `thread.newInProject` would pick shows that
+ * command's chord, which stands in for a command row of its own. The commands
+ * — add project, toggle sidebar and the rest — are `PaletteCommands`.
  */
 export function NewThreadGroup({ onDone }: GroupProps) {
   const projects = useProjects();
   const { create } = useCreateThread();
+  const { newThreadProject } = useThreadTargets();
 
   if (projects.length === 0) {
     return null;
@@ -125,6 +128,13 @@ export function NewThreadGroup({ onDone }: GroupProps) {
           >
             <Add variant="bold" />
             New thread in {project.name}
+            <ItemShortcut
+              command={
+                project.projectId === newThreadProject?.projectId
+                  ? "thread.newInProject"
+                  : undefined
+              }
+            />
           </CommandItem>
         ))}
       </CommandGroup>
@@ -137,12 +147,14 @@ export function NewThreadGroup({ onDone }: GroupProps) {
  * cannot find a thread is a menu, so the list comes from the live atoms.
  *
  * Archived threads are off the sidebar but stay reachable here, listed after
- * the live ones, marked, and matched by typing "archived".
+ * the live ones, marked, and matched by typing "archived". The first nine
+ * sidebar rows show their `thread.jump.N` chord, numbered in sidebar order.
  */
 export function ThreadsGroup({ onDone }: GroupProps) {
   const navigate = useNavigate();
   const threads = useThreadList();
   const projects = useProjects();
+  const { order } = useThreadTargets();
 
   if (threads.length === 0) {
     return null;
@@ -173,6 +185,7 @@ export function ThreadsGroup({ onDone }: GroupProps) {
                   ? `Archived · ${projectName(thread.projectId)}`
                   : projectName(thread.projectId)}
               </span>
+              <ItemShortcut command={threadJumpCommand(order, thread.threadId)} />
             </CommandItem>
           );
         })}

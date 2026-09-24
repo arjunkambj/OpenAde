@@ -311,10 +311,13 @@ groups:
 
 - Navigation: new task, skills and MCP servers.
 - One entry per settings page.
-- A "New thread in …" entry for each project.
+- A "New thread in …" entry for each project. The one `Mod+Shift+N` would
+  start a thread in shows that chord.
 - The commands, one group per area.
 - The threads. Archived threads come last and are marked, so the palette is
-  a second way back to an archived thread besides its settings page.
+  a second way back to an archived thread besides its settings page. The
+  first nine rows of the sidebar show their `Mod+1`…`Mod+9` chord, numbered
+  in sidebar order (`useThreadTargets`, shared with `AppShortcuts`).
 
 The command groups are built from the command catalog
 (`apps/web/src/lib/command-catalog.ts`). Each row shows its chord with the
@@ -325,10 +328,15 @@ would do nothing. A catalog entry can also carry a `paletteWhen` clause over
 the published flags: "Stop turn", for example, appears only while a turn is
 running. Some entries are marked `palette: false` and never appear:
 
-- entries that another group already reaches, such as settings, skills and
-  new task;
+- entries that another group's row already reaches, such as settings, skills,
+  new task, new thread in this project and jump to thread N; that row shows
+  the command's chord instead;
 - the palette's own toggle;
-- the numbered families, jump to thread N and pick option N.
+- pick option N, which only means something while a question card is up.
+
+The palette closes when the route changes under it, so a chord pressed while
+it is open, such as `Mod+1`, lands on the thread rather than behind the
+dialog.
 
 "Keyboard shortcuts" is one of the General commands. It opens the shortcuts
 sheet (`Mod+/`, `apps/web/src/components/keybindings/shortcuts-dialog.tsx`,

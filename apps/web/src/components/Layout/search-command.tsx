@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 
 import { Button } from "@OpenAde/ui/components/button";
 import {
@@ -66,6 +66,11 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
     },
     [navigate],
   );
+
+  // A chord pressed with the palette open — Mod+1 on a thread row's hint,
+  // Mod+Shift+] — can move the route under it; the palette closes with it.
+  const pathname = useLocation({ select: (location) => location.pathname });
+  React.useEffect(() => setOpen(false), [pathname]);
 
   useKeybindingCommand("commandPalette.toggle", () => setOpen((current) => !current));
   useKeybindingCommand("thread.new", go("/"));

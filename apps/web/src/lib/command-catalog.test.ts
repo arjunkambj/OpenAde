@@ -32,9 +32,10 @@ describe("COMMAND_CATALOG", () => {
     }
   });
 
-  it("keeps the numbered families out of the palette", () => {
+  it("keeps the numbered families and the rows' stand-ins out of the palette", () => {
     const offered = COMMAND_CATALOG.filter((entry) => entry.palette).map((entry) => entry.id);
     expect(offered.filter((id) => /^(thread\.jump|question\.option)\./u.test(id))).toEqual([]);
+    expect(offered).not.toContain("thread.newInProject");
     expect(offered).toContain("project.add");
     expect(offered).toContain("sidebar.toggle");
   });

@@ -8,10 +8,12 @@
  * area. A command with no default chord (`mcp.open`) is still here, so it can
  * be found and bound.
  *
- * `palette: false` is for a command the palette already reaches another way —
- * the Navigation and Settings groups, the thread list — or would only add
- * noise with: the numbered families `thread.jump.N` and `question.option.N`,
- * and the palette's own toggle.
+ * `palette: false` is for a command the palette already reaches another way,
+ * or would only add noise with. The Navigation and Settings groups stand in
+ * for their commands; the "New thread in …" row for the project it picks
+ * stands in for `thread.newInProject`; the thread rows stand in for
+ * `thread.jump.N` — each such row shows the command's chord. The rest are
+ * `question.option.N` and the palette's own toggle.
  */
 
 import { QUESTION_OPTION_COMMANDS, THREAD_JUMP_COMMANDS } from "@OpenAde/contracts/keybindings";
@@ -114,7 +116,9 @@ export const COMMAND_CATALOG: ReadonlyArray<CatalogCommand> = [
 
   // Threads
   command("Threads", "thread.new", "New task", SquarePen, { palette: false }),
-  command("Threads", "thread.newInProject", "New thread in this project", Add),
+  command("Threads", "thread.newInProject", "New thread in this project", Add, {
+    palette: false,
+  }),
   ...THREAD_JUMP_COMMANDS.map((id, index) =>
     command("Threads", id, `Go to thread ${index + 1}`, undefined, {
       palette: false,
