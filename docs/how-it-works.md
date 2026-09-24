@@ -2308,7 +2308,10 @@ ends with that row. `SettingsStore`'s load migrates it (`migrateLegacyKeybinding
 against a frozen copy of that old keymap): a command still bound exactly to its
 old default gets no override and follows the defaults from now on, one missing
 from the table gets a `-X` row, one with different rows keeps them, and rows for
-any other command are kept as they are. The first write persists the migrated
+any other command are kept. The old keymap had no clauses, so a kept row with
+none, on a chord a default of its command now binds with a clause, takes that
+clause: a user who added a second chord to `thread.interrupt` keeps `Escape`
+scoped as shipped, and an approval card still answers Escape with deny. The first write persists the migrated
 form with the marker; until then the same row migrates to the same answer on
 every start. The `keybindings.get`/`update` RPCs kept their shape, so there was
 no protocol bump — an older server's full table still resolves to the same

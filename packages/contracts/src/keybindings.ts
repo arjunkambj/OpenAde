@@ -286,6 +286,45 @@ export const diffKeymap = (
   return [...changed, ...removed];
 };
 
+const MODIFIER_ALIASES: Readonly<Record<string, string>> = {
+  cmd: "mod",
+  meta: "mod",
+  control: "ctrl",
+  option: "alt",
+  esc: "escape",
+  return: "enter",
+};
+
+/** A chord's tokens, aliases folded and order ignored: `Cmd+Enter` is `Mod+Enter`. */
+const chordKey = (shortcut: string): string =>
+  shortcut
+    .split("+")
+    .map((token) => token.trim().toLowerCase())
+    .map((token) => MODIFIER_ALIASES[token] ?? token)
+    .sort()
+    .join("+");
+
+/**
+ * A kept legacy row with no clause, on the chord a default of its command
+ * binds, takes that default's clause. The old keymap had no clauses, so such
+ * a row is the default the user kept while changing something else; left
+ * unscoped it would, as an override listed first, shadow the rows the new
+ * clause keeps it apart from — an unscoped `Escape` for `thread.interrupt`
+ * would stop the turn where an approval card now denies.
+ */
+const withDefaultClause = (row: Keybinding): Keybinding => {
+  if (row.when !== undefined) {
+    return row;
+  }
+  const scoped = DEFAULT_KEYBINDINGS.find(
+    (entry) =>
+      entry.command === row.command &&
+      entry.when !== undefined &&
+      chordKey(entry.shortcut) === chordKey(row.shortcut),
+  );
+  return scoped === undefined ? row : { ...row, when: scoped.when };
+};
+
 /**
  * Turns a full table stored before the document held overrides into
  * overrides. Rows are compared by exact string equality, which is sound
@@ -297,7 +336,9 @@ export const diffKeymap = (
  * - A legacy command missing from the table was removed by the user, and gets
  *   a `-X` row so it stays removed.
  * - A legacy command with any other rows keeps them as its replacement.
- * - Rows for any other command are kept as they are.
+ * - Rows for any other command are kept.
+ * - A kept row with no clause, on a chord a default of its command binds
+ *   with a clause, takes that clause (`withDefaultClause`).
  *
  * An empty table maps to no overrides: the renderer already showed the
  * defaults for one, so nothing the user sees changes.
@@ -321,5 +362,6 @@ export const migrateLegacyKeybindingTable = (
   }
   // Kept in table order: resolution is first-match, so the rows that survive
   // keep the precedence they had between themselves.
-  return [...table.map(clean).filter((row) => !followsDefault.has(row.command)), ...removed];
+  const kept = table.map(clean).filter((row) => !followsDefault.has(row.command));
+  return [...kept.map(withDefaultClause), ...removed];
 };

@@ -7,7 +7,13 @@
 
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_KEYBINDINGS, RESERVED_KEYBINDINGS } from "@OpenAde/contracts/keybindings";
+import {
+  DEFAULT_KEYBINDINGS,
+  LEGACY_DEFAULT_KEYBINDINGS,
+  RESERVED_KEYBINDINGS,
+  migrateLegacyKeybindingTable,
+  resolveKeymap,
+} from "@OpenAde/contracts/keybindings";
 import type { Keybinding } from "@OpenAde/contracts/settings";
 
 import {
@@ -217,6 +223,16 @@ describe("Escape in the shipped table", () => {
     expect(resolve("turnRunning", "inputFocus", "browserFocus")).toBeNull();
     expect(resolve("turnRunning", "inputFocus", "terminalFocus")).toBeNull();
     expect(resolve("turnRunning", "inputFocus", "approvalPending")).toBeNull();
+  });
+
+  it("still denies an approval after a legacy interrupt override migrates", () => {
+    const legacy = [
+      ...LEGACY_DEFAULT_KEYBINDINGS,
+      { command: "thread.interrupt", shortcut: "Cmd+." },
+    ];
+    const table = resolveKeymap(DEFAULT_KEYBINDINGS, migrateLegacyKeybindingTable(legacy));
+    const context = (name: string) => name === "turnRunning" || name === "approvalPending";
+    expect(resolveKeybinding(table, escape, context, "meta")?.command).toBe("approval.deny");
   });
 
   it("does nothing with a dialog open or no turn running", () => {

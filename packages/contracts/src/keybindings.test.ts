@@ -287,6 +287,27 @@ describe("migrateLegacyKeybindingTable", () => {
     ]);
   });
 
+  it("gives a kept legacy row the clause its default chord now carries", () => {
+    // Adding a second interrupt chord kept the old unscoped Escape; listed
+    // first as an override, it stopped the turn where an approval card now
+    // denies. It takes the shipped clause, and the added chord stays as it is.
+    const interrupt = DEFAULT_KEYBINDINGS.find((row) => row.command === "thread.interrupt")!;
+    const table = [...legacy, { command: "thread.interrupt", shortcut: "Cmd+." }];
+    expect(migrateLegacyKeybindingTable(table)).toEqual([
+      { command: "thread.interrupt", shortcut: "Escape", when: interrupt.when },
+      { command: "thread.interrupt", shortcut: "Cmd+." },
+    ]);
+  });
+
+  it("keeps a clause the user wrote on a legacy row", () => {
+    const table = legacy.map((row) =>
+      row.command === "thread.interrupt" ? { ...row, when: "threadRunning" } : row,
+    );
+    expect(migrateLegacyKeybindingTable(table)).toEqual([
+      { command: "thread.interrupt", shortcut: "Escape", when: "threadRunning" },
+    ]);
+  });
+
   it("keeps rows for commands the legacy table never had", () => {
     const table = [...legacy, { command: "custom.thing", shortcut: "Cmd+Y" }];
     expect(migrateLegacyKeybindingTable(table)).toEqual([
