@@ -28,6 +28,13 @@
  * the turn after one, whether the thread's modes changed or the model moved
  * the CLI into plan mode by itself.
  *
+ * Steering (`steer`) writes one more user message while a turn runs, with no
+ * new turn boundary. The CLI either folds it into the running turn or runs it
+ * as a turn of its own right after; `steering.ts` reads which from the CLI's
+ * receipts, and the session holds OpenAde's turn open across the CLI's
+ * `result`s until every steered message has been taken up. Its usage is the
+ * sum of those results. Stop ends the whole turn, steered messages included.
+ *
  * The CLI stopping on its own — the stream ending or failing while the session
  * is open — is a crash: a fatal `runtime.error` naming the CLI's last stderr,
  * then `session.ended { reason: "crashed" }`, which the supervisor resumes from.
@@ -43,11 +50,20 @@ import type {
   ConnectorServices,
   TurnInput,
 } from "@OpenAde/connector-sdk/definition";
-import { SessionClosed, SpawnFailed, TurnInProgress } from "@OpenAde/connector-sdk/definition";
+import {
+  NotSteerable,
+  SessionClosed,
+  SpawnFailed,
+  TurnInProgress,
+} from "@OpenAde/connector-sdk/definition";
 import { makeBoundedEventQueue, type SessionHandle } from "@OpenAde/connector-sdk/sessionHandle";
 import type { ConnectorInstanceId, ThreadId, TurnId } from "@OpenAde/contracts/ids";
 import { makeEventId, makeTurnId } from "@OpenAde/contracts/ids";
-import type { ThreadSettings, ThreadSettingsPatch } from "@OpenAde/contracts/orchestration";
+import type {
+  ThreadSettings,
+  ThreadSettingsPatch,
+  TurnUsage,
+} from "@OpenAde/contracts/orchestration";
 import type { RuntimeEvent } from "@OpenAde/contracts/runtime";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -72,6 +88,7 @@ import {
 } from "./queryOptions";
 import type { ClaudeSessionRef } from "./sessionRef";
 import { makeProcessGroup } from "./spawn";
+import { addUsage, makeSteerLedger } from "./steering";
 import { makeToolGate } from "./toolGate";
 import { asRecord, type PendingRuntimeEvent } from "./translate/pending";
 import { isModeReport, makeTranslator } from "./translate/translator";
@@ -105,7 +122,16 @@ interface ActiveTurn {
   readonly ranAtStart: number;
   /** The gate's count of calls it saw, when the turn began. */
   readonly sightingsAtStart: number;
+  /** The usage of the CLI's results this turn has already spanned (`steering.ts`). */
+  readonly usage: TurnUsage | null;
 }
+
+/**
+ * The SDK's `interrupt`, with the option its runtime reads (0.3.280) but its
+ * declarations leave out: `cancelQueued` also cancels every user message
+ * still on the CLI's queue (the CLI's `interrupt_cancel_queued_v1`).
+ */
+type InterruptWithOptions = (options?: { readonly cancelQueued?: boolean }) => Promise<unknown>;
 
 /** What the thread is told when a turn's tool calls ran past the gate. */
 export const ungatedWarning = (ran: number): string =>
@@ -138,6 +164,7 @@ export const makeClaudeSession = (
         } as RuntimeEvent);
       });
 
+    const ledger = makeSteerLedger();
     const translator = makeTranslator({
       loginCommand: options.loginCommand,
       previousTotalCost:
@@ -288,17 +315,49 @@ export const makeClaudeSession = (
         if (record.type === "system" && record.subtype === "status" && isModeReport(record)) {
           cliMode = record.permissionMode as PermissionMode;
         }
+        ledger.observe(record);
         const turn = yield* Ref.get(turnRef);
         let completed = false;
         for (const event of translator.translate(message, turn)) {
-          if (event.type === "turn.completed" && turn !== null) yield* checkGated(turn);
+          if (event.type === "usage.updated" && turn !== null) {
+            yield* emit(yield* carryUsage(event));
+            continue;
+          }
+          if (event.type === "turn.completed" && turn !== null) {
+            // A steered message the CLI has not taken up yet runs next, as a
+            // turn of its own: this result is not the end of OpenAde's turn.
+            // Decided and cleared in one step, so a steer either lands before
+            // (and holds the turn) or finds no turn and is queued instead.
+            const ends = yield* Ref.modify(turnRef, (now): [boolean, ActiveTurn | null] =>
+              now !== null && !now.interrupted && ledger.awaiting() ? [false, now] : [true, null],
+            );
+            if (!ends) {
+              yield* services.logger.log("debug", "claude turn held open for a steered message", {
+                turnId: turn.turnId,
+              });
+              continue;
+            }
+            ledger.clear();
+            yield* checkGated(turn);
+            completed = true;
+          }
           yield* emit(event);
-          if (event.type === "turn.completed") completed = true;
         }
-        if (completed) {
-          yield* Ref.set(turnRef, null);
-          yield* announce;
-        }
+        if (completed) yield* announce;
+      });
+
+    /** A result's usage, added to what the turn's earlier results reported. */
+    const carryUsage = (
+      event: Extract<PendingRuntimeEvent, { type: "usage.updated" }>,
+    ): Effect.Effect<PendingRuntimeEvent> =>
+      Ref.modify(turnRef, (active) => {
+        if (active === null) return [event, active];
+        const { turnId, ...reported } = event.payload;
+        const usage = addUsage(active.usage, reported);
+        return [
+          { ...event, payload: { turnId, ...usage } },
+          { ...active, usage },
+        ];
       });
 
     /**
@@ -384,6 +443,7 @@ export const makeClaudeSession = (
           interrupted: false,
           ranAtStart: translator.toolCallsRan(),
           sightingsAtStart: toolGate.sightings(),
+          usage: null,
         });
         yield* emit({ type: "turn.started", payload: { turnId } });
         const staged = yield* Effect.promise(() =>
@@ -405,6 +465,44 @@ export const makeClaudeSession = (
         }
       });
 
+    /**
+     * One more message into the running turn: no `turn.started`, and the
+     * turn is held open until the CLI has taken it up (`steering.ts`). The
+     * CLI's permission mode is the running turn's; a steer does not move it.
+     */
+    const steer = (turn: TurnInput): Effect.Effect<void, ConnectorError> =>
+      Effect.gen(function* () {
+        if (yield* Ref.get(closedRef)) return yield* new SessionClosed({ threadId });
+        const notRunning = new NotSteerable({ threadId, reason: "no turn is running" });
+        const active = yield* Ref.get(turnRef);
+        if (active === null) return yield* notRunning;
+        if (active.interrupted) {
+          return yield* new NotSteerable({ threadId, reason: "the running turn is stopping" });
+        }
+        const staged = yield* Effect.promise(() =>
+          stageAttachments({
+            attachmentsDir: services.attachmentsDir,
+            threadId,
+            attachments: turn.attachments,
+          }),
+        );
+        for (const message of staged.warnings) {
+          yield* emit({ type: "session.warning", payload: { message } });
+        }
+        const message = userMessage(turn, staged);
+        // Staging awaited the disk: the turn may have ended meanwhile, and a
+        // message written now would start one nobody opened.
+        // Read and written in one step, so a result the consumer handles
+        // meanwhile either sees the message watched or ends the turn first.
+        const delivered = yield* Ref.modify(turnRef, (now) => {
+          if (now?.turnId !== active.turnId || now.interrupted) return ["ended" as const, now];
+          ledger.watch(message.uuid!);
+          return [input.push(message) ? ("sent" as const) : ("closed" as const), now];
+        });
+        if (delivered === "ended") return yield* notRunning;
+        if (delivered === "closed") return yield* new SessionClosed({ threadId });
+      });
+
     const interrupt = (): Effect.Effect<void, ConnectorError> =>
       Effect.gen(function* () {
         const active = yield* Ref.get(turnRef);
@@ -413,7 +511,14 @@ export const makeClaudeSession = (
         // A card nobody will answer any more must not hold the stop up.
         yield* gate.releaseAll("deny");
         yield* interactions.releaseAll;
-        yield* Effect.tryPromise(() => session.interrupt()).pipe(
+        // A steered message still on the CLI's queue would otherwise run as
+        // the next turn once this one stops; Stop stops it too.
+        const cancelQueued = ledger.awaiting();
+        yield* Effect.tryPromise(() =>
+          cancelQueued
+            ? (session.interrupt as InterruptWithOptions).call(session, { cancelQueued })
+            : session.interrupt(),
+        ).pipe(
           Effect.catch((error) =>
             services.logger.log("warn", "claude interrupt failed", { error: error.message }),
           ),
@@ -490,6 +595,7 @@ export const makeClaudeSession = (
     return {
       events: queue.events,
       send,
+      steer,
       interrupt,
       respondToRequest: (requestId, decision) => gate.respond(requestId, decision),
       respondToUserInput: (requestId, answers) =>

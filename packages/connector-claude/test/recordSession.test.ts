@@ -46,6 +46,7 @@ const SCRATCH = "/tmp/openade-h1/scratch";
 const SIGNED_OUT_PROMPT = "Reply with the single word: ok";
 const IMAGE_PROMPT = "What colour is the image? Answer with one word.";
 const COMPACT = "/compact";
+const STEER = "Also end your reply with the word banana.";
 
 /** A fresh git repo for one scenario. */
 const scratchRepo = (scenario: string): string => {
@@ -167,6 +168,36 @@ describe("session recordings", () => {
       },
       (recording) => turn(recording, SIGNED_OUT_PROMPT),
     ),
+  );
+
+  it.live.skipIf(!RECORD)(
+    "signed-out-steer: a message steered into a running turn on a CLI that is not signed in",
+    () =>
+      recordScenario(
+        {
+          scenario: "signed-out-steer",
+          description:
+            "One turn on a CLI that is not signed in, with a second message steered into it once the CLI's system/init showed the turn under way: the CLI queues the steered message, refuses the first for the login with an error result, then runs the steered one as its own turn and refuses it the same way. Nothing reaches the API.",
+          prompts: [SIGNED_OUT_PROMPT, STEER],
+        },
+        (recording) =>
+          Effect.gen(function* () {
+            const before = new Set(yield* recording.collector.collected);
+            yield* recording.handle.send({
+              text: SIGNED_OUT_PROMPT,
+              attachments: [],
+              mentions: [],
+            });
+            // The CLI announced the turn (its init): the turn is running.
+            yield* recording.collector.awaitItem(
+              (event) => !before.has(event) && event.type === "mcp.status.updated",
+            );
+            yield* recording.handle.steer!({ text: STEER, attachments: [], mentions: [] });
+            yield* recording.collector.awaitItem(
+              (event) => !before.has(event) && event.type === "turn.completed",
+            );
+          }),
+      ),
   );
 
   it.live.skipIf(!RECORD)(

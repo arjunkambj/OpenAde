@@ -12,6 +12,8 @@
  * `question`: AskUserQuestion as a question card, answered with its first
  * option, and the answer reaching the model. `subagent`: a Task delegation,
  * its task lifecycle, and the subagent's rows nested under the task's row.
+ * `steering`: a message steered in while the turn's shell command ran, and
+ * one turn that answers both.
  * The recordings were made through the real server; only their session launch
  * is played here — the probe's launches are a different class and are never
  * asked for.
@@ -388,6 +390,42 @@ describe.skipIf(!recorded("subagent"))("a Claude Code session replaying claude/s
         expect(nested.length).toBeGreaterThan(0);
         const answer = rows(events, "assistant_message").at(-1);
         expect(answer?.parentItemId).toBeUndefined();
+      }),
+    ),
+  );
+});
+
+describe.skipIf(!recorded("steering"))("a Claude Code session replaying claude/steering", () => {
+  it.live("takes a steered message into the running turn and answers both in it", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const events = yield* replaySession(
+          "steering",
+          { runtimeMode: "full-access", interactionMode: "default" },
+          "deny",
+          ({ handle, collector, prompts }) =>
+            Effect.gen(function* () {
+              yield* handle.send({ text: prompts[0]!, attachments: [], mentions: [] });
+              // The shell command has started: the turn is certainly running.
+              yield* collector.awaitItem(
+                (event) =>
+                  event.type === "item.started" && event.payload.item.kind === "command_execution",
+              );
+              yield* handle.steer!({ text: prompts[1]!, attachments: [], mentions: [] });
+              yield* collector.awaitItem((event) => event.type === "turn.completed");
+            }),
+        );
+        expect(ofType(events, "event.unmapped")).toEqual([]);
+        expect(ofType(events, "session.warning")).toEqual([]);
+        // One turn, which ran the command and ended cleanly after both answers.
+        expect(ofType(events, "turn.started")).toHaveLength(1);
+        const completed = ofType(events, "turn.completed");
+        expect(completed).toHaveLength(1);
+        expect(completed[0]!.payload.stopReason).toBe("end_turn");
+        expect(rows(events, "command_execution")[0]?.status).toBe("completed");
+        // The answer honours the steer.
+        const answer = rows(events, "assistant_message").at(-1);
+        expect((answer?.text ?? "").toLowerCase()).toContain("banana");
       }),
     ),
   );

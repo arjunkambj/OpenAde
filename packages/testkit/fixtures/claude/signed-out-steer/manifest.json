@@ -1,0 +1,44 @@
+{
+  "formatVersion": 1,
+  "kind": "claude",
+  "transport": "sdk-stream",
+  "scenario": "signed-out-steer",
+  "description": "One turn on a CLI that is not signed in, with a second message steered into it once the CLI's system/init showed the turn under way: the CLI queues the steered message, refuses the first for the login with an error result, then runs the steered one as its own turn and refuses it the same way. Nothing reaches the API.",
+  "cliVersion": "2.1.280",
+  "sdkVersion": "0.3.280",
+  "recordedOn": "2026-09-24",
+  "model": "claude-opus-5-5[1m]",
+  "real": true,
+  "prompts": ["Reply with the single word: ok", "Also end your reply with the word banana."],
+  "invocations": [
+    {
+      "argv": [
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--input-format",
+        "stream-json",
+        "--max-turns",
+        "1",
+        "--max-budget-usd",
+        "0.05",
+        "--permission-prompt-tool",
+        "stdio",
+        "--mcp-config",
+        "{\"mcpServers\":{\"openade\":{\"type\":\"http\",\"url\":\"http://127.0.0.1:9/mcp\",\"headers\":{\"Authorization\":\"<REDACTED>\"}}}}",
+        "--setting-sources=user,project,local",
+        "--permission-mode",
+        "default",
+        "--allow-dangerously-skip-permissions",
+        "--include-partial-messages",
+        "--add-dir",
+        "/var/folders/fk/g7j37kcj0kd6sdfwg_czzrjh0000gn/T/claude-attachments-XFAUuS/01a0d0e7-7fdb-7000-af59-45b7ec5c4669",
+        "--session-id=25f46e02-32d0-4e6c-992c-f4697935d650"
+      ],
+      "cwd": "<SCRATCH>/signed-out-steer",
+      "file": "invocation-1.ndjson",
+      "exitCode": 1,
+      "signal": null
+    }
+  ]
+}

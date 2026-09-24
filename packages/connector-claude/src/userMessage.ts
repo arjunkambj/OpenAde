@@ -9,8 +9,9 @@
  * and a turn with no images is sent as a plain string, the form the CLI reads
  * `/compact` from on its own.
  *
- * The uuid is ours: the CLI echoes it on the `result` that answers the
- * message, which is how a result is tied to the message it ends.
+ * The uuid is ours: the CLI's `command_lifecycle` receipts name the message
+ * by it, which is how the session tells when a steered message has been taken
+ * up (`steering.ts`).
  */
 
 import * as NodeCrypto from "node:crypto";

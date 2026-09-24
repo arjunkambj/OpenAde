@@ -17,9 +17,12 @@ export const CLAUDE_CAPABILITIES: ConnectorCapabilities = {
   // The SDK's `applyFlagSettings({ effortLevel })`, taken the same way in the
   // same recording (`apply_flag_settings`), with no restart.
   effortSwitch: "in-session",
-  // The SDK can push a second user message into a running turn, but the
-  // session does not do it yet: until it does, a message sent mid-turn queues.
-  steering: false,
+  // `steer` writes one more user message into the running turn, and the turn
+  // stays open until the CLI has taken it up (`steering.ts`).
+  // `signed-out-steer` has the message written mid-turn and run as the CLI's
+  // next turn, inside one OpenAde turn; `steering` is the recording that will
+  // show a message folded into a running agent loop; none is made yet.
+  steering: true,
   // Permission mode `plan`, with the plan handed over through ExitPlanMode
   // and raised as the plan card (`interactions.ts`). `plan-accept` is the
   // recording that will show it; none is made yet.

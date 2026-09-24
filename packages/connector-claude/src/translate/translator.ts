@@ -42,9 +42,10 @@
  *   compaction failed;
  * - `command_lifecycle` and `system/status: requesting` → nothing, on purpose.
  *   The first is the CLI's receipt for each user message the session wrote
- *   (queued, started, cancelled); the session already knows its turn from
- *   what it sent and from the `result` that ends it. The second says a request
- *   is on its way to the API, which the deltas that follow say again.
+ *   (queued, started, then how it ended); the session reads it for itself, to
+ *   tell when a steered message has been taken up (`steering.ts`), and the
+ *   thread already has the message. The second says a request is on its way
+ *   to the API, which the deltas that follow say again.
  *
  * Everything else — a user message that is not tool results, status and
  * lifecycle notices, a task nothing here has heard of — is kept whole as
