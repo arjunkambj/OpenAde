@@ -155,6 +155,24 @@ describe("the terminal owner", () => {
   );
 });
 
+describe("terminal.adopt", () => {
+  it.effect("names the project that hands its terminals over and the thread that takes them", () =>
+    Effect.gen(function* () {
+      const rpc = OpenAdeRpcGroup.requests.get(RPC_METHODS.terminalAdopt);
+      expect(rpc).toBeDefined();
+      const decode = Schema.decodeUnknownExit(rpc!.payloadSchema as Schema.Codec<unknown>);
+      const projectId = makeProjectId();
+      const threadId = makeThreadId();
+      const tags = yield* Effect.sync(() => [
+        decode({ projectId, threadId })._tag,
+        decode({ projectId })._tag,
+        decode({ threadId })._tag,
+      ]);
+      expect(tags).toEqual(["Success", "Failure", "Failure"]);
+    }),
+  );
+});
+
 describe("the terminal limits", () => {
   it.effect("are the ones the contract names, so server and client cannot drift", () =>
     Effect.gen(function* () {

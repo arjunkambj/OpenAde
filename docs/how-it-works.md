@@ -2388,7 +2388,23 @@ root from `threadWorkspaceRoot` — its worktree when it has one, its project's
 folder otherwise — refused as `not-found` for a deleted thread, and as
 `invalid` for an archived one or a folder that no longer exists on disk; for a
 project, its folder, refused as `not-found` once the project is removed and as
-`invalid` when the folder is gone. The shell comes from `resolveShell` in
+`invalid` when the folder is gone.
+
+A project's terminals follow the first message. When the New task page starts
+a local thread — no worktree, so it works in the folder those shells run in —
+the client calls `terminal.adopt` right after `thread.create` and before it
+opens the thread, and the service hands every terminal the project owns,
+running or exited, to the thread: same ids, same scrollback, the summary now
+naming the thread. `adoptionCheckOf` refuses a thread in its own worktree, one
+of another project, and an archived or missing one, and the move is refused
+whole if it would take the thread past `TERMINALS_PER_OWNER`. It takes both
+owners' locks, in one fixed order, then moves every session in one
+synchronous step, so no reader finds a terminal under both owners or under
+neither. A session keeps its shell and hub, so a live subscriber streams on;
+calls under the project answer `not-found` from then on. A worktree thread
+takes nothing: the shells stay the project's, still running in its folder.
+
+The shell comes from `resolveShell` in
 `apps/server/src/terminal/shell.ts`: `$SHELL` when it is an absolute path,
 else `/bin/zsh` on macOS and bash (or `sh`) on Linux, with `-l` so it reads the
 user's profile — an app launched from the Finder has only launchd's bare

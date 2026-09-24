@@ -176,6 +176,7 @@ export const handlersLayer = OpenAdeRpcGroup.toLayer(
       "terminal.list": (payload) => terminals.list(terminalOwnerOf(payload)),
       "terminal.subscribe": (payload) =>
         terminals.subscribe(terminalOwnerOf(payload), payload.terminalId),
+      "terminal.adopt": ({ projectId, threadId }) => terminals.adopt(projectId, threadId),
     };
   }),
 );

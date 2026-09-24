@@ -102,7 +102,9 @@ worktree, else its project's folder), or — on the New task page, before any
 thread exists — to a project, and starts in the project's folder. A shell lives
 until its terminal is closed, its thread is deleted or archived (its project
 removed, for a project's own), or the server shuts down; switching threads or
-reloading the renderer leaves it running.
+reloading the renderer leaves it running. When the New task page starts a
+local thread — one working in the project's folder — `terminal.adopt` hands
+the project's terminals to it, shells and scrollback intact.
 
 ## Workspaces
 

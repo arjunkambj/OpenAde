@@ -16,6 +16,16 @@
  * still sees why a process died. Nothing is persisted: a server restart ends
  * every terminal.
  *
+ * A project's terminals can change owner once: `terminal.adopt` hands them
+ * all to a thread the New task page has just started in the project's own
+ * folder (a local thread; `adoptionCheckOf` refuses any other), so a shell
+ * started before the first message carries on in the thread. The move takes
+ * both owners' locks, in one fixed order, and then happens in one synchronous
+ * step, so no reader ever finds a terminal under both owners or under
+ * neither. The session itself does not change — its shell, scrollback and
+ * hub stay — so a live subscriber keeps streaming; calls under the old owner
+ * answer `not-found` from then on, as for any terminal that is not theirs.
+ *
  * Shells end on `terminal.close`; a thread's on `thread.deleted` and
  * `thread.archived` (the same rule the browser pane's teardown follows), a
  * project's own on `project.removed` (which deletes its threads, and so ends
@@ -48,6 +58,7 @@ import * as Stream from "effect/Stream";
 
 import { makeLiveBuffer, sizeOfJson } from "../orchestration/LiveBuffer";
 import { OrchestrationEngine } from "../orchestration/Engine";
+import { worktreeOf } from "../orchestration/state";
 import { threadWorkspaceRoot } from "../orchestration/workspaceRoot";
 import { TerminalService } from "../rpc/services";
 import { spawnPty } from "./pty";
@@ -63,6 +74,15 @@ export interface TerminalServiceOptions {
    * folder.
    */
   readonly workspaceFor: (owner: TerminalOwner) => Effect.Effect<string, OpenAdeRpcError>;
+  /**
+   * Refuses a hand-over (`adopt`) to anything but a live local thread of the
+   * project: its terminals run in the project's folder, and only such a
+   * thread works there.
+   */
+  readonly adoptionCheck: (
+    projectId: ProjectId,
+    threadId: ThreadId,
+  ) => Effect.Effect<void, OpenAdeRpcError>;
   /** The engine's event subscription, for the teardown reactor. */
   readonly events: Effect.Effect<PubSub.Subscription<OrchestrationEvent>, never, Scope.Scope>;
   readonly spawn?: typeof spawnPty;
@@ -157,6 +177,41 @@ export const workspaceOf =
                 message: `${isThreadOwner(owner) ? "thread" : "project"} lookup failed`,
               }),
             ),
+          ),
+        ),
+      ),
+    );
+
+/**
+ * A thread that may take a project's terminals: it exists, is not archived,
+ * belongs to that project and has no worktree of its own — so it works in the
+ * folder the project's shells run in. A thread in its own worktree, or one of
+ * another project, is refused, and the shells stay the project's.
+ */
+export const adoptionCheckOf =
+  (engine: OrchestrationEngine["Service"]) =>
+  (projectId: ProjectId, threadId: ThreadId): Effect.Effect<void, OpenAdeRpcError> =>
+    Effect.gen(function* () {
+      const doc = yield* engine.threadDoc(threadId);
+      if (doc === null || doc.deleted) {
+        return yield* notFound(`thread ${threadId} does not exist`);
+      }
+      if (doc.status === "archived") {
+        return yield* invalid("the thread is archived");
+      }
+      if (doc.projectId !== projectId) {
+        return yield* invalid("the thread belongs to another project");
+      }
+      if (worktreeOf(doc) !== null) {
+        return yield* invalid(
+          "the thread works in its own worktree; the project's terminals stay in its folder",
+        );
+      }
+    }).pipe(
+      Effect.catchTag("SqlError", (error) =>
+        Effect.logWarning("terminal hand-over lookup failed", error).pipe(
+          Effect.andThen(
+            Effect.fail(new OpenAdeRpcError({ code: "internal", message: "thread lookup failed" })),
           ),
         ),
       ),
@@ -292,6 +347,43 @@ export const makeTerminalService = (
       );
     };
 
+    const adopt: TerminalService["Service"]["adopt"] = (projectId, threadId) => {
+      const fromKey = terminalOwnerKey({ projectId });
+      const to: TerminalOwner = { threadId };
+      const toKey = terminalOwnerKey(to);
+      // Both locks, always in the same order, so two hand-overs cannot each
+      // hold one and wait for the other; every other call takes one lock.
+      const [first, second] = [fromKey, toKey].sort();
+      return lockOf(first!).withPermits(1)(
+        lockOf(second!).withPermits(1)(
+          Effect.gen(function* () {
+            yield* injected.adoptionCheck(projectId, threadId);
+            const moving = registry.get(fromKey);
+            if (moving === undefined || moving.size === 0) {
+              return [];
+            }
+            const held = registry.get(toKey) ?? new Map<TerminalId, TerminalSession>();
+            if (held.size + moving.size > TERMINALS_PER_OWNER) {
+              return yield* new OpenAdeRpcError({
+                code: "conflict",
+                message: `the thread would hold more than ${TERMINALS_PER_OWNER} terminals; close one first`,
+              });
+            }
+            // One synchronous step from here on: a reader sees every terminal
+            // under the project or every one under the thread, never both and
+            // never neither.
+            for (const [terminalId, session] of moving) {
+              session.reassign(to);
+              held.set(terminalId, session);
+            }
+            registry.delete(fromKey);
+            registry.set(toKey, held);
+            return [...moving.values()].map((session) => session.summary());
+          }),
+        ),
+      );
+    };
+
     const subscribe = (
       owner: TerminalOwner,
       terminalId: TerminalId,
@@ -393,6 +485,7 @@ export const makeTerminalService = (
         ),
       subscribe,
       teardownThread: (threadId) => teardown({ threadId }),
+      adopt,
     });
   });
 
@@ -402,6 +495,7 @@ export const layer: Layer.Layer<TerminalService, never, OrchestrationEngine> = L
     const engine = yield* OrchestrationEngine;
     return yield* makeTerminalService({
       workspaceFor: workspaceOf(engine),
+      adoptionCheck: adoptionCheckOf(engine),
       events: engine.subscribeEvents,
     });
   }),
@@ -409,3 +503,5 @@ export const layer: Layer.Layer<TerminalService, never, OrchestrationEngine> = L
 
 const notFound = (message: string) =>
   Effect.fail(new OpenAdeRpcError({ code: "not-found", message }));
+
+const invalid = (message: string) => Effect.fail(new OpenAdeRpcError({ code: "invalid", message }));

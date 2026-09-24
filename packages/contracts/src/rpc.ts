@@ -303,6 +303,7 @@ export const RPC_METHODS = {
   terminalClose: "terminal.close",
   terminalList: "terminal.list",
   terminalSubscribe: "terminal.subscribe",
+  terminalAdopt: "terminal.adopt",
 } as const;
 
 // ── The RPCs ───────────────────────────────────────────────────
@@ -708,6 +709,21 @@ const TerminalSubscribeRpc = Rpc.make(RPC_METHODS.terminalSubscribe, {
   stream: true,
 });
 
+/**
+ * Hands every terminal a project owns — running or exited, scrollback and ids
+ * intact — to a thread just started from the New task page, and answers with
+ * them as the thread's. The thread must be the project's and local (no
+ * worktree), so it works in the folder those shells run in; anything else is
+ * refused and the shells stay the project's. Nothing to hand over answers an
+ * empty list. The client calls it right after `thread.create`, before it
+ * opens the thread, so the thread's drawer finds them on its first listing.
+ */
+const TerminalAdoptRpc = Rpc.make(RPC_METHODS.terminalAdopt, {
+  payload: Schema.Struct({ projectId: ProjectId, threadId: ThreadId }),
+  success: Schema.Array(TerminalSummary),
+  error: OpenAdeRpcError,
+});
+
 export const OpenAdeRpcGroup = RpcGroup.make(
   ServerHelloRpc,
   OrchestrationDispatchRpc,
@@ -759,4 +775,5 @@ export const OpenAdeRpcGroup = RpcGroup.make(
   TerminalCloseRpc,
   TerminalListRpc,
   TerminalSubscribeRpc,
+  TerminalAdoptRpc,
 );

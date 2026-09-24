@@ -16,6 +16,11 @@
  * - A project owns terminals of its own, before any thread exists: they start
  *   in its folder, are kept apart from its threads' terminals, and end when
  *   the project is removed.
+ * - A project's terminals hand over to a local thread of it (`adopt`) with
+ *   their ids, status and scrollback, a live subscriber streaming on through
+ *   the move; a worktree thread, another project's thread or a gone one is
+ *   refused, the per-owner limit holds, and an open racing the move leaves
+ *   every terminal with exactly one owner.
  *
  * Every wait is on output the shell computed or on an exit, never on time: the
  * terminal echoes what is typed, so matching the typed text would pass without
@@ -52,7 +57,7 @@ import { ReadModelStore } from "../persistence/ReadModels";
 import { testLayer as sqliteTestLayer } from "../persistence/Sqlite";
 import type { TerminalService } from "../rpc/services";
 import { type PtyExit, type PtyProcess, spawnPty } from "./pty";
-import { makeTerminalService, workspaceOf } from "./TerminalService";
+import { adoptionCheckOf, makeTerminalService, workspaceOf } from "./TerminalService";
 
 const NOW = "2026-01-02T03:04:05.000Z";
 const SIZE = { cols: 80, rows: 24 };
@@ -156,6 +161,7 @@ const buildStack: Effect.Effect<Stack, never, Scope.Scope> = Effect.gen(function
     service: (scope: Scope.Scope, spawn: typeof spawnPty = spawnPty) =>
       makeTerminalService({
         workspaceFor: workspaceOf(engine),
+        adoptionCheck: adoptionCheckOf(engine),
         events: engine.subscribeEvents,
         spawn,
         shell: { file: "/bin/sh", args: [] },
@@ -557,6 +563,188 @@ describe.skipIf(process.platform === "win32")("TerminalService, owned by a proje
     ),
   );
 });
+
+describe.skipIf(process.platform === "win32")(
+  "TerminalService, handing a project's terminals over",
+  () => {
+    /** A stack, a service in the calling scope, and the project as a terminal owner. */
+    const handOverStack = Effect.gen(function* () {
+      const stack = yield* buildStack;
+      const terminals = yield* stack.service(yield* Effect.scope);
+      const project = { projectId: stack.projectId };
+      const openInProject = (terminalId = makeTerminalId()) =>
+        Effect.as(terminals.open({ ...project, terminalId, ...SIZE }), terminalId);
+      return { ...stack, terminals, project, openInProject };
+    });
+
+    const idsOf = (listed: ReadonlyArray<{ readonly terminalId: string }>) =>
+      listed.map((summary) => summary.terminalId);
+
+    it.live("gives a local thread every terminal, running or exited, with its output", () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const { terminals, project, openInProject, thread, projectId } = yield* handOverStack;
+          const running = yield* openInProject();
+          const done = yield* openInProject();
+          const output = yield* watch(terminals.subscribe(project, running));
+          yield* terminals.write(project, running, "echo before-$((1+1))\n");
+          yield* awaitText(output, line("before-2"));
+          const finished = yield* watch(terminals.subscribe(project, done));
+          yield* terminals.write(project, done, "exit 4\n");
+          yield* awaitKind(finished, "exited");
+
+          const threadId = yield* thread;
+          const moved = yield* terminals.adopt(projectId, threadId);
+          expect(idsOf(moved)).toEqual([running, done]);
+          for (const summary of moved) {
+            expect(summary.threadId).toBe(threadId);
+            expect(summary).not.toHaveProperty("projectId");
+          }
+          expect(moved[1]).toMatchObject({ status: "exited", exitCode: 4 });
+          expect(yield* terminals.list(project)).toEqual([]);
+          expect(idsOf(yield* terminals.list({ threadId }))).toEqual([running, done]);
+
+          // Under the thread, the same shell with the same scrollback; the
+          // project no longer reaches it.
+          const again = yield* watch(terminals.subscribe({ threadId }, running));
+          const snapshot = (yield* awaitKind(again, "snapshot")).item;
+          expect(snapshot.kind === "snapshot" && snapshot.data).toMatch(line("before-2"));
+          expect(snapshot.kind === "snapshot" && snapshot.terminal.threadId).toBe(threadId);
+          expect(yield* failureCode(terminals.write(project, running, "x"))).toBe("not-found");
+        }),
+      ),
+    );
+
+    it.live(
+      "keeps a live subscriber streaming across the hand-over, nothing lost or repeated",
+      () =>
+        Effect.scoped(
+          Effect.gen(function* () {
+            const { terminals, project, openInProject, thread, projectId } = yield* handOverStack;
+            const terminalId = yield* openInProject();
+            const before = yield* watch(terminals.subscribe(project, terminalId));
+            yield* terminals.write(project, terminalId, "echo one-$((1+1))\n");
+            yield* awaitText(before, line("one-2"));
+
+            const threadId = yield* thread;
+            yield* terminals.adopt(projectId, threadId);
+            const after = yield* watch(terminals.subscribe({ threadId }, terminalId));
+            yield* terminals.write({ threadId }, terminalId, "echo two-$((2+2))\n");
+
+            // The subscriber from before the hand-over sees the new output too,
+            // and both transcripts agree up to it.
+            const a = (yield* awaitText(before, line("two-4"))).text;
+            const b = (yield* awaitText(after, line("two-4"))).text;
+            expect(b.slice(0, b.search(line("two-4")))).toBe(a.slice(0, a.search(line("two-4"))));
+            const offsets = (yield* before.collected).flatMap(({ item }) =>
+              item.kind === "output" ? [item.offset] : [],
+            );
+            expect(offsets).toEqual([...offsets].sort((x, y) => x - y));
+            expect(new Set(offsets).size).toBe(offsets.length);
+          }),
+        ),
+    );
+
+    it.live("refuses a thread in a worktree, another project's, or one that is gone", () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const stack = yield* handOverStack;
+          const { terminals, project, openInProject, engine, projectId } = stack;
+          const terminalId = yield* openInProject();
+
+          const inWorktree = yield* stack.worktreeThread(yield* tempDir("worktree"));
+          const otherProject = makeProjectId();
+          const elsewhere = makeThreadId();
+          yield* engine
+            .dispatch({
+              commandId: makeCommandId(),
+              createdAt: NOW,
+              type: "project.create",
+              projectId: otherProject,
+              name: "other",
+              workspaceRoot: yield* tempDir("other"),
+            })
+            .pipe(Effect.orDie);
+          yield* engine
+            .dispatch({
+              commandId: makeCommandId(),
+              createdAt: NOW,
+              type: "thread.create",
+              threadId: elsewhere,
+              projectId: otherProject,
+              settings: { model: "fake/model" },
+            })
+            .pipe(Effect.orDie);
+          const archived = yield* stack.thread;
+          yield* engine
+            .dispatch({
+              commandId: makeCommandId(),
+              createdAt: NOW,
+              type: "thread.archive",
+              threadId: archived,
+            })
+            .pipe(Effect.orDie);
+
+          expect(yield* failureCode(terminals.adopt(projectId, inWorktree))).toBe("invalid");
+          expect(yield* failureCode(terminals.adopt(projectId, elsewhere))).toBe("invalid");
+          expect(yield* failureCode(terminals.adopt(projectId, archived))).toBe("invalid");
+          expect(yield* failureCode(terminals.adopt(projectId, makeThreadId()))).toBe("not-found");
+          expect(idsOf(yield* terminals.list(project))).toEqual([terminalId]);
+        }),
+      ),
+    );
+
+    it.live("answers nothing when the project has no terminals", () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const { terminals, thread, projectId } = yield* handOverStack;
+          const threadId = yield* thread;
+          expect(yield* terminals.adopt(projectId, threadId)).toEqual([]);
+          expect(yield* terminals.list({ threadId })).toEqual([]);
+        }),
+      ),
+    );
+
+    it.live("moves nothing when the thread would pass the terminal limit", () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const { terminals, project, openInProject, thread, projectId } = yield* handOverStack;
+          const threadId = yield* thread;
+          for (let i = 0; i < TERMINALS_PER_OWNER - 1; i++) {
+            yield* terminals.open({ threadId, terminalId: makeTerminalId(), ...SIZE });
+          }
+          const first = yield* openInProject();
+          const second = yield* openInProject();
+          expect(yield* failureCode(terminals.adopt(projectId, threadId))).toBe("conflict");
+          expect(idsOf(yield* terminals.list(project))).toEqual([first, second]);
+          expect(yield* terminals.list({ threadId })).toHaveLength(TERMINALS_PER_OWNER - 1);
+        }),
+      ),
+    );
+
+    it.live("never leaves a terminal with both owners or with neither, under a racing open", () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const { terminals, project, openInProject, thread, projectId } = yield* handOverStack;
+          const threadId = yield* thread;
+          const existing = [yield* openInProject(), yield* openInProject()];
+          const racing = makeTerminalId();
+          yield* Effect.all([terminals.adopt(projectId, threadId), openInProject(racing)], {
+            concurrency: "unbounded",
+          });
+          const byProject = idsOf(yield* terminals.list(project));
+          const byThread = idsOf(yield* terminals.list({ threadId }));
+          const all = [...byProject, ...byThread];
+          expect(new Set(all).size).toBe(all.length);
+          expect([...all].sort()).toEqual([...existing, racing].sort());
+          for (const terminalId of existing) {
+            expect(byThread).toContain(terminalId);
+          }
+        }),
+      ),
+    );
+  },
+);
 
 describe("workspaceOf", () => {
   it.live("refuses an archived thread until it is unarchived", () =>

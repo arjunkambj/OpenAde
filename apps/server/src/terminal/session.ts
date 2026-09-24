@@ -72,6 +72,13 @@ export interface TerminalSession {
   readonly view: () => SessionView;
   /** Every item after the snapshot: `output`, then one `exited`. */
   readonly hub: PubSub.PubSub<TerminalStreamItem>;
+  /**
+   * Names a new owner in the summary — the hand-over of a project's terminals
+   * to a thread. Nothing else changes: the shell, its scrollback, its offsets
+   * and the hub its subscribers listen on are the same, so a live subscriber
+   * keeps streaming with nothing lost or repeated.
+   */
+  readonly reassign: (owner: TerminalOwner) => void;
   /** A no-op once the shell has exited. */
   readonly write: (data: string) => void;
   readonly resize: (cols: number, rows: number) => void;
@@ -159,6 +166,10 @@ export const makeSession = (
       summary: () => summary,
       view: () => ({ summary, ...scrollback.snapshot(), exit }),
       hub,
+      reassign: (owner) => {
+        const { threadId: _thread, projectId: _project, terminalId, ...rest } = summary;
+        summary = { terminalId, ...owner, ...rest } as TerminalSummary;
+      },
       write: (data) => {
         if (exit === null) pty.write(data);
       },

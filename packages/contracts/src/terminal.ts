@@ -10,7 +10,10 @@
  * to a thread reattaches to the same shell by id.
  *
  * A thread terminal's payloads and summary carry `threadId`, as they always
- * have; a project terminal's carry `projectId` in its place.
+ * have; a project terminal's carry `projectId` in its place. When the New
+ * task page starts a local thread — one working in the project's folder —
+ * `terminal.adopt` hands the project's terminals to it, so a shell started
+ * there carries on in the thread.
  *
  * Output is text, not bytes: the server decodes the pty's output as UTF-8 and
  * every length and offset here counts UTF-16 chars, the unit both ends' strings

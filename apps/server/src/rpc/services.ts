@@ -366,6 +366,14 @@ export class TerminalService extends Context.Service<
       terminalId: TerminalId,
     ) => Stream.Stream<TerminalStreamItem, OpenAdeRpcError>;
     readonly teardownThread: (threadId: ThreadId) => Effect.Effect<void>;
+    /**
+     * Hands every terminal the project owns to a local thread of that
+     * project (`terminal.adopt`), answering with them as the thread's.
+     */
+    readonly adopt: (
+      projectId: ProjectId,
+      threadId: ThreadId,
+    ) => Effect.Effect<ReadonlyArray<TerminalSummary>, OpenAdeRpcError>;
   }
 >()("server/rpc/TerminalService") {
   /** No shells at all: reads answer nothing, and anything that would start or touch one fails. */
@@ -379,6 +387,7 @@ export class TerminalService extends Context.Service<
       list: () => Effect.succeed([]),
       subscribe: () => Stream.empty,
       teardownThread: () => Effect.void,
+      adopt: () => Effect.succeed([]),
     }),
   );
 }
