@@ -25,6 +25,11 @@
  * `focusSearch` puts the cursor in the search field — the dock's Files key
  * sets it when it opens this tab — and `onSearchFocused` reports that it was
  * used, so the request is spent once rather than on every later mount.
+ *
+ * A file chip in the timeline opens a file at a line by writing it into the
+ * same view (`useRevealFile`, from the thread view): the preview shows the
+ * page with that line, marks it, and scrolls it into view once — asking for
+ * another line of the file already open moves to it.
  */
 
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
@@ -193,6 +198,16 @@ export function FilesPane({
   const setOpenPath = (path: string | null) =>
     updateView((current) => ({ ...current, preview: path === null ? null : openedPreview(path) }));
 
+  const onRevealed = React.useCallback(
+    () =>
+      updateView((current) =>
+        current.preview?.reveal === true
+          ? { ...current, preview: { ...current.preview, reveal: false } }
+          : current,
+      ),
+    [updateView],
+  );
+
   // The scroll offsets live in refs while the pane is up and are saved as it
   // goes, rather than written to the atom on every scroll event.
   const listScroll = React.useRef(view.listScroll);
@@ -318,6 +333,7 @@ export function FilesPane({
                   : current,
               )
             }
+            onRevealed={onRevealed}
             scroll={keptPreview}
           />
         </>

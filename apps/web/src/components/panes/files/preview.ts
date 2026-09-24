@@ -31,6 +31,25 @@ export const windowFor = (offset: number): { readonly offset: number; readonly l
   limit: PAGE_LINES,
 });
 
+/** How many lines a page opened at a line shows above it, for context. */
+const LINE_LEAD = 100;
+
+/**
+ * The offset to open a file at so a 1-based `line` is on the first page, with
+ * room around it: a line near the top opens the file at its start, and one
+ * further down opens a window that starts `LINE_LEAD` lines above it — never
+ * at the line itself, which would hide what leads up to it. A line past the
+ * end is the server's to answer ("No lines past …"); a line that is not a
+ * positive number opens the top.
+ */
+export const offsetForLine = (line: number | undefined): number => {
+  if (line === undefined || !Number.isFinite(line) || line < 1) {
+    return 0;
+  }
+  const index = Math.trunc(line) - 1;
+  return index < PAGE_LINES - LINE_LEAD ? 0 : index - LINE_LEAD;
+};
+
 export interface PagePosition {
   /** 1-based, inclusive. Zero when the page holds no lines at all. */
   readonly firstLine: number;

@@ -15,6 +15,13 @@
  * dock tab and coming back reopens the file where it was read. The parent
  * mounts this with `key={path}`, so opening another file starts at the top
  * instead of inheriting this file's position.
+ *
+ * Opened at a line (a file chip in the timeline, `revealedPreview`), the page
+ * is the one that shows it (`offsetForLine`) and the line's row is marked.
+ * While the view's `reveal` is set, the row is scrolled into view — or the
+ * page to its top, for a file opened without a line — as soon as the page
+ * arrives, and `onRevealed` clears it, so coming back to the tab later keeps
+ * the reader's own scroll instead.
  */
 
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
@@ -23,10 +30,13 @@ import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
 import type { FileContent } from "@OpenAde/contracts/rpc";
 import { Button } from "@OpenAde/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
+import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
 
+import { cn } from "@/lib/utils";
+
 import { useFileAtoms } from "./file-atoms";
-import type { useKeptScroll } from "./files-view";
+import type { FilesPreviewView, useKeptScroll } from "./files-view";
 import { PaneMessage } from "./pane-message";
 import { looksBinary, PAGE_LINES, pagePosition, previewLines, windowFor } from "./preview";
 import {
@@ -43,18 +53,48 @@ function LineTable({
   offset,
   content,
   scroll,
+  markedLine,
+  reveal,
+  onRevealed,
 }: {
   offset: number;
   content: FileContent;
   scroll: ReturnType<typeof useKeptScroll>;
+  markedLine: number | undefined;
+  reveal: boolean;
+  onRevealed: () => void;
 }) {
   const lines = previewLines(offset, content);
+  const box = React.useRef<HTMLDivElement | null>(null);
+  const marked = React.useRef<HTMLTableRowElement>(null);
+  const keep = scroll.ref;
+  const boxRef = React.useCallback(
+    (element: HTMLDivElement | null) => {
+      box.current = element;
+      keep(element);
+    },
+    [keep],
+  );
+  React.useEffect(() => {
+    if (!reveal) return;
+    if (marked.current === null) {
+      box.current?.scrollTo({ top: 0 });
+    } else {
+      marked.current.scrollIntoView({ block: "center" });
+    }
+    onRevealed();
+  }, [reveal, markedLine, onRevealed]);
   return (
-    <div ref={scroll.ref} onScroll={scroll.onScroll} className="min-h-0 flex-1 overflow-auto">
+    <div ref={boxRef} onScroll={scroll.onScroll} className="min-h-0 flex-1 overflow-auto">
       <table className="w-full border-collapse font-mono text-xs">
         <tbody>
           {lines.map((line) => (
-            <tr key={line.number} className="align-top">
+            <tr
+              key={line.number}
+              ref={line.number === markedLine ? marked : undefined}
+              aria-current={line.number === markedLine ? "location" : undefined}
+              className={cn("align-top", line.number === markedLine && "bg-hover")}
+            >
               <td className="w-0 select-none pr-3 pl-2 text-right tabular-nums text-muted-foreground">
                 {line.number}
               </td>
@@ -76,6 +116,7 @@ export function FilePreview({
   connected,
   page,
   onPageChange,
+  onRevealed,
   scroll,
 }: {
   readonly projectId: ProjectId;
@@ -87,8 +128,10 @@ export function FilePreview({
    * the exact windows the reader saw — a page the server cut short is not
    * PAGE_LINES wide.
    */
-  readonly page: { readonly offset: number; readonly visited: ReadonlyArray<number> };
+  readonly page: Pick<FilesPreviewView, "offset" | "visited" | "line" | "reveal">;
   readonly onPageChange: (offset: number, visited: ReadonlyArray<number>) => void;
+  /** Called once the page has scrolled to the line it was opened at. */
+  readonly onRevealed: () => void;
   readonly scroll: ReturnType<typeof useKeptScroll>;
 }) {
   const atoms = useFileAtoms();
@@ -149,7 +192,14 @@ export function FilePreview({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <LineTable offset={offset} content={content} scroll={scroll} />
+      <LineTable
+        offset={offset}
+        content={content}
+        scroll={scroll}
+        markedLine={page.line}
+        reveal={page.reveal === true}
+        onRevealed={onRevealed}
+      />
       <div className="flex h-8 shrink-0 items-center gap-1.5 px-2 type-micro text-muted-foreground">
         <span className="min-w-0 truncate">{position.label}</span>
         {position.capped || (content.truncated && !position.hasNext) ? (

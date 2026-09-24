@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { emptyFilesView, openedPreview, withFilesView } from "./files-view";
+import { emptyFilesView, openedPreview, revealedPreview, withFilesView } from "./files-view";
 
 const thread = "0199c0de-0002-7000-8000-000000000001";
 
@@ -27,5 +27,28 @@ describe("withFilesView", () => {
 describe("openedPreview", () => {
   it("starts a file at its first page, scrolled to the top", () => {
     expect(openedPreview("a.ts")).toEqual({ path: "a.ts", offset: 0, visited: [], scroll: 0 });
+  });
+});
+
+describe("revealedPreview", () => {
+  it("opens a file chip's file on the page that shows its line, to scroll there once", () => {
+    expect(revealedPreview({ path: "a.ts", line: 450 })).toEqual({
+      path: "a.ts",
+      offset: 349,
+      visited: [],
+      scroll: 0,
+      line: 450,
+      reveal: true,
+    });
+  });
+
+  it("opens a file without a line at its top", () => {
+    expect(revealedPreview({ path: "a.ts" })).toEqual({
+      path: "a.ts",
+      offset: 0,
+      visited: [],
+      scroll: 0,
+      reveal: true,
+    });
   });
 });

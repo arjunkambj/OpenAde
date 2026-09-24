@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   lineCount,
   looksBinary,
+  offsetForLine,
   PAGE_LINES,
   pagePosition,
   previewLines,
@@ -22,6 +23,40 @@ const content = (over: Partial<FileContent>): FileContent => ({
 /** `n` lines of body, the way `files.read` joins them back together. */
 const body = (n: number, from = 0): string =>
   Array.from({ length: n }, (_, i) => `line ${from + i + 1}`).join("\n");
+
+describe("files preview opened at a line", () => {
+  it("a line near the top opens the file at its start", () => {
+    expect(offsetForLine(1)).toBe(0);
+    expect(offsetForLine(12)).toBe(0);
+    expect(offsetForLine(400)).toBe(0);
+  });
+
+  it("a line further down opens a window with lines above it", () => {
+    expect(offsetForLine(401)).toBe(300);
+    expect(offsetForLine(20_000)).toBe(19_899);
+  });
+
+  it("the line always lands on the first page, below its lead", () => {
+    for (const line of [1, 399, 400, 401, 500, 501, 1_234, 99_999]) {
+      const offset = offsetForLine(line);
+      const position = pagePosition(
+        offset,
+        content({ text: body(PAGE_LINES, offset), totalLines: 100_000 }),
+      );
+      expect(position.firstLine).toBeLessThanOrEqual(line);
+      expect(position.lastLine).toBeGreaterThanOrEqual(line);
+    }
+  });
+
+  it("no line, or one that is not a positive number, opens the top", () => {
+    expect(offsetForLine(undefined)).toBe(0);
+    expect(offsetForLine(0)).toBe(0);
+    expect(offsetForLine(-5)).toBe(0);
+    expect(offsetForLine(Number.NaN)).toBe(0);
+    expect(offsetForLine(Number.POSITIVE_INFINITY)).toBe(0);
+    expect(offsetForLine(450.9)).toBe(349);
+  });
+});
 
 describe("files preview paging", () => {
   it("a line offset becomes the read window the server expects", () => {

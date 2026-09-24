@@ -13,7 +13,10 @@
  * unasked is coming back, in the same session, to a thread whose dock was
  * left open (`useDockMemory`, in memory, so a relaunch finds every dock
  * shut). The toggle reopens the last tab this thread used this session, else
- * the launcher (`@/components/dock/dock-toggle`). The rest of the thread-scoped bindings —
+ * the launcher (`@/components/dock/dock-toggle`). The timeline's file chips
+ * ask for a file through `useFileRevealRequests`, answered here by opening
+ * the dock on Files with that file in the thread's Files view. The rest of
+ * the thread-scoped bindings —
  * `thread.interrupt`, `composer.queue` and the `turnRunning` flag — belong to
  * the composer, which owns the Stop button and the error line those bindings
  * report through. The layout keeps the bindings that work with no thread open.
@@ -52,6 +55,7 @@ import {
   type DockTab,
 } from "@/components/dock/dock-toggle";
 import { RightDock } from "@/components/dock/right-dock";
+import { useRevealFile } from "@/components/panes/files/files-view";
 import { ThreadTerminal } from "@/components/terminal/terminal-drawer";
 import { useAgentBrowser } from "@/components/thread/agent-browser-indicator";
 import { ThreadHarnessBanner } from "@/components/thread/harness-health-banner";
@@ -63,6 +67,7 @@ import { useKeybindingFlag } from "@/lib/shortcuts";
 import { usePresence } from "@/lib/use-presence";
 import { useConnectionState, useProjects, useThreadDetail } from "@/state/hooks";
 import { useBrowserRevealRequests } from "@/state/browser-activity";
+import { type FileRevealTarget, useFileRevealRequests } from "@/state/file-reveal";
 import { useDockMemory } from "@/state/ui";
 import { AlertTriangle, Spinner, WifiOff } from "@honeyicons/react";
 
@@ -199,6 +204,18 @@ export function ThreadView({
   const showBrowser = React.useCallback(() => setDockTab("browser"), [setDockTab]);
   // `openInThreadBrowser` asks for the pane from outside the thread view.
   useBrowserRevealRequests(threadId, showBrowser);
+
+  // A file chip's request: the file goes into this thread's Files view, at
+  // its line, and the dock opens on Files to show it.
+  const revealFile = useRevealFile(threadId);
+  const showFile = React.useCallback(
+    (target: FileRevealTarget) => {
+      revealFile(target);
+      setDockTab("files");
+    },
+    [revealFile, setDockTab],
+  );
+  useFileRevealRequests(threadId, showFile);
 
   // Arriving with no `?pane=` — a sidebar link — reopens what this thread's
   // dock was left on earlier in the session, and nothing otherwise: the memory

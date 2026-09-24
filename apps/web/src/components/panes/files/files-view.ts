@@ -11,11 +11,19 @@
  * Scroll offsets are written when the pane unmounts, not on every scroll
  * event — a write per frame would re-render the pane while it scrolls — and
  * read back as each scrolling element mounts (`useKeptScroll`).
+ *
+ * A file chip in the timeline opens a file here too (`useRevealFile`, called
+ * by the thread view as it opens the dock on Files): the preview starts on
+ * the page that shows the chip's line, marks it, and scrolls to it once.
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import * as Atom from "effect/unstable/reactivity/Atom";
 import * as React from "react";
+
+import type { FileRevealTarget } from "@/state/file-reveal";
+
+import { offsetForLine } from "./preview";
 
 /** The open file, and where in it the reader was. */
 export interface FilesPreviewView {
@@ -25,6 +33,10 @@ export interface FilesPreviewView {
   /** The offsets Next came from, so Previous walks back over them. */
   readonly visited: ReadonlyArray<number>;
   readonly scroll: number;
+  /** The 1-based line a file chip opened the file at, marked in the preview. */
+  readonly line?: number;
+  /** Set until the preview has scrolled to `line` (or its top) once. */
+  readonly reveal?: boolean;
 }
 
 export interface FilesView {
@@ -41,6 +53,16 @@ export const openedPreview = (path: string): FilesPreviewView => ({
   offset: 0,
   visited: [],
   scroll: 0,
+});
+
+/** A preview of a file chip's file, on the page that shows its line. */
+export const revealedPreview = (target: FileRevealTarget): FilesPreviewView => ({
+  path: target.path,
+  offset: offsetForLine(target.line),
+  visited: [],
+  scroll: 0,
+  ...(target.line === undefined ? {} : { line: target.line }),
+  reveal: true,
 });
 
 const isEmptyView = (view: FilesView): boolean =>
@@ -110,4 +132,23 @@ export const useKeptScroll = (offset: React.RefObject<number>) => {
     [offset],
   );
   return { ref, onScroll };
+};
+
+/**
+ * Opens a file in a thread's Files view at a line, replacing whatever file it
+ * showed and keeping its search. It only writes the view: the caller opens
+ * the dock on Files.
+ */
+export const useRevealFile = (threadId: string) => {
+  const setViews = useAtomSet(filesViewAtom);
+  return React.useCallback(
+    (target: FileRevealTarget) =>
+      setViews((views) =>
+        withFilesView(views, threadId, {
+          ...(views[threadId] ?? emptyFilesView),
+          preview: revealedPreview(target),
+        }),
+      ),
+    [setViews, threadId],
+  );
 };
