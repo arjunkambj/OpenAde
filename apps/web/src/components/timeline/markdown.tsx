@@ -36,7 +36,7 @@ import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 
 import { CodeBlock } from "./code-block";
-import { codeFenceInfo, type HastLike, hastText, openFenceOffset } from "./code-fence";
+import { codeFenceInfo, type HastLike, hastText } from "./code-fence";
 import { splitMarkdownBlocks } from "./markdown-blocks";
 import { InlineCode, MarkdownLink } from "./markdown-paths";
 import { PathChipsProvider } from "./path-chips";
@@ -254,7 +254,7 @@ export function MarkdownBody({
             }
             id={id}
             base={block.start}
-            openFrom={streaming && block.open ? openFenceOffset(block.source) : undefined}
+            openFrom={streaming ? block.openFrom : undefined}
             variant={variant}
           />
         ))}

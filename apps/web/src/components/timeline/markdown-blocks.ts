@@ -8,7 +8,11 @@
  *
  * - nothing inside a fence (``` or ~~~, closed by a run of the same character
  *   at least as long) splits it, blank lines included; a fence still open at
- *   the end of the text makes the last block `open`;
+ *   the end of the text makes the last block `open`, with `openFrom` where it
+ *   starts. A fence is found at any indent, so one in a nested list item
+ *   counts, and inside `>` markers, where the quote ending closes it — the
+ *   same fences the parser sees, so a code block still arriving is always
+ *   the one marked open;
  * - a line after the blank that is indented continues the block — a list
  *   item's next paragraph, a nested list, indented code;
  * - a list marker after a list, and `>` after a blockquote, continue it too, so
@@ -35,6 +39,11 @@ export interface MarkdownBlock {
   readonly source: string;
   /** The block ends inside a fence that has not closed yet. */
   readonly open: boolean;
+  /**
+   * Where that open fence's line starts in `source`, set only when `open`:
+   * code from there on is still arriving, so it is not highlighted yet.
+   */
+  readonly openFrom?: number;
 }
 
 export interface MarkdownBlocks {
@@ -46,6 +55,8 @@ export interface MarkdownBlocks {
 type BlockKind = "list" | "quote" | "other";
 
 const FENCE = /^\s*(`{3,}|~{3,})(.*)$/;
+/** The `>` markers a line starts with, each with the space after it. */
+const QUOTE_MARKERS = /^(?: {0,3}> ?)+/;
 const LIST_MARKER = /^ {0,3}([-+*]|\d{1,9}[.)])(\s|$)/;
 const QUOTE = /^ {0,3}>/;
 const INDENTED = /^[ \t]/;
@@ -65,6 +76,18 @@ const kindOf = (line: string, current: BlockKind): BlockKind => {
   return current;
 };
 
+/** How deep in blockquotes a line sits, and the line inside them. */
+const unquote = (line: string): { readonly depth: number; readonly inner: string } => {
+  const markers = QUOTE_MARKERS.exec(line)?.[0] ?? "";
+  let depth = 0;
+  for (const char of markers) {
+    if (char === ">") {
+      depth += 1;
+    }
+  }
+  return { depth, inner: line.slice(markers.length) };
+};
+
 const continues = (kind: BlockKind, line: string): boolean =>
   INDENTED.test(line) ||
   (kind === "list" && LIST_MARKER.test(line)) ||
@@ -74,17 +97,27 @@ export const splitMarkdownBlocks = (text: string): MarkdownBlocks => {
   const blocks: MarkdownBlock[] = [];
   const definitions: string[] = [];
   let current: { start: number; end: number; kind: BlockKind } | undefined;
-  let fence: { readonly char: string; readonly length: number } | undefined;
+  let fence:
+    | {
+        readonly char: string;
+        readonly length: number;
+        /** The blockquote depth it opened at: the quote ending closes it. */
+        readonly depth: number;
+        /** Where its line starts in the text. */
+        readonly start: number;
+      }
+    | undefined;
   let comment = false;
   let blankSince = false;
 
-  const close = (open: boolean) => {
+  const close = () => {
     if (current !== undefined) {
+      const start = current.start;
       blocks.push({
         key: `b${blocks.length}`,
-        start: current.start,
-        source: text.slice(current.start, current.end),
-        open,
+        start,
+        source: text.slice(start, current.end),
+        ...(fence === undefined ? { open: false } : { open: true, openFrom: fence.start - start }),
       });
       current = undefined;
     }
@@ -98,11 +131,17 @@ export const splitMarkdownBlocks = (text: string): MarkdownBlocks => {
     const line = raw.endsWith("\r") ? raw.slice(0, -1) : raw;
     const blank = line.trim() === "";
 
+    const quoted = unquote(line);
+    // A fence opened in a blockquote ends with the quote: a line without its
+    // markers, a blank one included, is past it.
+    if (fence !== undefined && quoted.depth < fence.depth) {
+      fence = undefined;
+    }
     if (fence !== undefined || comment) {
       // Inside a fence or a comment nothing splits, and the lines all belong.
       current!.end = lineStart + line.length;
       if (fence !== undefined) {
-        const match = FENCE.exec(line);
+        const match = FENCE.exec(quoted.inner);
         if (
           match !== null &&
           match[1]![0] === fence.char &&
@@ -122,24 +161,29 @@ export const splitMarkdownBlocks = (text: string): MarkdownBlocks => {
       continue;
     }
     if (current !== undefined && blankSince && !continues(current.kind, line)) {
-      close(false);
+      close();
     }
     blankSince = false;
     current ??= { start: lineStart, end: lineStart, kind: "other" };
     current.end = lineStart + line.length;
     current.kind = kindOf(line, current.kind);
 
-    const opener = FENCE.exec(line);
+    const opener = FENCE.exec(quoted.inner);
     // A backtick fence's info string may not itself hold a backtick.
     if (opener !== null && !(opener[1]![0] === "`" && opener[2]!.includes("`"))) {
-      fence = { char: opener[1]![0]!, length: opener[1]!.length };
+      fence = {
+        char: opener[1]![0]!,
+        length: opener[1]!.length,
+        depth: quoted.depth,
+        start: lineStart,
+      };
     } else if (COMMENT_START.test(line) && !/<!--[\s\S]*-->/.test(line)) {
       comment = true;
     } else if (DEFINITION.test(line)) {
       definitions.push(line.trim());
     }
   }
-  close(fence !== undefined);
+  close();
 
   return { blocks, definitions: definitions.join("\n") };
 };

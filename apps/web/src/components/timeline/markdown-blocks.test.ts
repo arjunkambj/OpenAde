@@ -44,10 +44,45 @@ describe("splitMarkdownBlocks", () => {
 
   it("flags an unterminated final fence as open, blank lines and all", () => {
     const { blocks } = splitMarkdownBlocks("Intro.\n\n```ts\nconst a = 1;\n\nconst b");
-    expect(blocks.map((block) => [block.source, block.open])).toEqual([
-      ["Intro.", false],
-      ["```ts\nconst a = 1;\n\nconst b", true],
+    expect(blocks.map((block) => [block.source, block.open, block.openFrom])).toEqual([
+      ["Intro.", false, undefined],
+      ["```ts\nconst a = 1;\n\nconst b", true, 0],
     ]);
+  });
+
+  /** The open fence's line, as the last block reports it. */
+  const openLine = (text: string) => {
+    const last = splitMarkdownBlocks(text).blocks.at(-1)!;
+    return last.openFrom === undefined
+      ? undefined
+      : last.source.slice(last.openFrom).split("\n")[0];
+  };
+
+  it("points at the open fence where it starts in the block", () => {
+    expect(openLine("Intro\n```ts\nconst a")).toBe("```ts");
+    expect(openLine("```ts\na\n```\nafter")).toBeUndefined();
+    expect(openLine("````\n```\na")).toBe("````");
+    expect(openLine("```\n``` ts\na")).toBe("```");
+  });
+
+  it("finds a fence nested four or more spaces deep in a list", () => {
+    expect(openLine("Steps:\n\n- a\n  - b\n    ```ts\n    const x = 1;\n    let")).toBe(
+      "    ```ts",
+    );
+    expect(openLine("1. one\n\n    ```ts\n    const y")).toBe("    ```ts");
+  });
+
+  it("finds a fence inside a blockquote and ends it with the quote", () => {
+    expect(openLine("> ```ts\n> const z")).toBe("> ```ts");
+    expect(openLine("> > ```ts\n> > a\n> >\n> > b")).toBe("> > ```ts");
+    // one level out is past the inner quote, and past its fence
+    expect(openLine("> > ```ts\n> > a\n> b")).toBeUndefined();
+    // closed inside the quote
+    expect(openLine("> ```ts\n> a\n> ```\n> after")).toBeUndefined();
+    // the quote ended, and the fence with it: a blank line splits after it
+    const ended = "> ```ts\n> a\n\nOutside.";
+    expect(sources(ended)).toEqual(["> ```ts\n> a", "Outside."]);
+    expect(splitMarkdownBlocks(ended).blocks.every((block) => !block.open)).toBe(true);
   });
 
   it("does not open a fence on a backtick run whose info holds a backtick", () => {

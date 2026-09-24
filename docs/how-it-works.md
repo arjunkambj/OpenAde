@@ -841,7 +841,10 @@ by `File` from `@pierre/diffs` through the same worker pool and themes as the
 inline diffs, so Shiki tokenizes off the main thread and follows light/dark.
 A block renders untokenized (language `text`) when its language is unknown,
 when it is over 20,000 characters or 1,000 lines (`code-fence.ts`), or while
-the message streams and its closing fence has not arrived yet. Each block's
+the message streams and its closing fence has not arrived yet — the block
+splitter below says where that fence opens, finding it at any indent (a fence
+in a nested list item) and inside `>` markers, where the quote ending closes
+it, so a growing block is never tokenized again on every delta. Each block's
 highlight is cached under its item id and offset, so a recycled row does not
 tokenize it again.
 

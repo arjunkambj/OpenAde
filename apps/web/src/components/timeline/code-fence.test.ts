@@ -6,7 +6,6 @@ import {
   codeFenceInfo,
   hastText,
   highlightable,
-  openFenceOffset,
 } from "./code-fence";
 
 describe("codeFenceInfo", () => {
@@ -100,29 +99,6 @@ describe("highlightable", () => {
   it("refuses blocks over the character or the line cap", () => {
     expect(highlightable("x".repeat(HIGHLIGHT_MAX_CHARS + 1))).toBe(false);
     expect(highlightable("\n".repeat(HIGHLIGHT_MAX_LINES))).toBe(false);
-  });
-});
-
-describe("openFenceOffset", () => {
-  it("is undefined when every fence is closed", () => {
-    expect(openFenceOffset("plain text")).toBeUndefined();
-    expect(openFenceOffset(["```ts", "a", "```", "after"].join("\n"))).toBeUndefined();
-    expect(openFenceOffset(["~~~", "a", "~~~~"].join("\n"))).toBeUndefined();
-  });
-
-  it("points at the fence still open", () => {
-    const text = ["Intro", "```ts", "const a"].join("\n");
-    expect(openFenceOffset(text)).toBe("Intro\n".length);
-  });
-
-  it("closes only on the same character at least as long, with nothing after it", () => {
-    expect(openFenceOffset(["````", "```", "a"].join("\n"))).toBe(0);
-    expect(openFenceOffset(["```", "~~~", "a"].join("\n"))).toBe(0);
-    expect(openFenceOffset(["```", "``` ts", "a"].join("\n"))).toBe(0);
-  });
-
-  it("ignores a backtick run whose info holds a backtick", () => {
-    expect(openFenceOffset("```not `a` fence```")).toBeUndefined();
   });
 });
 

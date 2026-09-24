@@ -14,9 +14,9 @@
  * - `label` is what the block's header shows: the file name when there is
  *   one, otherwise the language's display name, or the unknown word as written.
  *
- * Also here: the size cap above which a block renders plain, and where an
- * unterminated fence starts in text still streaming — a block whose closing
- * fence has not arrived yet changes on every delta, so it is not highlighted.
+ * Also here: the size cap above which a block renders plain. Where a fence
+ * still streaming opens is the block splitter's to say (`markdown-blocks.ts`),
+ * since it already tracks every fence the way the parser does.
  */
 
 /** Blocks above either cap render as plain text: tokenizing them would stall a worker. */
@@ -197,34 +197,6 @@ export const highlightable = (code: string): boolean => {
     }
   }
   return true;
-};
-
-/**
- * The offset where an unterminated fence opens in `markdown`, or `undefined`
- * when every fence is closed. CommonMark's rule: a fence of three or more
- * backticks or tildes, indented at most three spaces, closes on a line of the
- * same character at least as long with nothing after it but spaces.
- */
-export const openFenceOffset = (markdown: string): number | undefined => {
-  let open: { readonly char: string; readonly length: number; readonly offset: number } | undefined;
-  let offset = 0;
-  for (const line of markdown.split("\n")) {
-    const match = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
-    if (match !== null) {
-      const fence = match[1]!;
-      const rest = match[2]!;
-      if (open === undefined) {
-        // A backtick fence's info string may not itself hold a backtick.
-        if (!(fence[0] === "`" && rest.includes("`"))) {
-          open = { char: fence[0]!, length: fence.length, offset };
-        }
-      } else if (fence[0] === open.char && fence.length >= open.length && rest.trim() === "") {
-        open = undefined;
-      }
-    }
-    offset += line.length + 1;
-  }
-  return open?.offset;
 };
 
 /** The text of a hast subtree, the way `hast-util-to-string` reads it. */
