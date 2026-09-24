@@ -863,6 +863,13 @@ is all the user gets to judge. The only visibility into the work is the
 connector maps onto the `task` row the `agent` call opened
 (`packages/connector-cmd/src/subagents.ts`).
 
+On Claude Code the gate does not stop at the delegation. The CLI runs its
+PreToolUse hook inside a subagent too — the hook input names the subagent
+(`agent_id`) — so each of the subagent's calls reaches the ladder like the
+main loop's, and a card it opens is answered in the same thread. The rows it
+produces nest under the Task call's `task` row
+(`packages/connector-claude/src/translate/subagents.ts`).
+
 ### When the gate stays silent
 
 The gate's failure mode is to open: a hook that does not run produces no
@@ -1196,6 +1203,14 @@ Print mode has no image flag. The path around it:
 6. a timeline thumbnail fetches the bytes back with `attachments.read`, which
    re-sniffs, re-checks the size, and resolves symlinks before refusing any path
    that lands outside the thread's own directory.
+
+Claude Code takes images in the message itself, so step 5 differs there: the
+connector reads the staged file, sniffs it again, and sends its bytes as a
+base64 image content block ahead of the text
+(`packages/connector-claude/src/attachments.ts`). The model sees the picture
+without a tool call. The attachments directory is still among the CLI's
+readable directories, for any file that is not an image, which is named by
+path as on Command Code.
 
 `~/.openade/attachments` is the very directory `ConnectorServices.attachmentsDir`
 names, so a staged file is already where the connector expects it and no second

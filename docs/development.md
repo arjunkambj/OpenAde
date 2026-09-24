@@ -386,6 +386,9 @@ the thread: the cards, their answers, and the rows.
 | `approval.test.ts`   | `sensitive-full-access` | `cat .env` under full access still opens a card              |
 | `plan.test.ts`       | `plan-accept`           | the plan card, then the accepted plan implemented            |
 | `question.test.ts`   | `question`              | the question card, and the answer written to `colour.txt`    |
+| `subagent.test.ts`   | `subagent`              | a Task delegation, its rows nested under the task row        |
+| `model.test.ts`      | `model-switch`          | the model and effort switched between turns, in session      |
+| `attachment.test.ts` | `image`                 | a staged PNG sent as an image block, and its colour named    |
 
 A scenario whose recording has not been made yet is skipped under replay, and
 its title says so. `packages/testkit/fixtures/claude/README.md` lists which
@@ -396,15 +399,23 @@ Every driver runs the thread on the CLI's default model (thread model
 `CLAUDE_LIMITS` (four turns, fifty cents), passed to the connector through
 `BootOptions.claudeCode`. A replay runs under the same caps, so its argv is the
 recorded one. The live and record drivers refuse any other thread model unless
-it is named in `OPENADE_CLAUDE_APPROVED_MODEL`. Replays and live runs make
+it is named in `OPENADE_CLAUDE_APPROVED_MODEL`. The one switch a scenario
+makes, in `model.test.ts`, names the explicit id the CLI's default already
+runs as (`run.defaultModelId`: the recording's model under replay, what the
+CLI's `system/init` named when recording, and live the model in
+`OPENADE_CLAUDE_APPROVED_MODEL`), so it never spends on another model. Replays and live runs make
 their homes under the system temp directory; a recording makes them, and keeps
 its raw capture, under `/tmp/openade-h1`.
 
 The connector's own suites replay the same fixtures without a server:
 `recordedFrames.test.ts` feeds every recorded session through the translator
 and fails on any frame it leaves unmapped; `recordedSession.test.ts` replays
-the session launch of `plain-reply`, the approval scenarios, `plan-accept` and
-`question`; `conformance.test.ts` runs
+the session launch of `plain-reply`, the approval scenarios, `plan-accept`,
+`question` and `subagent`; `sessionControls.test.ts` replays
+`session-controls`, a session on a signed-out CLI that switches model and
+effort, sends an image and runs `/compact` (recorded by
+`test/recordSession.test.ts`, free because nothing reaches the API);
+`conformance.test.ts` runs
 `runConnectorConformance` against `conformance`, which is the suite itself
 recorded through the tee, one session launch per case
 (`OPENADE_RECORD_CLAUDE=1` on that file re-records it).

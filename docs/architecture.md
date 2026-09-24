@@ -414,14 +414,16 @@ prompt), `queryOptions.ts`, `toolGate.ts` (the PreToolUse hook and
 `canUseTool`, both through the permission ladder), `approvals.ts` (the CLI's
 tools in OpenAde's approval vocabulary), `interactions.ts` (the question and
 plan cards AskUserQuestion and ExitPlanMode open), `questions.ts` and
-`plans.ts` (their shapes), `userMessage.ts`,
-`sessionRef.ts`, `session.ts` (one long-lived CLI process per thread), and
-`translate/` (SDK messages → `RuntimeEvent`; `tools.ts` holds the tool rows). `makeClaudeConnectorDefinition`
+`plans.ts` (their shapes), `attachments.ts` (images as content blocks, other
+files by path), `userMessage.ts`, `sessionRef.ts`, `session.ts` (one
+long-lived CLI process per thread), and `translate/` (SDK messages →
+`RuntimeEvent`; `tools.ts` holds the tool rows, `subagents.ts` the tasks and
+their nested rows, `compaction.ts` the compaction row). `makeClaudeConnectorDefinition`
 takes the turn and budget caps a recording puts on every session; production
 passes none.
 
-May import `connector-sdk` and `contracts`; its tests also import `testkit`.
-It is the only place in the tree that knows `claude` exists, apart from the
+May import `connector-sdk`, `contracts` and `shared`; its tests also import
+`testkit`. It is the only place in the tree that knows `claude` exists, apart from the
 line in `boot.ts` that registers it.
 
 ### packages/client-runtime
@@ -1171,6 +1173,54 @@ ExitPlanMode and EnterPlanMode a `plan`, and anything else, AskUserQuestion
 among them, a `tool_call`. A plan row carries the plan; the refusal the CLI
 writes back after it leaves the row as it is. Output is cut at 64KB. A row still open when its
 turn's result arrives is failed there.
+
+**Subagents.** A Task or Agent call's row is a task's: `task.started` goes out
+beside it, titled with the call's `description` and naming its `model` when
+it sets one. The CLI's `task_started`, `task_progress`, `task_updated` and
+`task_notification` messages, which name the call's `tool_use_id` or a
+`task_id` their `task_started` tied to it, become `task.updated` while the task
+runs and `task.completed` once it settled (`completed`; `failed` for a
+failure, a kill or a stop); a task whose call opened a row of another kind — a
+shell command the CLI runs in the background — is that row's own business.
+Sessions run with the SDK's `forwardSubagentText`, so the subagent's text and
+thinking arrive as well as its tool calls: every message carrying the call's
+id as `parent_tool_use_id` is read as the main loop's is, and every row it
+opens is nested under the task (`parentItemId`), which the timeline folds into
+the task row. A subagent's messages never move the session's context, cost or
+rewind point. One that arrives before its task's row is open is held until the
+row opens; whatever is still held when the turn ends is shown unnested. Unlike
+Command Code's, a subagent's own tool calls reach the PreToolUse hook — the
+SDK's hook input names the subagent (`agent_id`) — so they are gated one by
+one. `fixtures/claude/subagent/` is the recording that will show a delegation
+end to end; it waits for a signed-in CLI.
+
+**Model and effort.** `updateSettings` switches the model with the SDK's
+`setModel` (none for `default`, so the CLI's default applies again) and the
+effort with `applyFlagSettings({ effortLevel })`, both on the running process
+and taking effect from its next request; `modelSwitch` and `effortSwitch` are
+`in-session`. `fixtures/claude/session-controls/` has the CLI taking both, with
+no restart. The session then emits `model.changed` with what the CLI runs on:
+the new pick once the CLI took it, the one before when it refused, so the
+thread never shows a model the session is not using.
+
+**Compaction.** A turn whose text is `/compact` is sent as a plain string, the
+form the CLI reads a slash command from, and runs as the CLI's own command. Its
+`system/status: compacting` opens a `context_compaction` row, and
+`system/compact_boundary` settles it with the size before and after and
+reports the context that is left. A compaction that fails has no boundary: the
+status clears with `compact_result: "failed"` and the CLI's error, which fails
+the row; the CLI then says the same line as the turn's answer
+(`session-controls`, a `/compact` on a CLI that is not signed in).
+
+**Attachments.** An attachment whose bytes sniff as PNG, JPEG, GIF or WebP
+(`@OpenAde/shared/imageBytes`) goes to the model as an image content block,
+base64, ahead of the text — the text goes last because the CLI reads a
+message as a slash command only when its last block is text. Any other file is
+named by path, as Command Code's are: the server's staged file where it is, a
+file from elsewhere copied into the thread's attachments directory, which is
+among the CLI's readable directories. A file that cannot be read or copied is
+still named by its path, with a `session.warning`. `fixtures/claude/image/` is
+the recording that will show a model answering from an image.
 
 **Signed out.** A CLI that is not signed in answers each message with its own
 "Not logged in" line and an error result, without calling the API. The
