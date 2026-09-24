@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import {
   clampDrawerHeight,
   drawerHeightMax,
-  handOverDrawerOpen,
   DRAWER_HEIGHT_MIN,
   drawerHeightAtom,
   openByThreadAtom,
@@ -34,22 +33,6 @@ describe("parseOpenByThread", () => {
 
   it("keeps only entries that are exactly true", () => {
     expect(parseOpenByThread('{"a":true,"b":false,"c":"true","d":1}')).toEqual({ a: true });
-  });
-});
-
-describe("handOverDrawerOpen", () => {
-  const project = "project:p";
-
-  it("opens the thread's drawer and closes the project's when it was open", () => {
-    expect(handOverDrawerOpen({ [project]: true, other: true }, project, "t")).toEqual({
-      other: true,
-      t: true,
-    });
-  });
-
-  it("leaves a closed drawer closed on both", () => {
-    const map = { other: true } as const;
-    expect(handOverDrawerOpen(map, project, "t")).toBe(map);
   });
 });
 

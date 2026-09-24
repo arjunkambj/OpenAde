@@ -15,7 +15,8 @@
  * `keepAlive` switching threads would throw away the very state that
  * switching back is supposed to find. When the New task page hands its
  * project's terminals to the thread it just started, their tabs move with
- * them (`handOverDrawerState`), the one in front still in front.
+ * them once the move is known (`handOverDrawerState`, run by
+ * `./terminal-hand-over`), the one in front still in front.
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
@@ -153,7 +154,10 @@ export const nextTitle = (tabs: ReadonlyArray<Pick<TerminalTab, "title">>): stri
   return `Terminal ${n}`;
 };
 
-const drawerStatesAtom = Atom.keepAlive(Atom.make<Readonly<Record<string, DrawerState>>>({}));
+/** Every owner's tabs, by owner key; read directly only by the New task hand-over. */
+export const drawerStatesAtom = Atom.keepAlive(
+  Atom.make<Readonly<Record<string, DrawerState>>>({}),
+);
 
 /** Moves one owner's tabs to another's (`handOverDrawerState`). */
 export const useDrawerStateHandOver = () => {

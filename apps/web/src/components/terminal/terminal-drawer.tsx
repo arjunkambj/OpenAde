@@ -163,7 +163,9 @@ export function TerminalDrawer({
   // An open drawer with no terminals starts one — once the listing has said
   // there are none, and once the xterm has measured the grid to start it at.
   // A failed open waits for the user rather than retrying on its own, and a
-  // drawer on its way out — its last tab just closed — starts nothing.
+  // drawer on its way out — its last tab just closed, or the New task
+  // hand-over closing it before its shells move (`./terminal-hand-over`) —
+  // starts nothing, whatever its listing says next.
   const listedNone = listed?._tag === "ok" && listed.terminals.length === 0;
   const leaving = phase === "leaving";
   React.useEffect(() => {

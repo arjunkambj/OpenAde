@@ -2409,12 +2409,20 @@ takes nothing: the shells stay the project's, still running in its folder.
 On the client the hand-over is `useTerminalHandOver`
 (`apps/web/src/components/terminal/use-terminal-hand-over.ts`), which the New
 task composer awaits between creating a local thread and sending its first
-message. After the server has moved the terminals it moves what the client
-keeps per owner: the drawer's tabs and the one in front
-(`handOverDrawerState` in `drawer-state.ts`), then whether the drawer is open
-(`handOverDrawerOpen` in `apps/web/src/state/terminal-ui.ts`) — open on the
-thread, closed on the project, in that order so the page's drawer never sits
-open with no tabs, which would start a fresh shell. The thread's drawer then
+message; the order is `runHandOver` in `terminal-hand-over.ts`. An open drawer
+whose listing says it has no terminals starts one, and once the shells have
+moved the project's listing is empty — a refetch answered before adopt's
+reply, or a reconnect after the socket dropped with the reply in flight, can
+bring that listing at any moment. So the project's drawer is closed before
+adopt is called, noting whether it was open and which terminals the project
+had, and the client state follows only once the move is known: the drawer's
+tabs and the one in front (`handOverDrawerState` in `drawer-state.ts`), then
+an open drawer on the thread. When adopt fails or its reply is lost, the
+thread's own listing (`listTerminals`) decides: terminals the project had
+there mean the move went through, and the state follows as if adopt had
+answered; none mean the shells stayed, and a drawer that was open on them
+opens again; no listing either leaves the project's drawer closed and the
+thread's drawer to find whatever the server gave it. The thread's drawer then
 finds the terminals on its first listing, with the same one in front.
 
 Shells a project still owns — left behind by a worktree thread, or started on

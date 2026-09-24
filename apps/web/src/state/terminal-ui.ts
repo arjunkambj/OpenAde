@@ -10,8 +10,9 @@
  * `@/components/terminal/drawer-state`.
  *
  * When the New task page hands its project's terminals to the thread it just
- * started (`terminal.adopt`), an open drawer goes with them
- * (`handOverDrawerOpen`): open on the thread, closed on the project.
+ * started (`terminal.adopt`), an open drawer goes with them: the hand-over
+ * closes the project's first and opens the thread's once the move is known
+ * (`useSetDrawerOpen`, driven by `@/components/terminal/terminal-hand-over`).
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
@@ -63,19 +64,6 @@ export const withDrawerOpen = (
   return next;
 };
 
-/**
- * The map after a hand-over from `from` to `to`: an open drawer opens on `to`
- * and closes on `from`; a closed one leaves the map as it was.
- */
-export const handOverDrawerOpen = (
-  openByThread: Readonly<Record<string, true>>,
-  from: string,
-  to: string,
-): Readonly<Record<string, true>> =>
-  openByThread[from] === true
-    ? withDrawerOpen(withDrawerOpen(openByThread, from, false), to, true)
-    : openByThread;
-
 const readOpenByThread = (): Readonly<Record<string, true>> => {
   try {
     return parseOpenByThread(globalThis.localStorage?.getItem(OPEN_KEY));
@@ -102,13 +90,17 @@ const persistOpen = (openByThread: Readonly<Record<string, true>>) => {
   }
 };
 
-/** Moves an open drawer from one owner's key to another's (`handOverDrawerOpen`). */
-export const useDrawerOpenHandOver = () => {
+/**
+ * Opens or closes any owner's drawer by key, for a caller that acts on more
+ * than one — the New task hand-over, which closes the project's and opens the
+ * thread's.
+ */
+export const useSetDrawerOpen = () => {
   const setOpenByThread = useAtomSet(openByThreadAtom);
   return React.useCallback(
-    (from: string, to: string) =>
+    (key: string, open: boolean) =>
       setOpenByThread((current) => {
-        const next = handOverDrawerOpen(current, from, to);
+        const next = withDrawerOpen(current, key, open);
         if (next !== current) {
           persistOpen(next);
         }
