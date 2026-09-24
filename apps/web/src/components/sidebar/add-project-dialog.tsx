@@ -165,7 +165,7 @@ export function AddProjectDialog({
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={(event) => void submit(event)} className="flex flex-col gap-5">
-            <InputGroup className="h-10">
+            <InputGroup>
               <InputGroupAddon>
                 <Folder variant="bold" />
               </InputGroupAddon>
