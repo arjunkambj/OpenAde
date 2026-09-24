@@ -13,7 +13,7 @@ import { Button } from "@OpenAde/ui/components/button";
 import { useNavigate } from "@tanstack/react-router";
 
 import { changesLink } from "@/components/panes/changes/deep-link";
-import { FileChangeKindBadge } from "@/components/timeline/file-change-row";
+import { FileChangeKindBadge } from "@/components/timeline/file-change-badge";
 import type { TimelineTurnSummaryRow, TurnSummaryFile } from "@/components/timeline/fold";
 import { DisclosureRow } from "@/components/timeline/row-shell";
 import { useTimelineThreadId } from "@/components/timeline/thread-context";

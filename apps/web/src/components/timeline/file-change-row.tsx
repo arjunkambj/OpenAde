@@ -5,38 +5,19 @@
  * shows as a file chip with its path relative to the workspace.
  */
 
-import type { FileChangeKind, ItemSnapshot } from "@OpenAde/contracts/runtime";
+import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
 
 import { InlineDiff } from "@/components/timeline/diff-pool";
 import { fileChangeFallbackLabel } from "@/components/timeline/file-change";
+import {
+  FILE_CHANGE_KIND_LABEL,
+  FileChangeKindBadge,
+} from "@/components/timeline/file-change-badge";
 import { PathChip, PathChipsProvider } from "@/components/timeline/path-chips";
 import { DisclosureRow } from "@/components/timeline/row-shell";
 import { diffStats } from "@/lib/diff-stats";
-import { cn } from "@/lib/utils";
 import { useRowDisclosure } from "@/state/ui";
 import { Edit } from "@honeyicons/react";
-
-const KIND_LABEL = {
-  create: "created",
-  edit: "edited",
-  delete: "deleted",
-} as const;
-
-/** "created" / "edited" / "deleted", tinted by what the change did. */
-export function FileChangeKindBadge({ kind }: { kind: FileChangeKind }) {
-  return (
-    <span
-      className={cn(
-        "ml-1 shrink-0 rounded-sm px-1 type-micro",
-        kind === "create" && "bg-added-bg text-added",
-        kind === "delete" && "bg-removed-bg text-removed",
-        kind === "edit" && "bg-hover text-muted-foreground",
-      )}
-    >
-      {KIND_LABEL[kind]}
-    </span>
-  );
-}
 
 function DiffCount({ diff }: { diff: string }) {
   const { added, removed } = diffStats(diff);
@@ -89,7 +70,7 @@ export function FileChangeRow({ item }: { item: ItemSnapshot }) {
             <FileChangeKindBadge kind={fileChange.kind} />
           </>
         }
-        triggerLabel={`${KIND_LABEL[fileChange.kind]} ${fileChange.path}`}
+        triggerLabel={`${FILE_CHANGE_KIND_LABEL[fileChange.kind]} ${fileChange.path}`}
         status={item.status}
         meta={diff !== undefined ? <DiffCount diff={diff} /> : null}
         defaultOpen={diff !== undefined}
