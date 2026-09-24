@@ -1261,7 +1261,9 @@ own work, without the base's later commits showing up as reverted.
 
 The thread header's branch picker (`apps/web/src/components/git/branch-picker.tsx`)
 is the client of these. Its trigger shows the branch the thread's root is on
-(`detached` on a detached HEAD). For a local thread it opens a search over the
+(`detached` on a detached HEAD). When the header is narrow the branch keeps
+its room: the title shrinks twice as fast, and below 32rem the header's Commit
+button drops its label for its icon and tooltip. For a local thread it opens a search over the
 branches in two groups, Local and Remote; a remote branch whose local twin
 exists is left out, since picking it would switch to that local branch anyway,
 and a branch checked out in another worktree is listed but disabled. Picking a

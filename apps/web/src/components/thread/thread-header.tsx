@@ -12,6 +12,12 @@
  * The git actions control (`components/git/git-actions-control.tsx`) sits at
  * the right, before the status: commit, push and open a pull request from
  * the thread's workspace.
+ *
+ * A narrow header (a small window, the dock open) squeezes the title and the
+ * branch, the only parts that shrink. The branch is the one worth keeping,
+ * so the title gives up twice as much, and below `@lg` the header (a
+ * container, `header`) has the Commit button drop its label for its icon
+ * and tooltip.
  */
 
 import { Button } from "@OpenAde/ui/components/button";
@@ -59,8 +65,8 @@ export function ThreadHeader({
   onDockToggle: () => void;
 }) {
   return (
-    <header className="flex min-h-11 shrink-0 items-center gap-2 px-4 py-1.5">
-      <h1 className="min-w-0 max-w-56 shrink truncate text-sm font-medium text-foreground">
+    <header className="@container/header flex min-h-11 shrink-0 items-center gap-2 px-4 py-1.5">
+      <h1 className="min-w-0 max-w-56 shrink-2 truncate text-sm font-medium text-foreground">
         {snapshot.title}
       </h1>
       <BranchPicker snapshot={snapshot} />

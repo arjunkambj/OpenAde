@@ -218,9 +218,11 @@ export function GitActionsControl({ snapshot }: { snapshot: ThreadDetailSnapshot
             size="sm"
             disabled={disabled || commitReason !== null}
             onClick={() => start("commit")}
+            aria-label="Commit"
           >
             {pending ? <Spinner variant="bold" /> : <Git variant="bold" />}
-            Commit
+            {/* A narrow header keeps the branch name over this label. */}
+            <span className="hidden @lg/header:inline">Commit</span>
           </Button>
         </TooltipTrigger>
         <TooltipContent>{commitReason ?? "Commit the changes in this workspace"}</TooltipContent>
