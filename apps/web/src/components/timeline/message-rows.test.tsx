@@ -22,9 +22,10 @@ describe("UserMessageRow", () => {
     const markup = render({ itemId });
     // The bubble holds one markdown body with one paragraph, and nothing else.
     expect(markup).toMatch(
-      /aria-label="User message"[^>]*><div class="[^"]*"><p [^>]*>Add a health check endpoint\.<\/p><\/div><\/div><\/div>$/,
+      /aria-label="User message"[^>]*><div [^>]*><div class="[^"]*"><p [^>]*>Add a health check endpoint\.<\/p><\/div><\/div><\/div><\/div>$/,
     );
     expect(markup).not.toContain("<svg");
+    expect(markup).not.toContain("Show more");
     // An empty list is the same as none: no chip row is drawn for it.
     expect(render({ itemId, references: [] })).toBe(markup);
   });
@@ -68,5 +69,25 @@ describe("UserMessageRow", () => {
   it("keeps a heading at the size of the text", () => {
     const markup = render({ text: "# Plan\n\nDo it." });
     expect(markup).toMatch(/<h1 class="[^"]*text-sm font-semibold[^"]*">Plan<\/h1>/);
+  });
+
+  it("clamps a long message with a fade and a Show more button", () => {
+    const text = Array.from({ length: 14 }, (_, index) => `line ${index + 1}`).join("\n");
+    const markup = render({ text });
+    expect(markup).toContain("mask-b-from-60%");
+    expect(markup).toContain("max-h-[10lh]");
+    expect(markup).toContain('aria-expanded="false"');
+    expect(markup).toContain("Show more");
+    // The whole text is still there, clamped rather than cut.
+    expect(markup).toContain("line 14");
+  });
+
+  it("puts the references before a long message's text", () => {
+    const markup = render({
+      text: "x".repeat(700),
+      references: [{ kind: "skill", name: "health-checks" }],
+    });
+    expect(markup).toContain("Show more");
+    expect(markup.indexOf("health-checks")).toBeLessThan(markup.indexOf("xxxx"));
   });
 });

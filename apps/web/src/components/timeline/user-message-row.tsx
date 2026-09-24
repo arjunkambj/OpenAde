@@ -8,14 +8,23 @@
  *
  * The text renders as markdown in the `user` variant (`markdown.tsx`): lists,
  * emphasis and code format, each line ending the user typed stays a line
- * break, and raw HTML shows as typed.
+ * break, and raw HTML shows as typed. A long message (`user-message-collapse.ts`)
+ * is clamped to ten lines that fade out at the bottom, with "Show more" under
+ * it. Whether it is open lives in the row disclosure map under
+ * `user-message:<itemId>`, so it survives the row scrolling out of view and the
+ * list recycling it. Collapse-all and expand-all leave it alone: they are about
+ * tool calls, not about what the user wrote.
  */
 
 import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
+import { Button } from "@OpenAde/ui/components/button";
 
 import { Attachments } from "@/components/timeline/attachments";
 import { MarkdownBody } from "@/components/timeline/markdown";
-import { Puzzle, Sparkles } from "@honeyicons/react";
+import { userMessageOverflows } from "@/components/timeline/user-message-collapse";
+import { cn } from "@/lib/utils";
+import { useRowDisclosure } from "@/state/ui";
+import { ChevronDown, ChevronUp, Puzzle, Sparkles } from "@honeyicons/react";
 
 function References({ item }: { readonly item: ItemSnapshot }) {
   const references = item.references ?? [];
@@ -42,6 +51,42 @@ function References({ item }: { readonly item: ItemSnapshot }) {
   );
 }
 
+function UserMessageText({ item }: { readonly item: ItemSnapshot }) {
+  const text = item.text ?? "";
+  const overflows = userMessageOverflows(text);
+  const [open, setOpen] = useRowDisclosure(`user-message:${item.itemId}`);
+  const clamped = overflows && !open;
+  const bodyId = `user-message-${item.itemId}`;
+  return (
+    <>
+      <div
+        id={bodyId}
+        className={cn("min-w-0", clamped && "max-h-[10lh] overflow-hidden mask-b-from-60%")}
+      >
+        <MarkdownBody text={text} id={item.itemId} variant="user" />
+      </div>
+      {overflows ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          className="mt-1 -ml-2"
+          aria-expanded={open}
+          aria-controls={bodyId}
+          onClick={() => setOpen(!open)}
+        >
+          {open ? "Show less" : "Show more"}
+          {open ? (
+            <ChevronUp variant="bold" data-icon="inline-end" />
+          ) : (
+            <ChevronDown variant="bold" data-icon="inline-end" />
+          )}
+        </Button>
+      ) : null}
+    </>
+  );
+}
+
 export function UserMessageRow({ item }: { item: ItemSnapshot }) {
   // LegendList wraps every row in its own container, so `self-end` on the
   // bubble cannot reach the list's flex column; the row right-aligns itself.
@@ -53,7 +98,7 @@ export function UserMessageRow({ item }: { item: ItemSnapshot }) {
       >
         <Attachments item={item} />
         <References item={item} />
-        <MarkdownBody text={item.text ?? ""} id={item.itemId} variant="user" />
+        <UserMessageText item={item} />
       </div>
     </div>
   );

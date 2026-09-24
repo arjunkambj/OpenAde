@@ -807,6 +807,13 @@ is turned into text before rendering, so `<b>x</b>` shows as typed, headings
 stay at the body's size, and inline code sits on a chip that reads on the
 bubble.
 
+A user message over 10 lines or 600 characters
+(`timeline/user-message-collapse.ts`, a CRLF counting as one) is clamped to
+ten lines that fade out at the bottom, with a "Show more"/"Show less" button
+under it. Whether it is open is kept in the row disclosure map under
+`user-message:<itemId>`, so it holds when the row scrolls away and back; the
+collapse-all and expand-all shortcuts leave it alone.
+
 `apps/web/src/components/timeline/timeline-item.tsx` dispatches one component
 per `ItemKind`. The list opens at its end and follows new rows while it sits
 there; scrolled more than half a screen away, it stops following and shows a
