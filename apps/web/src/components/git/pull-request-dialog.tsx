@@ -52,7 +52,7 @@ export function PullRequestDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Create pull request</DialogTitle>
           <DialogDescription>
@@ -83,6 +83,7 @@ export function PullRequestDialog({
               id="pull-request-body"
               value={body}
               rows={5}
+              className="max-h-48 overflow-y-auto"
               onChange={(event) => setBody(event.target.value)}
             />
           </div>

@@ -20,6 +20,10 @@
  * The control mounts a fresh dialog (a new `key`) for each opening, so the
  * draft is seeded once and the user's edits are never overwritten while it
  * is open.
+ *
+ * A long list of changes must not push the title and the buttons off-screen:
+ * the message box and the file list each scroll past a fixed height, and the
+ * dialog itself scrolls on a short window.
  */
 
 import * as React from "react";
@@ -97,7 +101,7 @@ export function CommitDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{actionLabel}</DialogTitle>
           <DialogDescription>
@@ -121,6 +125,7 @@ export function CommitDialog({
               rows={6}
               autoFocus
               spellCheck
+              className="max-h-48 overflow-y-auto"
               onChange={(event) => setMessage(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
