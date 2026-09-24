@@ -137,9 +137,14 @@ export function BranchPicker({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
         : worktree === undefined && turnInFlight(snapshot)
           ? RUNNING_REASON
           : null;
+  // The trigger truncates a long branch, so the tooltip names it in full.
   const tooltip =
     disabledReason ??
-    (worktree === undefined ? "Switch or create a branch" : `Worktree at ${worktree.path}`);
+    (worktree !== undefined
+      ? `Worktree at ${worktree.path}`
+      : branch === null
+        ? "Switch or create a branch"
+        : `On ${branch} — switch or create a branch`);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

@@ -6,7 +6,8 @@
  * what the list shows is what the tests pin.
  *
  * A branch checked out in another worktree cannot be switched to — git
- * refuses to check one branch out twice — so it is listed but disabled.
+ * refuses to check one branch out twice — so it is listed but disabled. A long
+ * name is cut to the popover's width; the full name is in the tooltip.
  *
  * A query git would refuse as a name matches no branch and offers no create;
  * the empty line then says why (`branchNameProblem`) rather than only that
@@ -36,7 +37,11 @@ function BranchItem({ branch, onSelect }: { branch: GitBranch; onSelect: (name: 
       value={branch.name}
       data-checked={branch.isCurrent}
       disabled={elsewhere}
-      title={elsewhere ? `Checked out in the worktree at ${branch.worktreePath}` : undefined}
+      title={
+        elsewhere
+          ? `${branch.name} — checked out in the worktree at ${branch.worktreePath}`
+          : branch.name
+      }
       onSelect={() => onSelect(branch.name)}
     >
       {branch.kind === "remote" ? (
