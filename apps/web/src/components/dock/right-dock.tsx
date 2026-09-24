@@ -102,6 +102,9 @@ function DockTabButton({
             aria-selected={active}
             variant={active ? "secondary" : "ghost"}
             tone={active ? "default" : "muted"}
+            // The Changes toolbar's Compare menu is 28px under it; the tabs
+            // match it, so the two rows read as one set of controls.
+            className="h-7"
             onClick={() => onSelect(tab)}
           />
         }

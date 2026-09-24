@@ -1,7 +1,7 @@
 /**
  * The changes pane's selection rules: which comparison each scope and each
- * pair of select values asks the server for, and what happens when the
- * selected checkpoint is gone.
+ * turn asks the server for, and which turn shows when none, or a gone one, is
+ * picked.
  */
 
 import { describe, expect, it } from "vitest";
@@ -9,13 +9,12 @@ import { makeCheckpointId, makeProjectId, makeThreadId, makeTurnId } from "@Open
 import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
 
 import {
-  HEAD_VALUE,
-  WORKTREE_VALUE,
   branchBaseFor,
   checkpointLabel,
   diffRangeFor,
+  pickTurn,
   rangeKeyOf,
-  resolveRef,
+  turnRange,
 } from "./selection";
 
 const checkpoint = (ref: string, createdAt = "2026-01-01T09:30:00.000Z"): CheckpointSummary => ({
@@ -26,20 +25,20 @@ const checkpoint = (ref: string, createdAt = "2026-01-01T09:30:00.000Z"): Checkp
 });
 
 describe("changes pane selection", () => {
-  it("maps the turn selector's three comparisons onto the git.diff payload, in the thread's root", () => {
+  it("diffs a turn from the checkpoint before it to its own, in the thread's root", () => {
     // The thread rides along so the server diffs its worktree, when it has one.
     const scope = { projectId: makeProjectId(), threadId: makeThreadId() };
-    const a = "refs/openade/checkpoints/t/1";
-    const b = "refs/openade/checkpoints/t/2";
-    const turn = (base: string, target: string) =>
-      diffRangeFor(scope, { scope: "turn", base, target });
+    const first = checkpoint("refs/openade/checkpoints/t/1");
+    const second = checkpoint("refs/openade/checkpoints/t/2");
+    const turn = (previous: CheckpointSummary | undefined, shown: CheckpointSummary) =>
+      diffRangeFor(scope, { scope: "turn", ...turnRange(previous, shown) });
 
-    // Working tree against HEAD — both ends omitted, the server's default.
-    expect(turn(HEAD_VALUE, WORKTREE_VALUE)).toEqual(scope);
-    // One turn's changes: the checkpoint is the base, the worktree the target.
-    expect(turn(a, WORKTREE_VALUE)).toEqual({ ...scope, from: a });
-    // Turn to turn.
-    expect(turn(a, b)).toEqual({ ...scope, from: a, to: b });
+    // The first turn has nothing before it, so it starts from HEAD — `from`
+    // omitted, the server's default.
+    expect(turn(undefined, first)).toEqual({ ...scope, to: first.ref });
+    expect(turn(undefined, first)).not.toHaveProperty("from");
+    // Every later turn starts where the one before it left off.
+    expect(turn(first, second)).toEqual({ ...scope, from: first.ref, to: second.ref });
   });
 
   it("asks for a merge-base diff for Branch vs base, and nothing without a base", () => {
@@ -81,14 +80,16 @@ describe("changes pane selection", () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 
-  it("falls back when the selected checkpoint is no longer in the thread", () => {
-    const kept = checkpoint("refs/openade/checkpoints/t/1");
-    expect(resolveRef(kept.ref, [kept], HEAD_VALUE)).toBe(kept.ref);
-    expect(resolveRef("refs/openade/checkpoints/t/9", [kept], HEAD_VALUE)).toBe(HEAD_VALUE);
-    expect(resolveRef("refs/openade/checkpoints/t/9", [], WORKTREE_VALUE)).toBe(WORKTREE_VALUE);
-    // The sentinels are never checkpoints and must survive an empty list.
-    expect(resolveRef(HEAD_VALUE, [], HEAD_VALUE)).toBe(HEAD_VALUE);
-    expect(resolveRef(WORKTREE_VALUE, [], WORKTREE_VALUE)).toBe(WORKTREE_VALUE);
+  it("shows the picked turn while it exists, else the latest", () => {
+    const first = checkpoint("refs/openade/checkpoints/t/1");
+    const second = checkpoint("refs/openade/checkpoints/t/2");
+    // Nothing picked follows the latest turn.
+    expect(pickTurn([first, second], null)).toBe(1);
+    expect(pickTurn([first, second], first.ref)).toBe(0);
+    // A pruned ref never reaches git: the latest turn stands in.
+    expect(pickTurn([first, second], "refs/openade/checkpoints/t/9")).toBe(1);
+    // No checkpoints, no turn.
+    expect(pickTurn([], null)).toBe(-1);
   });
 
   it("labels a checkpoint by its turn number, and survives a bad timestamp", () => {

@@ -1,14 +1,13 @@
 /**
  * What the changes pane's selection means, with no React in the way.
  *
- * The pane has three scopes (`ChangesScope`):
+ * The pane has three scopes (`ChangesScope`), picked from one Compare menu:
  *
- * - **This turn** — the turn selector's two selects. Their values are git
- *   refs, plus two sentinels for the ends the `git.diff` payload leaves out:
- *   `HEAD` as the base (the server's own default) and the working tree as the
- *   target (an omitted `to`).
- * - **Branch vs base** — the working tree against the point where the branch
- *   forked from its base (`mergeBase`), so it shows the branch's commits plus
+ * - **A turn** — what that turn changed: the previous turn's checkpoint
+ *   against its own. The first turn has no snapshot before it, so it starts
+ *   from `HEAD`. Unless one is picked, the latest turn shows.
+ * - **Branch** — the working tree against the point where the branch forked
+ *   from its base (`mergeBase`), so it shows the branch's commits plus
  *   whatever is not committed yet.
  * - **Uncommitted** — the working tree against `HEAD`: both ends omitted.
  *
@@ -21,11 +20,6 @@ import type { GitDiffRange } from "@OpenAde/client-runtime/gitAtoms";
 import type { CheckpointSummary } from "@OpenAde/contracts/orchestration";
 
 import type { ChangesScope } from "@/state/ui";
-
-/** Base sentinel: diff against the commit the worktree is sitting on. */
-export const HEAD_VALUE = "__head__";
-/** Target sentinel: the files on disk right now, committed or not. */
-export const WORKTREE_VALUE = "__worktree__";
 
 const TIME = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" });
 
@@ -42,34 +36,44 @@ export const checkpointLabel = (checkpoint: CheckpointSummary, index: number): s
 };
 
 /**
- * A selected ref that is no longer in the thread's checkpoint list — pruned
- * with a deleted thread, or gone after a resnapshot — falls back to the
- * sentinel instead of querying a ref git no longer has.
+ * The index of the turn "This turn" shows: the one picked while it is still
+ * in the thread, else the latest — a picked ref can be pruned with a deleted
+ * thread or gone after a resnapshot. `-1` when the thread has no checkpoints.
  */
-export const resolveRef = (
-  value: string,
+export const pickTurn = (
   checkpoints: ReadonlyArray<CheckpointSummary>,
-  fallback: string,
-): string =>
-  value === HEAD_VALUE ||
-  value === WORKTREE_VALUE ||
-  checkpoints.some((checkpoint) => checkpoint.ref === value)
-    ? value
-    : fallback;
+  choice: string | null,
+): number => {
+  const picked = checkpoints.findIndex((checkpoint) => checkpoint.ref === choice);
+  return picked === -1 ? checkpoints.length - 1 : picked;
+};
 
-/** What one scope compares; only "This turn" carries the turn selector's refs. */
+/**
+ * What one turn changed: the checkpoint before it to its own. Checkpoints are
+ * root commits, so there is no parent to ask for the first turn's starting
+ * point; `HEAD` (an omitted `from`) stands in for it.
+ */
+export const turnRange = (
+  previous: CheckpointSummary | undefined,
+  turn: CheckpointSummary,
+): { readonly from: string | null; readonly to: string } => ({
+  from: previous?.ref ?? null,
+  to: turn.ref,
+});
+
+/** What one scope compares; only a turn carries refs, `from: null` being `HEAD`. */
 export type ChangesSelection =
   | {
       readonly scope: Extract<ChangesScope, "turn">;
-      readonly base: string;
-      readonly target: string;
+      readonly from: string | null;
+      readonly to: string;
     }
   | { readonly scope: Extract<ChangesScope, "branch">; readonly mergeBase: string | null }
   | { readonly scope: Extract<ChangesScope, "uncommitted"> };
 
 /**
- * The `git.diff` payload for one selection, or `null` for "Branch vs base"
- * with no base to compare with. Sentinels become omitted ends, and the thread
+ * The `git.diff` payload for one selection, or `null` for "Branch" with no
+ * base to compare with. A `HEAD` start becomes an omitted end, and the thread
  * picks the directory — its worktree, when it has one.
  */
 export const diffRangeFor = (
@@ -81,8 +85,8 @@ export const diffRangeFor = (
     case "turn":
       return {
         ...scope,
-        ...(selection.base === HEAD_VALUE ? {} : { from: selection.base }),
-        ...(selection.target === WORKTREE_VALUE ? {} : { to: selection.target }),
+        ...(selection.from === null ? {} : { from: selection.from }),
+        to: selection.to,
       };
     case "branch":
       return selection.mergeBase === null ? null : { ...scope, mergeBase: selection.mergeBase };
@@ -92,7 +96,7 @@ export const diffRangeFor = (
 };
 
 /**
- * The branch "Branch vs base" compares with: the worktree's own base when the
+ * The branch "Branch" compares with: the worktree's own base when the
  * thread was started in one — it records what it was cut from — else the
  * repository's default branch. `undefined` while the branch list has not
  * answered, `null` when there is nothing to compare with.

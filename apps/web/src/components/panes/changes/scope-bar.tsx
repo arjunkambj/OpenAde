@@ -1,82 +1,148 @@
 /**
- * What the Changes pane compares, and how it lays a patch out.
+ * The Changes pane's toolbar: what to compare, how much changed, and the
+ * actions. One line, so the diffs start right under it.
  *
- * - **This turn** — the turn selector and the restore controls: a turn's
- *   checkpoint against the working tree, or turn to turn.
- * - **Branch vs base** — everything the branch has done since it forked from
- *   its base, commits and uncommitted work together.
+ * One Compare menu picks the comparison:
+ *
  * - **Uncommitted** — the working tree against `HEAD`.
+ * - **Branch** — everything the branch has done since it forked from its base,
+ *   commits and uncommitted work together; the pair is spelled out beside it.
+ * - **A turn** — what that turn changed, newest first. Restore joins the
+ *   actions here, and puts the worktree back to how the turn left it.
  *
- * The Split toggle puts old and new side by side. Both choices are remembered
- * (`useChangesScope`, `useDiffStyle`) for every thread.
+ * The split toggle puts old and new side by side. The scope and the layout are
+ * remembered (`useChangesScope`, `useDiffStyle`) for every thread; which turn
+ * is picked is the pane's own, and follows the latest turn until one is.
  */
 
+import type { ReactNode } from "react";
+
+import { Button } from "@OpenAde/ui/components/button";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@OpenAde/ui/components/select";
 import { Toggle } from "@OpenAde/ui/components/toggle";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 
-import type { ChangesScope, DiffStyle } from "@/state/ui";
+import type { DiffStyle } from "@/state/ui";
 
-const SCOPES: ReadonlyArray<{ readonly value: ChangesScope; readonly label: string }> = [
-  { value: "turn", label: "This turn" },
-  { value: "branch", label: "Branch vs base" },
-  { value: "uncommitted", label: "Uncommitted" },
-];
+import { Columns, Refresh } from "@honeyicons/react";
 
-const isScope = (value: unknown): value is ChangesScope =>
-  SCOPES.some((scope) => scope.value === value);
+/** One entry of the Compare menu: a scope's name, or a turn's checkpoint ref. */
+export interface CompareOption {
+  readonly value: string;
+  readonly label: string;
+}
+
+export const UNCOMMITTED = {
+  value: "uncommitted",
+  label: "Uncommitted",
+} as const satisfies CompareOption;
+export const BRANCH = { value: "branch", label: "Branch" } as const satisfies CompareOption;
 
 export function ScopeBar({
-  scope,
-  onScopeChange,
+  value,
+  onValueChange,
+  turns,
+  range,
+  totals,
+  restore,
   diffStyle,
   onDiffStyleChange,
+  onRefresh,
 }: {
-  scope: ChangesScope;
-  onScopeChange: (next: ChangesScope) => void;
+  /** `uncommitted`, `branch`, or the shown turn's checkpoint ref. */
+  value: string;
+  onValueChange: (next: string) => void;
+  /** The thread's turns, newest first. */
+  turns: ReadonlyArray<CompareOption>;
+  /** Beside the menu: the pair "Branch" compares, or nothing. */
+  range: ReactNode;
+  /** The comparison's `+`/`−` line counts, once its diff has answered. */
+  totals: ReactNode;
+  /** Leads the actions: the restore control, only while a turn is shown. */
+  restore: ReactNode;
   diffStyle: DiffStyle;
   onDiffStyleChange: (next: DiffStyle) => void;
+  onRefresh: () => void;
 }) {
   return (
-    <div className="flex items-center gap-2">
-      <div className="min-w-0 flex-1">
-        <Select
-          value={scope}
-          onValueChange={(next) => {
-            if (isScope(next)) {
-              onScopeChange(next);
-            }
-          }}
-          items={SCOPES}
-        >
-          <SelectTrigger className="w-full" aria-label="Compare">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {SCOPES.map((option) => (
+    <div className="flex h-9 shrink-0 items-center gap-1 px-2">
+      <Select
+        value={value}
+        onValueChange={(next) => {
+          if (typeof next === "string" && next.length > 0) {
+            onValueChange(next);
+          }
+        }}
+        items={[UNCOMMITTED, BRANCH, ...turns]}
+      >
+        {/* Filled and weighted like the active dock tab above it. */}
+        <SelectTrigger size="sm" variant="secondary" className="shrink-0" aria-label="Compare">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent align="start" alignItemWithTrigger={false}>
+          <SelectGroup>
+            {[UNCOMMITTED, BRANCH].map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}
               </SelectItem>
             ))}
-          </SelectContent>
-        </Select>
-      </div>
+          </SelectGroup>
+          {turns.length > 0 ? (
+            <>
+              <SelectSeparator />
+              <SelectGroup>
+                <SelectLabel>Turns</SelectLabel>
+                {turns.map((turn) => (
+                  <SelectItem key={turn.value} value={turn.value}>
+                    {turn.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </>
+          ) : null}
+        </SelectContent>
+      </Select>
+      <div className="flex min-w-0 items-center">{range}</div>
+      <div className="shrink-0">{totals}</div>
+      <div className="flex-1" />
+      {restore}
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Refresh changes"
+              onClick={onRefresh}
+            />
+          }
+        >
+          <Refresh variant="bold" />
+        </TooltipTrigger>
+        <TooltipContent>Refresh changes</TooltipContent>
+      </Tooltip>
       <Tooltip>
         <TooltipTrigger
           render={
             <Toggle
+              size="icon-sm"
+              aria-label="Split view"
               pressed={diffStyle === "split"}
               onPressedChange={(pressed) => onDiffStyleChange(pressed ? "split" : "unified")}
             />
           }
         >
-          Split
+          <Columns variant="bold" />
         </TooltipTrigger>
         <TooltipContent>Show old and new side by side</TooltipContent>
       </Tooltip>

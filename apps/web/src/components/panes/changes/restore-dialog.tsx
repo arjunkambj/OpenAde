@@ -98,13 +98,14 @@ export function RestoreCheckpointDialog({
       <Button
         type="button"
         variant="ghost"
-        size="sm"
+        size="icon-sm"
+        className="shrink-0"
         disabled={disabled}
+        aria-label={`Restore ${label}`}
         title={disabledReason ?? `Restore the worktree to ${label}`}
         onClick={() => setOpen(true)}
       >
         <Undo variant="bold" />
-        Restore
       </Button>
       <DialogContent>
         <DialogHeader>

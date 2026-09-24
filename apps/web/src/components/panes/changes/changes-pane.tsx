@@ -1,17 +1,18 @@
 /**
  * The dock's Changes tab — the M4 surface over `git.status` and `git.diff`.
  *
- * The scope bar picks what to compare (`selection.ts`): this turn's
- * checkpoints through the turn selector, the branch against its base, or the
- * uncommitted working tree. `ChangesList` renders that comparison's files.
+ * The toolbar's Compare menu picks what to compare (`selection.ts`): what one
+ * turn changed, the branch against its base, or the uncommitted working tree. `ChangesList` renders that comparison's files.
  * Every read runs in the thread's own root — its worktree, when it has one.
  *
- * `git.status` is read alongside it for the branch line and, because the server
- * answers a missing project or a non-repository root with an empty status
- * rather than an error, to tell "this is not a git repo" from "nothing changed".
+ * `git.status` is read alongside it because the server answers a missing
+ * project or a non-repository root with an empty status rather than an error,
+ * and that is how "this is not a git repo" differs from "nothing changed". The
+ * branch itself is the thread header's, so the pane does not repeat it.
  *
- * Restore lives behind `RestoreCheckpointDialog`, only in the "This turn"
- * scope, and is disabled while a turn is running — the server rejects it
+ * Restore lives behind `RestoreCheckpointDialog`, only while a turn is shown —
+ * it puts the worktree back to how that turn left it — and is disabled while a
+ * turn is running — the server rejects it
  * anyway, but a disabled button with a reason beats a rejection after the
  * fact.
  *
@@ -33,21 +34,19 @@ import { turnInFlight } from "@/lib/turn";
 import { useConnectionState } from "@/state/hooks";
 import { useChangesScope, useDiffStyle } from "@/state/ui";
 
-import { BaseLine, BranchLine, RestoreProgress } from "./changes-header";
-import { ChangesList, NotARepository, queryValue } from "./changes-list";
+import { BaseLine, RestoreProgress } from "./changes-header";
+import { ChangesList, DiffTotals, NotARepository, queryValue } from "./changes-list";
 import { useGitAtoms } from "./git-atoms";
 import { RestoreCheckpointDialog } from "./restore-dialog";
-import { ScopeBar } from "./scope-bar";
+import { BRANCH, ScopeBar, UNCOMMITTED } from "./scope-bar";
 import {
-  HEAD_VALUE,
-  WORKTREE_VALUE,
   branchBaseFor,
   checkpointLabel,
   diffRangeFor,
-  resolveRef,
+  pickTurn,
+  turnRange,
   type ChangesSelection,
 } from "./selection";
-import { TurnSelector } from "./turn-selector";
 import { useChangesRefresh } from "./use-changes-refresh";
 import { GitBranch, Spinner, WifiOff } from "@honeyicons/react";
 
@@ -60,11 +59,14 @@ export function ChangesPane({ snapshot }: { snapshot: ThreadDetailView }) {
   const [changesScope, setChangesScope] = useChangesScope();
   const [diffStyle, setDiffStyle] = useDiffStyle();
 
-  const [baseChoice, setBaseChoice] = React.useState(HEAD_VALUE);
-  const [targetChoice, setTargetChoice] = React.useState(WORKTREE_VALUE);
-  // A thread whose checkpoints were pruned must not keep querying a dead ref.
-  const base = resolveRef(baseChoice, checkpoints, HEAD_VALUE);
-  const target = resolveRef(targetChoice, checkpoints, WORKTREE_VALUE);
+  // `null` follows the latest turn, so a finished turn takes the pane with it.
+  const [turnChoice, setTurnChoice] = React.useState<string | null>(null);
+  const turnIndex = pickTurn(checkpoints, turnChoice);
+  const turn: CheckpointSummary | null = checkpoints[turnIndex] ?? null;
+  const turnLabel = turn === null ? null : checkpointLabel(turn, turnIndex);
+  // A thread with no checkpoints yet has no turn to show; the working tree is
+  // the nearest thing to one.
+  const shownScope = changesScope === "turn" && turn === null ? "uncommitted" : changesScope;
 
   const projectId = snapshot.projectId;
   const scope = { projectId, threadId: snapshot.threadId };
@@ -79,9 +81,9 @@ export function ChangesPane({ snapshot }: { snapshot: ThreadDetailView }) {
     branches === null ? undefined : (branchList?.defaultBranch ?? null),
   );
   const selection: ChangesSelection =
-    changesScope === "turn"
-      ? { scope: "turn", base, target }
-      : changesScope === "branch"
+    shownScope === "turn" && turn !== null
+      ? { scope: "turn", ...turnRange(checkpoints[turnIndex - 1], turn) }
+      : shownScope === "branch"
         ? { scope: "branch", mergeBase: mergeBase ?? null }
         : { scope: "uncommitted" };
   const range = diffRangeFor(scope, selection);
@@ -92,9 +94,22 @@ export function ChangesPane({ snapshot }: { snapshot: ThreadDetailView }) {
   );
   const onRestoreAccepted = useChangesRefresh(snapshot, refresh);
 
-  const baseCheckpoint: CheckpointSummary | null =
-    checkpoints.find((checkpoint) => checkpoint.ref === base) ?? null;
-  const baseIndex = checkpoints.findIndex((checkpoint) => checkpoint.ref === base);
+  const turns = checkpoints
+    .map((checkpoint, index) => ({
+      value: checkpoint.ref,
+      label: checkpointLabel(checkpoint, index),
+    }))
+    .reverse();
+  const compareValue = shownScope === "turn" && turn !== null ? turn.ref : shownScope;
+  const onCompareChange = (next: string) => {
+    if (next === UNCOMMITTED.value || next === BRANCH.value) {
+      setChangesScope(next);
+      return;
+    }
+    setChangesScope("turn");
+    // Picking the latest turn keeps following it; an older one stays put.
+    setTurnChoice(next === checkpoints.at(-1)?.ref ? null : next);
+  };
 
   // Offline the dispatch never resolves (the offline layer's client is
   // `Effect.never`), so the button would sit on "Restoring…" forever. Say why
@@ -110,18 +125,16 @@ export function ChangesPane({ snapshot }: { snapshot: ThreadDetailView }) {
     ? "Not connected to the server."
     : restoring !== null
       ? "A restore is already running."
-      : checkpoints.length === 0
+      : turn === null
         ? "This thread has no checkpoints yet."
-        : baseCheckpoint === null
-          ? "Pick a turn under From to restore it."
-          : // `turnInFlight`, not `currentTurnId`: the server rejects on its
-            // own `currentTurn`, which it sets on `thread.turn.requested`,
-            // while the client only fills the id on `thread.turn.started`.
-            // Between the two the button would be live and the dispatch
-            // would come back rejected.
-            turnInFlight(snapshot)
-            ? "A turn is running — stop it before restoring."
-            : null;
+        : // `turnInFlight`, not `currentTurnId`: the server rejects on its
+          // own `currentTurn`, which it sets on `thread.turn.requested`,
+          // while the client only fills the id on `thread.turn.started`.
+          // Between the two the button would be live and the dispatch
+          // would come back rejected.
+          turnInFlight(snapshot)
+          ? "A turn is running — stop it before restoring."
+          : null;
 
   const body =
     range !== null ? (
@@ -144,50 +157,41 @@ export function ChangesPane({ snapshot }: { snapshot: ThreadDetailView }) {
       <PaneMessage icon={GitBranch} text="No base branch to compare with" />
     );
 
-  // `h-full` so the file list scrolls inside the pane and the selector stays
-  // put; the dock's own scroller then never has anything to scroll.
+  // `h-full` so the diffs scroll inside the pane and the toolbar stays put;
+  // the dock's own scroller then never has anything to scroll.
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 flex-col gap-2 p-2">
-        <BranchLine status={status?._tag === "ok" ? status.value : null} onRefresh={refresh} />
-        <ScopeBar
-          scope={changesScope}
-          onScopeChange={setChangesScope}
-          diffStyle={diffStyle}
-          onDiffStyleChange={setDiffStyle}
-        />
-        {changesScope === "turn" ? (
-          <>
-            <TurnSelector
-              checkpoints={checkpoints}
-              base={base}
-              target={target}
-              onBaseChange={setBaseChoice}
-              onTargetChange={setTargetChoice}
+      <ScopeBar
+        value={compareValue}
+        onValueChange={onCompareChange}
+        turns={turns}
+        range={
+          shownScope === "branch" && range?.mergeBase !== undefined ? (
+            <BaseLine base={range.mergeBase} current={branchList?.current ?? null} />
+          ) : null
+        }
+        totals={range === null ? null : <DiffTotals range={range} />}
+        restore={
+          shownScope === "turn" ? (
+            <RestoreCheckpointDialog
+              threadId={snapshot.threadId}
+              checkpoint={turn}
+              label={turnLabel ?? "this turn"}
+              disabledReason={restoreDisabledReason}
+              onAccepted={onRestoreAccepted}
             />
-            <div className="flex items-center justify-between gap-2">
-              <span className="min-w-0 truncate type-micro text-muted-foreground">
-                {checkpoints.length === 0
-                  ? "No turn checkpoints yet"
-                  : `${checkpoints.length} turn checkpoint${checkpoints.length === 1 ? "" : "s"}`}
-              </span>
-              <RestoreCheckpointDialog
-                threadId={snapshot.threadId}
-                checkpoint={baseCheckpoint}
-                label={
-                  baseCheckpoint === null ? "this turn" : checkpointLabel(baseCheckpoint, baseIndex)
-                }
-                disabledReason={restoreDisabledReason}
-                onAccepted={onRestoreAccepted}
-              />
-            </div>
-            <RestoreProgress restoring={restoring} failure={restoreFailure} />
-          </>
-        ) : null}
-        {changesScope === "branch" && range?.mergeBase !== undefined ? (
-          <BaseLine base={range.mergeBase} current={branchList?.current ?? null} />
-        ) : null}
-      </div>
+          ) : null
+        }
+        diffStyle={diffStyle}
+        onDiffStyleChange={setDiffStyle}
+        onRefresh={refresh}
+      />
+      {/* Only while a restore runs or after git refused one — never at rest. */}
+      {restoring !== null || restoreFailure !== null ? (
+        <div className="shrink-0 px-3 pb-2">
+          <RestoreProgress restoring={restoring} failure={restoreFailure} />
+        </div>
+      ) : null}
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{body}</div>
     </div>
   );
