@@ -26,11 +26,12 @@ const working: TimelineRow = { kind: "working", id: "working", startedAt: undefi
 const run = (events: ReadonlyArray<SendAnchorEvent>, from = INITIAL_SEND_ANCHOR) =>
   events.reduce(sendAnchorReducer, from);
 
-const send = (id: string, sentHere = true): SendAnchorEvent => ({
+const send = (id: string, sentHere = true, awayFromEnd = false): SendAnchorEvent => ({
   type: "rowsChanged",
   newUserMessageId: id,
   turnActive: true,
   sentHere,
+  awayFromEnd,
 });
 
 const anchored: SendAnchorState = run([send("u2")]);
@@ -110,8 +111,19 @@ describe("sendAnchorReducer", () => {
     // A queued message drained minutes later, or one sent from another window.
     const free = run([{ type: "userScrollIntent" }], anchored);
     expect(run([send("u3", false)], free)).toBe(free);
-    // Following, the list is at its end anyway, so the message is anchored.
+    // Following at the end, the message is anchored as a send would be.
     expect(run([send("u3", false)]).mode).toBe("anchored");
+  });
+
+  it("leaves a following reader scrolled into history alone for a message not sent here", () => {
+    // Opened the thread and scrolled up: still following, but away from the end.
+    const scrolled = run([{ type: "userScrollIntent" }]);
+    expect(scrolled.mode).toBe("follow");
+    expect(run([send("u3", false, true)], scrolled)).toBe(scrolled);
+    // Their own send anchors wherever they are.
+    expect(run([send("u3", true, true)], scrolled).mode).toBe("anchored");
+    // Anchored, the reader has not scrolled since their send: the next one anchors.
+    expect(run([send("u3", false, true)], anchored).sentRowId).toBe("u3");
   });
 
   it("releases to the reader on a scroll, keeping the reserve", () => {

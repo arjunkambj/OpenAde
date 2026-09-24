@@ -231,12 +231,16 @@ export function useSendAnchor({
       newUserMessageId,
       turnActive,
       sentHere: newUserMessageId !== undefined && sentHereRecently(threadId),
+      // Read after the list took the new rows: at its end it has followed
+      // them, away from it the flag is where the reader left it.
+      awayFromEnd:
+        newUserMessageId !== undefined && listRef.current?.getState().isNearEnd === false,
     });
     if (wasActive.current && !turnActive) {
       dispatch({ type: "turnSettled" });
     }
     wasActive.current = turnActive;
-  }, [rows, threadId, turnActive]);
+  }, [listRef, rows, threadId, turnActive]);
 
   // The reader's own scrolling, and the list reaching its end.
   React.useEffect(() => {

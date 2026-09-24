@@ -20,9 +20,13 @@
  * Only a user message that appears after the list mounted, while a turn is
  * requested or running, counts as a send. That covers a queued message whose
  * turn starts later; the history a thread opens with never anchors. From
- * `free` it takes a send this window just made (`state/local-sends.ts`): a
- * queued message drained minutes later, or one sent from another window, would
- * otherwise pull a reader who scrolled away back down without their asking.
+ * `free`, or from `follow` with the list scrolled more than half a screen
+ * from its end (`awayFromEnd`), it takes a send this window just made
+ * (`state/local-sends.ts`): a queued message drained minutes later, or one
+ * sent from another window, would otherwise pull a reader who scrolled away
+ * back down without their asking. Following says only that the list follows
+ * its end while it sits there, not that it does sit there: a reader who opened
+ * the thread and scrolled up into history is still following.
  */
 
 import type { TimelineRow } from "./fold";
@@ -45,6 +49,8 @@ export type SendAnchorEvent =
       readonly turnActive: boolean;
       /** This window sent that message just now, rather than the queue or another window. */
       readonly sentHere?: boolean | undefined;
+      /** The list sits more than half a screen from its end: the reader scrolled away. */
+      readonly awayFromEnd?: boolean | undefined;
     }
   | { readonly type: "userScrollIntent" }
   /** The reader opened a turn fold: its rows arrive right under the toggle. */
@@ -68,7 +74,12 @@ export const sendAnchorReducer = (
       if (event.newUserMessageId === undefined || !event.turnActive) {
         return state;
       }
-      if (state.mode === "free" && event.sentHere !== true) {
+      // A reader who scrolled away keeps their place, unless they sent it.
+      // Anchored, the reader has not scrolled since their last send.
+      if (
+        event.sentHere !== true &&
+        (state.mode === "free" || (state.mode === "follow" && event.awayFromEnd === true))
+      ) {
         return state;
       }
       return {

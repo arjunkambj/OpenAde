@@ -992,7 +992,9 @@ in the list, a press on its scrollbar, or a text selection inside it — or
 opens a turn fold while following or anchored, so its rows open in place — and
 nothing moves the list until it is back at its end, which resumes following, or
 the reader jumps to the latest row, or sends a message of their own. Only a
-send this window made in the last ten seconds anchors from Free
+send this window made in the last ten seconds anchors from Free, or from
+Follow once the list is more than half a screen from its end — a reader who
+opened the thread and scrolled up is still following, just not at the end
 (`state/local-sends.ts`, noted by the composer as it dispatches): a queued
 message the server drains minutes later, or one sent from another window,
 leaves a reader who scrolled away where they are, and the jump button's dot
