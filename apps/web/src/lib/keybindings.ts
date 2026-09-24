@@ -3,7 +3,7 @@
  * stored chord is drawn as keycaps.
  *
  * Both halves are pure so they can be tested without a DOM. The React side —
- * the provider, the command registry and `ShortcutKbd` — lives in
+ * the provider, the command registry and `CommandKbd` — lives in
  * `@/lib/shortcuts`, which is the only place that listens for keys.
  */
 

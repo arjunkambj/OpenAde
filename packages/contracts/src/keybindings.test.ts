@@ -6,6 +6,8 @@ import {
   DEFAULT_KEYBINDINGS,
   LEGACY_DEFAULT_KEYBINDINGS,
   QUESTION_OPTION_COMMANDS,
+  RESERVED_KEYBINDINGS,
+  THREAD_JUMP_COMMANDS,
   diffKeymap,
   isUnbindRow,
   migrateLegacyKeybindingTable,
@@ -71,6 +73,46 @@ describe("DEFAULT_KEYBINDINGS", () => {
       expect(rows("thread.interrupt")).toEqual([
         "Escape|turnRunning && !dialogOpen && (inputFocus || !approvalPending)",
       ]);
+    }),
+  );
+
+  it.effect("binds the composer, thread, view and timeline commands", () =>
+    Effect.gen(function* () {
+      const bindings = yield* Effect.succeed(DEFAULT_KEYBINDINGS);
+      const row = (command: string) =>
+        bindings
+          .filter((binding) => binding.command === command)
+          .map((binding) => `${binding.shortcut}|${binding.when ?? ""}`)
+          .join(" ; ");
+      expect(row("composer.planMode.toggle")).toBe("Shift+Tab|composerFocus");
+      expect(row("composer.runtimeMode.cycle")).toBe("Mod+Shift+L|");
+      expect(row("composer.focus")).toBe("Mod+L|!browserFocus");
+      expect(row("composer.clearDraft")).toBe("Mod+Shift+Backspace|composerFocus");
+      expect(row("project.add")).toBe("Mod+Shift+O|");
+      expect(row("shortcuts.open")).toBe("Mod+/|");
+      expect(row("thread.delete")).toBe("Mod+Alt+Backspace|threadOpen");
+      expect(row("nav.back")).toBe("Mod+[|!browserFocus");
+      expect(row("dock.files")).toBe("Mod+P|threadOpen");
+      expect(row("font.increase")).toBe("Mod+Alt+=|");
+      expect(row("timeline.jumpToLatest")).toBe("Mod+Shift+J|threadOpen");
+      expect(THREAD_JUMP_COMMANDS).toHaveLength(9);
+      for (const [index, command] of THREAD_JUMP_COMMANDS.entries()) {
+        expect(row(command)).toBe(`Mod+${index + 1}|`);
+      }
+    }),
+  );
+
+  it.effect("holds the reserved chords for the features they name", () =>
+    Effect.gen(function* () {
+      const reserved = yield* Effect.succeed(RESERVED_KEYBINDINGS);
+      const byCommand = new Map(reserved.map((row) => [row.command, row]));
+      expect(byCommand.get("terminal.toggle")?.shortcut).toBe("Mod+J");
+      expect(byCommand.get("git.commit")?.shortcut).toBe("Mod+Alt+C");
+      expect(byCommand.get("browser.reload")).toMatchObject({
+        shortcut: "Mod+R",
+        when: "browserFocus",
+      });
+      expect(byCommand.get("composer.steer")?.shortcut).toBe("Mod+Shift+Enter");
     }),
   );
 

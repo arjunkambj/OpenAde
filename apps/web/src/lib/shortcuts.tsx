@@ -33,6 +33,7 @@ import { Kbd, KbdGroup } from "@OpenAde/ui/components/kbd";
 import { useSidebar } from "@OpenAde/ui/components/sidebar";
 import {
   detectModKey,
+  evaluateWhen,
   isAltGraphTyping,
   resolveKeybinding,
 } from "@OpenAde/client-runtime/keybindings";
@@ -42,33 +43,13 @@ import { AsyncResult } from "effect/unstable/reactivity";
 
 import { useClientRuntime } from "@/lib/client-runtime";
 import { makeCommandRegistry, type CommandRegistry } from "@/lib/command-registry";
-import { focusSnapshot, keybindingContext } from "@/lib/keybinding-context";
+import { focusSnapshot, keybindingContext, type FocusSnapshot } from "@/lib/keybinding-context";
 import {
   effectiveKeybindings,
   keycapsFor,
   shortcutFor,
-  TERMINAL_TOGGLE_COMMAND,
   yieldsToTerminal,
 } from "@/lib/keybindings";
-
-/**
- * The command ids the shell's own surfaces answer to. Kept as a map so the
- * shell can keep asking for "the search shortcut" while the binding itself
- * lives in the settings table.
- */
-export const SHORTCUT_COMMANDS = {
-  search: "commandPalette.toggle",
-  toggle: "sidebar.toggle",
-  newChat: "thread.new",
-  skills: "skills.open",
-  settings: "settings.open",
-  addProject: "project.add",
-  interrupt: "thread.interrupt",
-  queue: "composer.queue",
-  terminal: TERMINAL_TOGGLE_COMMAND,
-} as const;
-
-export type ShortcutId = keyof typeof SHORTCUT_COMMANDS;
 
 const RegistryContext = React.createContext<CommandRegistry | null>(null);
 
@@ -156,18 +137,36 @@ export function useKeybindingDispatch(): (command: string) => void {
   );
 }
 
+/** The page as the palette sees it: focus in its own input, no surface named. */
+const PALETTE_FOCUS: FocusSnapshot = { editable: false, surface: undefined, overlayOpen: false };
+
 /**
- * Whether a mounted surface currently answers `command`.
+ * Whether the palette may offer `command` right now: a mounted surface answers
+ * it, and `when` — a clause over published flags, if given — holds. Focus keys
+ * and `dialogOpen` read false, since they describe where the user was before
+ * the palette took the focus, not what the command can act on.
  *
- * The registry is a plain map, not reactive, so this is read at render time
- * and is only trustworthy for a component that mounts when it needs the
- * answer — the palette, whose dialog content unmounts on close and is built
- * fresh on every open. It exists so the palette can leave out an entry whose
- * surface is not on this route, rather than offer a row that does nothing.
+ * The registry is a plain map, not reactive, so the answer is read at render
+ * time and is only trustworthy for a component that mounts when it needs it —
+ * the palette, whose dialog content unmounts on close and is built fresh on
+ * every open. It exists so the palette leaves out an entry whose surface is not
+ * on this route, rather than offer a row that does nothing.
  */
-export function useKeybindingHandled(command: string): boolean {
+export function useCommandAvailable(): (command: string, when?: string) => boolean {
   const registry = React.useContext(RegistryContext);
-  return registry?.has(command) ?? false;
+  return React.useCallback(
+    (command: string, when?: string) => {
+      if (registry === null || !registry.has(command)) {
+        return false;
+      }
+      if (when === undefined) {
+        return true;
+      }
+      const context = keybindingContext(PALETTE_FOCUS, registry.flag, detectModKey() === "meta");
+      return evaluateWhen(when, context);
+    },
+    [registry],
+  );
 }
 
 /**
@@ -179,7 +178,7 @@ export function useKeybindingHandled(command: string): boolean {
  */
 export function SidebarToggleShortcut() {
   const { toggleSidebar } = useSidebar();
-  useKeybindingCommand(SHORTCUT_COMMANDS.toggle, toggleSidebar);
+  useKeybindingCommand("sidebar.toggle", toggleSidebar);
   return null;
 }
 
@@ -201,16 +200,16 @@ export function useKeybindingFlag(name: string, value: boolean | string): void {
   }, [registry, name]);
 }
 
-/** The chord bound to one of the shell's commands, in keycaps. */
-export function useShortcutKeys(id: ShortcutId): ReadonlyArray<string> {
+/**
+ * The first chord the live table binds to `command`, as keycaps — user
+ * overrides applied — or nothing when it is unbound. For a button's tooltip or
+ * a palette row, which name one key.
+ */
+export function CommandKbd({ command }: { readonly command: string }) {
   const keybindings = useKeybindings();
-  const shortcut = shortcutFor(keybindings, SHORTCUT_COMMANDS[id]);
-  return shortcut === null ? [] : keycapsFor(shortcut, detectModKey());
-}
-
-export function ShortcutKbd({ id }: { id: ShortcutId }) {
-  const keys = useShortcutKeys(id);
-  return keys.length === 0 ? null : <Keycaps caps={keys} />;
+  const shortcut = shortcutFor(keybindings, command);
+  const caps = shortcut === null ? [] : keycapsFor(shortcut, detectModKey());
+  return caps.length === 0 ? null : <Keycaps caps={caps} />;
 }
 
 /**
@@ -240,24 +239,17 @@ function Keycaps({ caps }: { readonly caps: ReadonlyArray<string> }) {
 }
 
 /**
- * The chords bound to `commands`, one keycap group each; nothing when none is
- * bound. `first` draws only the first chord, for a button's own label.
+ * Every chord bound to `commands`, one keycap group each; nothing when none is
+ * bound. For a hint that names all the keys, such as a card's key line.
  */
-export function CommandKeys({
-  commands,
-  first = false,
-}: {
-  readonly commands: ReadonlyArray<string>;
-  readonly first?: boolean;
-}) {
+export function CommandKeys({ commands }: { readonly commands: ReadonlyArray<string> }) {
   const chords = useCommandKeycaps(commands);
-  const shown = first ? chords.slice(0, 1) : chords;
-  if (shown.length === 0) {
+  if (chords.length === 0) {
     return null;
   }
   return (
     <>
-      {shown.map((caps) => (
+      {chords.map((caps) => (
         <Keycaps key={caps.join("+")} caps={caps} />
       ))}
     </>

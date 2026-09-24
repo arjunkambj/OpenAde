@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_KEYBINDINGS } from "@OpenAde/contracts/keybindings";
 import type { Keybinding } from "@OpenAde/contracts/settings";
 
 import { parseShortcut } from "./keybindings";
@@ -158,10 +157,6 @@ describe("findKeybindingConflicts", () => {
     ];
     expect(findKeybindingConflicts(table)).toEqual([]);
   });
-
-  it("finds nothing in the shipped defaults", () => {
-    expect(findKeybindingConflicts(DEFAULT_KEYBINDINGS)).toEqual([]);
-  });
 });
 
 describe("reserved chords", () => {
@@ -184,13 +179,10 @@ describe("reserved chords", () => {
     expect(reservedChordReason("Mod+", "meta")).toBeNull();
   });
 
-  it("lists only chords that parse, and none of the shipped defaults", () => {
+  it("lists only chords that parse", () => {
     for (const platform of ["meta", "ctrl"] as const) {
       for (const entry of SYSTEM_RESERVED_CHORDS[platform]) {
         expect(parseShortcut(entry.shortcut), entry.shortcut).not.toBeNull();
-      }
-      for (const binding of DEFAULT_KEYBINDINGS) {
-        expect(reservedChordReason(binding.shortcut, platform), binding.shortcut).toBeNull();
       }
     }
   });

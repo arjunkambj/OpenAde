@@ -40,26 +40,85 @@ export const QUESTION_OPTION_COMMANDS: ReadonlyArray<string> = Array.from(
   (_, index) => `question.option.${index + 1}`,
 );
 
+/** `thread.jump.1` … `thread.jump.9`: open the Nth thread in the sidebar. */
+export const THREAD_JUMP_COMMANDS: ReadonlyArray<string> = Array.from(
+  { length: 9 },
+  (_, index) => `thread.jump.${index + 1}`,
+);
+
+/**
+ * Chords that only make sense with a thread on screen. `Mod+[` and `Mod+]`
+ * step the app's history everywhere but the browser pane, which keeps them for
+ * its own page history.
+ */
+const THREAD = "threadOpen";
+const OUTSIDE_BROWSER = "!browserFocus";
+
 /**
  * The server-owned defaults. The keybindings page shows these as the baseline a
  * user's overrides are diffed against, so the list is the contract, not a
  * renderer constant. A row added here reaches every install, because the
  * stored document holds only overrides.
+ *
+ * The chords avoid the macOS system shortcuts, the Electron default menu
+ * (reload, devtools, zoom, close, hide, quit), the standard text-editing
+ * chords and each other in any context where two could be live at once;
+ * `default-keymap.test.ts` in `@OpenAde/client-runtime` fails the build when a
+ * row breaks one of those rules. Font size takes `Mod+Alt+=`/`-`/`0` so page
+ * zoom keeps `Mod+=`/`-`/`0`.
  */
 export const DEFAULT_KEYBINDINGS: ReadonlyArray<Keybinding> = [
-  { command: "thread.new", shortcut: "Mod+N" },
+  // General
   { command: "commandPalette.toggle", shortcut: "Mod+K" },
+  { command: "shortcuts.open", shortcut: "Mod+/" },
+  { command: "settings.open", shortcut: "Mod+," },
+  { command: "skills.open", shortcut: "Mod+Shift+S" },
+  { command: "project.add", shortcut: "Mod+Shift+O" },
+  // Threads
+  { command: "thread.new", shortcut: "Mod+N" },
+  { command: "thread.newInProject", shortcut: "Mod+Shift+N" },
+  ...THREAD_JUMP_COMMANDS.map((command, index) => ({
+    command,
+    shortcut: `Mod+${index + 1}`,
+  })),
+  { command: "thread.previous", shortcut: "Mod+Shift+[" },
+  { command: "thread.next", shortcut: "Mod+Shift+]" },
+  { command: "thread.rename", shortcut: "Mod+Alt+R", when: THREAD },
+  { command: "thread.archive", shortcut: "Mod+Shift+A", when: THREAD },
+  { command: "thread.delete", shortcut: "Mod+Alt+Backspace", when: THREAD },
+  { command: "nav.back", shortcut: "Mod+[", when: OUTSIDE_BROWSER },
+  { command: "nav.forward", shortcut: "Mod+]", when: OUTSIDE_BROWSER },
+  // Composer
+  { command: "composer.planMode.toggle", shortcut: "Shift+Tab", when: "composerFocus" },
+  { command: "composer.runtimeMode.cycle", shortcut: "Mod+Shift+L" },
+  { command: "composer.modelPicker.open", shortcut: "Mod+Shift+M" },
+  { command: "composer.effortPicker.open", shortcut: "Mod+Shift+E" },
+  { command: "composer.effort.increase", shortcut: "Mod+Shift+." },
+  { command: "composer.effort.decrease", shortcut: "Mod+Shift+," },
+  { command: "composer.focus", shortcut: "Mod+L", when: OUTSIDE_BROWSER },
   { command: "composer.queue", shortcut: "Mod+Enter" },
   {
     command: "thread.interrupt",
     shortcut: "Escape",
     when: "turnRunning && !dialogOpen && (inputFocus || !approvalPending)",
   },
-  { command: "browserPane.toggle", shortcut: "Mod+Shift+B" },
+  { command: "composer.attach", shortcut: "Mod+U" },
+  { command: "composer.clearDraft", shortcut: "Mod+Shift+Backspace", when: "composerFocus" },
+  // View
   { command: "sidebar.toggle", shortcut: "Mod+B" },
-  { command: "skills.open", shortcut: "Mod+Shift+S" },
-  { command: "settings.open", shortcut: "Mod+," },
+  { command: "dock.toggle", shortcut: "Mod+Alt+B", when: THREAD },
+  { command: "dock.changes", shortcut: "Mod+Shift+D", when: THREAD },
+  { command: "dock.files", shortcut: "Mod+P", when: THREAD },
+  { command: "browserPane.toggle", shortcut: "Mod+Shift+B" },
   { command: "terminal.toggle", shortcut: "Mod+J" },
+  { command: "font.increase", shortcut: "Mod+Alt+=" },
+  { command: "font.decrease", shortcut: "Mod+Alt+-" },
+  { command: "font.reset", shortcut: "Mod+Alt+0" },
+  // Timeline
+  { command: "timeline.jumpToLatest", shortcut: "Mod+Shift+J", when: THREAD },
+  { command: "timeline.collapseAll", shortcut: "Mod+Alt+[", when: THREAD },
+  { command: "timeline.expandAll", shortcut: "Mod+Alt+]", when: THREAD },
+  // Cards
   { command: "approval.allowOnce", shortcut: "1", when: APPROVAL_CARD },
   { command: "approval.allowSession", shortcut: "2", when: APPROVAL_CARD },
   { command: "approval.allowAlways", shortcut: "3", when: APPROVAL_CARD },
@@ -73,6 +132,58 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<Keybinding> = [
     shortcut: String(index + 1),
     when: QUESTION_CARD,
   })),
+];
+
+/** A chord held for a feature that is not built yet, and what it is for. */
+export interface ReservedKeybinding extends Keybinding {
+  readonly for: string;
+}
+
+/**
+ * Chords promised to features still being built, so nothing shipped takes them
+ * first. They are not bindings — nothing dispatches them — but the default-
+ * keymap test treats each as one, failing when a default collides with it in
+ * an overlapping context. A feature that lands moves its row into
+ * `DEFAULT_KEYBINDINGS` and drops it here.
+ *
+ * Two areas are held by rule rather than by row. Chords whose clause is
+ * `terminalFocus` belong to the terminal to choose, and must still pass the
+ * collision test. `@`, `#`, `$` and `/` are characters the composer's triggers
+ * read, never bindings; the test refuses a plain chord on any of them.
+ */
+export const RESERVED_KEYBINDINGS: ReadonlyArray<ReservedKeybinding> = [
+  { command: "git.commit", shortcut: "Mod+Alt+C", for: "Commit the staged changes" },
+  { command: "git.push", shortcut: "Mod+Alt+P", for: "Push the current branch" },
+  { command: "git.branchPicker", shortcut: "Mod+Shift+G", for: "Open the branch picker" },
+  {
+    command: "browser.focusUrl",
+    shortcut: "Mod+L",
+    when: "browserFocus",
+    for: "Focus the browser pane's address bar",
+  },
+  {
+    command: "browser.reload",
+    shortcut: "Mod+R",
+    when: "browserFocus",
+    for: "Reload the browser pane's page, instead of the window",
+  },
+  {
+    command: "browser.back",
+    shortcut: "Mod+[",
+    when: "browserFocus",
+    for: "Go back in the browser pane",
+  },
+  {
+    command: "browser.forward",
+    shortcut: "Mod+]",
+    when: "browserFocus",
+    for: "Go forward in the browser pane",
+  },
+  {
+    command: "composer.steer",
+    shortcut: "Mod+Shift+Enter",
+    for: "Steer the running turn with the draft",
+  },
 ];
 
 /**

@@ -16,43 +16,29 @@ import type { ProjectId } from "@OpenAde/contracts/ids";
 
 import { paletteThreads } from "@/components/Layout/palette-threads";
 import { SETTINGS_PAGES } from "@/components/Layout/settings-sidebar";
-import {
-  SHORTCUT_COMMANDS,
-  ShortcutKbd,
-  useKeybindingDispatch,
-  useKeybindingHandled,
-  type ShortcutId,
-} from "@/lib/shortcuts";
+import { CommandKbd } from "@/lib/shortcuts";
 import { useCreateThread } from "@/lib/use-create-thread";
 import { useProjects, useThreadList } from "@/state/hooks";
-import {
-  Add,
-  Archive,
-  Chat,
-  FolderAdd,
-  Server,
-  SidebarLeft,
-  Sparkles,
-  SquarePen,
-  Terminal,
-} from "@honeyicons/react";
+import { Add, Archive, Chat, Server, Sparkles, SquarePen } from "@honeyicons/react";
 
 type GroupProps = { readonly onDone: () => void };
 
+/** Each place also has a command, whose chord the row shows. */
 const navigationItems = [
-  { to: "/", icon: SquarePen, label: "New task", shortcut: "newChat" },
-  { to: "/customize/skills", icon: Sparkles, label: "Skills" },
-  { to: "/customize/mcp", icon: Server, label: "MCP servers" },
+  { to: "/", icon: SquarePen, label: "New task", command: "thread.new" },
+  { to: "/customize/skills", icon: Sparkles, label: "Skills", command: "skills.open" },
+  { to: "/customize/mcp", icon: Server, label: "MCP servers", command: "mcp.open" },
 ] as const;
 
-function ItemShortcut({ id }: { id?: ShortcutId }) {
-  if (!id) {
+/** A row's chord, right-aligned; nothing when the command is unbound. */
+export function ItemShortcut({ command }: { readonly command?: string }) {
+  if (command === undefined) {
     return null;
   }
 
   return (
     <CommandShortcut>
-      <ShortcutKbd id={id} />
+      <CommandKbd command={command} />
     </CommandShortcut>
   );
 }
@@ -73,7 +59,7 @@ export function NavigationGroup({ onDone }: GroupProps) {
         >
           <item.icon variant="bold" />
           {item.label}
-          <ItemShortcut id={"shortcut" in item ? item.shortcut : undefined} />
+          <ItemShortcut command={item.command} />
         </CommandItem>
       ))}
     </CommandGroup>
@@ -103,7 +89,7 @@ export function SettingsGroup({ onDone }: GroupProps) {
           >
             <page.icon variant="bold" />
             {page.label}
-            <ItemShortcut id={page.to === "/settings" ? "settings" : undefined} />
+            <ItemShortcut command={page.to === "/settings" ? "settings.open" : undefined} />
           </CommandItem>
         ))}
       </CommandGroup>
@@ -112,40 +98,22 @@ export function SettingsGroup({ onDone }: GroupProps) {
 }
 
 /**
- * Things to do rather than places to go. Add project, Toggle sidebar and
- * Toggle terminal fire the command their surface claims, and are read on
- * mount — this content mounts on every open — so a route without that surface
- * gets no row for it instead of a row that quietly does nothing. Picking a
- * project starts a thread through the one create flow.
+ * A "New thread in …" entry per project, each starting a thread through the
+ * one create flow. The commands — add project, toggle sidebar and the rest —
+ * are `PaletteCommands`.
  */
-export function ActionsGroup({ onDone }: GroupProps) {
-  const fire = useKeybindingDispatch();
+export function NewThreadGroup({ onDone }: GroupProps) {
   const projects = useProjects();
   const { create } = useCreateThread();
-  const canAddProject = useKeybindingHandled(SHORTCUT_COMMANDS.addProject);
-  const canToggleSidebar = useKeybindingHandled(SHORTCUT_COMMANDS.toggle);
-  const canToggleTerminal = useKeybindingHandled(SHORTCUT_COMMANDS.terminal);
 
-  if (!canAddProject && !canToggleSidebar && !canToggleTerminal && projects.length === 0) {
+  if (projects.length === 0) {
     return null;
   }
-
-  const run = (command: string) => () => {
-    onDone();
-    fire(command);
-  };
 
   return (
     <>
       <CommandSeparator />
-      <CommandGroup heading="Actions">
-        {canAddProject ? (
-          <CommandItem value="Add project" onSelect={run(SHORTCUT_COMMANDS.addProject)}>
-            <FolderAdd variant="bold" />
-            Add project
-            <ItemShortcut id="addProject" />
-          </CommandItem>
-        ) : null}
+      <CommandGroup heading="New thread">
         {projects.map((project) => (
           <CommandItem
             key={project.projectId}
@@ -159,20 +127,6 @@ export function ActionsGroup({ onDone }: GroupProps) {
             New thread in {project.name}
           </CommandItem>
         ))}
-        {canToggleSidebar ? (
-          <CommandItem value="Toggle sidebar" onSelect={run(SHORTCUT_COMMANDS.toggle)}>
-            <SidebarLeft variant="bold" />
-            Toggle sidebar
-            <ItemShortcut id="toggle" />
-          </CommandItem>
-        ) : null}
-        {canToggleTerminal ? (
-          <CommandItem value="Toggle terminal" onSelect={run(SHORTCUT_COMMANDS.terminal)}>
-            <Terminal variant="bold" />
-            Toggle terminal
-            <ItemShortcut id="terminal" />
-          </CommandItem>
-        ) : null}
       </CommandGroup>
     </>
   );

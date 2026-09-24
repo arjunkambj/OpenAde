@@ -6,7 +6,7 @@ import { useSidebar } from "@OpenAde/ui/components/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 
 import { SearchTrigger } from "@/components/Layout/search-command";
-import { ShortcutKbd } from "@/lib/shortcuts";
+import { CommandKbd } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, SidebarLeft } from "@honeyicons/react";
 
@@ -46,7 +46,7 @@ function ChromeSidebarTrigger() {
       </TooltipTrigger>
       <TooltipContent>
         Toggle sidebar
-        <ShortcutKbd id="toggle" />
+        <CommandKbd command="sidebar.toggle" />
       </TooltipContent>
     </Tooltip>
   );

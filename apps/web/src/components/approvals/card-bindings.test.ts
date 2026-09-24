@@ -67,7 +67,8 @@ describe("approval card keys", () => {
 
   it("matches modifiers exactly, so Shift+D no longer denies", () => {
     expect(resolve(press("D", { shiftKey: true }), BODY, approval)).toBeNull();
-    expect(resolve(press("1", { metaKey: true }), BODY, approval)).toBeNull();
+    // Mod+1 is a chord of its own, jumping to the first thread.
+    expect(resolve(press("1", { metaKey: true }), BODY, approval)).toBe("thread.jump.1");
   });
 
   it("follows a rebinding in the table", () => {

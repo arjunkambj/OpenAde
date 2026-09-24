@@ -275,15 +275,32 @@ way to two actions: archive, and the overflow menu (rename, archive or
 unarchive, delete). An archived row, listed only while it is open, offers the
 menu alone.
 
-The command palette (`Cmd+K`, `apps/web/src/components/Layout/search-command.tsx`
-with its groups in `palette-groups.tsx`) lists navigation (new task, skills,
-MCP servers), one entry per settings page, actions — add project, a "New
-thread in …" entry per project, toggle sidebar, toggle terminal — and the
-threads, archived ones last and marked, which makes the palette the other way
-back to an archived thread besides its settings page. An action that goes
-through a keybinding command (add project, toggle sidebar, toggle terminal) is
-offered only where a mounted surface answers that command, so the palette never
-lists something that would do nothing. A leading `>` narrows the list to
+The command palette (`Mod+K`, `apps/web/src/components/Layout/search-command.tsx`
+with its groups in `palette-groups.tsx` and `palette-commands.tsx`) lists these
+groups:
+
+- Navigation: new task, skills and MCP servers.
+- One entry per settings page.
+- A "New thread in …" entry for each project.
+- The commands, one group per area.
+- The threads. Archived threads come last and are marked, so the palette is
+  a second way back to an archived thread besides its settings page.
+
+The command groups are built from the command catalog
+(`apps/web/src/lib/command-catalog.ts`). Each row shows its chord with the
+user's overrides applied. Picking a row fires the command through the
+keybinding registry, exactly as its chord would. A row is offered only while a
+mounted surface answers its command, so the palette never lists something that
+would do nothing. A catalog entry can also carry a `paletteWhen` clause over
+the published flags: "Stop turn", for example, appears only while a turn is
+running. Some entries are marked `palette: false` and never appear:
+
+- entries that another group already reaches, such as settings, skills and
+  new task;
+- the palette's own toggle;
+- the numbered families, jump to thread N and pick option N.
+
+A leading `>` narrows the list to
 commands and hides the threads; the text after it is matched by the usual fuzzy
 filter (`apps/web/src/lib/palette-query.ts`). A footer names the keys: arrows
 to move, Enter to open, Escape to close, `>` for commands.
@@ -371,8 +388,9 @@ enabled one.
 
 Every wire shape, as `effect/Schema` codecs. Modules: `base`, `ids`, `enums`,
 `runtime`, `orchestration`, `decisions`, `git`, `settings`, `keybindings`,
-`connectors`, `terminal`, `rpc`. `keybindings` holds the shipped keymap and how
-the user's stored overrides layer on it, since both server and renderer need it.
+`connectors`, `terminal`, `rpc`. `keybindings` holds the shipped keymap, the
+chords reserved for features still being built, and how the user's stored
+overrides layer on the keymap, since both server and renderer need it.
 `git` holds `ThreadWorktree`, the worktree a thread was created in, and the branch, commit, push, pull-request and worktree RPCs with
 their shapes (`GitBranch`, `GitBranchList`, `GitCommitResult`, `GitPushResult`,
 `GitPullRequestResult`, `GitWorktreeInfo`, and the `WorktreeSetupFrame` union
@@ -508,6 +526,8 @@ Everything a client needs that is not React.
 - `keymap.ts` — the keymap as a whole: the context keys a `when` clause may
   name and the axioms between them, the physical chord a binding is on each
   platform, the overlap-aware conflict finder, and the chords the system owns.
+  `default-keymap.test.ts` runs these checks against the shipped and reserved
+  keymaps.
 
 May import `contracts` and `shared`.
 

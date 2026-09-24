@@ -1,0 +1,52 @@
+import { describe, expect, it } from "vitest";
+
+import { parseShortcut } from "@OpenAde/client-runtime/keybindings";
+import { DEFAULT_KEYBINDINGS, RESERVED_KEYBINDINGS } from "@OpenAde/contracts/keybindings";
+
+import { COMMAND_AREAS, COMMAND_CATALOG, FIXED_KEYS } from "./command-catalog";
+
+const catalogIds = COMMAND_CATALOG.map((entry) => entry.id);
+
+describe("COMMAND_CATALOG", () => {
+  it("lists each command once", () => {
+    expect(new Set(catalogIds).size).toBe(catalogIds.length);
+  });
+
+  it("names every command the defaults bind", () => {
+    const named = new Set(catalogIds);
+    const missing = [...new Set(DEFAULT_KEYBINDINGS.map((row) => row.command))].filter(
+      (command) => !named.has(command),
+    );
+    expect(missing).toEqual([]);
+  });
+
+  it("leaves reserved commands out until they ship", () => {
+    const reserved = new Set(RESERVED_KEYBINDINGS.map((row) => row.command));
+    expect(catalogIds.filter((id) => reserved.has(id))).toEqual([]);
+  });
+
+  it("files every entry under a known area, with a title", () => {
+    for (const entry of COMMAND_CATALOG) {
+      expect(COMMAND_AREAS, entry.id).toContain(entry.area);
+      expect(entry.title.length, entry.id).toBeGreaterThan(0);
+    }
+  });
+
+  it("keeps the numbered families out of the palette", () => {
+    const offered = COMMAND_CATALOG.filter((entry) => entry.palette).map((entry) => entry.id);
+    expect(offered.filter((id) => /^(thread\.jump|question\.option)\./u.test(id))).toEqual([]);
+    expect(offered).toContain("project.add");
+    expect(offered).toContain("sidebar.toggle");
+  });
+});
+
+describe("FIXED_KEYS", () => {
+  it("draws only chords the keymap notation can parse", () => {
+    for (const row of FIXED_KEYS) {
+      expect(COMMAND_AREAS).toContain(row.area);
+      for (const key of row.keys) {
+        expect(parseShortcut(key), `${row.title}: ${key}`).not.toBeNull();
+      }
+    }
+  });
+});

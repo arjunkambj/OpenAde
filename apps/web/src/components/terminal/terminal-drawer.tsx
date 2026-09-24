@@ -42,7 +42,8 @@ import type { TerminalHandle } from "@/components/terminal/terminal-handle";
 import { useDrawerBound } from "@/components/terminal/use-drawer-bound";
 import { useOpenInBrowserPane } from "@/components/terminal/use-open-link";
 import { describeExitError } from "@/lib/app-runtime";
-import { SHORTCUT_COMMANDS, ShortcutKbd, useKeybindingCommand } from "@/lib/shortcuts";
+import { TERMINAL_TOGGLE_COMMAND } from "@/lib/keybindings";
+import { CommandKbd, useKeybindingCommand } from "@/lib/shortcuts";
 import { useConnectionState } from "@/state/hooks";
 import {
   DRAWER_HEIGHT_MAX_FRACTION,
@@ -297,7 +298,7 @@ function TerminalDrawer({
         >
           <Add variant="bold" />
         </IconButton>
-        <IconButton label="Hide terminal" onClick={onHide} hint={<ShortcutKbd id="terminal" />}>
+        <IconButton label="Hide terminal" onClick={onHide} hint={<CommandKbd command={TERMINAL_TOGGLE_COMMAND} />}>
           <ChevronDown variant="bold" />
         </IconButton>
       </div>
@@ -331,7 +332,7 @@ export function ThreadTerminal({
   // and the close must not be cut short by the drawer unmounting.
   const closeTerminal = useAtomSet(useTerminalAtoms().closeTerminal);
 
-  useKeybindingCommand(SHORTCUT_COMMANDS.terminal, () => {
+  useKeybindingCommand(TERMINAL_TOGGLE_COMMAND, () => {
     if (!open) {
       bumpFocus();
     }

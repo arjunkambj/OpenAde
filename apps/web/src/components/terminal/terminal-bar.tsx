@@ -9,7 +9,8 @@
 import { Button } from "@OpenAde/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 
-import { SHORTCUT_COMMANDS, ShortcutKbd, useKeybindingDispatch } from "@/lib/shortcuts";
+import { TERMINAL_TOGGLE_COMMAND } from "@/lib/keybindings";
+import { CommandKbd, useKeybindingDispatch } from "@/lib/shortcuts";
 import { Terminal } from "@honeyicons/react";
 
 export function TerminalBar() {
@@ -24,7 +25,7 @@ export function TerminalBar() {
               variant="ghost"
               tone="muted"
               size="xs"
-              onClick={() => fire(SHORTCUT_COMMANDS.terminal)}
+              onClick={() => fire(TERMINAL_TOGGLE_COMMAND)}
             />
           }
         >
@@ -33,7 +34,7 @@ export function TerminalBar() {
         </TooltipTrigger>
         <TooltipContent>
           Show terminal
-          <ShortcutKbd id="terminal" />
+          <CommandKbd command={TERMINAL_TOGGLE_COMMAND} />
         </TooltipContent>
       </Tooltip>
     </div>

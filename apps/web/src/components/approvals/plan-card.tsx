@@ -25,7 +25,7 @@ import remarkGfm from "remark-gfm";
 import { CardShell } from "@/components/approvals/card-shell";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
-import { CommandKeys, useKeybindingCommand } from "@/lib/shortcuts";
+import { CommandKbd, useKeybindingCommand } from "@/lib/shortcuts";
 import { ListChecks } from "@honeyicons/react";
 
 /** The elements a plan actually uses, styled against theme tokens. */
@@ -143,7 +143,7 @@ export function PlanCard({
       actions={
         <>
           <Button size="sm" disabled={pending !== null} onClick={() => respond("accept")}>
-            Accept <CommandKeys commands={["plan.accept"]} first />
+            Accept <CommandKbd command="plan.accept" />
           </Button>
           <Button
             size="sm"
@@ -151,7 +151,7 @@ export function PlanCard({
             disabled={pending !== null}
             onClick={() => respond("accept-auto")}
           >
-            Accept and run <CommandKeys commands={["plan.acceptAndRun"]} first />
+            Accept and run <CommandKbd command="plan.acceptAndRun" />
           </Button>
           <Button
             size="sm"
@@ -161,7 +161,7 @@ export function PlanCard({
             onClick={() => setRevising((open) => !open)}
             aria-expanded={revising}
           >
-            Revise <CommandKeys commands={["plan.revise"]} first />
+            Revise <CommandKbd command="plan.revise" />
           </Button>
         </>
       }

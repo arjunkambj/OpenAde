@@ -27,7 +27,7 @@ import { CardShell } from "@/components/approvals/card-shell";
 import { PatternEditor } from "@/components/approvals/pattern-editor";
 import { useClientRuntime } from "@/lib/client-runtime";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
-import { CommandKeys, useKeybindingCommand } from "@/lib/shortcuts";
+import { CommandKbd, useKeybindingCommand } from "@/lib/shortcuts";
 import { ChevronDown, ChevronUp, Lock } from "@honeyicons/react";
 
 /** One-line summary of `request.input`, by approval kind. */
@@ -127,7 +127,7 @@ export function ApprovalCard({
       actions={
         <>
           <Button size="sm" disabled={pending !== null} onClick={() => respond("allow-once")}>
-            Allow once <CommandKeys commands={["approval.allowOnce"]} first />
+            Allow once <CommandKbd command="approval.allowOnce" />
           </Button>
           <Button
             size="sm"
@@ -135,7 +135,7 @@ export function ApprovalCard({
             disabled={pending !== null || !patternValid}
             onClick={() => respond("allow-session")}
           >
-            Allow for session <CommandKeys commands={["approval.allowSession"]} first />
+            Allow for session <CommandKbd command="approval.allowSession" />
           </Button>
           <Button
             size="sm"
@@ -143,7 +143,7 @@ export function ApprovalCard({
             disabled={pending !== null || !patternValid}
             onClick={() => respond("allow-always")}
           >
-            Always allow <CommandKeys commands={["approval.allowAlways"]} first />
+            Always allow <CommandKbd command="approval.allowAlways" />
           </Button>
           <Button
             size="sm"
@@ -152,7 +152,7 @@ export function ApprovalCard({
             disabled={pending !== null}
             onClick={() => respond("deny")}
           >
-            Deny <CommandKeys commands={["approval.deny"]} first />
+            Deny <CommandKbd command="approval.deny" />
           </Button>
         </>
       }

@@ -1985,23 +1985,110 @@ fields entirely.
 
 ### Keybinding defaults
 
-`DEFAULT_KEYBINDINGS` in `packages/contracts/src/keybindings.ts`:
+`DEFAULT_KEYBINDINGS` in `packages/contracts/src/keybindings.ts`. An empty
+"when" means the binding holds everywhere. A command marked "(inert)" is bound
+but nothing answers it yet, so its chord does nothing and the palette does not
+list it.
 
-| command                                               | shortcut        | when                                                               |
-| ----------------------------------------------------- | --------------- | ------------------------------------------------------------------ |
-| `thread.new`                                          | `Mod+N`         |                                                                    |
-| `commandPalette.toggle`                               | `Mod+K`         |                                                                    |
-| `composer.queue`                                      | `Mod+Enter`     |                                                                    |
-| `thread.interrupt`                                    | `Escape`        | `turnRunning && !dialogOpen && (inputFocus \|\| !approvalPending)` |
-| `browserPane.toggle`                                  | `Mod+Shift+B`   |                                                                    |
-| `sidebar.toggle`                                      | `Mod+B`         |                                                                    |
-| `skills.open`                                         | `Mod+Shift+S`   |                                                                    |
-| `settings.open`                                       | `Mod+,`         |                                                                    |
-| `terminal.toggle`                                     | `Mod+J`         |                                                                    |
-| `approval.allowOnce` / `allowSession` / `allowAlways` | `1` / `2` / `3` | `approvalPending && !inputFocus && !dialogOpen`                    |
-| `approval.deny`                                       | `D`, `Escape`   | the same                                                           |
-| `plan.accept` / `acceptAndRun` / `revise`             | `1` / `2` / `3` | `planPending && !inputFocus && !dialogOpen`                        |
-| `question.option.1` … `question.option.9`             | `1` … `9`       | `questionPending && !inputFocus && !dialogOpen`                    |
+| area     | command                                               | shortcut                      | when                                                               |
+| -------- | ----------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------ |
+| General  | `commandPalette.toggle`                               | `Mod+K`                       |                                                                    |
+| General  | `shortcuts.open` (inert)                              | `Mod+/`                       |                                                                    |
+| General  | `settings.open`                                       | `Mod+,`                       |                                                                    |
+| General  | `skills.open`                                         | `Mod+Shift+S`                 |                                                                    |
+| General  | `mcp.open`                                            | unbound                       |                                                                    |
+| General  | `project.add`                                         | `Mod+Shift+O`                 |                                                                    |
+| Threads  | `thread.new`                                          | `Mod+N`                       |                                                                    |
+| Threads  | `thread.newInProject` (inert)                         | `Mod+Shift+N`                 |                                                                    |
+| Threads  | `thread.jump.1` … `thread.jump.9` (inert)             | `Mod+1` … `Mod+9`             |                                                                    |
+| Threads  | `thread.previous` / `thread.next` (inert)             | `Mod+Shift+[` / `Mod+Shift+]` |                                                                    |
+| Threads  | `thread.rename` (inert)                               | `Mod+Alt+R`                   | `threadOpen`                                                       |
+| Threads  | `thread.archive` (inert)                              | `Mod+Shift+A`                 | `threadOpen`                                                       |
+| Threads  | `thread.delete` (inert)                               | `Mod+Alt+Backspace`           | `threadOpen`                                                       |
+| Threads  | `nav.back` / `nav.forward` (inert)                    | `Mod+[` / `Mod+]`             | `!browserFocus`                                                    |
+| Composer | `composer.planMode.toggle` (inert)                    | `Shift+Tab`                   | `composerFocus`                                                    |
+| Composer | `composer.runtimeMode.cycle` (inert)                  | `Mod+Shift+L`                 |                                                                    |
+| Composer | `composer.modelPicker.open` (inert)                   | `Mod+Shift+M`                 |                                                                    |
+| Composer | `composer.effortPicker.open` (inert)                  | `Mod+Shift+E`                 |                                                                    |
+| Composer | `composer.effort.increase` / `decrease` (inert)       | `Mod+Shift+.` / `Mod+Shift+,` |                                                                    |
+| Composer | `composer.focus` (inert)                              | `Mod+L`                       | `!browserFocus`                                                    |
+| Composer | `composer.queue`                                      | `Mod+Enter`                   |                                                                    |
+| Composer | `thread.interrupt`                                    | `Escape`                      | `turnRunning && !dialogOpen && (inputFocus \|\| !approvalPending)` |
+| Composer | `composer.attach` (inert)                             | `Mod+U`                       |                                                                    |
+| Composer | `composer.clearDraft` (inert)                         | `Mod+Shift+Backspace`         | `composerFocus`                                                    |
+| View     | `sidebar.toggle`                                      | `Mod+B`                       |                                                                    |
+| View     | `dock.toggle` (inert)                                 | `Mod+Alt+B`                   | `threadOpen`                                                       |
+| View     | `dock.changes` / `dock.files` (inert)                 | `Mod+Shift+D` / `Mod+P`       | `threadOpen`                                                       |
+| View     | `browserPane.toggle`                                  | `Mod+Shift+B`                 |                                                                    |
+| View     | `terminal.toggle`                                     | `Mod+J`                       |                                                                    |
+| View     | `font.increase` / `decrease` / `reset` (inert)        | `Mod+Alt+=` / `-` / `0`       |                                                                    |
+| Timeline | `timeline.jumpToLatest` (inert)                       | `Mod+Shift+J`                 | `threadOpen`                                                       |
+| Timeline | `timeline.collapseAll` / `expandAll` (inert)          | `Mod+Alt+[` / `Mod+Alt+]`     | `threadOpen`                                                       |
+| Cards    | `approval.allowOnce` / `allowSession` / `allowAlways` | `1` / `2` / `3`               | `approvalPending && !inputFocus && !dialogOpen`                    |
+| Cards    | `approval.deny`                                       | `D`, `Escape`                 | the same                                                           |
+| Cards    | `plan.accept` / `acceptAndRun` / `revise`             | `1` / `2` / `3`               | `planPending && !inputFocus && !dialogOpen`                        |
+| Cards    | `question.option.1` … `question.option.9`             | `1` … `9`                     | `questionPending && !inputFocus && !dialogOpen`                    |
+
+Enter sends and Shift+Enter inserts a newline. In the `/` and `@` menus,
+Up/Down or Tab/Shift+Tab move, Enter picks and Escape closes. These keys are
+not in the table, because they depend on the menus and on IME composition, so
+the composer's own key handler keeps them (`composer-keys.ts`). The command
+catalog lists them as `FIXED_KEYS`, for display only.
+
+The chords stay clear of the macOS system shortcuts, the Electron default menu
+and the standard text-editing chords. The app sets no application menu, so the
+Electron default one is live: Mod+R reloads, Mod+=/-/0 zoom, Mod+W closes. Font
+size therefore uses `Mod+Alt+=`/`-`/`0`. When macOS Accessibility zoom is
+turned on (it is off by default), it takes those same chords first.
+
+`RESERVED_KEYBINDINGS`, in the same module, holds chords for features that are
+still being built, so that nothing ships on them first. Nothing dispatches
+these rows. They exist so the collision test can treat each one as a binding.
+
+| command            | shortcut          | when           | for                                   |
+| ------------------ | ----------------- | -------------- | ------------------------------------- |
+| `git.commit`       | `Mod+Alt+C`       |                | Commit the staged changes             |
+| `git.push`         | `Mod+Alt+P`       |                | Push the current branch               |
+| `git.branchPicker` | `Mod+Shift+G`     |                | Open the branch picker                |
+| `browser.focusUrl` | `Mod+L`           | `browserFocus` | Focus the browser pane's address bar  |
+| `browser.reload`   | `Mod+R`           | `browserFocus` | Reload the page instead of the window |
+| `browser.back`     | `Mod+[`           | `browserFocus` | Go back in the browser pane           |
+| `browser.forward`  | `Mod+]`           | `browserFocus` | Go forward in the browser pane        |
+| `composer.steer`   | `Mod+Shift+Enter` |                | Steer the running turn with the draft |
+
+Two further rules reserve keys without a row:
+
+- Chords scoped to `terminalFocus` are the terminal's to choose. They still
+  have to pass the collision test.
+- `@`, `#`, `$` and `/` are characters that the composer's triggers read, so
+  they are never bindings.
+
+Features that are still being built need to know two things:
+
+- A focused `<webview>` never delivers key presses to the host window, so the
+  browser pane must route them through the `before-input-event` relay in
+  `apps/desktop/src/main/ipc.ts`.
+- `browser.reload` must stop the default menu's reload from also firing.
+
+`packages/client-runtime/src/default-keymap.test.ts` locks the table. It fails
+the build, on either platform, in these cases:
+
+- two defaults share a physical chord in contexts that can overlap;
+- a default collides with a reserved row;
+- a default takes a system-reserved chord;
+- Tab, Enter, Space or a plain arrow is bound without a clause that names a
+  focus key;
+- anything plain or Shift-only is bound on a trigger character;
+- a shortcut or a clause fails to parse.
+
+Every command has an entry in `COMMAND_CATALOG`
+(`apps/web/src/lib/command-catalog.ts`). The entry holds the command's title,
+its area (General, Threads, Composer, View, Timeline or Cards), an optional
+description and icon, and a `palette` flag. Commands with no default chord,
+such as `mcp.open`, have entries too. A test fails when a default command has
+no entry. Labels show a command's chord with `CommandKbd command="…"`, which
+reads the effective table, so a hint always shows the key the user actually
+bound.
 
 The matcher is `packages/client-runtime/src/keybindings.ts`:
 

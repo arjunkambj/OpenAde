@@ -12,14 +12,15 @@ import {
 import { Kbd, KbdGroup } from "@OpenAde/ui/components/kbd";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 
+import { PaletteCommands } from "@/components/Layout/palette-commands";
 import {
-  ActionsGroup,
   NavigationGroup,
+  NewThreadGroup,
   SettingsGroup,
   ThreadsGroup,
 } from "@/components/Layout/palette-groups";
 import { paletteFilter, paletteQuery } from "@/lib/palette-query";
-import { SHORTCUT_COMMANDS, ShortcutKbd, useKeybindingCommand } from "@/lib/shortcuts";
+import { CommandKbd, useKeybindingCommand } from "@/lib/shortcuts";
 import { Search as SearchIcon } from "@honeyicons/react";
 
 type SearchContextValue = {
@@ -45,6 +46,7 @@ function useSearch() {
  * Mounted once at the app root, not inside a layout: these commands are
  * route-independent, and while they were claimed inside `HomeLayout` the
  * palette, New task and Settings chords all did nothing on `/settings/*`.
+ * The same goes for Skills and MCP servers, which open their Customize pages.
  * `sidebar.toggle` is the exception — it belongs to whichever
  * sidebar is on screen, so each layout claims it through
  * `SidebarToggleShortcut` and this file only *fires* it.
@@ -58,17 +60,18 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
   // and the one listener above the routes (@/lib/shortcuts). The palette is a
   // modal dialog over the route, so every navigating handler closes it first.
   const go = React.useCallback(
-    (to: "/" | "/customize/skills" | "/settings") => () => {
+    (to: "/" | "/customize/skills" | "/customize/mcp" | "/settings") => () => {
       setOpen(false);
       void navigate({ to });
     },
     [navigate],
   );
 
-  useKeybindingCommand(SHORTCUT_COMMANDS.search, () => setOpen((current) => !current));
-  useKeybindingCommand(SHORTCUT_COMMANDS.newChat, go("/"));
-  useKeybindingCommand(SHORTCUT_COMMANDS.skills, go("/customize/skills"));
-  useKeybindingCommand(SHORTCUT_COMMANDS.settings, go("/settings"));
+  useKeybindingCommand("commandPalette.toggle", () => setOpen((current) => !current));
+  useKeybindingCommand("thread.new", go("/"));
+  useKeybindingCommand("skills.open", go("/customize/skills"));
+  useKeybindingCommand("mcp.open", go("/customize/mcp"));
+  useKeybindingCommand("settings.open", go("/settings"));
 
   return (
     <SearchContext.Provider value={value}>
@@ -98,7 +101,7 @@ export function SearchTrigger({ className }: { className?: string }) {
       </TooltipTrigger>
       <TooltipContent>
         Search
-        <ShortcutKbd id="search" />
+        <CommandKbd command="commandPalette.toggle" />
       </TooltipContent>
     </Tooltip>
   );
@@ -137,7 +140,8 @@ function PaletteContent({ onDone }: { onDone: () => void }) {
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
         <NavigationGroup onDone={onDone} />
-        <ActionsGroup onDone={onDone} />
+        <NewThreadGroup onDone={onDone} />
+        <PaletteCommands onDone={onDone} />
         <SettingsGroup onDone={onDone} />
         {commandsOnly ? null : <ThreadsGroup onDone={onDone} />}
       </CommandList>

@@ -18,7 +18,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/
 import * as React from "react";
 
 import { ATTACHMENT_ACCEPT } from "@/components/composer/attachment-rules";
-import { ShortcutKbd } from "@/lib/shortcuts";
+import { CommandKbd } from "@/lib/shortcuts";
 
 import { Add, ArrowUp, ListOrdered, Send, Spinner, Stop as StopIcon } from "@honeyicons/react";
 
@@ -124,7 +124,7 @@ export function ComposerToolbar({
           </TooltipTrigger>
           <TooltipContent>
             Stop turn
-            <ShortcutKbd id="interrupt" />
+            <CommandKbd command="thread.interrupt" />
           </TooltipContent>
         </Tooltip>
       ) : null}
@@ -160,13 +160,13 @@ export function ComposerToolbar({
               </span>
               <span className="flex items-center gap-1.5">
                 Queue instead
-                <ShortcutKbd id="queue" />
+                <CommandKbd command="composer.queue" />
               </span>
             </span>
           ) : running ? (
             <>
               Queue message
-              <ShortcutKbd id="queue" />
+              <CommandKbd command="composer.queue" />
             </>
           ) : (
             <>
