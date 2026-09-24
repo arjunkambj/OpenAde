@@ -606,9 +606,9 @@ const readPullRequestLinks = (): Readonly<Record<string, string>> => {
 /**
  * The last pull request the git actions control opened (or found open) for
  * each thread — or project folder, keyed `project:<id>`, for the New task
- * page's control — so "View pull request" survives a reload. It is a
- * convenience: the server keeps no record of it, and a cleared store only
- * hides the item.
+ * page's control — kept across reloads. Nothing in the UI reads it back yet:
+ * the pull request toast's Open action is the way to the link today. The
+ * server keeps no record of it, and a cleared store loses nothing else.
  */
 const pullRequestLinksAtom =
   rememberedAtom<Readonly<Record<string, string>>>(readPullRequestLinks());

@@ -1,6 +1,7 @@
 /**
- * The terminal drawer's tabs for each thread: which terminals it shows, in
- * what order, and which one is in front.
+ * The terminal drawer's tabs for each owner — a thread, or on the New task
+ * page a project: which terminals it shows, in what order, and which one is
+ * in front.
  *
  * The server's `terminal.list` is the truth about which terminals exist; the
  * reducer only adds what the list cannot say — the active tab, and what this
@@ -8,11 +9,11 @@
  * back in, so a terminal another window closed, or one a server restart
  * forgot, drops out here too.
  *
- * Kept in memory, keyed by threadId, in a `keepAlive` map for the same reason
- * as the composer draft (`composerDraftAtom` in `@/state/ui`): the only
- * subscriber is the drawer of the thread on screen, and without `keepAlive`
- * switching threads would throw away the very state that switching back is
- * supposed to find.
+ * Kept in memory, keyed by the owner's `terminalOwnerKey`, in a `keepAlive`
+ * map for the same reason as the composer draft (`composerDraftAtom` in
+ * `@/state/ui`): the only subscriber is the drawer on screen, and without
+ * `keepAlive` switching threads would throw away the very state that
+ * switching back is supposed to find.
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";

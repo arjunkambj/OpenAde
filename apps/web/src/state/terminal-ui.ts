@@ -1,9 +1,11 @@
 /**
- * The terminal drawer's layout: whether each thread's drawer is open, and how
- * tall the drawer is. Both persist through localStorage — durable layout,
- * nothing more — the way the dock's width and tab do in `@/state/ui`.
+ * The terminal drawer's layout: whether each owner's drawer is open — a
+ * thread's, or on the New task page a project's, keyed by `terminalOwnerKey`
+ * (a thread's bare id, or `project:<id>`) — and how tall the drawer is. Both
+ * persist through localStorage — durable layout, nothing more — the way the
+ * dock's width and tab do in `@/state/ui`.
  *
- * The tabs themselves are not here: which terminals a thread has is the
+ * The tabs themselves are not here: which terminals an owner has is the
  * server's to say, and the drawer keeps its view of them in
  * `@/components/terminal/drawer-state`.
  */

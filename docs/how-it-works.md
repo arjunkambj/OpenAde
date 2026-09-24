@@ -1881,10 +1881,11 @@ has one toast that starts as `Committing…`, `Pushing to origin/<branch>…` or
 with an Open action — or `<Step> failed: <the server's message>`, which is how
 a hook's refusal, a rejected push or `gh not available` reach the user. After a
 commit or a push every git read of the project refetches, the way a branch
-switch does. The last pull request URL is remembered per thread in
-localStorage (`usePullRequestLink` in `apps/web/src/state/ui.ts`, web links
-only) and offered as View pull request, which opens it in the system browser
-(`openExternal`).
+switch does. The last pull request URL is also remembered per thread (or,
+from the New task page, per project folder) in localStorage
+(`usePullRequestLink` in `apps/web/src/state/ui.ts`, web links only); nothing
+in the UI reads it back yet, so the toast's Open action, through
+`openExternal`, is the one way to it.
 
 ### Worktrees
 
@@ -2367,7 +2368,7 @@ A drawer that opens with no terminals starts one, once `terminal.list` has
 said there are none and the xterm has measured the grid to start it at. The
 client mints the `TerminalId`, so `terminal.open` is idempotent: a repeated
 open answers the shell already running under that id instead of starting a
-second one. The New tab button is disabled at `TERMINALS_PER_THREAD` (8), its
+second one. The New tab button is disabled at `TERMINALS_PER_OWNER` (8), its
 tooltip saying so, and the server refuses a ninth with `conflict`; an exited
 terminal still counts until it is closed. A long tab title shrinks, truncating,
 before the strip overflows, though never so far that "Terminal 3" loses its
@@ -2837,13 +2838,13 @@ registry under its canonical name, so an older stored clause naming
 `threadRunning` still reads `turnRunning`. A component cannot publish a
 built-in key. Who publishes the rest:
 
-| key                                                 | published by                                    |
-| --------------------------------------------------- | ----------------------------------------------- |
-| `threadOpen`, `dockOpen`                            | `ThreadView`, while mounted / while the dock is |
-| `newTaskOpen`, `dockOpen`                           | the New task page, with a project / its dock    |
-| `changesOpen`                                       | `ChangesPane`, while the dock shows it          |
-| `turnRunning`                                       | `Composer`                                      |
-| `approvalPending`, `questionPending`, `planPending` | `PendingCard`, for exactly the card it shows    |
+| key                                                 | published by                                                   |
+| --------------------------------------------------- | -------------------------------------------------------------- |
+| `threadOpen`, `dockOpen`                            | `ThreadView`, while mounted / while the dock is                |
+| `newTaskOpen`, `dockOpen`                           | the New task page, with a project / its dock                   |
+| `changesOpen`                                       | `ChangesPane` or `ProjectChangesPane`, while the dock shows it |
+| `turnRunning`                                       | `Composer`                                                     |
+| `approvalPending`, `questionPending`, `planPending` | `PendingCard`, for exactly the card it shows                   |
 
 There is exactly one listener, mounted at the app root
 (`apps/web/src/lib/shortcuts.tsx`). It runs in bubble phase so focused controls

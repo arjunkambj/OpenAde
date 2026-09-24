@@ -5,8 +5,8 @@
  * Each step's toast has its own id for the run, so its "…ing" toast turns
  * into the done or failed one in place. A pull request's toast carries an
  * Open action, and its URL is remembered for the thread — or, on the New task
- * page, for the project's own folder — which is where the control's "View
- * pull request" comes from.
+ * page, for the project's own folder (`usePullRequestLink`), which nothing in
+ * the UI reads back yet.
  */
 
 import type { GitCommitResult, GitPullRequestResult, GitPushResult } from "@OpenAde/contracts/git";
