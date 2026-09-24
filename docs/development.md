@@ -194,9 +194,10 @@ today.
 **Reference names.** The products OpenAde was compared against while it was
 built are never named — not in `apps/`, `packages/`, `scripts/` or the
 top-level `docs/*.md`, in file names or contents, in any case. `docs/plans/`
-(local, gitignored), `node_modules`, `dist`, `out` and the recorded fixtures
-under `packages/testkit/fixtures/` are skipped; the hand-written contract
-fixtures are read like any source. The guard holds the names base64-encoded so
+(local, gitignored), `node_modules`, `dist` and `out` are skipped; the recorded
+fixtures under `packages/testkit/fixtures/` and the hand-written contract
+fixtures are read like any source, so a recording must be scrubbed of any such
+name before it is committed. The guard holds the names base64-encoded so
 that it does not spell them itself, and its tests build their inputs from the
 same list. Describe an idea you took from elsewhere in our own words.
 

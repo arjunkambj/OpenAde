@@ -166,12 +166,24 @@ describe("referenceNameLeaks", () => {
     expect(referenceNameLeaks("docs/launch/post.txt", text)).toEqual([]);
   });
 
-  it("skips recorded fixtures, dependencies and build output", () => {
+  it("skips dependencies and build output", () => {
     const text = `${REFERENCE_NAMES[1]}\n`;
-    expect(referenceNameLeaks("packages/testkit/fixtures/cmd/a.json", text)).toEqual([]);
     expect(referenceNameLeaks("apps/web/node_modules/x/index.js", text)).toEqual([]);
     expect(referenceNameLeaks("apps/web/dist/a.js", text)).toEqual([]);
     expect(referenceNameLeaks("apps/desktop/out/main.js", text)).toEqual([]);
+  });
+
+  it("reads the recordings too: a scrubbed capture must not name one either", () => {
+    const text = `{"type":"system","skills":["${REFERENCE_NAMES[0]}-helper"]}\n`;
+    expect(
+      lines(referenceNameLeaks("packages/testkit/fixtures/claude/a/invocation-1.ndjson", text)),
+    ).toEqual([1]);
+    expect(
+      referenceNameLeaks(
+        `packages/testkit/fixtures/cmd/${REFERENCE_NAMES[4]}/manifest.json`,
+        "{}\n",
+      ),
+    ).toHaveLength(1);
   });
 
   it("reads the hand-written contract fixtures, which are not recordings", () => {

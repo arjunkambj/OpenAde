@@ -291,12 +291,6 @@ const REFERENCE_ROOTS = ["apps/", "packages/", "scripts/"];
 /** Top-level markdown only: `docs/plans/` is local notes, not the product. */
 const REFERENCE_DOCS = /^docs\/[^/]+\.md$/;
 
-/**
- * Recorded output of real runs, kept byte for byte. The contract fixtures are
- * not among them: they are written by hand, so they are read like any source.
- */
-const REFERENCE_SKIPPED_PATHS = ["packages/testkit/fixtures/"];
-
 /** Build output and dependencies: not written by us. */
 export const REFERENCE_SKIPPED_DIRECTORIES = new Set(["node_modules", "dist", "dist-ssr", "out"]);
 
@@ -304,7 +298,6 @@ export const REFERENCE_SKIPPED_DIRECTORIES = new Set(["node_modules", "dist", "d
 export const referenceNameApplies = (relativePath) =>
   (REFERENCE_ROOTS.some((root) => relativePath.startsWith(root)) ||
     REFERENCE_DOCS.test(relativePath)) &&
-  !REFERENCE_SKIPPED_PATHS.some((skipped) => relativePath.startsWith(skipped)) &&
   !relativePath.split("/").some((segment) => REFERENCE_SKIPPED_DIRECTORIES.has(segment));
 
 /**

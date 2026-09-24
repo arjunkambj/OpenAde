@@ -26,7 +26,7 @@
  *     or a file name.
  *  4. Reference-product names. The products this one was compared against
  *     are never named in `apps/`, `packages/`, `scripts/` or the top-level
- *     `docs/*.md`, in file names or contents; recorded fixtures are skipped.
+ *     `docs/*.md`, in file names or contents, recorded fixtures included.
  *  5. No barrel files. A package exports one entry per module through its
  *     `exports` map, so an `index.ts` anywhere under a
  *     `packages/` workspace is refused. Apps are not covered: the router's
