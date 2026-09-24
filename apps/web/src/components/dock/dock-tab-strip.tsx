@@ -5,8 +5,9 @@
  * (`aria-controls`), which names the tab back while a tab is shown; in the
  * launcher no tab is selected, and the panel is the launcher's menu instead.
  * Only one tab is in the Tab order — the selected one, or the first while the
- * launcher shows — and Left/Right move along the strip, wrapping, opening the
- * tab they land on and keeping the focus on it (`adjacentDockTab`).
+ * launcher shows — and Left/Right move along the strip from the focused tab,
+ * wrapping, opening the tab they land on and keeping the focus on it
+ * (`adjacentDockTab`).
  *
  * The Changes tab carries the workspace's uncommitted file count from
  * `git.status` as a small badge, hidden at zero or outside a repository.
@@ -117,7 +118,12 @@ export function DockTabStrip({
       return;
     }
     event.preventDefault();
-    const next = adjacentDockTab(pane, step);
+    // Step from the tab that has the focus: the selected one, or in the
+    // launcher the first, which is then the strip's Tab stop.
+    const focused = (event.target as HTMLElement)
+      .closest("[data-dock-tab]")
+      ?.getAttribute("data-dock-tab");
+    const next = adjacentDockTab(isDockTab(focused) ? focused : pane, step);
     onTabChange(next);
     strip.current?.querySelector<HTMLElement>(`[data-dock-tab="${next}"]`)?.focus();
   };

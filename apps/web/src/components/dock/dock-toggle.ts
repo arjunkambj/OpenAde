@@ -84,8 +84,13 @@ export const noteDockShown = (
 export const dockArrivalTarget = (memory: DockMemory | undefined): DockPane | undefined =>
   memory?.shown;
 
-/** The tab `step` places from `from` along the strip, wrapping at either end. */
+/**
+ * The tab `step` places from `from` along the strip, wrapping at either end.
+ * The launcher selects no tab, but the strip's one Tab stop is then its first
+ * tab, so the arrows step from there: Right to the second, Left round to the
+ * last — the same as from a selected first tab.
+ */
 export const adjacentDockTab = (from: DockPane, step: 1 | -1): DockTab => {
-  const index = isDockTab(from) ? DOCK_TABS.indexOf(from) : step === 1 ? -1 : 0;
+  const index = isDockTab(from) ? DOCK_TABS.indexOf(from) : 0;
   return DOCK_TABS[(index + step + DOCK_TABS.length) % DOCK_TABS.length] as DockTab;
 };

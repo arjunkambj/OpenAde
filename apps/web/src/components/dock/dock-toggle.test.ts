@@ -96,8 +96,9 @@ describe("adjacentDockTab", () => {
     expect(adjacentDockTab("changes", -1)).toBe("files");
   });
 
-  it("enters the strip from the launcher at either end", () => {
-    expect(adjacentDockTab("home", 1)).toBe("changes");
+  it("steps from the launcher's tab stop, the first tab", () => {
+    expect(adjacentDockTab("home", 1)).toBe("browser");
     expect(adjacentDockTab("home", -1)).toBe("files");
+    expect(adjacentDockTab("home", 1)).toBe(adjacentDockTab("changes", 1));
   });
 });
