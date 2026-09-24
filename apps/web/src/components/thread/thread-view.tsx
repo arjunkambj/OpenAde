@@ -56,7 +56,7 @@ import {
 } from "@/components/dock/dock-toggle";
 import { RightDock } from "@/components/dock/right-dock";
 import { useRevealFile } from "@/components/panes/files/files-view";
-import { ThreadTerminal } from "@/components/terminal/terminal-drawer";
+import { ThreadTerminal } from "@/components/terminal/owned-terminal";
 import { useAgentBrowser } from "@/components/thread/agent-browser-indicator";
 import { ThreadHarnessBanner } from "@/components/thread/harness-health-banner";
 import { ThreadHeader } from "@/components/thread/thread-header";

@@ -2329,7 +2329,9 @@ No agent-browser daemon outlives what started it
 ## 11. The terminal
 
 Each thread has a terminal drawer at the bottom of its column: real shells,
-running on the server in the thread's project folder, shown in xterm.
+running on the server in the thread's workspace, shown in xterm. The New task
+page has one too, before any thread exists: its shells belong to the picked
+project and run in the project's folder.
 
 ### Opening one
 
@@ -2337,10 +2339,11 @@ running on the server in the thread's project folder, shown in xterm.
 the closed drawer collapses to, at the bottom of the thread column
 (`terminal-bar.tsx`), all fire the same command, `terminal.toggle`; the open
 drawer's own "Hide terminal" button closes it. The command is answered by
-`ThreadTerminal` (`apps/web/src/components/terminal/terminal-drawer.tsx`),
-which is always mounted with the thread view, so the button and the chord take
-one path — the one that also moves focus into the terminal it opens. Whether a
-thread's drawer is open, and how tall the drawer is, is presentation state in
+`ThreadTerminal` (`apps/web/src/components/terminal/owned-terminal.tsx`),
+which is always mounted with the thread view — or, on the New task page, by
+`ProjectTerminal` — so the button and the chord take one path — the one that
+also moves focus into the terminal it opens. Whether a thread's (or a
+project's) drawer is open, and how tall the drawer is, is presentation state in
 localStorage (`apps/web/src/state/terminal-ui.ts`). The drawer is at least
 120px tall and at most 70% of the column, and never so tall that the
 conversation above it gets less than 120px: the header and composer keep their
@@ -2361,11 +2364,20 @@ before the strip overflows, though never so far that "Terminal 3" loses its
 number; past that the strip scrolls sideways, fades at an edge with more tabs
 beyond it, and turns a vertical mouse wheel into a sideways scroll.
 
-On the server, `TerminalService` (`apps/server/src/terminal/TerminalService.ts`)
-asks `workspaceOf` for the directory: the thread's workspace root from
-`threadWorkspaceRoot` — its worktree when it has one, its project's folder
-otherwise — refused as `not-found` for a deleted thread, and as `invalid` for
-an archived one or a folder that no longer exists on disk. The shell comes from `resolveShell` in
+Every terminal has an owner (`TerminalOwner` in
+`packages/contracts/src/terminal.ts`): a thread, whose payloads carry
+`threadId`, or a project with no thread yet, whose payloads carry `projectId`
+in its place. The New task page's draft id is never used as an owner — the
+thread it becomes may run in a new worktree, and the server has no thread by
+that id until it is sent. On the server, `TerminalService`
+(`apps/server/src/terminal/TerminalService.ts`) keys its registry by
+`terminalOwnerKey`, so a project's terminals and its threads' are separate
+sets, and asks `workspaceOf` for the directory: for a thread, its workspace
+root from `threadWorkspaceRoot` — its worktree when it has one, its project's
+folder otherwise — refused as `not-found` for a deleted thread, and as
+`invalid` for an archived one or a folder that no longer exists on disk; for a
+project, its folder, refused as `not-found` once the project is removed and as
+`invalid` when the folder is gone. The shell comes from `resolveShell` in
 `apps/server/src/terminal/shell.ts`: `$SHELL` when it is an absolute path,
 else `/bin/zsh` on macOS and bash (or `sh`) on Linux, with `-l` so it reads the
 user's profile — an app launched from the Finder has only launchd's bare
@@ -2478,9 +2490,10 @@ closed, so the last thing a command printed is still readable.
 ### Teardown
 
 A shell ends on `terminal.close` — closing a tab, and closing the last tab
-hides the drawer — on `thread.deleted` and `thread.archived`, which the service
-watches on the engine's event stream the way the browser pane's teardown does,
-and when the server shuts down. Killing is bounded: SIGHUP, what a closing
+hides the drawer — on `thread.deleted` and `thread.archived` for a thread's,
+and `project.removed` for a project's own, which the service watches on the
+engine's event stream the way the browser pane's teardown does, and when the
+server shuts down. Killing is bounded: SIGHUP, what a closing
 terminal sends, then after one second SIGKILL to the shell, to every process
 under it and to every process group they are in, and at most two seconds more
 waiting for the exit (the `ps` read below is bounded at two seconds too). The
@@ -2508,7 +2521,8 @@ A printed http(s) link opens on a mod-click (`Cmd` on macOS, `Ctrl`
 elsewhere) and nowhere else: a plain click in a terminal places the selection.
 It opens in the thread's own browser pane — the dock switches to its Browser
 tab and the pane is sent a human `navigate`, as its address bar would send
-(`use-open-link.ts`, `terminal-links.ts`).
+(`use-open-link.ts`, `terminal-links.ts`). On the New task page there is no
+thread, so no browser pane: a link opens in the system browser.
 
 Find is a row under the drawer's toolbar (`terminal-find.tsx`) that searches
 the xterm in front as the user types: Enter for the next match, Shift+Enter for
@@ -2516,8 +2530,8 @@ the previous one, Escape to close it and return focus to the terminal. Match
 highlights are our foreground mixed into our background, since xterm's search
 addon takes only opaque `#rrggbb`.
 
-"Add selection to chat" quotes the terminal's selection into the thread's
-composer draft (`appendQuotedBlock` in `apps/web/src/lib/quote-selection.ts`):
+"Add selection to chat" quotes the terminal's selection into the composer
+draft on screen — the thread's, or the New task page's (`appendQuotedBlock` in `apps/web/src/lib/quote-selection.ts`):
 the padding xterm adds to each selected line and any blank lines around the
 text are trimmed, each line gets `> `, and a blank line separates the block
 from text already in the draft and from what the user types next. It writes
@@ -3146,7 +3160,7 @@ wedged pty cannot hold the shutdown up.
 | the RPC surface                        | `packages/contracts/src/rpc.ts`                                                                                                                                      |
 | the composition root                   | `apps/server/src/boot.ts`                                                                                                                                            |
 | the decider                            | `apps/server/src/orchestration/decider.ts`                                                                                                                           |
-| the integrated terminal                | `apps/server/src/terminal/TerminalService.ts`, `apps/web/src/components/terminal/terminal-drawer.tsx`                                                                |
+| the integrated terminal                | `apps/server/src/terminal/TerminalService.ts`, `apps/web/src/components/terminal/owned-terminal.tsx`                                                                 |
 | the Command Code session               | `packages/connector-cmd/src/session.ts`                                                                                                                              |
 | what the real CLI does                 | `packages/testkit/fixtures/cmd/README.md`                                                                                                                            |
 | the product, end to end                | `apps/server/test/e2e/` — eleven scenarios over a real server and a real socket; the ten with a harness run the real CLI (`OPENADE_LIVE_CMD=1`) or a recording of it |

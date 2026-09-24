@@ -1,15 +1,14 @@
 /**
- * The thread's terminal drawer, at the bottom of the thread column.
+ * The terminal drawer, at the bottom of the thread column — or of the New
+ * task page's column, before any thread exists. `./owned-terminal` mounts it
+ * for a thread or a project (`TerminalOwner`) while that owner's drawer is
+ * open, and answers `terminal.toggle`.
  *
- * `ThreadTerminal` is always mounted with the thread view: it answers
- * `terminal.toggle` and renders the drawer while this thread's drawer is open
- * (`@/state/terminal-ui`), and the strip with its show button
- * (`./terminal-bar`) while it is not. The drawer holds a tab strip over a lazily
- * loaded xterm (`./terminal-view`) for the tab in front, a fresh one per tab,
- * and a toolbar that acts on that xterm — "Add selection to chat" quotes its
- * selection into the thread's composer draft, and Find (`./terminal-find`)
- * searches the xterm's output. A mod-clicked link opens in the
- * thread's browser pane (`./use-open-link`).
+ * The drawer holds a tab strip over a lazily loaded xterm (`./terminal-view`)
+ * for the tab in front, a fresh one per tab, and a toolbar that acts on that
+ * xterm — "Add selection to chat" quotes its selection into the composer draft
+ * on screen (`draftId`), and Find (`./terminal-find`) searches the xterm's
+ * output. A mod-clicked link goes to `onOpenLink`.
  *
  * Which terminals exist is the server's to say: the drawer folds each
  * `terminal.list` into its tab state (`./drawer-state`). Opening a drawer that
@@ -26,7 +25,11 @@
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { makeTerminalId, type TerminalId, type ThreadId } from "@OpenAde/contracts/ids";
-import { TERMINALS_PER_THREAD, type TerminalSize } from "@OpenAde/contracts/terminal";
+import {
+  TERMINALS_PER_THREAD,
+  decodeTerminalOwnerKey,
+  type TerminalSize,
+} from "@OpenAde/contracts/terminal";
 import { Button } from "@OpenAde/ui/components/button";
 import { AsyncResult } from "effect/unstable/reactivity";
 import * as React from "react";
@@ -40,22 +43,19 @@ import {
 } from "@/components/terminal/drawer-parts";
 import { nextTitle, useDrawerState } from "@/components/terminal/drawer-state";
 import { useTerminalAtoms } from "@/components/terminal/terminal-atoms";
-import { TerminalBar } from "@/components/terminal/terminal-bar";
 import { TerminalFind } from "@/components/terminal/terminal-find";
 import type { TerminalHandle } from "@/components/terminal/terminal-handle";
 import { useDrawerBound } from "@/components/terminal/use-drawer-bound";
-import { useOpenInBrowserPane } from "@/components/terminal/use-open-link";
 import { describeExitError } from "@/lib/app-runtime";
 import { TERMINAL_TOGGLE_COMMAND } from "@/lib/keybindings";
-import { CommandKbd, useKeybindingCommand } from "@/lib/shortcuts";
-import { type Presence, usePresence } from "@/lib/use-presence";
+import { CommandKbd } from "@/lib/shortcuts";
+import type { Presence } from "@/lib/use-presence";
 import { cn } from "@/lib/utils";
 import { useConnectionState } from "@/state/hooks";
 import {
   DRAWER_HEIGHT_MAX_FRACTION,
   DRAWER_HEIGHT_MIN,
   useDrawerHeight,
-  useTerminalOpen,
 } from "@/state/terminal-ui";
 import { Add, ChevronDown, Search, Spinner } from "@honeyicons/react";
 
@@ -95,15 +95,19 @@ function useDrawerResize(drawerRef: React.RefObject<HTMLDivElement | null>) {
   return { shown, onPointerDown };
 }
 
-function TerminalDrawer({
-  threadId,
+export function TerminalDrawer({
+  ownerKey,
+  draftId,
   phase,
   focusRequest,
   onHide,
   onClose,
   onOpenLink,
 }: {
-  threadId: ThreadId;
+  /** The owner, a thread or a project, by `terminalOwnerKey`. */
+  ownerKey: string;
+  /** The composer draft "Add selection to chat" writes into. */
+  draftId: ThreadId;
   phase: Presence;
   focusRequest: number;
   onHide: () => void;
@@ -112,9 +116,9 @@ function TerminalDrawer({
 }) {
   const atoms = useTerminalAtoms();
   const connected = useConnectionState().status === "connected";
-  const list = useAtomValue(atoms.terminalListAtom(threadId));
+  const list = useAtomValue(atoms.terminalListAtom(ownerKey));
   const openTerminal = useAtomSet(atoms.openTerminal, { mode: "promiseExit" });
-  const [state, dispatch] = useDrawerState(threadId);
+  const [state, dispatch] = useDrawerState(ownerKey);
   const drawerRef = React.useRef<HTMLDivElement>(null);
   const { shown, onPointerDown } = useDrawerResize(drawerRef);
 
@@ -140,7 +144,7 @@ function TerminalDrawer({
     setOpening(true);
     setOpenError(null);
     const exit = await openTerminal({
-      threadId,
+      ...decodeTerminalOwnerKey(ownerKey),
       terminalId: makeTerminalId(),
       title: nextTitle(tabsRef.current),
       ...size,
@@ -152,7 +156,7 @@ function TerminalDrawer({
     } else {
       setOpenError(describeExitError(exit, "Could not open a terminal."));
     }
-  }, [dispatch, openTerminal, threadId]);
+  }, [dispatch, openTerminal, ownerKey]);
 
   // An open drawer with no terminals starts one — once the listing has said
   // there are none, and once the xterm has measured the grid to start it at.
@@ -205,6 +209,7 @@ function TerminalDrawer({
   };
 
   const full = state.tabs.length >= TERMINALS_PER_THREAD;
+  const ownerNoun = "threadId" in decodeTerminalOwnerKey(ownerKey) ? "thread" : "project";
   const listError = listed?._tag === "error" ? listed.message : null;
 
   let body: React.ReactNode;
@@ -235,7 +240,7 @@ function TerminalDrawer({
       >
         <TerminalView
           key={state.activeId ?? "unattached"}
-          threadId={threadId}
+          ownerKey={ownerKey}
           terminalId={state.activeId}
           focusRequest={focusRequest + tabFocus}
           settling={phase !== "shown"}
@@ -309,9 +314,11 @@ function TerminalDrawer({
         >
           <Search variant="bold" />
         </IconButton>
-        <AddSelectionButton threadId={threadId} handle={handle} />
+        <AddSelectionButton threadId={draftId} handle={handle} />
         <IconButton
-          label={full ? `At most ${TERMINALS_PER_THREAD} terminals per thread` : "New terminal"}
+          label={
+            full ? `At most ${TERMINALS_PER_THREAD} terminals per ${ownerNoun}` : "New terminal"
+          }
           disabled={!connected || opening || full}
           onClick={() => void openNew()}
         >
@@ -332,49 +339,5 @@ function TerminalDrawer({
       ) : null}
       <div className="min-h-0 flex-1 overflow-hidden px-2 pb-1">{body}</div>
     </div>
-  );
-}
-
-/**
- * Answers `terminal.toggle` for the thread on screen and shows its drawer
- * while open (and while it closes), the collapsed strip once it has. Mount it keyed by threadId, so each thread starts with its own
- * drawer rather than inheriting the last one's xterm. `onShowBrowser` puts the
- * dock on its Browser tab, for a link the terminal opens there.
- */
-export function ThreadTerminal({
-  threadId,
-  onShowBrowser,
-}: {
-  threadId: ThreadId;
-  onShowBrowser: () => void;
-}) {
-  const [open, setOpen] = useTerminalOpen(threadId);
-  const openLink = useOpenInBrowserPane(threadId, onShowBrowser);
-  const [focusRequest, bumpFocus] = React.useReducer((count: number) => count + 1, 0);
-  // Mounted here, not in the drawer: closing the last tab hides the drawer,
-  // and the close must not be cut short by the drawer unmounting.
-  const closeTerminal = useAtomSet(useTerminalAtoms().closeTerminal);
-
-  const phase = usePresence(open);
-
-  useKeybindingCommand(TERMINAL_TOGGLE_COMMAND, () => {
-    if (!open) {
-      bumpFocus();
-    }
-    setOpen(!open);
-  });
-
-  if (phase === null) {
-    return <TerminalBar />;
-  }
-  return (
-    <TerminalDrawer
-      threadId={threadId}
-      phase={phase}
-      focusRequest={focusRequest}
-      onHide={() => setOpen(false)}
-      onClose={(terminalId) => closeTerminal({ threadId, terminalId })}
-      onOpenLink={openLink}
-    />
   );
 }
