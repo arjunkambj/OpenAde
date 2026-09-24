@@ -10,8 +10,9 @@
  * - Resize reaches the shell; open is idempotent by id; the per-thread limit
  *   holds.
  * - An exited shell stays listed with its output until it is closed.
- * - Close, thread.deleted and the service's scope closing each end the
- *   shell; a close interrupted part way still ends it.
+ * - Close, thread.deleted, thread.archived and the service's scope closing
+ *   each end the shell; a close interrupted part way still ends it. An
+ *   archived thread refuses a new terminal.
  *
  * Every wait is on output the shell computed or on an exit, never on time: the
  * terminal echoes what is typed, so matching the typed text would pass without
@@ -343,33 +344,35 @@ describe.skipIf(process.platform === "win32")("TerminalService", () => {
     15_000,
   );
 
-  it.live("thread.deleted ends that thread's shells and no other's", () =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        const { engine, terminals, threadId, terminalId, thread } = yield* withTerminal;
-        const otherThread = yield* thread;
-        const otherTerminal = makeTerminalId();
-        yield* terminals.open({ threadId: otherThread, terminalId: otherTerminal, ...SIZE });
-        const doomed = yield* watch(terminals.subscribe(threadId, terminalId));
-        const kept = yield* watch(terminals.subscribe(otherThread, otherTerminal));
-        yield* awaitKind(doomed, "snapshot");
+  for (const command of ["thread.delete", "thread.archive"] as const) {
+    it.live(`${command} ends that thread's shells and no other's`, () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const { engine, terminals, threadId, terminalId, thread } = yield* withTerminal;
+          const otherThread = yield* thread;
+          const otherTerminal = makeTerminalId();
+          yield* terminals.open({ threadId: otherThread, terminalId: otherTerminal, ...SIZE });
+          const doomed = yield* watch(terminals.subscribe(threadId, terminalId));
+          const kept = yield* watch(terminals.subscribe(otherThread, otherTerminal));
+          yield* awaitKind(doomed, "snapshot");
 
-        yield* engine.dispatch({
-          commandId: makeCommandId(),
-          createdAt: NOW,
-          type: "thread.delete",
-          threadId,
-        });
-        yield* awaitKind(doomed, "exited");
-        expect(yield* terminals.list(threadId)).toEqual([]);
+          yield* engine.dispatch({
+            commandId: makeCommandId(),
+            createdAt: NOW,
+            type: command,
+            threadId,
+          });
+          yield* awaitKind(doomed, "exited");
+          expect(yield* terminals.list(threadId)).toEqual([]);
 
-        yield* terminals.write(otherThread, otherTerminal, "echo $((40+2))\n");
-        yield* awaitText(kept, line("42"));
-        const [survivor] = yield* terminals.list(otherThread);
-        expect(survivor).toMatchObject({ terminalId: otherTerminal, status: "running" });
-      }),
-    ),
-  );
+          yield* terminals.write(otherThread, otherTerminal, "echo $((40+2))\n");
+          yield* awaitText(kept, line("42"));
+          const [survivor] = yield* terminals.list(otherThread);
+          expect(survivor).toMatchObject({ terminalId: otherTerminal, status: "running" });
+        }),
+      ),
+    );
+  }
 
   it.live("closing the service's scope ends every shell", () =>
     Effect.scoped(
@@ -425,6 +428,27 @@ describe.skipIf(process.platform === "win32")("TerminalService", () => {
 });
 
 describe("workspaceOf", () => {
+  it.live("refuses an archived thread until it is unarchived", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const stack = yield* buildStack;
+        const resolve = workspaceOf(stack.engine);
+        const threadId = yield* stack.thread;
+        const toggle = (type: "thread.archive" | "thread.unarchive") =>
+          stack.engine
+            .dispatch({ commandId: makeCommandId(), createdAt: NOW, type, threadId })
+            .pipe(Effect.orDie);
+        yield* toggle("thread.archive");
+        expect(yield* Effect.flip(resolve(threadId))).toMatchObject({
+          code: "invalid",
+          message: "the thread is archived; unarchive it to open a terminal",
+        });
+        yield* toggle("thread.unarchive");
+        expect(yield* Effect.orDie(resolve(threadId))).toBe(stack.workspace);
+      }),
+    ),
+  );
+
   it.live("refuses an unknown thread and a project folder that is gone", () =>
     Effect.scoped(
       Effect.gen(function* () {
