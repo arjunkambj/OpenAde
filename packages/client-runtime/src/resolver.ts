@@ -42,6 +42,26 @@ export type BrowserPaneTabRequest =
   | { readonly op: "select"; readonly wcId: number };
 
 /**
+ * A `browser.*` chord as the desktop shell matches it inside a pane page: the
+ * platform modifier already resolved to Meta or Control, the key lowercase.
+ */
+export interface BrowserPaneChord {
+  readonly command: string;
+  readonly key: string;
+  readonly meta: boolean;
+  readonly control: boolean;
+  readonly alt: boolean;
+  readonly shift: boolean;
+}
+
+/** A pane chord pressed inside one of the thread's pages. */
+export interface BrowserPaneCommand {
+  readonly threadId: string;
+  readonly wcId: number;
+  readonly command: string;
+}
+
+/**
  * What the desktop supervisor is doing with the server process. `connection`
  * is null until the server is up and whenever it is being replaced, and it
  * carries the new port, token and boot id once a restart lands — which is how
@@ -104,6 +124,10 @@ declare global {
           handler: (request: BrowserPaneTabRequest) => Promise<{ readonly wcId?: number }>,
         ) => () => void;
         readonly clearThread?: (threadId: string) => Promise<void>;
+        /** Hands the shell the `browser.*` chords to match inside pane pages. */
+        readonly setChords?: (chords: ReadonlyArray<BrowserPaneChord>) => Promise<void>;
+        /** A pane chord pressed while a pane page had focus. */
+        readonly onCommand?: (callback: (payload: BrowserPaneCommand) => void) => () => void;
       };
     };
   }

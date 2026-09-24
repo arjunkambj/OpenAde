@@ -9,6 +9,9 @@
  *   turns an http(s) popup into a pane tab of the same thread;
  * - the human-input relay (`./browser/guestInput.ts`), tagged with the
  *   guest's thread and `webContents` id;
+ * - the pane's keys (`./browser/guestChords.ts`): a chord the window sent
+ *   over is swallowed in the page and relayed as its command, and the default
+ *   menu's window reload never fires from inside a page;
  * - the bridge registry (`./browser/guests.ts`), which attaches its debugger
  *   when the bridge is running.
  * The window answers tab requests (`./browser/tabsChannel.ts`) on its own
@@ -24,6 +27,14 @@ import type { WebContents } from "electron";
 import type { ServerSupervisor } from "../backend/ServerSupervisor";
 
 import { makeClearThread } from "./browser/clearThread";
+import {
+  CHORDS_CHANNEL,
+  COMMAND_CHANNEL,
+  decideChord,
+  parseChords,
+  type GuestChord,
+  type GuestCommandPayload,
+} from "./browser/guestChords";
 import { makeGuestInputRelay } from "./browser/guestInput";
 import { popupUrl, type GuestRegistry } from "./browser/guests";
 import { CLEAR_THREAD_CHANNEL, TAB_ANSWER_CHANNEL, type TabsChannel } from "./browser/tabsChannel";
@@ -80,6 +91,12 @@ export function registerIpc(supervisor: ServerSupervisor, pane: PaneGuests) {
 
   const relay = makeGuestInputRelay();
 
+  // The window's resolved `browser.*` chords; only a window may set them.
+  let chords: ReadonlyArray<GuestChord> = [];
+  ipcMain.handle(CHORDS_CHANNEL, (event, payload: unknown) => {
+    if (event.sender.getType() === "window") chords = parseChords(payload);
+  });
+
   const setUpGuest = (guest: WebContents) => {
     const wcId = guest.id;
     // Before anything else: a popup must never become a native window.
@@ -104,6 +121,15 @@ export function registerIpc(supervisor: ServerSupervisor, pane: PaneGuests) {
       },
       threadId,
     );
+    guest.on("before-input-event", (event, input) => {
+      const decision = decideChord(chords, input, process.platform);
+      if (decision.kind === "pass") return;
+      event.preventDefault();
+      const host = guest.hostWebContents;
+      if (decision.command === null || host === null || host.isDestroyed()) return;
+      const payload: GuestCommandPayload = { threadId, wcId, command: decision.command };
+      host.send(COMMAND_CHANNEL, payload);
+    });
     guest.once("destroyed", () => relay.forget(wcId));
   };
 

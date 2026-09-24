@@ -10,6 +10,12 @@
  */
 
 import {
+  CHORDS_CHANNEL,
+  COMMAND_CHANNEL,
+  type GuestChord,
+  type GuestCommandPayload,
+} from "../main/browser/guestChords";
+import {
   CLEAR_THREAD_CHANNEL,
   NO_TAB_HOST,
   TAB_ANSWER_CHANNEL,
@@ -46,6 +52,9 @@ export interface BrowserPaneGuestInput {
   readonly wcId: number;
   readonly input: unknown;
 }
+
+/** A pane key pressed inside a page, matched by main against the window's chords. */
+export type BrowserPaneCommand = GuestCommandPayload;
 
 /** What main asks the window's tab host to do (`main/browser/tabsChannel.ts`). */
 export type BrowserTabRequest = Readonly<{ id: number } & TabRequest>;
@@ -134,6 +143,9 @@ export const makeOpenAdeBridge = (ipc: PreloadIpc) => {
      * `serveTabs` makes the caller the window's tab host, which opens, closes
      * and selects pane tabs when the agent or a popup asks. `clearThread`
      * wipes a deleted thread's browsing data; main validates the id.
+     * `setChords` hands main the pane's resolved `browser.*` chords, and
+     * `onCommand` delivers each one pressed while a pane page had focus —
+     * which the window's own key listener never sees.
      */
     browserPane: {
       onInput: (callback: (payload: BrowserPaneGuestInput) => void): (() => void) =>
@@ -142,6 +154,11 @@ export const makeOpenAdeBridge = (ipc: PreloadIpc) => {
       clearThread: async (threadId: string): Promise<void> => {
         await ipc.invoke(CLEAR_THREAD_CHANNEL, threadId);
       },
+      setChords: async (chords: ReadonlyArray<GuestChord>): Promise<void> => {
+        await ipc.invoke(CHORDS_CHANNEL, chords);
+      },
+      onCommand: (callback: (payload: BrowserPaneCommand) => void): (() => void) =>
+        subscribe<BrowserPaneCommand>(ipc, COMMAND_CHANNEL, callback),
     },
   };
 };

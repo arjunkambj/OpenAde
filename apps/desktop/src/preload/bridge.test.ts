@@ -10,6 +10,7 @@
 
 import { describe, expect, it } from "vitest";
 
+import { CHORDS_CHANNEL, COMMAND_CHANNEL } from "../main/browser/guestChords";
 import {
   CLEAR_THREAD_CHANNEL,
   NO_TAB_HOST,
@@ -231,5 +232,22 @@ describe("makeOpenAdeBridge", () => {
     const fake = fakeIpc();
     await makeOpenAdeBridge(fake.ipc).browserPane.clearThread("thread-1");
     expect(fake.invokes).toEqual([{ channel: CLEAR_THREAD_CHANNEL, args: ["thread-1"] }]);
+  });
+
+  it("hands main the pane's chords and delivers the commands it relays back", async () => {
+    const fake = fakeIpc();
+    const pane = makeOpenAdeBridge(fake.ipc).browserPane;
+    const chords = [
+      { command: "browser.reload", key: "r", meta: true, control: false, alt: false, shift: false },
+    ];
+    await pane.setChords(chords);
+    expect(fake.invokes).toEqual([{ channel: CHORDS_CHANNEL, args: [chords] }]);
+
+    const seen: Array<unknown> = [];
+    const stop = pane.onCommand((payload) => seen.push(payload));
+    fake.push(COMMAND_CHANNEL, { threadId: "thread-1", wcId: 12, command: "browser.reload" });
+    stop();
+    fake.push(COMMAND_CHANNEL, { threadId: "thread-1", wcId: 12, command: "browser.back" });
+    expect(seen).toEqual([{ threadId: "thread-1", wcId: 12, command: "browser.reload" }]);
   });
 });
