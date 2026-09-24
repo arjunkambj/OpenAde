@@ -1,0 +1,257 @@
+{"dir":"from-harness","channel":"ws:6","at":1178,"data":{"id":1,"method":"Target.setDiscoverTargets","params":{"discover":true}}}
+{"dir":"to-harness","channel":"ws:6","at":1178,"data":{"method":"Target.targetCreated","params":{"targetInfo":{"targetId":"175998EEB78F41B0F446651A730F4216","type":"page","title":"Recording home","url":"http://127.0.0.1:<SITE_PORT>/","attached":false,"canAccessOpener":false,"browserContextId":"openade-thread-rec-cli-tabs-pinned"}}}}
+{"dir":"to-harness","channel":"ws:6","at":1178,"data":{"id":1,"result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1178,"data":{"id":2,"method":"Target.getTargets","params":{}}}
+{"dir":"to-harness","channel":"ws:6","at":1178,"data":{"id":2,"result":{"targetInfos":[{"targetId":"175998EEB78F41B0F446651A730F4216","type":"page","title":"Recording home","url":"http://127.0.0.1:<SITE_PORT>/","attached":false,"canAccessOpener":false,"browserContextId":"openade-thread-rec-cli-tabs-pinned"}]}}}
+{"dir":"from-harness","channel":"ws:6","at":1178,"data":{"id":3,"method":"Target.attachToTarget","params":{"flatten":true,"targetId":"175998EEB78F41B0F446651A730F4216"}}}
+{"dir":"to-harness","channel":"ws:6","at":1178,"data":{"method":"Target.attachedToTarget","params":{"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","targetInfo":{"targetId":"175998EEB78F41B0F446651A730F4216","type":"page","title":"Recording home","url":"http://127.0.0.1:<SITE_PORT>/","attached":true,"canAccessOpener":false,"browserContextId":"openade-thread-rec-cli-tabs-pinned"},"waitingForDebugger":false}}}
+{"dir":"to-harness","channel":"ws:6","at":1178,"data":{"id":3,"result":{"sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}}
+{"dir":"from-harness","channel":"ws:6","at":1179,"data":{"id":4,"method":"Runtime.evaluate","params":{"expression":"1","returnByValue":true},"sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1179,"data":{"id":4,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{"result":{"description":"1","type":"number","value":1}}}}
+{"dir":"from-harness","channel":"ws:6","at":1179,"data":{"id":5,"method":"Page.enable","sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1179,"data":{"id":5,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1179,"data":{"id":6,"method":"Runtime.enable","sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1179,"data":{"method":"Runtime.executionContextCreated","params":{"context":{"auxData":{"frameId":"175998EEB78F41B0F446651A730F4216","isDefault":false,"type":"isolated"},"id":2,"name":"Electron Isolated Context","origin":"http://127.0.0.1:<SITE_PORT>","uniqueId":"6138439028310432735.-5114610107293821571"}},"sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1179,"data":{"method":"Runtime.executionContextCreated","params":{"context":{"auxData":{"frameId":"175998EEB78F41B0F446651A730F4216","isDefault":true,"type":"default"},"id":1,"name":"","origin":"http://127.0.0.1:<SITE_PORT>","uniqueId":"6776136441095486541.3880847479973121663"}},"sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1179,"data":{"method":"Runtime.consoleAPICalled","params":{"args":[{"type":"string","value":"%cElectron Security Warning (Insecure Content-Security-Policy)"},{"type":"string","value":"font-weight: bold;"},{"type":"string","value":"This renderer process has either no Content Security\n  Policy set or a policy with \"unsafe-eval\" enabled. This exposes users of\n  this app to unnecessary security risks.\n\nFor more information and help, consult\nhttps://electronjs.org/docs/tutorial/security.\nThis warning will not show up\nonce the app is packaged."}],"executionContextId":2,"stackTrace":{"callFrames":[{"columnNumber":104333,"functionName":"","lineNumber":1,"scriptId":"3","url":"node:electron/js2c/sandbox_bundle"}]},"timestamp":1790214019533.509,"type":"warning"},"sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1180,"data":{"id":6,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1180,"data":{"id":7,"method":"Network.enable","sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1180,"data":{"id":7,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1180,"data":{"id":8,"method":"WebMCP.enable","sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1180,"data":{"id":8,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1180,"data":{"id":9,"method":"Target.setAutoAttach","params":{"autoAttach":true,"flatten":true,"waitForDebuggerOnStart":true},"sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1180,"data":{"id":9,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1180,"data":{"id":10,"method":"Runtime.runIfWaitingForDebugger","sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1180,"data":{"id":10,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1181,"data":{"id":11,"method":"Page.getFrameTree","sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1181,"data":{"id":11,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{"frameTree":{"frame":{"adFrameStatus":{"adFrameType":"none"},"crossOriginIsolatedContextType":"NotIsolated","domainAndRegistry":"","gatedAPIFeatures":[],"id":"175998EEB78F41B0F446651A730F4216","loaderId":"3F64704F3CD4B26428443FD67F845B73","mimeType":"text/html","secureContextType":"SecureLocalhost","securityOrigin":"http://127.0.0.1:<SITE_PORT>","securityOriginDetails":{"isLocalhost":true},"url":"http://127.0.0.1:<SITE_PORT>/"}}}}}
+{"dir":"from-harness","channel":"ws:6","at":1181,"data":{"id":12,"method":"WebMCP.enable","sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1181,"data":{"id":12,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1181,"data":{"id":13,"method":"Browser.getVersion"}}
+{"dir":"to-harness","channel":"ws:6","at":1181,"data":{"id":13,"result":{"protocolVersion":"1.3","product":"Chrome/152.0.7977.78","revision":"","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.78 Electron/44.3.0 Safari/537.36","jsVersion":"15.2.124.19-electron.0"}}}
+{"dir":"from-harness","channel":"ws:6","at":1201,"data":{"id":14,"method":"Browser.getVersion"}}
+{"dir":"to-harness","channel":"ws:6","at":1201,"data":{"id":14,"result":{"protocolVersion":"1.3","product":"Chrome/152.0.7977.78","revision":"","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.78 Electron/44.3.0 Safari/537.36","jsVersion":"15.2.124.19-electron.0"}}}
+{"dir":"from-harness","channel":"ws:6","at":1201,"data":{"id":15,"method":"Browser.getVersion"}}
+{"dir":"to-harness","channel":"ws:6","at":1201,"data":{"id":15,"result":{"protocolVersion":"1.3","product":"Chrome/152.0.7977.78","revision":"","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.78 Electron/44.3.0 Safari/537.36","jsVersion":"15.2.124.19-electron.0"}}}
+{"dir":"from-harness","channel":"ws:6","at":1201,"data":{"id":16,"method":"Runtime.evaluate","params":{"expression":"1","returnByValue":true},"sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1202,"data":{"id":16,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{"result":{"description":"1","type":"number","value":1}}}}
+{"dir":"from-harness","channel":"ws:6","at":1202,"data":{"id":17,"method":"Page.enable","sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1202,"data":{"id":17,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1202,"data":{"id":18,"method":"Runtime.enable","sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1202,"data":{"id":18,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1202,"data":{"id":19,"method":"Network.enable","sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1203,"data":{"id":19,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1203,"data":{"id":20,"method":"WebMCP.enable","sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1203,"data":{"id":20,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1203,"data":{"id":21,"method":"Target.setAutoAttach","params":{"autoAttach":true,"flatten":true,"waitForDebuggerOnStart":true},"sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1203,"data":{"id":21,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1203,"data":{"id":22,"method":"Runtime.runIfWaitingForDebugger","sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"from-harness","channel":"ws:6","at":1203,"data":{"id":23,"method":"Page.bringToFront","sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1203,"data":{"id":23,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"to-harness","channel":"ws:6","at":1203,"data":{"id":22,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1203,"data":{"id":24,"method":"Runtime.evaluate","params":{"awaitPromise":true,"expression":"location.href","returnByValue":true},"sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1203,"data":{"id":24,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{"result":{"type":"string","value":"http://127.0.0.1:<SITE_PORT>/"}}}}
+{"dir":"from-harness","channel":"ws:6","at":1204,"data":{"id":25,"method":"Runtime.evaluate","params":{"awaitPromise":true,"expression":"document.title","returnByValue":true},"sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1204,"data":{"id":25,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{"result":{"type":"string","value":"Recording home"}}}}
+{"dir":"from-harness","channel":"ws:6","at":1204,"data":{"id":26,"method":"Runtime.evaluate","params":{"awaitPromise":true,"expression":"JSON.stringify([window.innerWidth,window.innerHeight])","returnByValue":true},"sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1204,"data":{"id":26,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{"result":{"type":"string","value":"[1000,700]"}}}}
+{"dir":"from-harness","channel":"ws:6","at":1220,"data":{"id":27,"method":"Browser.getVersion"}}
+{"dir":"to-harness","channel":"ws:6","at":1220,"data":{"id":27,"result":{"protocolVersion":"1.3","product":"Chrome/152.0.7977.78","revision":"","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.78 Electron/44.3.0 Safari/537.36","jsVersion":"15.2.124.19-electron.0"}}}
+{"dir":"from-harness","channel":"ws:6","at":1232,"data":{"id":28,"method":"Browser.getVersion"}}
+{"dir":"to-harness","channel":"ws:6","at":1232,"data":{"id":28,"result":{"protocolVersion":"1.3","product":"Chrome/152.0.7977.78","revision":"","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.78 Electron/44.3.0 Safari/537.36","jsVersion":"15.2.124.19-electron.0"}}}
+{"dir":"from-harness","channel":"ws:6","at":1232,"data":{"id":29,"method":"Browser.getVersion"}}
+{"dir":"to-harness","channel":"ws:6","at":1232,"data":{"id":29,"result":{"protocolVersion":"1.3","product":"Chrome/152.0.7977.78","revision":"","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.78 Electron/44.3.0 Safari/537.36","jsVersion":"15.2.124.19-electron.0"}}}
+{"dir":"from-harness","channel":"ws:6","at":1232,"data":{"id":30,"method":"Target.createTarget","params":{"url":"http://127.0.0.1:<SITE_PORT>/page2"}}}
+{"dir":"to-harness","channel":"ws:6","at":1236,"data":{"method":"Target.targetCreated","params":{"targetInfo":{"targetId":"E8D949A09C2FC93EC4946AC1D9834D61","type":"page","title":"","url":"","attached":false,"canAccessOpener":false,"browserContextId":"openade-thread-rec-cli-tabs-pinned"}}}}
+{"dir":"to-harness","channel":"ws:6","at":1236,"data":{"id":30,"result":{"targetId":"E8D949A09C2FC93EC4946AC1D9834D61"}}}
+{"dir":"from-harness","channel":"ws:6","at":1237,"data":{"id":31,"method":"Target.attachToTarget","params":{"flatten":true,"targetId":"E8D949A09C2FC93EC4946AC1D9834D61"}}}
+{"dir":"to-harness","channel":"ws:6","at":1237,"data":{"method":"Target.attachedToTarget","params":{"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","targetInfo":{"targetId":"E8D949A09C2FC93EC4946AC1D9834D61","type":"page","title":"","url":"","attached":true,"canAccessOpener":false,"browserContextId":"openade-thread-rec-cli-tabs-pinned"},"waitingForDebugger":false}}}
+{"dir":"to-harness","channel":"ws:6","at":1237,"data":{"id":31,"result":{"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}}
+{"dir":"from-harness","channel":"ws:6","at":1237,"data":{"id":32,"method":"Page.enable","sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1237,"data":{"method":"Page.frameStartedNavigating","params":{"frameId":"E8D949A09C2FC93EC4946AC1D9834D61","loaderId":"D1DB5F7E58D630160A8B1BE533DF86D3","navigationType":"differentDocument","url":"http://127.0.0.1:<SITE_PORT>/page2"},"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"from-harness","channel":"ws:6","at":1237,"data":{"id":33,"method":"Runtime.runIfWaitingForDebugger","sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1289,"data":{"method":"Target.targetInfoChanged","params":{"targetInfo":{"targetId":"E8D949A09C2FC93EC4946AC1D9834D61","type":"page","title":"127.0.0.1:<SITE_PORT>/page2","url":"http://127.0.0.1:<SITE_PORT>/page2","attached":true,"canAccessOpener":false,"browserContextId":"openade-thread-rec-cli-tabs-pinned"}}}}
+{"dir":"to-harness","channel":"ws:6","at":1292,"data":{"id":32,"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","result":{}}}
+{"dir":"to-harness","channel":"ws:6","at":1292,"data":{"id":33,"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","result":{}}}
+{"dir":"to-harness","channel":"ws:6","at":1292,"data":{"method":"Target.targetInfoChanged","params":{"targetInfo":{"targetId":"E8D949A09C2FC93EC4946AC1D9834D61","type":"page","title":"Second page","url":"http://127.0.0.1:<SITE_PORT>/page2","attached":true,"canAccessOpener":false,"browserContextId":"openade-thread-rec-cli-tabs-pinned"}}}}
+{"dir":"from-harness","channel":"ws:6","at":1292,"data":{"id":34,"method":"Runtime.enable","sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1313,"data":{"method":"Page.domContentEventFired","params":{"timestamp":132134.351004},"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1313,"data":{"method":"Page.loadEventFired","params":{"timestamp":132134.351461},"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1313,"data":{"method":"Page.frameStoppedLoading","params":{"frameId":"E8D949A09C2FC93EC4946AC1D9834D61"},"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1315,"data":{"method":"Runtime.executionContextCreated","params":{"context":{"auxData":{"frameId":"E8D949A09C2FC93EC4946AC1D9834D61","isDefault":false,"type":"isolated"},"id":2,"name":"Electron Isolated Context","origin":"http://127.0.0.1:<SITE_PORT>","uniqueId":"-2811961020551067291.3974582022645573469"}},"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1315,"data":{"method":"Runtime.executionContextCreated","params":{"context":{"auxData":{"frameId":"E8D949A09C2FC93EC4946AC1D9834D61","isDefault":true,"type":"default"},"id":1,"name":"","origin":"http://127.0.0.1:<SITE_PORT>","uniqueId":"4375201237395722403.-5562716656762481600"}},"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1315,"data":{"id":34,"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","result":{}}}
+{"dir":"to-harness","channel":"ws:6","at":1315,"data":{"method":"Runtime.consoleAPICalled","params":{"args":[{"type":"string","value":"%cElectron Security Warning (Insecure Content-Security-Policy)"},{"type":"string","value":"font-weight: bold;"},{"type":"string","value":"This renderer process has either no Content Security\n  Policy set or a policy with \"unsafe-eval\" enabled. This exposes users of\n  this app to unnecessary security risks.\n\nFor more information and help, consult\nhttps://electronjs.org/docs/tutorial/security.\nThis warning will not show up\nonce the app is packaged."}],"executionContextId":2,"stackTrace":{"callFrames":[{"columnNumber":104333,"functionName":"","lineNumber":1,"scriptId":"3","url":"node:electron/js2c/sandbox_bundle"},{"columnNumber":104427,"functionName":"","lineNumber":1,"scriptId":"3","url":"node:electron/js2c/sandbox_bundle"},{"columnNumber":104867,"functionName":"","lineNumber":1,"scriptId":"3","url":"node:electron/js2c/sandbox_bundle"}]},"timestamp":1790214019786.306,"type":"warning"},"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"from-harness","channel":"ws:6","at":1315,"data":{"id":35,"method":"Network.enable","sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1316,"data":{"id":35,"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1316,"data":{"id":36,"method":"WebMCP.enable","sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1316,"data":{"id":36,"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1316,"data":{"id":37,"method":"Target.setAutoAttach","params":{"autoAttach":true,"flatten":true,"waitForDebuggerOnStart":true},"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1316,"data":{"id":37,"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1316,"data":{"id":38,"method":"Runtime.runIfWaitingForDebugger","sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"from-harness","channel":"ws:6","at":1316,"data":{"id":39,"method":"Page.enable","sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1316,"data":{"id":38,"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","result":{}}}
+{"dir":"to-harness","channel":"ws:6","at":1316,"data":{"id":39,"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1316,"data":{"id":40,"method":"Runtime.enable","sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1316,"data":{"id":40,"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1316,"data":{"id":41,"method":"Network.enable","sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1317,"data":{"id":41,"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1317,"data":{"id":42,"method":"WebMCP.enable","sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1317,"data":{"id":42,"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1317,"data":{"id":43,"method":"Target.setAutoAttach","params":{"autoAttach":true,"flatten":true,"waitForDebuggerOnStart":true},"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1317,"data":{"id":43,"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1317,"data":{"id":44,"method":"Runtime.runIfWaitingForDebugger","sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1317,"data":{"id":44,"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1321,"data":{"id":45,"method":"Page.getFrameTree","sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1322,"data":{"id":45,"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","result":{"frameTree":{"frame":{"adFrameStatus":{"adFrameType":"none"},"crossOriginIsolatedContextType":"NotIsolated","domainAndRegistry":"","gatedAPIFeatures":[],"id":"E8D949A09C2FC93EC4946AC1D9834D61","loaderId":"D1DB5F7E58D630160A8B1BE533DF86D3","mimeType":"text/html","secureContextType":"SecureLocalhost","securityOrigin":"http://127.0.0.1:<SITE_PORT>","securityOriginDetails":{"isLocalhost":true},"url":"http://127.0.0.1:<SITE_PORT>/page2"}}}}}
+{"dir":"from-harness","channel":"ws:6","at":1322,"data":{"id":46,"method":"WebMCP.enable","sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1322,"data":{"id":46,"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1328,"data":{"id":47,"method":"Browser.getVersion"}}
+{"dir":"to-harness","channel":"ws:6","at":1328,"data":{"id":47,"result":{"protocolVersion":"1.3","product":"Chrome/152.0.7977.78","revision":"","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.78 Electron/44.3.0 Safari/537.36","jsVersion":"15.2.124.19-electron.0"}}}
+{"dir":"from-harness","channel":"ws:6","at":1329,"data":{"id":48,"method":"Browser.getVersion"}}
+{"dir":"to-harness","channel":"ws:6","at":1329,"data":{"id":48,"result":{"protocolVersion":"1.3","product":"Chrome/152.0.7977.78","revision":"","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.78 Electron/44.3.0 Safari/537.36","jsVersion":"15.2.124.19-electron.0"}}}
+{"dir":"from-harness","channel":"ws:6","at":1329,"data":{"id":49,"method":"Runtime.evaluate","params":{"awaitPromise":true,"expression":"document.title","returnByValue":true},"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1329,"data":{"id":49,"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","result":{"result":{"type":"string","value":"Second page"}}}}
+{"dir":"from-harness","channel":"ws:6","at":1334,"data":{"id":50,"method":"Browser.getVersion"}}
+{"dir":"to-harness","channel":"ws:6","at":1334,"data":{"id":50,"result":{"protocolVersion":"1.3","product":"Chrome/152.0.7977.78","revision":"","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.78 Electron/44.3.0 Safari/537.36","jsVersion":"15.2.124.19-electron.0"}}}
+{"dir":"from-harness","channel":"ws:6","at":1335,"data":{"id":51,"method":"Browser.getVersion"}}
+{"dir":"to-harness","channel":"ws:6","at":1335,"data":{"id":51,"result":{"protocolVersion":"1.3","product":"Chrome/152.0.7977.78","revision":"","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.78 Electron/44.3.0 Safari/537.36","jsVersion":"15.2.124.19-electron.0"}}}
+{"dir":"from-harness","channel":"ws:6","at":1335,"data":{"id":52,"method":"Runtime.evaluate","params":{"expression":"1","returnByValue":true},"sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1335,"data":{"id":52,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{"result":{"description":"1","type":"number","value":1}}}}
+{"dir":"from-harness","channel":"ws:6","at":1335,"data":{"id":53,"method":"Page.enable","sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1335,"data":{"id":53,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1335,"data":{"id":54,"method":"Runtime.enable","sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1335,"data":{"id":54,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1335,"data":{"id":55,"method":"Network.enable","sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1335,"data":{"id":55,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1335,"data":{"id":56,"method":"WebMCP.enable","sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1336,"data":{"id":56,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1336,"data":{"id":57,"method":"Target.setAutoAttach","params":{"autoAttach":true,"flatten":true,"waitForDebuggerOnStart":true},"sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1336,"data":{"id":57,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1336,"data":{"id":58,"method":"Runtime.runIfWaitingForDebugger","sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"from-harness","channel":"ws:6","at":1336,"data":{"id":59,"method":"Page.bringToFront","sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1336,"data":{"id":59,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"to-harness","channel":"ws:6","at":1336,"data":{"id":58,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1336,"data":{"id":60,"method":"Runtime.evaluate","params":{"awaitPromise":true,"expression":"location.href","returnByValue":true},"sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1336,"data":{"id":60,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{"result":{"type":"string","value":"http://127.0.0.1:<SITE_PORT>/"}}}}
+{"dir":"from-harness","channel":"ws:6","at":1336,"data":{"id":61,"method":"Runtime.evaluate","params":{"awaitPromise":true,"expression":"document.title","returnByValue":true},"sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1336,"data":{"id":61,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{"result":{"type":"string","value":"Recording home"}}}}
+{"dir":"from-harness","channel":"ws:6","at":1346,"data":{"id":62,"method":"Browser.getVersion"}}
+{"dir":"to-harness","channel":"ws:6","at":1346,"data":{"id":62,"result":{"protocolVersion":"1.3","product":"Chrome/152.0.7977.78","revision":"","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.78 Electron/44.3.0 Safari/537.36","jsVersion":"15.2.124.19-electron.0"}}}
+{"dir":"from-harness","channel":"ws:6","at":1346,"data":{"id":63,"method":"Browser.getVersion"}}
+{"dir":"to-harness","channel":"ws:6","at":1346,"data":{"id":63,"result":{"protocolVersion":"1.3","product":"Chrome/152.0.7977.78","revision":"","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.78 Electron/44.3.0 Safari/537.36","jsVersion":"15.2.124.19-electron.0"}}}
+{"dir":"from-harness","channel":"ws:6","at":1346,"data":{"id":64,"method":"Runtime.evaluate","params":{"awaitPromise":true,"expression":"document.title","returnByValue":true},"sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1346,"data":{"id":64,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{"result":{"type":"string","value":"Recording home"}}}}
+{"dir":"from-harness","channel":"ws:6","at":1351,"data":{"id":65,"method":"Browser.getVersion"}}
+{"dir":"to-harness","channel":"ws:6","at":1351,"data":{"id":65,"result":{"protocolVersion":"1.3","product":"Chrome/152.0.7977.78","revision":"","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.78 Electron/44.3.0 Safari/537.36","jsVersion":"15.2.124.19-electron.0"}}}
+{"dir":"from-harness","channel":"ws:6","at":1351,"data":{"id":66,"method":"Browser.getVersion"}}
+{"dir":"to-harness","channel":"ws:6","at":1351,"data":{"id":66,"result":{"protocolVersion":"1.3","product":"Chrome/152.0.7977.78","revision":"","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.78 Electron/44.3.0 Safari/537.36","jsVersion":"15.2.124.19-electron.0"}}}
+{"dir":"from-harness","channel":"ws:6","at":1351,"data":{"id":67,"method":"Runtime.evaluate","params":{"expression":"1","returnByValue":true},"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1351,"data":{"id":67,"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","result":{"result":{"description":"1","type":"number","value":1}}}}
+{"dir":"from-harness","channel":"ws:6","at":1351,"data":{"id":68,"method":"Page.enable","sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1351,"data":{"id":68,"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1352,"data":{"id":69,"method":"Runtime.enable","sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1352,"data":{"id":69,"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1352,"data":{"id":70,"method":"Network.enable","sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1352,"data":{"id":70,"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1352,"data":{"id":71,"method":"WebMCP.enable","sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1352,"data":{"id":71,"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1352,"data":{"id":72,"method":"Target.setAutoAttach","params":{"autoAttach":true,"flatten":true,"waitForDebuggerOnStart":true},"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1352,"data":{"id":72,"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1352,"data":{"id":73,"method":"Runtime.runIfWaitingForDebugger","sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"from-harness","channel":"ws:6","at":1352,"data":{"id":74,"method":"Page.bringToFront","sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1352,"data":{"id":74,"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","result":{}}}
+{"dir":"to-harness","channel":"ws:6","at":1352,"data":{"id":73,"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1352,"data":{"id":75,"method":"Runtime.evaluate","params":{"awaitPromise":true,"expression":"location.href","returnByValue":true},"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1352,"data":{"id":75,"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","result":{"result":{"type":"string","value":"http://127.0.0.1:<SITE_PORT>/page2"}}}}
+{"dir":"from-harness","channel":"ws:6","at":1352,"data":{"id":76,"method":"Runtime.evaluate","params":{"awaitPromise":true,"expression":"document.title","returnByValue":true},"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B"}}
+{"dir":"to-harness","channel":"ws:6","at":1353,"data":{"id":76,"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","result":{"result":{"type":"string","value":"Second page"}}}}
+{"dir":"from-harness","channel":"ws:6","at":1362,"data":{"id":77,"method":"Browser.getVersion"}}
+{"dir":"to-harness","channel":"ws:6","at":1362,"data":{"id":77,"result":{"protocolVersion":"1.3","product":"Chrome/152.0.7977.78","revision":"","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.78 Electron/44.3.0 Safari/537.36","jsVersion":"15.2.124.19-electron.0"}}}
+{"dir":"from-harness","channel":"ws:6","at":1362,"data":{"id":78,"method":"Browser.getVersion"}}
+{"dir":"to-harness","channel":"ws:6","at":1362,"data":{"id":78,"result":{"protocolVersion":"1.3","product":"Chrome/152.0.7977.78","revision":"","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.78 Electron/44.3.0 Safari/537.36","jsVersion":"15.2.124.19-electron.0"}}}
+{"dir":"from-harness","channel":"ws:6","at":1362,"data":{"id":79,"method":"Target.closeTarget","params":{"targetId":"E8D949A09C2FC93EC4946AC1D9834D61"}}}
+{"dir":"to-harness","channel":"ws:6","at":1363,"data":{"method":"Target.detachedFromTarget","params":{"sessionId":"BABFF7A32BFE3862E202561F05DB5E6B","targetId":"E8D949A09C2FC93EC4946AC1D9834D61"}}}
+{"dir":"to-harness","channel":"ws:6","at":1363,"data":{"method":"Target.targetDestroyed","params":{"targetId":"E8D949A09C2FC93EC4946AC1D9834D61"}}}
+{"dir":"to-harness","channel":"ws:6","at":1364,"data":{"id":79,"result":{"success":true}}}
+{"dir":"from-harness","channel":"ws:6","at":1370,"data":{"id":80,"method":"Browser.getVersion"}}
+{"dir":"to-harness","channel":"ws:6","at":1370,"data":{"id":80,"result":{"protocolVersion":"1.3","product":"Chrome/152.0.7977.78","revision":"","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.78 Electron/44.3.0 Safari/537.36","jsVersion":"15.2.124.19-electron.0"}}}
+{"dir":"from-harness","channel":"ws:6","at":1370,"data":{"id":81,"method":"Browser.getVersion"}}
+{"dir":"to-harness","channel":"ws:6","at":1370,"data":{"id":81,"result":{"protocolVersion":"1.3","product":"Chrome/152.0.7977.78","revision":"","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.78 Electron/44.3.0 Safari/537.36","jsVersion":"15.2.124.19-electron.0"}}}
+{"dir":"from-harness","channel":"ws:6","at":1376,"data":{"id":82,"method":"Browser.getVersion"}}
+{"dir":"to-harness","channel":"ws:6","at":1376,"data":{"id":82,"result":{"protocolVersion":"1.3","product":"Chrome/152.0.7977.78","revision":"","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.78 Electron/44.3.0 Safari/537.36","jsVersion":"15.2.124.19-electron.0"}}}
+{"dir":"from-harness","channel":"ws:6","at":1376,"data":{"id":83,"method":"Browser.getVersion"}}
+{"dir":"to-harness","channel":"ws:6","at":1376,"data":{"id":83,"result":{"protocolVersion":"1.3","product":"Chrome/152.0.7977.78","revision":"","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.78 Electron/44.3.0 Safari/537.36","jsVersion":"15.2.124.19-electron.0"}}}
+{"dir":"from-harness","channel":"ws:6","at":1376,"data":{"id":84,"method":"Runtime.evaluate","params":{"expression":"1","returnByValue":true},"sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1376,"data":{"id":84,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{"result":{"description":"1","type":"number","value":1}}}}
+{"dir":"from-harness","channel":"ws:6","at":1376,"data":{"id":85,"method":"Page.enable","sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1376,"data":{"id":85,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1377,"data":{"id":86,"method":"Runtime.enable","sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1377,"data":{"id":86,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1377,"data":{"id":87,"method":"Network.enable","sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1377,"data":{"id":87,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1377,"data":{"id":88,"method":"WebMCP.enable","sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1377,"data":{"id":88,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1377,"data":{"id":89,"method":"Target.setAutoAttach","params":{"autoAttach":true,"flatten":true,"waitForDebuggerOnStart":true},"sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1377,"data":{"id":89,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1377,"data":{"id":90,"method":"Runtime.runIfWaitingForDebugger","sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"from-harness","channel":"ws:6","at":1377,"data":{"id":91,"method":"Page.bringToFront","sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1377,"data":{"id":91,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"to-harness","channel":"ws:6","at":1377,"data":{"id":90,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{}}}
+{"dir":"from-harness","channel":"ws:6","at":1377,"data":{"id":92,"method":"Runtime.evaluate","params":{"awaitPromise":true,"expression":"location.href","returnByValue":true},"sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1377,"data":{"id":92,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{"result":{"type":"string","value":"http://127.0.0.1:<SITE_PORT>/"}}}}
+{"dir":"from-harness","channel":"ws:6","at":1378,"data":{"id":93,"method":"Runtime.evaluate","params":{"awaitPromise":true,"expression":"document.title","returnByValue":true},"sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1378,"data":{"id":93,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{"result":{"type":"string","value":"Recording home"}}}}
+{"dir":"from-harness","channel":"ws:6","at":1386,"data":{"id":94,"method":"Browser.getVersion"}}
+{"dir":"to-harness","channel":"ws:6","at":1386,"data":{"id":94,"result":{"protocolVersion":"1.3","product":"Chrome/152.0.7977.78","revision":"","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.78 Electron/44.3.0 Safari/537.36","jsVersion":"15.2.124.19-electron.0"}}}
+{"dir":"from-harness","channel":"ws:6","at":1391,"data":{"id":95,"method":"Browser.getVersion"}}
+{"dir":"to-harness","channel":"ws:6","at":1391,"data":{"id":95,"result":{"protocolVersion":"1.3","product":"Chrome/152.0.7977.78","revision":"","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.78 Electron/44.3.0 Safari/537.36","jsVersion":"15.2.124.19-electron.0"}}}
+{"dir":"from-harness","channel":"ws:6","at":1391,"data":{"id":96,"method":"Browser.getVersion"}}
+{"dir":"to-harness","channel":"ws:6","at":1391,"data":{"id":96,"result":{"protocolVersion":"1.3","product":"Chrome/152.0.7977.78","revision":"","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.78 Electron/44.3.0 Safari/537.36","jsVersion":"15.2.124.19-electron.0"}}}
+{"dir":"from-harness","channel":"ws:6","at":1391,"data":{"id":97,"method":"Runtime.evaluate","params":{"awaitPromise":true,"expression":"document.title","returnByValue":true},"sessionId":"047BCC250A305711AC7808F5AAA7CBDD"}}
+{"dir":"to-harness","channel":"ws:6","at":1392,"data":{"id":97,"sessionId":"047BCC250A305711AC7808F5AAA7CBDD","result":{"result":{"type":"string","value":"Recording home"}}}}
+{"dir":"from-harness","channel":"ws:6","at":1397,"data":{"id":98,"method":"Browser.getVersion"}}
+{"dir":"to-harness","channel":"ws:6","at":1397,"data":{"id":98,"result":{"protocolVersion":"1.3","product":"Chrome/152.0.7977.78","revision":"","userAgent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.78 Electron/44.3.0 Safari/537.36","jsVersion":"15.2.124.19-electron.0"}}}
+{"dir":"from-harness","channel":"ws:7","at":1409,"data":{"id":1,"method":"Target.setDiscoverTargets","params":{"discover":true}}}
+{"dir":"to-harness","channel":"ws:7","at":1409,"data":{"method":"Target.targetCreated","params":{"targetInfo":{"targetId":"175998EEB78F41B0F446651A730F4216","type":"page","title":"Recording home","url":"http://127.0.0.1:<SITE_PORT>/","attached":false,"canAccessOpener":false,"browserContextId":"openade-thread-rec-cli-tabs-pinned"}}}}
+{"dir":"to-harness","channel":"ws:7","at":1409,"data":{"id":1,"result":{}}}
+{"dir":"from-harness","channel":"ws:7","at":1410,"data":{"id":2,"method":"Target.getTargets","params":{}}}
+{"dir":"to-harness","channel":"ws:7","at":1410,"data":{"id":2,"result":{"targetInfos":[{"targetId":"175998EEB78F41B0F446651A730F4216","type":"page","title":"Recording home","url":"http://127.0.0.1:<SITE_PORT>/","attached":false,"canAccessOpener":false,"browserContextId":"openade-thread-rec-cli-tabs-pinned"}]}}}
+{"dir":"from-harness","channel":"ws:7","at":1410,"data":{"id":3,"method":"Target.attachToTarget","params":{"flatten":true,"targetId":"175998EEB78F41B0F446651A730F4216"}}}
+{"dir":"to-harness","channel":"ws:7","at":1410,"data":{"method":"Target.attachedToTarget","params":{"sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A","targetInfo":{"targetId":"175998EEB78F41B0F446651A730F4216","type":"page","title":"Recording home","url":"http://127.0.0.1:<SITE_PORT>/","attached":true,"canAccessOpener":false,"browserContextId":"openade-thread-rec-cli-tabs-pinned"},"waitingForDebugger":false}}}
+{"dir":"to-harness","channel":"ws:7","at":1410,"data":{"id":3,"result":{"sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A"}}}
+{"dir":"from-harness","channel":"ws:7","at":1410,"data":{"id":4,"method":"Runtime.evaluate","params":{"expression":"1","returnByValue":true},"sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A"}}
+{"dir":"to-harness","channel":"ws:7","at":1411,"data":{"id":4,"sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A","result":{"result":{"description":"1","type":"number","value":1}}}}
+{"dir":"from-harness","channel":"ws:7","at":1411,"data":{"id":5,"method":"Page.enable","sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A"}}
+{"dir":"to-harness","channel":"ws:7","at":1411,"data":{"id":5,"sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A","result":{}}}
+{"dir":"from-harness","channel":"ws:7","at":1411,"data":{"id":6,"method":"Runtime.enable","sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A"}}
+{"dir":"to-harness","channel":"ws:7","at":1411,"data":{"method":"Runtime.executionContextCreated","params":{"context":{"auxData":{"frameId":"175998EEB78F41B0F446651A730F4216","isDefault":false,"type":"isolated"},"id":2,"name":"Electron Isolated Context","origin":"http://127.0.0.1:<SITE_PORT>","uniqueId":"6138439028310432735.-5114610107293821571"}},"sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A"}}
+{"dir":"to-harness","channel":"ws:7","at":1411,"data":{"method":"Runtime.executionContextCreated","params":{"context":{"auxData":{"frameId":"175998EEB78F41B0F446651A730F4216","isDefault":true,"type":"default"},"id":1,"name":"","origin":"http://127.0.0.1:<SITE_PORT>","uniqueId":"6776136441095486541.3880847479973121663"}},"sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A"}}
+{"dir":"to-harness","channel":"ws:7","at":1411,"data":{"method":"Runtime.consoleAPICalled","params":{"args":[{"type":"string","value":"%cElectron Security Warning (Insecure Content-Security-Policy)"},{"type":"string","value":"font-weight: bold;"},{"type":"string","value":"This renderer process has either no Content Security\n  Policy set or a policy with \"unsafe-eval\" enabled. This exposes users of\n  this app to unnecessary security risks.\n\nFor more information and help, consult\nhttps://electronjs.org/docs/tutorial/security.\nThis warning will not show up\nonce the app is packaged."}],"executionContextId":2,"stackTrace":{"callFrames":[{"columnNumber":104333,"functionName":"","lineNumber":1,"scriptId":"3","url":"node:electron/js2c/sandbox_bundle"}]},"timestamp":1790214019533.509,"type":"warning"},"sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A"}}
+{"dir":"to-harness","channel":"ws:7","at":1411,"data":{"id":6,"sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A","result":{}}}
+{"dir":"from-harness","channel":"ws:7","at":1411,"data":{"id":7,"method":"Network.enable","sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A"}}
+{"dir":"to-harness","channel":"ws:7","at":1412,"data":{"id":7,"sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A","result":{}}}
+{"dir":"from-harness","channel":"ws:7","at":1412,"data":{"id":8,"method":"WebMCP.enable","sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A"}}
+{"dir":"to-harness","channel":"ws:7","at":1412,"data":{"id":8,"sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A","result":{}}}
+{"dir":"from-harness","channel":"ws:7","at":1412,"data":{"id":9,"method":"Target.setAutoAttach","params":{"autoAttach":true,"flatten":true,"waitForDebuggerOnStart":true},"sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A"}}
+{"dir":"to-harness","channel":"ws:7","at":1412,"data":{"id":9,"sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A","result":{}}}
+{"dir":"from-harness","channel":"ws:7","at":1412,"data":{"id":10,"method":"Runtime.runIfWaitingForDebugger","sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A"}}
+{"dir":"to-harness","channel":"ws:7","at":1412,"data":{"id":10,"sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A","result":{}}}
+{"dir":"from-harness","channel":"ws:7","at":1412,"data":{"id":11,"method":"Runtime.evaluate","params":{"expression":"1","returnByValue":true},"sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A"}}
+{"dir":"to-harness","channel":"ws:7","at":1412,"data":{"id":11,"sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A","result":{"result":{"description":"1","type":"number","value":1}}}}
+{"dir":"from-harness","channel":"ws:7","at":1412,"data":{"id":12,"method":"Page.enable","sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A"}}
+{"dir":"to-harness","channel":"ws:7","at":1413,"data":{"id":12,"sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A","result":{}}}
+{"dir":"from-harness","channel":"ws:7","at":1413,"data":{"id":13,"method":"Runtime.enable","sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A"}}
+{"dir":"to-harness","channel":"ws:7","at":1413,"data":{"id":13,"sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A","result":{}}}
+{"dir":"from-harness","channel":"ws:7","at":1413,"data":{"id":14,"method":"Network.enable","sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A"}}
+{"dir":"to-harness","channel":"ws:7","at":1413,"data":{"id":14,"sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A","result":{}}}
+{"dir":"from-harness","channel":"ws:7","at":1413,"data":{"id":15,"method":"WebMCP.enable","sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A"}}
+{"dir":"to-harness","channel":"ws:7","at":1413,"data":{"id":15,"sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A","result":{}}}
+{"dir":"from-harness","channel":"ws:7","at":1413,"data":{"id":16,"method":"Target.setAutoAttach","params":{"autoAttach":true,"flatten":true,"waitForDebuggerOnStart":true},"sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A"}}
+{"dir":"to-harness","channel":"ws:7","at":1413,"data":{"id":16,"sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A","result":{}}}
+{"dir":"from-harness","channel":"ws:7","at":1413,"data":{"id":17,"method":"Runtime.runIfWaitingForDebugger","sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A"}}
+{"dir":"from-harness","channel":"ws:7","at":1413,"data":{"id":18,"method":"Page.getFrameTree","sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A"}}
+{"dir":"to-harness","channel":"ws:7","at":1413,"data":{"id":17,"sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A","result":{}}}
+{"dir":"to-harness","channel":"ws:7","at":1413,"data":{"id":18,"sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A","result":{"frameTree":{"frame":{"adFrameStatus":{"adFrameType":"none"},"crossOriginIsolatedContextType":"NotIsolated","domainAndRegistry":"","gatedAPIFeatures":[],"id":"175998EEB78F41B0F446651A730F4216","loaderId":"3F64704F3CD4B26428443FD67F845B73","mimeType":"text/html","secureContextType":"SecureLocalhost","securityOrigin":"http://127.0.0.1:<SITE_PORT>","securityOriginDetails":{"isLocalhost":true},"url":"http://127.0.0.1:<SITE_PORT>/"}}}}}
+{"dir":"from-harness","channel":"ws:7","at":1413,"data":{"id":19,"method":"WebMCP.enable","sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A"}}
+{"dir":"to-harness","channel":"ws:7","at":1413,"data":{"id":19,"sessionId":"818B947A8DE1DBA74F38DDCD811B3E1A","result":{}}}

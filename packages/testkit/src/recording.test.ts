@@ -62,8 +62,13 @@ describe("the fixtures/<kind>/ convention", () => {
 });
 
 describe("the agent-browser recordings", () => {
-  it("are real CDP captures through the bridge, one per scenario", () => {
+  it("are real captures through the bridge, one per scenario", () => {
     expect(recordingNames("agent-browser")).toEqual([
+      "cli-attach",
+      "cli-empty-thread",
+      "cli-last-tab-gone",
+      "cli-tab-gone",
+      "cli-tabs-pinned",
       "connect-and-drive",
       "empty-thread-createTarget",
       "popup",
@@ -75,7 +80,9 @@ describe("the agent-browser recordings", () => {
         "agent-browser",
         name,
       );
-      expect(manifest.transport).toBe("cdp-websocket");
+      // The `cli-*` scenarios are the server driver's command sequences, read
+      // for their envelopes; the rest are read for their CDP frames.
+      expect(manifest.transport).toBe(name.startsWith("cli-") ? "cli-json" : "cdp-websocket");
       expect(manifest.cliVersion).toBe("0.38.1");
       expect(manifest.steps.length).toBeGreaterThan(0);
       const frames = readFrames("agent-browser", name);
@@ -86,13 +93,15 @@ describe("the agent-browser recordings", () => {
 
   it("carry no capability, launch key or port of the run that made them", () => {
     for (const name of recordingNames("agent-browser")) {
-      const text = NodeFS.readFileSync(
-        NodePath.join(fixturesRoot("agent-browser"), name, "frames.jsonl"),
-        "utf8",
-      );
-      expect(text).not.toMatch(/\b[0-9a-f]{64}\b/);
-      expect(text).not.toMatch(/127\.0\.0\.1:\d/);
-      expect(text).not.toContain("/cdp/");
+      for (const file of ["frames.jsonl", "manifest.json"]) {
+        const text = NodeFS.readFileSync(
+          NodePath.join(fixturesRoot("agent-browser"), name, file),
+          "utf8",
+        );
+        expect(text).not.toMatch(/\b[0-9a-f]{64}\b/);
+        expect(text).not.toMatch(/127\.0\.0\.1:\d/);
+        expect(text).not.toContain("/cdp/");
+      }
     }
   });
 });

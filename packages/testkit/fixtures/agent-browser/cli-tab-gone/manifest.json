@@ -1,0 +1,290 @@
+{
+  "formatVersion": 1,
+  "kind": "agent-browser",
+  "transport": "cli-json",
+  "scenario": "cli-tab-gone",
+  "description": "the pane closes the pinned tab: the next command fails tab_gone, and the driver re-resolves",
+  "cliVersion": "0.38.1",
+  "recordedOn": "2026-09-24",
+  "model": "none",
+  "real": true,
+  "electronVersion": "44.3.0",
+  "threadId": "rec-cli-tab-gone",
+  "tabs": [
+    {
+      "targetId": "F99748C7FC14E82A6D6F672ECA3BDC1A",
+      "url": "http://127.0.0.1:<SITE_PORT>/"
+    },
+    {
+      "targetId": "71FE93C2CCE5F2BE05E89C292EC3794D",
+      "url": "http://127.0.0.1:<SITE_PORT>/page2"
+    }
+  ],
+  "steps": [
+    {
+      "argv": ["tab", "list"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 11681809374066729000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "tabs": [
+            {
+              "active": true,
+              "label": null,
+              "tabId": "t1",
+              "targetId": "F99748C7FC14E82A6D6F672ECA3BDC1A",
+              "title": "Recording home",
+              "type": "page",
+              "url": "http://127.0.0.1:<SITE_PORT>/"
+            },
+            {
+              "active": false,
+              "label": null,
+              "tabId": "t2",
+              "targetId": "71FE93C2CCE5F2BE05E89C292EC3794D",
+              "title": "Second page",
+              "type": "page",
+              "url": "http://127.0.0.1:<SITE_PORT>/page2"
+            }
+          ]
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["--pin-tab", "tab", "F99748C7FC14E82A6D6F672ECA3BDC1A"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "label": null,
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 11681809374066729000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "tabId": "t1",
+          "targetId": "F99748C7FC14E82A6D6F672ECA3BDC1A",
+          "title": "Recording home",
+          "url": "http://127.0.0.1:<SITE_PORT>/"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["stream", "disable"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "disabled": true,
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 11681809374066729000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": false,
+            "saveStatus": "not_attempted"
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["get", "title"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 11681809374066729000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "title": "Recording home"
+        },
+        "error": null
+      }
+    },
+    {
+      "host": "remove",
+      "index": 0,
+      "guests": [
+        {
+          "wcId": 10,
+          "targetId": "71FE93C2CCE5F2BE05E89C292EC3794D",
+          "url": "http://127.0.0.1:<SITE_PORT>/page2",
+          "title": "Second page"
+        }
+      ]
+    },
+    {
+      "argv": ["get", "title"],
+      "exitCode": 1,
+      "envelope": {
+        "success": false,
+        "data": {
+          "lastUrl": "http://127.0.0.1:<SITE_PORT>/",
+          "targetId": "F99748C7FC14E82A6D6F672ECA3BDC1A"
+        },
+        "error": "tab_gone: bound tab is gone (target F99748C7FC14E82A6D6F672ECA3BDC1A, last url http://127.0.0.1:<SITE_PORT>/). Run `agent-browser tab new <url>` to bind a new tab, or `agent-browser tab list` to pick an existing one",
+        "code": "tab_gone"
+      }
+    },
+    {
+      "argv": ["tab", "list"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 11681809374066729000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "tabs": [
+            {
+              "active": false,
+              "label": null,
+              "tabId": "t2",
+              "targetId": "71FE93C2CCE5F2BE05E89C292EC3794D",
+              "title": "Second page",
+              "type": "page",
+              "url": "http://127.0.0.1:<SITE_PORT>/page2"
+            }
+          ]
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["--pin-tab", "tab", "71FE93C2CCE5F2BE05E89C292EC3794D"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "label": null,
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 11681809374066729000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "tabId": "t2",
+          "targetId": "71FE93C2CCE5F2BE05E89C292EC3794D",
+          "title": "Second page",
+          "url": "http://127.0.0.1:<SITE_PORT>/page2"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["stream", "disable"],
+      "exitCode": 1,
+      "envelope": {
+        "success": false,
+        "data": null,
+        "error": "Streaming is not enabled for this session"
+      }
+    },
+    {
+      "argv": ["get", "title"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 11681809374066729000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "title": "Second page"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["close"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "closed": true,
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": false,
+              "engine": "chrome",
+              "launchHash": null
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": false,
+            "saveStatus": "not_configured"
+          },
+          "restoreStatus": "not_configured",
+          "saveStatus": "not_configured"
+        },
+        "error": null
+      }
+    }
+  ]
+}

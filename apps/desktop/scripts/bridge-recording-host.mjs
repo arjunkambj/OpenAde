@@ -15,6 +15,8 @@
  *
  *   stdin  {seq, op: "setup", threadId, tabs: [url]}   → {seq, guests}
  *   stdin  {seq, op: "eval", threadId, index, js}      → {seq, value}
+ *   stdin  {seq, op: "guests", threadId}               → {seq, guests}
+ *   stdin  {seq, op: "remove", threadId, index}        → {seq, guests}  (the pane closing a tab)
  *   stdin  {seq, op: "quit"}
  *   stdout {type: "ready", origin, launchKey}
  *   stdout {type: "frame", threadId, connection, direction, message, at}
@@ -213,6 +215,17 @@ const handle = async (request) => {
     case "eval": {
       const guest = guestsOf(request.threadId)[request.index];
       return { value: await guests.get(guest.wcId).wc.executeJavaScript(request.js) };
+    }
+    case "guests":
+      return { guests: guestsOf(request.threadId) };
+    case "remove": {
+      const guest = guestsOf(request.threadId)[request.index];
+      const destroyed = new Promise((resolve) =>
+        guests.get(guest.wcId).wc.once("destroyed", resolve),
+      );
+      await port.closeTab(guest.wcId);
+      await destroyed;
+      return { guests: guestsOf(request.threadId) };
     }
     case "quit":
       setTimeout(() => app.quit(), 50);

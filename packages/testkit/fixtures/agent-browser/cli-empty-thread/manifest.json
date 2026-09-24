@@ -1,0 +1,152 @@
+{
+  "formatVersion": 1,
+  "kind": "agent-browser",
+  "transport": "cli-json",
+  "scenario": "cli-empty-thread",
+  "description": "the first browser call on a thread with no tab: tab list makes agent-browser create one",
+  "cliVersion": "0.38.1",
+  "recordedOn": "2026-09-24",
+  "model": "none",
+  "real": true,
+  "electronVersion": "44.3.0",
+  "threadId": "rec-cli-empty-thread",
+  "tabs": [],
+  "steps": [
+    {
+      "argv": ["tab", "list"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 10232857121184719000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "tabs": [
+            {
+              "active": true,
+              "label": null,
+              "tabId": "t1",
+              "targetId": "BB4787E284AA640C83C94502BB826E21",
+              "title": "",
+              "type": "page",
+              "url": "about:blank"
+            }
+          ]
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["--pin-tab", "tab", "BB4787E284AA640C83C94502BB826E21"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "label": null,
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 10232857121184719000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "tabId": "t1",
+          "targetId": "BB4787E284AA640C83C94502BB826E21",
+          "title": "",
+          "url": "about:blank"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["stream", "disable"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "disabled": true,
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 10232857121184719000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": false,
+            "saveStatus": "not_attempted"
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["get", "url"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 10232857121184719000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "url": "about:blank"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["close"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "closed": true,
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": false,
+              "engine": "chrome",
+              "launchHash": null
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": false,
+            "saveStatus": "not_configured"
+          },
+          "restoreStatus": "not_configured",
+          "saveStatus": "not_configured"
+        },
+        "error": null
+      }
+    }
+  ]
+}

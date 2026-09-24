@@ -1,0 +1,354 @@
+{
+  "formatVersion": 1,
+  "kind": "agent-browser",
+  "transport": "cli-json",
+  "scenario": "cli-attach",
+  "description": "the in-app driver's open (list, pin the first tab, stream off), a call, the daemon stopping, the re-attach, close",
+  "cliVersion": "0.38.1",
+  "recordedOn": "2026-09-24",
+  "model": "none",
+  "real": true,
+  "electronVersion": "44.3.0",
+  "threadId": "rec-cli-attach",
+  "tabs": [
+    {
+      "targetId": "470603A552780A382A44F98F1FE16168",
+      "url": "http://127.0.0.1:<SITE_PORT>/"
+    },
+    {
+      "targetId": "9F9CD037CFCCDB9EF0C8B602A081B9A2",
+      "url": "http://127.0.0.1:<SITE_PORT>/page2"
+    }
+  ],
+  "steps": [
+    {
+      "argv": ["stream", "status"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "connected": true,
+          "enabled": true,
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 221973404606747100
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": false,
+            "saveStatus": "not_attempted"
+          },
+          "port": "<STREAM_PORT>",
+          "screencasting": false
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["tab", "list"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 221973404606747100
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "tabs": [
+            {
+              "active": true,
+              "label": null,
+              "tabId": "t1",
+              "targetId": "470603A552780A382A44F98F1FE16168",
+              "title": "Recording home",
+              "type": "page",
+              "url": "http://127.0.0.1:<SITE_PORT>/"
+            },
+            {
+              "active": false,
+              "label": null,
+              "tabId": "t2",
+              "targetId": "9F9CD037CFCCDB9EF0C8B602A081B9A2",
+              "title": "Second page",
+              "type": "page",
+              "url": "http://127.0.0.1:<SITE_PORT>/page2"
+            }
+          ]
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["--pin-tab", "tab", "470603A552780A382A44F98F1FE16168"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "label": null,
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 221973404606747100
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "tabId": "t1",
+          "targetId": "470603A552780A382A44F98F1FE16168",
+          "title": "Recording home",
+          "url": "http://127.0.0.1:<SITE_PORT>/"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["stream", "disable"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "disabled": true,
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 221973404606747100
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": false,
+            "saveStatus": "not_attempted"
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["stream", "status"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "connected": true,
+          "enabled": false,
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 221973404606747100
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": false,
+            "saveStatus": "not_attempted"
+          },
+          "port": null,
+          "screencasting": false
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["get", "title"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 221973404606747100
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "title": "Recording home"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["close"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "closed": true,
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": false,
+              "engine": "chrome",
+              "launchHash": null
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": false,
+            "saveStatus": "not_configured"
+          },
+          "restoreStatus": "not_configured",
+          "saveStatus": "not_configured"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["--pin-tab", "tab", "470603A552780A382A44F98F1FE16168"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "label": null,
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 221973404606747100
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_configured"
+          },
+          "tabId": "t1",
+          "targetId": "470603A552780A382A44F98F1FE16168",
+          "title": "Recording home",
+          "url": "http://127.0.0.1:<SITE_PORT>/"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["stream", "disable"],
+      "exitCode": 1,
+      "envelope": {
+        "success": false,
+        "data": null,
+        "error": "Streaming is not enabled for this session"
+      }
+    },
+    {
+      "argv": ["get", "title"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 221973404606747100
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_configured"
+          },
+          "title": "Recording home"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["close"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "closed": true,
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": false,
+              "engine": "chrome",
+              "launchHash": null
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": false,
+            "saveStatus": "not_configured"
+          },
+          "restoreStatus": "not_configured",
+          "saveStatus": "not_configured"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["tab", "list"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 221973404606747100
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_configured"
+          },
+          "tabs": [
+            {
+              "active": true,
+              "label": null,
+              "tabId": "t1",
+              "targetId": "470603A552780A382A44F98F1FE16168",
+              "title": "Recording home",
+              "type": "page",
+              "url": "http://127.0.0.1:<SITE_PORT>/"
+            },
+            {
+              "active": false,
+              "label": null,
+              "tabId": "t2",
+              "targetId": "9F9CD037CFCCDB9EF0C8B602A081B9A2",
+              "title": "Second page",
+              "type": "page",
+              "url": "http://127.0.0.1:<SITE_PORT>/page2"
+            }
+          ]
+        },
+        "error": null
+      }
+    }
+  ]
+}

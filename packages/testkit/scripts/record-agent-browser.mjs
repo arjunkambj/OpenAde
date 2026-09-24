@@ -21,7 +21,8 @@
  *
  * Scrubbing on the way in: the site and bridge ports become `<SITE_PORT>` and
  * `<BRIDGE_PORT>`, the scratch root `<SCRATCH>`, the home directory `<HOME>`,
- * the launch key and every 64-hex capability `<REDACTED>`, and a screenshot's
+ * the launch key and every 64-hex capability `<REDACTED>`, the daemon's
+ * stream port `<STREAM_PORT>`, and a screenshot's
  * image bytes are replaced by their length. Target and session ids are per-run
  * identifiers and stay as recorded; the tests match on them.
  */
@@ -69,7 +70,13 @@ const PAGES = {
 /**
  * Each scenario: the tabs the thread has before agent-browser connects, and
  * the CLI commands run against it. `{site}` is the site origin, `{shot}` a
- * scratch file.
+ * scratch file, `{tabN}` the target id of the thread's Nth tab at the moment
+ * the step runs. A `{host: "remove", index}` step is the pane closing that tab
+ * between two commands.
+ *
+ * The `cli-*` scenarios are the server's in-app driver's own command
+ * sequences (`apps/server/src/browser/inAppDriver.ts`), so their manifests
+ * are `cli-json`: the envelopes are what the driver's tests replay.
  */
 const SCENARIOS = {
   "connect-and-drive": {
@@ -130,6 +137,94 @@ const SCENARIOS = {
     description: "reload the tab: the bridge turns Page.reload into a guest reload",
     tabs: ["{site}/"],
     steps: [["get", "text", "#loads"], ["reload"], ["get", "text", "#loads"]],
+  },
+  "cli-attach": {
+    description:
+      "the in-app driver's open (list, pin the first tab, stream off), a call, the daemon stopping, the re-attach, close",
+    tabs: ["{site}/", "{site}/page2"],
+    steps: [
+      ["stream", "status"],
+      ["tab", "list"],
+      ["--pin-tab", "tab", "{tab0}"],
+      ["stream", "disable"],
+      ["stream", "status"],
+      ["get", "title"],
+      ["close"],
+      ["--pin-tab", "tab", "{tab0}"],
+      ["stream", "disable"],
+      ["get", "title"],
+      ["close"],
+      ["tab", "list"],
+    ],
+  },
+  "cli-empty-thread": {
+    description:
+      "the first browser call on a thread with no tab: tab list makes agent-browser create one",
+    tabs: [],
+    steps: [
+      ["tab", "list"],
+      ["--pin-tab", "tab", "{tab0}"],
+      ["stream", "disable"],
+      ["get", "url"],
+      ["close"],
+    ],
+  },
+  "cli-tabs-pinned": {
+    description:
+      "browser_tabs on a pinned session: new and switch move the pin; closing the bound tab leaves it pinned to nothing",
+    tabs: ["{site}/"],
+    steps: [
+      ["tab", "list"],
+      ["--pin-tab", "tab", "{tab0}"],
+      ["stream", "disable"],
+      ["tab", "new", "{site}/page2"],
+      ["get", "title"],
+      ["tab", "t1"],
+      ["get", "title"],
+      ["tab", "t2"],
+      ["tab", "close"],
+      ["tab", "list"],
+      ["--pin-tab", "tab", "{tab0}"],
+      ["stream", "disable"],
+      ["get", "title"],
+      ["close"],
+    ],
+  },
+  "cli-last-tab-gone": {
+    description:
+      "the pane closes the thread's only tab: tab_gone, an empty list, and a new tab to pin",
+    tabs: ["{site}/"],
+    steps: [
+      ["tab", "list"],
+      ["--pin-tab", "tab", "{tab0}"],
+      ["stream", "disable"],
+      { host: "remove", index: 0 },
+      ["get", "title"],
+      ["tab", "list"],
+      ["tab", "new"],
+      ["--pin-tab", "tab", "{tab0}"],
+      ["stream", "disable"],
+      ["get", "url"],
+      ["close"],
+    ],
+  },
+  "cli-tab-gone": {
+    description:
+      "the pane closes the pinned tab: the next command fails tab_gone, and the driver re-resolves",
+    tabs: ["{site}/", "{site}/page2"],
+    steps: [
+      ["tab", "list"],
+      ["--pin-tab", "tab", "{tab0}"],
+      ["stream", "disable"],
+      ["get", "title"],
+      { host: "remove", index: 0 },
+      ["get", "title"],
+      ["tab", "list"],
+      ["--pin-tab", "tab", "{tab0}"],
+      ["stream", "disable"],
+      ["get", "title"],
+      ["close"],
+    ],
   },
 };
 
@@ -234,6 +329,8 @@ const makeScrubber = ({ sitePort, bridgePort, launchKey, scratch }) => {
     let out = text;
     for (const [from, to] of replacements) out = out.replaceAll(from, to);
     out = out.replaceAll(`"remotePort":${sitePort}`, '"remotePort":"<SITE_PORT>"');
+    // `stream status` names the daemon's own loopback frame-stream port.
+    out = out.replaceAll(/"port":\d+/g, '"port":"<STREAM_PORT>"');
     return out.replaceAll(/\b[0-9a-f]{64}\b/g, "<REDACTED>");
   };
   const scrubValue = (value) => JSON.parse(scrubText(JSON.stringify(value)));
@@ -277,7 +374,16 @@ const record = async (name, context) => {
   const firstFrame = context.host.frames.length;
   const steps = [];
   for (const step of scenario.steps) {
-    const argv = step.map(fill);
+    if (!Array.isArray(step)) {
+      const { guests } = await context.host.request({ op: step.host, threadId, index: step.index });
+      steps.push({ host: step.host, index: step.index, guests });
+      process.stdout.write(`  ${name}: host ${step.host} ${step.index}\n`);
+      continue;
+    }
+    const { guests } = await context.host.request({ op: "guests", threadId });
+    const argv = step.map((part) =>
+      fill(part).replace(/\{tab(\d+)\}/g, (_match, index) => guests[Number(index)]?.targetId ?? ""),
+    );
     const { code, envelope } = await runCli(context.binary, env, argv);
     steps.push({ argv, exitCode: code, envelope });
     process.stdout.write(
@@ -301,7 +407,7 @@ const record = async (name, context) => {
   const manifest = {
     formatVersion: 1,
     kind: "agent-browser",
-    transport: "cdp-websocket",
+    transport: name.startsWith("cli-") ? "cli-json" : "cdp-websocket",
     scenario: name,
     description: scenario.description,
     cliVersion: context.cliVersion,
@@ -321,7 +427,9 @@ const record = async (name, context) => {
     NodePath.join(dir, "frames.jsonl"),
     frames.map((frame) => scrubText(JSON.stringify(frame))).join("\n") + "\n",
   );
-  const failed = steps.filter((step) => step.envelope?.success !== true).length;
+  const failed = steps.filter(
+    (step) => step.host === undefined && step.envelope?.success !== true,
+  ).length;
   process.stdout.write(`${name}: ${frames.length} frames, ${failed} failed step(s)\n`);
 };
 
