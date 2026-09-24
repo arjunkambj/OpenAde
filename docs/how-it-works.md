@@ -956,10 +956,11 @@ the reader jumps to the latest row. The last sent message keeps its reserve in
 every mode; it shrinks by itself as the reply grows past a screen, so it never
 has to be dropped under a reader.
 
-While a sent message is on its way to the top the list is away from its end on
-purpose, so the jump button stays hidden then. `timeline.jumpToLatest` and the
-button both resume following; the scroll to the end is instant under reduced
-motion.
+The jump button carries a small dot when the thread changed while the list was
+away from its end, and loses it at the end or on a jump. While a sent message
+is on its way to the top the list is away from its end on purpose, so the
+button stays hidden then. `timeline.jumpToLatest` and the button both resume
+following; the scroll to the end is instant under reduced motion.
 
 ### Closing the turn
 

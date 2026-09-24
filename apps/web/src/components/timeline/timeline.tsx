@@ -102,7 +102,12 @@ export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
           contentContainerClassName="mx-auto flex w-full max-w-[700px] flex-col px-6"
           contentContainerStyle={{ gap: 16, paddingTop: 24, paddingBottom: 24 }}
         />
-        <JumpToLatest listRef={listRef} hidden={anchor.placing} onJump={anchor.jumpToLatest} />
+        <JumpToLatest
+          listRef={listRef}
+          activity={snapshot.items}
+          hidden={anchor.placing}
+          onJump={anchor.jumpToLatest}
+        />
       </div>
     </TimelineThreadProvider>
   );
