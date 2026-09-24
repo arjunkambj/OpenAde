@@ -40,7 +40,9 @@ pointing at it (`apps/server/src/browser/agentBrowser.ts`). Without it the pane
 renders an install prompt instead of failing the app. The desktop drives the
 pane's own webviews, so `npm install -g agent-browser` is all it needs; the web
 renderer on its own (owned Chromium) also needs `agent-browser install` for the
-Chrome it downloads.
+Chrome it downloads. Settings → Browser shows whether the server found it, the
+version it printed and the command to install it; the server probes once at
+startup, so restart the app after installing.
 
 ## Install
 
@@ -162,6 +164,14 @@ over CDP by hand, mint the thread's bridge URL
 and key in the server's `OPENADE_SERVER_BROWSER_BRIDGE*` environment) and give
 it to agent-browser as `AGENT_BROWSER_CDP`, with an `AGENT_BROWSER_NAMESPACE`
 of your own so its sessions do not mix with the app's.
+
+The in-app browser's own features are plain renderer code over the shell's
+channels: the agent's cursor comes from the bridge's pointer relay
+(`apps/desktop/src/main/browser/agentPointer.ts`), "screenshot to chat" from
+`openade:browser-capture` and "Clear browsing data" from
+`openade:browser-clear-all` (`apps/desktop/src/main/ipc.ts`); the element
+picker runs in the page through the webview. In the web renderer none of them
+is there, since it has no preload bridge.
 
 ## The gate
 

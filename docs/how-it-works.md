@@ -1763,8 +1763,9 @@ thread opens no dock tab the user did not leave open, and an empty pane shows
 "No page open" with the address bar. When the agent's first call creates the
 thread's tab, the dock stays as it was: the thread header shows "Agent is
 using the browser — Show" for as long as a `browser_*` call runs or a tab the
-agent opened is open, and the pane is not on screen. Settings →
-`browser.openPaneOnAgentUse` (off by default) opens the pane instead, once per
+agent opened is open, and the pane is not on screen. Settings → Browser →
+"Open the browser pane when the agent starts using it"
+(`browser.openPaneOnAgentUse`, off by default) opens the pane instead, once per
 agent activity; closing it while the agent is active keeps it closed for that
 thread until you open it yourself, and an auto-open is not remembered as the
 thread's dock tab. Other surfaces — the terminal's links — call
@@ -1830,6 +1831,37 @@ table). With focus in the page itself the key never reaches the window, so the
 shell matches it in the guest, swallows it and relays the command, and the
 tab it came from moves. That also means `Cmd+R` in a page reloads the page:
 the default menu's window reload never fires from inside a pane tab.
+
+### The agent's cursor, the picker and screenshots
+
+While the agent clicks or moves the pointer in a tab, the pane draws its
+cursor over the page, with a pulse where it presses, and the cursor fades a
+couple of seconds after the agent's last move. The shell sees each mouse
+command on its way through the bridge and tells the window where it lands;
+the window scales it by the tab's zoom.
+
+Two buttons beside the address bar bring the page into the conversation.
+Pick an element outlines what is under the pointer; clicking picks it without
+the page seeing the click, and its CSS path, text and the start of its HTML
+are added to the thread's message draft (Escape or a second press cancels).
+Screenshot to chat attaches a PNG of the tab to the draft, under the same
+rules as a pasted image. Nothing is sent until you send the message.
+
+In the timeline the agent's browser calls read as what they did — "Opened
+http://localhost:5173/", "Clicked @e3", "Pressed Enter", "Took a screenshot" —
+with the full input and output behind the row's disclosure; text the agent
+typed or filled is never shown in the label.
+
+### Settings → Browser
+
+The Browser page holds the auto-open setting above (off by default), explains
+how the agent reaches the in-app browser — through a private local endpoint
+that reaches only that thread's tabs, never the app window, other threads or
+Chrome's remote-debugging port, which stays closed — shows whether
+agent-browser is installed and which version the server found at startup
+(`browser.status`) with the install command when it is not, and clears
+browsing data: the address bar's history for every project and, on the
+desktop, every thread's cookies, storage and cache, after a confirmation.
 
 ### Dev servers and suggestions
 

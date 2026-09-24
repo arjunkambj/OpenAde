@@ -234,7 +234,11 @@ Owns the operating system. Nothing about orchestration lives here.
   the window asks it to clear a deleted thread's `persist:thread-<id>`
   partition (storage and cache), and main checks the id against the bridge's
   thread-id pattern before it names a partition, and leaves alone a partition
-  that was never written to disk.
+  that was never written to disk. `openade:browser-clear-all` is the Browser
+  settings page's "Clear browsing data": every `thread-<id>` directory under
+  `Partitions`, cleared the same way. `openade:browser-capture` answers a PNG
+  of a pane tab by its guest's `webContents` id, for "screenshot to chat";
+  both answer only a `window` sender, and capture only a registered pane guest.
   A key pressed inside a pane page goes to the guest and never reaches the
   window's keybinding listener, so the window hands main its resolved
   `browser.*` chords on `openade:browser-chords` (only a `window` sender may,
@@ -249,8 +253,8 @@ Owns the operating system. Nothing about orchestration lives here.
 - `apps/desktop/src/main/browser/` — the browser bridge: the scoped CDP
   endpoint agent-browser drives the pane webviews through
   ([below](#the-browser-bridge)). `upgradeGate.ts`, `cdpPolicy.ts`,
-  `bridgeSession.ts`, `server.ts`, `tabsChannel.ts` and `guestChords.ts` are
-  Electron-free;
+  `bridgeSession.ts`, `server.ts`, `tabsChannel.ts`, `guestChords.ts` and
+  `agentPointer.ts` are Electron-free;
   `guests.ts` is the Electron side (the `GuestPort`), written against
   Electron's types with its runtime pieces injected; `start.ts` starts it from
   `index.ts`.
@@ -483,6 +487,43 @@ the page they come back from the shell (`openade:browser-command`, see
 `apps/desktop/src/main/ipc.ts`) to the host's `use-guest-keys.ts`, which moves
 the tab the key came from and hands `browser.focusAddress` to the command
 registry. The host re-sends the chords whenever the table changes.
+
+**The page in the conversation.** Beside the address bar
+(`page-actions.tsx`, pure parts in `page-to-chat.ts`), Pick an element runs a
+picker in the page through the webview's `executeJavaScript`: it outlines the
+element under the pointer, swallows the click that picks it and resolves with
+a CSS path, the tag, its text (200 characters) and the start of its HTML
+(2,000); Escape, a second press or a tab switch cancels it. The answer is the
+page's own data, so it is checked and cut again here and appended to the
+thread's composer draft (`@/state/ui`), where the person reads it before
+sending. Screenshot to chat asks the shell for a PNG of the tab
+(`openade:browser-capture`) and adds it to the draft's files through the
+composer's own attachment rules. Neither talks to the agent by itself.
+
+**The agent's cursor.** The bridge hands every native-input command it lets
+through to the shell's pointer relay (`apps/desktop/src/main/browser/agentPointer.ts`)
+before it reaches the guest; presses are always told and moves thinned to
+one per 50 ms per tab, on `openade:browser-agent-pointer`. The browser host
+(`agent-cursor.tsx`) keeps each tab's latest point, scales it by the tab's zoom
+onto the webview's box (`pointer-transform.ts`) and draws a cursor with a pulse
+on each press over the tab on screen only; it fades 2.5 s after the agent's
+last move.
+
+**Timeline rows.** A `mcp__openade__browser_*` row reads as what the agent did
+to the page — "Opened <url>", "Clicked @e3", "Pressed Enter", "Took a
+screenshot" — with the globe icon (`apps/web/src/components/timeline/browser-tool.ts`);
+typed and filled text is never shown in the label. The rows still come from
+the harness transcript, never from the gateway.
+
+**Settings → Browser** (`apps/web/src/components/Settings/browser-panel.tsx`,
+also in the command palette) holds `browser.openPaneOnAgentUse` (off by
+default), a plain account of the in-app attach and what it can reach,
+agent-browser's status from `browser.status` — the server's mode, whether
+`agent-browser --version` answered at startup and what it printed, asked on
+every reconnect (`browserStatusAtom`) — with the install commands the mode
+needs when it is missing, and Clear browsing data, which forgets the address
+bar's history and, on the desktop, clears every thread's partition after a
+confirmation.
 
 **Suggestions.** Focusing the address field opens a stock `Popover` holding a
 stock `Command` list (`address-suggestions.tsx`) with the project's running
@@ -1799,7 +1840,12 @@ the text's cap beside it, so over the cap only where the page is stays.
 
 Timeline rows for `mcp__openade__browser_*` come from the harness transcript
 through the connector's translator, not from the gateway — emitting items there
-would double every row.
+would double every row. The renderer labels them as browser actions
+([apps/web](#appsweb)).
+
+`browser.status` answers the server's one mode and whether agent-browser
+answered `--version` at startup, with its output, for the Browser settings
+page.
 
 The browser itself is the `agent-browser` CLI, wrapped rather than mounted as
 its own MCP server: wrapping is what gives a session per thread, a pinned
@@ -2025,6 +2071,12 @@ browser — Show"; Show opened the pane on the same tab. With
 `openPaneOnAgentUse` on, a second thread's first call opened the pane without
 remembering it as the dock tab, and after the user closed it the agent's next
 tab did not reopen it.
+
+**The agent's pointer.** `bridgeSession.ts` hands every native-input command
+the policy forwards to an `onAgentInput` hook just before it is queued for the
+guest; the shell's relay (`agentPointer.ts`) turns `Input.dispatchMouseEvent`
+presses and moves into what the window draws as the agent's cursor. It only
+observes: nothing about the command changes.
 
 **Residual risk.** The endpoint is on loopback, so it is protected by a
 256-bit capability rather than by the OS. The launch key sits in the server's
