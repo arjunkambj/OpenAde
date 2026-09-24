@@ -7,7 +7,7 @@
  *   the project's folder.
  * - A second subscriber reattaches: its snapshot holds the scrollback and
  *   lines up with the first subscriber's output, nothing lost or doubled.
- * - Resize reaches the shell; open is idempotent by id; the per-thread limit
+ * - Resize reaches the shell; open is idempotent by id; the per-owner limit
  *   holds.
  * - An exited shell stays listed with its output until it is closed.
  * - Close, thread.deleted, thread.archived and the service's scope closing
@@ -36,7 +36,7 @@ import {
   type ThreadId,
 } from "@OpenAde/contracts/ids";
 import type { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
-import { TERMINALS_PER_THREAD, type TerminalStreamItem } from "@OpenAde/contracts/terminal";
+import { TERMINALS_PER_OWNER, type TerminalStreamItem } from "@OpenAde/contracts/terminal";
 import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -265,11 +265,11 @@ describe.skipIf(process.platform === "win32")("TerminalService", () => {
     Effect.scoped(
       Effect.gen(function* () {
         const { terminals, threadId, terminalId } = yield* withTerminal;
-        for (let i = 1; i < TERMINALS_PER_THREAD; i++) {
+        for (let i = 1; i < TERMINALS_PER_OWNER; i++) {
           yield* terminals.open({ threadId, terminalId: makeTerminalId(), ...SIZE });
         }
         const listed = yield* terminals.list({ threadId });
-        expect(listed).toHaveLength(TERMINALS_PER_THREAD);
+        expect(listed).toHaveLength(TERMINALS_PER_OWNER);
         expect(listed[0]!.terminalId).toBe(terminalId);
         expect(
           yield* failureCode(
@@ -506,7 +506,7 @@ describe.skipIf(process.platform === "win32")("TerminalService, owned by a proje
         const stack = yield* buildStack;
         const terminals = yield* stack.service(yield* Effect.scope);
         const owner = { projectId: stack.projectId };
-        for (let i = 0; i < TERMINALS_PER_THREAD; i++) {
+        for (let i = 0; i < TERMINALS_PER_OWNER; i++) {
           yield* terminals.open({ ...owner, terminalId: makeTerminalId(), ...SIZE });
         }
         const refused = yield* Effect.flip(
@@ -514,7 +514,7 @@ describe.skipIf(process.platform === "win32")("TerminalService, owned by a proje
         );
         expect(refused).toMatchObject({
           code: "conflict",
-          message: `this project already has ${TERMINALS_PER_THREAD} terminals; close one to open another`,
+          message: `this project already has ${TERMINALS_PER_OWNER} terminals; close one to open another`,
         });
       }),
     ),

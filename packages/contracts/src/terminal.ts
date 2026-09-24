@@ -45,7 +45,7 @@ export const TERMINAL_STREAM_BUDGET_ITEMS = 4096;
  * Open terminals one owner — a thread, or a project — may hold, so a runaway
  * client cannot fork shells without end.
  */
-export const TERMINALS_PER_THREAD = 8;
+export const TERMINALS_PER_OWNER = 8;
 
 /** The most chars one `terminal.write` may carry: a large paste fits, an unbounded frame does not. */
 export const TERMINAL_WRITE_MAX_CHARS = 1024 * 1024;

@@ -11,7 +11,7 @@ import {
   TERMINAL_STREAM_BUDGET_BYTES,
   TERMINAL_STREAM_BUDGET_ITEMS,
   TERMINAL_WRITE_MAX_CHARS,
-  TERMINALS_PER_THREAD,
+  TERMINALS_PER_OWNER,
   TerminalSize,
   TerminalSummary,
   decodeTerminalOwnerKey,
@@ -164,7 +164,7 @@ describe("the terminal limits", () => {
         batchChars: TERMINAL_BATCH_CHARS,
         streamBytes: TERMINAL_STREAM_BUDGET_BYTES,
         streamItems: TERMINAL_STREAM_BUDGET_ITEMS,
-        perThread: TERMINALS_PER_THREAD,
+        perOwner: TERMINALS_PER_OWNER,
         writeChars: TERMINAL_WRITE_MAX_CHARS,
       });
       expect(limits).toEqual({
@@ -173,7 +173,7 @@ describe("the terminal limits", () => {
         batchChars: 65_536,
         streamBytes: 4_194_304,
         streamItems: 4096,
-        perThread: 8,
+        perOwner: 8,
         writeChars: 1_048_576,
       });
     }),

@@ -26,7 +26,7 @@
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { makeTerminalId, type TerminalId, type ThreadId } from "@OpenAde/contracts/ids";
 import {
-  TERMINALS_PER_THREAD,
+  TERMINALS_PER_OWNER,
   decodeTerminalOwnerKey,
   isThreadOwner,
   type TerminalSize,
@@ -209,7 +209,7 @@ export function TerminalDrawer({
     handle?.focus();
   };
 
-  const full = state.tabs.length >= TERMINALS_PER_THREAD;
+  const full = state.tabs.length >= TERMINALS_PER_OWNER;
   const ownerNoun = isThreadOwner(decodeTerminalOwnerKey(ownerKey)) ? "thread" : "project";
   const listError = listed?._tag === "error" ? listed.message : null;
 
@@ -318,7 +318,7 @@ export function TerminalDrawer({
         <AddSelectionButton threadId={draftId} handle={handle} />
         <IconButton
           label={
-            full ? `At most ${TERMINALS_PER_THREAD} terminals per ${ownerNoun}` : "New terminal"
+            full ? `At most ${TERMINALS_PER_OWNER} terminals per ${ownerNoun}` : "New terminal"
           }
           disabled={!connected || opening || full}
           onClick={() => void openNew()}

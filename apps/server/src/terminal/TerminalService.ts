@@ -30,7 +30,7 @@ import { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
 import {
   TERMINAL_STREAM_BUDGET_BYTES,
   TERMINAL_STREAM_BUDGET_ITEMS,
-  TERMINALS_PER_THREAD,
+  TERMINALS_PER_OWNER,
   isThreadOwner,
   terminalOwnerKey,
   terminalOwnerOf,
@@ -231,10 +231,10 @@ export const makeTerminalService = (
               });
             }
           }
-          if (sessions.size >= TERMINALS_PER_THREAD) {
+          if (sessions.size >= TERMINALS_PER_OWNER) {
             return yield* new OpenAdeRpcError({
               code: "conflict",
-              message: `${ownerNoun(owner)} already has ${TERMINALS_PER_THREAD} terminals; close one to open another`,
+              message: `${ownerNoun(owner)} already has ${TERMINALS_PER_OWNER} terminals; close one to open another`,
             });
           }
           const cwd = yield* injected.workspaceFor(owner);
