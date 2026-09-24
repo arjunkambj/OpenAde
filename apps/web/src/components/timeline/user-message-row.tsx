@@ -10,9 +10,9 @@
  * emphasis and code format, each line ending the user typed stays a line
  * break, and raw HTML shows as typed. A long message (`user-message-collapse.ts`)
  * is clamped to ten lines that fade out at the bottom, with "Show more" under
- * it. Whether it is open lives in the row disclosure map under
- * `user-message:<itemId>`, so it survives the row scrolling out of view and the
- * list recycling it. Collapse-all and expand-all leave it alone: they are about
+ * it; keyboard focus moving into the clamped text opens it. Whether it is
+ * open lives in the row disclosure map under `user-message:<itemId>`, so it
+ * survives the row scrolling out of view and the list recycling it. Collapse-all and expand-all leave it alone: they are about
  * tool calls, not about what the user wrote.
  *
  * Under the bubble sits the message's footer (`message-footer.tsx`): the time
@@ -66,7 +66,16 @@ function UserMessageText({ item }: { readonly item: ItemSnapshot }) {
     <>
       <div
         id={bodyId}
-        className={cn("min-w-0", clamped && "max-h-[10lh] overflow-hidden mask-b-from-60%")}
+        // `overflow-clip`, not `hidden`: a hidden box is still a scroller, and
+        // focus reaching a link or button below the clamp would scroll it,
+        // leaving a middle slice of the text under the fade. Keyboard focus
+        // inside opens the message instead, so what has focus is on screen.
+        className={cn("min-w-0", clamped && "max-h-[10lh] overflow-clip mask-b-from-60%")}
+        onFocus={(event) => {
+          if (clamped && event.target.matches(":focus-visible")) {
+            setOpen(true);
+          }
+        }}
       >
         <MarkdownBody text={text} id={item.itemId} variant="user" />
       </div>

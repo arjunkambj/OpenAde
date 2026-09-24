@@ -93,6 +93,9 @@ describe("UserMessageRow", () => {
     const markup = render({ text });
     expect(markup).toContain("mask-b-from-60%");
     expect(markup).toContain("max-h-[10lh]");
+    // Clipped rather than hidden, so focus inside cannot scroll the text under the fade.
+    expect(markup).toContain("overflow-clip");
+    expect(markup).not.toContain("overflow-hidden");
     expect(markup).toContain('aria-expanded="false"');
     expect(markup).toContain("Show more");
     // The whole text is still there, clamped rather than cut.

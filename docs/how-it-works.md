@@ -883,7 +883,10 @@ A user message over 10 lines with text or 600 characters
 render as shorter paragraph gaps, or as nothing at either end, so they do not
 count, and a message that fits is never clamped) is clamped to
 ten lines that fade out at the bottom, with a "Show more"/"Show less" button
-under it. Whether it is open is kept in the row disclosure map under
+under it. The clamp clips rather than hides its overflow, so nothing can
+scroll the text inside it, and keyboard focus moving onto a link or button
+past the clamp opens the message, so the focused control is on screen.
+Whether it is open is kept in the row disclosure map under
 `user-message:<itemId>`, so it holds when the row scrolls away and back; the
 collapse-all and expand-all shortcuts leave it alone.
 
