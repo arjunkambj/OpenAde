@@ -463,6 +463,13 @@ const PADDING_SIDES = {
   pb: ["bottom"],
 };
 
+/**
+ * The largest vertical padding, in spacing steps (16px), an element's inset
+ * takes. Above it the padding spaces a page or section, whose vertical
+ * breathing room is meant to exceed its gutters.
+ */
+const ELEMENT_INSET_MAX = 4;
+
 /** A square or round element, where padding does not shape the box. */
 const SHAPE_UTILITY = /^(?:size-.+|rounded-full|aspect-square)$/;
 
@@ -517,16 +524,20 @@ const paddingSize = (value) => {
 
 /**
  * The value an element's horizontal and vertical padding share, if they come
- * out equal; `undefined` otherwise.
+ * out equal, plus the vertical value (`taller`) when the vertical padding is
+ * larger instead; `undefined` when the vertical padding is the smaller one.
  *
  * `tokens` is one class list in cascade order. Unprefixed utilities set the
  * resting box; each variant (`hover:`, `sm:`, `data-*:`) is judged on the
  * resting box with its own padding on top, so `px-2 py-1 sm:py-2` fails
  * under `sm`. The narrowest horizontal side is compared with the tallest
  * vertical one, so `py-2 pr-2 pl-2.5` fails while `px-3 pt-5 pb-2` (a
- * section gap on top) passes. A box with a `size-*`, `rounded-full` or
- * `aspect-square` in the same state is square or round and passes, and so
- * does zero padding.
+ * section gap on top) passes. A box whose every vertical side is larger than
+ * its narrowest horizontal one, like `px-2 py-3`, fails too, while its
+ * vertical padding is on an element's scale (`ELEMENT_INSET_MAX`); a page or
+ * section at `px-8 py-10` passes, and so does zero horizontal padding. A box
+ * with a `size-*`, `rounded-full` or `aspect-square` in the same state is
+ * square or round and passes, and so does zero padding.
  */
 export const equalPadding = (tokens) => {
   const states = new Map([["", { padding: [], shaped: false }]]);
@@ -569,6 +580,10 @@ export const equalPadding = (tokens) => {
     const tallest = numeric ? Math.max(...vertical) : narrowest;
     if (narrowest !== undefined && narrowest === tallest && narrowest !== 0) {
       return { variant, value: String(narrowest) };
+    }
+    const shortest = numeric ? Math.min(...vertical) : undefined;
+    if (numeric && narrowest !== 0 && shortest > narrowest && shortest <= ELEMENT_INSET_MAX) {
+      return { variant, value: String(narrowest), taller: String(shortest) };
     }
   }
   return undefined;
@@ -635,9 +650,13 @@ export const equalPaddingLeaks = (relativePath, text) => {
       return;
     }
     const state = equal.variant === "" ? "" : ` under ${equal.variant}:`;
+    const found =
+      equal.taller === undefined
+        ? `equal padding${state} (x and y both ${equal.value})`
+        : `taller than wide padding${state} (x ${equal.value}, y ${equal.taller})`;
     leaks.set(line, {
       line,
-      message: `equal padding${state} (x and y both ${equal.value}); give the element less vertical padding, e.g. px-3 py-1.5, or mark a container with a "${PADDING_ALLOW}" comment`,
+      message: `${found}; give the element less vertical padding than horizontal, e.g. px-3 py-1.5, or mark a container with a "${PADDING_ALLOW}" comment`,
     });
   };
   const calls = [...source.matchAll(CLASS_CALL)].map((match) => {

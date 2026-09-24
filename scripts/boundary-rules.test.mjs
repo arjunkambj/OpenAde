@@ -291,6 +291,21 @@ describe("equalPaddingLeaks", () => {
     expect(leaksIn('const a = "px-2 pt-5 pb-1";\n')).toEqual([]);
   });
 
+  it("fails an element with more vertical padding than horizontal, and says so", () => {
+    const leaks = equalPaddingLeaks(file, 'const a = "px-2 py-3";\n');
+    expect(lines(leaks)).toEqual([1]);
+    expect(leaks[0].message).toContain("x 2, y 3");
+    expect(leaksIn('const a = "px-1 py-2";\n')).toEqual([1]);
+    expect(leaksIn('const a = "px-2 pt-3 pb-4";\n')).toEqual([1]);
+    expect(leaksIn('const a = "px-2 py-1 sm:py-3";\n')).toEqual([1]);
+    // One short vertical side is a gap on the other, not a tall inset.
+    expect(leaksIn('const a = "px-2 pt-3 pb-1";\n')).toEqual([]);
+    // A page or section's vertical room is meant to exceed its gutters.
+    expect(leaksIn('const a = "px-8 py-10";\nconst b = "px-4 py-8";\n')).toEqual([]);
+    // No horizontal inset: the box is not padded as an element.
+    expect(leaksIn('const a = "px-0 py-1";\n')).toEqual([]);
+  });
+
   it("follows the cascade inside one list", () => {
     expect(leaksIn('const a = "p-1 px-2";\n')).toEqual([]);
     expect(leaksIn('const a = "px-2 p-1";\n')).toEqual([1]);

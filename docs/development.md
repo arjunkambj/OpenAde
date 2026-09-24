@@ -286,7 +286,10 @@ The rule reads every string literal in the `.ts` and `.tsx` files under
 first, and fails one whose padding comes out even: it compares the narrowest
 horizontal side with the tallest vertical one, so `p-2`, `px-2 py-2`,
 `px-2 pb-2` and `py-1 pr-1 pl-3` fail while `px-3 pt-5 pb-2` (a section gap on
-top) passes. Every padding form counts — `p`, `px`/`py`, `ps`/`pe`, `pl`/`pr`,
+top) passes. It also fails an element whose every vertical side is larger than
+its narrowest horizontal one, such as `px-2 py-3`, while that vertical padding
+is on an element's scale (16px, `py-4`, or less); a page or section at
+`px-8 py-10` passes, since its vertical room is meant to exceed its gutters. Every padding form counts — `p`, `px`/`py`, `ps`/`pe`, `pl`/`pr`,
 `pt`/`pb`, `px`, arbitrary values and `(--variable)`s — and the cascade inside
 one list holds, so `p-1 px-2` passes. Each variant (`hover:`, `sm:`,
 `has-data-*:`) is judged on the resting box with its own padding on top; the
