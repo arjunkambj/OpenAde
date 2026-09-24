@@ -55,6 +55,7 @@ import * as Ref from "effect/Ref";
 import type * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 
+import { stageAttachments } from "./attachments";
 import type { ResolvedBinary } from "./binary";
 import { CLAUDE_CAPABILITIES } from "./capabilities";
 import { makeInputQueue } from "./inputQueue";
@@ -385,11 +386,23 @@ export const makeClaudeSession = (
           sightingsAtStart: toolGate.sightings(),
         });
         yield* emit({ type: "turn.started", payload: { turnId } });
+        const staged = yield* Effect.promise(() =>
+          stageAttachments({
+            attachmentsDir: services.attachmentsDir,
+            threadId,
+            attachments: turn.attachments,
+          }),
+        );
+        for (const message of staged.warnings) {
+          yield* emit({ type: "session.warning", payload: { message } });
+        }
         // A plan turn needs the CLI in plan mode before it reads the message,
         // and the turn after one needs it out again.
         const mode = permissionModeFor(settings);
         if (mode !== cliMode) yield* applyMode(mode);
-        if (!input.push(userMessage(turn))) return yield* new SessionClosed({ threadId });
+        if (!input.push(userMessage(turn, staged))) {
+          return yield* new SessionClosed({ threadId });
+        }
       });
 
     const interrupt = (): Effect.Effect<void, ConnectorError> =>
