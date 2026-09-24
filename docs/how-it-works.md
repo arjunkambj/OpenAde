@@ -2023,14 +2023,12 @@ fields entirely.
 ### Keybinding defaults
 
 `DEFAULT_KEYBINDINGS` in `packages/contracts/src/keybindings.ts`. An empty
-"when" means the binding holds everywhere. A command marked "(inert)" is bound
-but nothing answers it yet, so its chord does nothing and the palette does not
-list it.
+"when" means the binding holds everywhere.
 
 | area     | command                                               | shortcut                      | when                                                               |
 | -------- | ----------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------ |
 | General  | `commandPalette.toggle`                               | `Mod+K`                       |                                                                    |
-| General  | `shortcuts.open` (inert)                              | `Mod+/`                       |                                                                    |
+| General  | `shortcuts.open`                                      | `Mod+/`                       |                                                                    |
 | General  | `settings.open`                                       | `Mod+,`                       |                                                                    |
 | General  | `skills.open`                                         | `Mod+Shift+S`                 |                                                                    |
 | General  | `mcp.open`                                            | unbound                       |                                                                    |
@@ -2135,6 +2133,22 @@ such as `mcp.open`, have entries too. A test fails when a default command has
 no entry. Labels show a command's chord with `CommandKbd command="…"`, which
 reads the effective table, so a hint always shows the key the user actually
 bound.
+
+`shortcuts.open` shows the keyboard shortcuts sheet
+(`apps/web/src/components/keybindings/shortcuts-dialog.tsx`), mounted once at
+the app root beside `AppShortcuts`. It lists every catalog command, grouped by
+area in catalog order, with each chord the effective table binds to it (so a
+user override shows as the user bound it, and a command with no chord says
+"unbound") and the `when` clauses those chords carry. The `FIXED_KEYS` rows
+follow the Composer commands. Each word of a search must match a row: it
+occurs in the title, the id, the description or a `when` clause; or it is a
+whole chord, either as drawn (`⌘K`) or in keymap notation with any alias the
+matcher accepts (`mod+k`, `cmd+k`, `ctrl+k`), compared as the keys held on this
+platform; or it is one keycap or one modifier of a chord. So `cmd shift b` finds
+`Mod+Shift+B`, and `cmd+shift+b` does not find `Mod+Shift+Backspace`
+(`cheatsheetSections` in `apps/web/src/lib/cheatsheet.ts`).
+The palette offers it as "Keyboard shortcuts", and Settings → Keybindings has a
+button that fires the same command.
 
 The matcher is `packages/client-runtime/src/keybindings.ts`:
 

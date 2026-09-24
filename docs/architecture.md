@@ -322,6 +322,13 @@ running. Some entries are marked `palette: false` and never appear:
 - the palette's own toggle;
 - the numbered families, jump to thread N and pick option N.
 
+"Keyboard shortcuts" is one of the General commands. It opens the shortcuts
+sheet (`Mod+/`, `apps/web/src/components/keybindings/shortcuts-dialog.tsx`,
+mounted once at the root): every catalog command grouped by area with its
+current chords, overrides applied, and its `when` clause, plus the composer's
+fixed keys, searchable by name, id or key (`apps/web/src/lib/cheatsheet.ts`).
+Settings → Keybindings has a button that fires the same command.
+
 A leading `>` narrows the list to
 commands and hides the threads; the text after it is matched by the usual fuzzy
 filter (`apps/web/src/lib/palette-query.ts`). A footer names the keys: arrows

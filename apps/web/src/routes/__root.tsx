@@ -9,6 +9,7 @@ import * as React from "react";
 import { ThemeProvider, useTheme } from "@/components/theme-provider";
 import { AppShortcuts } from "@/components/Layout/app-shortcuts";
 import { SearchProvider } from "@/components/Layout/search-command";
+import { ShortcutsDialog } from "@/components/keybindings/shortcuts-dialog";
 import { WorktreeForceRemovalHost } from "@/components/sidebar/delete-thread-dialog";
 import { DiffWorkerPoolProvider } from "@/components/timeline/diff-pool";
 import { useAppAtoms } from "@/lib/app-runtime";
@@ -124,6 +125,8 @@ function RootComponent() {
             <KeybindingsProvider>
               {/* Thread switching and history keys, on every route. */}
               <AppShortcuts />
+              {/* The keyboard shortcuts sheet (Mod+/), on every route. */}
+              <ShortcutsDialog />
               {/*
                 Above the routes on purpose: the palette and the commands it
                 owns — open palette, new task, Settings, Skills — are
