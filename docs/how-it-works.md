@@ -401,10 +401,10 @@ function in `composer-keys.ts`:
 - an IME mid-composition → **insert**: the Enter commits the composition, even
   while a menu has rows;
 - a `/`, `#`, `@` or `$` menu that has rows → **pick** the highlighted one;
-- Mod, Ctrl or Alt held → **keymap**, leaving the chord to the keybinding
-  listener;
+- Mod, Ctrl or Alt held, on a chord the live keymap answers here
+  (`useKeymapAnswers`) → **keymap**, leaving it to the keybinding listener;
 - Shift held → **insert** a newline;
-- otherwise → **send**.
+- otherwise → **send**, with `queued: true` when Mod or Ctrl is held.
 
 What a send then does is `sendMode` in `send-mode.ts`:
 
@@ -419,11 +419,13 @@ follow-up meant for after the turn still waits for it on a harness that steers.
 Whether the harness steers is the `steering` capability of the instance the
 thread runs on (`instanceCapabilities`, the same read the attach button uses).
 
-Plain Enter and Shift+Enter are fixed. Any other Enter chord belongs to the
-keymap, so `composer.queue` (`Mod+Enter` by default) is an ordinary table row
-and rebinding it changes the key in the composer too. With the focus in the
-composer's textarea it sends with `queued: true`; anywhere else it puts the
-focus back in the composer. On the start screen it sends, since a thread that
+Plain Enter and Shift+Enter are fixed. An Enter chord the keymap answers
+belongs to it, so `composer.queue` (`Mod+Enter` by default) is an ordinary
+table row and rebinding it changes the key in the composer too. A chord it
+does not answer keeps the composer's own meaning, so Ctrl+Enter on macOS and
+Alt+Enter still send. With the focus in the composer's textarea
+`composer.queue` sends with `queued: true`; anywhere else it puts the focus
+back in the composer. On the start screen it sends, since a thread that
 does not exist yet has nothing to queue behind.
 
 The composer and the start screen answer the same keys

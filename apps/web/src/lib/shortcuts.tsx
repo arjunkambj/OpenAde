@@ -36,6 +36,7 @@ import {
   evaluateWhen,
   isAltGraphTyping,
   resolveKeybinding,
+  type ModKey,
 } from "@OpenAde/client-runtime/keybindings";
 import type { Keybinding } from "@OpenAde/contracts/settings";
 import * as React from "react";
@@ -52,6 +53,32 @@ import {
 } from "@/lib/keybindings";
 
 const RegistryContext = React.createContext<CommandRegistry | null>(null);
+
+/**
+ * The handler a keypress would run: the command the live table resolves for
+ * it in this press's context, if a mounted surface answers that command.
+ * AltGr typing a character answers nothing.
+ */
+const handlerFor = (
+  registry: CommandRegistry,
+  keybindings: ReadonlyArray<Keybinding>,
+  event: KeyboardEvent,
+  modKey: ModKey,
+): (() => void) | undefined => {
+  if (isAltGraphTyping(event, modKey)) {
+    return undefined;
+  }
+  const snapshot = focusSnapshot(event);
+  const context = keybindingContext(snapshot, registry.flag, modKey === "meta");
+  // Filtered rather than checked after resolving, so a yielded binding
+  // cannot shadow a toggle bound to the same chord further down.
+  const table =
+    snapshot.surface === "terminal"
+      ? keybindings.filter((entry) => !yieldsToTerminal(entry.command, snapshot.surface))
+      : keybindings;
+  const binding = resolveKeybinding(table, event, context, modKey);
+  return binding === null ? undefined : registry.resolve(binding.command);
+};
 
 /** The live table: the shipped defaults with the stored overrides layered on. */
 export function useKeybindings(): ReadonlyArray<Keybinding> {
@@ -71,26 +98,10 @@ export function KeybindingsProvider({ children }: { readonly children: React.Rea
   React.useEffect(() => {
     const modKey = detectModKey();
     const onKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.defaultPrevented ||
-        event.repeat ||
-        event.isComposing ||
-        isAltGraphTyping(event, modKey)
-      ) {
+      if (event.defaultPrevented || event.repeat || event.isComposing) {
         return;
       }
-      const snapshot = focusSnapshot(event);
-      const context = keybindingContext(snapshot, registry.flag, modKey === "meta");
-      // Filtered rather than checked after resolving, so a yielded binding
-      // cannot shadow a toggle bound to the same chord further down.
-      const table =
-        snapshot.surface === "terminal"
-          ? keybindingsRef.current.filter(
-              (entry) => !yieldsToTerminal(entry.command, snapshot.surface),
-            )
-          : keybindingsRef.current;
-      const binding = resolveKeybinding(table, event, context, modKey);
-      const handler = binding === null ? undefined : registry.resolve(binding.command);
+      const handler = handlerFor(registry, keybindingsRef.current, event, modKey);
       if (handler === undefined) {
         return;
       }
@@ -134,6 +145,22 @@ export function useKeybindingDispatch(): (command: string) => void {
       registry?.resolve(command)?.();
     },
     [registry],
+  );
+}
+
+/**
+ * Whether the listener would act on `event` once it bubbles up: the live
+ * table binds its chord in this context and a mounted surface answers the
+ * command. A field that gives a chord its own meaning when nothing claims it —
+ * the composer's Ctrl+Enter — asks this first, so a rebinding still wins.
+ */
+export function useKeymapAnswers(): (event: KeyboardEvent) => boolean {
+  const registry = React.useContext(RegistryContext);
+  const keybindings = useKeybindings();
+  return React.useCallback(
+    (event: KeyboardEvent) =>
+      registry !== null && handlerFor(registry, keybindings, event, detectModKey()) !== undefined,
+    [registry, keybindings],
   );
 }
 

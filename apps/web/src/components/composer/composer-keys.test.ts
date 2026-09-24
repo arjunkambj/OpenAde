@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { composerEnter, menuMove, type ComposerEnterInput } from "./composer-keys";
+import { composerEnter, keymapChord, menuMove, type ComposerEnterInput } from "./composer-keys";
 
 const input = (patch: Partial<ComposerEnterInput> = {}): ComposerEnterInput => ({
   triggerOpen: false,
   menuItemCount: 0,
   shiftKey: false,
-  chord: false,
+  keymapChord: false,
   composing: false,
   ...patch,
 });
@@ -58,19 +58,54 @@ describe("composerEnter", () => {
   it("leaves Mod+Enter to the keymap instead of sending it", () => {
     // `composer.queue` is a table row: claiming the chord here meant a
     // rebinding changed the palette's label but not the key in the composer.
-    expect(composerEnter(input({ chord: true }))).toBe("keymap");
-    expect(composerEnter(input({ chord: true, shiftKey: true }))).toBe("keymap");
-    expect(composerEnter(input({ triggerOpen: true, menuItemCount: 0, chord: true }))).toBe(
+    expect(composerEnter(input({ keymapChord: true }))).toBe("keymap");
+    expect(composerEnter(input({ keymapChord: true, shiftKey: true }))).toBe("keymap");
+    expect(composerEnter(input({ triggerOpen: true, menuItemCount: 0, keymapChord: true }))).toBe(
       "keymap",
     );
   });
 
+  it("sends a chord the keymap does not answer, as Enter always did", () => {
+    // Ctrl+Enter on macOS and Alt+Enter bind nothing by default; they used to
+    // send (or queue), and leaving them to the keymap made them do nothing.
+    expect(composerEnter(input({ keymapChord: false }))).toBe("send");
+    expect(composerEnter(input({ keymapChord: false, shiftKey: true }))).toBe("insert");
+  });
+
   it("lets an open menu with rows pick before the keymap sees a chord", () => {
-    expect(composerEnter(input({ triggerOpen: true, menuItemCount: 2, chord: true }))).toBe("pick");
+    expect(composerEnter(input({ triggerOpen: true, menuItemCount: 2, keymapChord: true }))).toBe(
+      "pick",
+    );
   });
 
   it("leaves a chord pressed mid-composition to the IME", () => {
-    expect(composerEnter(input({ chord: true, composing: true }))).toBe("insert");
+    expect(composerEnter(input({ keymapChord: true, composing: true }))).toBe("insert");
+  });
+});
+
+describe("keymapChord", () => {
+  const press = (patch: Partial<{ metaKey: boolean; ctrlKey: boolean; altKey: boolean }>) => ({
+    metaKey: false,
+    ctrlKey: false,
+    altKey: false,
+    ...patch,
+  });
+
+  it("is a chord only when the keymap answers it", () => {
+    expect(keymapChord(press({ metaKey: true }), () => true)).toBe(true);
+    expect(keymapChord(press({ ctrlKey: true }), () => false)).toBe(false);
+    expect(keymapChord(press({ altKey: true }), () => false)).toBe(false);
+  });
+
+  it("never asks the keymap about plain Enter", () => {
+    let asked = false;
+    expect(
+      keymapChord(press({}), () => {
+        asked = true;
+        return true;
+      }),
+    ).toBe(false);
+    expect(asked).toBe(false);
   });
 });
 

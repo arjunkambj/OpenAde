@@ -7,13 +7,14 @@
  * Keys: Enter sends — while a turn runs it steers that turn when the harness
  * can take a message mid-turn and queues otherwise (`send-mode`) — unless an
  * open trigger menu has a row to pick, which `composer-keys` decides;
- * Shift+Enter newline. Chorded Enter is the keymap's: `composer.queue`
- * (Mod+Enter) always queues, and it, focus, attach and clear are
- * `use-composer-commands`. Escape closes an open menu and otherwise reaches the
- * `thread.interrupt` binding this component registers — the toolbar's Stop
- * button is the same call with a mouse. State reads `threadDetailAtom`;
- * mutations go through `dispatchAtom`; cards close on their resolved events —
- * nothing here clears them locally.
+ * Shift+Enter newline. An Enter chord the keymap answers is its:
+ * `composer.queue` (Mod+Enter) always queues, and it, focus, attach and clear
+ * are `use-composer-commands`; other chords send, queued with Mod or Ctrl.
+ * Escape closes an open menu and otherwise reaches the `thread.interrupt`
+ * binding this component registers — the toolbar's Stop button is the same
+ * call with a mouse. State reads `threadDetailAtom`; mutations go through
+ * `dispatchAtom`; cards close on their resolved events — nothing here clears
+ * them locally.
  */
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
@@ -31,7 +32,7 @@ import { HeaderControls } from "@/components/header-controls";
 import { useProjects } from "@/state/hooks";
 import { ComposerSurface, composerInputClassName } from "@/components/composer/composer-surface";
 import { ComposerChips } from "@/components/composer/composer-chips";
-import { composerEnter, menuMove } from "@/components/composer/composer-keys";
+import { composerEnter, keymapChord, menuMove } from "@/components/composer/composer-keys";
 import { ComposerToolbar } from "@/components/composer/composer-toolbar";
 import { canSteer, sendMode } from "@/components/composer/send-mode";
 import { PendingCard } from "@/components/composer/pending-card";
@@ -47,7 +48,7 @@ import { useClientRuntime } from "@/lib/client-runtime";
 import { attachmentRefusal } from "@/lib/attachment-support";
 import { instanceCapabilities, threadConnectorInstanceId } from "@/lib/connector-routing";
 import { turnInFlight } from "@/lib/turn";
-import { useKeybindingCommand, useKeybindingFlag } from "@/lib/shortcuts";
+import { useKeybindingCommand, useKeybindingFlag, useKeymapAnswers } from "@/lib/shortcuts";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
 import { useComposerDraft } from "@/state/ui";
 import { Folder } from "@honeyicons/react";
@@ -223,13 +224,14 @@ export function Composer({
     openTrigger(detectComposerTrigger(next, caret));
   };
 
+  const keymapAnswers = useKeymapAnswers();
   const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter") {
       const action = composerEnter({
         triggerOpen: trigger !== null,
         menuItemCount,
         shiftKey: event.shiftKey,
-        chord: event.metaKey || event.ctrlKey || event.altKey,
+        keymapChord: keymapChord(event, () => keymapAnswers(event.nativeEvent)),
         composing: event.nativeEvent.isComposing,
       });
       if (action === "insert" || action === "keymap") {
@@ -237,10 +239,10 @@ export function Composer({
       }
       event.preventDefault();
       if (action === "send") {
-        // An open menu with nothing in it does not hold the message hostage:
-        // close it and send, rather than swallowing the key.
+        // An empty open menu does not hold the message hostage: close it and
+        // send. A chord the keymap left alone still queues with Mod or Ctrl.
         closeMenu();
-        send(false);
+        send(event.metaKey || event.ctrlKey);
         return;
       }
       const index = Math.min(activeIndex, Math.max(0, menuItemCount - 1));

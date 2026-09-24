@@ -57,7 +57,7 @@ import { makeThreadId, type ProjectId } from "@OpenAde/contracts/ids";
 import type { ProjectSummary, ThreadSettingsPatch } from "@OpenAde/contracts/orchestration";
 
 import { ComposerChips } from "@/components/composer/composer-chips";
-import { composerEnter, menuMove } from "@/components/composer/composer-keys";
+import { composerEnter, keymapChord, menuMove } from "@/components/composer/composer-keys";
 import { detectComposerTrigger } from "@OpenAde/client-runtime/composerTrigger";
 import { useComposerTrigger } from "@/components/composer/use-composer-trigger";
 import { useMentionMenus } from "@/components/composer/use-mention-menus";
@@ -76,6 +76,7 @@ import { attachmentRefusal } from "@/lib/attachment-support";
 import { instanceCapabilities, threadConnectorInstanceId } from "@/lib/connector-routing";
 import { defaultModelPick } from "@/lib/model-picks";
 import { runtimeModeOptions } from "@/lib/runtime-modes";
+import { useKeymapAnswers } from "@/lib/shortcuts";
 import { useCreateThread } from "@/lib/use-create-thread";
 import { useConnectionState, useProjects } from "@/state/hooks";
 import { useComposerDraft, useLastProject } from "@/state/ui";
@@ -194,6 +195,8 @@ function StartComposer({
     }
   };
 
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const keymapAnswers = useKeymapAnswers();
   // The same keys as a thread's composer (`composer-keys`): an open menu with
   // rows takes Enter and the arrows, Escape closes it, and Enter otherwise sends.
   const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -216,7 +219,7 @@ function StartComposer({
       triggerOpen: menus.open,
       menuItemCount: menus.itemCount,
       shiftKey: event.shiftKey,
-      chord: event.metaKey || event.ctrlKey || event.altKey,
+      keymapChord: keymapChord(event, () => keymapAnswers(event.nativeEvent)),
       composing: event.nativeEvent.isComposing,
     });
     if (action === "insert" || action === "keymap") {
@@ -230,8 +233,6 @@ function StartComposer({
     triggers.close();
     void send();
   };
-
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
   useComposerCommands({
     textareaRef,
     fileInputRef,
