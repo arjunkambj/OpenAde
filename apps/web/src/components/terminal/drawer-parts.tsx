@@ -80,9 +80,11 @@ export const stripScrollDelta = (
 const LINE_PIXELS = 16;
 
 /**
- * The tabs. Tabs shrink, their titles truncating, before the strip overflows;
- * past that it scrolls sideways, fading at an edge with more tabs beyond, and
- * a vertical wheel scrolls it too, so every tab stays reachable by mouse.
+ * The tabs. A long title shrinks, truncating, before the strip overflows —
+ * never so far that a default title loses its number, which is all that tells
+ * "Terminal 3" from "Terminal 4". Past that the strip scrolls sideways, fading
+ * at an edge with more tabs beyond, and a vertical wheel scrolls it too, so
+ * every tab stays reachable by mouse.
  */
 export function TerminalTabStrip({ children }: { children: React.ReactNode }) {
   const onWheel = (event: React.WheelEvent<HTMLDivElement>) => {
@@ -122,7 +124,7 @@ export function TerminalTabButton({
     }
   }, [active]);
   return (
-    <div ref={ref} className="flex max-w-48 min-w-24 shrink items-center">
+    <div ref={ref} className="flex max-w-48 min-w-30 shrink items-center">
       <Button
         type="button"
         role="tab"
