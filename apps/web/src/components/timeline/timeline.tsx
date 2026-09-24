@@ -15,7 +15,8 @@
  *
  * `useSendAnchor` decides who owns the scroll: it follows the end, holds a
  * just-sent message near the top while its reply streams in, or leaves the
- * reader alone once they scroll (`send-anchor.ts`). The turn rail and the
+ * reader alone once they scroll or open a turn fold, whose rows then open in
+ * place instead of pushing the toggle up (`send-anchor.ts`). The turn rail and the
  * previous/next message keys (`turn-rail-view.tsx`) hand the scroll to the
  * reader the same way before they move it.
  */
@@ -69,6 +70,7 @@ export function Timeline({ snapshot }: { snapshot: ThreadDetailSnapshot }) {
   const anchor = useSendAnchor({
     listRef,
     rows: projection.rows,
+    openFolds,
     threadId: snapshot.threadId,
     turnActive: options.turnActive,
   });

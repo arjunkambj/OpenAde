@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import type { TimelineRow } from "./fold";
 import {
+  foldsOpened,
   INITIAL_SEND_ANCHOR,
   isScrollKey,
   rowIdSet,
@@ -52,6 +53,20 @@ describe("sentUserMessageId", () => {
     // A fold opening brings rows back, never a user message that is not the latest.
     const opened = [user("u0"), ...history];
     expect(sentUserMessageId(rowIdSet(history), opened)).toBeNull();
+  });
+});
+
+describe("foldsOpened", () => {
+  const folds = (...ids: string[]) => new Set(ids);
+
+  it("is true when a fold opened", () => {
+    expect(foldsOpened(folds(), folds("turn-fold:u1"))).toBe(true);
+    expect(foldsOpened(folds("turn-fold:u1"), folds("turn-fold:u1", "turn-fold:u2"))).toBe(true);
+  });
+
+  it("is false when folds only closed or stayed", () => {
+    expect(foldsOpened(folds("turn-fold:u1"), folds())).toBe(false);
+    expect(foldsOpened(folds("turn-fold:u1"), folds("turn-fold:u1"))).toBe(false);
   });
 });
 
@@ -107,6 +122,17 @@ describe("sendAnchorReducer", () => {
       anchorRowId: null,
       reserveRowId: "u2",
     });
+  });
+
+  it("hands the scroll to the reader when they open a fold, following or anchored", () => {
+    // Following, the list would scroll to its new end past the toggle.
+    const opened = run([{ type: "rowsOpened" }]);
+    expect(opened.mode).toBe("free");
+    expect(sendAnchorProps(opened).maintainScrollAtEnd).toBe(false);
+    expect(run([{ type: "rowsOpened" }], anchored).mode).toBe("free");
+    expect(run([{ type: "rowsOpened" }], opened)).toBe(opened);
+    // Back at the end, the list follows again.
+    expect(run([{ type: "reachedEnd" }], opened).mode).toBe("follow");
   });
 
   it("ignores scrolls while following", () => {

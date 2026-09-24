@@ -6,7 +6,8 @@
  *   while it sits there (`maintainScrollAtEnd`).
  * - `anchored` starts when the user sends: the new message is placed near the
  *   top of the viewport and held there while the reply streams in below it.
- * - `free` starts when the reader scrolls while anchored: nothing moves the
+ * - `free` starts when the reader scrolls while anchored, or opens a turn
+ *   fold (`rowsOpened`) while following or anchored: nothing moves the
  *   list until it is back at its end or the reader jumps to the latest row —
  *   or until they send a message themselves (`sentHere`).
  *
@@ -46,6 +47,8 @@ export type SendAnchorEvent =
       readonly sentHere?: boolean | undefined;
     }
   | { readonly type: "userScrollIntent" }
+  /** The reader opened a turn fold: its rows arrive right under the toggle. */
+  | { readonly type: "rowsOpened" }
   | { readonly type: "reachedEnd" }
   | { readonly type: "jumpToLatest" }
   | { readonly type: "turnSettled" };
@@ -75,6 +78,12 @@ export const sendAnchorReducer = (
       };
     case "userScrollIntent":
       return state.mode === "anchored" ? { ...state, mode: "free" } : state;
+    case "rowsOpened":
+      // Following, the list would scroll to its new end and carry the toggle
+      // and the start of what it revealed up out of view; anchored, the hold
+      // would move it. Either way the rows should open in place, under the
+      // reader's eyes, so the scroll is theirs from here.
+      return state.mode === "free" ? state : { ...state, mode: "free" };
     case "reachedEnd":
       // Anchored, the list sits at its end by design: the reserve fills the
       // screen under the message. Only a reader's own scroll back down resumes.
@@ -101,6 +110,16 @@ export const sendAnchorProps = (state: SendAnchorState): SendAnchorProps => ({
   anchorRowId: state.mode === "anchored" ? state.sentRowId : null,
   reserveRowId: state.sentRowId,
 });
+
+/** Whether `next` holds an open fold that `previous` did not: the reader opened one. */
+export const foldsOpened = (previous: ReadonlySet<string>, next: ReadonlySet<string>): boolean => {
+  for (const rowId of next) {
+    if (!previous.has(rowId)) {
+      return true;
+    }
+  }
+  return false;
+};
 
 /** The row ids a projection holds, for the next `sentUserMessageId`. */
 export const rowIdSet = (rows: ReadonlyArray<TimelineRow>): ReadonlySet<string> =>

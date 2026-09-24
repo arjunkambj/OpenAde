@@ -26,6 +26,7 @@ import { sentHereRecently } from "@/state/local-sends";
 
 import type { TimelineRow } from "./fold";
 import {
+  foldsOpened,
   INITIAL_SEND_ANCHOR,
   isScrollKey,
   rowIdSet,
@@ -188,15 +189,28 @@ export interface SendAnchor {
 export function useSendAnchor({
   listRef,
   rows,
+  openFolds,
   threadId,
   turnActive,
 }: {
   listRef: React.RefObject<LegendListRef | null>;
   rows: ReadonlyArray<TimelineRow>;
+  /** The open turn folds the rows were built with. */
+  openFolds: ReadonlySet<string>;
   threadId: string;
   turnActive: boolean;
 }): SendAnchor {
   const [state, dispatch] = React.useReducer(reduce, INITIAL_SEND_ANCHOR);
+  // A fold that opens hands the scroll to the reader in the same render that
+  // brings its rows, before the list sees them with `maintainScrollAtEnd`
+  // still on and scrolls them up past the toggle.
+  const [seenFolds, setSeenFolds] = React.useState(openFolds);
+  if (seenFolds !== openFolds) {
+    setSeenFolds(openFolds);
+    if (foldsOpened(seenFolds, openFolds)) {
+      dispatch({ type: "rowsOpened" });
+    }
+  }
   const props = sendAnchorProps(state);
   // Cancels the placement running now, if any; called before a release is dispatched.
   const stopHold = React.useRef<() => void>(() => {});

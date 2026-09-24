@@ -778,7 +778,11 @@ turns the flat item list into rows:
   would defeat the virtualizer and mount every hidden diff at once. The open
   folds are part of the row disclosure map (`turn-fold:<user message id>`);
   the timeline reads only that slice of it (`state/turn-folds.ts`), so a fold
-  opening rebuilds the projection and any other row toggling does not;
+  opening rebuilds the projection and any other row toggling does not. A fold
+  opening also hands the scroll to the reader (Free, below) in the same
+  render that brings its rows: following the end, the list would otherwise
+  scroll to its new end and carry the toggle and the start of the revealed
+  work up out of view;
 - labels say what the work did (`timeline/work-summary.ts`). Each item is
   sorted into one kind of action — commands, file edits, creations and
   deletions (one per distinct path, a file created then edited counting as
@@ -974,7 +978,8 @@ it back without animation on every frame the geometry moves, until it has been
 still for 450 ms. The reply streams in below it. When the turn settles and its
 fold closes, the message is held again rather than jumping. **Free** starts
 when the reader scrolls while anchored — a wheel, a touch drag, a scrolling key
-in the list, a press on its scrollbar, or a text selection inside it — and
+in the list, a press on its scrollbar, or a text selection inside it — or
+opens a turn fold while following or anchored, so its rows open in place — and
 nothing moves the list until it is back at its end, which resumes following, or
 the reader jumps to the latest row, or sends a message of their own. Only a
 send this window made in the last ten seconds anchors from Free
