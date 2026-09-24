@@ -280,6 +280,30 @@ describe("clientState fold", () => {
     const restored = applyThreadEvent(retried, event("thread.checkpoint.restored", { checkpoint }));
     expect(restored.restoring).toBeNull();
     expect(restored.restoreFailure).toBeNull();
+    // The failed attempt moved nothing; the one that went through is recorded.
+    expect(restored.restores).toEqual([{ checkpoint, afterTurnId: null }]);
+  });
+
+  it("records a restore after the thread's latest turn, as the server does", () => {
+    const [first, second] = [makeTurnId(), makeTurnId()];
+    const checkpoint = {
+      checkpointId: makeCheckpointId(),
+      turnId: first,
+      ref: "refs/openade/checkpoints/1",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    };
+    const message = (turnId: typeof first) => ({
+      itemId: makeItemId(),
+      kind: "user_message" as const,
+      status: "completed" as const,
+      text: "go",
+      turnId,
+    });
+    const doc = { ...snapshot(), items: [message(first), message(second)] };
+    const restored = applyThreadEvent(doc, event("thread.checkpoint.restored", { checkpoint }));
+    expect(restored.restores).toEqual([{ checkpoint, afterTurnId: second }]);
+    const again = applyThreadEvent(restored, event("thread.checkpoint.restored", { checkpoint }));
+    expect(again.restores).toHaveLength(2);
   });
 
   it("forgets a running restore when it takes a fresh snapshot", () => {

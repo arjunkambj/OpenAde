@@ -1589,6 +1589,16 @@ same directory.
 reloaded mid-restore still says "Restoring the worktree…" instead of offering a
 button that can only be rejected.
 
+A restore records no checkpoint of its own, so a turn sent after one starts
+from the restored checkpoint rather than from the previous turn's. The fold
+keeps that history: each `thread.checkpoint.restored` adds a
+`CheckpointRestore` to `ThreadDetailSnapshot.restores`, stamped with the
+thread's latest turn at the time (`latestTurnId`, the last turn id to first
+appear in the items; restores never run during a turn). The server's fold and
+the client's stamp it the same way, and a document stored before the field
+existed reads as having none. The timeline reads it to know what "before this
+turn" means after a restore (below).
+
 ### The Changes pane
 
 `apps/web/src/components/panes/changes/changes-pane.tsx` is the dock's first

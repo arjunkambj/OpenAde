@@ -363,6 +363,46 @@ describe("the thread fold", () => {
     expect(threadSnapshotOf(failed!).restoring).toBeNull();
   });
 
+  it("records each restore that went through after the thread's latest turn", () => {
+    const [first, second] = [makeTurnId(), makeTurnId()];
+    const message = (turnId: typeof first) =>
+      event("thread.item.upserted", {
+        item: { itemId: makeItemId(), kind: "user_message", status: "completed", text: "go" },
+        turnId,
+      });
+    const firstCheckpoint = { ...checkpoint, turnId: first };
+    const doc = foldThread([
+      created(),
+      turnRequested(first),
+      message(first),
+      event("thread.turn.completed", { turnId: first, stopReason: "end_turn" }),
+      event("thread.checkpoint.created", { checkpoint: firstCheckpoint }),
+      turnRequested(second),
+      message(second),
+      event("thread.turn.completed", { turnId: second, stopReason: "end_turn" }),
+      event("thread.checkpoint.restore.requested", { checkpoint: firstCheckpoint }),
+      // A refused restore moved nothing, and is not recorded.
+      event("thread.checkpoint.restore.failed", {
+        checkpointId: firstCheckpoint.checkpointId,
+        message: "the worktree is locked",
+      }),
+      event("thread.checkpoint.restore.requested", { checkpoint: firstCheckpoint }),
+      event("thread.checkpoint.restored", { checkpoint: firstCheckpoint }),
+    ]);
+    // The next turn starts from the first turn's checkpoint, not the second's.
+    const restores = [{ checkpoint: firstCheckpoint, afterTurnId: second }];
+    expect(doc?.restores).toEqual(restores);
+    expect(threadSnapshotOf(doc!).restores).toEqual(restores);
+  });
+
+  it("reads a document stored before restores were kept as having none", () => {
+    const { restores: _restores, ...older } = foldThread([created()])!;
+    const stored = older as unknown as ThreadDoc;
+    expect(threadSnapshotOf(stored).restores).toEqual([]);
+    const next = projectThreadEvent(stored, event("thread.checkpoint.restored", { checkpoint }));
+    expect(next?.restores).toEqual([{ checkpoint, afterTurnId: null }]);
+  });
+
   it("stamps each stored item with the turn that produced it", () => {
     const turnId = makeTurnId();
     const itemId = makeItemId();

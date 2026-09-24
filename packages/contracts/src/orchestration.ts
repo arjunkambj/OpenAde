@@ -40,6 +40,7 @@ import {
   UserQuestionAnswer,
 } from "./runtime";
 import {
+  CheckpointRestore,
   CheckpointSummary,
   ContextWindowUsage,
   Mention,
@@ -64,8 +65,10 @@ export { Attachment, TurnReference } from "./runtime";
 // The value objects live in `./thread`; this module is still where they are
 // imported from.
 export {
+  CheckpointRestore,
   CheckpointSummary,
   ContextWindowUsage,
+  latestTurnId,
   Mention,
   PlanResponseAction,
   QueuedMessage,
@@ -683,6 +686,14 @@ export const ThreadDetailSnapshot = Schema.Struct({
    * absent and `null` both mean "no restore in flight".
    */
   restoring: Schema.optional(Schema.NullOr(CheckpointSummary)),
+  /**
+   * Every restore that went through, oldest first. A restore moves the
+   * worktree back without a checkpoint of its own, so the workspace a turn
+   * started from is this, not the turn before's checkpoint, when a restore
+   * came between them. Optional, so a snapshot written before this field
+   * existed still decodes; absent means none.
+   */
+  restores: Schema.optional(Schema.Array(CheckpointRestore)),
   session: Schema.NullOr(ThreadSession),
   currentTurnId: Schema.NullOr(TurnId),
   pendingApproval: Schema.NullOr(ApprovalRequest),

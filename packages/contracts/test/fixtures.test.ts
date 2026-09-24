@@ -193,6 +193,9 @@ const singles: ReadonlyArray<{ readonly path: string; readonly schema: FixtureSc
   // client reads to keep the spinner up and the Restore button disabled across
   // a reload, so the populated shape needs its own round-trip.
   { path: "thread-detail-snapshot.restoring.json", schema: ThreadDetailSnapshot },
+  // The same thread after a restore went through between two turns: `restores`
+  // is how a client knows the next turn starts from the restored checkpoint.
+  { path: "thread-detail-snapshot.restored.json", schema: ThreadDetailSnapshot },
   // A thread working in its own git worktree rather than the project's root.
   { path: "thread-detail-snapshot.worktree.json", schema: ThreadDetailSnapshot },
   { path: "settings.json", schema: Settings },
@@ -338,6 +341,25 @@ describe("the thread snapshot fixture", () => {
         Schema.decodeUnknownSync(ThreadDetailSnapshot)(older),
       );
       expect(decoded.restoring).toBeUndefined();
+    }),
+  );
+
+  it.effect("records a restore after the turn it followed, and decodes one before the field", () =>
+    Effect.gen(function* () {
+      const restored = yield* Effect.sync(() =>
+        Schema.decodeUnknownSync(ThreadDetailSnapshot)(
+          read("thread-detail-snapshot.restored.json"),
+        ),
+      );
+      // Back to the first turn's checkpoint, after the second turn ran.
+      expect(restored.restores).toEqual([
+        { checkpoint: restored.checkpoints[0], afterTurnId: restored.checkpoints[1]?.turnId },
+      ]);
+      // The main fixture predates the field: absent means no restore.
+      const older = yield* Effect.sync(() =>
+        Schema.decodeUnknownSync(ThreadDetailSnapshot)(read("thread-detail-snapshot.json")),
+      );
+      expect(older.restores).toBeUndefined();
     }),
   );
 

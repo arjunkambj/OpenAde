@@ -1241,7 +1241,9 @@ A restore is a durable work order: the accepted command writes
 `thread.checkpoint.restore.requested` before any git runs, and only after the
 git work does `thread.checkpoint.restored` or `restore.failed` follow. Orders
 with no recorded outcome are replayed at layer build, so a crash between receipt
-and git cannot drop the request. Thread deletion and project removal each prune
+and git cannot drop the request. A restore that went through is kept on the
+thread snapshot (`restores`, with the latest turn at the time), since it records
+no checkpoint and the next turn starts from the restored one. Thread deletion and project removal each prune
 the hidden refs under the thread's prefix.
 
 **`SessionManager`.** Not a reactor but the thing reactors act through: one

@@ -11,8 +11,10 @@
 import type { DecisionKind, ResolvedDecision } from "@OpenAde/contracts/decisions";
 import { UNANSWERED_OUTCOME } from "@OpenAde/contracts/decisions";
 import type { ThreadWorktree } from "@OpenAde/contracts/git";
+import { latestTurnId } from "@OpenAde/contracts/orchestration";
 import type {
   Attachment,
+  CheckpointRestore,
   CheckpointSummary,
   Mention,
   OrchestrationEvent,
@@ -112,6 +114,14 @@ export interface ThreadDoc {
    * knows both that one is running and which turn it goes back to.
    */
   readonly restoringCheckpoint: CheckpointSummary | null;
+  /**
+   * Every restore that went through, oldest first, with the thread's latest
+   * turn at the time: a restore records no checkpoint, so this is how the
+   * timeline knows the next turn started from the restored one. A document
+   * projected before the field existed has none, so read it through
+   * `restoresOf`.
+   */
+  readonly restores: ReadonlyArray<CheckpointRestore>;
   readonly pendingPlan: PendingPlan | null;
   /**
    * Every answered approval, question and plan, oldest first — the record the
@@ -149,6 +159,10 @@ const previewOf = (item: ItemSnapshot): string | undefined =>
 /** The thread's worktree, tolerating a document written before threads had one. */
 export const worktreeOf = (doc: ThreadDoc): ThreadWorktree | null =>
   (doc.worktree as ThreadWorktree | null | undefined) ?? null;
+
+/** The restores that went through, tolerating a document written before they were kept. */
+const restoresOf = (doc: ThreadDoc): ReadonlyArray<CheckpointRestore> =>
+  (doc.restores as ReadonlyArray<CheckpointRestore> | undefined) ?? [];
 
 /** The stored decisions, tolerating a document written before they were kept. */
 const decisionsOf = (doc: ThreadDoc): ReadonlyArray<ResolvedDecision> =>
@@ -235,6 +249,7 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
       interrupting: false,
       restoring: false,
       restoringCheckpoint: null,
+      restores: [],
       pendingPlan: null,
       decisions: [],
       usage: null,
@@ -534,10 +549,23 @@ const applyThreadEvent = (doc: ThreadDoc | null, event: OrchestrationEvent): Thr
         restoringCheckpoint: payload.checkpoint as CheckpointSummary,
       };
     case "thread.checkpoint.restored":
+      // The worktree moved back. The document has nothing to rewind — the
+      // checkpoint refs still exist — but the next turn starts from the
+      // restored checkpoint, not the latest turn's, and nothing else says so.
+      return {
+        ...next,
+        restoring: false,
+        restoringCheckpoint: null,
+        restores: [
+          ...restoresOf(doc),
+          {
+            checkpoint: payload.checkpoint as CheckpointSummary,
+            afterTurnId: latestTurnId(doc.items),
+          },
+        ],
+      };
     case "thread.checkpoint.restore.failed":
-      // The worktree moved back (or did not); the document has nothing to
-      // rewind — the checkpoint refs still exist and the event only settles
-      // the in-flight restore.
+      // The worktree did not move; the event only settles the in-flight restore.
       return { ...next, restoring: false, restoringCheckpoint: null };
     case "thread.error":
       return payload.fatal === true
@@ -624,6 +652,7 @@ export const threadSnapshotOf = (doc: ThreadDoc): ThreadDetailSnapshot => ({
   // running; folding the three restore events was the client's only source
   // before, and a fresh snapshot forgot them.
   restoring: doc.restoringCheckpoint,
+  restores: restoresOf(doc),
   session: doc.session,
   currentTurnId: doc.currentTurn?.turnId ?? null,
   pendingApproval: doc.approvals[0] ?? null,

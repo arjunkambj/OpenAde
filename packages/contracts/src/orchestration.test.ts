@@ -11,9 +11,11 @@ import {
   ThreadStreamItem,
   TurnReference,
   commandTypes,
+  latestTurnId,
   orchestrationEventTypes,
   threadLocksConnector,
 } from "./orchestration";
+import { makeTurnId } from "./ids";
 
 describe("Command", () => {
   it.effect("declares one union member per CommandType, in the same order", () =>
@@ -308,5 +310,20 @@ describe("threadLocksConnector", () => {
     expect(threadLocksConnector({ ...fresh, currentTurnId: "turn" })).toBe(true);
     // The server's own document names the running turn `currentTurn`.
     expect(threadLocksConnector({ session: null, items: [], currentTurn: {} })).toBe(true);
+  });
+});
+
+describe("latestTurnId", () => {
+  const [t1, t2] = [makeTurnId(), makeTurnId()];
+
+  it("names the last turn to first appear in the items", () => {
+    expect(latestTurnId([{ turnId: t1 }, {}, { turnId: t2 }, { turnId: t2 }])).toBe(t2);
+    // A late row of an earlier turn does not make that turn the latest again.
+    expect(latestTurnId([{ turnId: t1 }, { turnId: t2 }, { turnId: t1 }])).toBe(t2);
+  });
+
+  it("is null before any turn", () => {
+    expect(latestTurnId([])).toBeNull();
+    expect(latestTurnId([{}, { turnId: undefined }])).toBeNull();
   });
 });

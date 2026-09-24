@@ -6,6 +6,7 @@
 
 import type { ResolvedDecision } from "@OpenAde/contracts/decisions";
 import { UNANSWERED_OUTCOME } from "@OpenAde/contracts/decisions";
+import { latestTurnId } from "@OpenAde/contracts/orchestration";
 import type {
   CheckpointSummary,
   OrchestrationEvent,
@@ -408,7 +409,21 @@ export const applyThreadEvent = (
         updatedAt: event.occurredAt,
       };
     case "thread.checkpoint.restored":
-      return { ...doc, restoring: null, restoreFailure: null, updatedAt: event.occurredAt };
+      // The server's fold records the restore after the latest turn the same
+      // way, so the next turn's "before" is the restored checkpoint here too.
+      return {
+        ...doc,
+        restoring: null,
+        restoreFailure: null,
+        restores: [
+          ...(doc.restores ?? []),
+          {
+            checkpoint: payload.checkpoint as CheckpointSummary,
+            afterTurnId: latestTurnId(doc.items),
+          },
+        ],
+        updatedAt: event.occurredAt,
+      };
     case "thread.checkpoint.restore.failed":
       // git refused — a dirty worktree, a missing ref, a dirty submodule. The
       // message is the only thing that says which, so it outlives the event.

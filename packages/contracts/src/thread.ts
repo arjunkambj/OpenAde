@@ -102,6 +102,40 @@ export const CheckpointSummary = Schema.Struct({
 export type CheckpointSummary = typeof CheckpointSummary.Type;
 
 /**
+ * A restore that went through: the checkpoint the worktree went back to, and
+ * the thread's latest turn when it did (`latestTurnId`), or `null` before any.
+ * A restore runs only between turns and records no checkpoint of its own, so
+ * this is the only record that the next turn started from `checkpoint` rather
+ * than from the latest turn's own checkpoint.
+ */
+export const CheckpointRestore = Schema.Struct({
+  checkpoint: CheckpointSummary,
+  afterTurnId: Schema.NullOr(TurnId),
+});
+export type CheckpointRestore = typeof CheckpointRestore.Type;
+
+/**
+ * The thread's latest turn as its items name them: the last turn id to first
+ * appear, or `null` when no item carries one. Items stay in the order they
+ * were created and a steered message carries its turn's id, so this is the
+ * turn that ran last. The server's fold and the client's both stamp a
+ * `CheckpointRestore` with it, so they agree.
+ */
+export const latestTurnId = (
+  items: ReadonlyArray<{ readonly turnId?: TurnId | undefined }>,
+): TurnId | null => {
+  const seen = new Set<TurnId>();
+  let latest: TurnId | null = null;
+  for (const item of items) {
+    if (item.turnId !== undefined && !seen.has(item.turnId)) {
+      seen.add(item.turnId);
+      latest = item.turnId;
+    }
+  }
+  return latest;
+};
+
+/**
  * The connector session a thread is currently bound to, if any.
  *
  * `capabilities` is what that session's harness said it can do when it
