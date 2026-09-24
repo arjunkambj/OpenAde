@@ -1737,7 +1737,10 @@ foreground, cursor and selection are resolved to RGBA through a 1×1 canvas,
 because the tokens are `oklch(…)` and xterm cannot parse that, and are read
 again when the theme changes. The block cursor is the foreground with the
 character under it in the background, so the character stays readable. The 16
-ANSI colours stay xterm's own palette.
+ANSI colours stay xterm's own palette, which is tuned for a dark background;
+xterm's `minimumContrastRatio` (4.5, WCAG AA) lifts any of them too faint
+against the background as it draws, so white and bright yellow stay readable
+on the light theme.
 
 ### Reattaching
 

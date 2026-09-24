@@ -241,6 +241,11 @@ export default function TerminalView({
       scrollback: 5000,
       macOptionIsMeta: false,
       cursorBlink: true,
+      // xterm's ANSI palette is tuned for a dark background: white and bright
+      // yellow all but vanish on the light theme. xterm lifts any colour below
+      // this contrast against its cell's background as it draws — WCAG AA for
+      // text — so no colour value of our own is needed.
+      minimumContrastRatio: 4.5,
       // Find highlights every match through xterm's decorations, which are
       // still proposed API; the search addon is the only thing that uses them.
       allowProposedApi: true,
