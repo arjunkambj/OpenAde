@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import { vi } from "vitest";
 
 import { isGroupGone, makeProcessGroup } from "./spawn";
 
@@ -103,6 +104,63 @@ describe("makeProcessGroup", () => {
       yield* group.stop;
       expect(isAlive(report.grandchild)).toBe(false);
       expect(child.exitCode === null ? child.signalCode : child.exitCode).toBe("SIGTERM");
+    }),
+  );
+
+  it.live("never signals a group once it is gone, whoever holds its pid by then", () =>
+    Effect.gen(function* () {
+      const group = makeProcessGroup();
+      const abort = new AbortController();
+      const child = group.spawn({
+        command: process.execPath,
+        args: ["-e", "process.exit(0)"],
+        env: { PATH: process.env.PATH },
+        signal: abort.signal,
+      });
+      const pid = group.latest()!.pid;
+      yield* Effect.promise(() => group.latest()!.exited);
+      expect(yield* group.isGone).toBe(true);
+
+      // What reaches a gone group's pid is what the kernel may have handed on.
+      const kill = vi.spyOn(process, "kill");
+      try {
+        expect(child.kill("SIGTERM")).toBe(false);
+        abort.abort();
+        yield* group.stop;
+        const signalled = kill.mock.calls.filter(
+          ([target, signal]) => Math.abs(Number(target)) === pid && signal !== 0,
+        );
+        expect(signalled).toEqual([]);
+      } finally {
+        kill.mockRestore();
+      }
+    }),
+  );
+
+  it.live("still stops what a leader that exited left in its group", () =>
+    Effect.gen(function* () {
+      const group = makeProcessGroup();
+      const child = group.spawn({
+        command: process.execPath,
+        args: [
+          "-e",
+          `const { spawn } = require("node:child_process");
+const grandchild = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });
+process.stdout.write(JSON.stringify({ pid: process.pid, grandchild: grandchild.pid, env: {} }) + "\\n");
+grandchild.unref();
+process.exit(0);`,
+        ],
+        env: { PATH: process.env.PATH },
+      });
+      const report = yield* Effect.promise(() => firstLine(child.stdout));
+      yield* Effect.promise(() => group.latest()!.exited);
+      expect(isAlive(report.grandchild)).toBe(true);
+      expect(yield* group.isGone).toBe(false);
+
+      yield* group.stop;
+
+      expect(isAlive(report.grandchild)).toBe(false);
+      expect(yield* group.isGone).toBe(true);
     }),
   );
 

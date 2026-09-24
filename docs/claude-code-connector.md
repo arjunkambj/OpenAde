@@ -260,7 +260,11 @@ process group, and sends every signal to the whole group, which is the only
 way a Bash tool's grandchildren go with it. `stop` sends SIGTERM, waits for
 the leader, escalates to SIGKILL after a grace period, and sweeps whatever is
 left. `isGone`, a signal 0 to the group failing with ESRCH, is the proof
-`close` rests on. The CLI's stderr is drained there and its tail kept, since
+`close` rests on. A group seen gone is never signalled again — not by `stop`,
+the SDK's own kill, nor the SDK's abort about two seconds after `close` —
+since its pid is free for the kernel to hand to an unrelated process; a group
+whose leader exited but whose members remain is still signalled, as its id
+cannot be reused while they live. The CLI's stderr is drained there and its tail kept, since
 an exit nobody asked for is explained by nothing else. A session whose CLI
 closes its stdin normally exits 0 (`session-controls`).
 

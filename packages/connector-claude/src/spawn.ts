@@ -16,6 +16,12 @@
  * `isGone` is the proof: signal 0 to the group fails with ESRCH once no
  * member is left.
  *
+ * A group that is gone is never signalled again. Its id is free for the
+ * kernel to hand out once no member is left, so a later `kill(-pid)` — or a
+ * direct `kill(pid)` — could reach an unrelated process that now holds it.
+ * While a member is left the id cannot be reused, so a group whose leader has
+ * exited is still signalled for the members it left behind.
+ *
  * The CLI's stderr is drained here — the SDK reads none from a custom spawn —
  * and its tail is kept, because an exit the session did not ask for is
  * explained by nothing else.
@@ -86,19 +92,39 @@ const KILL_GRACE = "5 seconds";
 /** A `pgrep` that hangs must not hang the server with it. */
 const PGREP_TIMEOUT_MS = 5_000;
 
+/** One spawned child as the group tracks it. */
+interface Member {
+  readonly pid: number;
+  /** The leader has exited and been reaped: its pid only names its group now. */
+  readonly reaped: () => boolean;
+  /** Latched once the group was seen gone: nothing is signalled after that. */
+  gone: boolean;
+}
+
+/** The group was seen gone — now or before — and is latched so. */
+const seenGone = (member: Member): boolean => {
+  if (!member.gone && isGroupGone(member.pid)) member.gone = true;
+  return member.gone;
+};
+
 /**
  * `kill(-pid)` reaches the group; a child that is not a group leader gets the
- * direct kill. A child that never started has no pid, and nothing is signalled
- * for it — `-(-1)` would be pid 1.
+ * direct kill while it has not exited. A group already gone gets nothing, and
+ * neither does a child that never started — `-(-1)` would be pid 1.
  */
-const signalGroup = (pid: number, signal: NodeJS.Signals): boolean => {
-  if (pid <= 0) return false;
+const signalGroup = (member: Member, signal: NodeJS.Signals): boolean => {
+  if (member.pid <= 0 || seenGone(member)) return false;
   try {
-    process.kill(-pid, signal);
+    process.kill(-member.pid, signal);
     return true;
-  } catch {
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ESRCH") {
+      member.gone = true;
+      return false;
+    }
+    if (member.reaped()) return false;
     try {
-      process.kill(pid, signal);
+      process.kill(member.pid, signal);
       return true;
     } catch {
       return false;
@@ -148,7 +174,7 @@ const sweepGroup = (pid: number): Effect.Effect<void> =>
   });
 
 /** The SDK's view of the child, with every signal sent to the group. */
-const asSpawned = (child: ChildProcess, pid: number): ClaudeSpawnedProcess => ({
+const asSpawned = (child: ChildProcess, member: Member): ClaudeSpawnedProcess => ({
   stdin: child.stdin!,
   stdout: child.stdout!,
   get killed() {
@@ -160,7 +186,7 @@ const asSpawned = (child: ChildProcess, pid: number): ClaudeSpawnedProcess => ({
   get signalCode() {
     return child.signalCode;
   },
-  kill: (signal) => signalGroup(pid, signal),
+  kill: (signal) => signalGroup(member, signal),
   on: (event: "exit" | "error", listener: ExitListener | ErrorListener) => {
     child.on(event, listener);
   },
@@ -176,7 +202,7 @@ export const makeProcessGroup = (hooks?: {
   /** Each chunk of the child's stderr, for the session's log. */
   readonly onStderr?: (chunk: string) => void;
 }): ProcessGroup => {
-  const spawned: Array<ClaudeChild> = [];
+  const spawned: Array<ClaudeChild & { readonly member: Member }> = [];
 
   const spawnOne = (options: ClaudeSpawnOptions): ClaudeSpawnedProcess => {
     const env: Record<string, string> = {};
@@ -193,6 +219,11 @@ export const makeProcessGroup = (hooks?: {
     // 'error' event on the process it is handed, which reports it as a failed
     // launch naming the path.
     const pid = child.pid ?? -1;
+    const member: Member = {
+      pid,
+      reaped: () => child.exitCode !== null || child.signalCode !== null,
+      gone: pid <= 0,
+    };
     let tail = "";
     child.stderr?.setEncoding("utf8");
     child.stderr?.on("data", (chunk: string) => {
@@ -204,31 +235,33 @@ export const makeProcessGroup = (hooks?: {
       child.once("error", () => resolve({ code: child.exitCode, signal: child.signalCode }));
     });
     if (pid > 0) {
-      spawned.push({ pid, exited, stderrTail: () => tail });
+      spawned.push({ pid, exited, stderrTail: () => tail, member });
     }
-    options.signal?.addEventListener("abort", () => signalGroup(pid, "SIGTERM"), { once: true });
-    return asSpawned(child, pid);
+    options.signal?.addEventListener("abort", () => signalGroup(member, "SIGTERM"), {
+      once: true,
+    });
+    return asSpawned(child, member);
   };
 
-  const stopOne = (child: ClaudeChild): Effect.Effect<void> =>
+  const stopOne = (child: (typeof spawned)[number]): Effect.Effect<void> =>
     Effect.gen(function* () {
-      signalGroup(child.pid, "SIGTERM");
+      signalGroup(child.member, "SIGTERM");
       const settled = yield* Effect.raceFirst(
         Effect.promise(() => child.exited).pipe(Effect.as(true)),
         Effect.sleep(KILL_GRACE).pipe(Effect.as(false)),
       );
-      if (!settled) signalGroup(child.pid, "SIGKILL");
+      if (!settled) signalGroup(child.member, "SIGKILL");
       yield* Effect.promise(() => child.exited);
-      if (!isGroupGone(child.pid)) yield* sweepGroup(child.pid);
+      if (!seenGone(child.member)) yield* sweepGroup(child.pid);
     });
 
   return {
     spawn: spawnOne,
     latest: () => spawned.at(-1),
-    children: () => [...spawned],
+    children: () => spawned.map(({ pid, exited, stderrTail }) => ({ pid, exited, stderrTail })),
     stop: Effect.suspend(() =>
       Effect.forEach([...spawned], stopOne, { discard: true, concurrency: "unbounded" }),
     ),
-    isGone: Effect.sync(() => spawned.every((child) => isGroupGone(child.pid))),
+    isGone: Effect.sync(() => spawned.every((child) => seenGone(child.member))),
   };
 };
