@@ -67,6 +67,7 @@ describe("the agent-browser recordings", () => {
       "cli-attach",
       "cli-empty-thread",
       "cli-last-tab-gone",
+      "cli-reap",
       "cli-tab-gone",
       "cli-tabs-pinned",
       "connect-and-drive",

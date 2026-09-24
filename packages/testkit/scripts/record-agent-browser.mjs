@@ -72,7 +72,7 @@ const PAGES = {
  * the CLI commands run against it. `{site}` is the site origin, `{shot}` a
  * scratch file, `{tabN}` the target id of the thread's Nth tab at the moment
  * the step runs. A `{host: "remove", index}` step is the pane closing that tab
- * between two commands.
+ * between two commands; a `{pause: ms}` step is time passing between two.
  *
  * The `cli-*` scenarios are the server's in-app driver's own command
  * sequences (`apps/server/src/browser/inAppDriver.ts`), so their manifests
@@ -226,6 +226,22 @@ const SCENARIOS = {
       ["close"],
     ],
   },
+  "cli-reap": {
+    description:
+      "a daemon left running in the namespace: session info names its pid and socket directory, session list the namespace's sessions, close --all closes them and the list empties",
+    tabs: ["{site}/"],
+    steps: [
+      ["tab", "list"],
+      ["--pin-tab", "tab", "{tab0}"],
+      ["stream", "disable"],
+      ["session", "info"],
+      ["session", "list"],
+      ["close", "--all"],
+      // `close --all` answers before the daemons have finished exiting.
+      { pause: 1500 },
+      ["session", "list"],
+    ],
+  },
 };
 
 const resolveBinary = () => {
@@ -374,6 +390,11 @@ const record = async (name, context) => {
   const firstFrame = context.host.frames.length;
   const steps = [];
   for (const step of scenario.steps) {
+    if (!Array.isArray(step) && step.pause !== undefined) {
+      await new Promise((resolve) => setTimeout(resolve, step.pause));
+      steps.push({ pause: step.pause });
+      continue;
+    }
     if (!Array.isArray(step)) {
       const { guests } = await context.host.request({ op: step.host, threadId, index: step.index });
       steps.push({ host: step.host, index: step.index, guests });
@@ -428,7 +449,7 @@ const record = async (name, context) => {
     frames.map((frame) => scrubText(JSON.stringify(frame))).join("\n") + "\n",
   );
   const failed = steps.filter(
-    (step) => step.host === undefined && step.envelope?.success !== true,
+    (step) => step.argv !== undefined && step.envelope?.success !== true,
   ).length;
   process.stdout.write(`${name}: ${frames.length} frames, ${failed} failed step(s)\n`);
 };

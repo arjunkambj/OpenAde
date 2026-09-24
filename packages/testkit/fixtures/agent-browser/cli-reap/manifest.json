@@ -1,0 +1,198 @@
+{
+  "formatVersion": 1,
+  "kind": "agent-browser",
+  "transport": "cli-json",
+  "scenario": "cli-reap",
+  "description": "a daemon left running in the namespace: session info names its pid and socket directory, session list the namespace's sessions, close --all closes them and the list empties",
+  "cliVersion": "0.38.1",
+  "recordedOn": "2026-09-24",
+  "model": "none",
+  "real": true,
+  "electronVersion": "44.3.0",
+  "threadId": "rec-cli-reap",
+  "tabs": [
+    {
+      "targetId": "D3E45581662895F82ACA53CF8D7B6693",
+      "url": "http://127.0.0.1:<SITE_PORT>/"
+    }
+  ],
+  "steps": [
+    {
+      "argv": ["tab", "list"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 10381172597040146000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "tabs": [
+            {
+              "active": true,
+              "label": null,
+              "tabId": "t1",
+              "targetId": "D3E45581662895F82ACA53CF8D7B6693",
+              "title": "Recording home",
+              "type": "page",
+              "url": "http://127.0.0.1:<SITE_PORT>/"
+            }
+          ]
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["--pin-tab", "tab", "D3E45581662895F82ACA53CF8D7B6693"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "label": null,
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 10381172597040146000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": true,
+            "saveStatus": "not_attempted"
+          },
+          "tabId": "t1",
+          "targetId": "D3E45581662895F82ACA53CF8D7B6693",
+          "title": "Recording home",
+          "url": "http://127.0.0.1:<SITE_PORT>/"
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["stream", "disable"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "disabled": true,
+          "lifecycle": {
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 10381172597040146000
+            },
+            "launched": false,
+            "relaunchedBrowser": false,
+            "restartedBackground": false,
+            "restoreStatus": "not_configured",
+            "reused": false,
+            "saveStatus": "not_attempted"
+          }
+        },
+        "error": null
+      }
+    },
+    {
+      "argv": ["session", "info"],
+      "exitCode": 0,
+      "envelope": {
+        "data": {
+          "active": true,
+          "namespace": "openade-record",
+          "pid": 24680,
+          "runtime": {
+            "backgroundPid": 24680,
+            "browserLaunched": true,
+            "compatibilityStatus": "current",
+            "effectiveLaunch": {
+              "browserLaunched": true,
+              "engine": "chrome",
+              "launchHash": 10381172597040146000
+            },
+            "engine": "chrome",
+            "launchHash": 10381172597040146000,
+            "lifecycle": {
+              "effectiveLaunch": {
+                "browserLaunched": true,
+                "engine": "chrome",
+                "launchHash": 10381172597040146000
+              },
+              "launched": false,
+              "relaunchedBrowser": false,
+              "restartedBackground": false,
+              "restoreStatus": "not_configured",
+              "reused": false,
+              "saveStatus": "not_attempted"
+            },
+            "namespace": "openade-record",
+            "pageCount": 1,
+            "restoreCheckFn": null,
+            "restoreCheckText": null,
+            "restoreCheckUrl": null,
+            "restoreKey": null,
+            "restoreLoadedPath": null,
+            "restoreSave": "auto",
+            "restoreSavedPath": null,
+            "restoreStatus": "not_configured",
+            "restoreStatusDetail": null,
+            "restoreValidationPending": false,
+            "saveStatus": "not_attempted",
+            "session": "rec-cli-reap",
+            "socketDir": "<HOME>/.agent-browser/namespaces/openade-record/run"
+          },
+          "runtimeError": null,
+          "session": "rec-cli-reap",
+          "socketDir": "<HOME>/.agent-browser/namespaces/openade-record/run",
+          "version": "0.38.1"
+        },
+        "success": true
+      }
+    },
+    {
+      "argv": ["session", "list"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "sessions": ["rec-cli-reap"]
+        }
+      }
+    },
+    {
+      "argv": ["close", "--all"],
+      "exitCode": 0,
+      "envelope": {
+        "data": {
+          "closed": 1,
+          "failed": [],
+          "sessions": ["rec-cli-reap"]
+        },
+        "success": true
+      }
+    },
+    {
+      "pause": 1500
+    },
+    {
+      "argv": ["session", "list"],
+      "exitCode": 0,
+      "envelope": {
+        "success": true,
+        "data": {
+          "sessions": []
+        }
+      }
+    }
+  ]
+}
