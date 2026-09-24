@@ -1646,7 +1646,10 @@ which is always mounted with the thread view, so the button and the chord take
 one path — the one that also moves focus into the terminal it opens. Whether a
 thread's drawer is open, and how tall the drawer is (at least 120px, at most
 70% of the column), is presentation state in localStorage
-(`apps/web/src/state/terminal-ui.ts`).
+(`apps/web/src/state/terminal-ui.ts`). The header and composer keep their
+height, so when they leave less room than that on a short window, the drawer
+shrinks to what is left, down to its 120px, and the xterm fits the rows it can
+show.
 
 A drawer that opens with no terminals starts one, once `terminal.list` has
 said there are none and the xterm has measured the grid to start it at. The

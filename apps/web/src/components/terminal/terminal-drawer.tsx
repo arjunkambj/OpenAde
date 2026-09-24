@@ -224,10 +224,14 @@ function TerminalDrawer({
       data-context="terminal"
       aria-label="Terminal"
       role="region"
-      className="relative flex h-(--terminal-height) shrink-0 flex-col border-t border-border bg-background"
+      // Not `shrink-0`: the header and composer above cannot shrink, so on a
+      // short window the drawer gives up height, down to its minimum, rather
+      // than push its own bottom rows — the prompt — out of the column.
+      className="relative flex h-(--terminal-height) min-h-(--terminal-min-height) flex-col border-t border-border bg-background"
       style={
         {
-          "--terminal-height": `max(${DRAWER_HEIGHT_MIN}px, min(${height}px, ${DRAWER_HEIGHT_MAX_FRACTION * 100}%))`,
+          "--terminal-height": `min(${height}px, ${DRAWER_HEIGHT_MAX_FRACTION * 100}%)`,
+          "--terminal-min-height": `${DRAWER_HEIGHT_MIN}px`,
         } as React.CSSProperties
       }
     >
