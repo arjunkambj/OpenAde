@@ -17,6 +17,12 @@
  * live status, so opening the dock never drops the user into a tab they did
  * not ask for. In the launcher the strip shows no tab selected.
  *
+ * The strip is a `tablist`: each tab controls the panel below it, Left and
+ * Right move along the strip (and open the tab they land on), and the Changes
+ * tab carries a count of the workspace's uncommitted files — the same
+ * `git.status` read the header's git actions use — hidden when there are
+ * none.
+ *
  * With less than 640px beside the sidebar, the dock overlays the thread
  * column: two columns in that width leave neither readable, and simply
  * hiding the dock (what this used to do) made the changes, browser and files
@@ -40,23 +46,19 @@
 
 import * as React from "react";
 
-import { Button } from "@OpenAde/ui/components/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
 
 import { BrowserPane } from "@/components/panes/browser/browser-pane";
 import { ChangesPane } from "@/components/panes/changes/changes-pane";
 import { FilesPane } from "@/components/panes/files/files-pane";
 import type { Presence } from "@/lib/use-presence";
-import { CommandKbd } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import { useConnectionState } from "@/state/hooks";
-import { Close as CloseIcon } from "@honeyicons/react";
 import { DOCK_WIDTH_MAX_FRACTION, THREAD_COLUMN_MIN, useDockWidth } from "@/state/ui";
 
 import { DockLauncher } from "./dock-launcher";
-import { DOCK_TAB_META } from "./dock-tab-meta";
-import { DOCK_HOME, dockTabs, type DockPane, type DockTab } from "./dock-toggle";
+import { DockTabStrip, dockPanelId, dockTabId } from "./dock-tab-strip";
+import { DOCK_HOME, isDockTab, type DockPane, type DockTab } from "./dock-toggle";
 
 /** Drag the left edge to resize; the width atom persists every frame. */
 function useDockResize() {
@@ -86,44 +88,6 @@ function useDockResize() {
   return { width, onPointerDown };
 }
 
-function DockTabButton({
-  tab,
-  active,
-  onSelect,
-}: {
-  tab: DockTab;
-  active: boolean;
-  onSelect: (tab: DockTab) => void;
-}) {
-  const meta = DOCK_TAB_META[tab];
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            type="button"
-            role="tab"
-            aria-selected={active}
-            variant={active ? "secondary" : "ghost"}
-            tone={active ? "default" : "muted"}
-            // The Changes toolbar's Compare menu is 28px under it; the tabs
-            // match it, so the two rows read as one set of controls.
-            className="h-7"
-            onClick={() => onSelect(tab)}
-          />
-        }
-      >
-        <meta.icon variant="bold" />
-        {meta.label}
-      </TooltipTrigger>
-      <TooltipContent>
-        {meta.label}
-        <CommandKbd command={meta.command} />
-      </TooltipContent>
-    </Tooltip>
-  );
-}
-
 export function RightDock({
   pane,
   phase,
@@ -142,6 +106,7 @@ export function RightDock({
 }) {
   const { width, onPointerDown } = useDockResize();
   const connection = useConnectionState();
+  const baseId = React.useId();
   const onPick = React.useCallback((tab: DockTab) => onPaneChange(tab), [onPaneChange]);
 
   return (
@@ -181,37 +146,13 @@ export function RightDock({
           phase !== "shown" && "min-w-70",
         )}
       >
-        <div className="flex h-11 shrink-0 items-center gap-0.5 px-2">
-          {dockTabs.map((dockTab) => (
-            <DockTabButton
-              key={dockTab}
-              tab={dockTab}
-              active={dockTab === pane}
-              onSelect={onPick}
-            />
-          ))}
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Close dock"
-                  className="ml-auto"
-                  onClick={() => onPaneChange(null)}
-                />
-              }
-            >
-              <CloseIcon variant="bold" />
-            </TooltipTrigger>
-            <TooltipContent>
-              Close dock
-              <CommandKbd command="dock.toggle" />
-            </TooltipContent>
-          </Tooltip>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <DockTabStrip baseId={baseId} pane={pane} snapshot={snapshot} onTabChange={onPaneChange} />
+        <div
+          id={dockPanelId(baseId)}
+          role={isDockTab(pane) ? "tabpanel" : undefined}
+          aria-labelledby={isDockTab(pane) ? dockTabId(baseId, pane) : undefined}
+          className="min-h-0 flex-1 overflow-y-auto"
+        >
           {pane === DOCK_HOME ? <DockLauncher snapshot={snapshot} onPick={onPick} /> : null}
           {pane === "changes" ? <ChangesPane snapshot={snapshot} /> : null}
           {/*
