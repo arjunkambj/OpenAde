@@ -54,8 +54,9 @@ the server bundle, the web assets and a packaged desktop app.
   file changes with inline diffs, searches, skills, subagent tasks. Finished
   work folds into one "Worked for Ns · N tools" line.
 - **Composer** — `/` for model, effort, mode, plan and the project's skills,
-  `@` to attach a file, images by paste or drop, `Cmd+Enter` to queue a message
-  while a turn is running.
+  `#` to mention a file, `@` for the harness's plugins and skills, `$` for its
+  skills alone, images by paste or drop, `Cmd+Enter` to queue a message while a
+  turn is running.
 - **Cards** — an approval card before a gated tool call (allow once, for the
   session, always with an editable pattern, or deny), a question card when the
   model asks something, a plan card to accept or revise.

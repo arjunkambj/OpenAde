@@ -2,7 +2,7 @@
  * `files.search` and `files.read` behind the `Files` Tag. Search walks tracked plus
  * untracked-but-not-ignored paths via `git ls-files`, so .gitignore is honored
  * for free; a per-root cache keyed off `.git/index` mtime keeps repeat queries
- * warm (the composer hits this on every `@` keystroke).
+ * warm (the composer hits this on every `#` keystroke).
  *
  * Both run in the thread's own root when the call names a thread (its
  * worktree, when it has one), and in the project's root otherwise.
@@ -163,7 +163,7 @@ export const layer = Layer.effect(
             const score = matches(entry, query);
             if (score !== null) scored.push({ entry, score });
           }
-          // Equal-scoring files come before directories: `@` usually means a
+          // Equal-scoring files come before directories: `#` usually means a
           // file, and the containing directory would otherwise outrank it.
           scored.sort(
             (a, b) =>

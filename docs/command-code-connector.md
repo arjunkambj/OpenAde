@@ -297,12 +297,13 @@ it, and demands the same list.
 
 ### The prompt
 
-One string, assembled by `prepareTurn`: the user's text, then one `@name` line
+One string, assembled by `prepareTurn`: the user's text, then one `@path` line
 per mention, then one line per skill reference, then one line per attachment,
 joined by blank lines. Empty parts are dropped. A mention is a
 workspace-relative path and nothing else (`Mention` in
 `packages/contracts/src/orchestration.ts`) — the connector writes it as `@path`
-text and the harness resolves the path itself.
+text and the harness resolves the path itself. The user's text still carries
+the composer's `#path` token; the `@path` line is what the harness reads.
 
 A skill reference (`TurnReference` in `packages/contracts/src/runtime.ts`, kind
 `skill`) becomes one sentence, `Use the "<name>" skill.`, with the name

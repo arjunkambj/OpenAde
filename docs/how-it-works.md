@@ -423,43 +423,61 @@ running turn" in muted text beside the context gauge. All of it reads
 `turnInFlight` (`apps/web/src/lib/turn.ts`) rather than `currentTurnId`, which
 the projection only fills one event later.
 
+Four characters open a menu, each only at the start of the text or after
+whitespace (`detectComposerTrigger` in
+`packages/client-runtime/src/composerTrigger.ts`), and each closes at the next
+whitespace:
+
+| Trigger | Lists                                                | A pick writes                       | The turn carries it as |
+| ------- | ---------------------------------------------------- | ----------------------------------- | ---------------------- |
+| `/`     | commands, then the instance's skills                 | the command, or `/name ` as text    | text                   |
+| `#`     | the project's files                                  | `#path ` and a chip                 | `mentions`             |
+| `@`     | the instance's plugins, then its skills, never files | `@plugin ` or `$skill `, and a chip | `references`           |
+| `$`     | the instance's skills alone                          | `$skill ` and a chip                | `references`           |
+
 The `/` popover offers `/model`, `/effort`, `/mode`, `/plan`, `/default`,
 `/clear-draft` and the skills the thread's connector instance loads for the
-project. `/clear` is deliberately not offered:
+project. A skill picked here is plain text, with no chip and no reference.
+`/clear` is deliberately not offered:
 in Command Code it drops the session's context, no command in the union does
 that, and binding it to emptying the textarea would throw away the sentence the
 user was writing while keeping every token they meant to drop.
 
 `#` searches the thread's files — its worktree, or the project's folder —
-through `files.search` (`use-file-mentions.ts`). Picking one writes `#path `
-into the draft and adds a chip; removing the chip removes the token, and
-editing the token away drops the chip. The turn carries the bare workspace-relative paths as `mentions`, and
-the connector decides how to name them to its harness. Because `#` is also
-markdown, it opens only at the start of the text or after whitespace, stays
-open until whitespace, and needs a query that does not start with another `#`
-(`detectComposerTrigger` in `packages/client-runtime/src/composerTrigger.ts`).
-So a lone `#` then Enter sends, `# Heading` closes at the space, and `##`
-headings, `a#b` and `https://x.dev/#frag` never open it. `#12` does open and
-lists no files; a menu with no rows does not own Enter, so the message still
-sends.
+through `files.search` (`use-file-mentions.ts`), and says "No files match" when
+nothing does. The turn carries the bare workspace-relative paths as `mentions`,
+and the connector decides how to name them to its harness. Because `#` is also
+markdown, it needs a query that does not start with another `#`. So a lone `#`
+then Enter sends, `# Heading` closes at the space, and `##` headings, `a#b` and
+`https://x.dev/#frag` never open it. `#12` does open and lists no files; a menu
+with no rows does not own Enter, so the message still sends.
 
 `@` lists the thread instance's enabled plugins under "Plugins", then its
 enabled skills under "Skills" (`pluginsAtom` and `skillsAtom`, wired in
 `use-reference-mentions.ts`; the rows come from `reference-menu.ts`). `$` lists
-the skills alone. Neither lists files. An instance without the plugins
-extension answers no plugins, so `@` then shows its skills; with neither the
-menu says so. Both open on an empty query, like `/`, and follow the same
-start-of-token rule, so `me@x.com` and `a$b` stay closed. `$` also stays closed
-when its query starts with a digit, so `$5` and `costs $20` never open; `$HOME`
-does open and lists no skills, so Enter still sends. Picking writes one token
-per reference and adds a chip: `@name ` for a plugin and `$name ` for a skill,
-even a skill picked from `@`, so a plugin and a skill of the same name never
-share a token. Removing the chip removes the token, and editing the token away
-drops the chip. The turn carries them as typed `references`
-(`{ kind: "skill" | "plugin", name }`), sent only when there are some. The
-sent message's bubble (`UserMessageRow` in `timeline/message-rows.tsx`) draws
-the same chips above its text, from the `user_message` row's `references`; a
-row without any renders as text alone.
+the skills alone, ungrouped. An instance without the plugins extension answers
+no plugins, so `@` then shows its skills; with neither, the menu says "No
+plugins or skills" (`$` says "No skills"). Both open on an empty query, like
+`/`, so `me@x.com` and `a$b` stay closed but a bare `@` lists everything. `$`
+also stays closed when its query starts with a digit, so `$5` and `costs $20`
+never open; `$HOME` does open and lists no skills, so Enter still sends.
+
+Every chip stands for exactly one token in the text: `#path` for a file,
+`@name` for a plugin and `$name` for a skill, even a skill picked from `@`, so
+a plugin and a skill of the same name never share a token. Removing a chip
+removes its token and one space beside it (`removeComposerToken`); editing a
+token away, even by one character, drops its chip, because after every change
+the draft keeps only the chips whose whole token is still in the text
+(`retainComposerReferences`). The draft (`ComposerDraft` in
+`apps/web/src/state/ui.ts`) holds the text, the mention paths and the
+references side by side, and a send or `/clear-draft` empties all three.
+
+The turn carries the picks from `@` and `$` as typed `references`
+(`TurnReference`: `{ kind: "skill" | "plugin", name }`), sent on
+`thread.turn.start` only when there are some, and kept on the queued message,
+the turn request and the `user_message` row. The sent message's bubble
+(`UserMessageRow` in `timeline/message-rows.tsx`) draws the same chips above
+its text; a row without any renders as text alone.
 Neither the renderer nor the server writes a reference into the prompt: the
 connector does, in the words its harness understands ([The spawn](#the-spawn)).
 

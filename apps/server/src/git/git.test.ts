@@ -502,7 +502,7 @@ describe("w8 git", () => {
     Effect.scoped(
       Effect.gen(function* () {
         // A plain folder, never `git init`ed — opening one as a project must
-        // not turn every `@` keystroke in the composer into an RPC error.
+        // not turn every `#` keystroke in the composer into an RPC error.
         const root = mkdtempSync(nodePath.join(tmpdir(), "openade-plain-"));
         mkdirSync(nodePath.join(root, "src"));
         mkdirSync(nodePath.join(root, "node_modules"));
@@ -552,7 +552,7 @@ describe("w8 git", () => {
       Effect.gen(function* () {
         // `git ls-files` lists a symlink (mode 120000), so the fallback must
         // not silently drop one — linked config files and pnpm-style layouts
-        // would go missing from the `@` menu.
+        // would go missing from the `#` menu.
         const root = mkdtempSync(nodePath.join(tmpdir(), "openade-plain-"));
         mkdirSync(nodePath.join(root, "src"));
         writeFileSync(nodePath.join(root, "src", "keep-me-real.ts"), "export const a = 1\n");

@@ -4,7 +4,7 @@
  * path and gives .gitignore handling for free; this walker reproduces enough
  * of it — `.gitignore` files collected as the walk descends, `.git` always
  * skipped — that opening a plain folder as a project still answers the
- * composer's `@` search instead of failing the RPC.
+ * composer's `#` search instead of failing the RPC.
  *
  * The supported pattern subset is the one real ignore files use: comments,
  * `!` negation, a trailing `/` for directory-only, a leading or interior `/`
