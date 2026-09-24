@@ -158,7 +158,7 @@ export function ComparisonBody({
   return <PaneMessage icon={GitBranch} text="No base branch to compare with" />;
 }
 
-export function NotARepository() {
+function NotARepository() {
   return (
     <PaneMessage
       icon={GitDiffIcon}
