@@ -3,8 +3,9 @@
  * when (`use-send-anchor.ts`), so they are testable against a fake list.
  *
  * `placeAnchor` carries a just-sent message to the top of the viewport and
- * holds it there; `keepInView` holds the row the reader was on where it sat
- * while expand-all or collapse-all add or remove rows above it. Both correct
+ * holds it there; `holdSettledAnchor` holds it there again when its turn
+ * settles; `keepInView` holds the row the reader was on where it sat while
+ * expand-all or collapse-all add or remove rows above it. Both correct
  * the scroll without animation on every frame the geometry moves, until it
  * has been still for `HOLD_QUIET_MS`, and hand back a cancel the reader's own
  * scroll calls.
@@ -90,6 +91,19 @@ export function keepInView(list: LegendListRef, anchors: ReadonlyArray<ViewAncho
   frame = requestAnimationFrame(step);
   return () => cancelAnimationFrame(frame);
 }
+
+/**
+ * Hold the anchored message at the top as its turn settles; returns the
+ * cancel. The fold closes the turn's work under it and the Working row goes,
+ * so the rows shrink, while the reserve under the message catches up a frame
+ * late: the browser clamps the scroll down meanwhile. The message is already
+ * placed, so there is nothing to ease towards — an eased `placeAnchor` would
+ * aim at the clamped geometry and paint the message lower first. This puts it
+ * back before paint, from the settling render's layout effect, and on every
+ * frame after until the rows are still (`keepInView`).
+ */
+export const holdSettledAnchor = (list: LegendListRef, rowId: string): (() => void) =>
+  keepInView(list, [{ rowId, offset: ANCHOR_OFFSET }]);
 
 /** A key press the browser would turn into a scroll of the focused list. */
 export const scrollsList = (event: KeyboardEvent, node: HTMLElement): boolean => {

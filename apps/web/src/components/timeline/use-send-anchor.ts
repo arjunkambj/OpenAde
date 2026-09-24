@@ -9,6 +9,9 @@
  * after a send, and the reserve under it catches up a frame late, so one
  * scroll would land wrong: the hold re-places the row without animation on
  * every frame the geometry moves, until it has been still for `HOLD_QUIET_MS`.
+ * When the turn settles the rows under the message shrink, and it is held
+ * again from that render's layout effect, before paint and without easing
+ * (`holdSettledAnchor`).
  *
  * The reader takes the scroll back with any wheel, touch drag, scrolling key
  * in the list, press on its scrollbar, or text selection inside it. The
@@ -34,6 +37,7 @@ import type { TimelineRow } from "./fold";
 import {
   ANCHOR_OFFSET,
   currentViewAnchors,
+  holdSettledAnchor,
   keepInView,
   placeAnchor,
   prefersReducedMotion,
@@ -111,6 +115,8 @@ export function useSendAnchor({
     }
   }
   const props = sendAnchorProps(state);
+  const anchorRowRef = React.useRef(props.anchorRowId);
+  anchorRowRef.current = props.anchorRowId;
   // Cancel the placement running now, and a bulk fold change's hold, if any;
   // called before a release is dispatched.
   const stopPlacement = React.useRef<() => void>(() => {});
@@ -141,8 +147,13 @@ export function useSendAnchor({
       awayFromEnd:
         newUserMessageId !== undefined && listRef.current?.getState().isNearEnd === false,
     });
-    if (wasActive.current && !turnActive) {
-      dispatch({ type: "turnSettled" });
+    // The turn settled under the anchored message: its work folds away and
+    // the rows under it shrink. Put it back before paint rather than easing.
+    const list = listRef.current;
+    const held = anchorRowRef.current;
+    if (wasActive.current && !turnActive && held !== null && list !== null) {
+      stopKeep.current();
+      stopKeep.current = holdSettledAnchor(list, held);
     }
     wasActive.current = turnActive;
   }, [listRef, rows, threadId, turnActive]);

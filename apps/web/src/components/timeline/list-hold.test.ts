@@ -1,7 +1,7 @@
 import type { LegendListRef } from "@legendapp/list/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { keepInView, placeAnchor } from "./list-hold";
+import { ANCHOR_OFFSET, holdSettledAnchor, keepInView, placeAnchor } from "./list-hold";
 
 // Animation frames run when the test says so, at the time it gives.
 let frames = new Map<number, (now: number) => void>();
@@ -123,6 +123,22 @@ describe("keepInView", () => {
     keepInView(list, [{ rowId: "a1", offset: 0 }])();
     runFrame(16);
     expect(node.scrollTop).toBe(1000);
+  });
+
+  it("holds a settled turn's message at the top before paint, with no eased scroll", () => {
+    // The message sits at 7,000. The turn's work folded away under it and the
+    // browser clamped the scroll 329px down before the reserve caught up.
+    const { list, node } = fakeList({ u2: 7000 }, 7000 - ANCHOR_OFFSET - 329);
+    const scrollToIndex = vi.fn(() => Promise.resolve());
+    Object.assign(list, { scrollToIndex });
+    const cancel = holdSettledAnchor(list, "u2");
+    expect(node.scrollTop).toBe(7000 - ANCHOR_OFFSET);
+    // Clamped again on the next frame, before the reserve grew: put back again.
+    node.scrollTop = 6800;
+    runFrame(16);
+    expect(node.scrollTop).toBe(7000 - ANCHOR_OFFSET);
+    expect(scrollToIndex).not.toHaveBeenCalled();
+    cancel();
   });
 
   it("lets go once the rows have been still for a while", () => {

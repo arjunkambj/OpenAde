@@ -171,21 +171,6 @@ describe("sendAnchorReducer", () => {
     expect(run([{ type: "jumpToLatest" }], free).mode).toBe("follow");
     expect(run([{ type: "jumpToLatest" }])).toBe(INITIAL_SEND_ANCHOR);
   });
-
-  it("keeps the anchor when the turn settles, placing it again without a jump", () => {
-    const state = run([{ type: "turnSettled" }], anchored);
-    expect(state.mode).toBe("anchored");
-    expect(state.sentRowId).toBe("u2");
-    expect(state.placement).toBe(anchored.placement + 1);
-    // Only the reader's scroll lets go of it.
-    expect(run([{ type: "userScrollIntent" }], state).mode).toBe("free");
-  });
-
-  it("leaves a settle alone outside the anchor", () => {
-    const free = run([{ type: "userScrollIntent" }], anchored);
-    expect(run([{ type: "turnSettled" }], free)).toBe(free);
-    expect(run([{ type: "turnSettled" }])).toBe(INITIAL_SEND_ANCHOR);
-  });
 });
 
 describe("bulk fold changes", () => {

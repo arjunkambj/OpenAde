@@ -64,8 +64,7 @@ export type SendAnchorEvent =
   /** The reader opened a turn fold: its rows arrive right under the toggle. */
   | { readonly type: "rowsOpened" }
   | { readonly type: "reachedEnd" }
-  | { readonly type: "jumpToLatest" }
-  | { readonly type: "turnSettled" };
+  | { readonly type: "jumpToLatest" };
 
 export const INITIAL_SEND_ANCHOR: SendAnchorState = {
   mode: "follow",
@@ -109,10 +108,6 @@ export const sendAnchorReducer = (
       return state.mode === "free" ? { ...state, mode: "follow" } : state;
     case "jumpToLatest":
       return state.mode === "follow" ? state : { ...state, mode: "follow" };
-    case "turnSettled":
-      // The fold closes the turn's work under the message: hold it again so a
-      // reserve that catches up a frame late cannot move it, and never jump.
-      return state.mode === "anchored" ? { ...state, placement: state.placement + 1 } : state;
   }
 };
 

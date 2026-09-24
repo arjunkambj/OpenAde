@@ -988,7 +988,10 @@ under reduced motion), then held: rows above it settle from estimated to
 measured heights for a few hundred milliseconds after a send, so the hold puts
 it back without animation on every frame the geometry moves, until it has been
 still for 450 ms. The reply streams in below it. When the turn settles and its
-fold closes, the message is held again rather than jumping. **Free** starts
+fold closes, the rows under the message shrink a frame before the reserve grows
+to make up for them, so the browser would clamp the scroll down; the message is
+put back from that render's layout effect, before paint and without easing,
+and held the same way until the rows are still. **Free** starts
 when the reader scrolls while anchored — a wheel, a touch drag, a scrolling key
 in the list, a press on its scrollbar, or a text selection inside it — or
 opens a turn fold while following or anchored, so its rows open in place — and
