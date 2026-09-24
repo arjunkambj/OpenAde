@@ -53,32 +53,37 @@ export const TERMINAL_WRITE_MAX_CHARS = 1024 * 1024;
 // ── Owner ──────────────────────────────────────────────────────
 
 /**
+ * The owner's half of every terminal shape: exactly one of `threadId` and
+ * `projectId`. Each variant rules the other id out (`optional(Never)`), so a
+ * value naming both — no client sends one — matches neither and is refused,
+ * rather than read as whichever variant happens to come first.
+ */
+const byThread = { threadId: ThreadId, projectId: Schema.optional(Schema.Never) };
+const byProject = { projectId: ProjectId, threadId: Schema.optional(Schema.Never) };
+
+/**
  * Who a terminal belongs to: a thread, or a project with no thread yet. The
  * two are kept apart on purpose — a draft's thread id is never a project
  * terminal's owner, because the thread it becomes may run in a new worktree.
  */
-export const TerminalOwner = Schema.Union([
-  Schema.Struct({ threadId: ThreadId }),
-  Schema.Struct({ projectId: ProjectId }),
-]);
+export const TerminalOwner = Schema.Union([Schema.Struct(byThread), Schema.Struct(byProject)]);
 export type TerminalOwner = typeof TerminalOwner.Type;
 
-/**
- * `fields` owned by a thread or by a project: the shape of every terminal
- * payload. A thread's variant comes first, so a payload that names both — no
- * client sends one — is read as the thread's.
- */
+/** `fields` owned by a thread or by a project: the shape of every terminal payload. */
 export const terminalOwned = <const Fields extends Schema.Struct.Fields>(fields: Fields) =>
   Schema.Union([
-    Schema.Struct({ threadId: ThreadId, ...fields }),
-    Schema.Struct({ projectId: ProjectId, ...fields }),
+    Schema.Struct({ ...byThread, ...fields }),
+    Schema.Struct({ ...byProject, ...fields }),
   ]);
 
+/** Whether an owner is a thread; the other kind is a project. */
+export const isThreadOwner = (
+  owner: TerminalOwner,
+): owner is Extract<TerminalOwner, { readonly threadId: ThreadId }> => owner.threadId !== undefined;
+
 /** The owner a payload or summary names, and nothing else of it. */
-export const terminalOwnerOf = (
-  value: { readonly threadId: ThreadId } | { readonly projectId: ProjectId },
-): TerminalOwner =>
-  "threadId" in value ? { threadId: value.threadId } : { projectId: value.projectId };
+export const terminalOwnerOf = (value: TerminalOwner): TerminalOwner =>
+  isThreadOwner(value) ? { threadId: value.threadId } : { projectId: value.projectId };
 
 const PROJECT_KEY_PREFIX = "project:";
 
@@ -88,7 +93,7 @@ const PROJECT_KEY_PREFIX = "project:";
  * `project:<id>`. Ids are UUIDs, so the two can never meet.
  */
 export const terminalOwnerKey = (owner: TerminalOwner): string =>
-  "threadId" in owner ? owner.threadId : `${PROJECT_KEY_PREFIX}${owner.projectId}`;
+  isThreadOwner(owner) ? owner.threadId : `${PROJECT_KEY_PREFIX}${owner.projectId}`;
 
 export const decodeTerminalOwnerKey = (key: string): TerminalOwner =>
   key.startsWith(PROJECT_KEY_PREFIX)
@@ -121,8 +126,8 @@ const terminalSummaryFields = {
  * gone.
  */
 export const TerminalSummary = Schema.Union([
-  Schema.Struct({ terminalId: TerminalId, threadId: ThreadId, ...terminalSummaryFields }),
-  Schema.Struct({ terminalId: TerminalId, projectId: ProjectId, ...terminalSummaryFields }),
+  Schema.Struct({ terminalId: TerminalId, ...byThread, ...terminalSummaryFields }),
+  Schema.Struct({ terminalId: TerminalId, ...byProject, ...terminalSummaryFields }),
 ]);
 export type TerminalSummary = typeof TerminalSummary.Type;
 

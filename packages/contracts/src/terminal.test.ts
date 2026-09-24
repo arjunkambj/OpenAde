@@ -13,6 +13,7 @@ import {
   TERMINAL_WRITE_MAX_CHARS,
   TERMINALS_PER_THREAD,
   TerminalSize,
+  TerminalSummary,
   decodeTerminalOwnerKey,
   terminalOwnerKey,
   terminalOwnerOf,
@@ -68,7 +69,7 @@ describe("the terminal owner", () => {
     return Schema.decodeUnknownExit(rpc!.payloadSchema as Schema.Codec<unknown>);
   };
 
-  it.effect("is a thread or a project on every call, and never neither", () =>
+  it.effect("is exactly one of a thread and a project on every call", () =>
     Effect.gen(function* () {
       const terminalId = makeTerminalId();
       const size = { cols: 80, rows: 24 };
@@ -85,12 +86,41 @@ describe("the terminal owner", () => {
         const byThread = yield* Effect.sync(() => decode({ threadId: makeThreadId(), ...rest }));
         const byProject = yield* Effect.sync(() => decode({ projectId: makeProjectId(), ...rest }));
         const byNobody = yield* Effect.sync(() => decode(rest));
-        expect([byThread._tag, byProject._tag, byNobody._tag], method).toEqual([
+        const byBoth = yield* Effect.sync(() =>
+          decode({ threadId: makeThreadId(), projectId: makeProjectId(), ...rest }),
+        );
+        expect([byThread._tag, byProject._tag, byNobody._tag, byBoth._tag], method).toEqual([
           "Success",
           "Success",
           "Failure",
+          "Failure",
         ]);
       }
+    }),
+  );
+
+  it.effect("refuses a summary that names both a thread and a project", () =>
+    Effect.gen(function* () {
+      const decode = Schema.decodeUnknownExit(TerminalSummary);
+      const summary = {
+        terminalId: makeTerminalId(),
+        title: "Terminal 1",
+        cwd: "/repo",
+        pid: 1,
+        cols: 80,
+        rows: 24,
+        status: "running",
+        exitCode: null,
+        createdAt: "2026-09-24T12:00:00.000Z",
+      };
+      const threadId = makeThreadId();
+      const projectId = makeProjectId();
+      const tags = yield* Effect.sync(() => [
+        decode({ ...summary, threadId })._tag,
+        decode({ ...summary, projectId })._tag,
+        decode({ ...summary, threadId, projectId })._tag,
+      ]);
+      expect(tags).toEqual(["Success", "Success", "Failure"]);
     }),
   );
 

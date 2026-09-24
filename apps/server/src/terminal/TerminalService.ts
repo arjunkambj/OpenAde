@@ -31,6 +31,7 @@ import {
   TERMINAL_STREAM_BUDGET_BYTES,
   TERMINAL_STREAM_BUDGET_ITEMS,
   TERMINALS_PER_THREAD,
+  isThreadOwner,
   terminalOwnerKey,
   terminalOwnerOf,
   type TerminalOwner,
@@ -74,7 +75,7 @@ export interface TerminalServiceOptions {
 
 /** What an owner is called in a refusal. */
 const ownerNoun = (owner: TerminalOwner): string =>
-  "threadId" in owner ? "this thread" : "this project";
+  isThreadOwner(owner) ? "this thread" : "this project";
 
 /** Whether `root` is a directory that still exists: a shell started in a deleted one would only print errors. */
 const isDirectory = (root: string) =>
@@ -142,7 +143,7 @@ const projectWorkspace = (engine: OrchestrationEngine["Service"], projectId: Pro
 export const workspaceOf =
   (engine: OrchestrationEngine["Service"]) =>
   (owner: TerminalOwner): Effect.Effect<string, OpenAdeRpcError> =>
-    ("threadId" in owner
+    (isThreadOwner(owner)
       ? threadWorkspace(engine, owner.threadId)
       : projectWorkspace(engine, owner.projectId)
     ).pipe(
@@ -153,7 +154,7 @@ export const workspaceOf =
             Effect.fail(
               new OpenAdeRpcError({
                 code: "internal",
-                message: `${"threadId" in owner ? "thread" : "project"} lookup failed`,
+                message: `${isThreadOwner(owner) ? "thread" : "project"} lookup failed`,
               }),
             ),
           ),

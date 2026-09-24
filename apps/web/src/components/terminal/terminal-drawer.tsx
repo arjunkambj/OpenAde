@@ -28,6 +28,7 @@ import { makeTerminalId, type TerminalId, type ThreadId } from "@OpenAde/contrac
 import {
   TERMINALS_PER_THREAD,
   decodeTerminalOwnerKey,
+  isThreadOwner,
   type TerminalSize,
 } from "@OpenAde/contracts/terminal";
 import { Button } from "@OpenAde/ui/components/button";
@@ -209,7 +210,7 @@ export function TerminalDrawer({
   };
 
   const full = state.tabs.length >= TERMINALS_PER_THREAD;
-  const ownerNoun = "threadId" in decodeTerminalOwnerKey(ownerKey) ? "thread" : "project";
+  const ownerNoun = isThreadOwner(decodeTerminalOwnerKey(ownerKey)) ? "thread" : "project";
   const listError = listed?._tag === "error" ? listed.message : null;
 
   let body: React.ReactNode;

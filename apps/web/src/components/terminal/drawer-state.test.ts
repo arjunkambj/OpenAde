@@ -7,7 +7,10 @@ import { emptyDrawerState, nextTitle, reduceDrawer, type DrawerState } from "./d
 
 const id = (n: number) => `0199c0de-0012-7000-8000-00000000000${n}` as TerminalId;
 
-const summary = (n: number, over: Partial<TerminalSummary> = {}): TerminalSummary => ({
+const summary = (
+  n: number,
+  over: Partial<Pick<TerminalSummary, "status" | "exitCode">> = {},
+): TerminalSummary => ({
   ...(fixture as TerminalSummary),
   terminalId: id(n),
   title: `Terminal ${n}`,
