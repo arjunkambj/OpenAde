@@ -345,7 +345,8 @@ output. The browser equivalent is `OPENADE_LIVE_BROWSER=1` over
 ### The Claude Code end-to-end suite
 
 `apps/server/test/e2e-claude/` is the same product-level suite on the Claude
-Code connector. It reuses the Command Code harness's homes, client, commands
+Code connector, whose observed behaviour is written up in
+[claude-code-connector.md](claude-code-connector.md). It reuses the Command Code harness's homes, client, commands
 and view readers, and adds three drivers (`apps/server/test/e2e-claude/harness.ts`):
 
 - **replay**, the default and what the gate runs: the instance's `binaryPath`
@@ -366,9 +367,34 @@ and view readers, and adds three drivers (`apps/server/test/e2e-claude/harness.t
 
 ```sh
 pnpm exec vitest run apps/server/test/e2e-claude           # replay
-OPENADE_LIVE_CLAUDE=1 pnpm exec vitest run apps/server/test/e2e-claude
+OPENADE_HOME=/tmp/openade-h1 OPENADE_LIVE_CLAUDE=1 pnpm exec vitest run apps/server/test/e2e-claude
 OPENADE_RECORD_CLAUDE=1 pnpm -F server exec vitest run test/e2e-claude/turn.test.ts
 ```
+
+`OPENADE_LIVE_CLAUDE_DEBUG=1` lowers a live run's server log level to debug, so
+the connector's own log lines are printed too.
+
+The live conformance suite is separate and cheaper:
+
+```sh
+OPENADE_LIVE_CLAUDE=1 pnpm -F @OpenAde/connector-claude vitest run src/liveConformance.test.ts
+```
+
+It is `runConnectorConformance` against the discovered `claude` with the
+approval case, plus three cases of its own: the probe says the CLI is
+installed, at or above `OLDEST_TESTED_VERSION` and signed in; a plain turn maps
+without any `event.unmapped` or error; and a file write answered deny leaves
+the file uncreated. It runs on the CLI's default model under the conformance
+recording's caps (one turn, ten cents a session), in a throwaway git repo
+under `/tmp/openade-h1`, and uses the same prompts as that recording, so the
+two describe the same runs. `OPENADE_LIVE_CLAUDE_CONFIG_DIR` points it at a
+separate account too, and `OPENADE_LIVE_CLAUDE_DEBUG=1` prints the connector's
+log lines and every event type. Signed out, the probe case fails naming the
+login command, the plain turns end in the CLI's login error, and the approval
+case waits out its three-minute ceiling for a card that never opens.
+
+A live run that disagrees with the replay of the same scenario means the
+recording is stale: record that scenario again rather than editing either.
 
 A replay runs no tool — the recording stands in for the CLI — so what a
 tool did to the workspace (the file an allowed write made, the file a denied
@@ -438,6 +464,18 @@ refuse anything else:
 
 The end-to-end suite runs on the first of these (`E2E_MODEL`), which is also
 the model every recording was made on.
+
+Claude Code has no free model: every answered turn bills the subscription or
+the API account the CLI is signed in with, and the per-token price of each
+model is in the description the CLI's own model list gives it. So every Claude
+recording and live run uses the CLI's `default` — thread model `default`,
+which leaves the SDK's `model` option out — under the turn and budget caps
+the suites set, and the
+live and record drivers refuse any other model unless the operator names it
+in `OPENADE_CLAUDE_APPROVED_MODEL`. What costs nothing: the probe (no message
+is sent), and any turn against a signed-out CLI, which refuses it without
+calling the API. A signed-in `/compact` costs a summarisation request and is
+recorded only with the operator's approval.
 
 ## Recordings of the real CLI
 
@@ -667,6 +705,16 @@ they are the notice:
   same list. The two allowed differences are written down in that file.
 - the live end-to-end and conformance suites, which run the same assertions
   against the CLI you actually have.
+
+For Claude Code the notice comes from
+`packages/connector-claude/src/recordedFrames.test.ts` (a recorded message
+left unmapped, or a manifest older than `OLDEST_TESTED_VERSION`), from any
+replayed suite exiting 97 because the SDK now sends something the recording
+was not sent — an SDK upgrade does this — and from the `OPENADE_LIVE_CLAUDE=1`
+suites. Re-record through the same test that made the recording
+(`packages/testkit/fixtures/claude/README.md` names it for each scenario),
+signed in, on the default model; when the recordings move to a newer CLI,
+move `OLDEST_TESTED_VERSION` with them.
 
 Do not edit a recording. Re-record the scenario, or point the test at a
 different one.

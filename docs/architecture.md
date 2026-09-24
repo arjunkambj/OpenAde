@@ -17,8 +17,9 @@ code as it stands. Its companions:
 [how-it-works.md](how-it-works.md) traces what happens at runtime,
 [philosophy.md](philosophy.md) says which of these shapes are rules and where
 they are enforced, [development.md](development.md) is how to run and check the
-thing, and [command-code-connector.md](command-code-connector.md) is what the
-`cmd` CLI actually does.
+thing, and [command-code-connector.md](command-code-connector.md) and
+[claude-code-connector.md](claude-code-connector.md) are what the `cmd` and
+`claude` CLIs actually do.
 
 ## Processes
 
@@ -1074,7 +1075,12 @@ CLI knows how to spell.
 
 ## The Claude Code connector
 
-The same seam over a different shape of harness.
+The same seam over a different shape of harness. What follows is the shape of
+the connector inside this architecture; the facts about the harness itself —
+the probe, the launch argv, the message catalogue, the tool and approval
+tables, the capabilities and why, what to check after a release — are in
+[claude-code-connector.md](claude-code-connector.md), read off the code and
+the recordings under `packages/testkit/fixtures/claude/`.
 
 **One process per session.** The SDK's `query()` runs in streaming-input mode:
 its prompt is the session's input queue, and each turn is one more user
@@ -1254,7 +1260,9 @@ requests stay non-fatal, because the next message may well work.
 and replayed under the real SDK: `apps/server/test/e2e-claude/` through the
 whole server (replay, `OPENADE_LIVE_CLAUDE=1`, `OPENADE_RECORD_CLAUDE=1`),
 and the connector's conformance, recorded-frames and recorded-session suites
-without one. [development.md](development.md#the-claude-code-end-to-end-suite)
+without one. `src/liveConformance.test.ts` runs the conformance suite, a
+mapping check and a denied write against the operator's own CLI, behind
+`OPENADE_LIVE_CLAUDE=1`. [development.md](development.md#the-claude-code-end-to-end-suite)
 has the drivers and the budget rules.
 
 ## The RPC surface
@@ -1571,7 +1579,8 @@ only in the binary: the gate runs recordings through
 `packages/testkit/bin/replay-cmd.mjs`, and `OPENADE_LIVE_CMD=1` runs the
 operator's own `cmd`. `apps/server/test/e2e-claude/` is the same suite on the
 Claude Code connector, over the `sdk-stream` replayer, with a third driver that
-records. [development.md](development.md#the-end-to-end-suite) has
+records; `OPENADE_LIVE_CLAUDE=1` runs it, and the connector's live conformance
+suite, against the operator's own `claude`. [development.md](development.md#the-end-to-end-suite) has
 the commands and how a recording is made.
 
 `pnpm build` produces the server bundle, the web `dist` and the macOS app

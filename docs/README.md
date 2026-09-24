@@ -1,6 +1,6 @@
 # Documentation
 
-Five documents, each written against the code rather than a plan. Start with
+Six documents, each written against the code rather than a plan. Start with
 whichever question you have.
 
 - [architecture.md](architecture.md) — the processes, the workspaces and their
@@ -21,7 +21,13 @@ whichever question you have.
   NDJSON frame catalogue, the transcript, the PreToolUse hook, plan mode,
   questions, subagents, resume, attachments, and what to check after a new
   release.
+- [claude-code-connector.md](claude-code-connector.md) — the Claude Code CLI
+  as observed through the Agent SDK: binary resolution, the probe, the child
+  environment and launch options, the message catalogue, the tool vocabulary
+  and the approval gate, runtime modes, plan mode, questions, subagents,
+  resume, model switching, compaction, attachments, steering, capabilities,
+  and what to check after a new release.
 
 They cross-link rather than repeat: a flow belongs in how-it-works, a component
 in architecture, a rule in philosophy, a command in development, and a fact
-about the CLI in the connector reference.
+about a CLI in that CLI's connector reference.

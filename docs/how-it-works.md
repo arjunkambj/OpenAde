@@ -8,7 +8,8 @@ involved, and a path into the source for each step.
 [architecture.md](architecture.md) describes the pieces themselves,
 [philosophy.md](philosophy.md) the rules they keep,
 [development.md](development.md) how to run them, and
-[command-code-connector.md](command-code-connector.md) what the CLI on the far
+[command-code-connector.md](command-code-connector.md) and
+[claude-code-connector.md](claude-code-connector.md) what the CLI on the far
 end does.
 
 Three processes matter.
@@ -751,7 +752,9 @@ WebSearch `web` with `Fetch(…)`, and an MCP tool `mcp_tool` with
 `Mcp(<server>.<tool>)`. "Allow for the session" also hands the CLI its own
 suggested rules for the call, kept to the session; "allow always" writes
 only OpenAde's rule, never the CLI's settings files. A call the CLI
-withdraws — the turn was stopped — answers its card `deny`.
+withdraws — the turn was stopped — answers its card `deny`. The full tables,
+and which of this rests on a recording, are in
+[claude-code-connector.md](claude-code-connector.md#approvals).
 
 ### The script and the ticket
 
@@ -1608,7 +1611,7 @@ deliberately stopped. A connector whose event stream outlives its close gets
 | the pieces, one by one                 | [architecture.md](architecture.md)                                                                                                                  |
 | the rules and where they are enforced  | [philosophy.md](philosophy.md)                                                                                                                      |
 | running, testing, packaging            | [development.md](development.md)                                                                                                                    |
-| the CLI on the far end                 | [command-code-connector.md](command-code-connector.md)                                                                                              |
+| the CLI on the far end                 | [command-code-connector.md](command-code-connector.md), [claude-code-connector.md](claude-code-connector.md)                                        |
 | commands, events, read models          | `packages/contracts/src/orchestration.ts`                                                                                                           |
 | the connector-neutral event vocabulary | `packages/contracts/src/runtime.ts`                                                                                                                 |
 | the RPC surface                        | `packages/contracts/src/rpc.ts`                                                                                                                     |

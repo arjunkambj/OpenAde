@@ -18,8 +18,9 @@ went wrong.
 The pieces these rules are about are described in
 [architecture.md](architecture.md), what they do at runtime in
 [how-it-works.md](how-it-works.md), the commands in
-[development.md](development.md), and the harness's own behaviour in
-[command-code-connector.md](command-code-connector.md).
+[development.md](development.md), and each harness's own behaviour in
+[command-code-connector.md](command-code-connector.md) and
+[claude-code-connector.md](claude-code-connector.md).
 
 ## 1. The harness is the source of truth
 
@@ -52,8 +53,9 @@ computed.
 recording under `packages/testkit/fixtures/cmd/` rather than a constant. If you
 find yourself writing the harness's own logic a second time — a path rule, a
 config format, a plan index — look for the command that does it instead. What
-the CLI has been observed to do is written down once, in
-[command-code-connector.md](command-code-connector.md).
+each CLI has been observed to do is written down once, in
+[command-code-connector.md](command-code-connector.md) and
+[claude-code-connector.md](claude-code-connector.md).
 
 ## 2. Contracts are the seam
 
@@ -231,6 +233,19 @@ shows it in [command-code-connector.md](command-code-connector.md):
   calls. The card has to show the subagent's brief, because that brief is all
   the user gets to judge.
 
+On Claude Code the gate is in-process, and it is built so that "ask outranks
+allow" survives the CLI's own permission system
+(`packages/connector-claude/src/toolGate.ts`). The SDK's `canUseTool` alone is
+asked only when the CLI would prompt, so a call the user's own `~/.claude`
+rules allow, or any call under `bypassPermissions`, would never reach the
+ladder. So a PreToolUse hook, which runs for every call in every mode, asks the
+ladder first and answers "ask" for its "prompt", which the CLI hands to
+`canUseTool` and the card. A hook that cannot reach a verdict answers "ask", a
+`canUseTool` that cannot answer denies, and a turn whose tool calls ran while
+the gate saw none ends with a warning on the thread. A subagent's calls reach
+the hook one by one, so there the delegation does not approve what follows.
+[claude-code-connector.md](claude-code-connector.md#the-gate) has the detail.
+
 **To honour it:** a new tool kind gets a place in the ladder and a row in the
 table test before it gets a card. When you touch the hook path, ask what happens
 when a piece of it is missing, and make that answer "deny".
@@ -374,6 +389,14 @@ Three tests keep the recordings honest:
   `apps/server/test/e2e`). They spend a real plan, so they are skipped by
   default, and they refuse to run on any model but the authorised ones.
 
+Claude Code's recordings are kept honest the same way:
+`packages/connector-claude/src/recordedFrames.test.ts` fails on any recorded
+message left unmapped, the `sdk-stream` replayer exits 97 the moment the
+connector sends a line the recorded run was not sent, and
+`OPENADE_LIVE_CLAUDE=1` runs `src/liveConformance.test.ts` and
+`apps/server/test/e2e-claude` against the operator's own `claude`, on its
+default model only.
+
 `apps/server/test/e2e/harness.ts` is where this pays off: it boots the real
 server graph from `apps/server/src/boot.ts`, dials it with the real client over a
 real WebSocket, and applies the renderer's own folds, so the assertions look at
@@ -451,17 +474,17 @@ on its own, is in [development.md](development.md#the-gate).
 
 ## Where each rule is enforced
 
-| Principle                         | Enforced by                                                                       |
-| --------------------------------- | --------------------------------------------------------------------------------- |
-| Contracts are the seam            | `packages/contracts/test/fixtures.test.ts`                                        |
-| Connector promises                | `packages/connector-sdk/src/conformance.ts`                                       |
-| Renderer neutrality               | `scripts/check-boundaries.mjs` (string and filename grep over `apps/web/src`)     |
-| No harness named above the SDK    | `scripts/check-boundaries.mjs` (connector imports and kind literals)              |
-| Reference products never named    | `scripts/check-boundaries.mjs` (encoded names over the whole tree)                |
-| Package boundaries, no barrels    | `scripts/check-boundaries.mjs`                                                    |
-| File sizes                        | `scripts/check-file-sizes.mjs`                                                    |
-| Migration lineage                 | `apps/server/src/persistence/migrations.test.ts`                                  |
-| Permission ladder                 | `apps/server/src/permissions/permissions.test.ts`, `permissionService.test.ts`    |
-| No timers in tests                | `.oxlintrc.json` (`no-restricted-globals`, `no-restricted-properties`)            |
-| Recordings describe the CLI       | `recordedArgs.test.ts`, `recordedFrames.test.ts`, the `OPENADE_LIVE_CMD=1` suites |
-| The whole product still assembles | `apps/server/test/e2e`                                                            |
+| Principle                         | Enforced by                                                                                                                                                         |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Contracts are the seam            | `packages/contracts/test/fixtures.test.ts`                                                                                                                          |
+| Connector promises                | `packages/connector-sdk/src/conformance.ts`                                                                                                                         |
+| Renderer neutrality               | `scripts/check-boundaries.mjs` (string and filename grep over `apps/web/src`)                                                                                       |
+| No harness named above the SDK    | `scripts/check-boundaries.mjs` (connector imports and kind literals)                                                                                                |
+| Reference products never named    | `scripts/check-boundaries.mjs` (encoded names over the whole tree)                                                                                                  |
+| Package boundaries, no barrels    | `scripts/check-boundaries.mjs`                                                                                                                                      |
+| File sizes                        | `scripts/check-file-sizes.mjs`                                                                                                                                      |
+| Migration lineage                 | `apps/server/src/persistence/migrations.test.ts`                                                                                                                    |
+| Permission ladder                 | `apps/server/src/permissions/permissions.test.ts`, `permissionService.test.ts`                                                                                      |
+| No timers in tests                | `.oxlintrc.json` (`no-restricted-globals`, `no-restricted-properties`)                                                                                              |
+| Recordings describe the CLI       | `recordedArgs.test.ts`, each connector's `recordedFrames.test.ts`, the replayer's divergence exit (97), the `OPENADE_LIVE_CMD=1` and `OPENADE_LIVE_CLAUDE=1` suites |
+| The whole product still assembles | `apps/server/test/e2e`                                                                                                                                              |
