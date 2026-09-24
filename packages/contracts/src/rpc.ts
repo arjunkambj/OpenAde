@@ -29,6 +29,7 @@ import {
   PluginSummary,
   SkillSummary,
 } from "./connectors";
+import { FileContent, FileSearchResult } from "./files";
 import {
   GIT_RPC_METHODS,
   GitBranchCheckoutRpc,
@@ -102,25 +103,7 @@ export const STREAM_BUDGET_BYTES = 8 * 1024 * 1024;
  */
 export const STREAM_COALESCE_MS = 50;
 
-/** One hit from the composer's `#` file search. */
-export const FileSearchResult = Schema.Struct({
-  path: NonEmptyString,
-  name: NonEmptyString,
-  isDirectory: Schema.Boolean,
-});
-export type FileSearchResult = typeof FileSearchResult.Type;
-
-/**
- * A file the client asked to read. `truncated` says the server stopped early —
- * the files pane shows a notice rather than pretending it has the whole file.
- */
-export const FileContent = Schema.Struct({
-  path: NonEmptyString,
-  text: Schema.String,
-  totalLines: NonNegativeInt,
-  truncated: Schema.Boolean,
-});
-export type FileContent = typeof FileContent.Type;
+export { FileContent, FileSearchResult } from "./files";
 
 /**
  * One subdirectory inside a browsed directory. Files are never listed: this
