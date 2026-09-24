@@ -36,6 +36,7 @@ import { AttachmentReactor } from "./attachments/AttachmentReactor";
 import { AttachmentStore } from "./attachments/AttachmentStore";
 import { AgentBrowser } from "./browser/agentBrowser";
 import { layer as browserServiceLayer } from "./browser/BrowserService";
+import { layer as devServerDiscoveryLayer } from "./browser/discovery";
 import { HookBridge } from "./hooks/HookBridge";
 import { McpGateway } from "./mcp/McpGateway";
 import { CheckpointReactor } from "./orchestration/CheckpointReactor";
@@ -237,6 +238,7 @@ export const boot = (options: BootOptions) =>
       ),
       attachments,
       browser,
+      devServerDiscoveryLayer.pipe(Layer.provide(persistence)),
       mcp,
       // The engine is the same memoized layer the rest of the graph uses, so
       // the teardown reactor hears the thread.deleted every command produces.

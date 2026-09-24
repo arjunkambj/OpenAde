@@ -1,0 +1,44 @@
+{
+  "real": true,
+  "capturedOn": "2026-09-24",
+  "platform": "darwin 27.2 (macOS), lsof 4.91",
+  "commands": {
+    "lsof-listen.txt": "/usr/sbin/lsof -nP -iTCP -sTCP:LISTEN -F pcn",
+    "lsof-cwd.txt": "/usr/sbin/lsof -a -d cwd -p <every pid in lsof-listen.txt> -Fn"
+  },
+  "scrubbed": {
+    "<HOME>": "the operator's home directory",
+    "<SCRATCH>": "the capture's scratch directory"
+  },
+  "project": "<SCRATCH>/project",
+  "started": {
+    "html": {
+      "pid": 70739,
+      "port": 59070,
+      "host": "127.0.0.1",
+      "cwd": "<SCRATCH>/project/apps/web",
+      "answer": "200 text/html"
+    },
+    "redirect": {
+      "pid": 70741,
+      "port": 59072,
+      "host": "::1",
+      "cwd": "<SCRATCH>/project",
+      "answer": "302"
+    },
+    "raw": {
+      "pid": 70743,
+      "port": 59069,
+      "host": "127.0.0.1",
+      "cwd": "<SCRATCH>/project",
+      "answer": "not HTTP"
+    },
+    "outside": {
+      "pid": 70745,
+      "port": 59071,
+      "host": "0.0.0.0",
+      "cwd": "<SCRATCH>/other",
+      "answer": "200 text/html"
+    }
+  }
+}

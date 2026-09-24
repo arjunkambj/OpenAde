@@ -19,6 +19,7 @@ import type {
 import type {
   BrowserHumanInput,
   BrowserState,
+  DevServer,
   FileContent,
   FileSearchResult,
   FsListing,
@@ -285,6 +286,24 @@ export class BrowserService extends Context.Service<
       callTool: () => Effect.succeed({ kind: "error", message: "browser service unavailable" }),
       teardown: () => Effect.void,
     }),
+  );
+}
+
+/**
+ * `browser.discoverServers` behind a Tag of its own: the real one runs `lsof`
+ * and probes loopback ports (`browser/discovery.ts`), which no test of the
+ * RPC surface wants to do. A failure is an empty list — a suggestion the
+ * pane cannot make is not an error worth showing.
+ */
+export class DevServerDiscovery extends Context.Service<
+  DevServerDiscovery,
+  {
+    readonly discover: (threadId: ThreadId) => Effect.Effect<ReadonlyArray<DevServer>>;
+  }
+>()("server/rpc/DevServerDiscovery") {
+  static readonly empty = Layer.succeed(
+    DevServerDiscovery,
+    DevServerDiscovery.of({ discover: () => Effect.succeed([]) }),
   );
 }
 

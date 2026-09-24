@@ -340,6 +340,24 @@ export const BrowserHumanInput = Schema.Union([
 ]);
 export type BrowserHumanInput = typeof BrowserHumanInput.Type;
 
+/**
+ * A local dev server `browser.discoverServers` found for a thread's project:
+ * a loopback or wildcard listener whose process runs under the project's
+ * folder and answers HTTP with a page or a redirect. `url` is always
+ * `http://localhost:<port>`, the address a dev server prints; `processName`
+ * is null when the server could not tell whose port it is (no `lsof`), and
+ * the pane shows the port alone.
+ */
+export const DevServer = Schema.Struct({
+  url: NonEmptyString,
+  port: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 65535 })),
+  processName: Schema.NullOr(NonEmptyString),
+});
+export type DevServer = typeof DevServer.Type;
+
+/** The most servers one `browser.discoverServers` answer carries. */
+export const DEV_SERVER_LIMIT = 16;
+
 // ── Method names ───────────────────────────────────────────────
 
 /** Every RPC method name in one place, so a rename is a single edit. */
@@ -364,6 +382,7 @@ export const RPC_METHODS = {
   checkpointsList: "checkpoints.list",
   browserSubscribe: "browser.subscribe",
   browserHumanInput: "browser.humanInput",
+  browserDiscoverServers: "browser.discoverServers",
   settingsGet: "settings.get",
   settingsUpdate: "settings.update",
   settingsSubscribe: "settings.subscribe",
@@ -583,6 +602,17 @@ const BrowserHumanInputRpc = Rpc.make(RPC_METHODS.browserHumanInput, {
   error: OpenAdeRpcError,
 });
 
+/**
+ * The dev servers running under the thread's project, for the address bar's
+ * suggestions and the empty pane. On demand only — the server caches an
+ * answer for a few seconds and never scans in the background.
+ */
+const BrowserDiscoverServersRpc = Rpc.make(RPC_METHODS.browserDiscoverServers, {
+  payload: Schema.Struct({ threadId: ThreadId }),
+  success: Schema.Array(DevServer),
+  error: OpenAdeRpcError,
+});
+
 const SettingsGetRpc = Rpc.make(RPC_METHODS.settingsGet, {
   payload: empty,
   success: Settings,
@@ -781,6 +811,7 @@ export const OpenAdeRpcGroup = RpcGroup.make(
   CheckpointsListRpc,
   BrowserSubscribeRpc,
   BrowserHumanInputRpc,
+  BrowserDiscoverServersRpc,
   SettingsGetRpc,
   SettingsUpdateRpc,
   SettingsSubscribeRpc,

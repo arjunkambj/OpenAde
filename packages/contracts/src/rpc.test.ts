@@ -1,8 +1,11 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import * as RpcSchema from "effect/unstable/rpc/RpcSchema";
 
 import {
+  DEV_SERVER_LIMIT,
+  DevServer,
   FS_BROWSE_ENTRY_LIMIT,
   FsBrowseFailure,
   OpenAdeRpcGroup,
@@ -85,6 +88,36 @@ describe("fs.browse", () => {
       ]);
     }),
   );
+});
+
+describe("browser.discoverServers", () => {
+  const rpc = OpenAdeRpcGroup.requests.get(RPC_METHODS.browserDiscoverServers);
+  const decode = Schema.decodeUnknownExit(DevServer);
+
+  it("is a plain request keyed by the thread, answering a list of servers", () => {
+    expect(rpc).toBeDefined();
+    expect(RpcSchema.isStreamSchema(rpc!.successSchema)).toBe(false);
+    const payload = Schema.decodeUnknownExit(rpc!.payloadSchema)({
+      threadId: "0190aaaa-0000-7000-8000-000000000001",
+    });
+    expect(payload._tag).toBe("Success");
+    const answer = Schema.decodeUnknownExit(rpc!.successSchema)([
+      { url: "http://localhost:5173", port: 5173, processName: "node" },
+      { url: "http://localhost:3000", port: 3000, processName: null },
+    ]);
+    expect(answer._tag).toBe("Success");
+  });
+
+  it("carries a port a socket can have, and a name only when there is one", () => {
+    const server = { url: "http://localhost:5173", port: 5173, processName: "node" };
+    expect(decode(server)._tag).toBe("Success");
+    expect(decode({ ...server, port: 0 })._tag).toBe("Failure");
+    expect(decode({ ...server, port: 65536 })._tag).toBe("Failure");
+    expect(decode({ ...server, port: 51.5 })._tag).toBe("Failure");
+    expect(decode({ ...server, processName: "" })._tag).toBe("Failure");
+    expect(decode({ ...server, url: "" })._tag).toBe("Failure");
+    expect(Number.isInteger(DEV_SERVER_LIMIT) && DEV_SERVER_LIMIT > 0).toBe(true);
+  });
 });
 
 describe("the stream budget", () => {

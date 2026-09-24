@@ -16,6 +16,7 @@ import {
   BrowserService,
   ConnectorCatalog,
   ConnectorExtensions,
+  DevServerDiscovery,
   DirectoryBrowser,
   FileService,
   GitService,
@@ -46,6 +47,7 @@ export const handlersLayer = OpenAdeRpcGroup.toLayer(
     const directories = yield* DirectoryBrowser;
     const git = yield* GitService;
     const browser = yield* BrowserService;
+    const devServers = yield* DevServerDiscovery;
     const settings = yield* SettingsStore;
     const extensions = yield* ConnectorExtensions;
     const attachments = yield* AttachmentStore;
@@ -122,6 +124,7 @@ export const handlersLayer = OpenAdeRpcGroup.toLayer(
       "browser.subscribe": ({ threadId }) => browser.subscribe(threadId),
       "browser.humanInput": ({ threadId, input }) =>
         browser.humanInput(threadId, input).pipe(Effect.mapError(toRpcError), Effect.as({})),
+      "browser.discoverServers": ({ threadId }) => devServers.discover(threadId),
 
       "settings.get": () => settings.get,
       "settings.update": ({ patch }) => settings.update(patch).pipe(Effect.mapError(toRpcError)),

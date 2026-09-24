@@ -58,6 +58,7 @@ import {
   BrowserService,
   ConnectorCatalog,
   ConnectorExtensions,
+  DevServerDiscovery,
   FileService,
   GitService,
   ServerIdentity,
@@ -128,6 +129,7 @@ const testStack = (browserLayer: Layer.Layer<BrowserService> = BrowserService.em
       McpGateway.layer.pipe(Layer.provide(Layer.mergeAll(browserLayer, engineLayer, managerLayer))),
       ConnectorExtensions.empty,
       TerminalService.empty,
+      DevServerDiscovery.empty,
       AttachmentStore.layerAt(mkdtempSync(NodePath.join(NodeOS.tmpdir(), "openade-transport-"))),
       SettingsStore.layer.pipe(Layer.provide(sqlite)),
     );
