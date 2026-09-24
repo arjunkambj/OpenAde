@@ -12,7 +12,10 @@
  *   starts. A fence is found at any indent, so one in a nested list item
  *   counts, and inside `>` markers, where the quote ending closes it — the
  *   same fences the parser sees, so a code block still arriving is always
- *   the one marked open;
+ *   the one marked open. A closing fence sits at the opener's own quote
+ *   depth and at most three columns deeper than the opener: a `> ```` line
+ *   inside a fence that opened outside any quote, or one indented four
+ *   columns past the opener, is code;
  * - a line after the blank that is indented continues the block — a list
  *   item's next paragraph, a nested list, indented code;
  * - a list marker after a list, and `>` after a blockquote, continue it too, so
@@ -55,6 +58,10 @@ export interface MarkdownBlocks {
 type BlockKind = "list" | "quote" | "other";
 
 const FENCE = /^\s*(`{3,}|~{3,})(.*)$/;
+/** A closing fence: its indent, and the run of fence characters alone on the line. */
+const CLOSING_FENCE = /^([ \t]*)(`{3,}|~{3,})[ \t]*$/;
+/** One `>` marker with the space after it. */
+const QUOTE_MARKER = /^ {0,3}> ?/;
 /** The `>` markers a line starts with, each with the space after it. */
 const QUOTE_MARKERS = /^(?: {0,3}> ?)+/;
 const LIST_MARKER = /^ {0,3}([-+*]|\d{1,9}[.)])(\s|$)/;
@@ -88,6 +95,28 @@ const unquote = (line: string): { readonly depth: number; readonly inner: string
   return { depth, inner: line.slice(markers.length) };
 };
 
+/** The line inside its first `depth` blockquote markers; deeper ones stay as text. */
+const unquoteTo = (line: string, depth: number): string => {
+  let inner = line;
+  for (let level = 0; level < depth; level += 1) {
+    const marker = QUOTE_MARKER.exec(inner);
+    if (marker === null) {
+      break;
+    }
+    inner = inner.slice(marker[0].length);
+  }
+  return inner;
+};
+
+/** The columns a line's leading whitespace spans, a tab reaching the next stop of four. */
+const indentWidth = (whitespace: string): number => {
+  let width = 0;
+  for (const char of whitespace) {
+    width = char === "\t" ? width + 4 - (width % 4) : width + 1;
+  }
+  return width;
+};
+
 const continues = (kind: BlockKind, line: string): boolean =>
   INDENTED.test(line) ||
   (kind === "list" && LIST_MARKER.test(line)) ||
@@ -103,6 +132,8 @@ export const splitMarkdownBlocks = (text: string): MarkdownBlocks => {
         readonly length: number;
         /** The blockquote depth it opened at: the quote ending closes it. */
         readonly depth: number;
+        /** The columns it is indented inside its quote markers. */
+        readonly indent: number;
         /** Where its line starts in the text. */
         readonly start: number;
       }
@@ -141,12 +172,14 @@ export const splitMarkdownBlocks = (text: string): MarkdownBlocks => {
       // Inside a fence or a comment nothing splits, and the lines all belong.
       current!.end = lineStart + line.length;
       if (fence !== undefined) {
-        const match = FENCE.exec(quoted.inner);
+        // Only the fence's own quote markers are stripped: a deeper `>` is
+        // code, as is a closer indented four columns past the opener.
+        const match = CLOSING_FENCE.exec(unquoteTo(line, fence.depth));
         if (
           match !== null &&
-          match[1]![0] === fence.char &&
-          match[1]!.length >= fence.length &&
-          match[2]!.trim() === ""
+          match[2]![0] === fence.char &&
+          match[2]!.length >= fence.length &&
+          indentWidth(match[1]!) <= fence.indent + 3
         ) {
           fence = undefined;
         }
@@ -175,6 +208,7 @@ export const splitMarkdownBlocks = (text: string): MarkdownBlocks => {
         char: opener[1]![0]!,
         length: opener[1]!.length,
         depth: quoted.depth,
+        indent: indentWidth(/^[ \t]*/.exec(quoted.inner)![0]),
         start: lineStart,
       };
     } else if (COMMENT_START.test(line) && !/<!--[\s\S]*-->/.test(line)) {

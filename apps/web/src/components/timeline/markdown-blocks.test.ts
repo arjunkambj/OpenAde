@@ -85,6 +85,28 @@ describe("splitMarkdownBlocks", () => {
     expect(splitMarkdownBlocks(ended).blocks.every((block) => !block.open)).toBe(true);
   });
 
+  it("reads a quoted or deeply indented backtick run inside a fence as code", () => {
+    // Markdown about markdown: a `> ```` line in a fence opened outside a quote.
+    const quoted = "```\ncode\n> ```\nmore\n```";
+    expect(sources(`${quoted}\n\nAfter.`)).toEqual([quoted, "After."]);
+    expect(splitMarkdownBlocks(`${quoted}\n\nAfter.`).blocks.every((block) => !block.open)).toBe(
+      true,
+    );
+    // Inside a quote, a deeper quote's fence is code too.
+    expect(openLine("> ```\n> > ```\n> a")).toBe("> ```");
+    // Four columns past the opener is code; up to three closes.
+    const indented = "```\n    ```\nstill code\n```";
+    expect(sources(`${indented}\n\nAfter.`)).toEqual([indented, "After."]);
+    expect(openLine("```\na\n   ```\nafter")).toBeUndefined();
+    // A fence in a list item closes at the item's indent and a little past it.
+    expect(openLine("- a\n\n    ```ts\n    x\n      ```\n    y")).toBeUndefined();
+  });
+
+  it("collects the definitions after a quoted backtick run in a fence", () => {
+    const text = "```\n> ```\n```\n\nSee [docs][1].\n\n[1]: https://example.com";
+    expect(splitMarkdownBlocks(text).definitions).toBe("[1]: https://example.com");
+  });
+
   it("does not open a fence on a backtick run whose info holds a backtick", () => {
     expect(sources("``` a`b\n\nNext.")).toEqual(["``` a`b", "Next."]);
   });
