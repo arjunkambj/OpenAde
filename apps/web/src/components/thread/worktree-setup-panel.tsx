@@ -123,7 +123,9 @@ export function WorktreeSetupPanel({
           </span>
         </span>
         <SetupOutput output={state.output} />
-        <div className="mt-2 flex flex-wrap gap-2">
+        {/* The outline button has no text colour of its own and would
+            inherit the destructive description's red; only Discard is red. */}
+        <div className="mt-2 flex flex-wrap gap-2 text-foreground">
           <Button
             type="button"
             variant="outline"
