@@ -1,14 +1,25 @@
 /**
- * Composer trigger detection: the `/@` tokens that open the slash-command and
- * file-mention popovers. Pure text math, shared between the textarea handler
- * and the tests — the UI adapter only supplies `text` and the caret offset.
+ * Composer trigger detection: the `/` and `#` tokens that open the
+ * slash-command and file-mention popovers. Pure text math, shared between the
+ * textarea handler and the tests — the UI adapter only supplies `text` and the
+ * caret offset.
  *
  * A trigger opens when the trigger char starts a token: at offset 0 or right
  * after whitespace, with no whitespace between it and the caret. Everything
- * after the trigger char up to the caret is the live `query`.
+ * after the trigger char up to the caret is the live `query`. That rule alone
+ * keeps `a#b`, `foo/bar` and `https://x.dev/#frag` closed.
+ *
+ * A kind may add a rule about its query on top (`QUERY_RULES`). `#` has one,
+ * because `#` is also markdown: it opens only once a query has started and
+ * that query does not begin with another `#`. So a lone `#` followed by Enter
+ * sends rather than picking a file, `# Heading` closes at the space before a
+ * menu ever shows, and `##` / `### ` headings never open it. `#12` (an issue
+ * number) does open, with query `12`; it lists no files, and a menu with no
+ * rows does not own Enter (`composer-keys` in the web app), so it still sends.
  */
 
-export type ComposerTriggerKind = "slash" | "at";
+/** Named for what each menu lists: `slash` commands, `file` mentions (`#`). */
+export type ComposerTriggerKind = "slash" | "file";
 
 export interface ComposerTrigger {
   readonly kind: ComposerTriggerKind;
@@ -20,7 +31,12 @@ export interface ComposerTrigger {
 
 const TRIGGER_CHARS: Readonly<Record<string, ComposerTriggerKind>> = {
   "/": "slash",
-  "@": "at",
+  "#": "file",
+};
+
+/** Extra per-kind rules on the query; a kind without one opens on any query. */
+const QUERY_RULES: Readonly<Partial<Record<ComposerTriggerKind, (query: string) => boolean>>> = {
+  file: (query) => query.length > 0 && !query.startsWith("#"),
 };
 
 /** How far back from the caret a trigger may start. */
@@ -29,7 +45,8 @@ const TRIGGER_LOOKBACK = 64;
 /**
  * The trigger open at `cursor`, if any. Whitespace anywhere between the
  * trigger char and the caret closes the token, so scanning stops at the first
- * space met walking backwards.
+ * space met walking backwards. Only the token's first char can open a menu, so
+ * when its kind's query rule declines, nothing opens.
  */
 export const detectComposerTrigger = (text: string, cursor: number): ComposerTrigger | null => {
   const position = Math.max(0, Math.min(cursor, text.length));
@@ -50,7 +67,11 @@ export const detectComposerTrigger = (text: string, cursor: number): ComposerTri
     if (from !== 0 && !/\s/u.test(before)) {
       continue;
     }
-    return { kind, from, to: position, query: slice.slice(index + 1) };
+    const query = slice.slice(index + 1);
+    if (QUERY_RULES[kind]?.(query) === false) {
+      return null;
+    }
+    return { kind, from, to: position, query };
   }
   return null;
 };

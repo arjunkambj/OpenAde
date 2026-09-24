@@ -100,7 +100,7 @@ export const STREAM_BUDGET_BYTES = 8 * 1024 * 1024;
  */
 export const STREAM_COALESCE_MS = 50;
 
-/** One hit from the composer's `@` file search. */
+/** One hit from the composer's `#` file search. */
 export const FileSearchResult = Schema.Struct({
   path: NonEmptyString,
   name: NonEmptyString,

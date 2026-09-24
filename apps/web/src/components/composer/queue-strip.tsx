@@ -103,7 +103,7 @@ export function QueueStrip({
             <span className="min-w-0 flex-1 truncate">{message.text}</span>
             {message.mentions.length + message.attachments.length > 0 ? (
               <span className="shrink-0 text-xs text-muted-foreground">
-                {message.mentions.length > 0 ? `@×${message.mentions.length}` : null}
+                {message.mentions.length > 0 ? `#×${message.mentions.length}` : null}
                 {message.attachments.length > 0 ? ` +${message.attachments.length} file(s)` : null}
               </span>
             ) : null}

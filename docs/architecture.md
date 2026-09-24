@@ -1410,7 +1410,7 @@ the client in the terminal `incompatible` state.
 | `connectors.list`             | call   | Configured connectors with their cached probes; `refresh` re-probes                 |
 | `connectors.models`           | call   | The model picker's options for one instance                                         |
 | `connectors.describe`         | call   | Every connector the build ships: metadata and config form, configured or not        |
-| `files.search`                | call   | The composer's `@` file search; `threadId` searches the thread's root               |
+| `files.search`                | call   | The composer's `#` file search; `threadId` searches the thread's root               |
 | `files.read`                  | call   | A window of one file, with a `truncated` flag                                       |
 | `fs.browse`                   | call   | Subfolders of one directory on the server's machine, for the folder picker          |
 | `attachments.stage`           | call   | Uploads one composer image; returns a reference, never echoes bytes                 |

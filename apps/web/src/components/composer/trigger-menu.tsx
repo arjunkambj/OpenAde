@@ -1,6 +1,6 @@
 import type { HoneyIcon } from "@honeyicons/react";
 /**
- * The floating list the `@` and `/` triggers open. It is a plain positioned
+ * The floating list the `#` and `/` triggers open. It is a plain positioned
  * `listbox` — the composer owns the query and the active index, so both menus
  * share one keyboard contract: Up/Down move, Enter picks, Escape closes.
  */

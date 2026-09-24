@@ -143,8 +143,9 @@ export const useResetLayoutWidths = () => {
 };
 
 /**
- * What is typed into a thread's composer but not sent yet: the text, the `@`
- * mentions it names, and the files staged against it.
+ * What is typed into a thread's composer but not sent yet: the text, the `#`
+ * file mentions it names (workspace-relative paths, sent as `mentions`), and
+ * the files staged against it.
  *
  * It used to be plain component state. The thread route is not remounted on a
  * param change, but the composer is rendered only while a snapshot exists, and

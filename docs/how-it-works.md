@@ -398,7 +398,7 @@ rejected path in the field so it can be corrected.
 `apps/web/src/components/composer/` owns the draft. What Enter means is a pure
 function in `composer-keys.ts`:
 
-- a `/` or `@` menu that has rows → **pick** the highlighted one;
+- a `/` or `#` menu that has rows → **pick** the highlighted one;
 - an IME mid-composition, or Shift held → **insert** a newline;
 - otherwise → **send**.
 
@@ -428,9 +428,20 @@ The `/` popover offers `/model`, `/effort`, `/mode`, `/plan`, `/default`,
 project. `/clear` is deliberately not offered:
 in Command Code it drops the session's context, no command in the union does
 that, and binding it to emptying the textarea would throw away the sentence the
-user was writing while keeping every token they meant to drop. `@` searches the
-thread's files — its worktree, or the project's folder — through
-`files.search` and inserts a chip.
+user was writing while keeping every token they meant to drop.
+
+`#` searches the thread's files — its worktree, or the project's folder —
+through `files.search` (`use-file-mentions.ts`). Picking one writes `#path `
+into the draft and adds a chip; removing the chip removes the token, and
+editing the token away drops the chip. The turn carries the bare workspace-relative paths as `mentions`, and
+the connector decides how to name them to its harness. Because `#` is also
+markdown, it opens only at the start of the text or after whitespace, stays
+open until whitespace, and needs a query that does not start with another `#`
+(`detectComposerTrigger` in `packages/client-runtime/src/composerTrigger.ts`).
+So a lone `#` then Enter sends, `# Heading` closes at the space, and `##`
+headings, `a#b` and `https://x.dev/#frag` never open it. `#12` does open and
+lists no files; a menu with no rows does not own Enter, so the message still
+sends. `@` opens no menu.
 
 The model picker, on the start screen and in the thread header, has one
 section per enabled connector instance (`modelCatalogAtom`), headed by the

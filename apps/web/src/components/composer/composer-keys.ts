@@ -1,9 +1,9 @@
 /**
  * What Enter means in the composer, as a value.
  *
- * The `/` and `@` popovers take Enter to pick the highlighted item, and the
- * composer used to claim it for them whenever a trigger was open — including
- * when the menu had nothing in it. `detectComposerTrigger` opens a `slash`
+ * The trigger popovers (`/` commands, `#` files) take Enter to pick the
+ * highlighted item, and the composer used to claim it for them whenever a
+ * trigger was open — including when the menu had nothing in it. `detectComposerTrigger` opens a `slash`
  * trigger for any `/`-prefixed token after whitespace, so "what is in
  * /etc/hosts" ends on an open menu that reads "No matching commands", and Enter
  * there did nothing at all: it neither picked, nor closed the menu, nor sent.
@@ -22,7 +22,7 @@ export type ComposerEnter =
   | "insert";
 
 export interface ComposerEnterInput {
-  /** A `/` or `@` menu is open. */
+  /** A trigger menu (`/` or `#`) is open. */
   readonly triggerOpen: boolean;
   /** How many rows that menu is offering. */
   readonly menuItemCount: number;

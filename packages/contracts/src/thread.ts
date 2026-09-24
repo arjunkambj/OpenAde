@@ -14,7 +14,7 @@ import { Effort, InteractionMode, RuntimeMode } from "./enums";
 import { CheckpointId, ConnectorInstanceId, ConnectorKind, ItemId, TurnId } from "./ids";
 import { Attachment, ConnectorCapabilities } from "./runtime";
 
-/** An `@`-mention from the composer: a workspace-relative path. */
+/** A `#` file mention from the composer: a workspace-relative path. */
 export const Mention = NonEmptyString;
 export type Mention = typeof Mention.Type;
 

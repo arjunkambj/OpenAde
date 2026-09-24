@@ -354,7 +354,7 @@ export const makeRuntime = (connectionLayer: ConnectionLayer) => {
   );
 
   /**
-   * The composer's `@` search, keyed per thread per query. The thread picks
+   * The composer's `#` file search, keyed per thread per query. The thread picks
    * the directory searched — its worktree, when it has one — so the scope is
    * part of the key. Each key is its own atom, so typing re-runs the RPC only
    * when the query text changes; the component supplies a deferred query

@@ -89,7 +89,7 @@ describe("isOverlayOpen", () => {
     const document = root(null);
     isOverlayOpen(document);
     for (const role of ["dialog", "alertdialog", "menu", "menubar", "listbox"]) {
-      // `listbox` is the composer's own `/` and `@` menu, which is inline
+      // `listbox` is the composer's own `/` and `#` menu, which is inline
       // rather than portalled and is exactly what used to lose Escape.
       expect(document.queries[0]).toContain(`[role="${role}"]`);
     }

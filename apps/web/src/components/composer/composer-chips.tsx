@@ -1,5 +1,5 @@
 /**
- * The removable reference row above the textarea: one chip per picked `@`
+ * The removable reference row above the textarea: one chip per picked `#` file
  * mention and one thumbnail per attached image. Removing a mention chip
  * deletes the token from the draft too, so the submitted `mentions` list and
  * the text can't disagree.

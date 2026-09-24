@@ -1,7 +1,7 @@
 /**
- * The composer. Textarea with `@` file mentions (live `files.search`), a `/`
- * command popover, file attach, the queued-message strip, and the
- * interaction-card slot — one card at a time, above the input.
+ * The composer. Textarea with `#` file mentions (live `files.search`, wired in
+ * `use-file-mentions`), a `/` command popover, file attach, the queued-message
+ * strip, and the interaction-card slot — one card at a time, above the input.
  *
  * Keys: Enter sends — while a turn runs it steers that turn when the harness
  * can take a message mid-turn and queues otherwise (`send-mode`) — unless an
@@ -17,11 +17,9 @@ import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { cn } from "@OpenAde/ui/lib/utils";
 import { makeCommandId } from "@OpenAde/contracts/ids";
 import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
-import type { FileSearchResult } from "@OpenAde/contracts/rpc";
 import {
   detectComposerTrigger,
   replaceComposerTrigger,
-  retainComposerReferences,
 } from "@OpenAde/client-runtime/composerTrigger";
 import * as React from "react";
 import { AsyncResult } from "effect/unstable/reactivity";
@@ -36,9 +34,10 @@ import { canSteer, sendMode } from "@/components/composer/send-mode";
 import { PendingCard } from "@/components/composer/pending-card";
 import { QueueStrip } from "@/components/composer/queue-strip";
 import { SlashMenu, slashMenuItems, type SlashMenuItem } from "@/components/composer/slash-menu";
-import { TriggerMenu, type TriggerMenuItem } from "@/components/composer/trigger-menu";
+import { TriggerMenu } from "@/components/composer/trigger-menu";
 import { useAttachments } from "@/components/composer/use-attachments";
 import { useComposerTrigger } from "@/components/composer/use-composer-trigger";
+import { useFileMentions } from "@/components/composer/use-file-mentions";
 import { useInterrupt } from "@/components/composer/use-interrupt";
 import { useSendDraft } from "@/components/composer/use-send-draft";
 import { useClientRuntime } from "@/lib/client-runtime";
@@ -48,15 +47,7 @@ import { turnInFlight } from "@/lib/turn";
 import { useKeybindingCommand, useKeybindingFlag } from "@/lib/shortcuts";
 import { DISPATCH_UNREACHABLE, receiptError } from "@/lib/dispatch-outcome";
 import { useComposerDraft } from "@/state/ui";
-import { File as FileIcon, Folder } from "@honeyicons/react";
-
-const mentionItems = (files: ReadonlyArray<FileSearchResult>): ReadonlyArray<TriggerMenuItem> =>
-  files.map((file) => ({
-    id: `file:${file.path}`,
-    label: file.name,
-    description: file.path === file.name ? undefined : file.path,
-    icon: file.isDirectory ? Folder : FileIcon,
-  }));
+import { Folder } from "@honeyicons/react";
 
 /** The level-2 slash query: everything after the command word. */
 const subQuery = (query: string): string => {
@@ -74,14 +65,8 @@ export function Composer({
   readonly className?: string;
 }) {
   const project = useProjects().find((entry) => entry.projectId === projectId);
-  const {
-    threadDetailAtom,
-    dispatchAtom,
-    fileSearchAtom,
-    connectorsAtom,
-    connectorModelsAtom,
-    skillsAtom,
-  } = useClientRuntime();
+  const { threadDetailAtom, dispatchAtom, connectorsAtom, connectorModelsAtom, skillsAtom } =
+    useClientRuntime();
   const docResult = useAtomValue(threadDetailAtom(threadId));
   const doc = AsyncResult.isSuccess(docResult) ? docResult.value : null;
   const dispatch = useAtomSet(dispatchAtom, { mode: "promise" });
@@ -132,18 +117,6 @@ export function Composer({
     setMentions([]);
   });
 
-  // Debounce via React — the atom family keys per query, so the deferred value
-  // is what actually reaches files.search.
-  const atQuery = trigger?.kind === "at" ? trigger.query : "";
-  const deferredQuery = React.useDeferredValue(atQuery);
-  const searchResult = useAtomValue(fileSearchAtom(projectId, threadId)(deferredQuery));
-  const searchFiles = AsyncResult.isSuccess(searchResult) ? searchResult.value : [];
-  const searching = !AsyncResult.isSuccess(searchResult);
-
-  const atItems = React.useMemo<ReadonlyArray<TriggerMenuItem>>(
-    () => (trigger?.kind === "at" ? mentionItems(searchFiles) : []),
-    [trigger?.kind, searchFiles],
-  );
   const slashItems = React.useMemo<ReadonlyArray<SlashMenuItem>>(() => {
     if (trigger?.kind !== "slash") {
       return [];
@@ -158,7 +131,6 @@ export function Composer({
       capabilities,
     });
   }, [trigger, slashLevel, skills, models, doc?.settings.model, capabilities]);
-  const menuItemCount = trigger?.kind === "at" ? atItems.length : slashItems.length;
 
   const setTextAndCaret = (nextText: string, caret: number) => {
     setText(nextText);
@@ -172,15 +144,16 @@ export function Composer({
     });
   };
 
-  const pickMention = (item: TriggerMenuItem) => {
-    if (trigger === null) {
-      return;
-    }
-    const path = item.id.slice("file:".length);
-    const next = replaceComposerTrigger(text, trigger, `@${path} `);
-    setMentions((current) => (current.includes(path) ? current : [...current, path]));
-    setTextAndCaret(next.text, next.cursor);
-  };
+  const fileMentions = useFileMentions({
+    projectId,
+    threadId,
+    trigger,
+    text,
+    setText,
+    setMentions,
+    setTextAndCaret,
+  });
+  const menuItemCount = trigger?.kind === "file" ? fileMentions.items.length : slashItems.length;
 
   const applySlash = (item: SlashMenuItem) => {
     switch (item.action.type) {
@@ -238,19 +211,9 @@ export function Composer({
   const onChangeText = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     const next = event.target.value;
     setText(next);
-    setMentions((current) => retainComposerReferences(current, next, (path) => `@${path}`));
+    fileMentions.retain(next);
     const caret = event.target.selectionStart ?? next.length;
     openTrigger(detectComposerTrigger(next, caret));
-  };
-
-  const removeMention = (path: string) => {
-    setMentions((current) => current.filter((entry) => entry !== path));
-    // Remove the first whole-token occurrence of `@path` from the draft.
-    const token = `@${path}`;
-    const index = text.indexOf(token);
-    if (index !== -1) {
-      setText(`${text.slice(0, index)}${text.slice(index + token.length)}`.replace(/  +/g, " "));
-    }
   };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -273,10 +236,10 @@ export function Composer({
         return;
       }
       const index = Math.min(activeIndex, Math.max(0, menuItemCount - 1));
-      if (trigger?.kind === "at") {
-        const item = atItems[index];
+      if (trigger?.kind === "file") {
+        const item = fileMentions.items[index];
         if (item !== undefined) {
-          pickMention(item);
+          fileMentions.pick(item);
         }
       } else {
         const item = slashItems[index];
@@ -334,14 +297,14 @@ export function Composer({
         aria-label="Message composer"
       >
         {trigger !== null ? (
-          trigger.kind === "at" ? (
+          trigger.kind === "file" ? (
             <TriggerMenu
-              items={atItems}
+              items={fileMentions.items}
               activeIndex={activeIndex}
-              onSelect={pickMention}
+              onSelect={fileMentions.pick}
               onHover={setActiveIndex}
               emptyLabel="No files match"
-              loading={searching}
+              loading={fileMentions.searching}
               label="File mentions"
             />
           ) : (
@@ -357,7 +320,7 @@ export function Composer({
         <ComposerChips
           mentions={mentions}
           files={attachments.files}
-          onRemoveMention={removeMention}
+          onRemoveMention={fileMentions.remove}
           onRemoveFile={attachments.removeAt}
         />
         <textarea
