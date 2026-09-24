@@ -6,16 +6,33 @@
  * for its file and draws it as a `data:` URL. The request goes over the same
  * authenticated socket as everything else, which is why an attachment needs no
  * public route.
+ *
+ * A loaded thumbnail is a button that opens the full image in a dialog, the
+ * file name as its title; Esc closes it and focus goes back to the thumbnail.
+ * The dialog's open state is the thumbnail's own, keyed by the attachment's
+ * path under a list keyed by the item, so a row the timeline recycles for
+ * another message starts closed.
  */
 
 import { useAtomValue } from "@effect/atom-react";
 import type { Attachment } from "@OpenAde/contracts/orchestration";
 import type { ThreadId } from "@OpenAde/contracts/ids";
 import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@OpenAde/ui/components/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@OpenAde/ui/components/tooltip";
 import { AsyncResult } from "effect/unstable/reactivity";
 
 import { useTimelineThreadId } from "@/components/timeline/thread-context";
 import { useClientRuntime } from "@/lib/client-runtime";
+import { cn } from "@/lib/utils";
+
+const THUMBNAIL = "inline-flex size-20 overflow-hidden rounded-md bg-muted";
 
 function AttachmentThumbnail({
   threadId,
@@ -33,28 +50,58 @@ function AttachmentThumbnail({
   // square that is indistinguishable from one still loading.
   if (AsyncResult.isFailure(result)) {
     return (
-      <span
-        className="inline-flex size-20 items-center justify-center overflow-hidden rounded-md bg-muted px-1 text-center text-xs leading-tight break-all text-muted-foreground"
-        title={`${label} is no longer available`}
-      >
-        {label}
-      </span>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <span className="inline-flex size-20 items-center justify-center overflow-hidden rounded-md bg-muted px-1 text-center text-xs leading-tight break-all text-muted-foreground" />
+          }
+        >
+          {label}
+        </TooltipTrigger>
+        <TooltipContent>{label} is no longer available</TooltipContent>
+      </Tooltip>
     );
   }
+  if (bytes === null) {
+    return <span className={THUMBNAIL} aria-label={`Loading ${label}`} role="img" />;
+  }
+  const src = `data:${bytes.mime};base64,${bytes.base64}`;
   return (
-    <span
-      className="inline-flex size-20 overflow-hidden rounded-md bg-muted"
-      title={bytes === null ? label : undefined}
-    >
-      {bytes === null ? null : (
+    <Dialog>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <DialogTrigger
+              render={
+                <button
+                  type="button"
+                  aria-label={`Open ${label}`}
+                  className={cn(
+                    THUMBNAIL,
+                    "outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                  )}
+                />
+              }
+            />
+          }
+        >
+          <img src={src} alt="" className="size-full object-cover" />
+        </TooltipTrigger>
+        <TooltipContent>{label}</TooltipContent>
+      </Tooltip>
+      <DialogContent className="w-fit max-w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-4rem)]">
+        <DialogHeader className="mr-8 min-w-0">
+          <DialogTitle>
+            <span className="block truncate leading-normal">{label}</span>
+          </DialogTitle>
+        </DialogHeader>
         <img
-          src={`data:${bytes.mime};base64,${bytes.base64}`}
+          src={src}
           alt={label}
-          title={label}
-          className="size-full object-cover"
+          className="max-h-[calc(100vh-8rem)] max-w-full justify-self-center rounded-md object-contain"
         />
-      )}
-    </span>
+      </DialogContent>
+    </Dialog>
   );
 }
 

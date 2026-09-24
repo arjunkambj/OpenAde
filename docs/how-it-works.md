@@ -814,6 +814,10 @@ under it. Whether it is open is kept in the row disclosure map under
 `user-message:<itemId>`, so it holds when the row scrolls away and back; the
 collapse-all and expand-all shortcuts leave it alone.
 
+Attachment thumbnails (`timeline/attachments.tsx`) are buttons: each opens
+the full image in a dialog titled with the file name, which Esc closes,
+returning focus to the thumbnail.
+
 `apps/web/src/components/timeline/timeline-item.tsx` dispatches one component
 per `ItemKind`. The list opens at its end and follows new rows while it sits
 there; scrolled more than half a screen away, it stops following and shows a

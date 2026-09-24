@@ -96,7 +96,7 @@ export function UserMessageRow({ item }: { item: ItemSnapshot }) {
         aria-label="User message"
         className="max-w-[min(400px,85%)] min-w-0 rounded-xl rounded-tr-sm bg-hover px-4 py-2 text-sm leading-normal text-foreground"
       >
-        <Attachments item={item} />
+        <Attachments key={item.itemId} item={item} />
         <References item={item} />
         <UserMessageText item={item} />
       </div>
