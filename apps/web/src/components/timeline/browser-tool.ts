@@ -31,7 +31,7 @@ const flag = (input: unknown, key: string): boolean =>
 const with_ = (verb: string, target: string | undefined): string =>
   target === undefined ? verb : `${verb} ${target}`;
 
-export const isBrowserTool = (name: string): boolean => name.startsWith(PREFIX);
+const isBrowserTool = (name: string): boolean => name.startsWith(PREFIX);
 
 /** The sentence for a browser call, or `null` when `name` is not one. */
 export const browserToolLabel = (name: string, input: unknown): string | null => {

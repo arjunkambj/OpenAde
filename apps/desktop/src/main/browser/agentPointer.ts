@@ -47,7 +47,7 @@ export const pointerOf = (
 };
 
 /** How often a tab's pointer moves are told at most. */
-export const MOVE_INTERVAL_MS = 50;
+const MOVE_INTERVAL_MS = 50;
 
 export interface PointerRelayOptions {
   readonly send: (pointer: AgentPointer) => void;
