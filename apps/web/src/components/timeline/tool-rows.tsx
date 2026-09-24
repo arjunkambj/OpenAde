@@ -3,12 +3,14 @@
  * mcp_tool_call and web_search. Each is an icon + one-line label with an
  * expandable detail body; disclosure state is keyed by item id in
  * `rowDisclosureAtom`. Tool rows follow the name with a short target (see
- * `toolTarget`).
+ * `toolTarget`); the agent's in-app browser calls read as what they did to
+ * the page (`browserToolLabel`).
  */
 
 import type { ItemSnapshot } from "@OpenAde/contracts/runtime";
 import type { ReactNode } from "react";
 
+import { browserToolLabel } from "@/components/timeline/browser-tool";
 import { DisclosureRow, JsonBlock, MonoBlock } from "@/components/timeline/row-shell";
 import { toolTarget } from "@/components/timeline/tool-target";
 import { cn } from "@/lib/utils";
@@ -144,6 +146,14 @@ export function ToolCallRow({ item }: { item: ItemSnapshot }) {
 export function McpToolCallRow({ item }: { item: ItemSnapshot }) {
   const tool = item.tool;
   const name = tool?.name ?? item.text ?? "mcp tool";
+  const browser = browserToolLabel(name, tool?.input);
+  if (browser !== null) {
+    return (
+      <DisclosureRow rowId={item.itemId} icon={Globe} label={browser} status={item.status}>
+        {tool !== undefined ? <ToolPayload input={tool.input} output={tool.output} /> : undefined}
+      </DisclosureRow>
+    );
+  }
   return (
     <DisclosureRow
       rowId={item.itemId}
