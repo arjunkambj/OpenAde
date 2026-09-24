@@ -6,7 +6,9 @@
  * code path that can bring a thread into existence.
  *
  * Every accepted create records its project as the last one used, which is
- * what the home composer's project picker opens on.
+ * what the home composer's project picker opens on. One that navigates also
+ * asks the thread's composer to take the focus (`@/lib/composer-focus`), so
+ * the user can type the first message straight away.
  *
  * A project whose newest thread is still blank (no user or agent message
  * yet) gets that thread back instead of another one, so pressing "new thread"
@@ -27,6 +29,7 @@ import type { ThreadWorktree } from "@OpenAde/contracts/git";
 import { makeCommandId, makeThreadId, type ProjectId, type ThreadId } from "@OpenAde/contracts/ids";
 import type { ThreadSettingsPatch, ThreadSummary } from "@OpenAde/contracts/orchestration";
 
+import { requestComposerFocus } from "@/lib/composer-focus";
 import { isAccepted, rejectionMessage } from "@/lib/dispatch-outcome";
 import { useDispatchCommand, useThreadList } from "@/state/hooks";
 import { useLastProject } from "@/state/ui";
@@ -79,6 +82,7 @@ export const useCreateThread = () => {
       if (blank !== undefined) {
         rememberProject(projectId);
         if (options.navigate !== false) {
+          requestComposerFocus(blank.threadId);
           void navigate({ to: "/t/$threadId", params: { threadId: blank.threadId } });
         }
         return true;
@@ -98,6 +102,7 @@ export const useCreateThread = () => {
       if (isAccepted(exit)) {
         rememberProject(projectId);
         if (options.navigate !== false) {
+          requestComposerFocus(threadId);
           void navigate({ to: "/t/$threadId", params: { threadId } });
         }
         return true;

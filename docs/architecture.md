@@ -292,7 +292,10 @@ the open thread, and threads whose project is gone come last
 too, so the two cannot drift). `Mod+1`…`Mod+9` open the Nth thread in that
 order, and `Mod+Shift+[` / `Mod+Shift+]` step to the previous or next one,
 wrapping at the ends. `Mod+Shift+N` starts a thread in the open thread's
-project, else the last project used, else the first. `Mod+[` and `Mod+]` walk
+project, else the last project used, else the first. Every create that opens
+the new thread (this key, the palette, the sidebar) asks that thread's composer
+to take the focus once it mounts (`apps/web/src/lib/composer-focus.ts`), so the
+first message can be typed straight away. `Mod+[` and `Mod+]` walk
 the router's history, like the chrome's back and forward buttons. These live in
 `apps/web/src/components/Layout/app-shortcuts.tsx`, mounted once at the root so
 they work on every route. On an open thread, `Mod+Alt+R` renames it,

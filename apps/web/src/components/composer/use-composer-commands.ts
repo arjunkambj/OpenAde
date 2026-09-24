@@ -12,20 +12,28 @@
  * Attach opens the same hidden file input the toolbar's button does. When the
  * connector cannot take attachments the key says so with the button's
  * sentence and opens nothing.
+ *
+ * A thread's composer also takes the focus when the create flow asks for it
+ * (`@/lib/composer-focus`), so starting a thread — `Mod+Shift+N`, the palette,
+ * the sidebar — leaves the user typing into it.
  */
 
-import type * as React from "react";
+import * as React from "react";
 
 import type { Attachments } from "@/components/composer/use-attachments";
+import { onComposerFocusRequest, takeComposerFocus } from "@/lib/composer-focus";
 import { useKeybindingCommand } from "@/lib/shortcuts";
 
 export function useComposerCommands({
+  threadId,
   textareaRef,
   fileInputRef,
   attachments,
   clearDraft,
   submit,
 }: {
+  /** The thread this composer writes to; the start screen has none yet. */
+  readonly threadId?: string;
   readonly textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   readonly fileInputRef: React.RefObject<HTMLInputElement | null>;
   readonly attachments: Attachments;
@@ -34,6 +42,18 @@ export function useComposerCommands({
   readonly submit: () => void;
 }): void {
   const focus = () => textareaRef.current?.focus();
+  React.useEffect(() => {
+    if (threadId === undefined) {
+      return;
+    }
+    const claim = () => {
+      if (takeComposerFocus(threadId)) {
+        textareaRef.current?.focus();
+      }
+    };
+    claim();
+    return onComposerFocusRequest(claim);
+  }, [threadId, textareaRef]);
   useKeybindingCommand("composer.focus", focus);
   useKeybindingCommand("composer.attach", () => {
     if (!attachments.refuse()) {

@@ -19,8 +19,7 @@
 
 import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { cn } from "@OpenAde/ui/lib/utils";
-import { makeCommandId } from "@OpenAde/contracts/ids";
-import type { ProjectId, ThreadId } from "@OpenAde/contracts/ids";
+import { makeCommandId, type ProjectId, type ThreadId } from "@OpenAde/contracts/ids";
 import {
   detectComposerTrigger,
   replaceComposerTrigger,
@@ -206,6 +205,7 @@ export function Composer({
   useKeybindingFlag("turnRunning", running);
   useKeybindingCommand("thread.interrupt", interrupt);
   useComposerCommands({
+    threadId,
     textareaRef,
     fileInputRef,
     attachments,
