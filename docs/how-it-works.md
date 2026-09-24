@@ -781,6 +781,23 @@ turns the flat item list into rows:
   record whose anchor is missing or unknown goes at the end, before the
   working row.
 
+Assistant messages and plan bodies render as markdown
+(`apps/web/src/components/timeline/markdown.tsx`). A fenced block is told
+apart from inline code by its `pre` parent, so a fence with no language is
+still a block. It renders as a `CodeBlock` (`code-block.tsx`). The block's
+header shows the file the fence names or its language. The file can be named
+by `title="…"`, by a path after the language, by `lang:path`, or by a path as
+the fence's only word, and that path's extension then picks the language.
+The header also holds a wrap toggle and a Copy button that copies the source
+text. The code sits in a scroller capped at 24rem. It is highlighted
+by `File` from `@pierre/diffs` through the same worker pool and themes as the
+inline diffs, so Shiki tokenizes off the main thread and follows light/dark.
+A block renders untokenized (language `text`) when its language is unknown,
+when it is over 20,000 characters or 1,000 lines (`code-fence.ts`), or while
+the message streams and its closing fence has not arrived yet. Each block's
+highlight is cached under its item id and offset, so a recycled row does not
+tokenize it again.
+
 `apps/web/src/components/timeline/timeline-item.tsx` dispatches one component
 per `ItemKind`. The list opens at its end and follows new rows while it sits
 there; scrolled more than half a screen away, it stops following and shows a

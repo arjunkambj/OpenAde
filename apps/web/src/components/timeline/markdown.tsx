@@ -2,32 +2,82 @@
  * Assistant text and plan bodies render through this one markdown component so
  * heading/code/list styling stays consistent between the timeline and cards.
  * Elements are mapped to styled tags rather than arbitrary-variant selectors.
+ *
+ * Fenced blocks render as a `CodeBlock` (header, copy, wrap, highlighting).
+ * The body's `id` — the item it belongs to — keys each block by item and
+ * offset, so a row the list recycles for another item neither keeps the old
+ * block's wrap state nor reuses its highlight. While `streaming`, a block whose
+ * closing fence has not arrived stays plain.
  */
 
+import * as React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { cn } from "@/lib/utils";
 
-interface HastLike {
-  readonly type: string;
-  readonly value?: string;
-  readonly children?: ReadonlyArray<HastLike>;
+import { CodeBlock } from "./code-block";
+import { codeFenceInfo, type HastLike, hastText, openFenceOffset } from "./code-fence";
+
+interface BlockContext {
+  readonly id: string | undefined;
+  /** Where an unterminated fence opens in the text, while it streams. */
+  readonly openFrom: number | undefined;
 }
 
-const hastText = (node: HastLike): string =>
-  node.type === "text" ? (node.value ?? "") : (node.children ?? []).map(hastText).join("");
+const MarkdownBlockContext = React.createContext<BlockContext>({
+  id: undefined,
+  openFrom: undefined,
+});
 
-/** A fence's text without the newline mdast-util-to-hast appends to it. */
-const blockText = (node: HastLike | undefined): string =>
-  node === undefined ? "" : hastText(node).replace(/\n$/, "");
+interface HastElementLike extends HastLike {
+  readonly tagName?: string;
+  readonly properties?: { readonly className?: unknown };
+  readonly data?: unknown;
+  readonly position?: { readonly start: { readonly offset?: number } };
+}
+
+/**
+ * react-markdown passes no `inline` flag, and a fence without a language has
+ * no class either, so a block is told apart here: `pre` reads its `code`
+ * child off the hast node and renders the block itself, and the `code`
+ * override only ever sees inline code.
+ */
+function FencedBlock({ node }: { readonly node: HastElementLike | undefined }) {
+  const { id, openFrom } = React.useContext(MarkdownBlockContext);
+  const code = node?.children?.find(
+    (child): child is HastElementLike => (child as HastElementLike).tagName === "code",
+  );
+  const meta = (code?.data as { readonly meta?: unknown } | undefined)?.meta;
+  const info = codeFenceInfo(
+    code?.properties?.className,
+    typeof meta === "string" ? meta : undefined,
+  );
+  // mdast-util-to-hast appends a newline to a fence's text; the source has none.
+  const text = code === undefined ? "" : hastText(code).replace(/\n$/, "");
+  const offset = node?.position?.start.offset ?? 0;
+  const key = id === undefined ? undefined : `${id}:${offset}`;
+  return (
+    <CodeBlock
+      key={key ?? offset}
+      code={text}
+      info={info}
+      cacheKey={key === undefined ? undefined : `${key}:${text.length}`}
+      plain={openFrom !== undefined && offset >= openFrom}
+    />
+  );
+}
 
 const components: React.ComponentProps<typeof ReactMarkdown>["components"] = {
   p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
-  h1: ({ children }) => <h1 className="mb-3 text-base font-semibold">{children}</h1>,
-  h2: ({ children }) => <h2 className="mb-3 text-base font-semibold">{children}</h2>,
-  h3: ({ children }) => <h3 className="mb-2 text-sm font-semibold">{children}</h3>,
-  h4: ({ children }) => <h4 className="mb-2 text-sm font-semibold">{children}</h4>,
+  h1: ({ children }) => (
+    <h1 className="mt-5 mb-3 text-base font-semibold first:mt-0">{children}</h1>
+  ),
+  h2: ({ children }) => (
+    <h2 className="mt-5 mb-3 text-base font-semibold first:mt-0">{children}</h2>
+  ),
+  h3: ({ children }) => <h3 className="mt-4 mb-2 text-sm font-semibold first:mt-0">{children}</h3>,
+  h4: ({ children }) => <h4 className="mt-4 mb-2 text-sm font-semibold first:mt-0">{children}</h4>,
   ul: ({ children }) => <ul className="mb-3 list-disc pl-5 last:mb-0">{children}</ul>,
   ol: ({ children }) => <ol className="mb-3 list-decimal pl-5 last:mb-0">{children}</ol>,
   li: ({ children }) => <li className="mb-1">{children}</li>,
@@ -49,32 +99,43 @@ const components: React.ComponentProps<typeof ReactMarkdown>["components"] = {
   hr: () => <hr className="my-4 border-border" />,
   table: ({ children }) => (
     <div className="mb-3 overflow-x-auto last:mb-0">
-      <table className="w-full border-collapse text-left">{children}</table>
+      <table className="w-full border-collapse text-left text-xs">{children}</table>
     </div>
   ),
   th: ({ children }) => (
-    <th className="border-b border-border px-2 py-1 font-medium">{children}</th>
+    <th className="border-b border-border px-2 py-1 align-bottom font-medium">{children}</th>
   ),
-  td: ({ children }) => <td className="border-b border-border px-2 py-1">{children}</td>,
-  // react-markdown passes no `inline` flag, and a fence without a language has
-  // no class either, so a block is told apart here: `pre` renders its `code`
-  // child's text itself, and the `code` override only ever sees inline code.
-  pre: ({ node }) => (
-    <pre className="mb-3 overflow-x-auto rounded-lg bg-muted px-3 py-2 font-mono text-xs last:mb-0">
-      <code>{blockText(node)}</code>
-    </pre>
-  ),
+  td: ({ children }) => <td className="border-b border-border px-2 py-1 align-top">{children}</td>,
+  pre: ({ node }) => <FencedBlock node={node} />,
   code: ({ children }) => (
     <code className="rounded-sm bg-hover px-1 py-0.5 font-mono text-xs">{children}</code>
   ),
 };
 
-export function MarkdownBody({ text, className }: { text: string; className?: string }) {
+const remarkPlugins = [remarkGfm];
+
+export function MarkdownBody({
+  text,
+  id,
+  streaming = false,
+  className,
+}: {
+  text: string;
+  /** The item the text belongs to, which keys its code blocks. */
+  id?: string;
+  /** The text is still arriving: an open fence at its end is not highlighted. */
+  streaming?: boolean;
+  className?: string;
+}) {
+  const openFrom = streaming ? openFenceOffset(text) : undefined;
+  const context = React.useMemo(() => ({ id, openFrom }), [id, openFrom]);
   return (
     <div className={cn("text-sm leading-prose text-foreground", className)}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-        {text}
-      </ReactMarkdown>
+      <MarkdownBlockContext.Provider value={context}>
+        <ReactMarkdown remarkPlugins={remarkPlugins} components={components}>
+          {text}
+        </ReactMarkdown>
+      </MarkdownBlockContext.Provider>
     </div>
   );
 }

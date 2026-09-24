@@ -561,6 +561,16 @@ durations and checkpoints read as they would on a real thread. From there the
 page can start, stream into, settle and send turns, repeat the thread ×10 or
 ×50, and narrow the column.
 
+Syntax highlighting has one engine. `DiffWorkerPoolProvider`
+(`apps/web/src/components/timeline/diff-pool.tsx`), mounted in
+`routes/__root.tsx`, starts the `@pierre/diffs` worker pool, which is two
+workers with the `pierre-light`/`pierre-dark` themes. Shiki tokenizes in
+those workers. Both the inline diffs (`InlineDiff`) and the markdown code
+blocks (`CodeBlock`, through the library's `File`) highlight through that
+pool, with options from `diff-options.ts`. A code block rendered without a
+pool, as in tests, falls back to a plain `pre` rather than load Shiki on the
+main thread.
+
 Public seam: none; it is a leaf. May import `ui`, `contracts`,
 `client-runtime`, `shared`. Must never name a connector.
 

@@ -127,6 +127,11 @@ export function UserMessageRow({ item }: { item: ItemSnapshot }) {
 export function AssistantMessageRow({ item }: { item: ItemSnapshot }) {
   const streaming = item.status === "in_progress";
   return (
-    <MarkdownBody text={item.text ?? ""} className={cn(streaming && "text-muted-foreground")} />
+    <MarkdownBody
+      text={item.text ?? ""}
+      id={item.itemId}
+      streaming={streaming}
+      className={cn(streaming && "text-muted-foreground")}
+    />
   );
 }

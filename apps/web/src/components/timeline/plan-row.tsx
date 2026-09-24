@@ -29,7 +29,7 @@ export function PlanRow({ item }: { item: ItemSnapshot }) {
         />
       </CollapsibleTrigger>
       <CollapsibleContent keepMounted variant="card">
-        <MarkdownBody text={item.plan?.markdown ?? item.text ?? ""} />
+        <MarkdownBody text={item.plan?.markdown ?? item.text ?? ""} id={item.itemId} />
       </CollapsibleContent>
     </Collapsible>
   );
