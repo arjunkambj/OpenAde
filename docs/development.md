@@ -272,12 +272,15 @@ prop anyway, so no icon is a special case.
 **Even padding.** An element reads as balanced when its vertical padding is
 smaller than its horizontal, so buttons, inputs, chips and badges, menu items,
 list and sidebar rows, tabs, toasts and small cards spell `px-3 py-1.5`, never
-`p-2` or `px-2 py-2`. Rows and controls are 28px (`h-7`) at most: the default
-and `sm` button, toggle, input, input group and select trigger, and the sidebar
+`p-2` or `px-2 py-2`. Rows and controls are 28px (`h-7`): the default and
+`sm` button, toggle, input, input group and select trigger, and the sidebar
 menu row, are all 28px, with `xs` (24px) and `mini` (20px) below them. `sm`
 keeps the height and only sets smaller text and icons, `icon` and `icon-sm` are
-the same 28px square, and a select trigger takes no `size` at all. Heights
-and padding are spacing steps and `--spacing` scales with each region's font
+the same 28px square, and a select trigger takes no `size` at all. The only
+taller sizes are opt-in: `lg` on a button or toggle (32px) and on a sidebar
+menu button (48px, a two-line row). Toolbar and pane header strips (`h-8`,
+`h-9`) are bars that hold controls, not controls. Heights and padding are
+spacing steps and `--spacing` scales with each region's font
 size (`packages/ui/src/styles/globals.css`), so the boxes grow with the text
 setting; no second size scale is needed.
 
