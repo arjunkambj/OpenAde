@@ -279,6 +279,25 @@ export const SettingsDefaults = Schema.Struct({
 });
 export type SettingsDefaults = typeof SettingsDefaults.Type;
 
+/**
+ * The in-app browser. The pane never opens by itself unless this says so: the
+ * agent's first browser call creates the thread's tab hidden and the thread
+ * header shows "Agent is using the browser — Show".
+ */
+export const BrowserSettings = Schema.Struct({
+  openPaneOnAgentUse: Schema.Boolean.pipe(
+    settingsForm({
+      label: "Open the browser pane when the agent uses it",
+      description:
+        "Show the thread's browser as soon as the agent starts using it. A pane you close stays closed.",
+      control: "toggle",
+    }),
+  ),
+});
+export type BrowserSettings = typeof BrowserSettings.Type;
+
+export const DEFAULT_BROWSER_SETTINGS: BrowserSettings = { openPaneOnAgentUse: false };
+
 export const Settings = Schema.Struct({
   connectors: Schema.Array(ConnectorInstanceConfig).pipe(
     settingsForm({ label: "Connectors", control: "hidden" }),
@@ -327,6 +346,12 @@ export const Settings = Schema.Struct({
     Schema.withDecodingDefaultKey(Effect.succeed({})),
     settingsForm({ label: "Project settings", control: "hidden" }),
   ),
+  // Defaulted on decode, like the font sizes: a row written before it existed
+  // still decodes, with the pane kept closed.
+  browser: BrowserSettings.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(DEFAULT_BROWSER_SETTINGS)),
+    settingsForm({ label: "Browser", control: "hidden" }),
+  ),
 });
 export type Settings = typeof Settings.Type;
 
@@ -341,6 +366,7 @@ export const SettingsPatch = Schema.Struct({
   permissions: Schema.optional(Schema.Array(PermissionRule)),
   git: Schema.optional(GitSettings),
   projectSettings: Schema.optional(Schema.Record(Schema.String, ProjectSettings)),
+  browser: Schema.optional(BrowserSettings),
 });
 export type SettingsPatch = typeof SettingsPatch.Type;
 
@@ -360,4 +386,5 @@ export const defaultSettings = (): Settings => ({
   permissions: [],
   git: { branchPrefix: DEFAULT_BRANCH_PREFIX },
   projectSettings: {},
+  browser: DEFAULT_BROWSER_SETTINGS,
 });

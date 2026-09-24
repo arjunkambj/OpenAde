@@ -4,12 +4,14 @@ import * as Schema from "effect/Schema";
 
 import { DEFAULT_RUNTIME_MODE } from "./enums";
 import {
+  BrowserSettings,
   ConnectorInstanceConfig,
   DEFAULT_BRANCH_PREFIX,
   DEFAULT_FONT_SIZE,
   MAX_FONT_SIZE,
   PermissionRule,
   Settings,
+  SettingsPatch,
   defaultSettings,
   settingsFormFields,
 } from "./settings";
@@ -63,6 +65,7 @@ describe("settingsForm annotations", () => {
         ["Settings", Settings],
         ["ConnectorInstanceConfig", ConnectorInstanceConfig],
         ["PermissionRule", PermissionRule],
+        ["BrowserSettings", BrowserSettings],
       ] as const);
       for (const [name, struct] of structs) {
         for (const [field, annotation] of formAnnotations(struct)) {
@@ -113,6 +116,7 @@ describe("settingsForm annotations", () => {
         Schema.encodeUnknownSync(Settings)(defaultSettings()),
       );
       expect(Object.keys(encoded as object).sort()).toEqual([
+        "browser",
         "connectors",
         "defaults",
         "git",
@@ -196,6 +200,50 @@ describe("git settings", () => {
       const hidden = fields.filter((field) => field.control === "hidden").map((field) => field.key);
       expect(hidden).toContain("git");
       expect(hidden).toContain("projectSettings");
+    }),
+  );
+});
+
+describe("browser settings", () => {
+  it.effect("keep the pane closed by default", () =>
+    Effect.gen(function* () {
+      const settings = yield* Effect.sync(defaultSettings);
+      expect(settings.browser).toEqual({ openPaneOnAgentUse: false });
+    }),
+  );
+
+  it.effect("decode a stored document that predates them as closed", () =>
+    Effect.gen(function* () {
+      const { browser: _browser, ...older } = Schema.encodeUnknownSync(Settings)(
+        defaultSettings(),
+      ) as Record<string, unknown>;
+      const decoded = yield* Schema.decodeUnknownEffect(Settings)(older);
+      expect(decoded.browser.openPaneOnAgentUse).toBe(false);
+    }),
+  );
+
+  it.effect("round-trip through a patch", () =>
+    Effect.gen(function* () {
+      const patch = { browser: { openPaneOnAgentUse: true } };
+      const encoded = yield* Schema.encodeUnknownEffect(SettingsPatch)(patch);
+      const decoded = yield* Schema.decodeUnknownEffect(SettingsPatch)(
+        JSON.parse(JSON.stringify(encoded)),
+      );
+      expect(decoded).toEqual(patch);
+      const applied = yield* Schema.decodeUnknownEffect(Settings)({
+        ...(Schema.encodeUnknownSync(Settings)(defaultSettings()) as object),
+        ...decoded,
+      });
+      expect(applied.browser.openPaneOnAgentUse).toBe(true);
+    }),
+  );
+
+  it.effect("reject a patch that is not a boolean", () =>
+    Effect.gen(function* () {
+      const exit = yield* Effect.exit(
+        Schema.decodeUnknownEffect(SettingsPatch)({ browser: { openPaneOnAgentUse: "yes" } }),
+      );
+      expect(exit._tag).toBe("Failure");
     }),
   );
 });

@@ -57,5 +57,6 @@
     "0199c0de-0001-7000-8000-000000000001": {
       "setupScript": "pnpm install"
     }
-  }
+  },
+  "browser": { "openPaneOnAgentUse": false }
 }

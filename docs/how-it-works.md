@@ -2077,10 +2077,12 @@ Settings
   permissions        PermissionRule[]           a projection of the permission_rules table
   git                { branchPrefix }           what a new worktree's branch starts with
   projectSettings    { [projectId]: { setupScript? } }
+  browser            { openPaneOnAgentUse }     off by default
 ```
 
 `git` and `projectSettings`, like the two font sizes, are defaulted on decode
-(`openade/` and `{}`), so a row written before they existed still reads.
+(`openade/` and `{}`), so a row written before they existed still reads. So is
+`browser`, whose `openPaneOnAgentUse` comes back as `false`.
 
 Both are edited on the Git & worktrees page. The branch prefix saves on blur,
 Enter or Save, trimmed, and only when it changed; a prefix git would refuse
