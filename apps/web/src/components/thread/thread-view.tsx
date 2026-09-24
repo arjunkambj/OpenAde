@@ -14,9 +14,9 @@
  * left open (`useDockMemory`, in memory, so a relaunch finds every dock
  * shut). The toggle reopens the last tab this thread used this session, else
  * the launcher (`@/components/dock/dock-toggle`). The timeline's file chips
- * ask for a file through `useFileRevealRequests`, answered here by opening
- * the dock on Files with that file in the thread's Files view. The rest of
- * the thread-scoped bindings —
+ * ask for a file with `useRequestFileReveal`; `useFileRevealRequests` answers
+ * here by writing it into the thread's Files view (`useRevealFile`) and
+ * opening the dock on Files. The rest of the thread-scoped bindings —
  * `thread.interrupt`, `composer.queue` and the `turnRunning` flag — belong to
  * the composer, which owns the Stop button and the error line those bindings
  * report through. The layout keeps the bindings that work with no thread open.
