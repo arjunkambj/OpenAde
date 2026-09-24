@@ -27,14 +27,8 @@ export type GitAction = "commit" | "commit-push" | "commit-push-pr";
 
 export type GitStep = "commit" | "push" | "pr";
 
-/** The menu's and the dialog's order, and the labels the menu's items use. */
+/** The order of the commit dialog's buttons. */
 export const GIT_ACTIONS: ReadonlyArray<GitAction> = ["commit", "commit-push", "commit-push-pr"];
-
-export const GIT_ACTION_LABEL: Record<GitAction, string> = {
-  commit: "Commit",
-  "commit-push": "Commit & push",
-  "commit-push-pr": "Commit, push & create PR",
-};
 
 /** The title a thread has until it is renamed or its connector infers one. */
 const DEFAULT_THREAD_TITLE = "New thread";

@@ -37,7 +37,7 @@ export interface CommitChoice {
   readonly message: string;
 }
 
-/** The dialog's buttons are side by side, so the pull request's is shorter than the menu's item. */
+/** The dialog's buttons sit side by side, so the pull request's leaves the push unsaid. */
 const BUTTON_LABEL: Record<GitAction, string> = {
   commit: "Commit",
   "commit-push": "Commit & push",
