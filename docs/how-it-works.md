@@ -1660,8 +1660,8 @@ A drawer that opens with no terminals starts one, once `terminal.list` has
 said there are none and the xterm has measured the grid to start it at. The
 client mints the `TerminalId`, so `terminal.open` is idempotent: a repeated
 open answers the shell already running under that id instead of starting a
-second one. The New tab button is disabled at `TERMINALS_PER_THREAD` (8), and
-the server refuses a ninth with `conflict`; an exited terminal still counts
+second one. The New tab button is disabled at `TERMINALS_PER_THREAD` (8), its
+tooltip saying so, and the server refuses a ninth with `conflict`; an exited terminal still counts
 until it is closed. Tabs shrink, truncating their titles, before the strip
 overflows; past that the strip scrolls sideways, fades at an edge with more
 tabs beyond it, and turns a vertical mouse wheel into a sideways scroll.

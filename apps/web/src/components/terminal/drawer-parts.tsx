@@ -35,22 +35,23 @@ export function IconButton({
   children: React.ReactNode;
   hint?: React.ReactNode;
 }) {
+  // The trigger wraps the button rather than being it: a disabled button
+  // takes no pointer events, and the tooltip is where a disabled button says
+  // why — the New terminal button at the cap, say.
   return (
     <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            tone="muted"
-            size="icon-xs"
-            aria-label={ariaLabel}
-            disabled={disabled}
-            onClick={onClick}
-          />
-        }
-      >
-        {children}
+      <TooltipTrigger render={<span className="inline-flex shrink-0" />}>
+        <Button
+          type="button"
+          variant="ghost"
+          tone="muted"
+          size="icon-xs"
+          aria-label={ariaLabel}
+          disabled={disabled}
+          onClick={onClick}
+        >
+          {children}
+        </Button>
       </TooltipTrigger>
       <TooltipContent>
         {label}
