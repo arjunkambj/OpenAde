@@ -200,7 +200,7 @@ function TerminalDrawer({
       <React.Suspense
         fallback={
           <div className="flex size-full items-center justify-center text-muted-foreground">
-            <Spinner className="size-4" />
+            <Spinner variant="bold" className="size-4" />
           </div>
         }
       >
@@ -255,7 +255,9 @@ function TerminalDrawer({
               onClose={() => close(tab.terminalId)}
             />
           ))}
-          {opening ? <Spinner className="size-3.5 shrink-0 text-muted-foreground" /> : null}
+          {opening ? (
+            <Spinner variant="bold" className="size-3.5 shrink-0 text-muted-foreground" />
+          ) : null}
         </div>
         {openError !== null && state.tabs.length > 0 ? (
           <p className="min-w-0 shrink truncate type-micro text-destructive">{openError}</p>
@@ -265,7 +267,7 @@ function TerminalDrawer({
           disabled={handle === null}
           onClick={() => (finding ? closeFind() : setFinding(true))}
         >
-          <Search />
+          <Search variant="bold" />
         </IconButton>
         <AddSelectionButton threadId={threadId} handle={handle} />
         <IconButton
@@ -273,10 +275,10 @@ function TerminalDrawer({
           disabled={!connected || opening || full}
           onClick={() => void openNew()}
         >
-          <Add />
+          <Add variant="bold" />
         </IconButton>
         <IconButton label="Hide terminal" onClick={onHide} hint={<ShortcutKbd id="terminal" />}>
-          <ChevronDown />
+          <ChevronDown variant="bold" />
         </IconButton>
       </div>
       {finding && handle !== null ? (

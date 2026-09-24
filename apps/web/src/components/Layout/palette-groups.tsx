@@ -168,7 +168,7 @@ export function ActionsGroup({ onDone }: GroupProps) {
         ) : null}
         {canToggleTerminal ? (
           <CommandItem value="Toggle terminal" onSelect={run(SHORTCUT_COMMANDS.terminal)}>
-            <Terminal />
+            <Terminal variant="bold" />
             Toggle terminal
             <ItemShortcut id="terminal" />
           </CommandItem>

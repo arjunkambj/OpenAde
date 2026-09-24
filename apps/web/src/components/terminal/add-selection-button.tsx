@@ -44,7 +44,7 @@ export function AddSelectionButton({
 
   return (
     <IconButton label="Add selection to chat" disabled={!selected} onClick={add}>
-      <Quote />
+      <Quote variant="bold" />
     </IconButton>
   );
 }

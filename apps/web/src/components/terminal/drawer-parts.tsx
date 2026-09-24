@@ -82,12 +82,12 @@ export function TerminalTabButton({
         tone={active ? "default" : "muted"}
         onClick={onSelect}
       >
-        <Terminal />
+        <Terminal variant="bold" />
         {tab.title}
         {tab.status === "exited" ? <span className="text-muted-foreground">exited</span> : null}
       </Button>
       <IconButton label="Close terminal" ariaLabel={`Close ${tab.title}`} onClick={onClose}>
-        <Close />
+        <Close variant="bold" />
       </IconButton>
     </div>
   );
@@ -106,7 +106,7 @@ export function DrawerMessage({
     <Empty>
       <EmptyHeader>
         <EmptyMedia variant="icon">
-          <Terminal />
+          <Terminal variant="bold" />
         </EmptyMedia>
         <EmptyTitle>{title}</EmptyTitle>
         {message ? <EmptyDescription>{message}</EmptyDescription> : null}

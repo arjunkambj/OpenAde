@@ -31,7 +31,7 @@ export function TerminalToggleButton({ threadId }: { threadId: ThreadId }) {
             />
           }
         >
-          <Terminal className={cn(open && "text-foreground")} />
+          <Terminal variant="bold" className={cn(open && "text-foreground")} />
         </TooltipTrigger>
         <TooltipContent>
           Toggle terminal

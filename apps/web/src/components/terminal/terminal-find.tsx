@@ -84,7 +84,7 @@ export function TerminalFind({ handle, onClose }: { handle: TerminalHandle; onCl
   return (
     <InputGroup className="h-7 max-w-72">
       <InputGroupAddon>
-        <Search />
+        <Search variant="bold" />
       </InputGroupAddon>
       <InputGroupInput
         autoFocus
@@ -107,13 +107,13 @@ export function TerminalFind({ handle, onClose }: { handle: TerminalHandle; onCl
           <InputGroupText>{describeResults(results)}</InputGroupText>
         ) : null}
         <FindButton label="Previous match" disabled={query === ""} onClick={() => step("previous")}>
-          <ChevronUp />
+          <ChevronUp variant="bold" />
         </FindButton>
         <FindButton label="Next match" disabled={query === ""} onClick={() => step("next")}>
-          <ChevronDown />
+          <ChevronDown variant="bold" />
         </FindButton>
         <FindButton label="Close find" onClick={onClose}>
-          <Close />
+          <Close variant="bold" />
         </FindButton>
       </InputGroupAddon>
     </InputGroup>
