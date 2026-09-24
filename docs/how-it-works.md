@@ -472,7 +472,10 @@ a plugin and a skill of the same name never share a token. Removing a chip
 removes its token and one space beside it (`removeComposerToken`); editing a
 token away, even by one character, drops its chip, because after every change
 the draft keeps only the chips whose whole token is still in the text
-(`retainComposerReferences`). The draft (`ComposerDraft` in
+(`retainComposerReferences`). A whole token starts the text or follows
+whitespace, and ends the text, meets whitespace, or meets closing punctuation
+(`.,;:!?)]}'"`) that is followed by one of those, so `Greet me with $greeting.`
+keeps its chip while `#src/a.ts` does not hold a chip for `#src/a`. The draft (`ComposerDraft` in
 `apps/web/src/state/ui.ts`) holds the text, the mention paths and the
 references side by side, and a send or `/clear-draft` empties all three.
 

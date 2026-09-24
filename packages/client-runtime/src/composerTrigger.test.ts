@@ -193,4 +193,31 @@ describe("retainComposerReferences", () => {
     expect(containsComposerToken("@abc", "@ab")).toBe(false);
     expect(containsComposerToken("x@ab", "@ab")).toBe(false);
   });
+
+  it("keeps a reference whose token ends a sentence", () => {
+    const refs = [{ kind: "skill", name: "greeting" }] as const;
+    const token = (ref: (typeof refs)[number]) => `$${ref.name}`;
+    for (const text of [
+      "Greet me with $greeting.",
+      "Greet me with $greeting, then stop",
+      "Is it $greeting?",
+      "(use $greeting)",
+      "use $greeting!\nthen",
+      'say it as $greeting"',
+    ]) {
+      expect(retainComposerReferences(refs, text, token)).toBe(refs);
+    }
+  });
+
+  it("does not take a longer token for one that ends in punctuation", () => {
+    expect(containsComposerToken("#src/a.ts", "#src/a")).toBe(false);
+    expect(containsComposerToken("$greeting.v2", "$greeting")).toBe(false);
+    expect(containsComposerToken("$greeting's", "$greeting")).toBe(false);
+    expect(containsComposerToken("see #src/a.ts.", "#src/a.ts")).toBe(true);
+  });
+
+  it("removes a token that ends a sentence and leaves the punctuation", () => {
+    expect(removeComposerToken("Greet me with $greeting.", "$greeting")).toBe("Greet me with.");
+    expect(removeComposerToken("(see #src/a.ts) now", "#src/a.ts")).toBe("(see) now");
+  });
 });

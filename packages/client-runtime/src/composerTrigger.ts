@@ -104,7 +104,19 @@ export const replaceComposerTrigger = (
   return { text: next, cursor: trigger.from + replacement.length };
 };
 
-/** Offset of the first whole whitespace-delimited `token` in `text`, or -1. */
+/**
+ * What may follow a whole token: whitespace or the end of the text, after any
+ * closing punctuation. So `$greeting.` and `(see #src/a.ts)` still hold their
+ * token — the sentence a reference usually ends — while `#src/a.ts2` and
+ * `$deploy-all` do not hold `#src/a.ts` and `$deploy`, and neither does
+ * `#src/a.ts` hold `#src/a`, because a `.` there is followed by more path.
+ */
+const TOKEN_END = /^[.,;:!?)\]}'"]*(?:\s|$)/u;
+
+/**
+ * Offset of the first whole `token` in `text` — whitespace or the start
+ * before it, `TOKEN_END` after it — or -1.
+ */
 const indexOfComposerToken = (text: string, token: string): number => {
   let from = 0;
   while (token.length > 0 && from <= text.length - token.length) {
@@ -113,8 +125,7 @@ const indexOfComposerToken = (text: string, token: string): number => {
       return -1;
     }
     const before = index === 0 ? "" : (text[index - 1] ?? "");
-    const after = text[index + token.length] ?? "";
-    if ((index === 0 || /\s/u.test(before)) && (after.length === 0 || /\s/u.test(after))) {
+    if ((index === 0 || /\s/u.test(before)) && TOKEN_END.test(text.slice(index + token.length))) {
       return index;
     }
     from = index + 1;
@@ -122,7 +133,7 @@ const indexOfComposerToken = (text: string, token: string): number => {
   return -1;
 };
 
-/** True only when `token` still exists as a whole whitespace-delimited token. */
+/** True only when `token` still exists as a whole token (see `TOKEN_END`). */
 export const containsComposerToken = (text: string, token: string): boolean =>
   indexOfComposerToken(text, token) !== -1;
 
