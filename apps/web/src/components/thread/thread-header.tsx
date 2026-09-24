@@ -118,7 +118,7 @@ export function ThreadHeader({
       <div className="flex-1" />
       <div className={cn("flex shrink-0 items-center gap-2", chrome && "app-region-no-drag")}>
         {onShowBrowser === null ? null : <AgentBrowserIndicator onShow={onShowBrowser} />}
-        <GitActionsControl snapshot={snapshot} />
+        <GitActionsControl projectId={snapshot.projectId} snapshot={snapshot} />
         {/* Idle is the resting state, not news: the pill shows only while
           something is happening or wrong. */}
         {snapshot.status === "idle" ? null : <StatusPill status={snapshot.status} />}

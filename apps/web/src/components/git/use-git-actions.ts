@@ -1,17 +1,19 @@
 /**
  * Binds the git actions control's steps (`@/lib/git-actions`) to the git
- * writes, sonner and the thread's remembered pull request link.
+ * writes, sonner and the remembered pull request link.
  *
  * Each step's toast has its own id for the run, so its "…ing" toast turns
  * into the done or failed one in place. A pull request's toast carries an
- * Open action, and its URL is remembered for the thread, which is where the
- * control's "View pull request" comes from.
+ * Open action, and its URL is remembered for the thread — or, on the New task
+ * page, for the project's own folder — which is where the control's "View
+ * pull request" comes from.
  */
 
 import type { GitCommitResult, GitPullRequestResult, GitPushResult } from "@OpenAde/contracts/git";
-import type { ThreadDetailSnapshot } from "@OpenAde/contracts/orchestration";
 import * as Exit from "effect/Exit";
 import { toast } from "sonner";
+
+import type { GitScope } from "@OpenAde/client-runtime/gitAtoms";
 
 import { useGitCommands } from "@/components/panes/changes/git-atoms";
 import { describeExitError } from "@/lib/app-runtime";
@@ -61,10 +63,12 @@ const toastNotice = (run: number) => (notice: StepNotice) => {
   }
 };
 
-export const useGitActions = (snapshot: ThreadDetailSnapshot) => {
+/** Acts in the thread's workspace when `scope` names one, else in the project's own folder. */
+export const useGitActions = (scope: GitScope) => {
   const { commit, push, openPullRequest } = useGitCommands();
-  const [pullRequestUrl, rememberPullRequest] = usePullRequestLink(snapshot.threadId);
-  const scope = { projectId: snapshot.projectId, threadId: snapshot.threadId };
+  const [pullRequestUrl, rememberPullRequest] = usePullRequestLink(
+    scope.threadId ?? `project:${scope.projectId}`,
+  );
 
   const run = async (
     steps: ReadonlyArray<GitStep>,
