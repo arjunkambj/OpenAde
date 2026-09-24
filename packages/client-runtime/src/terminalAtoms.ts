@@ -1,11 +1,12 @@
 /**
  * The integrated terminal's half of the client runtime.
  *
- * - `terminalListAtom(threadId)` — `terminal.list`, refetched on every
- *   connected epoch and after `openTerminal` / `closeTerminal`. A failure is a
- *   value (`TerminalListQuery`), not the atom's error channel, so the drawer
- *   can say what went wrong and the next reconnect still has a stream to
- *   refetch on.
+ * - `terminalListAtom(ownerKey)` — `terminal.list` for one owner, a thread or
+ *   a project with no thread yet, keyed by `terminalOwnerKey` (a thread's key
+ *   is its bare id). Refetched on every connected epoch and after
+ *   `openTerminal` / `closeTerminal`. A failure is a value
+ *   (`TerminalListQuery`), not the atom's error channel, so the drawer can say
+ *   what went wrong and the next reconnect still has a stream to refetch on.
  * - `openTerminal`, `writeTerminal`, `resizeTerminal`, `closeTerminal` — the
  *   four calls, as `runtime.fn`s.
  * - `terminalAttachAtom(key)` — the output of one terminal, handed to a
@@ -28,10 +29,14 @@
  * already built, so the terminal shares one connection with everything else.
  */
 
-import type { TerminalId, ThreadId } from "@OpenAde/contracts/ids";
+import type { TerminalId } from "@OpenAde/contracts/ids";
 import type { OpenAdeRpcError } from "@OpenAde/contracts/rpc";
 import {
   TERMINAL_WRITE_MAX_CHARS,
+  decodeTerminalOwnerKey,
+  terminalOwnerKey,
+  terminalOwnerOf,
+  type TerminalOwner,
   type TerminalSize,
   type TerminalStreamItem,
   type TerminalSummary,
@@ -47,20 +52,21 @@ import type * as RpcClientError from "effect/unstable/rpc/RpcClientError";
 import { transportOnly } from "./atoms";
 import { Connection, ConnectionStateRef } from "./connection";
 
-/** `terminal.list` as a value: the thread's terminals, or why they could not be listed. */
+/** `terminal.list` as a value: the owner's terminals, or why they could not be listed. */
 export type TerminalListQuery =
   | { readonly _tag: "ok"; readonly terminals: ReadonlyArray<TerminalSummary> }
   | { readonly _tag: "error"; readonly message: string };
 
-/** One terminal, as every call after `open` names it. */
-export interface TerminalRef {
-  readonly threadId: ThreadId;
-  readonly terminalId: TerminalId;
-}
+/** One terminal, as every call after `open` names it: its owner, and its own id. */
+export type TerminalRef = TerminalOwner & { readonly terminalId: TerminalId };
 
-export interface TerminalOpenArgs extends TerminalRef, TerminalSize {
-  readonly title?: string | undefined;
-}
+export type TerminalOpenArgs = TerminalRef & TerminalSize & { readonly title?: string | undefined };
+
+/** The ref alone, without whatever else the call carries. */
+const refOf = (args: TerminalRef): TerminalRef => ({
+  ...terminalOwnerOf(args),
+  terminalId: args.terminalId,
+});
 
 /**
  * What the attach callback receives: every stream item as the server sent it,
@@ -70,15 +76,18 @@ export interface TerminalOpenArgs extends TerminalRef, TerminalSize {
 export type TerminalAttachItem = TerminalStreamItem | { readonly kind: "gone" };
 
 /**
- * `Atom.family` keys have to be primitives, so a terminal becomes one string.
- * Ids are UUIDs and never contain the separator; a test pins the round trip.
+ * `Atom.family` keys have to be primitives, so a terminal becomes one string:
+ * its owner's key, then its id. A project's key holds a separator of its own,
+ * but ids are UUIDs and never do, so the last one splits them; a test pins the
+ * round trip.
  */
-export const encodeTerminalKey = (ref: TerminalRef): string => `${ref.threadId}:${ref.terminalId}`;
+export const encodeTerminalKey = (ref: TerminalRef): string =>
+  `${terminalOwnerKey(ref)}:${ref.terminalId}`;
 
 export const decodeTerminalKey = (key: string): TerminalRef => {
-  const separator = key.indexOf(":");
+  const separator = key.lastIndexOf(":");
   return {
-    threadId: key.slice(0, separator) as ThreadId,
+    ...decodeTerminalOwnerKey(key.slice(0, separator)),
     terminalId: key.slice(separator + 1) as TerminalId,
   };
 };
@@ -229,13 +238,14 @@ export const makeTerminalAtoms = (runtime: Atom.AtomRuntime<Connection | Connect
     );
   }).pipe(Stream.unwrap);
 
-  const terminalListAtom = Atom.family((threadId: ThreadId) =>
+  /** Keyed by `terminalOwnerKey`: a thread's bare id, or a project's key. */
+  const terminalListAtom = Atom.family((ownerKey: string) =>
     runtime.atom(
       connectedEpochs.pipe(
         Stream.mapEffect(() =>
           Effect.gen(function* () {
             const client = yield* (yield* Connection).client;
-            return yield* client["terminal.list"]({ threadId });
+            return yield* client["terminal.list"](decodeTerminalOwnerKey(ownerKey));
           }).pipe(
             Effect.map((terminals): TerminalListQuery => ({ _tag: "ok", terminals })),
             Effect.catch((error) =>
@@ -260,7 +270,9 @@ export const makeTerminalAtoms = (runtime: Atom.AtomRuntime<Connection | Connect
           ...(title === undefined ? {} : { title }),
         });
       }).pipe(
-        Effect.ensuring(Effect.sync(() => get.registry.refresh(terminalListAtom(args.threadId)))),
+        Effect.ensuring(
+          Effect.sync(() => get.registry.refresh(terminalListAtom(terminalOwnerKey(args)))),
+        ),
       ),
     { concurrent: true },
   );
@@ -270,9 +282,11 @@ export const makeTerminalAtoms = (runtime: Atom.AtomRuntime<Connection | Connect
     (ref: TerminalRef, get) =>
       Effect.gen(function* () {
         const client = yield* (yield* Connection).client;
-        yield* client["terminal.close"](ref);
+        yield* client["terminal.close"](refOf(ref));
       }).pipe(
-        Effect.ensuring(Effect.sync(() => get.registry.refresh(terminalListAtom(ref.threadId)))),
+        Effect.ensuring(
+          Effect.sync(() => get.registry.refresh(terminalListAtom(terminalOwnerKey(ref)))),
+        ),
       ),
     { concurrent: true },
   );
@@ -281,15 +295,13 @@ export const makeTerminalAtoms = (runtime: Atom.AtomRuntime<Connection | Connect
 
   /** Typed keys or a paste, delivered to the shell in the order they were written. */
   const writeTerminal = runtime.fn(
-    (args: TerminalRef & { readonly data: string }) =>
-      lanes.write({ threadId: args.threadId, terminalId: args.terminalId }, args.data),
+    (args: TerminalRef & { readonly data: string }) => lanes.write(refOf(args), args.data),
     { concurrent: true },
   );
 
   /** A new grid size; sizes queued behind an in-flight call collapse to the latest. */
   const resizeTerminal = runtime.fn(
-    (args: TerminalRef & TerminalSize) =>
-      lanes.resize({ threadId: args.threadId, terminalId: args.terminalId }, args),
+    (args: TerminalRef & TerminalSize) => lanes.resize(refOf(args), args),
     { concurrent: true },
   );
 
