@@ -119,7 +119,7 @@ function EntryRow({
         selected && "bg-hover",
       )}
     >
-      <Folder variant="bold" className="size-3.5 shrink-0 text-muted-foreground" />
+      <Folder variant="bold" className="size-3.5 shrink-0 text-foreground/85" />
       <span className="min-w-0 truncate type-body text-foreground">{entry.name}</span>
       {entry.isGitRepo ? (
         <span className="ml-auto shrink-0 rounded-lg bg-hover px-1 type-micro text-muted-foreground">

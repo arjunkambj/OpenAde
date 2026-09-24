@@ -98,7 +98,7 @@ function References({ item }: { readonly item: ItemSnapshot }) {
             className="inline-flex h-6 max-w-56 items-center gap-1 rounded-md bg-muted px-1.5 text-xs"
             title={`${reference.kind === "skill" ? "Skill" : "Plugin"} ${reference.name}`}
           >
-            <Icon variant="bold" className="size-3 shrink-0 text-muted-foreground" />
+            <Icon variant="bold" className="size-3 shrink-0 text-foreground/85" />
             <span className="truncate">{reference.name}</span>
           </span>
         );

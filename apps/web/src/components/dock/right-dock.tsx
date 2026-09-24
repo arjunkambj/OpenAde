@@ -134,7 +134,7 @@ export function RightDock({
       data-font-scope="sidebar"
       className={cn(
         // Split only when the row fits a 360px thread and a 280px dock.
-        "absolute inset-0 z-20 flex min-h-0 w-full border-l border-border bg-sidebar",
+        "absolute inset-0 z-20 flex min-h-0 w-full border-l border-border bg-sidebar [&_svg:not([class*='text-'],[class*='opacity-'])]:opacity-80",
         "@min-[640px]/thread:relative @min-[640px]/thread:inset-auto @min-[640px]/thread:z-auto @min-[640px]/thread:w-(--dock-width) @min-[640px]/thread:shrink-0",
       )}
       style={

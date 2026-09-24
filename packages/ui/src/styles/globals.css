@@ -191,6 +191,12 @@
   body {
     @apply bg-background font-sans text-sm font-normal text-foreground antialiased;
   }
+  /* Every icon draws at 90% of its box, so the size-* classes keep the layout
+     and the glyphs sit a step lighter. Honeyicons are the only SVGs on the
+     24 grid. A scale-* utility on an icon replaces this. */
+  svg[viewBox="0 0 24 24"] {
+    scale: 0.9;
+  }
   html {
     @apply font-sans;
     --traffic-lights-width: 0px;

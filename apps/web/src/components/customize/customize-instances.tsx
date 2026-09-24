@@ -50,7 +50,7 @@ export function CustomizeInstances({
       <section key={instance.connectorInstanceId} className="flex flex-col gap-4">
         <div className="flex items-center justify-between gap-2">
           <h2 className="flex min-w-0 items-center gap-2 text-base font-medium">
-            <Icon variant="bold" className="size-4 shrink-0 text-muted-foreground" />
+            <Icon variant="bold" className="size-4 shrink-0 text-foreground/85" />
             <span className="truncate">{instance.displayName}</span>
           </h2>
           {actions?.(instance)}

@@ -89,7 +89,7 @@ function ConnectorCard({
     <Card size="sm">
       <CardContent className="flex flex-col">
         <div className="flex items-center gap-3 pb-2">
-          <Icon variant="bold" className="size-4 text-muted-foreground" />
+          <Icon variant="bold" className="size-4 text-foreground/85" />
           <span className="text-sm font-medium">{conn.displayName}</span>
           <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
             {conn.kind}

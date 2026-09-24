@@ -81,7 +81,7 @@ function ChromeHistoryButtons() {
               />
             }
           >
-            <ChevronLeft variant="bold" className="scale-90" />
+            <ChevronLeft variant="bold" className="scale-81" />
           </TooltipTrigger>
           <TooltipContent>
             Back
@@ -103,7 +103,7 @@ function ChromeHistoryButtons() {
               />
             }
           >
-            <ChevronRight variant="bold" className="scale-90" />
+            <ChevronRight variant="bold" className="scale-81" />
           </TooltipTrigger>
           <TooltipContent>
             Forward

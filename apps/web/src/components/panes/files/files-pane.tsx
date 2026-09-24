@@ -73,9 +73,9 @@ function ResultRow({
       )}
     >
       {result.isDirectory ? (
-        <Folder variant="bold" className="size-3.5 shrink-0 text-muted-foreground" />
+        <Folder variant="bold" className="size-3.5 shrink-0 text-foreground/85" />
       ) : (
-        <FileIcon variant="bold" className="size-3.5 shrink-0 text-muted-foreground" />
+        <FileIcon variant="bold" className="size-3.5 shrink-0 text-foreground/85" />
       )}
       <span className="min-w-0 truncate type-body text-foreground">{name}</span>
       {directory === "" ? null : (

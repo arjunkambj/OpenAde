@@ -215,18 +215,18 @@ function ProjectSection({
             {collapsed ? (
               <Folder
                 variant="bold"
-                className="size-4 transition-opacity duration-150 ease-out group-hover/project:opacity-0"
+                className="size-4 text-foreground/85 transition-opacity duration-150 ease-out group-hover/project:opacity-0"
               />
             ) : (
               <FolderOpen
                 variant="bold"
-                className="size-4 transition-opacity duration-150 ease-out group-hover/project:opacity-0"
+                className="size-4 text-foreground/85 transition-opacity duration-150 ease-out group-hover/project:opacity-0"
               />
             )}
             <ChevronRight
               variant="bold"
               className={cn(
-                "absolute size-4 opacity-0 transition-all duration-150 ease-out group-hover/project:opacity-100",
+                "absolute size-4 text-foreground/85 opacity-0 transition-all duration-150 ease-out group-hover/project:opacity-100",
                 !collapsed && "rotate-90",
               )}
             />

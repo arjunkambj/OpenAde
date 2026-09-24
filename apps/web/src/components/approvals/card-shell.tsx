@@ -40,7 +40,7 @@ export function CardShell({
       <CardHeader>
         <CardTitle>
           <span className="flex items-center gap-2">
-            <Glyph variant="bold" className="size-4 shrink-0 text-muted-foreground" />
+            <Glyph variant="bold" className="size-4 shrink-0 text-foreground/85" />
             <span className="truncate">{title}</span>
           </span>
         </CardTitle>

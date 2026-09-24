@@ -90,7 +90,7 @@ function TokenChip({
         mono && "font-mono",
       )}
     >
-      <Icon variant="bold" className="size-3 shrink-0 text-muted-foreground" />
+      <Icon variant="bold" className="size-3 shrink-0 text-foreground/85" />
       <span className="truncate">{label}</span>
       <Tooltip>
         <TooltipTrigger
