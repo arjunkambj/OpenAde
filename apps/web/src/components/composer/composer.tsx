@@ -30,6 +30,7 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { HeaderControls } from "@/components/header-controls";
 import { useProjects } from "@/state/hooks";
 import { ComposerSurface, composerInputClassName } from "@/components/composer/composer-surface";
+import { composerPlaceholder } from "@/components/composer/composer-placeholder";
 import { ComposerChips } from "@/components/composer/composer-chips";
 import { composerEnter, keymapChord, menuMove } from "@/components/composer/composer-keys";
 import { ComposerToolbar } from "@/components/composer/composer-toolbar";
@@ -321,6 +322,7 @@ export function Composer({
         <textarea
           ref={textareaRef}
           aria-label="Message"
+          placeholder={composerPlaceholder}
           data-context="composer"
           rows={2}
           value={text}

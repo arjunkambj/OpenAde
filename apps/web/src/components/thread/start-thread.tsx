@@ -51,6 +51,7 @@ import { useAtomValue } from "@effect/atom-react";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { useAppAtoms } from "@/lib/app-runtime";
 import { ComposerSurface, composerInputClassName } from "@/components/composer/composer-surface";
+import { startThreadPlaceholder } from "@/components/composer/composer-placeholder";
 import { ComposerToolbar } from "@/components/composer/composer-toolbar";
 import { ThreadSettingsControls } from "@/components/header-controls";
 import { makeThreadId, type ProjectId } from "@OpenAde/contracts/ids";
@@ -302,6 +303,7 @@ function StartComposer({
         <textarea
           ref={textareaRef}
           aria-label="Message"
+          placeholder={startThreadPlaceholder}
           data-context="composer"
           rows={2}
           autoFocus
