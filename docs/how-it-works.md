@@ -1662,7 +1662,9 @@ client mints the `TerminalId`, so `terminal.open` is idempotent: a repeated
 open answers the shell already running under that id instead of starting a
 second one. The New tab button is disabled at `TERMINALS_PER_THREAD` (8), and
 the server refuses a ninth with `conflict`; an exited terminal still counts
-until it is closed.
+until it is closed. Tabs shrink, truncating their titles, before the strip
+overflows; past that the strip scrolls sideways, fades at an edge with more
+tabs beyond it, and turns a vertical mouse wheel into a sideways scroll.
 
 On the server, `TerminalService` (`apps/server/src/terminal/TerminalService.ts`)
 asks `workspaceOf` for the directory: the thread's project folder, refused as

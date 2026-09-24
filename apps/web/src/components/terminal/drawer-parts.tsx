@@ -1,7 +1,7 @@
 /**
- * The terminal drawer's small pieces: its icon buttons, one tab, and the
- * message it shows in place of a terminal. Stock `Button`, `Tooltip` and
- * `Empty` parts, kept apart from the drawer's own logic.
+ * The terminal drawer's small pieces: its icon buttons, the tab strip and one
+ * tab, and the message it shows in place of a terminal. Stock `Button`,
+ * `Tooltip` and `Empty` parts, kept apart from the drawer's own logic.
  */
 
 import { Button } from "@OpenAde/ui/components/button";
@@ -60,6 +60,46 @@ export function IconButton({
   );
 }
 
+/**
+ * How far a wheel event scrolls the tab strip sideways, in pixels. A plain
+ * mouse wheel only turns vertically, and the strip has no vertical scroll, so
+ * a mostly vertical turn scrolls it sideways; a trackpad's sideways swipe
+ * keeps its own direction. Line and page deltas are scaled to pixels.
+ */
+export const stripScrollDelta = (
+  wheel: { readonly deltaX: number; readonly deltaY: number; readonly deltaMode: number },
+  pageWidth: number,
+): number => {
+  const delta = Math.abs(wheel.deltaY) > Math.abs(wheel.deltaX) ? wheel.deltaY : wheel.deltaX;
+  const unit = wheel.deltaMode === 1 ? LINE_PIXELS : wheel.deltaMode === 2 ? pageWidth : 1;
+  return delta * unit;
+};
+
+/** What one wheel line is taken to be, the way browsers scroll a line. */
+const LINE_PIXELS = 16;
+
+/**
+ * The tabs. Tabs shrink, their titles truncating, before the strip overflows;
+ * past that it scrolls sideways, fading at an edge with more tabs beyond, and
+ * a vertical wheel scrolls it too, so every tab stays reachable by mouse.
+ */
+export function TerminalTabStrip({ children }: { children: React.ReactNode }) {
+  const onWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    const strip = event.currentTarget;
+    strip.scrollLeft += stripScrollDelta(event, strip.clientWidth);
+  };
+  return (
+    <div
+      role="tablist"
+      aria-label="Terminals"
+      onWheel={onWheel}
+      className="flex min-w-0 flex-1 scroll-fade-x items-center gap-0.5 overflow-x-auto overscroll-x-contain [scrollbar-width:none]"
+    >
+      {children}
+    </div>
+  );
+}
+
 export function TerminalTabButton({
   tab,
   active,
@@ -81,7 +121,7 @@ export function TerminalTabButton({
     }
   }, [active]);
   return (
-    <div ref={ref} className="flex shrink-0 items-center">
+    <div ref={ref} className="flex max-w-48 min-w-24 shrink items-center">
       <Button
         type="button"
         role="tab"
@@ -89,11 +129,14 @@ export function TerminalTabButton({
         size="xs"
         variant={active ? "secondary" : "ghost"}
         tone={active ? "default" : "muted"}
+        className="min-w-0 shrink"
         onClick={onSelect}
       >
         <Terminal variant="bold" />
-        {tab.title}
-        {tab.status === "exited" ? <span className="text-muted-foreground">exited</span> : null}
+        <span className="truncate">{tab.title}</span>
+        {tab.status === "exited" ? (
+          <span className="shrink-0 text-muted-foreground">exited</span>
+        ) : null}
       </Button>
       <IconButton label="Close terminal" ariaLabel={`Close ${tab.title}`} onClick={onClose}>
         <Close variant="bold" />

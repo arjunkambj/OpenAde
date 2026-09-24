@@ -28,7 +28,12 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import * as React from "react";
 
 import { AddSelectionButton } from "@/components/terminal/add-selection-button";
-import { DrawerMessage, IconButton, TerminalTabButton } from "@/components/terminal/drawer-parts";
+import {
+  DrawerMessage,
+  IconButton,
+  TerminalTabButton,
+  TerminalTabStrip,
+} from "@/components/terminal/drawer-parts";
 import { nextTitle, useDrawerState } from "@/components/terminal/drawer-state";
 import { useTerminalAtoms } from "@/components/terminal/terminal-atoms";
 import { TerminalBar } from "@/components/terminal/terminal-bar";
@@ -257,11 +262,7 @@ function TerminalDrawer({
         className="absolute inset-x-0 -top-1 z-10 h-2 cursor-row-resize"
       />
       <div className="flex h-9 shrink-0 items-center gap-1 px-2">
-        <div
-          role="tablist"
-          aria-label="Terminals"
-          className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto [scrollbar-width:none]"
-        >
+        <TerminalTabStrip>
           {state.tabs.map((tab) => (
             <TerminalTabButton
               key={tab.terminalId}
@@ -277,7 +278,7 @@ function TerminalDrawer({
           {opening ? (
             <Spinner variant="bold" className="size-3.5 shrink-0 text-muted-foreground" />
           ) : null}
-        </div>
+        </TerminalTabStrip>
         {openError !== null && state.tabs.length > 0 ? (
           <p className="min-w-0 shrink truncate type-micro text-destructive">{openError}</p>
         ) : null}
