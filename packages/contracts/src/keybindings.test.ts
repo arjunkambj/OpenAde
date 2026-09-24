@@ -242,8 +242,11 @@ describe("migrateLegacyKeybindingTable", () => {
 
   it("keeps the legacy defaults verbatim, Cmd strings included", () => {
     expect(Object.isFrozen(legacy)).toBe(true);
-    expect(legacy).toHaveLength(8);
+    // The eight rows every build seeded, then the one 0006_terminal_keybinding
+    // appended to a stored table.
+    expect(legacy).toHaveLength(9);
     expect(legacy.map((row) => row.shortcut)).toContain("Cmd+Shift+S");
+    expect(legacy.at(-1)).toEqual({ command: "terminal.toggle", shortcut: "Cmd+J" });
   });
 
   it("maps an untouched legacy table to no overrides", () => {
