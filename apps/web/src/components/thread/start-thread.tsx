@@ -130,6 +130,9 @@ function StartComposer({
   const inWorktreeFlow = worktreeState.step !== "idle";
 
   const busy = pending || sending || inWorktreeFlow;
+  // A failed setup waits on the user (Start anyway or Discard): the button
+  // stays down, but nothing is running, so it does not spin.
+  const working = pending || sending || (inWorktreeFlow && worktreeState.step !== "failed");
   const canSend = text.trim().length > 0 || attachments.files.length > 0;
 
   // `pending` is state, so a second Enter before the re-render would create
@@ -218,9 +221,9 @@ function StartComposer({
         <ComposerToolbar
           running={false}
           steerable={false}
-          canSend={canSend}
+          canSend={canSend && !busy}
           interrupting={false}
-          sending={busy}
+          sending={working}
           filesKey={attachments.files.length}
           onFilesPicked={attachments.add}
           onSend={() => void send()}
